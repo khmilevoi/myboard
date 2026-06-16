@@ -24,6 +24,15 @@ body {
     color 0.45s var(--ease);
 }
 
+body[data-board-interacting='true'],
+body[data-board-interacting='true'] * {
+  user-select: none !important;
+}
+
+body[data-board-interacting='true'] iframe {
+  pointer-events: none;
+}
+
 .react-grid-item.react-grid-placeholder {
   background: var(--accent) !important;
   opacity: 0.18;
