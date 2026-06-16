@@ -17,4 +17,10 @@ describe('readJsonBody', () => {
     const req = Readable.from([Buffer.from('not json')])
     await expect(readJsonBody(req as never)).rejects.toThrow()
   })
+
+  it('throws when body exceeds the size limit', async () => {
+    const big = Buffer.alloc(1_048_577, 'x')
+    const req = Readable.from([big])
+    await expect(readJsonBody(req as never)).rejects.toThrow('request body too large')
+  })
 })

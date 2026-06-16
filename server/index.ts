@@ -30,8 +30,9 @@ router.on('PUT', '/api/storage/:key', async (req, res, params) => {
   let payload: unknown
   try {
     payload = await readJsonBody(req)
-  } catch {
-    res.writeHead(400)
+  } catch (e) {
+    const status = e instanceof Error && e.message === 'request body too large' ? 413 : 400
+    res.writeHead(status)
     res.end()
     return
   }
@@ -49,7 +50,12 @@ router.on('DELETE', '/api/storage/:key', async (_req, res, params) => {
 
 const port = Number(process.env.PORT ?? 8787)
 createServer((req, res) => {
-  router.lookup(req, res)
+  Promise.resolve(router.lookup(req, res)).catch(() => {
+    if (!res.writableEnded) {
+      res.writeHead(500)
+      res.end()
+    }
+  })
 }).listen(port, () => {
   console.log(`storage-api listening on :${port}`)
 })

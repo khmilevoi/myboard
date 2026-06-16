@@ -21,10 +21,11 @@ export function createValkeyOps(url = process.env.VALKEY_URL ?? 'redis://localho
       await client.del(key)
     },
     async scanKeys(matchPrefix) {
+      const escaped = matchPrefix.replace(/[*?[\]\\]/g, '\\$&')
       const found: string[] = []
       let cursor = '0'
       do {
-        const [next, batch] = await client.scan(cursor, 'MATCH', `${matchPrefix}*`, 'COUNT', 100)
+        const [next, batch] = await client.scan(cursor, 'MATCH', `${escaped}*`, 'COUNT', 100)
         cursor = next
         found.push(...batch)
       } while (cursor !== '0')
