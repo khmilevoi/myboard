@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the local-first platform ("board engine") that hosts isolated iframe widgets on a react-grid-layout board, with a typed host↔widget bridge, small/large views, Reatom state, localStorage persistence, and errore error handling — proven by a single demo widget.
+**Goal:** Build the local-first platform ("board engine") that hosts isolated iframe widgets on a react-grid-layout board, with a typed host↔widget bridge, small/large views, Reatom state, localStorage persistence, and errore error handling — proven by a single clock widget.
 
 **Architecture:** A Vite multi-entry SPA. The host app renders a `react-grid-layout` board of widget instances; each instance is an `<iframe>` loaded from its own HTML entry (Approach A). Host and widget talk over a private `MessageChannel` using a typed postMessage protocol defined in a shared `widget-bridge` module. Board structure (instances + layout) lives in Reatom atoms persisted to localStorage. Every fallible boundary returns `Error | T` via errore.
 
-**Tech Stack:** Vite 6 (multi-entry) · React 18 · TypeScript 5 · react-grid-layout 1.5 · Reatom v1000 (`@reatom/core@1000`, `@reatom/react@1000`) · errore · CSS Modules · Vitest + @testing-library/react (jsdom).
+**Tech Stack:** Vite 6 (multi-entry) · React 18 · TypeScript 5 · react-grid-layout 1.5 · Reatom v1000 (`@reatom/core@1000`, `@reatom/react@1000`) · errore · zod (env validation) · CSS Modules · Vitest + @testing-library/react (jsdom). Package manager: pnpm.
 
 ---
 
@@ -33,9 +33,11 @@ myboard/
   index.html                                  (host HTML entry)
   package.json                                (deps + scripts)
   tsconfig.json / tsconfig.node.json          (TS config)
-  vite.config.ts                              (multi-entry build + vitest config)
+  vite.config.ts                              (auto-discovered multi-entry build + vitest config)
+  .env.example                                (documents optional env vars)
   src/
     vitest.setup.ts                           (jest-dom matchers)
+    env.ts                                    (zod-validated env: parseEnv + env)
     setup.ts                                  (Reatom logger in dev — imported first)
     app/
       main.tsx                                (host bootstrap: initBoard + render)
@@ -65,11 +67,11 @@ myboard/
       Board.tsx                               (react-grid-layout wiring + toolbar + cards)
       Board.module.css
   widgets/
-    demo/
-      index.html                              (demo widget entry)
-      main.tsx                                (demo bootstrap via createWidgetClient)
-      Demo.tsx                                (small/large UI + buttons)
-      demo.module.css
+    clock/
+      index.html                              (clock widget entry)
+      main.tsx                                (clock bootstrap via createWidgetClient)
+      Clock.tsx                               (small: time / large: time + date)
+      clock.module.css
   tests/                                       (cross-module integration tests)
     bridge-handshake.test.ts
 ```
@@ -81,7 +83,7 @@ Unit tests live next to their module as `*.test.ts(x)`.
 ## Task 1: Project scaffolding
 
 **Files:**
-- Create: `package.json`, `tsconfig.json`, `tsconfig.node.json`, `vite.config.ts`, `index.html`, `src/vitest.setup.ts`, `src/setup.ts`, `src/app/global.css`, `src/app/main.tsx`, `src/app/App.tsx`
+- Create: `package.json`, `tsconfig.json`, `tsconfig.node.json`, `vite.config.ts`, `index.html`, `.env.example`, `src/vitest.setup.ts`, `src/env.ts`, `src/env.test.ts`, `src/setup.ts`, `src/app/global.css`, `src/app/main.tsx`, `src/app/App.tsx`
 
 - [ ] **Step 1: Create `package.json`**
 
@@ -105,7 +107,8 @@ Unit tests live next to their module as `*.test.ts(x)`.
     "errore": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-grid-layout": "^1.5.0"
+    "react-grid-layout": "^1.5.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.0",
@@ -170,7 +173,23 @@ Expected: completes without peer-dependency errors. If `@reatom/react@1000` is n
 ```ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+
+const widgetsDir = resolve(__dirname, 'widgets')
+
+// Auto-discover every widget entry (widgets/<name>/index.html) so adding a new
+// widget directory is enough — no need to edit this config by hand.
+function widgetEntries(): Record<string, string> {
+  if (!existsSync(widgetsDir)) return {}
+  const entries: Record<string, string> = {}
+  for (const dirent of readdirSync(widgetsDir, { withFileTypes: true })) {
+    if (!dirent.isDirectory()) continue
+    const indexHtml = resolve(widgetsDir, dirent.name, 'index.html')
+    if (existsSync(indexHtml)) entries[`widget-${dirent.name}`] = indexHtml
+  }
+  return entries
+}
 
 export default defineConfig({
   plugins: [react()],
@@ -178,7 +197,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        'widget-demo': resolve(__dirname, 'widgets/demo/index.html'),
+        ...widgetEntries(),
       },
     },
   },
@@ -196,17 +215,99 @@ export default defineConfig({
 import '@testing-library/jest-dom/vitest'
 ```
 
-- [ ] **Step 7: Create `src/setup.ts` (dev logger — imported before app code)**
+- [ ] **Step 7: Create `src/env.ts` (zod schema + errore boundary)**
+
+```ts
+import * as errore from 'errore'
+import { z } from 'zod'
+
+export class EnvError extends errore.createTaggedError({
+  name: 'EnvError',
+  message: 'Invalid environment: $reason',
+}) {}
+
+const envSchema = z.object({
+  MODE: z.string().default('production'),
+  DEV: z.boolean().default(false),
+  PROD: z.boolean().default(true),
+  // Host↔widget handshake timeout (ms). Env vars are strings, so coerce.
+  VITE_WIDGET_HANDSHAKE_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+})
+
+export type Env = z.infer<typeof envSchema>
+
+/** Validate a raw env object. Testable boundary — returns the error as a value. */
+export function parseEnv(raw: unknown): EnvError | Env {
+  const result = envSchema.safeParse(raw)
+  if (!result.success) return new EnvError({ reason: result.error.message })
+  return result.data
+}
+
+/**
+ * Validated env, resolved once at module load. Invalid configuration is an
+ * unrecoverable startup error, so this is the one place we fail fast (throw).
+ */
+export const env: Env = (() => {
+  const parsed = parseEnv(import.meta.env)
+  if (parsed instanceof Error) throw parsed
+  return parsed
+})()
+```
+
+- [ ] **Step 8: Write the env test**
+
+```ts
+import { describe, expect, it } from 'vitest'
+import { parseEnv, EnvError } from './env'
+
+describe('parseEnv', () => {
+  it('parses a valid env and applies the timeout default', () => {
+    const env = parseEnv({ MODE: 'development', DEV: true, PROD: false })
+    if (env instanceof Error) throw env
+    expect(env.MODE).toBe('development')
+    expect(env.VITE_WIDGET_HANDSHAKE_TIMEOUT_MS).toBe(5000)
+  })
+
+  it('coerces the handshake timeout from a string', () => {
+    const env = parseEnv({
+      MODE: 'production',
+      DEV: false,
+      PROD: true,
+      VITE_WIDGET_HANDSHAKE_TIMEOUT_MS: '3000',
+    })
+    if (env instanceof Error) throw env
+    expect(env.VITE_WIDGET_HANDSHAKE_TIMEOUT_MS).toBe(3000)
+  })
+
+  it('returns EnvError for a non-positive timeout', () => {
+    const result = parseEnv({ MODE: 'x', DEV: false, PROD: true, VITE_WIDGET_HANDSHAKE_TIMEOUT_MS: '-5' })
+    expect(result).toBeInstanceOf(EnvError)
+  })
+})
+```
+
+Run: `pnpm exec vitest run src/env.test.ts`
+Expected: PASS (3 cases). (`src/env.test.ts` lives next to `src/env.ts`.)
+
+- [ ] **Step 9: Create `.env.example`**
+
+```bash
+# Optional: override the host↔widget handshake timeout, in milliseconds.
+# VITE_WIDGET_HANDSHAKE_TIMEOUT_MS=5000
+```
+
+- [ ] **Step 10: Create `src/setup.ts` (dev logger — imported before app code)**
 
 ```ts
 import { connectLogger } from '@reatom/core'
+import { env } from './env'
 
-if (import.meta.env.MODE === 'development') {
+if (env.DEV) {
   connectLogger()
 }
 ```
 
-- [ ] **Step 8: Create `src/app/global.css`**
+- [ ] **Step 11: Create `src/app/global.css`**
 
 ```css
 @import 'react-grid-layout/css/styles.css';
@@ -237,7 +338,7 @@ body {
 }
 ```
 
-- [ ] **Step 9: Create `index.html` (host entry)**
+- [ ] **Step 12: Create `index.html` (host entry)**
 
 ```html
 <!doctype html>
@@ -254,7 +355,7 @@ body {
 </html>
 ```
 
-- [ ] **Step 10: Create placeholder `src/app/App.tsx`**
+- [ ] **Step 13: Create placeholder `src/app/App.tsx`**
 
 ```tsx
 export function App() {
@@ -262,7 +363,7 @@ export function App() {
 }
 ```
 
-- [ ] **Step 11: Create `src/app/main.tsx`**
+- [ ] **Step 14: Create `src/app/main.tsx`**
 
 ```tsx
 import '../setup'
@@ -278,20 +379,20 @@ createRoot(document.getElementById('root')!).render(
 )
 ```
 
-- [ ] **Step 12: Verify dev server boots**
+- [ ] **Step 15: Verify dev server boots**
 
 Run: `rtk pnpm run dev` (then stop it with Ctrl+C after confirming)
 Expected: Vite prints a local URL and starts with no errors. Opening it shows "myboard".
 
-- [ ] **Step 13: Verify typecheck passes**
+- [ ] **Step 16: Verify typecheck passes**
 
 Run: `rtk pnpm run typecheck`
 Expected: no errors.
 
-- [ ] **Step 14: Commit**
+- [ ] **Step 17: Commit**
 
 ```bash
-rtk git add -A && rtk git commit -m "chore: scaffold Vite + React + TS + vitest project
+rtk git add -A && rtk git commit -m "chore: scaffold Vite + React + TS + vitest project with zod env validation
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -901,16 +1002,16 @@ import { describe, expect, it } from 'vitest'
 import { findWidgetType, widgetTypes, UnknownWidgetTypeError } from './registry'
 
 describe('widget registry', () => {
-  it('contains the demo widget', () => {
-    expect(widgetTypes.some((t) => t.id === 'demo')).toBe(true)
+  it('contains the clock widget', () => {
+    expect(widgetTypes.some((t) => t.id === 'clock')).toBe(true)
   })
 
   it('finds a known type', () => {
-    const type = findWidgetType('demo')
+    const type = findWidgetType('clock')
     if (type instanceof Error) throw type
-    expect(type.id).toBe('demo')
-    expect(type.entry).toBe('/widgets/demo/index.html')
-    expect(type.defaultSize).toEqual({ w: 3, h: 4 })
+    expect(type.id).toBe('clock')
+    expect(type.entry).toBe('/widgets/clock/index.html')
+    expect(type.defaultSize).toEqual({ w: 3, h: 2 })
   })
 
   it('returns UnknownWidgetTypeError for an unknown type', () => {
@@ -945,10 +1046,10 @@ export class UnknownWidgetTypeError extends errore.createTaggedError({
 
 export const widgetTypes: WidgetType[] = [
   {
-    id: 'demo',
-    title: 'Demo Widget',
-    entry: '/widgets/demo/index.html',
-    defaultSize: { w: 3, h: 4 },
+    id: 'clock',
+    title: 'Clock',
+    entry: '/widgets/clock/index.html',
+    defaultSize: { w: 3, h: 2 },
   },
 ]
 
@@ -1012,7 +1113,7 @@ import { StorageError } from './board-storage'
 import type { BoardSnapshot } from './types'
 
 const snapshot: BoardSnapshot = {
-  instances: [{ id: 'a', typeId: 'demo' }],
+  instances: [{ id: 'a', typeId: 'clock' }],
   layout: [{ i: 'a', x: 0, y: 0, w: 3, h: 4 }],
 }
 
@@ -1143,14 +1244,14 @@ describe('board-model', () => {
   })
 
   it('adds an instance with a layout item sized from the registry', () => {
-    const id = addInstance('demo')
+    const id = addInstance('clock')
     if (id instanceof Error) throw id
 
     expect(instances()).toHaveLength(1)
-    expect(instances()[0]).toMatchObject({ id, typeId: 'demo' })
+    expect(instances()[0]).toMatchObject({ id, typeId: 'clock' })
 
     const item = layout().find((l) => l.i === id)
-    expect(item).toMatchObject({ w: 3, h: 4 })
+    expect(item).toMatchObject({ w: 3, h: 2 })
   })
 
   it('returns an error when adding an unknown type', () => {
@@ -1160,7 +1261,7 @@ describe('board-model', () => {
   })
 
   it('removes an instance and its layout item', () => {
-    const id = addInstance('demo')
+    const id = addInstance('clock')
     if (id instanceof Error) throw id
     removeInstance(id)
     expect(instances()).toHaveLength(0)
@@ -1277,9 +1378,9 @@ import { WidgetFrame } from './WidgetFrame'
 
 describe('WidgetFrame', () => {
   it('renders an iframe whose src carries the entry, mode and instanceId', () => {
-    render(<WidgetFrame instanceId="inst-1" typeId="demo" mode="small" />)
-    const iframe = screen.getByTitle('demo (inst-1)') as HTMLIFrameElement
-    expect(iframe.src).toContain('/widgets/demo/index.html')
+    render(<WidgetFrame instanceId="inst-1" typeId="clock" mode="small" />)
+    const iframe = screen.getByTitle('clock (inst-1)') as HTMLIFrameElement
+    expect(iframe.src).toContain('/widgets/clock/index.html')
     expect(iframe.src).toContain('mode=small')
     expect(iframe.src).toContain('instanceId=inst-1')
   })
@@ -1343,6 +1444,7 @@ Expected: FAIL — `WidgetFrame.tsx` not found.
 import { useEffect, useRef, useState } from 'react'
 import { findWidgetType } from '../widget-registry/registry'
 import { createWidgetConnection } from './widget-connection'
+import { env } from '../env'
 import type { WidgetMode } from '../shared/widget-bridge'
 import styles from './WidgetFrame.module.css'
 
@@ -1396,7 +1498,7 @@ export function WidgetFrame(props: WidgetFrameProps) {
         setStatus('error')
         return
       }
-      const result = await connection.handshake(win)
+      const result = await connection.handshake(win, env.VITE_WIDGET_HANDSHAKE_TIMEOUT_MS)
       if (cancelled) return
       setStatus(result instanceof Error ? 'error' : 'ready')
       if (result instanceof Error) {
@@ -1468,7 +1570,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Create: `src/board/Board.module.css`
 - Test: `src/board/Board.test.tsx`
 
-`Board` reads `instances`/`layout` from the model, renders the grid, a toolbar to add the demo widget, and a card per instance (drag handle, expand, remove, small WidgetFrame). It is a `reatomComponent` so it re-renders on atom reads.
+`Board` reads `instances`/`layout` from the model, renders the grid, a toolbar to add the clock widget, and a card per instance (drag handle, expand, remove, small WidgetFrame). It is a `reatomComponent` so it re-renders on atom reads.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1489,13 +1591,13 @@ describe('Board', () => {
   it('adds a widget when the toolbar button is clicked', () => {
     render(<Board />)
     expect(instances()).toHaveLength(0)
-    fireEvent.click(screen.getByRole('button', { name: /add demo widget/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add clock/i }))
     expect(instances()).toHaveLength(1)
   })
 
   it('removes a widget via its remove button', () => {
     render(<Board />)
-    fireEvent.click(screen.getByRole('button', { name: /add demo widget/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add clock/i }))
     const card = screen.getByTestId('widget-card')
     fireEvent.click(within(card).getByRole('button', { name: /remove/i }))
     expect(instances()).toHaveLength(0)
@@ -1603,8 +1705,8 @@ export const Board = reatomComponent(() => {
   return (
     <div className={styles.root}>
       <div className={styles.toolbar}>
-        <button className={styles.addButton} onClick={() => addInstance('demo')}>
-          Add demo widget
+        <button className={styles.addButton} onClick={() => addInstance('clock')}>
+          Add clock
         </button>
       </div>
 
@@ -1703,12 +1805,12 @@ describe('FullscreenOverlay', () => {
   })
 
   it('renders a large frame for the expanded instance and closes', () => {
-    const id = addInstance('demo')
+    const id = addInstance('clock')
     if (id instanceof Error) throw id
     expandedInstanceId.set(id)
 
     render(<FullscreenOverlay />)
-    expect(screen.getByTitle(`demo (${id})`)).toBeInTheDocument()
+    expect(screen.getByTitle(`clock (${id})`)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }))
     expect(expandedInstanceId()).toBeNull()
@@ -1916,17 +2018,17 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-## Task 13: Demo widget
+## Task 13: Clock widget
 
 **Files:**
-- Create: `widgets/demo/index.html`
-- Create: `widgets/demo/main.tsx`
-- Create: `widgets/demo/Demo.tsx`
-- Create: `widgets/demo/demo.module.css`
+- Create: `widgets/clock/index.html`
+- Create: `widgets/clock/main.tsx`
+- Create: `widgets/clock/Clock.tsx`
+- Create: `widgets/clock/clock.module.css`
 
-The demo widget proves the infrastructure: it connects via `createWidgetClient`, renders different content for small vs large, and exposes buttons to request fullscreen and to report an error.
+The clock is the first real widget and proves the infrastructure end to end. It connects via `createWidgetClient`, reads its `mode`, and renders the **small** view (time only) or the **large** view (time + full date). Clicking the small view requests fullscreen; the large view has a close button — exercising both bridge requests. It is deliberately simple and self-contained: no external data, no host storage, just a 1-second tick.
 
-- [ ] **Step 1: Create `widgets/demo/index.html`**
+- [ ] **Step 1: Create `widgets/clock/index.html`**
 
 ```html
 <!doctype html>
@@ -1934,7 +2036,7 @@ The demo widget proves the infrastructure: it connects via `createWidgetClient`,
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Demo Widget</title>
+    <title>Clock Widget</title>
   </head>
   <body style="margin: 0">
     <div id="root"></div>
@@ -1943,7 +2045,7 @@ The demo widget proves the infrastructure: it connects via `createWidgetClient`,
 </html>
 ```
 
-- [ ] **Step 2: Create `widgets/demo/demo.module.css`**
+- [ ] **Step 2: Create `widgets/clock/clock.module.css`**
 
 ```css
 .root {
@@ -1952,78 +2054,120 @@ The demo widget proves the infrastructure: it connects via `createWidgetClient`,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   font-family: system-ui, sans-serif;
   background: #12151c;
   color: #e6e9ef;
+  user-select: none;
 }
 
-.small { font-size: 14px; }
-.large { font-size: 22px; }
+/* small view: the whole area is a button that opens fullscreen */
+.smallButton {
+  width: 100%;
+  height: 100vh;
+  border: 0;
+  background: #12151c;
+  color: #e6e9ef;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, sans-serif;
+}
 
-.row { display: flex; gap: 8px; }
+.timeSmall {
+  font-size: clamp(20px, 12vw, 56px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+.timeLarge {
+  font-size: clamp(48px, 18vw, 160px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+}
+
+.date {
+  font-size: clamp(14px, 3vw, 28px);
+  color: #9aa3b1;
+}
 
 .btn {
-  padding: 6px 12px;
+  margin-top: 16px;
+  padding: 8px 16px;
   border: 1px solid #2e3441;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #232834;
   color: #e6e9ef;
   cursor: pointer;
 }
-
-.status { font-size: 12px; color: #9aa3b1; }
 ```
 
-- [ ] **Step 3: Create `widgets/demo/Demo.tsx`**
+- [ ] **Step 3: Create `widgets/clock/Clock.tsx`**
 
 ```tsx
 import { useEffect, useState } from 'react'
 import type { WidgetClient, WidgetMode } from '../../src/shared/widget-bridge'
-import styles from './demo.module.css'
+import styles from './clock.module.css'
 
-export function Demo({ client }: { client: WidgetClient }) {
+const timeFmt = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+const dateFmt = new Intl.DateTimeFormat(undefined, {
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+})
+
+function useNow() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return now
+}
+
+export function Clock({ client }: { client: WidgetClient }) {
   const [mode, setMode] = useState<WidgetMode>(client.mode)
-
   // Subscribe once; onModeChange returns an unsubscribe used for cleanup.
   useEffect(() => client.onModeChange(setMode), [client])
+  const now = useNow()
 
-  return (
-    <div className={styles.root}>
-      <div className={mode === 'large' ? styles.large : styles.small}>
-        Demo widget — <strong>{mode}</strong> view
-      </div>
-      <div className={styles.status}>instance: {client.instanceId}</div>
-      <div className={styles.row}>
-        {mode === 'small' && (
-          <button className={styles.btn} onClick={() => client.requestFullscreen()}>
-            Open fullscreen
-          </button>
-        )}
-        {mode === 'large' && (
-          <button className={styles.btn} onClick={() => client.requestClose()}>
-            Close
-          </button>
-        )}
-        <button
-          className={styles.btn}
-          onClick={() => client.reportError(new Error('Demo error reported'))}
-        >
-          Report error
+  if (mode === 'large') {
+    return (
+      <div className={styles.root}>
+        <div className={styles.timeLarge}>{timeFmt.format(now)}</div>
+        <div className={styles.date}>{dateFmt.format(now)}</div>
+        <button className={styles.btn} onClick={() => client.requestClose()}>
+          Close
         </button>
       </div>
-    </div>
+    )
+  }
+
+  return (
+    <button
+      className={styles.smallButton}
+      title="Open fullscreen"
+      onClick={() => client.requestFullscreen()}
+    >
+      <span className={styles.timeSmall}>{timeFmt.format(now)}</span>
+    </button>
   )
 }
 ```
 
-- [ ] **Step 4: Create `widgets/demo/main.tsx`**
+- [ ] **Step 4: Create `widgets/clock/main.tsx`**
 
 ```tsx
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createWidgetClient } from '../../src/shared/widget-bridge'
-import { Demo } from './Demo'
+import { Clock } from './Clock'
 
 const root = createRoot(document.getElementById('root')!)
 
@@ -2033,13 +2177,13 @@ if (client instanceof Error) {
 } else {
   root.render(
     <StrictMode>
-      <Demo client={client} />
+      <Clock client={client} />
     </StrictMode>,
   )
 }
 ```
 
-> Top-level `await` is supported in ES modules bundled by Vite. If your target requires it, keep `"target": "ES2022"` (already set).
+> Top-level `await` is supported in ES modules bundled by Vite. The TS `"target": "ES2022"` (already set) allows it.
 
 - [ ] **Step 5: Typecheck**
 
@@ -2049,7 +2193,7 @@ Expected: no errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-rtk git add -A && rtk git commit -m "feat(widget): demo widget exercising the bridge SDK
+rtk git add -A && rtk git commit -m "feat(widget): clock widget (time small / time+date large) via bridge SDK
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -2156,18 +2300,18 @@ Open the printed URL in a browser.
 - [ ] **Step 2: Verify the full flow**
 
 Confirm each, by observation:
-1. Click **Add demo widget** → a card appears on the board showing the demo widget's **small** view (text "Demo widget — small view").
-2. **Drag** the card by its header → it moves; **resize** from the corner → it resizes.
-3. Click the card's **⤢ (Expand)** or the widget's **Open fullscreen** button → the fullscreen overlay opens showing the **large** view.
-4. In the overlay click **Close** (or the widget's Close) → returns to the board.
-5. Click the widget's **Report error** button → a `[widget …] error: Demo error reported` warning appears in the browser console (proves the error channel).
+1. Click **Add clock** → a card appears on the board showing the clock's **small** view (current time, `HH:MM:SS`).
+2. The small view **ticks every second** (proves the widget runs live inside its iframe).
+3. **Drag** the card by its header → it moves; **resize** from the corner → it resizes.
+4. Click the card's **⤢ (Expand)**, or click the clock's small view, or the widget's request → the fullscreen overlay opens showing the **large** view (large time **plus the full date**).
+5. In the overlay click the host **Close** bar button or the widget's **Close** → returns to the board (exercises both the host close and the widget's `request-close`).
 6. **Reload the page** → the previously added widget(s) and their positions persist (localStorage).
 7. Remove a widget with **✕** → it disappears and stays gone after reload.
 
 - [ ] **Step 3: Verify a production build**
 
 Run: `rtk pnpm run build`
-Expected: `tsc -b` passes and Vite emits **two** HTML entries (`index.html` and the demo widget) under `dist/`. Run `rtk pnpm run preview` and repeat the smoke check from Step 2.
+Expected: `tsc -b` passes and Vite emits **two** HTML entries (`index.html` and the clock widget, auto-discovered from `widgets/`) under `dist/`. Run `rtk pnpm run preview` and repeat the smoke check from Step 2.
 
 - [ ] **Step 4: Final commit (if any build config tweaks were needed)**
 
@@ -2181,7 +2325,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ## Self-Review Notes (for the implementer)
 
-- **Spec §2 scope** is fully covered: board CRUD (Task 8, 10), iframe isolation + bridge (Tasks 2–5), small/large views (Tasks 10, 11), demo widget (Task 13), errore at every boundary (Tasks 2, 7, parse/connection). Deferred items (KV storage, IndexedDB, separate origin, theming) are intentionally absent.
-- **Type consistency:** message unions defined once in `messages.ts` and imported everywhere; `LayoutItem` defined once in `board-model/types.ts` and used by the model, RGL `onLayoutChange`, and storage; `WidgetType.entry` is always `/widgets/<id>/index.html`.
+- **Spec §2 scope** is fully covered: board CRUD (Task 8, 10), iframe isolation + bridge (Tasks 2–5), small/large views (Tasks 10, 11), clock widget proving the infra (Task 13), errore at every boundary (Tasks 2, 7, parse/connection, env). Deferred items (KV storage, IndexedDB, separate origin, theming) are intentionally absent.
+- **Type consistency:** message unions defined once in `messages.ts` and imported everywhere; `LayoutItem` defined once in `board-model/types.ts` and used by the model, RGL `onLayoutChange`, and storage; `WidgetType.entry` is always `/widgets/<id>/index.html`; the only widget id is `clock`.
+- **Config additions:** `vite.config.ts` auto-discovers widget entries from `widgets/<name>/index.html`, so adding a widget needs no config edit (only a new registry entry for board metadata). Env is validated once with zod in `src/env.ts` (testable `parseEnv` boundary + fail-fast `env`); its one custom var `VITE_WIDGET_HANDSHAKE_TIMEOUT_MS` feeds the host handshake (Task 9).
 - **Known environment caveats flagged inline:** exact `@reatom/react` version/exports (Tasks 1, 10), `crypto.randomUUID` needing Node 19+ (Task 8), and the `MessagePort.dispatchEvent` env note (Task 14).
 ```
