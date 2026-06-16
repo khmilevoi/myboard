@@ -42,6 +42,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.61.0
+        version: 1.61.0
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1
@@ -183,6 +186,11 @@ packages:
 
   '@oxc-project/types@0.133.0':
     resolution: {integrity: sha512-KzkdCd6Uxqnf6l3HOw1xfatAlUURA0g14cvBYFyJ5SaNOQbOUvBr9PKArcPcrNIeRsBdgcUzOGrhKveVpvOIGA==}
+
+  '@playwright/test@1.61.0':
+    resolution: {integrity: sha512-cKA5B6lpFEMyMGjxF54QihfYpB4FkEGH+qZhtArDEG+wezQAJY8Pq6C7T1SjWz+FFzt3TbyoXBQYk/0292TdJA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@reatom/core@1001.1.0':
     resolution: {integrity: sha512-7+01/9C+gjERI2kuNb+yBF6R33r50Lcv8ZLmR0iPZYOpu61EODGal5ShgfkpH8tIe8X0E7WI7wcvbEVxbRArBw==}
@@ -484,6 +492,11 @@ packages:
       picomatch:
         optional: true
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -641,6 +654,16 @@ packages:
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
+
+  playwright-core@1.61.0:
+    resolution: {integrity: sha512-caX7TrY3Ml6egyDX0WUcTHDxodl/b51y5wJOdCEA36QviK/s2g081hvmGs8eaE3DWb6NYZQ6BjO/QkNRPenoPA==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.61.0:
+    resolution: {integrity: sha512-Z+7BeeqQPRRzklHsVFP4KTGIyMxKUmfeRA4WisM6G3/XW6nwGeX6fX9qYaDa+CiUqpOkb2f6X3nar05R3kSuJQ==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   postcss@8.5.15:
     resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
@@ -994,6 +1017,10 @@ snapshots:
 
   '@oxc-project/types@0.133.0': {}
 
+  '@playwright/test@1.61.0':
+    dependencies:
+      playwright: 1.61.0
+
   '@reatom/core@1001.1.0':
     dependencies:
       '@standard-schema/spec': 1.1.0
@@ -1236,6 +1263,9 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.4
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -1364,6 +1394,14 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.4: {}
+
+  playwright-core@1.61.0: {}
+
+  playwright@1.61.0:
+    dependencies:
+      playwright-core: 1.61.0
+    optionalDependencies:
+      fsevents: 2.3.2
 
   postcss@8.5.15:
     dependencies:
