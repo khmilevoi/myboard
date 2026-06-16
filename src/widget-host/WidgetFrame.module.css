@@ -1,0 +1,72 @@
+.frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+}
+
+.iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    var(--skeleton) 30%,
+    color-mix(in srgb, var(--skeleton) 50%, transparent) 50%,
+    var(--skeleton) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.errorCard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  text-align: center;
+  background: var(--surface);
+  color: var(--text);
+}
+.errorIcon {
+  color: var(--accent);
+}
+.errorCard small {
+  color: var(--text-dim);
+}
+
+.retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+  cursor: pointer;
+}
+.retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

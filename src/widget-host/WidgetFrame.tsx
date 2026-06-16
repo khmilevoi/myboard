@@ -1,10 +1,11 @@
 import { reatomComponent } from '@reatom/react'
 import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, RotateCw } from 'lucide-react'
 import { env } from '../env'
-import { resolvedTheme } from '../theme/theme-model'
 import type { WidgetMode } from '../shared/widget-bridge'
+import { resolvedTheme } from '../theme/theme-model'
 import { findWidgetType } from '../widget-registry/registry'
-import { createWidgetConnection } from './widget-connection'
+import { createWidgetConnection, type WidgetConnection } from './widget-connection'
 import styles from './WidgetFrame.module.css'
 
 export type WidgetFrameProps = {
@@ -17,10 +18,13 @@ export type WidgetFrameProps = {
 
 type Status = 'connecting' | 'ready' | 'error'
 
-export const WidgetFrame = reatomComponent((props: WidgetFrameProps) => {
+export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
   const { instanceId, typeId, mode, onRequestFullscreen, onRequestClose } = props
-  const theme = resolvedTheme()
   const type = findWidgetType(typeId)
+  const theme = resolvedTheme()
+  const themeRef = useRef(theme)
+  themeRef.current = theme
+  const connectionRef = useRef<WidgetConnection | null>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [status, setStatus] = useState<Status>('connecting')
   const [reloadKey, setReloadKey] = useState(0)
@@ -40,13 +44,14 @@ export const WidgetFrame = reatomComponent((props: WidgetFrameProps) => {
       instanceId,
       mode,
       targetOrigin: window.location.origin,
-      theme,
+      theme: themeRef.current,
       handlers: {
         onRequestFullscreen,
         onRequestClose,
         onWidgetError: (message) => console.warn(`[widget ${instanceId}] error:`, message.message),
       },
     })
+    connectionRef.current = connection
 
     let cancelled = false
     const onLoad = async () => {
@@ -68,13 +73,20 @@ export const WidgetFrame = reatomComponent((props: WidgetFrameProps) => {
       cancelled = true
       iframe.removeEventListener('load', onLoad)
       connection.close()
+      connectionRef.current = null
     }
-  }, [instanceId, type, mode, theme, reloadKey, onRequestFullscreen, onRequestClose])
+  }, [instanceId, type, mode, reloadKey, onRequestFullscreen, onRequestClose])
+
+  // Push live theme changes into the widget without reloading the iframe.
+  useEffect(() => {
+    connectionRef.current?.send({ type: 'theme-change', theme })
+  }, [theme])
 
   if (type instanceof Error) {
     return (
       <div className={styles.frame}>
         <div className={styles.errorCard}>
+          <AlertTriangle className={styles.errorIcon} size={22} aria-hidden />
           <div>Widget unavailable</div>
           <small>{type.message}</small>
         </div>
@@ -91,11 +103,17 @@ export const WidgetFrame = reatomComponent((props: WidgetFrameProps) => {
         title={`${typeId} (${instanceId})`}
         src={src}
       />
+      {status === 'connecting' && <div className={styles.skeleton} aria-hidden />}
       {status === 'error' && (
         <div className={styles.errorCard}>
+          <AlertTriangle className={styles.errorIcon} size={22} aria-hidden />
           <div>Widget failed to load</div>
-          <button className={styles.retry} onClick={() => setReloadKey((key) => key + 1)}>
-            Retry
+          <button
+            className={styles.retry}
+            aria-label="Retry"
+            onClick={() => setReloadKey((key) => key + 1)}
+          >
+            <RotateCw size={15} aria-hidden /> Retry
           </button>
         </div>
       )}
