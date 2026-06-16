@@ -18,24 +18,11 @@
   border: 0;
   background: var(--surface);
   color: var(--text);
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   font-family: var(--font-ui);
-}
-
-.smallExpand {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  color: var(--text-dim);
-  opacity: 0;
-  transition: opacity 0.15s var(--ease);
-}
-.smallButton:hover .smallExpand {
-  opacity: 1;
 }
 
 .timeSmall {
@@ -59,22 +46,4 @@
 .date {
   font-size: clamp(14px, 3vw, 28px);
   color: var(--text-dim);
-}
-
-.close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--surface-inset);
-  color: var(--text-dim);
-  cursor: pointer;
-}
-.close:hover {
-  color: var(--accent);
 }

@@ -18,6 +18,15 @@ export type WidgetFrameProps = {
 
 type Status = 'connecting' | 'ready' | 'error'
 
+function hasLoadedExpectedDocument(iframe: HTMLIFrameElement) {
+  if (iframe.contentDocument?.readyState !== 'complete') return false
+  try {
+    return iframe.contentWindow?.location.href === iframe.src
+  } catch {
+    return false
+  }
+}
+
 export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
   const { instanceId, typeId, mode, onRequestFullscreen, onRequestClose } = props
   const type = findWidgetType(typeId)
@@ -54,7 +63,10 @@ export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
     connectionRef.current = connection
 
     let cancelled = false
-    const onLoad = async () => {
+    let handshakeStarted = false
+    const startHandshake = async () => {
+      if (handshakeStarted) return
+      handshakeStarted = true
       const win = iframe.contentWindow
       if (!win) {
         setStatus('error')
@@ -68,10 +80,13 @@ export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
       }
     }
 
-    iframe.addEventListener('load', onLoad)
+    iframe.addEventListener('load', startHandshake)
+    if (hasLoadedExpectedDocument(iframe)) {
+      void startHandshake()
+    }
     return () => {
       cancelled = true
-      iframe.removeEventListener('load', onLoad)
+      iframe.removeEventListener('load', startHandshake)
       connection.close()
       connectionRef.current = null
     }

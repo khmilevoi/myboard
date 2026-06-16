@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Maximize2, X } from 'lucide-react'
 import type { WidgetClient, WidgetMode } from '../../src/shared/widget-bridge'
 import styles from './clock.module.css'
 
@@ -33,9 +32,6 @@ export function Clock({ client }: { client: WidgetClient }) {
   if (mode === 'large') {
     return (
       <div className={styles.root}>
-        <button className={styles.close} aria-label="Close" onClick={() => client.requestClose()}>
-          <X size={18} aria-hidden />
-        </button>
         <div className={styles.timeLarge}>{timeFmt.format(now)}</div>
         <div className={styles.date}>{dateFmt.format(now)}</div>
       </div>
@@ -43,13 +39,8 @@ export function Clock({ client }: { client: WidgetClient }) {
   }
 
   return (
-    <button
-      className={styles.smallButton}
-      title="Open fullscreen"
-      onClick={() => client.requestFullscreen()}
-    >
+    <div className={styles.smallButton}>
       <span className={styles.timeSmall}>{timeFmt.format(now)}</span>
-      <Maximize2 className={styles.smallExpand} size={14} aria-hidden />
-    </button>
+    </div>
   )
 }

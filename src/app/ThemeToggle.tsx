@@ -23,7 +23,7 @@ function setMode(mode: ThemeMode, event: MouseEvent) {
   ).startViewTransition
 
   if (startViewTransition && !prefersReducedMotion) {
-    startViewTransition(() => themeMode.set(mode))
+    startViewTransition.call(document, () => themeMode.set(mode))
   } else {
     themeMode.set(mode)
   }
