@@ -1,0 +1,54 @@
+@import '../shared/theme/tokens.css';
+@import 'react-grid-layout/css/styles.css';
+@import 'react-resizable/css/styles.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-ui);
+  transition:
+    background-color 0.45s var(--ease),
+    color 0.45s var(--ease);
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent) !important;
+  opacity: 0.18;
+  border-radius: var(--radius-lg);
+}
+
+/* View Transitions: circular reveal of the new theme from the toggle click. */
+::view-transition-new(root) {
+  animation: themeReveal 0.45s var(--ease);
+}
+@keyframes themeReveal {
+  from {
+    clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 0));
+  }
+  to {
+    clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 0));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,52 @@
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/nunito';
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #efe6d8;
+  --bg-grad: radial-gradient(130% 100% at 85% -10%, #f6efe2, #ebe0d0);
+  --surface: #faf5ec;
+  --surface-inset: #e4d8c5;
+  --text: #463726;
+  --text-dim: #8a755c;
+  --accent: #cf7b53;
+  --accent-contrast: #ffffff;
+  --accent-2: #3f5d4a;
+  --shadow-dark: #d8c9b2;
+  --shadow-light: #fffdf6;
+  --border: rgba(70, 55, 38, 0.1);
+  --skeleton: rgba(70, 55, 38, 0.08);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0d0e11;
+  --bg-grad: radial-gradient(130% 100% at 85% -10%, #1a1c20, #0d0e11);
+  --surface: #1b1d22;
+  --surface-inset: #15161a;
+  --text: #e9e4d9;
+  --text-dim: #9a9488;
+  --accent: #e08a5f;
+  --accent-contrast: #15161a;
+  --accent-2: #a3c79a;
+  --shadow-dark: #060708;
+  --shadow-light: #24262d;
+  --border: rgba(233, 228, 217, 0.08);
+  --skeleton: rgba(233, 228, 217, 0.06);
+}
+
+:root {
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+  --font-display: 'Fraunces Variable', Georgia, serif;
+  --font-ui: 'Nunito Variable', system-ui, sans-serif;
+  --shadow-raised: 5px 5px 13px var(--shadow-dark), -5px -5px 13px var(--shadow-light);
+  --shadow-raised-sm: 3px 3px 8px var(--shadow-dark), -3px -3px 8px var(--shadow-light);
+  --shadow-pressed: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+  --shadow-accent: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
