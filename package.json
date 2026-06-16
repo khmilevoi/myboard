@@ -21,6 +21,8 @@
     "@reatom/react": "^1001.0.0",
     "dexie": "^4.4.4",
     "errore": "^0.14.1",
+    "find-my-way": "^9.6.0",
+    "iovalkey": "^0.3.3",
     "lucide-react": "1.19.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -39,6 +41,7 @@
     "@vitejs/plugin-react": "^6.0.2",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"
