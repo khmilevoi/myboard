@@ -111,5 +111,6 @@ test('widget can be dragged by its handle without runtime errors', async ({ page
   const after = await card.boundingBox()
   expect(after).not.toBeNull()
   expect(after!.x).toBeGreaterThan(before!.x + 40)
+  await expect(card.locator('[class*="skeleton"]')).toHaveCount(0)
   expect(consoleErrors).not.toContainEqual(expect.stringContaining('process is not defined'))
 })

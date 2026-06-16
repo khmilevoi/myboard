@@ -33,6 +33,8 @@ export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
   const theme = resolvedTheme()
   const themeRef = useRef(theme)
   themeRef.current = theme
+  const handlersRef = useRef({ onRequestFullscreen, onRequestClose })
+  handlersRef.current = { onRequestFullscreen, onRequestClose }
   const connectionRef = useRef<WidgetConnection | null>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [status, setStatus] = useState<Status>('connecting')
@@ -44,7 +46,7 @@ export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
       : `${type.entry}?mode=${mode}&instanceId=${encodeURIComponent(instanceId)}`
 
   useEffect(() => {
-    if (type instanceof Error) return
+    if (src === '') return
     const iframe = iframeRef.current
     if (!iframe) return
     setStatus('connecting')
@@ -55,8 +57,8 @@ export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
       targetOrigin: window.location.origin,
       theme: themeRef.current,
       handlers: {
-        onRequestFullscreen,
-        onRequestClose,
+        onRequestFullscreen: () => handlersRef.current.onRequestFullscreen?.(),
+        onRequestClose: () => handlersRef.current.onRequestClose?.(),
         onWidgetError: (message) => console.warn(`[widget ${instanceId}] error:`, message.message),
       },
     })
@@ -90,7 +92,7 @@ export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
       connection.close()
       connectionRef.current = null
     }
-  }, [instanceId, type, mode, reloadKey, onRequestFullscreen, onRequestClose])
+  }, [instanceId, mode, reloadKey, src])
 
   // Push live theme changes into the widget without reloading the iframe.
   useEffect(() => {
