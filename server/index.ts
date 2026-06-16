@@ -23,7 +23,7 @@ router.on('GET', '/api/storage', async (_req, res, _params, _store, query) => {
 })
 
 router.on('GET', '/api/storage/:key', async (_req, res, params) => {
-  send(res, await handleGet(ops, decodeURIComponent(params.key)))
+  send(res, await handleGet(ops, decodeURIComponent(params.key as string)))
 })
 
 router.on('PUT', '/api/storage/:key', async (req, res, params) => {
@@ -40,11 +40,11 @@ router.on('PUT', '/api/storage/:key', async (req, res, params) => {
     res.end()
     return
   }
-  send(res, await handlePut(ops, decodeURIComponent(params.key), payload as { value: unknown; ttlMs?: number }))
+  send(res, await handlePut(ops, decodeURIComponent(params.key as string), payload as { value: unknown; ttlMs?: number }))
 })
 
 router.on('DELETE', '/api/storage/:key', async (_req, res, params) => {
-  send(res, await handleDelete(ops, decodeURIComponent(params.key)))
+  send(res, await handleDelete(ops, decodeURIComponent(params.key as string)))
 })
 
 const port = Number(process.env.PORT ?? 8787)
