@@ -14,12 +14,13 @@
 
 - **errore:** `import * as errore from 'errore'`. Return errors, never throw for expected failures. Check `instanceof Error`, early-return. Tagged errors via `errore.createTaggedError`.
 - **Reatom v1000:** implicit context (no `ctx`). Read atom by calling it `atom()`. Write with `atom.set(value | (prev) => next)`. `action((args) => ..., 'name')`. Name every atom/action.
+- **Package manager:** pnpm. Use `pnpm install` / `pnpm run <script>` / `pnpm exec <bin>` — never npm or yarn. A `pnpm-lock.yaml` is committed; do not add `package-lock.json`.
 - **Commits:** after each task. Prefix git commands with `rtk` per repo convention (RTK passthrough is safe). End commit messages with the Co-Authored-By trailer:
 
   ```
   Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
   ```
-- **Run a single test:** `npx vitest run <path>` ; watch with `npx vitest <path>`.
+- **Run a single test:** `pnpm exec vitest run <path>` ; watch with `pnpm exec vitest <path>`.
 
 ---
 
@@ -123,8 +124,8 @@ Unit tests live next to their module as `*.test.ts(x)`.
 
 - [ ] **Step 2: Install dependencies**
 
-Run: `rtk npm install`
-Expected: completes without peer-dependency errors. If `@reatom/react@1000` is not found, run `rtk npm view @reatom/react dist-tags` to find the tag that matches `@reatom/core@1000` and pin that exact version. Verify `react-grid-layout` resolved to 1.5.x with `rtk npm ls react-grid-layout`.
+Run: `rtk pnpm install`
+Expected: completes without peer-dependency errors. If `@reatom/react@1000` is not found, run `rtk pnpm view @reatom/react dist-tags` to find the tag that matches `@reatom/core@1000` and pin that exact version. Verify `react-grid-layout` resolved to 1.5.x with `rtk pnpm ls react-grid-layout`.
 
 - [ ] **Step 3: Create `tsconfig.json`**
 
@@ -279,12 +280,12 @@ createRoot(document.getElementById('root')!).render(
 
 - [ ] **Step 12: Verify dev server boots**
 
-Run: `rtk npm run dev` (then stop it with Ctrl+C after confirming)
+Run: `rtk pnpm run dev` (then stop it with Ctrl+C after confirming)
 Expected: Vite prints a local URL and starts with no errors. Opening it shows "myboard".
 
 - [ ] **Step 13: Verify typecheck passes**
 
-Run: `rtk npm run typecheck`
+Run: `rtk pnpm run typecheck`
 Expected: no errors.
 
 - [ ] **Step 14: Commit**
@@ -353,7 +354,7 @@ export class HandshakeTimeoutError extends errore.createTaggedError({
 
 - [ ] **Step 3: Typecheck**
 
-Run: `rtk npm run typecheck`
+Run: `rtk pnpm run typecheck`
 Expected: no errors.
 
 - [ ] **Step 4: Commit**
@@ -424,7 +425,7 @@ describe('parseWidgetMessage', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/shared/widget-bridge/parse.test.ts`
+Run: `pnpm exec vitest run src/shared/widget-bridge/parse.test.ts`
 Expected: FAIL — `parse.ts` does not exist / functions not defined.
 
 - [ ] **Step 3: Write `src/shared/widget-bridge/parse.ts`**
@@ -502,7 +503,7 @@ export function parseWidgetMessage(data: unknown): BridgeError | WidgetMessage {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/shared/widget-bridge/parse.test.ts`
+Run: `pnpm exec vitest run src/shared/widget-bridge/parse.test.ts`
 Expected: PASS (all cases).
 
 - [ ] **Step 5: Commit**
@@ -581,7 +582,7 @@ describe('createWidgetClient', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/shared/widget-bridge/client.test.ts`
+Run: `pnpm exec vitest run src/shared/widget-bridge/client.test.ts`
 Expected: FAIL — `client.ts` not found.
 
 - [ ] **Step 3: Write `src/shared/widget-bridge/client.ts`**
@@ -669,7 +670,7 @@ export function createWidgetClient(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/shared/widget-bridge/client.test.ts`
+Run: `pnpm exec vitest run src/shared/widget-bridge/client.test.ts`
 Expected: PASS (3 cases).
 
 - [ ] **Step 5: Create the barrel `src/shared/widget-bridge/index.ts`**
@@ -683,7 +684,7 @@ export * from './client'
 
 - [ ] **Step 6: Typecheck + commit**
 
-Run: `rtk npm run typecheck`
+Run: `rtk pnpm run typecheck`
 Expected: no errors.
 
 ```bash
@@ -781,7 +782,7 @@ describe('createWidgetConnection', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/widget-host/widget-connection.test.ts`
+Run: `pnpm exec vitest run src/widget-host/widget-connection.test.ts`
 Expected: FAIL — `widget-connection.ts` not found.
 
 - [ ] **Step 3: Write `src/widget-host/widget-connection.ts`**
@@ -874,7 +875,7 @@ export function createWidgetConnection(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/widget-host/widget-connection.test.ts`
+Run: `pnpm exec vitest run src/widget-host/widget-connection.test.ts`
 Expected: PASS (3 cases).
 
 - [ ] **Step 5: Commit**
@@ -921,7 +922,7 @@ describe('widget registry', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/widget-registry/registry.test.ts`
+Run: `pnpm exec vitest run src/widget-registry/registry.test.ts`
 Expected: FAIL — `registry.ts` not found.
 
 - [ ] **Step 3: Write `src/widget-registry/registry.ts`**
@@ -960,7 +961,7 @@ export function findWidgetType(typeId: string): UnknownWidgetTypeError | WidgetT
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/widget-registry/registry.test.ts`
+Run: `pnpm exec vitest run src/widget-registry/registry.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1042,7 +1043,7 @@ describe('board storage', () => {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `npx vitest run src/board-model/board-storage.test.ts`
+Run: `pnpm exec vitest run src/board-model/board-storage.test.ts`
 Expected: FAIL — `board-storage.ts` not found.
 
 - [ ] **Step 4: Write `src/board-model/board-storage.ts`**
@@ -1093,7 +1094,7 @@ export function saveBoard(snapshot: BoardSnapshot): StorageError | void {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npx vitest run src/board-model/board-storage.test.ts`
+Run: `pnpm exec vitest run src/board-model/board-storage.test.ts`
 Expected: PASS (4 cases).
 
 - [ ] **Step 6: Commit**
@@ -1182,7 +1183,7 @@ describe('board-model', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/board-model/board-model.test.ts`
+Run: `pnpm exec vitest run src/board-model/board-model.test.ts`
 Expected: FAIL — `board-model.ts` not found.
 
 - [ ] **Step 3: Write `src/board-model/board-model.ts`**
@@ -1242,7 +1243,7 @@ effect(() => {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/board-model/board-model.test.ts`
+Run: `pnpm exec vitest run src/board-model/board-model.test.ts`
 Expected: PASS (6 cases).
 
 > If `instances()` does not reset to `[]` between tests, confirm `context.reset()` runs in `beforeEach` (it clears the default global context). If `crypto.randomUUID` is undefined in the test env, upgrade Node to 19+ — jsdom uses Node's webcrypto.
@@ -1292,7 +1293,7 @@ describe('WidgetFrame', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/widget-host/WidgetFrame.test.tsx`
+Run: `pnpm exec vitest run src/widget-host/WidgetFrame.test.tsx`
 Expected: FAIL — `WidgetFrame.tsx` not found.
 
 - [ ] **Step 3: Write `src/widget-host/WidgetFrame.module.css`**
@@ -1447,7 +1448,7 @@ export function WidgetFrame(props: WidgetFrameProps) {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npx vitest run src/widget-host/WidgetFrame.test.tsx`
+Run: `pnpm exec vitest run src/widget-host/WidgetFrame.test.tsx`
 Expected: PASS (2 cases). The handshake won't complete in jsdom (no real widget), so status stays `connecting` — both assertions only check the iframe attributes and the unknown-type card, which is fine.
 
 - [ ] **Step 6: Commit**
@@ -1504,7 +1505,7 @@ describe('Board', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/board/Board.test.tsx`
+Run: `pnpm exec vitest run src/board/Board.test.tsx`
 Expected: FAIL — `Board.tsx` not found.
 
 - [ ] **Step 3: Write `src/board/Board.module.css`**
@@ -1658,10 +1659,10 @@ export const Board = reatomComponent(() => {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npx vitest run src/board/Board.test.tsx`
+Run: `pnpm exec vitest run src/board/Board.test.tsx`
 Expected: PASS (2 cases).
 
-> If `reatomComponent` import fails, check the React adapter's exact export name with `rtk npm ls @reatom/react` and the package's `dist` types; the v1000 handbook documents `reatomComponent` as the binding. If the installed adapter exposes `useAtom` instead, wrap reads with `useAtom(instances)` and keep the rest identical.
+> If `reatomComponent` import fails, check the React adapter's exact export name with `rtk pnpm ls @reatom/react` and the package's `dist` types; the v1000 handbook documents `reatomComponent` as the binding. If the installed adapter exposes `useAtom` instead, wrap reads with `useAtom(instances)` and keep the rest identical.
 
 - [ ] **Step 6: Commit**
 
@@ -1718,7 +1719,7 @@ describe('FullscreenOverlay', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/widget-host/FullscreenOverlay.test.tsx`
+Run: `pnpm exec vitest run src/widget-host/FullscreenOverlay.test.tsx`
 Expected: FAIL — `FullscreenOverlay.tsx` not found.
 
 - [ ] **Step 3: Write `src/widget-host/FullscreenOverlay.module.css`**
@@ -1798,7 +1799,7 @@ export const FullscreenOverlay = reatomComponent(() => {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `npx vitest run src/widget-host/FullscreenOverlay.test.tsx`
+Run: `pnpm exec vitest run src/widget-host/FullscreenOverlay.test.tsx`
 Expected: PASS (2 cases).
 
 - [ ] **Step 6: Commit**
@@ -1902,7 +1903,7 @@ createRoot(document.getElementById('root')!).render(
 
 - [ ] **Step 5: Typecheck**
 
-Run: `rtk npm run typecheck`
+Run: `rtk pnpm run typecheck`
 Expected: no errors.
 
 - [ ] **Step 6: Commit**
@@ -2042,7 +2043,7 @@ if (client instanceof Error) {
 
 - [ ] **Step 5: Typecheck**
 
-Run: `rtk npm run typecheck`
+Run: `rtk pnpm run typecheck`
 Expected: no errors.
 
 - [ ] **Step 6: Commit**
@@ -2125,12 +2126,12 @@ describe('host ↔ widget handshake (integration)', () => {
 
 - [ ] **Step 2: Run the test**
 
-Run: `npx vitest run tests/bridge-handshake.test.ts`
+Run: `pnpm exec vitest run tests/bridge-handshake.test.ts`
 Expected: PASS. If `MessagePort.dispatchEvent` is unavailable in the test environment, change `// @vitest-environment` to `jsdom` at the top of the file (jsdom provides `MessageChannel`/`MessagePort` with `dispatchEvent`).
 
 - [ ] **Step 3: Run the full suite**
 
-Run: `rtk npm test`
+Run: `rtk pnpm test`
 Expected: all test files PASS.
 
 - [ ] **Step 4: Commit**
@@ -2149,7 +2150,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Start the dev server**
 
-Run: `rtk npm run dev`
+Run: `rtk pnpm run dev`
 Open the printed URL in a browser.
 
 - [ ] **Step 2: Verify the full flow**
@@ -2165,8 +2166,8 @@ Confirm each, by observation:
 
 - [ ] **Step 3: Verify a production build**
 
-Run: `rtk npm run build`
-Expected: `tsc -b` passes and Vite emits **two** HTML entries (`index.html` and the demo widget) under `dist/`. Run `rtk npm run preview` and repeat the smoke check from Step 2.
+Run: `rtk pnpm run build`
+Expected: `tsc -b` passes and Vite emits **two** HTML entries (`index.html` and the demo widget) under `dist/`. Run `rtk pnpm run preview` and repeat the smoke check from Step 2.
 
 - [ ] **Step 4: Final commit (if any build config tweaks were needed)**
 
