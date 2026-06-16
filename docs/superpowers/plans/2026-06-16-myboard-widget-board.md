@@ -6,7 +6,7 @@
 
 **Architecture:** A Vite multi-entry SPA. The host app renders a `react-grid-layout` board of widget instances; each instance is an `<iframe>` loaded from its own HTML entry (Approach A). Host and widget talk over a private `MessageChannel` using a typed postMessage protocol defined in a shared `widget-bridge` module. Board structure (instances + layout) lives in Reatom atoms persisted to localStorage. Every fallible boundary returns `Error | T` via errore.
 
-**Tech Stack:** Vite 6 (multi-entry) · React 18 · TypeScript 5 · react-grid-layout 1.5 · Reatom v1000 (`@reatom/core@1000`, `@reatom/react@1000`) · errore · zod (env validation) · CSS Modules · Vitest + @testing-library/react (jsdom). Package manager: pnpm.
+**Tech Stack:** Vite 8 (multi-entry) · React 19 · TypeScript 6 · react-grid-layout 2 (v2 hook API) · Reatom v1000 (`@reatom/core@1001`, `@reatom/react@1001`) · errore · zod (env validation) · CSS Modules · Vitest 4 + @testing-library/react (jsdom). Package manager: pnpm.
 
 ---
 
@@ -102,25 +102,25 @@ Unit tests live next to their module as `*.test.ts(x)`.
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
-    "@reatom/core": "1000",
-    "@reatom/react": "1000",
-    "errore": "latest",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-grid-layout": "^1.5.0",
-    "zod": "^3.23.8"
+    "@reatom/core": "^1001.1.0",
+    "@reatom/react": "^1001.0.0",
+    "errore": "^0.14.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-grid-layout": "^2.2.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.4.0",
-    "@testing-library/react": "^16.0.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "@types/react-grid-layout": "^1.3.5",
-    "@vitejs/plugin-react": "^4.3.0",
-    "jsdom": "^25.0.0",
-    "typescript": "^5.5.0",
-    "vite": "^6.0.0",
-    "vitest": "^3.0.0"
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-grid-layout": "^2.1.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "jsdom": "^29.1.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }
 ```
@@ -128,7 +128,7 @@ Unit tests live next to their module as `*.test.ts(x)`.
 - [ ] **Step 2: Install dependencies**
 
 Run: `rtk pnpm install`
-Expected: completes without peer-dependency errors. If `@reatom/react@1000` is not found, run `rtk pnpm view @reatom/react dist-tags` to find the tag that matches `@reatom/core@1000` and pin that exact version. Verify `react-grid-layout` resolved to 1.5.x with `rtk pnpm ls react-grid-layout`.
+Expected: completes without peer-dependency errors. If `@reatom/react@^1001` does not resolve, run `rtk pnpm view @reatom/react versions` and pin the version that matches the installed `@reatom/core` (both must share the same v1001 line). Verify `react-grid-layout` resolved to 2.x with `rtk pnpm ls react-grid-layout` — the board code uses the v2 hook API (`useContainerWidth`, `gridConfig`/`dragConfig`/`resizeConfig`), not the v1 `WidthProvider` API.
 
 - [ ] **Step 3: Create `tsconfig.json`**
 
@@ -213,6 +213,15 @@ export default defineConfig({
 
 ```ts
 import '@testing-library/jest-dom/vitest'
+
+// jsdom lacks ResizeObserver; react-grid-layout v2's useContainerWidth needs it.
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver =
+  globalThis.ResizeObserver ?? (ResizeObserverMock as unknown as typeof ResizeObserver)
 ```
 
 - [ ] **Step 7: Create `src/env.ts` (zod schema + errore boundary)**
@@ -1305,10 +1314,14 @@ export const addInstance = action((typeId: string) => {
 
   const id = crypto.randomUUID()
   instances.set((list) => [...list, { id, typeId }])
-  layout.set((items) => [
-    ...items,
-    { i: id, x: 0, y: Infinity, w: type.defaultSize.w, h: type.defaultSize.h, minW: 2, minH: 2 },
-  ])
+  layout.set((items) => {
+    // Place the new widget below everything else (deterministic, no `y: Infinity`).
+    const nextY = items.reduce((max, item) => Math.max(max, item.y + item.h), 0)
+    return [
+      ...items,
+      { i: id, x: 0, y: nextY, w: type.defaultSize.w, h: type.defaultSize.h, minW: 2, minH: 2 },
+    ]
+  })
   return id
 }, 'board.addInstance')
 
@@ -1570,7 +1583,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Create: `src/board/Board.module.css`
 - Test: `src/board/Board.test.tsx`
 
-`Board` reads `instances`/`layout` from the model, renders the grid, a toolbar to add the clock widget, and a card per instance (drag handle, expand, remove, small WidgetFrame). It is a `reatomComponent` so it re-renders on atom reads.
+`Board` reads `instances`/`layout` from the model, renders the grid, a toolbar to add the clock widget, and a card per instance (drag handle, expand, remove, small WidgetFrame). It is a `reatomComponent` so it re-renders on atom reads. It uses the react-grid-layout **v2** hook API: `useContainerWidth()` provides the measured container width, and grid behavior is configured through `gridConfig`/`dragConfig`/`resizeConfig` plus the `verticalCompactor`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1680,7 +1693,7 @@ Expected: FAIL — `Board.tsx` not found.
 - [ ] **Step 4: Write `src/board/Board.tsx`**
 
 ```tsx
-import GridLayout, { WidthProvider } from 'react-grid-layout'
+import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout'
 import { reatomComponent } from '@reatom/react'
 import {
   instances,
@@ -1695,12 +1708,11 @@ import { WidgetFrame } from '../widget-host/WidgetFrame'
 import type { LayoutItem } from '../board-model/types'
 import styles from './Board.module.css'
 
-// WidthProvider must be created once, outside render, to avoid remounting.
-const Grid = WidthProvider(GridLayout)
-
 export const Board = reatomComponent(() => {
   const currentInstances = instances()
   const currentLayout = layout()
+  // v2 measures the container itself via this hook (replaces v1 WidthProvider).
+  const { width, containerRef } = useContainerWidth()
 
   return (
     <div className={styles.root}>
@@ -1710,50 +1722,52 @@ export const Board = reatomComponent(() => {
         </button>
       </div>
 
-      <Grid
-        className="layout"
-        layout={currentLayout}
-        cols={12}
-        rowHeight={30}
-        isDraggable
-        isResizable
-        draggableHandle={`.${styles.handle}`}
-        onLayoutChange={(next: LayoutItem[]) => updateLayout(next)}
-      >
-        {currentInstances.map((instance) => {
-          const type = findWidgetType(instance.typeId)
-          const title = type instanceof Error ? instance.typeId : type.title
-          return (
-            <div key={instance.id} data-testid="widget-card" className={styles.card}>
-              <div className={styles.header}>
-                <span className={styles.handle}>{title}</span>
-                <button
-                  className={styles.iconButton}
-                  aria-label="Expand"
-                  onClick={() => expandedInstanceId.set(instance.id)}
-                >
-                  ⤢
-                </button>
-                <button
-                  className={styles.iconButton}
-                  aria-label="Remove"
-                  onClick={() => removeInstance(instance.id)}
-                >
-                  ✕
-                </button>
+      <div ref={containerRef}>
+        <ReactGridLayout
+          className="layout"
+          width={width || 1200}
+          layout={currentLayout}
+          gridConfig={{ cols: 12, rowHeight: 30 }}
+          dragConfig={{ enabled: true, handle: `.${styles.handle}` }}
+          resizeConfig={{ enabled: true, handles: ['se'] }}
+          compactor={verticalCompactor}
+          onLayoutChange={(next: LayoutItem[]) => updateLayout(next)}
+        >
+          {currentInstances.map((instance) => {
+            const type = findWidgetType(instance.typeId)
+            const title = type instanceof Error ? instance.typeId : type.title
+            return (
+              <div key={instance.id} data-testid="widget-card" className={styles.card}>
+                <div className={styles.header}>
+                  <span className={styles.handle}>{title}</span>
+                  <button
+                    className={styles.iconButton}
+                    aria-label="Expand"
+                    onClick={() => expandedInstanceId.set(instance.id)}
+                  >
+                    ⤢
+                  </button>
+                  <button
+                    className={styles.iconButton}
+                    aria-label="Remove"
+                    onClick={() => removeInstance(instance.id)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className={styles.body}>
+                  <WidgetFrame
+                    instanceId={instance.id}
+                    typeId={instance.typeId}
+                    mode="small"
+                    onRequestFullscreen={() => expandedInstanceId.set(instance.id)}
+                  />
+                </div>
               </div>
-              <div className={styles.body}>
-                <WidgetFrame
-                  instanceId={instance.id}
-                  typeId={instance.typeId}
-                  mode="small"
-                  onRequestFullscreen={() => expandedInstanceId.set(instance.id)}
-                />
-              </div>
-            </div>
-          )
-        })}
-      </Grid>
+            )
+          })}
+        </ReactGridLayout>
+      </div>
     </div>
   )
 }, 'Board')
@@ -1764,7 +1778,9 @@ export const Board = reatomComponent(() => {
 Run: `pnpm exec vitest run src/board/Board.test.tsx`
 Expected: PASS (2 cases).
 
-> If `reatomComponent` import fails, check the React adapter's exact export name with `rtk pnpm ls @reatom/react` and the package's `dist` types; the v1000 handbook documents `reatomComponent` as the binding. If the installed adapter exposes `useAtom` instead, wrap reads with `useAtom(instances)` and keep the rest identical.
+> Two adapter notes: (1) `Board` calls the React hook `useContainerWidth` inside `reatomComponent` — `reatomComponent` renders a normal function component, so hooks are allowed, but if you hit a rules-of-hooks error, convert `Board` to a plain function component and read atoms with `useAtom(instances)` / `useAtom(layout)` from `@reatom/react`. (2) If `reatomComponent`/`useAtom` export names differ, confirm them with `rtk pnpm ls @reatom/react` and the package's `dist` types; the v1000 handbook documents `reatomComponent` as the binding.
+>
+> The `width || 1200` fallback keeps the grid (and its cards) rendering before `useContainerWidth` reports a real width — important because the jsdom `ResizeObserver` mock never produces a layout measurement, so the Board test relies on the fallback to render `widget-card`.
 
 - [ ] **Step 6: Commit**
 
@@ -2328,5 +2344,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - **Spec §2 scope** is fully covered: board CRUD (Task 8, 10), iframe isolation + bridge (Tasks 2–5), small/large views (Tasks 10, 11), clock widget proving the infra (Task 13), errore at every boundary (Tasks 2, 7, parse/connection, env). Deferred items (KV storage, IndexedDB, separate origin, theming) are intentionally absent.
 - **Type consistency:** message unions defined once in `messages.ts` and imported everywhere; `LayoutItem` defined once in `board-model/types.ts` and used by the model, RGL `onLayoutChange`, and storage; `WidgetType.entry` is always `/widgets/<id>/index.html`; the only widget id is `clock`.
 - **Config additions:** `vite.config.ts` auto-discovers widget entries from `widgets/<name>/index.html`, so adding a widget needs no config edit (only a new registry entry for board metadata). Env is validated once with zod in `src/env.ts` (testable `parseEnv` boundary + fail-fast `env`); its one custom var `VITE_WIDGET_HANDSHAKE_TIMEOUT_MS` feeds the host handshake (Task 9).
-- **Known environment caveats flagged inline:** exact `@reatom/react` version/exports (Tasks 1, 10), `crypto.randomUUID` needing Node 19+ (Task 8), and the `MessagePort.dispatchEvent` env note (Task 14).
+- **Known environment caveats flagged inline:** exact `@reatom/react` version/exports and calling `useContainerWidth` inside `reatomComponent` (Tasks 1, 10), `crypto.randomUUID` needing Node 19+ (Task 8), and the `MessagePort.dispatchEvent` env note (Task 14).
+- **react-grid-layout v2 specifics:** board uses the v2 hook API; jsdom needs the `ResizeObserver` mock (Task 1, Step 6) so `useContainerWidth` doesn't throw, and the `width || 1200` fallback keeps cards rendering under test. v2 ships its own types — if installing `@types/react-grid-layout@^2.1.0` causes duplicate-declaration errors, remove that devDependency and rely on the bundled types.
 ```
