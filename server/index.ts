@@ -3,6 +3,7 @@ import Router from 'find-my-way'
 import { createValkeyOps } from './valkey'
 import { readJsonBody } from './body'
 import { handleGet, handlePut, handleDelete, handleKeys, type HandlerResult } from './handlers'
+import { PutPayloadSchema, PrefixQuerySchema, formatZodError } from './schemas'
 
 const ops = createValkeyOps()
 const router = Router({ ignoreTrailingSlash: true })
@@ -18,8 +19,13 @@ function send(res: ServerResponse, result: HandlerResult): void {
 }
 
 router.on('GET', '/api/storage', async (_req, res, _params, _store, query) => {
-  const prefix = query && typeof query.prefix === 'string' ? query.prefix : ''
-  send(res, await handleKeys(ops, prefix))
+  const parsed = PrefixQuerySchema.safeParse(query ?? {})
+  if (!parsed.success) {
+    res.writeHead(422, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(formatZodError(parsed.error)))
+    return
+  }
+  send(res, await handleKeys(ops, parsed.data.prefix ?? ''))
 })
 
 router.on('GET', '/api/storage/:key', async (_req, res, params) => {
@@ -27,21 +33,22 @@ router.on('GET', '/api/storage/:key', async (_req, res, params) => {
 })
 
 router.on('PUT', '/api/storage/:key', async (req, res, params) => {
-  let payload: unknown
+  let raw: unknown
   try {
-    payload = await readJsonBody(req)
+    raw = await readJsonBody(req)
   } catch (e) {
     const status = e instanceof Error && e.message === 'request body too large' ? 413 : 400
     res.writeHead(status)
     res.end()
     return
   }
-  if (payload == null || typeof payload !== 'object' || !('value' in payload)) {
-    res.writeHead(400)
-    res.end()
+  const parsed = PutPayloadSchema.safeParse(raw)
+  if (!parsed.success) {
+    res.writeHead(422, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(formatZodError(parsed.error)))
     return
   }
-  send(res, await handlePut(ops, decodeURIComponent(params.key as string), payload as { value: unknown; ttlMs?: number }))
+  send(res, await handlePut(ops, decodeURIComponent(params.key as string), parsed.data))
 })
 
 router.on('DELETE', '/api/storage/:key', async (_req, res, params) => {
