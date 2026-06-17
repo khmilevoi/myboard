@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.28.2",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit --incremental false -p tsconfig.json && tsc --noEmit --incremental false -p tsconfig.node.json && vite build",
@@ -12,14 +13,21 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.json && tsc --noEmit --incremental false -p tsconfig.node.json",
-    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit"
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:server": "docker compose up --build -d valkey server",
+    "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.2.9",
     "@fontsource-variable/nunito": "^5.2.7",
     "@reatom/core": "^1001.1.0",
     "@reatom/react": "^1001.0.0",
+    "dexie": "^4.4.4",
     "errore": "^0.14.1",
+    "find-my-way": "^9.6.0",
+    "iovalkey": "^0.3.3",
     "lucide-react": "1.19.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -36,7 +44,9 @@
     "@types/react-dom": "^19.2.3",
     "@types/react-grid-layout": "^2.1.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"

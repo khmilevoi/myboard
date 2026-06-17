@@ -37,4 +37,12 @@ export default defineConfig({
     setupFiles: ['./src/vitest.setup.ts'],
     exclude: [...configDefaults.exclude, 'e2e/**'],
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',
+        changeOrigin: true,
+      },
+    },
+  },
 })
