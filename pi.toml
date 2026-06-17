@@ -11,7 +11,7 @@ branch = "master"
 compose = "docker-compose.yml"
 
 [ingress]
-service = "web"
+service = "client"
 port = 80
 
 [healthcheck]

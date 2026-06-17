@@ -4,48 +4,71 @@
 #
 # - client: Vite dev server with HMR at http://localhost:5173
 # - server: storage-api auto-restarted on change via `tsx watch`
-# - source is bind-mounted; file watching uses polling
-#   (CHOKIDAR_USEPOLLING) so edits on a Windows/macOS host are detected
-#   reliably through the Docker bind mount. node_modules lives in a named
-#   volume so the host's (Windows) install is not clobbered by the
-#   container's (Linux) install, and stays cached across restarts.
+# - source is bind-mounted; file watching uses polling (CHOKIDAR_USEPOLLING)
+#   so edits on a Windows/macOS host are detected through the Docker bind mount.
+# - node_modules for the root and both packages live in named volumes so the
+#   host's (Windows) install is not clobbered by the container's (Linux) install.
+# - `install` runs `pnpm install` once; server/client start only after it
+#   completes successfully, so the shared root .pnpm store is written by one
+#   process.
 services:
   valkey:
     image: valkey/valkey:8-alpine
     ports:
       - '127.0.0.1:6379:6379'
 
+  install:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install"
+    volumes:
+      - .:/app
+      - root_node_modules:/app/node_modules
+      - client_node_modules:/app/client/node_modules
+      - server_node_modules:/app/server/node_modules
+
   server:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm install && pnpm exec tsx watch server/index.ts"
+    command: sh -c "corepack enable && pnpm --filter server dev"
     environment:
       VALKEY_URL: redis://valkey:6379
       PORT: '8787'
       CHOKIDAR_USEPOLLING: 'true'
     volumes:
       - .:/app
-      - server_node_modules:/app/node_modules
+      - root_node_modules:/app/node_modules
+      - client_node_modules:/app/client/node_modules
+      - server_node_modules:/app/server/node_modules
     ports:
       - '127.0.0.1:8787:8787'
     depends_on:
-      - valkey
+      install:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_started
 
   client:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm install && pnpm dev --host"
+    command: sh -c "corepack enable && pnpm --filter client dev --host"
     environment:
       VITE_API_PROXY: http://server:8787
       CHOKIDAR_USEPOLLING: 'true'
     volumes:
       - .:/app
-      - client_node_modules:/app/node_modules
+      - root_node_modules:/app/node_modules
+      - client_node_modules:/app/client/node_modules
+      - server_node_modules:/app/server/node_modules
     ports:
       - '5173:5173'
     depends_on:
-      - server
+      install:
+        condition: service_completed_successfully
+      server:
+        condition: service_started
 
 volumes:
-  server_node_modules:
+  root_node_modules:
   client_node_modules:
+  server_node_modules:
