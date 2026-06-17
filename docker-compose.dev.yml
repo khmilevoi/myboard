@@ -3,7 +3,7 @@
 #   pnpm docker:dev:down   -> tear it down
 #
 # - client: Vite dev server with HMR at http://localhost:5173
-# - server: storage-api auto-restarted on change via `tsx watch`
+# - server: storage-api rebuilt on change via rspack watch + node --watch
 # - source is bind-mounted; file watching uses polling (CHOKIDAR_USEPOLLING)
 #   so edits on a Windows/macOS host are detected through the Docker bind mount.
 # - node_modules for the root and both packages live in named volumes so the

@@ -10,5 +10,6 @@ COPY server/package.json ./server/
 RUN pnpm install --frozen-lockfile --filter server...
 COPY server ./server
 WORKDIR /app/server
+RUN pnpm build
 EXPOSE 8787
-CMD ["pnpm", "exec", "tsx", "index.ts"]
+CMD ["node", "dist/index.cjs"]
