@@ -13,6 +13,7 @@ compose = "docker-compose.yml"
 [ingress]
 service = "client"
 port = 80
+expose = "lan"
 
 [healthcheck]
 path = "/"
