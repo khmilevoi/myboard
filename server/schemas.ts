@@ -13,6 +13,9 @@ export type PutPayload = z.infer<typeof PutPayloadSchema>
 
 export function formatZodError(err: ZodError): { errors: { path: (string | number)[]; message: string }[] } {
   return {
-    errors: err.errors.map((e) => ({ path: e.path, message: e.message })),
+    errors: err.issues.map((issue: ZodError['issues'][number]) => ({
+      path: issue.path.map((part) => (typeof part === 'symbol' ? part.description ?? part.toString() : part)),
+      message: issue.message,
+    })),
   }
 }

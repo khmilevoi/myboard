@@ -1,5 +1,7 @@
 import * as errore from 'errore'
 
+export type WidgetIconName = 'Clock' | 'CalendarDays'
+
 export type WidgetType = {
   id: string
   title: string
@@ -7,7 +9,7 @@ export type WidgetType = {
   entry: string
   defaultSize: { w: number; h: number }
   /** lucide-react icon name used in the catalog menu. */
-  icon: string
+  icon: WidgetIconName
 }
 
 export class UnknownWidgetTypeError extends errore.createTaggedError({
@@ -22,6 +24,13 @@ export const widgetTypes: WidgetType[] = [
     entry: '/widgets/clock/index.html',
     defaultSize: { w: 3, h: 2 },
     icon: 'Clock',
+  },
+  {
+    id: 'ofelia-poop-duty',
+    title: 'Какахи Офелии',
+    entry: '/widgets/ofelia-poop-duty/index.html',
+    defaultSize: { w: 3, h: 2 },
+    icon: 'CalendarDays',
   },
 ]
 

@@ -38,6 +38,14 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, 'e2e/**'],
   },
   server: {
+    // Inside a Docker bind mount (notably on Windows/macOS) native FS events
+    // don't propagate, so HMR misses changes. docker-compose.dev.yml sets
+    // CHOKIDAR_USEPOLLING=true to switch the watcher to polling. Outside
+    // Docker this is unset, so normal `pnpm dev` keeps native watching.
+    watch:
+      process.env.CHOKIDAR_USEPOLLING === 'true'
+        ? { usePolling: true, interval: 100 }
+        : undefined,
     proxy: {
       '/api': {
         target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',

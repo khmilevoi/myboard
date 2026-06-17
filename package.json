@@ -17,7 +17,10 @@
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down",
     "docker:server": "docker compose up --build -d valkey server",
-    "docker:logs": "docker compose logs -f"
+    "docker:logs": "docker compose logs -f",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:dev:logs": "docker compose -f docker-compose.dev.yml logs -f"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.2.9",

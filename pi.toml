@@ -1,0 +1,25 @@
+schema = 1
+
+[project]
+name = "myboard"
+
+[source]
+repo = "git@github.com:khmilevoi/myboard.git"
+branch = "master"
+
+[build]
+compose = "docker-compose.yml"
+
+[ingress]
+service = "web"
+port = 80
+
+[healthcheck]
+path = "/"
+expect = "200"
+timeout = "60s"
+
+# Building the SPA (pnpm install + vite build) plus the server image on a
+# Raspberry Pi is slow; give the build stage generous headroom.
+[timeouts]
+build = "30m"
