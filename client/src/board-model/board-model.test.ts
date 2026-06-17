@@ -36,6 +36,29 @@ describe('board-model', () => {
     expect(item).toMatchObject({ w: 3, h: 2 })
   })
 
+  it('adds an instance when crypto.randomUUID is unavailable', () => {
+    const originalRandomUUID = globalThis.crypto.randomUUID
+    Object.defineProperty(globalThis.crypto, 'randomUUID', {
+      configurable: true,
+      value: undefined,
+    })
+
+    try {
+      const id = addInstance('clock')
+      if (id instanceof Error) throw id
+
+      expect(id).toEqual(expect.any(String))
+      expect(id.length).toBeGreaterThan(0)
+      expect(instances()[0]).toMatchObject({ id, typeId: 'clock' })
+      expect(layout()[0]?.i).toBe(id)
+    } finally {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', {
+        configurable: true,
+        value: originalRandomUUID,
+      })
+    }
+  })
+
   it('returns an error when adding an unknown type', () => {
     const result = addInstance('nope')
     expect(result).toBeInstanceOf(Error)
