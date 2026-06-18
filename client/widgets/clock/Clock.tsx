@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { WidgetClient, WidgetMode } from '../../src/shared/widget-bridge'
+import type { WidgetRuntimeProps } from '../../src/widget-host/types'
 import styles from './clock.module.css'
 
 const timeFmt = new Intl.DateTimeFormat(undefined, {
@@ -24,9 +24,7 @@ function useNow() {
   return now
 }
 
-export function Clock({ client }: { client: WidgetClient }) {
-  const [mode, setMode] = useState<WidgetMode>(client.mode)
-  useEffect(() => client.onModeChange(setMode), [client])
+export function Clock({ mode }: WidgetRuntimeProps) {
   const now = useNow()
 
   if (mode === 'large') {

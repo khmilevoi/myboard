@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { WidgetClient, WidgetMode } from '../../src/shared/widget-bridge'
+import type { WidgetRuntimeProps } from '../../src/widget-host/types'
 import { formatDutyDate, getOfeliaDutySummary, getWarsawDateKey } from './ofelia-duty'
 import styles from './ofelia-poop-duty.module.css'
 
@@ -40,10 +40,7 @@ function useNow(): Date {
   return now
 }
 
-export function OfeliaPoopDuty({ client }: { client: WidgetClient }) {
-  const [mode, setMode] = useState<WidgetMode>(client.mode)
-  useEffect(() => client.onModeChange(setMode), [client])
-
+export function OfeliaPoopDuty({ mode }: WidgetRuntimeProps) {
   const now = useNow()
   const duty = getOfeliaDutySummary(now)
 
