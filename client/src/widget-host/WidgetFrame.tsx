@@ -46,15 +46,17 @@ export const WidgetFrame = reatomComponent<WidgetFrameProps>((props) => {
         onRetry={() => setReloadKey((key) => key + 1)}
       >
         <Suspense fallback={<div className={styles.skeleton} aria-hidden />}>
-          <LazyWidget
-            instanceId={instanceId}
-            typeId={typeId}
-            mode={mode}
-            theme={theme}
-            requestFullscreen={() => onRequestFullscreen?.()}
-            requestClose={() => onRequestClose?.()}
-            reportError={(error) => console.warn(`[widget ${instanceId}] error:`, error)}
-          />
+          {LazyWidget && (
+            <LazyWidget
+              instanceId={instanceId}
+              typeId={typeId}
+              mode={mode}
+              theme={theme}
+              requestFullscreen={() => onRequestFullscreen?.()}
+              requestClose={() => onRequestClose?.()}
+              reportError={(error) => console.warn(`[widget ${instanceId}] error:`, error)}
+            />
+          )}
         </Suspense>
       </WidgetErrorBoundary>
     </div>
