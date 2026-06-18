@@ -16,13 +16,13 @@ describe('FullscreenOverlay', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders a large frame for the expanded instance and closes', () => {
+  it('renders a large frame for the expanded instance and closes', async () => {
     const id = addInstance('clock')
     if (id instanceof Error) throw id
     expandedInstanceId.set(id)
 
     render(<FullscreenOverlay />)
-    expect(screen.getByTitle(`clock (${id})`)).toBeInTheDocument()
+    expect(await screen.findByText(/:/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }))
     expect(expandedInstanceId()).toBeNull()

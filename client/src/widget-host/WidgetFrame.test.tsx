@@ -1,156 +1,46 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import { findWidgetType, UnknownWidgetTypeError } from '../widget-registry/registry'
 import { WidgetFrame } from './WidgetFrame'
-import { createWidgetConnection } from './widget-connection'
 
-vi.mock('./widget-connection', () => ({
-  createWidgetConnection: vi.fn(),
+const holder = vi.hoisted(() => ({
+  actual: null as unknown as typeof import('../widget-registry/registry')['findWidgetType'],
 }))
 
-const handshake = vi.fn()
-const close = vi.fn()
-const send = vi.fn()
-
-vi.mocked(createWidgetConnection).mockReturnValue({
-  handshake,
-  close,
-  send,
+vi.mock('../widget-registry/registry', async (importActual) => {
+  const actual = await importActual<typeof import('../widget-registry/registry')>()
+  holder.actual = actual.findWidgetType
+  return { ...actual, findWidgetType: vi.fn(actual.findWidgetType) }
 })
 
 beforeEach(() => {
-  handshake.mockResolvedValue(undefined)
-  handshake.mockClear()
-  close.mockClear()
-  send.mockClear()
-  vi.mocked(createWidgetConnection).mockClear()
+  vi.mocked(findWidgetType).mockImplementation(holder.actual)
 })
 
 describe('WidgetFrame', () => {
-  it('renders an iframe whose src carries the entry, mode and instanceId', () => {
-    render(<WidgetFrame instanceId="inst-1" typeId="clock" mode="small" />)
-    const iframe = screen.getByTitle('clock (inst-1)') as HTMLIFrameElement
-    expect(iframe.src).toContain('/widgets/clock/index.html')
-    expect(iframe.src).toContain('mode=small')
-    expect(iframe.src).toContain('instanceId=inst-1')
-  })
-
   it('shows an error card for an unknown widget type', () => {
+    vi.mocked(findWidgetType).mockReturnValue(new UnknownWidgetTypeError({ typeId: 'missing' }))
     render(<WidgetFrame instanceId="inst-2" typeId="missing" mode="small" />)
     expect(screen.getByText(/widget unavailable/i)).toBeInTheDocument()
   })
 
-  it('starts the handshake when the iframe has already finished loading', async () => {
-    const contentDocument = vi
-      .spyOn(HTMLIFrameElement.prototype, 'contentDocument', 'get')
-      .mockReturnValue({ readyState: 'complete' } as Document)
-    const contentWindow = vi
-      .spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get')
-      .mockReturnValue({
-        location: {
-          href: `${window.location.origin}/widgets/clock/index.html?mode=small&instanceId=inst-3`,
-        },
-      } as Window)
-
-    render(<WidgetFrame instanceId="inst-3" typeId="clock" mode="small" />)
-    await waitFor(() => expect(handshake).toHaveBeenCalledTimes(1))
-
-    contentDocument.mockRestore()
-    contentWindow.mockRestore()
+  it('renders the loadable widget component content', async () => {
+    const { container } = render(<WidgetFrame instanceId="inst-1" typeId="clock" mode="small" />)
+    expect(await screen.findByText(/:/)).toBeInTheDocument()
+    expect(container.querySelector('iframe')).toBeNull()
   })
 
-  it('does not start the handshake for the initial blank iframe document', async () => {
-    const contentDocument = vi
-      .spyOn(HTMLIFrameElement.prototype, 'contentDocument', 'get')
-      .mockReturnValue({ readyState: 'complete' } as Document)
-    const contentWindow = vi
-      .spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get')
-      .mockReturnValue({ location: { href: 'about:blank' } } as Window)
-
-    render(<WidgetFrame instanceId="inst-4" typeId="clock" mode="small" />)
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(handshake).not.toHaveBeenCalled()
-
-    contentDocument.mockRestore()
-    contentWindow.mockRestore()
-  })
-
-  it('keeps the existing widget connection when parent callback props change', async () => {
-    const contentDocument = vi
-      .spyOn(HTMLIFrameElement.prototype, 'contentDocument', 'get')
-      .mockReturnValue({ readyState: 'complete' } as Document)
-    const contentWindow = vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({
-      location: {
-        href: `${window.location.origin}/widgets/clock/index.html?mode=small&instanceId=inst-5`,
-      },
-    } as Window)
-
-    const firstFullscreen = vi.fn()
-    const secondFullscreen = vi.fn()
-    const { rerender } = render(
-      <WidgetFrame
-        instanceId="inst-5"
-        typeId="clock"
-        mode="small"
-        onRequestFullscreen={firstFullscreen}
-      />,
-    )
-    await waitFor(() => expect(handshake).toHaveBeenCalledTimes(1))
-
-    rerender(
-      <WidgetFrame
-        instanceId="inst-5"
-        typeId="clock"
-        mode="small"
-        onRequestFullscreen={secondFullscreen}
-      />,
-    )
-    await new Promise((resolve) => setTimeout(resolve, 0))
-
-    expect(createWidgetConnection).toHaveBeenCalledTimes(1)
-    expect(handshake).toHaveBeenCalledTimes(1)
-    expect(close).not.toHaveBeenCalled()
-
-    contentDocument.mockRestore()
-    contentWindow.mockRestore()
-  })
-
-  it('routes persisted widget events to the latest parent callbacks', async () => {
-    const contentDocument = vi
-      .spyOn(HTMLIFrameElement.prototype, 'contentDocument', 'get')
-      .mockReturnValue({ readyState: 'complete' } as Document)
-    const contentWindow = vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({
-      location: {
-        href: `${window.location.origin}/widgets/clock/index.html?mode=small&instanceId=inst-6`,
-      },
-    } as Window)
-
-    const firstFullscreen = vi.fn()
-    const secondFullscreen = vi.fn()
-    const { rerender } = render(
-      <WidgetFrame
-        instanceId="inst-6"
-        typeId="clock"
-        mode="small"
-        onRequestFullscreen={firstFullscreen}
-      />,
-    )
-    await waitFor(() => expect(handshake).toHaveBeenCalledTimes(1))
-
-    rerender(
-      <WidgetFrame
-        instanceId="inst-6"
-        typeId="clock"
-        mode="small"
-        onRequestFullscreen={secondFullscreen}
-      />,
-    )
-    vi.mocked(createWidgetConnection).mock.calls[0][0].handlers.onRequestFullscreen?.()
-
-    expect(firstFullscreen).not.toHaveBeenCalled()
-    expect(secondFullscreen).toHaveBeenCalledTimes(1)
-
-    contentDocument.mockRestore()
-    contentWindow.mockRestore()
+  it('shows the loading skeleton while the component is loading', () => {
+    vi.mocked(findWidgetType).mockReturnValue({
+      id: 'clock',
+      title: 'Clock',
+      loadComponent: () => new Promise<never>(() => {}),
+      defaultSize: { w: 3, h: 2 },
+      icon: 'Clock',
+    })
+    const { container } = render(<WidgetFrame instanceId="inst-skel" typeId="clock" mode="small" />)
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.querySelector('[class*="skeleton"]')).not.toBeNull()
   })
 })
