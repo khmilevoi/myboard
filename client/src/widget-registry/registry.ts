@@ -1,12 +1,12 @@
 import * as errore from 'errore'
+import type { WidgetLoader } from '../widget-host/types'
 
 export type WidgetIconName = 'Clock' | 'CalendarDays'
 
 export type WidgetType = {
   id: string
   title: string
-  /** URL of the widget's HTML entry, relative to the app origin. */
-  entry: string
+  loadComponent: WidgetLoader
   defaultSize: { w: number; h: number }
   /** lucide-react icon name used in the catalog menu. */
   icon: WidgetIconName
@@ -21,14 +21,17 @@ export const widgetTypes: WidgetType[] = [
   {
     id: 'clock',
     title: 'Clock',
-    entry: '/widgets/clock/index.html',
+    loadComponent: () => import('../../widgets/clock/Clock').then((mod) => ({ default: mod.Clock })),
     defaultSize: { w: 3, h: 2 },
     icon: 'Clock',
   },
   {
     id: 'ofelia-poop-duty',
     title: 'Какахи Офелии',
-    entry: '/widgets/ofelia-poop-duty/index.html',
+    loadComponent: () =>
+      import('../../widgets/ofelia-poop-duty/OfeliaPoopDuty').then((mod) => ({
+        default: mod.OfeliaPoopDuty,
+      })),
     defaultSize: { w: 3, h: 2 },
     icon: 'CalendarDays',
   },

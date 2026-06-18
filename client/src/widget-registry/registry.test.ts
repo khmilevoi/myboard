@@ -6,24 +6,34 @@ describe('widget registry', () => {
     expect(widgetTypes.some((t) => t.id === 'clock')).toBe(true)
   })
 
-  it('finds a known type', () => {
+  it('loads the clock component', async () => {
     const type = findWidgetType('clock')
     if (type instanceof Error) throw type
+
     expect(type.id).toBe('clock')
-    expect(type.entry).toBe('/widgets/clock/index.html')
+    expect(type).not.toHaveProperty('entry')
+    expect(typeof type.loadComponent).toBe('function')
     expect(type.defaultSize).toEqual({ w: 3, h: 2 })
+
+    const mod = await type.loadComponent()
+    expect(mod.default).toBeTypeOf('function')
   })
 
-  it('finds the Ofelia poop duty widget', () => {
+  it('loads the Ofelia poop duty widget', async () => {
     const type = findWidgetType('ofelia-poop-duty')
     if (type instanceof Error) throw type
+
+    expect(type).not.toHaveProperty('entry')
+    expect(typeof type.loadComponent).toBe('function')
     expect(type).toMatchObject({
       id: 'ofelia-poop-duty',
       title: 'Какахи Офелии',
-      entry: '/widgets/ofelia-poop-duty/index.html',
       defaultSize: { w: 3, h: 2 },
       icon: 'CalendarDays',
     })
+
+    const mod = await type.loadComponent()
+    expect(mod.default).toBeTypeOf('function')
   })
 
   it('uses a shared widget icon name type', () => {
