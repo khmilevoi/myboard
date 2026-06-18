@@ -69,14 +69,14 @@ export const Board = reatomMemo(() => {
                     <div className={styles.headerActions}>
                       <button
                         className={styles.iconButton}
-                        aria-label="Expand"
+                        aria-label="Развернуть"
                         onClick={wrap(() => expandedInstanceId.set(instance.id))}
                       >
                         <Maximize2 size={15} aria-hidden />
                       </button>
                       <button
                         className={styles.iconButton}
-                        aria-label="Remove"
+                        aria-label="Удалить"
                         onClick={wrap(() => removeInstance(instance.id))}
                       >
                         <X size={15} aria-hidden />
@@ -89,6 +89,7 @@ export const Board = reatomMemo(() => {
                       typeId={instance.typeId}
                       mode="small"
                       onRequestFullscreen={wrap(() => expandedInstanceId.set(instance.id))}
+                      onDelete={wrap(() => removeInstance(instance.id))}
                     />
                   </div>
                 </div>

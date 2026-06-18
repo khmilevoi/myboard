@@ -1,6 +1,17 @@
 .root {
+  position: relative;
   min-height: 100%;
   padding: 20px;
+}
+
+.root[data-interacting='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(var(--dot-grid) 1.1px, transparent 1.1px);
+  background-size: 32px 32px;
+  opacity: 0.5;
 }
 
 .gridItem {
@@ -8,32 +19,24 @@
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
-  animation: cardRise 0.5s var(--ease) backwards;
-  animation-delay: calc(var(--i, 0) * 60ms);
   transition:
     box-shadow 0.2s var(--ease),
-    transform 0.2s var(--ease);
+    border-color 0.2s var(--ease);
 }
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-raised), 0 8px 20px rgba(0, 0, 0, 0.06);
-}
-@keyframes cardRise {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+
+.gridItem:global(.react-draggable-dragging) .card,
+.gridItem:global(.react-resizable-resizing) .card {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-card);
 }
 
 .header {
@@ -50,18 +53,19 @@
   align-items: center;
   gap: 6px;
   cursor: grab;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--text-3);
   user-select: none;
 }
 .handle:active {
   cursor: grabbing;
 }
 .grip {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .headerActions {
@@ -81,20 +85,40 @@
   width: 28px;
   height: 28px;
   border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--surface-inset);
-  color: var(--text-dim);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--text-3);
   cursor: pointer;
   transition:
-    color 0.15s,
-    background 0.15s;
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
 }
 .iconButton:hover {
-  color: var(--accent);
+  color: var(--foreground);
+  background: var(--muted);
 }
 .iconButton:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+.gridItem :global(.react-resizable-handle-se) {
+  right: 6px;
+  bottom: 6px;
+  width: 18px;
+  height: 18px;
+  background: none;
+}
+.gridItem :global(.react-resizable-handle-se)::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+  border-radius: 0 0 4px 0;
 }
 
 .body {
