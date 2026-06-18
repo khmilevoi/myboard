@@ -2,15 +2,16 @@ import { wrap } from '@reatom/core'
 import type { MouseEvent } from 'react'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { reatomMemo } from '../../shared/reatom/reatom-memo'
 import type { ThemeMode } from '../../shared/theme/types'
 import { themeMode } from '../model/theme-model'
 import styles from './ThemeToggle.module.css'
 
 const OPTIONS: { mode: ThemeMode; label: string; Icon: LucideIcon }[] = [
-  { mode: 'light', label: 'Light', Icon: Sun },
-  { mode: 'dark', label: 'Dark', Icon: Moon },
-  { mode: 'system', label: 'System theme', Icon: Monitor },
+  { mode: 'light', label: 'Светлая тема', Icon: Sun },
+  { mode: 'dark', label: 'Тёмная тема', Icon: Moon },
+  { mode: 'system', label: 'Системная тема', Icon: Monitor },
 ]
 
 function setMode(mode: ThemeMode, event: MouseEvent) {
@@ -34,20 +35,24 @@ function setMode(mode: ThemeMode, event: MouseEvent) {
 export const ThemeToggle = reatomMemo(() => {
   const current = themeMode()
   return (
-    <div className={styles.group} role="group" aria-label="Theme">
+    <ToggleGroup
+      type="single"
+      value={current}
+      aria-label="Тема"
+      className={styles.group}
+    >
       {OPTIONS.map(({ mode, label, Icon }) => (
-        <button
+        <ToggleGroupItem
           key={mode}
-          type="button"
-          className={styles.button}
+          value={mode}
+          className={styles.item}
           aria-label={label}
           aria-pressed={current === mode}
-          data-active={current === mode}
-          onClick={wrap((event) => setMode(mode, event))}
+          onClick={wrap((event: MouseEvent) => setMode(mode, event))}
         >
           <Icon size={16} strokeWidth={2.2} aria-hidden />
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 }, 'ThemeToggle')

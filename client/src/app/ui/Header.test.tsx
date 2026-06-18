@@ -14,6 +14,6 @@ describe('Header', () => {
     render(<Header />)
     expect(screen.getByText('board')).toBeInTheDocument()
     expect(screen.getByText('my')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: /theme/i })).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Тема' })).toBeInTheDocument()
   })
 })
