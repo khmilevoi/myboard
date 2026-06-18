@@ -11,7 +11,7 @@ async function seedClockWidget(page: Page): Promise<void> {
   await page.reload()
 
   const header = new HeaderPage(page)
-  await header.addWidget('Clock')
+  await header.addWidget('Часы')
   await expect(new BoardPage(page).widgetCards).toHaveCount(1)
 }
 
@@ -19,16 +19,16 @@ test('theme buttons switch the document theme', async ({ page }) => {
   await page.goto('/')
 
   const header = new HeaderPage(page)
-  await header.setTheme('Dark')
+  await header.setTheme('Тёмная тема')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await expect(header.themeToggle.getByRole('button', { name: 'Dark' })).toHaveAttribute(
+  await expect(header.themeToggle.getByRole('radio', { name: 'Тёмная тема' })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
 
-  await header.setTheme('Light')
+  await header.setTheme('Светлая тема')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-  await expect(header.themeToggle.getByRole('button', { name: 'Light' })).toHaveAttribute(
+  await expect(header.themeToggle.getByRole('radio', { name: 'Светлая тема' })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
@@ -38,14 +38,14 @@ test('widget can be expanded without duplicate fullscreen or close controls', as
   await seedClockWidget(page)
 
   const board = new BoardPage(page)
-  await expect(board.getCard(0).getByRole('button', { name: 'Expand' })).toHaveCount(1)
+  await expect(board.getCard(0).getByRole('button', { name: 'Развернуть' })).toHaveCount(1)
   await expect(board.getCard(0).locator('iframe')).toHaveCount(0)
 
   await board.expandCard(0)
   const overlay = new OverlayPage(page)
   await overlay.waitForOpen()
   await expect(overlay.dialog).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Закрыть' })).toHaveCount(1)
   await expect(overlay.dialog.locator('iframe')).toHaveCount(0)
 
   await overlay.close()
@@ -112,4 +112,19 @@ test('widget can be dragged by its handle without runtime errors', async ({ page
   expect(after!.x).toBeGreaterThan(before!.x + 40)
   await expect(card.locator('[class*="skeleton"]')).toHaveCount(0)
   expect(consoleErrors).not.toContainEqual(expect.stringContaining('process is not defined'))
+})
+
+test('dark theme applies the dark background token', async ({ page }) => {
+  await page.goto('/')
+  const header = new HeaderPage(page)
+
+  await header.setTheme('Светлая тема')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  const light = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+
+  await header.setTheme('Тёмная тема')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  const dark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+
+  expect(dark).not.toBe(light)
 })
