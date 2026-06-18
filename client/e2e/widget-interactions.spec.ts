@@ -39,26 +39,25 @@ test('widget can be expanded without duplicate fullscreen or close controls', as
 
   const board = new BoardPage(page)
   await expect(board.getCard(0).getByRole('button', { name: 'Expand' })).toHaveCount(1)
-  await expect(board.getCard(0).frameLocator('iframe').getByTitle('Open fullscreen')).toHaveCount(0)
+  await expect(board.getCard(0).locator('iframe')).toHaveCount(0)
 
   await board.expandCard(0)
   const overlay = new OverlayPage(page)
   await overlay.waitForOpen()
   await expect(overlay.dialog).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(1)
-  await expect(overlay.dialog.frameLocator('iframe').getByRole('button', { name: 'Close' })).toHaveCount(
-    0,
-  )
+  await expect(overlay.dialog.locator('iframe')).toHaveCount(0)
 
   await overlay.close()
   await expect(overlay.dialog).toHaveCount(0)
 })
 
-test('widget loading skeleton disappears after the iframe is ready', async ({ page }) => {
+test('widget loading skeleton disappears after the loadable component is ready', async ({ page }) => {
   await seedClockWidget(page)
 
   const card = new BoardPage(page).getCard(0)
-  await expect(card.frameLocator('iframe').locator('body')).toContainText(':')
+  await expect(card).toContainText(':')
+  await expect(card.locator('iframe')).toHaveCount(0)
   await expect(card.locator('[class*="skeleton"]')).toHaveCount(0)
 })
 
