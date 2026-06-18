@@ -35,6 +35,7 @@ describe('WidgetFrame', () => {
     vi.mocked(findWidgetType).mockReturnValue({
       id: 'clock',
       title: 'Clock',
+      description: 'Текущее время и дата',
       loadComponent: () => new Promise<never>(() => {}),
       defaultSize: { w: 3, h: 2 },
       icon: 'Clock',
