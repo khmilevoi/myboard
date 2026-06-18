@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { findWidgetType, UnknownWidgetTypeError } from '../../widget-registry/model/registry'
 import { WidgetFrame } from './WidgetFrame'
 
@@ -19,10 +19,20 @@ beforeEach(() => {
 })
 
 describe('WidgetFrame', () => {
-  it('shows an error card for an unknown widget type', () => {
+  it('shows the restyled error card for an unknown widget type', () => {
     vi.mocked(findWidgetType).mockReturnValue(new UnknownWidgetTypeError({ typeId: 'missing' }))
     render(<WidgetFrame instanceId="inst-2" typeId="missing" mode="small" />)
-    expect(screen.getByText(/widget unavailable/i)).toBeInTheDocument()
+    expect(screen.getByText('Виджет не отвечает')).toBeInTheDocument()
+  })
+
+  it('calls onDelete from the unknown-type card', () => {
+    vi.mocked(findWidgetType).mockReturnValue(new UnknownWidgetTypeError({ typeId: 'missing' }))
+    const onDelete = vi.fn()
+    render(
+      <WidgetFrame instanceId="inst-2" typeId="missing" mode="small" onDelete={onDelete} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(onDelete).toHaveBeenCalledTimes(1)
   })
 
   it('renders the loadable widget component content', async () => {
@@ -34,7 +44,7 @@ describe('WidgetFrame', () => {
   it('shows the loading skeleton while the component is loading', () => {
     vi.mocked(findWidgetType).mockReturnValue({
       id: 'clock',
-      title: 'Clock',
+      title: 'Часы',
       description: 'Текущее время и дата',
       loadComponent: () => new Promise<never>(() => {}),
       defaultSize: { w: 3, h: 2 },
@@ -42,6 +52,6 @@ describe('WidgetFrame', () => {
     })
     const { container } = render(<WidgetFrame instanceId="inst-skel" typeId="clock" mode="small" />)
     expect(container.querySelector('iframe')).toBeNull()
-    expect(container.querySelector('[class*="skeleton"]')).not.toBeNull()
+    expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull()
   })
 })
