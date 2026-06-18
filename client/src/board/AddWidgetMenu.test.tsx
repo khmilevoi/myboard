@@ -16,7 +16,7 @@ describe('AddWidgetMenu', () => {
     const trigger = screen.getByRole('button', { name: /add widget/i })
     expect(instances()).toHaveLength(0)
     fireEvent.click(trigger)
-    fireEvent.click(screen.getByRole('button', { name: /clock/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /clock/i }))
     expect(instances()).toHaveLength(1)
     expect(instances()[0]?.typeId).toBe('clock')
     expect(trigger).toHaveFocus()
@@ -26,8 +26,8 @@ describe('AddWidgetMenu', () => {
     render(<AddWidgetMenu />)
     const trigger = screen.getByRole('button', { name: /add widget/i })
     fireEvent.click(trigger)
-    expect(screen.getByRole('button', { name: 'Какахи Офелии' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Какахи Офелии' }))
+    expect(screen.getByRole('menuitem', { name: 'Какахи Офелии' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Какахи Офелии' }))
     expect(instances()).toHaveLength(1)
     expect(instances()[0]?.typeId).toBe('ofelia-poop-duty')
     expect(trigger).toHaveFocus()
@@ -43,7 +43,7 @@ describe('AddWidgetMenu', () => {
 
     fireEvent.keyDown(list as HTMLElement, { key: 'Escape' })
 
-    expect(screen.queryByRole('button', { name: /clock/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /clock/i })).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
   })
 })

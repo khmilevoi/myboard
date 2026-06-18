@@ -23,6 +23,7 @@ export const AddWidgetMenu = reatomComponent(() => {
         ref={triggerRef}
         type="button"
         className={styles.trigger}
+        aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => {
           if (open) {
@@ -41,6 +42,7 @@ export const AddWidgetMenu = reatomComponent(() => {
         <>
           <div className={styles.scrim} onClick={closeMenu} />
           <ul
+            role="menu"
             className={styles.menu}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
@@ -52,9 +54,10 @@ export const AddWidgetMenu = reatomComponent(() => {
             {widgetTypes.map((type) => {
               const Icon = WIDGET_ICONS[type.icon]
               return (
-                <li key={type.id}>
+                <li key={type.id} role="none">
                   <button
                     type="button"
+                    role="menuitem"
                     className={styles.item}
                     onClick={() => {
                       addInstance(type.id)
