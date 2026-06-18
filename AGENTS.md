@@ -6,7 +6,7 @@ Always load and follow `C:\Users\Khmil\.agents\skills\reatom` and `C:\Users\Khmi
 
 ## Project Structure & Module Organization
 
-This is a private pnpm workspace with two packages: `client` and `server`. The React/Vite app lives in `client/src`, with feature folders such as `app`, `board`, `storage`, `theme`, `widget-host`, and `widget-registry`. Standalone widget entries live under `client/widgets/<widget-name>` and are auto-discovered by Vite when they include an `index.html`. Client e2e tests live in `client/e2e`; package-level and component tests are colocated as `*.test.ts` or `*.test.tsx`. The storage API lives in `server/*.ts`, builds to `server/dist`, and uses Valkey.
+This is a private pnpm workspace with two packages: `client` and `server`. The React/Vite app lives in `client/src`, with feature folders such as `app`, `board`, `storage`, `theme`, `widget-host`, and `widget-registry`. Each client feature or widget must be split into `ui/` and `model/`: React components, CSS Modules, and view-only tests go in `ui/`; Reatom atoms, actions, computeds, domain utilities, storage adapters, and model tests go in `model/`. Standalone widget entries live under `client/widgets/<widget-name>` and are auto-discovered by Vite when they include an `index.html`. Client e2e tests live in `client/e2e`; package-level and component tests are colocated as `*.test.ts` or `*.test.tsx`. The storage API lives in `server/*.ts`, builds to `server/dist`, and uses Valkey.
 
 ## Build, Test, and Development Commands
 
@@ -25,6 +25,8 @@ Use pnpm from the repository root.
 ## Coding Style & Naming Conventions
 
 Use TypeScript and ESM imports. Follow the existing style: 2-space indentation, single quotes, no semicolons, named exports, and CSS Modules named `*.module.css`. React components use PascalCase filenames such as `Header.tsx`; utility modules use kebab-case or domain names such as `board-storage.ts`. Widget directories use kebab-case.
+
+All exported React function components in `client/src` and `client/widgets` must be defined with `reatomMemo` from `client/src/shared/reatom/reatom-memo.ts`. This is a hard rule: use `reatomMemo` even for simple presentational components so every component has the same Reatom integration and React memo wrapper. Keep business logic, derived state, timers, async flows, and cross-component UI state in `model/` Reatom atoms/actions/computeds; leave only refs, DOM interop, and truly tiny view glue in `ui/`. For React error boundaries, keep the class implementation internal and export a `reatomMemo` wrapper component.
 
 ## Testing Guidelines
 
