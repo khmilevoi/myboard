@@ -10,42 +10,36 @@ beforeEach(() => {
   localStorage.clear()
 })
 
+async function openCatalog() {
+  render(<AddWidgetMenu />)
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить виджет' }))
+  await screen.findByText('Каталог виджетов')
+}
+
 describe('AddWidgetMenu', () => {
-  it('adds a widget when a catalog item is clicked', async () => {
-    render(<AddWidgetMenu />)
-    const trigger = screen.getByRole('button', { name: /add widget/i })
+  it('opens the catalog and lists widgets with descriptions', async () => {
+    await openCatalog()
+    expect(screen.getByText('Часы')).toBeInTheDocument()
+    expect(screen.getByText('Текущее время и дата')).toBeInTheDocument()
+    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+  })
+
+  it('adds a widget when its add button is clicked', async () => {
+    await openCatalog()
     expect(instances()).toHaveLength(0)
-    fireEvent.click(trigger)
-    fireEvent.click(await screen.findByRole('menuitem', { name: /clock/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить: Часы' }))
     expect(instances()).toHaveLength(1)
     expect(instances()[0]?.typeId).toBe('clock')
-    await waitFor(() => expect(trigger).toHaveFocus())
   })
 
-  it('shows and adds the Ofelia poop duty widget', async () => {
-    render(<AddWidgetMenu />)
-    const trigger = screen.getByRole('button', { name: /add widget/i })
-    fireEvent.click(trigger)
-    expect(await screen.findByRole('menuitem', { name: 'Какахи Офелии' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Какахи Офелии' }))
-    expect(instances()).toHaveLength(1)
-    expect(instances()[0]?.typeId).toBe('ofelia-poop-duty')
-    await waitFor(() => expect(trigger).toHaveFocus())
-  })
-
-  it('closes on Escape and returns focus to the trigger', async () => {
-    render(<AddWidgetMenu />)
-    const trigger = screen.getByRole('button', { name: /add widget/i })
-    fireEvent.click(trigger)
-
-    const list = await screen.findByRole('menu')
-    expect(list).toBeInTheDocument()
-
-    fireEvent.keyDown(list, { key: 'Escape' })
-
-    await waitFor(() => {
-      expect(screen.queryByRole('menuitem', { name: /clock/i })).not.toBeInTheDocument()
+  it('filters rows by the search query', async () => {
+    await openCatalog()
+    fireEvent.change(screen.getByPlaceholderText('Поиск виджетов'), {
+      target: { value: 'очередь' },
     })
-    expect(trigger).toHaveFocus()
+    await waitFor(() => {
+      expect(screen.queryByText('Часы')).not.toBeInTheDocument()
+    })
+    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
   })
 })

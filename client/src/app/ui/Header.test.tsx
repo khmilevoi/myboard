@@ -15,5 +15,6 @@ describe('Header', () => {
     expect(screen.getByText('board')).toBeInTheDocument()
     expect(screen.getByText('my')).toBeInTheDocument()
     expect(screen.getByRole('radiogroup', { name: 'Тема' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Добавить виджет' })).toBeInTheDocument()
   })
 })
