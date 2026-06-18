@@ -1,5 +1,5 @@
 .root {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -14,7 +14,7 @@
 
 .smallButton {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   border: 0;
   background: var(--surface);
   color: var(--text);
@@ -28,7 +28,7 @@
 .timeSmall {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: clamp(20px, 12vw, 56px);
+  font-size: clamp(20px, 12cqi, 56px);
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
   color: var(--accent-2);
@@ -37,13 +37,13 @@
 .timeLarge {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: clamp(48px, 18vw, 160px);
+  font-size: clamp(48px, 18cqi, 160px);
   font-variant-numeric: tabular-nums;
   letter-spacing: 2px;
   color: var(--accent-2);
 }
 
 .date {
-  font-size: clamp(14px, 3vw, 28px);
+  font-size: clamp(14px, 3cqi, 28px);
   color: var(--text-dim);
 }
