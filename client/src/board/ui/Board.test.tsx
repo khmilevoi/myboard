@@ -30,7 +30,7 @@ beforeEach(() => {
 describe('Board', () => {
   it('shows the empty state when there are no widgets', () => {
     render(<Board />)
-    expect(screen.getByText(/no widgets yet/i)).toBeInTheDocument()
+    expect(screen.getByText('Начните с первого виджета')).toBeInTheDocument()
   })
 
   it('renders a card for each instance', () => {
