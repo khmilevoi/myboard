@@ -10,8 +10,6 @@ const envSchema = z.object({
   MODE: z.string().default('production'),
   DEV: z.boolean().default(false),
   PROD: z.boolean().default(true),
-  // Host↔widget handshake timeout (ms). Env vars are strings, so coerce.
-  VITE_WIDGET_HANDSHAKE_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
 })
 
 export type Env = z.infer<typeof envSchema>
