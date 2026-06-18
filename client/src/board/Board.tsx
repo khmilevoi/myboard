@@ -57,7 +57,11 @@ export const Board = reatomComponent(() => {
           width={width || 1200}
           layout={currentLayout}
           gridConfig={{ cols: 12, rowHeight: 30 }}
-          dragConfig={{ enabled: true, handle: '.widget-drag-handle', cancel: 'button,iframe' }}
+          dragConfig={{
+            enabled: true,
+            handle: '.widget-drag-handle',
+            cancel: 'button,input,textarea,select,a,[data-widget-drag-cancel]',
+          }}
           resizeConfig={{ enabled: true, handles: ['se'] }}
           compactor={verticalCompactor}
           onDragStart={beginInteraction}

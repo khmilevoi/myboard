@@ -39,5 +39,6 @@ describe('Board', () => {
     const card = await screen.findByTestId('widget-card')
     const handle = within(card).getByText('Clock')
     expect(handle).toHaveClass('widget-drag-handle')
+    expect(card.querySelector('iframe')).toBeNull()
   })
 })

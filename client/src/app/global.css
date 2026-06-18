@@ -29,7 +29,7 @@ body[data-board-interacting='true'] * {
   user-select: none !important;
 }
 
-body[data-board-interacting='true'] iframe {
+body[data-board-interacting='true'] [data-widget-surface] {
   pointer-events: none;
 }
 
