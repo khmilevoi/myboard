@@ -1,11 +1,11 @@
-import { wrap } from '@reatom/core'
-import { Plus } from 'lucide-react'
-import { reatomMemo } from '../../shared/reatom/reatom-memo'
-import { openAddWidgetMenu } from '../model/add-widget-menu-model'
-import styles from './EmptyState.module.css'
+import { wrap } from "@reatom/core";
+import { Plus } from "lucide-react";
+import { reatomMemo } from "../../shared/reatom/reatom-memo";
+import { openAddWidgetMenu } from "../model/add-widget-menu-model";
+import styles from "./EmptyState.module.css";
 
 export const EmptyState = reatomMemo(() => {
-  const open = wrap(() => openAddWidgetMenu())
+  const open = wrap(() => openAddWidgetMenu());
   return (
     <div className={styles.empty}>
       <span className={styles.icon}>
@@ -13,18 +13,15 @@ export const EmptyState = reatomMemo(() => {
       </span>
       <h2 className={styles.title}>Начните с первого виджета</h2>
       <p className={styles.hint}>
-        Добавляйте виджеты из каталога, свободно перемещайте их и меняйте размер. Раскладка
-        сохранится на этом устройстве.
+        Добавляйте виджеты из каталога, свободно перемещайте их и меняйте
+        размер. Раскладка сохранится на этом устройстве.
       </p>
       <div className={styles.actions}>
         <button type="button" className={styles.primary} onClick={open}>
           <Plus size={16} strokeWidth={2.4} aria-hidden />
           Добавить виджет
         </button>
-        <button type="button" className={styles.secondary} onClick={open}>
-          Открыть каталог
-        </button>
       </div>
     </div>
-  )
-}, 'EmptyState')
+  );
+}, "EmptyState");
