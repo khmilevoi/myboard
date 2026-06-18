@@ -1,4 +1,3 @@
-import { LayoutGrid } from 'lucide-react'
 import { AddWidgetMenu } from '../../board/ui/AddWidgetMenu'
 import { reatomMemo } from '../../shared/reatom/reatom-memo'
 import { ThemeToggle } from '../../theme/ui/ThemeToggle'
@@ -9,9 +8,9 @@ export const Header = reatomMemo(() => {
     <header className={styles.header}>
       <div className={styles.brand}>
         <span className={styles.logo}>
-          <LayoutGrid size={18} strokeWidth={2.2} aria-hidden />
+          <span className={styles.logoMuted}>my</span>
+          <span className={styles.logoStrong}>board</span>
         </span>
-        <span className={styles.name}>myboard</span>
       </div>
       <div className={styles.actions}>
         <ThemeToggle />
