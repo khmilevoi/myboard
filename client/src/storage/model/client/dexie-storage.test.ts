@@ -1,8 +1,9 @@
 import 'fake-indexeddb/auto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db, clearExpired } from './db'
 import { createDexieStorage } from './dexie-storage'
 import { instanceNamespace } from '../scope'
+import { installFakeBroadcastChannel } from '../test/fakes'
 
 const ns = instanceNamespace('inst-1')
 const storage = createDexieStorage(ns)
@@ -66,5 +67,46 @@ describe('createDexieStorage', () => {
     await storage.set('draft', { text: 123 })
     const { StorageError } = await import('../types')
     expect(await storage.get('draft', schema)).toBeInstanceOf(StorageError)
+  })
+})
+
+describe('createDexieStorage subscribe', () => {
+  beforeEach(() => {
+    installFakeBroadcastChannel()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('emits the current value on subscribe then on each change', async () => {
+    await storage.set('draft', { text: 'first' })
+    const seen: unknown[] = []
+    const off = storage.subscribe<{ text: string }>('draft', (event) => {
+      seen.push(event instanceof Error ? 'error' : event.value)
+    })
+    // initial emit is async (best-effort get)
+    await vi.waitFor(() => expect(seen.length).toBeGreaterThanOrEqual(1))
+    await storage.set('draft', { text: 'second' })
+    await storage.delete('draft')
+    off()
+    expect(seen).toEqual([{ text: 'first' }, { text: 'second' }, null])
+  })
+
+  it('clearExpired broadcasts a tombstone for purged keys', async () => {
+    const seen: unknown[] = []
+    storage.subscribe('temp', (event) => {
+      seen.push(event instanceof Error ? 'error' : event.value)
+    })
+    await vi.waitFor(() => expect(seen.length).toBe(1)) // initial emit: null (missing)
+    seen.length = 0
+    await db.entries.put({
+      key: `${ns}temp`,
+      namespace: ns,
+      value: 5,
+      expiresAt: Date.now() - 1,
+      updatedAt: Date.now(),
+    })
+    await clearExpired()
+    await vi.waitFor(() => expect(seen).toEqual([null]))
   })
 })

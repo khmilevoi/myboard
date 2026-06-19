@@ -71,4 +71,13 @@ describe('createHttpStorage', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))))
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
+
+  it('subscribe emits the current value once on attach', async () => {
+    stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
+    const seen: unknown[] = []
+    storage.subscribe('settings', (event) => {
+      seen.push(event instanceof Error ? 'error' : event.value)
+    })
+    await vi.waitFor(() => expect(seen).toEqual([{ a: 1 }]))
+  })
 })

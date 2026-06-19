@@ -3,11 +3,13 @@ import {
   StorageError,
   type StorageApi,
   type StorageEntry,
+  type StorageListener,
   type StorageOptions,
 } from '../types'
 import { toFullKey, toRelativeKey } from '../scope'
 import { db as defaultDb, type StorageDb } from './db'
 import { parseValue } from '../validate'
+import { registerLocal, publishChange } from './channel'
 
 export function createDexieStorage(
   namespace: string,
@@ -54,29 +56,31 @@ export function createDexieStorage(
       value: T,
       options?: StorageOptions,
     ): Promise<StorageError | void> {
-      const now = Date.now();
+      const now = Date.now()
       const entry: StorageEntry<T> = {
         key: toFullKey(namespace, key),
         namespace,
         value,
         expiresAt: options?.ttlMs != null ? now + options.ttlMs : null,
         updatedAt: now,
-      };
+      }
       const result = await table
         .put(entry)
         .catch(
-          (cause) => new StorageError({ reason: "dexie write failed", cause }),
-        );
-      if (result instanceof Error) return result;
+          (cause) => new StorageError({ reason: 'dexie write failed', cause }),
+        )
+      if (result instanceof Error) return result
+      publishChange(toFullKey(namespace, key), value)
     },
 
     async delete(key: string): Promise<StorageError | void> {
       const result = await table
         .delete(toFullKey(namespace, key))
         .catch(
-          (cause) => new StorageError({ reason: "dexie delete failed", cause }),
-        );
-      if (result instanceof Error) return result;
+          (cause) => new StorageError({ reason: 'dexie delete failed', cause }),
+        )
+      if (result instanceof Error) return result
+      publishChange(toFullKey(namespace, key), null)
     },
 
     async has(key: string): Promise<StorageError | boolean> {
@@ -99,6 +103,25 @@ export function createDexieStorage(
       return rows
         .filter((row) => row.expiresAt == null || row.expiresAt >= now)
         .map((row) => toRelativeKey(namespace, row.key));
+    },
+
+    subscribe<T>(
+      key: string,
+      listener: StorageListener<T>,
+      schema?: z.ZodType<T>,
+    ): () => void {
+      const fullKey = toFullKey(namespace, key)
+      const deliver = (raw: unknown) => {
+        if (raw === null) return listener({ value: null })
+        const parsed = parseValue(schema, raw)
+        listener(parsed instanceof Error ? parsed : { value: parsed })
+      }
+      const unregister = registerLocal(fullKey, deliver)
+      void this.get<T>(key, schema).then((current) => {
+        if (current instanceof Error) return listener(current)
+        listener({ value: current })
+      })
+      return unregister
     },
   };
 }

@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import { StorageError, type StorageApi, type StorageOptions } from '../types'
+import { StorageError, type StorageApi, type StorageListener, type StorageOptions } from '../types'
 import { toFullKey, toRelativeKey } from '../scope'
 import { parseValue } from '../validate'
 
@@ -83,8 +83,21 @@ export function createHttpStorage(
         (cause) =>
           new StorageError({ reason: "server KEYS json parse failed", cause }),
       );
-      if (body instanceof Error) return body;
-      return body.keys.map((full) => toRelativeKey(namespace, full));
+      if (body instanceof Error) return body
+      return body.keys.map((full) => toRelativeKey(namespace, full))
+    },
+
+    subscribe<T>(
+      key: string,
+      listener: StorageListener<T>,
+      schema?: z.ZodType<T>,
+    ): () => void {
+      // Initial value only; live updates are wired to SSE in a later step.
+      void this.get<T>(key, schema).then((current) => {
+        if (current instanceof Error) return listener(current)
+        listener({ value: current })
+      })
+      return () => {}
     },
   };
 }
