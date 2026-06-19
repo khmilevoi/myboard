@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StorageError } from '../types'
 import { createHttpStorage } from './http-storage'
 import { typeNamespace } from '../scope'
+import { FakeEventSource, installFakeEventSource } from '../test/fakes'
 
 const ns = typeNamespace('clock')
 const storage = createHttpStorage(ns)
@@ -72,12 +73,18 @@ describe('createHttpStorage', () => {
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
 
-  it('subscribe emits the current value once on attach', async () => {
+  it('subscribe emits the initial value then live SSE updates', async () => {
+    installFakeEventSource()
     stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
     const seen: unknown[] = []
-    storage.subscribe('settings', (event) => {
+    storage.subscribe<{ a: number }>('settings', (event) => {
       seen.push(event instanceof Error ? 'error' : event.value)
     })
-    await vi.waitFor(() => expect(seen).toEqual([{ a: 1 }]))
+    await vi.waitFor(() => expect(seen).toContainEqual({ a: 1 }))
+
+    const es = FakeEventSource.instances[0]
+    es.emit('ready', { connId: 'c1' })
+    es.emit('message', { key: 'w:t:clock:settings', value: { a: 2 } })
+    expect(seen).toContainEqual({ a: 2 })
   })
 })
