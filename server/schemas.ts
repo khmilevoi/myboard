@@ -19,3 +19,21 @@ export function formatZodError(err: ZodError): { errors: { path: (string | numbe
     })),
   }
 }
+
+export const EventsBodySchema = z.object({
+  subscribe: z.array(z.string()).optional(),
+  unsubscribe: z.array(z.string()).optional(),
+})
+
+export type EventsBody = z.infer<typeof EventsBodySchema>
+
+export const StorageEventSchema = z.object({
+  key: z.string(),
+  value: z.unknown(),
+})
+
+export type StorageEvent = z.infer<typeof StorageEventSchema>
+
+export const EventsParamsSchema = z.object({
+  connId: z.string(),
+})

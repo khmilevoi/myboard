@@ -11,24 +11,28 @@ beforeEach(() => {
 })
 
 describe('ThemeToggle', () => {
-  it('renders a button per mode', () => {
+  it('renders a button per mode inside the Тема group', () => {
     render(<ThemeToggle />)
-    expect(screen.getByRole('button', { name: /light/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /dark/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /system/i })).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Тема' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Светлая тема' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Тёмная тема' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Системная тема' })).toBeInTheDocument()
   })
 
   it('sets the theme mode on click', () => {
     render(<ThemeToggle />)
-    fireEvent.click(screen.getByRole('button', { name: /dark/i }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Тёмная тема' }))
     expect(themeMode()).toBe('dark')
   })
 
   it('marks the active mode with aria-pressed', async () => {
     render(<ThemeToggle />)
-    fireEvent.click(screen.getByRole('button', { name: /dark/i }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Тёмная тема' }))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /dark/i })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('radio', { name: 'Тёмная тема' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
     })
   })
 })

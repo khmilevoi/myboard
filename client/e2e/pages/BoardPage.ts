@@ -6,7 +6,7 @@ export class BoardPage {
 
   constructor(readonly page: Page) {
     this.widgetCards = page.locator('[data-testid="widget-card"]')
-    this.emptyState = page.getByRole('heading', { name: 'No widgets yet' })
+    this.emptyState = page.getByRole('heading', { name: 'Начните с первого виджета' })
   }
 
   getCard(index: number): Locator {
@@ -14,10 +14,10 @@ export class BoardPage {
   }
 
   async expandCard(index: number): Promise<void> {
-    await this.getCard(index).getByRole('button', { name: 'Expand' }).click()
+    await this.getCard(index).getByRole('button', { name: 'Развернуть' }).click()
   }
 
   async removeCard(index: number): Promise<void> {
-    await this.getCard(index).getByRole('button', { name: 'Remove' }).click()
+    await this.getCard(index).getByRole('button', { name: 'Удалить' }).click()
   }
 }

@@ -6,7 +6,7 @@ export class OverlayPage {
 
   constructor(readonly page: Page) {
     this.dialog = page.getByRole('dialog')
-    this.closeButton = this.dialog.getByRole('button', { name: 'Close' })
+    this.closeButton = this.dialog.getByRole('button', { name: 'Закрыть' })
   }
 
   async waitForOpen(): Promise<void> {

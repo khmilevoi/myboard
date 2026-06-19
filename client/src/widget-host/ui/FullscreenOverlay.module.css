@@ -1,34 +1,67 @@
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
+.overlay {
+  background: var(--scrim);
+  backdrop-filter: blur(8px);
+}
+
+.panel {
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-  backdrop-filter: blur(16px);
-  animation: overlayIn 0.2s var(--ease);
-}
-@keyframes overlayIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  width: min(900px, 92vw);
+  height: min(680px, 88vh);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
 }
 
 .bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  gap: 16px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border);
 }
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--primary);
+}
+
+.titleBlock {
+  min-width: 0;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .title {
-  font-family: var(--font-display);
   font-weight: 600;
   font-size: 17px;
-  color: var(--text);
+  color: var(--foreground);
+}
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.subtitle {
+  font-size: 13px;
+  color: var(--muted-foreground);
 }
 
 .close {
@@ -36,19 +69,20 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-dim);
-  box-shadow: var(--shadow-raised-sm);
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text-3);
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
 }
 .close:hover {
-  color: var(--accent);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 .close:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
 

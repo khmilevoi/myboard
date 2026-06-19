@@ -2,6 +2,7 @@
 node_modules/
 .pnp/
 .pnp.js
+.pnpm-store
 
 # build output
 dist/
@@ -33,8 +34,6 @@ pnpm-debug.log*
 # Playwright
 playwright-report/
 test-results/
-
-.pnpm-store
 
 # git worktrees (local development branches)
 .worktrees/

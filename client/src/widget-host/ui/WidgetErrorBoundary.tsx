@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle, RotateCw } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { reatomMemo } from '../../shared/reatom/reatom-memo'
 import styles from './WidgetFrame.module.css'
 
@@ -8,6 +9,7 @@ type Props = {
   resetKey: number
   onError: (error: Error) => void
   onRetry: () => void
+  onDelete?: () => void
 }
 
 type State = { error: Error | null }
@@ -30,15 +32,33 @@ class WidgetErrorBoundaryView extends Component<Props, State> {
   }
 
   render() {
-    if (!this.state.error) return this.props.children
+    const { error } = this.state
+    if (!error) return this.props.children
 
     return (
       <div className={styles.errorCard}>
-        <AlertTriangle className={styles.errorIcon} size={22} aria-hidden />
-        <div>Widget failed to load</div>
-        <button className={styles.retry} aria-label="Retry" onClick={this.props.onRetry}>
-          <RotateCw size={15} aria-hidden /> Retry
-        </button>
+        <span className={styles.errorTile}>
+          <AlertTriangle size={22} aria-hidden />
+        </span>
+        <div className={styles.errorTitle}>Виджет не отвечает</div>
+        <div className={styles.errorText}>Не удалось загрузить виджет</div>
+        <Badge variant="outline" className={styles.errorBadge}>
+          {error.name}
+        </Badge>
+        <div className={styles.errorActions}>
+          <button className={styles.retry} aria-label="Повторить" onClick={this.props.onRetry}>
+            <RotateCw size={15} aria-hidden /> Повторить
+          </button>
+          {this.props.onDelete && (
+            <button
+              className={styles.delete}
+              aria-label="Удалить"
+              onClick={this.props.onDelete}
+            >
+              Удалить
+            </button>
+          )}
+        </div>
       </div>
     )
   }

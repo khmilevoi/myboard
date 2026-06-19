@@ -26,3 +26,9 @@ export async function handleKeys(ops: ValkeyOps, prefix: string): Promise<Handle
   const keys = await ops.scanKeys(prefix)
   return { status: 200, body: { keys } }
 }
+
+export const EVENTS_CHANNEL = 'storage:events'
+
+export async function publishChange(ops: ValkeyOps, key: string, value: unknown): Promise<void> {
+  await ops.publish(EVENTS_CHANNEL, JSON.stringify({ key, value }))
+}

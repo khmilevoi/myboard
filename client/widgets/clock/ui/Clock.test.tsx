@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { Clock } from './Clock'
 import type { WidgetRuntimeProps } from '../../../src/widget-host/model/types'
+import { createWidgetStorage } from '../../../src/storage/model/widget-storage'
 
 function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
   return {
@@ -13,6 +14,10 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
     requestFullscreen: vi.fn(),
     requestClose: vi.fn(),
     reportError: vi.fn(),
+    storage: createWidgetStorage({
+      instanceId: 'inst-clock',
+      typeId: 'clock',
+    }),
   }
 }
 

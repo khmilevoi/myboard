@@ -15,9 +15,8 @@
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit"
   },
   "dependencies": {
-    "@fontsource-variable/fraunces": "^5.2.9",
-    "@fontsource-variable/geist": "^5.2.9",
-    "@fontsource-variable/nunito": "^5.2.7",
+    "@fontsource-variable/hanken-grotesk": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@reatom/core": "^1001.1.0",
     "@reatom/react": "^1001.0.0",
     "@tailwindcss/vite": "^4.3.1",

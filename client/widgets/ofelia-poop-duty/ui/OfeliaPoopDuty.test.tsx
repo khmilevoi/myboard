@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { WidgetRuntimeProps } from '../../../src/widget-host/model/types'
+import { createWidgetStorage } from '../../../src/storage/model/widget-storage'
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 
 const fixedNow = new Date('2026-06-16T10:00:00.000Z')
@@ -15,6 +16,10 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
     requestFullscreen: vi.fn(),
     requestClose: vi.fn(),
     reportError: vi.fn(),
+    storage: createWidgetStorage({
+      instanceId: 'ofelia-poop-duty-1',
+      typeId: 'ofelia-poop-duty',
+    }),
   }
 }
 

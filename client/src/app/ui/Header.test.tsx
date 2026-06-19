@@ -12,8 +12,9 @@ beforeEach(() => {
 describe('Header', () => {
   it('renders brand, theme toggle and the add-widget control', () => {
     render(<Header />)
-    expect(screen.getByText('myboard')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: /theme/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /add widget/i })).toBeInTheDocument()
+    expect(screen.getByText('board')).toBeInTheDocument()
+    expect(screen.getByText('my')).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: 'Тема' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Добавить виджет' })).toBeInTheDocument()
   })
 })

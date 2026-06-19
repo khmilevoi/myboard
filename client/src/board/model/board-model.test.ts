@@ -33,7 +33,7 @@ describe('board-model', () => {
     expect(instances()[0]).toMatchObject({ id, typeId: 'clock' })
 
     const item = layout().find((layoutItem) => layoutItem.i === id)
-    expect(item).toMatchObject({ w: 3, h: 2 })
+    expect(item).toMatchObject({ w: 3, h: 4 })
   })
 
   it('adds an instance when crypto.randomUUID is unavailable', () => {

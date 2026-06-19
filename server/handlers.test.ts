@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { handleGet, handlePut, handleDelete, handleKeys } from './handlers'
+import { handleGet, handlePut, handleDelete, handleKeys, publishChange } from './handlers'
 import type { ValkeyOps } from './valkey'
 
 function mockOps(overrides: Partial<ValkeyOps> = {}): ValkeyOps {
@@ -8,6 +8,7 @@ function mockOps(overrides: Partial<ValkeyOps> = {}): ValkeyOps {
     set: vi.fn(async () => {}),
     del: vi.fn(async () => {}),
     scanKeys: vi.fn(async () => []),
+    publish: vi.fn(async () => {}),
     ...overrides,
   }
 }
@@ -39,5 +40,13 @@ describe('handlers', () => {
     const ops = mockOps({ scanKeys: vi.fn(async () => ['w:t:clock:a']) })
     expect(await handleKeys(ops, 'w:t:clock:')).toEqual({ status: 200, body: { keys: ['w:t:clock:a'] } })
     expect(ops.scanKeys).toHaveBeenCalledWith('w:t:clock:')
+  })
+})
+
+describe('publishChange', () => {
+  it('publishes the change envelope to the events channel', async () => {
+    const ops = mockOps({ publish: vi.fn(async () => {}) })
+    await publishChange(ops, 'w:t:clock:settings', { a: 1 })
+    expect(ops.publish).toHaveBeenCalledWith('storage:events', JSON.stringify({ key: 'w:t:clock:settings', value: { a: 1 } }))
   })
 })

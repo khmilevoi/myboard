@@ -8,7 +8,7 @@ function Broken(): never {
 }
 
 describe('WidgetErrorBoundary', () => {
-  it('renders fallback and calls onError', () => {
+  it('renders the restyled fallback and calls onError', () => {
     const onError = vi.fn()
     render(
       <WidgetErrorBoundary resetKey={0} onRetry={vi.fn()} onError={onError}>
@@ -16,7 +16,7 @@ describe('WidgetErrorBoundary', () => {
       </WidgetErrorBoundary>,
     )
 
-    expect(screen.getByText(/widget failed to load/i)).toBeInTheDocument()
+    expect(screen.getByText('Виджет не отвечает')).toBeInTheDocument()
     expect(onError).toHaveBeenCalled()
   })
 
@@ -28,27 +28,45 @@ describe('WidgetErrorBoundary', () => {
       </WidgetErrorBoundary>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /retry/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
-  it('clears the error when resetKey changes', () => {
-    const onRetry = vi.fn()
-    const onError = vi.fn()
-    const Good = () => <div>all good</div>
-
-    const { rerender } = render(
-      <WidgetErrorBoundary resetKey={0} onRetry={onRetry} onError={onError}>
+  it('calls onDelete when delete is clicked', () => {
+    const onDelete = vi.fn()
+    render(
+      <WidgetErrorBoundary resetKey={0} onRetry={vi.fn()} onError={vi.fn()} onDelete={onDelete}>
         <Broken />
       </WidgetErrorBoundary>,
     )
-    expect(screen.getByText(/widget failed to load/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(onDelete).toHaveBeenCalledTimes(1)
+  })
+
+  it('omits the delete button when onDelete is not provided', () => {
+    render(
+      <WidgetErrorBoundary resetKey={0} onRetry={vi.fn()} onError={vi.fn()}>
+        <Broken />
+      </WidgetErrorBoundary>,
+    )
+    expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
+  })
+
+  it('clears the error when resetKey changes', () => {
+    const Good = () => <div>all good</div>
+    const { rerender } = render(
+      <WidgetErrorBoundary resetKey={0} onRetry={vi.fn()} onError={vi.fn()}>
+        <Broken />
+      </WidgetErrorBoundary>,
+    )
+    expect(screen.getByText('Виджет не отвечает')).toBeInTheDocument()
 
     rerender(
-      <WidgetErrorBoundary resetKey={1} onRetry={onRetry} onError={onError}>
+      <WidgetErrorBoundary resetKey={1} onRetry={vi.fn()} onError={vi.fn()}>
         <Good />
       </WidgetErrorBoundary>,
     )
-    expect(screen.getByText(/all good/i)).toBeInTheDocument()
+    expect(screen.getByText('all good')).toBeInTheDocument()
   })
 })

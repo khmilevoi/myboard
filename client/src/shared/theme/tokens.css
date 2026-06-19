@@ -1,52 +1,81 @@
-@import '@fontsource-variable/fraunces';
-@import '@fontsource-variable/nunito';
-
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #efe6d8;
-  --bg-grad: radial-gradient(130% 100% at 85% -10%, #f6efe2, #ebe0d0);
-  --surface: #faf5ec;
-  --surface-inset: #e4d8c5;
-  --text: #463726;
-  --text-dim: #8a755c;
-  --accent: #cf7b53;
-  --accent-contrast: #ffffff;
-  --accent-2: #3f5d4a;
-  --shadow-dark: #d8c9b2;
-  --shadow-light: #fffdf6;
-  --border: rgba(70, 55, 38, 0.1);
-  --skeleton: rgba(70, 55, 38, 0.08);
+
+  /* shadcn semantic tokens */
+  --background: oklch(0.975 0.003 255);
+  --foreground: oklch(0.27 0.02 262);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.27 0.02 262);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.27 0.02 262);
+  --primary: oklch(0.55 0.17 281);
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.972 0.004 255);
+  --secondary-foreground: oklch(0.5 0.018 262);
+  --muted: oklch(0.972 0.004 255);
+  --muted-foreground: oklch(0.5 0.018 262);
+  --accent: oklch(0.972 0.004 255);
+  --accent-foreground: oklch(0.27 0.02 262);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.91 0.005 255);
+  --input: oklch(0.91 0.005 255);
+  --ring: oklch(0.55 0.17 281);
+
+  /* app-specific tokens */
+  --board: oklch(0.96 0.004 255);
+  --border-strong: oklch(0.84 0.006 255);
+  --text-3: oklch(0.66 0.012 262);
+  --accent-soft: oklch(0.955 0.032 285);
+  --scrim: oklch(0.45 0.02 262 / 0.34);
+  --success: oklch(0.7 0.16 150);
+  --dot-grid: oklch(0.84 0.006 255);
+  --shadow-card: 0 1px 2px rgba(20, 22, 40, 0.05), 0 2px 8px rgba(20, 22, 40, 0.05);
+  --shadow-overlay: 0 24px 50px -18px rgba(30, 32, 55, 0.22);
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0d0e11;
-  --bg-grad: radial-gradient(130% 100% at 85% -10%, #1a1c20, #0d0e11);
-  --surface: #1b1d22;
-  --surface-inset: #15161a;
-  --text: #e9e4d9;
-  --text-dim: #9a9488;
-  --accent: #e08a5f;
-  --accent-contrast: #15161a;
-  --accent-2: #a3c79a;
-  --shadow-dark: #060708;
-  --shadow-light: #24262d;
-  --border: rgba(233, 228, 217, 0.08);
-  --skeleton: rgba(233, 228, 217, 0.06);
+
+  --background: oklch(0.19 0.008 262);
+  --foreground: oklch(0.95 0.005 262);
+  --card: oklch(0.225 0.01 262);
+  --card-foreground: oklch(0.95 0.005 262);
+  --popover: oklch(0.225 0.01 262);
+  --popover-foreground: oklch(0.95 0.005 262);
+  --primary: oklch(0.68 0.15 285);
+  --primary-foreground: oklch(0.18 0.03 285);
+  --secondary: oklch(0.26 0.012 262);
+  --secondary-foreground: oklch(0.72 0.012 262);
+  --muted: oklch(0.26 0.012 262);
+  --muted-foreground: oklch(0.72 0.012 262);
+  --accent: oklch(0.26 0.012 262);
+  --accent-foreground: oklch(0.95 0.005 262);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.3 0.012 262);
+  --input: oklch(0.3 0.012 262);
+  --ring: oklch(0.68 0.15 285);
+
+  --board: oklch(0.165 0.008 262);
+  --border-strong: oklch(0.36 0.014 262);
+  --text-3: oklch(0.55 0.012 262);
+  --accent-soft: oklch(0.32 0.07 285);
+  --scrim: oklch(0.1 0.01 262 / 0.62);
+  --success: oklch(0.72 0.16 150);
+  --dot-grid: oklch(0.36 0.014 262);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-overlay: 0 24px 70px rgba(0, 0, 0, 0.55);
 }
 
 :root {
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 18px;
-  --radius-xl: 22px;
-  --radius-pill: 999px;
-  --font-display: 'Fraunces Variable', Georgia, serif;
-  --font-ui: 'Nunito Variable', system-ui, sans-serif;
-  --shadow-raised: 5px 5px 13px var(--shadow-dark), -5px -5px 13px var(--shadow-light);
-  --shadow-raised-sm: 3px 3px 8px var(--shadow-dark), -3px -3px 8px var(--shadow-light);
-  --shadow-pressed: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
-  --shadow-accent: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+  --radius: 0.625rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Compatibility for existing widget internals; do not use in new host chrome. */
+  --surface: var(--card);
+  --text: var(--foreground);
+  --text-dim: var(--muted-foreground);
+  --font-ui: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --font-display: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --accent-2: var(--primary);
 }

@@ -1,86 +1,184 @@
-export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
-export const BASE_DUTY_DATE = '2026-06-16' as const
-export const DUTY_ROTATION = ['Леша', 'Карина'] as const
+import { withStorageKey } from "@/storage/model/reatom/reatom-storage";
+import { WidgetStorage } from "@/storage/model/widget-storage";
+import { action, atom, computed, withAsyncData } from "@reatom/core";
+import z from "zod";
 
-export type DutyPerson = (typeof DUTY_ROTATION)[number]
+export const DUTY_TIME_ZONE = "Europe/Warsaw" as const;
+export const BASE_DUTY_DATE = Temporal.PlainDate.from({
+  year: 2026,
+  month: 6,
+  day: 16,
+});
+export const DUTY_ROTATION = ["Леша", "Карина"] as const;
 
-const DUTY_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
-  timeZone: DUTY_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-})
+export type DutyPerson = (typeof DUTY_ROTATION)[number];
 
-const DUTY_VISIBLE_DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU', {
-  timeZone: DUTY_TIME_ZONE,
-  dateStyle: 'long',
-})
-
-function getDateParts(date: Date): { year: string; month: string; day: string } {
-  const parts = DUTY_DATE_FORMATTER.formatToParts(date)
-  const year = parts.find((part) => part.type === 'year')?.value
-  const month = parts.find((part) => part.type === 'month')?.value
-  const day = parts.find((part) => part.type === 'day')?.value
-
-  if (!year || !month || !day) {
-    throw new Error('Failed to format Warsaw date parts')
-  }
-
-  return { year, month, day }
+export interface OfeliaDutyModelProps {
+  storage: WidgetStorage;
 }
 
-function parseDateKey(dateKey: string): Date {
-  const [year, month, day] = dateKey.split('-').map(Number)
+const NumberOfDebtsSchema = z.record(
+  z.enum(DUTY_ROTATION),
+  z.int().nonnegative(),
+);
+type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>;
 
-  if (!year || !month || !day) {
-    throw new Error(`Invalid date key: ${dateKey}`)
-  }
-
-  return new Date(Date.UTC(year, month - 1, day))
+function getToday(): Temporal.PlainDate {
+  return Temporal.Instant.fromEpochMilliseconds(Date.now())
+    .toZonedDateTimeISO(DUTY_TIME_ZONE)
+    .toPlainDate();
 }
 
-function formatDateKey(date: Date): string {
-  const { year, month, day } = getDateParts(date)
-  return `${year}-${month}-${day}`
+function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
+  return date.subtract({
+    days: date.dayOfWeek - 1,
+  });
 }
 
-export function getWarsawDateKey(date: Date): string {
-  return formatDateKey(date)
-}
+export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
+  const numberOfDebts = atom<NumberOfDebts | null>(null).extend(
+    withStorageKey({
+      api: storage.shared.server,
+      key: "debts",
+      schema: NumberOfDebtsSchema,
+    }),
+  );
 
-export function addDaysToDateKey(dateKey: string, days: number): string {
-  const shiftedDate = parseDateKey(dateKey)
-  shiftedDate.setUTCDate(shiftedDate.getUTCDate() + days)
-  return formatDateKey(shiftedDate)
-}
+  const startOfWeek = atom<Temporal.PlainDate>(getStartOfWeek(getToday()));
 
-export function getOfeliaDutyByDateKey(dateKey: string): DutyPerson {
-  const baseDate = parseDateKey(BASE_DUTY_DATE)
-  const targetDate = parseDateKey(dateKey)
-  const diffDays = Math.round((targetDate.getTime() - baseDate.getTime()) / 86_400_000)
-  const rotationIndex = ((diffDays % DUTY_ROTATION.length) + DUTY_ROTATION.length) % DUTY_ROTATION.length
+  const goToNextWeek = action(() => {
+    startOfWeek.set(startOfWeek().add({ days: 7 }));
+  });
 
-  return DUTY_ROTATION[rotationIndex]
-}
+  const goToPrevWeek = action(() => {
+    startOfWeek.set(startOfWeek().subtract({ days: 7 }));
+  });
 
-export function getOfeliaDuty(date: Date): DutyPerson {
-  return getOfeliaDutyByDateKey(getWarsawDateKey(date))
-}
+  const goToCurrentWeek = action(() => {
+    startOfWeek.set(getStartOfWeek(getToday()));
+  });
 
-export function getOfeliaDutySummary(date: Date): {
-  dateKey: string
-  today: DutyPerson
-  tomorrow: DutyPerson
-} {
-  const dateKey = getWarsawDateKey(date)
+  const debtDays = computed(() => {
+    const debts = numberOfDebts();
+
+    if (!debts) {
+      return null;
+    }
+
+    return getDebtDays(debts, getToday()).reduce((acc, debtDay) => {
+      acc.set(debtDay.date.toString(), debtDay);
+      return acc;
+    }, new Map<string, DebtDay>());
+  });
+
+  const currentWeek = computed(() => {
+    const today = getToday();
+    const weekStart = startOfWeek();
+
+    const week = Array.from({ length: 7 }, (_, dayOffset) => {
+      const date = weekStart.add({ days: dayOffset });
+      const duty = getOfeliaDutyByDate(date);
+
+      const debt = debtDays()?.get(date.toString()) ?? null;
+
+      return {
+        date,
+        isToday: date.equals(today),
+        day: date.day,
+        duty,
+        debt: debt?.person ?? null,
+      };
+    });
+    return week;
+  });
+
+  const inDebt = action(async (person: DutyPerson) => {
+    const debts = { ...numberOfDebts() };
+
+    debts[person] = (debts[person] ?? 0) + 1;
+
+    numberOfDebts.set(normalizeDebts(debts));
+  }).extend(withAsyncData({ status: true }));
+
+  const forgiveDebt = action(async (person: DutyPerson) => {
+    const debts = { ...numberOfDebts() };
+
+    debts[person] = Math.max((debts[person] ?? 0) - 1, 0);
+
+    numberOfDebts.set(normalizeDebts(debts));
+  }).extend(withAsyncData({ status: true }));
 
   return {
-    dateKey,
-    today: getOfeliaDutyByDateKey(dateKey),
-    tomorrow: getOfeliaDutyByDateKey(addDaysToDateKey(dateKey, 1)),
+    startOfWeek,
+    goToNextWeek,
+    goToPrevWeek,
+    goToCurrentWeek,
+    numberOfDebts,
+    currentWeek,
+    inDebt,
+    forgiveDebt,
+  };
+};
+
+type DebtDay = {
+  date: Temporal.PlainDate;
+  person: DutyPerson;
+};
+
+function getDebtDays(
+  debts: Partial<NumberOfDebts>,
+  startDate: Temporal.PlainDate,
+): DebtDay[] {
+  if (DUTY_ROTATION.length < 2) {
+    return [];
   }
+
+  const days: DebtDay[] = [];
+  let currentDate = startDate;
+
+  for (const person of DUTY_ROTATION) {
+    let remainingDebt = debts[person] ?? 0;
+
+    while (remainingDebt > 0) {
+      const plannedDuty = getOfeliaDutyByDate(currentDate);
+
+      if (plannedDuty !== person) {
+        days.push({
+          date: currentDate,
+          person,
+        });
+
+        remainingDebt -= 1;
+      }
+
+      currentDate = currentDate.add({ days: 1 });
+    }
+  }
+
+  return days;
 }
 
-export function formatDutyDate(date: Date): string {
-  return DUTY_VISIBLE_DATE_FORMATTER.format(date)
+export function normalizeDebts(debts: Partial<NumberOfDebts>): NumberOfDebts {
+  const values = DUTY_ROTATION.map((person) => debts[person] ?? 0);
+
+  const minDebt = Math.min(...values);
+
+  return DUTY_ROTATION.reduce<NumberOfDebts>(
+    (normalized, person) => ({
+      ...normalized,
+      [person]: (debts[person] ?? 0) - minDebt,
+    }),
+    {} as NumberOfDebts,
+  );
+}
+
+export function getOfeliaDutyByDate(date: Temporal.PlainDate): DutyPerson {
+  const diffDays = BASE_DUTY_DATE.until(date, { largestUnit: "day" }).days;
+  const rotationIndex = positiveModulo(diffDays, DUTY_ROTATION.length);
+
+  return DUTY_ROTATION[rotationIndex];
+}
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
 }

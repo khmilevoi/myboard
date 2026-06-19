@@ -13,7 +13,7 @@ describe('widget registry', () => {
     expect(type.id).toBe('clock')
     expect(type).not.toHaveProperty('entry')
     expect(typeof type.loadComponent).toBe('function')
-    expect(type.defaultSize).toEqual({ w: 3, h: 2 })
+    expect(type.defaultSize).toEqual({ w: 3, h: 4 })
 
     const mod = await type.loadComponent()
     expect(mod.default).toEqual(
@@ -29,8 +29,9 @@ describe('widget registry', () => {
     expect(typeof type.loadComponent).toBe('function')
     expect(type).toMatchObject({
       id: 'ofelia-poop-duty',
-      title: 'Какахи Офелии',
-      defaultSize: { w: 3, h: 2 },
+      title: 'Лоток Офелии',
+      description: 'Чья сегодня очередь убирать',
+      defaultSize: { w: 3, h: 5 },
       icon: 'CalendarDays',
     })
 
@@ -38,6 +39,16 @@ describe('widget registry', () => {
     expect(mod.default).toEqual(
       expect.objectContaining({ $$typeof: expect.any(Symbol), type: expect.any(Function) }),
     )
+  })
+
+  it('gives every widget a Russian title and description', () => {
+    const clock = findWidgetType('clock')
+    if (clock instanceof Error) throw clock
+    expect(clock.title).toBe('Часы')
+    expect(clock.description).toBe('Текущее время и дата')
+    for (const type of widgetTypes) {
+      expect(type.description.length).toBeGreaterThan(0)
+    }
   })
 
   it('uses a shared widget icon name type', () => {

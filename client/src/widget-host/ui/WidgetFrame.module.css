@@ -3,28 +3,13 @@
   width: 100%;
   height: 100%;
   container-type: inline-size;
-  background: var(--surface);
+  background: var(--card);
 }
 
 .skeleton {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    100deg,
-    var(--skeleton) 30%,
-    color-mix(in srgb, var(--skeleton) 50%, transparent) 50%,
-    var(--skeleton) 70%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.2s linear infinite;
-}
-@keyframes shimmer {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
+  inset: 12px;
+  height: auto;
 }
 
 .errorCard {
@@ -35,32 +20,79 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px;
+  padding: 16px;
   text-align: center;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--card);
+  color: var(--foreground);
 }
-.errorIcon {
-  color: var(--accent);
+
+.errorTile {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: oklch(0.94 0.05 70);
+  color: oklch(0.56 0.15 55);
 }
-.errorCard small {
-  color: var(--text-dim);
+:root[data-theme='dark'] .errorTile {
+  background: oklch(0.34 0.06 70);
+  color: oklch(0.82 0.13 70);
+}
+
+.errorTitle {
+  font-weight: 600;
+  font-size: 15px;
+}
+.errorText {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.errorBadge {
+  font-family: var(--font-mono);
+  color: oklch(0.5 0.16 35);
+  background: oklch(0.95 0.04 45);
+  border-color: oklch(0.88 0.06 50);
+}
+
+.errorActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .retry {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
-  padding: 6px 14px;
+  height: 34px;
+  padding: 0 15px;
   border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-weight: 700;
+  border-radius: 9px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
   cursor: pointer;
 }
-.retry:focus-visible {
-  outline: 2px solid var(--accent);
+.retry:focus-visible,
+.delete:focus-visible {
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+.delete {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 15px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--destructive);
+  font-weight: 600;
+  cursor: pointer;
+}
+.delete:hover {
+  background: color-mix(in oklch, var(--destructive), transparent 90%);
 }
