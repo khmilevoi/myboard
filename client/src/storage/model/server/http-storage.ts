@@ -3,6 +3,7 @@ import { StorageError, type StorageApi, type StorageListener, type StorageOption
 import { toFullKey, toRelativeKey } from '../scope'
 import { parseValue } from '../validate'
 import { getSseManager } from './sse-client'
+import { subscribeStorageKey } from '../subscribe-key'
 
 export function createHttpStorage(
   namespace: string,
@@ -94,17 +95,12 @@ export function createHttpStorage(
       schema?: z.ZodType<T>,
     ): () => void {
       const fullKey = toFullKey(namespace, key)
-      const deliver = (raw: unknown) => {
-        if (raw === null) return listener({ value: null })
-        const parsed = parseValue(schema, raw)
-        listener(parsed instanceof Error ? parsed : { value: parsed })
-      }
-      const remove = getSseManager(baseUrl).add(fullKey, deliver)
-      void this.get<T>(key, schema).then((current) => {
-        if (current instanceof Error) return listener(current)
-        listener({ value: current })
+      return subscribeStorageKey({
+        getCurrent: () => this.get<T>(key, schema),
+        register: (deliver) => getSseManager(baseUrl).add(fullKey, deliver),
+        listener,
+        schema,
       })
-      return remove
     },
   };
 }

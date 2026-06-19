@@ -7,6 +7,7 @@ import {
   type StorageOptions,
 } from '../types'
 import { toFullKey, toRelativeKey } from '../scope'
+import { subscribeStorageKey } from '../subscribe-key'
 import { db as defaultDb, type StorageDb } from './db'
 import { parseValue } from '../validate'
 import { registerLocal, publishChange } from './channel'
@@ -111,17 +112,12 @@ export function createDexieStorage(
       schema?: z.ZodType<T>,
     ): () => void {
       const fullKey = toFullKey(namespace, key)
-      const deliver = (raw: unknown) => {
-        if (raw === null) return listener({ value: null })
-        const parsed = parseValue(schema, raw)
-        listener(parsed instanceof Error ? parsed : { value: parsed })
-      }
-      const unregister = registerLocal(fullKey, deliver)
-      void this.get<T>(key, schema).then((current) => {
-        if (current instanceof Error) return listener(current)
-        listener({ value: current })
+      return subscribeStorageKey({
+        getCurrent: () => this.get<T>(key, schema),
+        register: (deliver) => registerLocal(fullKey, deliver),
+        listener,
+        schema,
       })
-      return unregister
     },
   };
 }
