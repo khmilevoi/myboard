@@ -40,6 +40,8 @@ function createSseManager(baseUrl: string): SseManager {
   let registered = new Set<string>()
   let connId: string | undefined
   let syncScheduled = false
+  let syncInFlight = false
+  let syncDirty = false
   let retryTimer: ReturnType<typeof setTimeout> | undefined
 
   function scheduleRetry(): void {
@@ -97,30 +99,54 @@ function createSseManager(baseUrl: string): SseManager {
   }
 
   async function sync(): Promise<void> {
+    if (syncInFlight) {
+      syncDirty = true
+      return
+    }
     if (!connId) return
     const subscribe = [...desired].filter((key) => !registered.has(key))
     const unsubscribe = [...registered].filter((key) => !desired.has(key))
     if (subscribe.length === 0 && unsubscribe.length === 0) return
 
+    const requestConnId = connId
     const nextRegistered = new Set(desired)
-    const response = await fetch(`${baseUrl}/events/${connId}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ subscribe, unsubscribe }),
-    }).catch((cause) => {
+    syncInFlight = true
+    let response: Response | null
+    try {
+      response = await fetch(`${baseUrl}/events/${requestConnId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ subscribe, unsubscribe }),
+      })
+    } catch (cause) {
       console.warn('storage SSE registration failed', cause)
-      return null
-    })
+      response = null
+    } finally {
+      syncInFlight = false
+    }
+
+    if (connId !== requestConnId) {
+      syncDirty = false
+      scheduleSync()
+      return
+    }
 
     if (response === null || !response.ok) {
       if (response !== null) {
         console.warn('storage SSE registration failed', response.status)
       }
+      syncDirty = false
       scheduleRetry()
       return
     }
 
     registered = nextRegistered
+    const needsResync =
+      syncDirty ||
+      [...desired].some((key) => !registered.has(key)) ||
+      [...registered].some((key) => !desired.has(key))
+    syncDirty = false
+    if (needsResync) scheduleSync()
   }
 
   return {

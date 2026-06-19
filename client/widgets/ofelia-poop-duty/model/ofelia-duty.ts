@@ -1,4 +1,4 @@
-import { reatomStorageKey } from "@/storage/model/reatom/reatom-storage";
+import { withStorageKey } from "@/storage/model/reatom/reatom-storage";
 import { WidgetStorage } from "@/storage/model/widget-storage";
 import { action, atom, computed, withAsyncData } from "@reatom/core";
 import z from "zod";
@@ -17,107 +17,158 @@ export interface OfeliaDutyModelProps {
   storage: WidgetStorage;
 }
 
-const NumberOfDeptsSchema = z.record(z.enum(DUTY_ROTATION), z.number());
-type NumberOfDepts = z.infer<typeof NumberOfDeptsSchema>;
+const NumberOfDebtsSchema = z.record(
+  z.enum(DUTY_ROTATION),
+  z.int().nonnegative(),
+);
+type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>;
+
+function getToday(): Temporal.PlainDate {
+  return Temporal.Instant.fromEpochMilliseconds(Date.now())
+    .toZonedDateTimeISO(DUTY_TIME_ZONE)
+    .toPlainDate();
+}
+
+function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
+  return date.subtract({
+    days: date.dayOfWeek - 1,
+  });
+}
 
 export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
-  const numberOfDebts = reatomStorageKey(
-    { api: storage.shared.server, key: "debts", schema: NumberOfDeptsSchema },
-    "numberOfDebts",
+  const numberOfDebts = atom<NumberOfDebts | null>(null).extend(
+    withStorageKey({
+      api: storage.shared.server,
+      key: "debts",
+      schema: NumberOfDebtsSchema,
+    }),
   );
 
-  const startOfWeek = atom<Temporal.PlainDate>(
-    Temporal.Instant.fromEpochMilliseconds(Date.now()).toZonedDateTimeISO(DUTY_TIME_ZONE).toPlainDate(),
-  );
+  const startOfWeek = atom<Temporal.PlainDate>(getStartOfWeek(getToday()));
+
+  const goToNextWeek = action(() => {
+    startOfWeek.set(startOfWeek().add({ days: 7 }));
+  });
+
+  const goToPrevWeek = action(() => {
+    startOfWeek.set(startOfWeek().subtract({ days: 7 }));
+  });
+
+  const goToCurrentWeek = action(() => {
+    startOfWeek.set(getStartOfWeek(getToday()));
+  });
+
+  const debtDays = computed(() => {
+    const debts = numberOfDebts();
+
+    if (!debts) {
+      return null;
+    }
+
+    return getDebtDays(debts, getToday()).reduce((acc, debtDay) => {
+      acc.set(debtDay.date.toString(), debtDay);
+      return acc;
+    }, new Map<string, DebtDay>());
+  });
 
   const currentWeek = computed(() => {
-    const today = Temporal.Instant.fromEpochMilliseconds(Date.now()).toZonedDateTimeISO(DUTY_TIME_ZONE).toPlainDate();
-    const weekStart = today.subtract({
-      days: today.dayOfWeek - 1,
-    });
-
-    const debts = { ...numberOfDebts.value() };
-    const debtPersons = DUTY_ROTATION.filter(
-      (person) => (debts[person] ?? 0) > 0,
-    );
-
-    const calcDebt = (date: Temporal.PlainDate, duty: DutyPerson) => {
-      if (debtPersons.length === 0) return null;
-
-      const isTodayOrFuture = Temporal.PlainDate.compare(date, today) >= 0;
-
-      if (!isTodayOrFuture) {
-        return null;
-      }
-
-      const debtPerson = debtPersons[0];
-
-      const debt = debts[debtPerson] ?? 0;
-
-      if (debt <= 0 || debtPerson === duty) return null;
-
-      debts[debtPerson] = debt - 1;
-
-      if (debts[debtPerson] === 0) {
-        debtPersons.shift();
-      }
-
-      return debtPerson;
-    };
+    const today = getToday();
+    const weekStart = startOfWeek();
 
     const week = Array.from({ length: 7 }, (_, dayOffset) => {
       const date = weekStart.add({ days: dayOffset });
       const duty = getOfeliaDutyByDate(date);
 
-      const debt = calcDebt(date, duty);
+      const debt = debtDays()?.get(date.toString()) ?? null;
 
       return {
         date,
         isToday: date.equals(today),
         day: date.day,
         duty,
-        debt,
+        debt: debt?.person ?? null,
       };
     });
     return week;
   });
 
-  const inDept = action(async (person: DutyPerson) => {
-    const debts = { ...numberOfDebts.value() };
+  const inDebt = action(async (person: DutyPerson) => {
+    const debts = { ...numberOfDebts() };
 
     debts[person] = (debts[person] ?? 0) + 1;
 
-    await storage.shared.server.set("debts", normalizeDepts(debts));
+    numberOfDebts.set(normalizeDebts(debts));
   }).extend(withAsyncData({ status: true }));
 
-  const forgiveDept = action(async (person: DutyPerson) => {
-    const debts = { ...numberOfDebts.value() };
+  const forgiveDebt = action(async (person: DutyPerson) => {
+    const debts = { ...numberOfDebts() };
 
     debts[person] = Math.max((debts[person] ?? 0) - 1, 0);
 
-    await storage.shared.server.set("debts", normalizeDepts(debts));
+    numberOfDebts.set(normalizeDebts(debts));
   }).extend(withAsyncData({ status: true }));
 
   return {
     startOfWeek,
+    goToNextWeek,
+    goToPrevWeek,
+    goToCurrentWeek,
     numberOfDebts,
     currentWeek,
-    inDept,
-    forgiveDept,
+    inDebt,
+    forgiveDebt,
   };
 };
 
-export function normalizeDepts(depts: Partial<NumberOfDepts>): NumberOfDepts {
-  const values = DUTY_ROTATION.map((person) => depts[person] ?? 0);
+type DebtDay = {
+  date: Temporal.PlainDate;
+  person: DutyPerson;
+};
+
+function getDebtDays(
+  debts: Partial<NumberOfDebts>,
+  startDate: Temporal.PlainDate,
+): DebtDay[] {
+  if (DUTY_ROTATION.length < 2) {
+    return [];
+  }
+
+  const days: DebtDay[] = [];
+  let currentDate = startDate;
+
+  for (const person of DUTY_ROTATION) {
+    let remainingDebt = debts[person] ?? 0;
+
+    while (remainingDebt > 0) {
+      const plannedDuty = getOfeliaDutyByDate(currentDate);
+
+      if (plannedDuty !== person) {
+        days.push({
+          date: currentDate,
+          person,
+        });
+
+        remainingDebt -= 1;
+      }
+
+      currentDate = currentDate.add({ days: 1 });
+    }
+  }
+
+  return days;
+}
+
+export function normalizeDebts(debts: Partial<NumberOfDebts>): NumberOfDebts {
+  const values = DUTY_ROTATION.map((person) => debts[person] ?? 0);
 
   const minDebt = Math.min(...values);
 
-  return DUTY_ROTATION.reduce<NumberOfDepts>(
+  return DUTY_ROTATION.reduce<NumberOfDebts>(
     (normalized, person) => ({
       ...normalized,
-      [person]: (depts[person] ?? 0) - minDebt,
+      [person]: (debts[person] ?? 0) - minDebt,
     }),
-    {} as NumberOfDepts,
+    {} as NumberOfDebts,
   );
 }
 

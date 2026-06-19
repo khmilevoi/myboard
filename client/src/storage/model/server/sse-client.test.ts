@@ -53,6 +53,32 @@ describe('getSseManager', () => {
     })
   })
 
+  it('unsubscribes when local interest is removed while registration is pending', async () => {
+    let resolveRegistration: ((response: Response) => void) | undefined
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          resolveRegistration = resolve
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getSseManager } = await import('./sse-client')
+    const mgr = getSseManager('/api/storage')
+    const unsubscribe = mgr.add('k1', () => {})
+
+    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    unsubscribe()
+    resolveRegistration?.(new Response(null, { status: 204 }))
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const secondCall = fetchMock.mock.calls[1]
+    const body = JSON.parse(secondCall[1]!.body as string)
+    expect(body).toEqual({ subscribe: [], unsubscribe: ['k1'] })
+  })
+
   it('retries registration when the POST rejects', async () => {
     vi.useFakeTimers()
     const fetchMock = vi
