@@ -59,7 +59,6 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       theme,
       onRequestFullscreen,
       onRequestClose,
-      reportError,
     ]);
 
     if (type instanceof Error) {

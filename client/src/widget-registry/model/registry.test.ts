@@ -13,7 +13,7 @@ describe('widget registry', () => {
     expect(type.id).toBe('clock')
     expect(type).not.toHaveProperty('entry')
     expect(typeof type.loadComponent).toBe('function')
-    expect(type.defaultSize).toEqual({ w: 3, h: 2 })
+    expect(type.defaultSize).toEqual({ w: 3, h: 4 })
 
     const mod = await type.loadComponent()
     expect(mod.default).toEqual(
@@ -31,7 +31,7 @@ describe('widget registry', () => {
       id: 'ofelia-poop-duty',
       title: 'Лоток Офелии',
       description: 'Чья сегодня очередь убирать',
-      defaultSize: { w: 3, h: 2 },
+      defaultSize: { w: 3, h: 5 },
       icon: 'CalendarDays',
     })
 
