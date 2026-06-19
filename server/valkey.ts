@@ -5,6 +5,7 @@ export type ValkeyOps = {
   set(key: string, value: string, ttlMs?: number): Promise<void>
   del(key: string): Promise<void>
   scanKeys(matchPrefix: string): Promise<string[]>
+  publish(channel: string, message: string): Promise<void>
 }
 
 export function createValkeyOps(url = process.env.VALKEY_URL ?? 'redis://localhost:6379'): ValkeyOps {
@@ -31,5 +32,23 @@ export function createValkeyOps(url = process.env.VALKEY_URL ?? 'redis://localho
       } while (cursor !== '0')
       return found
     },
+    async publish(channel, message) {
+      await client.publish(channel, message)
+    },
+  }
+}
+
+/** Subscribe to a channel on a dedicated connection. Returns a teardown function. */
+export function createValkeySubscriber(
+  channel: string,
+  onMessage: (message: string) => void,
+  url = process.env.VALKEY_URL ?? 'redis://localhost:6379',
+): () => void {
+  const client = new Valkey(url)
+  void client.subscribe(channel)
+  client.on('message', (_channel, message) => onMessage(message))
+  return () => {
+    void client.unsubscribe(channel)
+    client.disconnect()
   }
 }
