@@ -26,3 +26,14 @@ export const EventsBodySchema = z.object({
 })
 
 export type EventsBody = z.infer<typeof EventsBodySchema>
+
+export const StorageEventSchema = z.object({
+  key: z.string(),
+  value: z.unknown(),
+})
+
+export type StorageEvent = z.infer<typeof StorageEventSchema>
+
+export const EventsParamsSchema = z.object({
+  connId: z.string(),
+})

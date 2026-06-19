@@ -91,4 +91,23 @@ describe('getSseManager', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     vi.useRealTimers()
   })
+
+  it('ignores malformed ready frames without registering', async () => {
+    const { getSseManager } = await import('./sse-client')
+    getSseManager('/api/storage').add('k1', () => {})
+
+    FakeEventSource.instances[0].emit('ready', { connId: 123 })
+    await Promise.resolve()
+
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('ignores malformed message frames without delivery', async () => {
+    const { getSseManager } = await import('./sse-client')
+    const seen: unknown[] = []
+    getSseManager('/api/storage').add('k1', (raw) => seen.push(raw))
+
+    FakeEventSource.instances[0].emit('message', { key: 123, value: 1 })
+    expect(seen).toEqual([])
+  })
 })

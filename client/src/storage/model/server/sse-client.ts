@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 export type SseDeliver = (rawValue: unknown) => void
 
 type SseManager = { add(fullKey: string, deliver: SseDeliver): () => void }
@@ -14,6 +16,23 @@ export function getSseManager(baseUrl: string): SseManager {
 }
 
 const REGISTER_RETRY_MS = 1_000
+
+const ReadyEventSchema = z.object({
+  connId: z.string(),
+})
+
+const StorageEventSchema = z.object({
+  key: z.string(),
+  value: z.unknown(),
+})
+
+function parseMessageData(event: MessageEvent): unknown | Error {
+  try {
+    return JSON.parse(event.data) as unknown
+  } catch (cause) {
+    return new Error('invalid SSE JSON', { cause })
+  }
+}
 
 function createSseManager(baseUrl: string): SseManager {
   const subscribers = new Map<string, Set<SseDeliver>>()
@@ -34,19 +53,38 @@ function createSseManager(baseUrl: string): SseManager {
   const source = new EventSource(`${baseUrl}/events`)
 
   source.addEventListener('ready', (event) => {
+    const raw = parseMessageData(event as MessageEvent)
+    if (raw instanceof Error) {
+      console.warn('invalid storage SSE ready frame', raw)
+      return
+    }
+    const parsed = ReadyEventSchema.safeParse(raw)
+    if (!parsed.success) {
+      console.warn('invalid storage SSE ready frame', parsed.error)
+      return
+    }
     if (retryTimer) {
       clearTimeout(retryTimer)
       retryTimer = undefined
     }
-    connId = JSON.parse((event as MessageEvent).data).connId
+    connId = parsed.data.connId
     registered = new Set() // new connection: server knows nothing yet
     scheduleSync()
   })
 
   source.onmessage = (event) => {
-    const message = JSON.parse((event as MessageEvent).data) as { key: string; value: unknown }
-    const set = subscribers.get(message.key)
-    if (set) for (const deliver of set) deliver(message.value)
+    const raw = parseMessageData(event)
+    if (raw instanceof Error) {
+      console.warn('invalid storage SSE message frame', raw)
+      return
+    }
+    const parsed = StorageEventSchema.safeParse(raw)
+    if (!parsed.success) {
+      console.warn('invalid storage SSE message frame', parsed.error)
+      return
+    }
+    const set = subscribers.get(parsed.data.key)
+    if (set) for (const deliver of set) deliver(parsed.data.value)
   }
 
   function scheduleSync(): void {

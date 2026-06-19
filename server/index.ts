@@ -4,7 +4,7 @@ import Router from 'find-my-way'
 import { createValkeyOps, createValkeySubscriber } from './valkey'
 import { readJsonBody } from './body'
 import { handleGet, handlePut, handleDelete, handleKeys, publishChange, type HandlerResult } from './handlers'
-import { PutPayloadSchema, PrefixQuerySchema, EventsBodySchema, formatZodError } from './schemas'
+import { PutPayloadSchema, PrefixQuerySchema, EventsBodySchema, EventsParamsSchema, StorageEventSchema, formatZodError } from './schemas'
 import { SseRegistry, writeSseEvent, fanout } from './sse'
 
 const ops = createValkeyOps()
@@ -12,11 +12,21 @@ const router = Router({ ignoreTrailingSlash: true })
 
 const registry = new SseRegistry()
 createValkeySubscriber('storage:events', (message) => {
+  let raw: unknown
   try {
-    fanout(registry, JSON.parse(message) as { key: string; value: unknown })
-  } catch {
-    // ignore malformed pub/sub payloads
+    raw = JSON.parse(message) as unknown
+  } catch (cause) {
+    console.warn('invalid storage pub/sub JSON', cause)
+    return
   }
+
+  const parsed = StorageEventSchema.safeParse(raw)
+  if (!parsed.success) {
+    console.warn('invalid storage pub/sub event', parsed.error)
+    return
+  }
+
+  fanout(registry, parsed.data)
 })
 const HEARTBEAT_MS = 25_000
 
@@ -48,6 +58,14 @@ router.on('GET', '/api/storage/events', (req, res) => {
 })
 
 router.on('POST', '/api/storage/events/:connId', async (req, res, params) => {
+  const parsedParams = EventsParamsSchema.safeParse(params)
+  if (!parsedParams.success) {
+    res.writeHead(422, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(formatZodError(parsedParams.error)))
+    return
+  }
+  const { connId } = parsedParams.data
+
   let raw: unknown
   try {
     raw = await readJsonBody(req)
@@ -62,7 +80,6 @@ router.on('POST', '/api/storage/events/:connId', async (req, res, params) => {
     res.end(JSON.stringify(formatZodError(parsed.error)))
     return
   }
-  const connId = params.connId as string
   if (parsed.data.subscribe) registry.subscribe(connId, parsed.data.subscribe)
   if (parsed.data.unsubscribe) registry.unsubscribe(connId, parsed.data.unsubscribe)
   res.writeHead(204)
