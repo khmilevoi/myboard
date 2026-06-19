@@ -1006,6 +1006,7 @@ After `const router = ...`, create the registry and boot the subscriber:
 const registry = new SseRegistry()
 createValkeySubscriber('storage:events', (message) => {
   try {
+    // TODO: используй здесь валидацию zod всесто небезопасного JSON.parse
     fanout(registry, JSON.parse(message) as { key: string; value: unknown })
   } catch {
     // ignore malformed pub/sub payloads
@@ -1049,6 +1050,7 @@ router.on('POST', '/api/storage/events/:connId', async (req, res, params) => {
     res.end(JSON.stringify(formatZodError(parsed.error)))
     return
   }
+  // TODO: добавь здесь явную проверку на строку. можешь использовать z.string()
   const connId = params.connId as string
   if (parsed.data.subscribe) registry.subscribe(connId, parsed.data.subscribe)
   if (parsed.data.unsubscribe) registry.unsubscribe(connId, parsed.data.unsubscribe)
@@ -1240,12 +1242,14 @@ function createSseManager(baseUrl: string): SseManager {
   const source = new EventSource(`${baseUrl}/events`)
 
   source.addEventListener('ready', (event) => {
+    // TODO: либо здесь не нужен as MessageEvent либо добавь более явную проверку
     connId = JSON.parse((event as MessageEvent).data).connId
     registered = new Set() // new connection: server knows nothing yet
     scheduleSync()
   })
 
   source.onmessage = (event) => {
+    // TODO: используй zod для валидации
     const message = JSON.parse((event as MessageEvent).data) as { key: string; value: unknown }
     const set = subscribers.get(message.key)
     if (set) for (const deliver of set) deliver(message.value)
