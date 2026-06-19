@@ -1,6 +1,7 @@
-import { ZodType } from "zod";
-import { StorageError, type StorageApi, type StorageOptions } from "../types";
-import { toFullKey, toRelativeKey } from "../scope";
+import type { z } from 'zod'
+import { StorageError, type StorageApi, type StorageOptions } from '../types'
+import { toFullKey, toRelativeKey } from '../scope'
+import { parseValue } from '../validate'
 
 export function createHttpStorage(
   namespace: string,
@@ -12,33 +13,20 @@ export function createHttpStorage(
   return {
     async get<T>(
       key: string,
-      schema?: ZodType<T>,
+      schema?: z.ZodType<T>,
     ): Promise<StorageError | T | null> {
       const res = await fetch(keyUrl(toFullKey(namespace, key))).catch(
-        (cause) => new StorageError({ reason: "server GET failed", cause }),
-      );
-      if (res instanceof Error) return res;
-      if (res.status === 404) return null;
-      if (!res.ok)
-        return new StorageError({ reason: `server GET ${res.status}` });
+        (cause) => new StorageError({ reason: 'server GET failed', cause }),
+      )
+      if (res instanceof Error) return res
+      if (res.status === 404) return null
+      if (!res.ok) return new StorageError({ reason: `server GET ${res.status}` })
 
-      const body = await (res.json() as Promise<{ value: T }>).catch(
-        (cause) =>
-          new StorageError({ reason: "server GET json parse failed", cause }),
-      );
-      if (body instanceof Error) return body;
-
-      if (!schema) return body.value;
-
-      const parsed = schema.safeParse(body.value);
-
-      if (parsed.error)
-        return new StorageError({
-          reason: "server GET parse failed",
-          cause: parsed.error,
-        });
-
-      return parsed.data;
+      const body = await (res.json() as Promise<{ value: unknown }>).catch(
+        (cause) => new StorageError({ reason: 'server GET json parse failed', cause }),
+      )
+      if (body instanceof Error) return body
+      return parseValue(schema, body.value)
     },
 
     async set<T>(

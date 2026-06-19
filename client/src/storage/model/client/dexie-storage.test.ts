@@ -57,4 +57,14 @@ describe('createDexieStorage', () => {
     expect(await db.entries.get(`${ns}live`)).toBeDefined()
     expect(await db.entries.get(`${ns}dead`)).toBeUndefined()
   })
+
+  it('get validates against a schema and returns StorageError on mismatch', async () => {
+    const { z } = await import('zod')
+    const schema = z.object({ text: z.string() })
+    await storage.set('draft', { text: 'hi' })
+    expect(await storage.get('draft', schema)).toEqual({ text: 'hi' })
+    await storage.set('draft', { text: 123 })
+    const { StorageError } = await import('../types')
+    expect(await storage.get('draft', schema)).toBeInstanceOf(StorageError)
+  })
 })

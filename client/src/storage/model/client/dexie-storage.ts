@@ -1,12 +1,13 @@
-import { ZodType } from "zod";
+import type { z } from 'zod'
 import {
   StorageError,
   type StorageApi,
   type StorageEntry,
   type StorageOptions,
-} from "../types";
-import { toFullKey, toRelativeKey } from "../scope";
-import { db as defaultDb, type StorageDb } from "./db";
+} from '../types'
+import { toFullKey, toRelativeKey } from '../scope'
+import { db as defaultDb, type StorageDb } from './db'
+import { parseValue } from '../validate'
 
 export function createDexieStorage(
   namespace: string,
@@ -40,22 +41,12 @@ export function createDexieStorage(
   return {
     async get<T>(
       key: string,
-      schema?: ZodType<T>,
+      schema?: z.ZodType<T>,
     ): Promise<StorageError | T | null> {
-      const row = await readValid(toFullKey(namespace, key));
-      if (row instanceof Error) return row;
-
-      if (!schema) return row === null ? null : (row.value as T);
-
-      const parsed = schema.safeParse(row?.value);
-
-      if (parsed.error)
-        return new StorageError({
-          reason: "dexie read failed",
-          cause: parsed.error,
-        });
-
-      return parsed.data;
+      const row = await readValid(toFullKey(namespace, key))
+      if (row instanceof Error) return row
+      if (row === null) return null
+      return parseValue(schema, row.value)
     },
 
     async set<T>(
