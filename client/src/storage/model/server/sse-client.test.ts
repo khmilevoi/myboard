@@ -8,6 +8,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -50,5 +51,44 @@ describe('getSseManager', () => {
       expect(fetchMock.mock.calls[0][0]).toBe('/api/storage/events/c2')
       expect(body.subscribe).toContain('k1')
     })
+  })
+
+  it('retries registration when the POST rejects', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getSseManager } = await import('./sse-client')
+    const mgr = getSseManager('/api/storage')
+    mgr.add('k1', () => {})
+
+    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    vi.useRealTimers()
+  })
+
+  it('retries registration when the POST returns non-2xx', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getSseManager } = await import('./sse-client')
+    getSseManager('/api/storage').add('k1', () => {})
+
+    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    vi.useRealTimers()
   })
 })

@@ -13,16 +13,31 @@ export function getSseManager(baseUrl: string): SseManager {
   return mgr
 }
 
+const REGISTER_RETRY_MS = 1_000
+
 function createSseManager(baseUrl: string): SseManager {
   const subscribers = new Map<string, Set<SseDeliver>>()
   const desired = new Set<string>()
   let registered = new Set<string>()
   let connId: string | undefined
   let syncScheduled = false
+  let retryTimer: ReturnType<typeof setTimeout> | undefined
+
+  function scheduleRetry(): void {
+    if (retryTimer) return
+    retryTimer = setTimeout(() => {
+      retryTimer = undefined
+      scheduleSync()
+    }, REGISTER_RETRY_MS)
+  }
 
   const source = new EventSource(`${baseUrl}/events`)
 
   source.addEventListener('ready', (event) => {
+    if (retryTimer) {
+      clearTimeout(retryTimer)
+      retryTimer = undefined
+    }
     connId = JSON.parse((event as MessageEvent).data).connId
     registered = new Set() // new connection: server knows nothing yet
     scheduleSync()
@@ -48,14 +63,26 @@ function createSseManager(baseUrl: string): SseManager {
     const subscribe = [...desired].filter((key) => !registered.has(key))
     const unsubscribe = [...registered].filter((key) => !desired.has(key))
     if (subscribe.length === 0 && unsubscribe.length === 0) return
-    registered = new Set(desired)
-    await fetch(`${baseUrl}/events/${connId}`, {
+
+    const nextRegistered = new Set(desired)
+    const response = await fetch(`${baseUrl}/events/${connId}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ subscribe, unsubscribe }),
-    }).catch(() => {
-      registered = new Set() // force a resync on the next tick if the POST failed
+    }).catch((cause) => {
+      console.warn('storage SSE registration failed', cause)
+      return null
     })
+
+    if (response === null || !response.ok) {
+      if (response !== null) {
+        console.warn('storage SSE registration failed', response.status)
+      }
+      scheduleRetry()
+      return
+    }
+
+    registered = nextRegistered
   }
 
   return {
