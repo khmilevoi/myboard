@@ -25,6 +25,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/vitest.setup.ts'],
     exclude: [...configDefaults.exclude, 'e2e/**'],
+    execArgv: ['--harmony-temporal'],
   },
   server: {
     // Inside a Docker bind mount (notably on Windows/macOS) native FS events

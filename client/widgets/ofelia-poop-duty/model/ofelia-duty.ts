@@ -1,3 +1,4 @@
+import { reatomStorageKey } from "@/storage/model/reatom/reatom-storage";
 import { WidgetStorage } from "@/storage/model/widget-storage";
 import { action, atom, computed, withAsyncData } from "@reatom/core";
 import z from "zod";
@@ -20,26 +21,22 @@ const NumberOfDeptsSchema = z.record(z.enum(DUTY_ROTATION), z.number());
 type NumberOfDepts = z.infer<typeof NumberOfDeptsSchema>;
 
 export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
-  const modelError = atom<Error | null>(null);
+  const numberOfDebts = reatomStorageKey(
+    { api: storage.shared.server, key: "debts", schema: NumberOfDeptsSchema },
+    "numberOfDebts",
+  );
 
-  const numberOfDebts = computed(async () => {
-    const depts = await storage.shared.server.get("debts", NumberOfDeptsSchema);
-
-    if (depts instanceof Error) {
-      modelError.set(depts);
-      return null;
-    }
-
-    return depts;
-  }).extend(withAsyncData({ initState: null }));
+  const startOfWeek = atom<Temporal.PlainDate>(
+    Temporal.Instant.fromEpochMilliseconds(Date.now()).toZonedDateTimeISO(DUTY_TIME_ZONE).toPlainDate(),
+  );
 
   const currentWeek = computed(() => {
-    const today = Temporal.Now.plainDateISO(DUTY_TIME_ZONE);
+    const today = Temporal.Instant.fromEpochMilliseconds(Date.now()).toZonedDateTimeISO(DUTY_TIME_ZONE).toPlainDate();
     const weekStart = today.subtract({
       days: today.dayOfWeek - 1,
     });
 
-    const debts = { ...numberOfDebts.data() };
+    const debts = { ...numberOfDebts.value() };
     const debtPersons = DUTY_ROTATION.filter(
       (person) => (debts[person] ?? 0) > 0,
     );
@@ -68,7 +65,7 @@ export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
       return debtPerson;
     };
 
-    return Array.from({ length: 7 }, (_, dayOffset) => {
+    const week = Array.from({ length: 7 }, (_, dayOffset) => {
       const date = weekStart.add({ days: dayOffset });
       const duty = getOfeliaDutyByDate(date);
 
@@ -82,14 +79,11 @@ export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
         debt,
       };
     });
-  });
-
-  const refreshDebts = action(async () => {
-    await numberOfDebts.retry();
+    return week;
   });
 
   const inDept = action(async (person: DutyPerson) => {
-    const debts = { ...numberOfDebts.data() };
+    const debts = { ...numberOfDebts.value() };
 
     debts[person] = (debts[person] ?? 0) + 1;
 
@@ -97,7 +91,7 @@ export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
   }).extend(withAsyncData({ status: true }));
 
   const forgiveDept = action(async (person: DutyPerson) => {
-    const debts = { ...numberOfDebts.data() };
+    const debts = { ...numberOfDebts.value() };
 
     debts[person] = Math.max((debts[person] ?? 0) - 1, 0);
 
@@ -105,12 +99,11 @@ export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
   }).extend(withAsyncData({ status: true }));
 
   return {
-    modelError,
+    startOfWeek,
     numberOfDebts,
     currentWeek,
     inDept,
     forgiveDept,
-    refreshDebts,
   };
 };
 
