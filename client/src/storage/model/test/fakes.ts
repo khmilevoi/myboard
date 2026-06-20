@@ -1,4 +1,11 @@
 import { vi } from 'vitest'
+import type {
+  StorageApi,
+  StorageChange,
+  StorageError,
+  StorageListener,
+  StorageOptions,
+} from '../types'
 
 /** In-memory BroadcastChannel: instances with the same name see each other's posts. */
 export class FakeBroadcastChannel {
@@ -72,4 +79,58 @@ export class FakeEventSource {
 export function installFakeEventSource() {
   FakeEventSource.instances = []
   vi.stubGlobal('EventSource', FakeEventSource)
+}
+
+/**
+ * In-memory StorageApi double for model tests. Keys are used verbatim (no
+ * namespacing); TTL and schema validation are intentionally ignored.
+ */
+export function createFakeStorage(): StorageApi {
+  const store = new Map<string, unknown>()
+  const listeners = new Map<string, Set<(event: StorageError | StorageChange) => void>>()
+
+  function emit(key: string): void {
+    const value = store.has(key) ? store.get(key) : null
+
+    for (const listener of listeners.get(key) ?? []) listener({ value })
+  }
+
+  return {
+    async get<T>(key: string): Promise<StorageError | T | null> {
+      return store.has(key) ? (store.get(key) as T) : null
+    },
+    async set<T>(key: string, value: T, _options?: StorageOptions): Promise<StorageError | void> {
+      store.set(key, value)
+      emit(key)
+    },
+    async delete(key: string): Promise<StorageError | void> {
+      store.delete(key)
+      emit(key)
+    },
+    async has(key: string): Promise<StorageError | boolean> {
+      return store.has(key)
+    },
+    async keys(prefix?: string): Promise<StorageError | string[]> {
+      const all = [...store.keys()]
+      return prefix ? all.filter((key) => key.startsWith(prefix)) : all
+    },
+    async append<T>(key: string, entry: T, options?: { cap?: number }): Promise<StorageError | void> {
+      const existing = store.get(key)
+      const current: unknown[] = Array.isArray(existing) ? existing : []
+      current.push(entry)
+      const next =
+        options?.cap != null && current.length > options.cap
+          ? current.slice(current.length - options.cap)
+          : current
+      store.set(key, next)
+      emit(key)
+    },
+    subscribe<T>(key: string, listener: StorageListener<T>): () => void {
+      const set = listeners.get(key) ?? new Set()
+      set.add(listener as (event: StorageError | StorageChange) => void)
+      listeners.set(key, set)
+      listener({ value: (store.has(key) ? store.get(key) : null) as T | null })
+      return () => set.delete(listener as (event: StorageError | StorageChange) => void)
+    },
+  }
 }
