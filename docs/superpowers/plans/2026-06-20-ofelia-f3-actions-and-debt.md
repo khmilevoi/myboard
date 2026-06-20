@@ -17,7 +17,8 @@
 - **currentUser persistence:** `shared.client` (Dexie, per-device, **not** synced). Default = `DUTY_ROTATION[0]` (`'Леша'`) until a value loads / is chosen.
 - **Contract refinement (4.5):** the bare 4.5 sketch is `append` only. F3 needs to **reverse** the last event of a day for *undo* (spec §3.2 row “Откатить” = remove the record), so this plan adds **one** method: `remove(weekStartISO, id)`. Day-status and undo otherwise consume events through **pure selectors** that receive the week’s `HistoryEvent[]` as an argument (the caller — F4’s model / F6’s UI — supplies them), so the action model still does no history reads. Document this for F4 (it implements `remove` over `storage.shared.server`).
 - **`Person` is the canonical name** for a roster member (contract 4.3). It is defined as `Person = DutyPerson` so the existing `DutyPerson` keeps working; prefer `Person` in new code.
-- **Code style — match the file you edit.** Source files (`model/*.ts`, `ui/*.tsx`) use **double quotes + semicolons** and the `@/…` path alias for `client/src`. Test files (`*.test.ts(x)`) use **single quotes + no semicolons** and relative imports (`../../../src/…`). Reatom atoms/actions/computed in this widget are created **without** explicit names (match `ofelia-duty.ts`).
+- **Code style (AGENTS.md is authoritative — there is no Prettier/ESLint config):** 2-space indentation, **single quotes, no semicolons**, named exports, ESM imports. Source files (`model/*.ts`, `ui/*.tsx`) use the `@/…` path alias for `client/src`; test files (`*.test.ts(x)`) use relative imports (`../../../src/…`). Reatom atoms/actions/computed in this widget are created **without** explicit names (match `ofelia-duty.ts`). React components must be defined with `reatomMemo` (already satisfied by `OfeliaPoopDuty`). Use the errore/Reatom errors-as-values pattern (return-or-rethrow, as in `reatom-storage.ts`), never `try/catch` for control flow.
+- **Legacy style note:** the existing `ofelia-duty.ts` / `OfeliaPoopDuty.tsx` lines predate this and use double quotes + semicolons. **New and edited code in this plan follows AGENTS.md (single quotes, no semicolons);** leave untouched legacy lines exactly as they are — do not reformat lines you are not otherwise changing.
 - **Before PR:** `pnpm test` and `pnpm typecheck` must pass (run from repo root).
 
 ---
@@ -44,7 +45,7 @@
   - `interface CurrentUserModelProps { storage: WidgetStorage }`
   - `const currentUserModel: (props: CurrentUserModelProps) => { currentUser: Atom<Person>; setCurrentUser: Action<(person: Person) => void> }`
 
-> **Note on import order:** Task 2 adds `export type Person = DutyPerson` to `ofelia-duty.ts`. To keep Task 1 self-contained, import the existing `DutyPerson` and alias it: `import { DUTY_ROTATION, type DutyPerson as Person } from "./ofelia-duty";`. After Task 2 this can stay as-is (both names resolve to the same type).
+> **Note on import order:** Task 2 adds `export type Person = DutyPerson` to `ofelia-duty.ts`. To keep Task 1 self-contained, import the existing `DutyPerson` and alias it: `import { DUTY_ROTATION, type DutyPerson as Person } from './ofelia-duty'`. After Task 2 this can stay as-is (both names resolve to the same type).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -124,35 +125,35 @@ Expected: FAIL — `Cannot find module './current-user'`.
 Create `client/widgets/ofelia-poop-duty/model/current-user.ts`:
 
 ```ts
-import { withStorageKey } from "@/storage/model/reatom/reatom-storage";
-import { WidgetStorage } from "@/storage/model/widget-storage";
-import { Atom, action, atom, computed } from "@reatom/core";
-import z from "zod";
-import { DUTY_ROTATION, type DutyPerson as Person } from "./ofelia-duty";
+import { withStorageKey } from '@/storage/model/reatom/reatom-storage'
+import { WidgetStorage } from '@/storage/model/widget-storage'
+import { Atom, action, atom, computed } from '@reatom/core'
+import z from 'zod'
+import { DUTY_ROTATION, type DutyPerson as Person } from './ofelia-duty'
 
-const PersonSchema = z.enum(DUTY_ROTATION);
+const PersonSchema = z.enum(DUTY_ROTATION)
 
 export interface CurrentUserModelProps {
-  storage: WidgetStorage;
+  storage: WidgetStorage
 }
 
 export const currentUserModel = ({ storage }: CurrentUserModelProps) => {
   const stored = atom<Person | null>(null).extend(
     withStorageKey({
       api: storage.shared.client,
-      key: "currentUser",
+      key: 'currentUser',
       schema: PersonSchema,
     }),
-  );
+  )
 
-  const currentUser: Atom<Person> = computed(() => stored() ?? DUTY_ROTATION[0]);
+  const currentUser: Atom<Person> = computed(() => stored() ?? DUTY_ROTATION[0])
 
   const setCurrentUser = action((person: Person) => {
-    stored.set(person);
-  });
+    stored.set(person)
+  })
 
-  return { currentUser, setCurrentUser };
-};
+  return { currentUser, setCurrentUser }
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -319,35 +320,35 @@ In `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`:
 (a) Add `WidgetStorage` to the existing imports and keep the others:
 
 ```ts
-import { WidgetStorage } from "@/storage/model/widget-storage";
+import { WidgetStorage } from '@/storage/model/widget-storage'
 ```
 
 (b) Below `export type DutyPerson = (typeof DUTY_ROTATION)[number];` add the types and constant:
 
 ```ts
-export type Person = DutyPerson;
+export type Person = DutyPerson
 
-export type HistoryEventType = "cleaned" | "went_into_debt" | "forgiven";
+export type HistoryEventType = 'cleaned' | 'went_into_debt' | 'forgiven'
 
 export type HistoryEvent = {
-  id: string;
-  ts: number;
-  ip: string;
-  date: string;
-  type: HistoryEventType;
-  actor: Person;
-  onBehalfOf?: Person;
-  by: Person;
-};
+  id: string
+  ts: number
+  ip: string
+  date: string
+  type: HistoryEventType
+  actor: Person
+  onBehalfOf?: Person
+  by: Person
+}
 
-export type HistoryEventDraft = Omit<HistoryEvent, "id" | "ts" | "ip">;
+export type HistoryEventDraft = Omit<HistoryEvent, 'id' | 'ts' | 'ip'>
 
 export type HistoryPort = {
-  append(event: HistoryEventDraft): Promise<void>;
-  remove(weekStartISO: string, id: string): Promise<void>;
-};
+  append(event: HistoryEventDraft): Promise<void>
+  remove(weekStartISO: string, id: string): Promise<void>
+}
 
-export const DEBT_WARNING_THRESHOLD = 7;
+export const DEBT_WARNING_THRESHOLD = 7
 ```
 
 (c) Change the existing private `getToday`/`getStartOfWeek` to `export function …` (just add `export`).
@@ -356,15 +357,15 @@ export const DEBT_WARNING_THRESHOLD = 7;
 
 ```ts
 export function weekStartISO(date: Temporal.PlainDate): string {
-  return getStartOfWeek(date).toString();
+  return getStartOfWeek(date).toString()
 }
 
 export function historyKey(date: Temporal.PlainDate): string {
-  return `history:${weekStartISO(date)}`;
+  return `history:${weekStartISO(date)}`
 }
 
 export function otherPerson(person: Person): Person {
-  return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person;
+  return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person
 }
 
 export function effectiveDuty(
@@ -373,67 +374,67 @@ export function effectiveDuty(
 ): Person {
   const debtDay = getDebtDays(debts, getToday()).find((day) =>
     day.date.equals(date),
-  );
-  return debtDay?.person ?? getOfeliaDutyByDate(date);
+  )
+  return debtDay?.person ?? getOfeliaDutyByDate(date)
 }
 
 export function isDebtDay(
   date: Temporal.PlainDate,
   debts: Partial<NumberOfDebts>,
 ): boolean {
-  return getDebtDays(debts, getToday()).some((day) => day.date.equals(date));
+  return getDebtDays(debts, getToday()).some((day) => day.date.equals(date))
 }
 
 export function isOverDebtWarning(
   debts: Partial<NumberOfDebts>,
   person: Person,
 ): boolean {
-  return (debts[person] ?? 0) > DEBT_WARNING_THRESHOLD;
+  return (debts[person] ?? 0) > DEBT_WARNING_THRESHOLD
 }
 
 export function getDayStatus(
   events: HistoryEvent[],
   date: Temporal.PlainDate,
-): "closed" | "pending" {
-  const iso = date.toString();
+): 'closed' | 'pending' {
+  const iso = date.toString()
   const closed = events.some(
     (event) =>
       event.date === iso &&
-      (event.type === "cleaned" || event.type === "went_into_debt"),
-  );
-  return closed ? "closed" : "pending";
+      (event.type === 'cleaned' || event.type === 'went_into_debt'),
+  )
+  return closed ? 'closed' : 'pending'
 }
 
 export function findLastDayEvent(
   events: HistoryEvent[],
   date: Temporal.PlainDate,
 ): HistoryEvent | null {
-  const iso = date.toString();
+  const iso = date.toString()
   const dayEvents = events
     .filter((event) => event.date === iso)
-    .sort((a, b) => a.ts - b.ts);
-  return dayEvents.at(-1) ?? null;
+    .sort((a, b) => a.ts - b.ts)
+  return dayEvents.at(-1) ?? null
 }
 
 export function createHistoryPort(storage: WidgetStorage): HistoryPort {
-  const api = storage.shared.server;
+  const api = storage.shared.server
   return {
     async append(event) {
       const result = await api.append(
         historyKey(Temporal.PlainDate.from(event.date)),
         event,
-      );
-      if (result instanceof Error) throw result;
+      )
+      if (result instanceof Error) throw result
     },
     async remove(weekStart, id) {
-      const key = `history:${weekStart}`;
-      const current = await api.get<HistoryEvent[]>(key);
-      if (current instanceof Error) throw current;
-      const next = (current ?? []).filter((event) => event.id !== id);
-      const result = await api.set(key, next);
-      if (result instanceof Error) throw result;
+      const key = `history:${weekStart}`
+      const current = await api.get<HistoryEvent[]>(key)
+      if (current instanceof Error) throw current
+      const next = (current ?? []).filter((event) => event.id !== id)
+      const result = await api.set(key, next)
+      if (result instanceof Error) throw result
     },
-  };
+  }
 }
 ```
 
@@ -557,16 +558,16 @@ In `ofelia-duty.ts`:
 (a) Add `Atom` and `withAsyncData` to the reatom import (the file already imports `action, atom, computed, withAsyncData`; add `Atom`):
 
 ```ts
-import { Atom, action, atom, computed, withAsyncData } from "@reatom/core";
+import { Atom, action, atom, computed, withAsyncData } from '@reatom/core'
 ```
 
 (b) Replace `OfeliaDutyModelProps`:
 
 ```ts
 export interface OfeliaDutyModelProps {
-  storage: WidgetStorage;
-  history: HistoryPort;
-  currentUser: Atom<Person>;
+  storage: WidgetStorage
+  history: HistoryPort
+  currentUser: Atom<Person>
 }
 ```
 
@@ -581,69 +582,67 @@ export const ofeliaDutyModel = ({
   const numberOfDebts = atom<NumberOfDebts | null>(null).extend(
     withStorageKey({
       api: storage.shared.server,
-      key: "debts",
+      key: 'debts',
       schema: NumberOfDebtsSchema,
     }),
-  );
+  )
 
-  const startOfWeek = atom<Temporal.PlainDate>(getStartOfWeek(getToday()));
-  const selectedDate = atom<Temporal.PlainDate>(getToday());
+  const startOfWeek = atom<Temporal.PlainDate>(getStartOfWeek(getToday()))
+  const selectedDate = atom<Temporal.PlainDate>(getToday())
 
   const selectDay = action((date: Temporal.PlainDate) => {
-    selectedDate.set(date);
-  });
+    selectedDate.set(date)
+  })
 
   function syncSelectedToWeek(weekStart: Temporal.PlainDate) {
-    const today = getToday();
-    selectedDate.set(
-      weekStart.equals(getStartOfWeek(today)) ? today : weekStart,
-    );
+    const today = getToday()
+    selectedDate.set(weekStart.equals(getStartOfWeek(today)) ? today : weekStart)
   }
 
   const goToNextWeek = action(() => {
-    const next = startOfWeek().add({ days: 7 });
-    startOfWeek.set(next);
-    syncSelectedToWeek(next);
-  });
+    const next = startOfWeek().add({ days: 7 })
+    startOfWeek.set(next)
+    syncSelectedToWeek(next)
+  })
 
   const goToPrevWeek = action(() => {
-    const prev = startOfWeek().subtract({ days: 7 });
-    startOfWeek.set(prev);
-    syncSelectedToWeek(prev);
-  });
+    const prev = startOfWeek().subtract({ days: 7 })
+    startOfWeek.set(prev)
+    syncSelectedToWeek(prev)
+  })
 
   const goToCurrentWeek = action(() => {
-    const current = getStartOfWeek(getToday());
-    startOfWeek.set(current);
-    syncSelectedToWeek(current);
-  });
+    const current = getStartOfWeek(getToday())
+    startOfWeek.set(current)
+    syncSelectedToWeek(current)
+  })
 
   // ... keep `debtDays` and `currentWeek` computeds unchanged ...
 
   const confirmClean = action(
     async (date: Temporal.PlainDate = selectedDate()) => {
-      void date;
+      void date
     },
-  ).extend(withAsyncData({ status: true }));
+  ).extend(withAsyncData({ status: true }))
 
   const goIntoDebt = action(
     async (date: Temporal.PlainDate = selectedDate()) => {
-      void date;
+      void date
     },
-  ).extend(withAsyncData({ status: true }));
+  ).extend(withAsyncData({ status: true }))
 
   const forgive = action(
     async (date: Temporal.PlainDate = selectedDate()) => {
-      void date;
+      void date
     },
-  ).extend(withAsyncData({ status: true }));
+  ).extend(withAsyncData({ status: true }))
 
   const undo = action(
     async (date: Temporal.PlainDate, events: HistoryEvent[]) => {
-      void date;
-      void events;
+      void date
+      void events
     },
-  ).extend(withAsyncData({ status: true }));
+  ).extend(withAsyncData({ status: true }))
 
   return {
     startOfWeek,
@@ -658,8 +657,8 @@ export const ofeliaDutyModel = ({
     goIntoDebt,
     forgive,
     undo,
-  };
-};
+  }
+}
 ```
 
 > Keep the existing `debtDays` and `currentWeek` computed blocks exactly as they are; only the surrounding code changes. Delete the old `inDebt` and `forgiveDebt` definitions.
@@ -667,17 +666,17 @@ export const ofeliaDutyModel = ({
 (d) Wire the UI in `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.tsx`:
 
 ```tsx
-import { useMemo } from "react";
-import { reatomMemo } from "../../../src/shared/reatom/reatom-memo";
-import type { WidgetRuntimeProps } from "../../../src/widget-host/model/types";
-import { currentUserModel } from "../model/current-user";
-import { createHistoryPort, ofeliaDutyModel } from "../model/ofelia-duty";
-import styles from "./ofelia-poop-duty.module.css";
+import { useMemo } from 'react'
+import { reatomMemo } from '../../../src/shared/reatom/reatom-memo'
+import type { WidgetRuntimeProps } from '../../../src/widget-host/model/types'
+import { currentUserModel } from '../model/current-user'
+import { createHistoryPort, ofeliaDutyModel } from '../model/ofelia-duty'
+import styles from './ofelia-poop-duty.module.css'
 
 export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(
   ({ mode, storage }) => {
-    const currentUser = useMemo(() => currentUserModel({ storage }), [storage]);
-    const history = useMemo(() => createHistoryPort(storage), [storage]);
+    const currentUser = useMemo(() => currentUserModel({ storage }), [storage])
+    const history = useMemo(() => createHistoryPort(storage), [storage])
     const model = useMemo(
       () =>
         ofeliaDutyModel({
@@ -686,8 +685,8 @@ export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(
           currentUser: currentUser.currentUser,
         }),
       [storage, history, currentUser],
-    );
-    const week = model.currentWeek();
+    )
+    const week = model.currentWeek()
     // ... rest of the component unchanged ...
 ```
 
@@ -778,28 +777,28 @@ Replace the `confirmClean` stub body:
 ```ts
 const confirmClean = action(
   async (date: Temporal.PlainDate = selectedDate()) => {
-    const debts = { ...(numberOfDebts() ?? {}) };
+    const debts = { ...(numberOfDebts() ?? {}) }
     const debtDay = getDebtDays(debts, getToday()).find((day) =>
       day.date.equals(date),
-    );
-    const actor = debtDay?.person ?? getOfeliaDutyByDate(date);
+    )
+    const actor = debtDay?.person ?? getOfeliaDutyByDate(date)
 
     const draft: HistoryEventDraft = {
       date: date.toString(),
-      type: "cleaned",
+      type: 'cleaned',
       actor,
       by: currentUser(),
       ...(debtDay ? { onBehalfOf: getOfeliaDutyByDate(date) } : {}),
-    };
-
-    if (debtDay) {
-      debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0);
-      numberOfDebts.set(normalizeDebts(debts));
     }
 
-    await history.append(draft);
+    if (debtDay) {
+      debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0)
+      numberOfDebts.set(normalizeDebts(debts))
+    }
+
+    await history.append(draft)
   },
-).extend(withAsyncData({ status: true }));
+).extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -862,25 +861,25 @@ Replace the `goIntoDebt` stub body:
 ```ts
 const goIntoDebt = action(
   async (date: Temporal.PlainDate = selectedDate()) => {
-    const debts = { ...(numberOfDebts() ?? {}) };
+    const debts = { ...(numberOfDebts() ?? {}) }
     const debtDay = getDebtDays(debts, getToday()).find((day) =>
       day.date.equals(date),
-    );
-    const duty = debtDay?.person ?? getOfeliaDutyByDate(date);
-    const cleaner = otherPerson(duty);
+    )
+    const duty = debtDay?.person ?? getOfeliaDutyByDate(date)
+    const cleaner = otherPerson(duty)
 
-    debts[duty] = (debts[duty] ?? 0) + 1;
-    numberOfDebts.set(normalizeDebts(debts));
+    debts[duty] = (debts[duty] ?? 0) + 1
+    numberOfDebts.set(normalizeDebts(debts))
 
     await history.append({
       date: date.toString(),
-      type: "went_into_debt",
+      type: 'went_into_debt',
       actor: cleaner,
       onBehalfOf: duty,
       by: currentUser(),
-    });
+    })
   },
-).extend(withAsyncData({ status: true }));
+).extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -952,23 +951,23 @@ Replace the `forgive` stub body:
 ```ts
 const forgive = action(
   async (date: Temporal.PlainDate = selectedDate()) => {
-    const debts = { ...(numberOfDebts() ?? {}) };
-    const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0);
-    if (!debtor) return;
-    const forgiver = otherPerson(debtor);
+    const debts = { ...(numberOfDebts() ?? {}) }
+    const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0)
+    if (!debtor) return
+    const forgiver = otherPerson(debtor)
 
-    debts[debtor] = Math.max((debts[debtor] ?? 0) - 1, 0);
-    numberOfDebts.set(normalizeDebts(debts));
+    debts[debtor] = Math.max((debts[debtor] ?? 0) - 1, 0)
+    numberOfDebts.set(normalizeDebts(debts))
 
     await history.append({
       date: date.toString(),
-      type: "forgiven",
+      type: 'forgiven',
       actor: forgiver,
       onBehalfOf: debtor,
       by: currentUser(),
-    });
+    })
   },
-).extend(withAsyncData({ status: true }));
+).extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -1073,26 +1072,23 @@ Replace the `undo` stub body:
 ```ts
 const undo = action(
   async (date: Temporal.PlainDate, events: HistoryEvent[]) => {
-    const event = findLastDayEvent(events, date);
-    if (!event) return;
+    const event = findLastDayEvent(events, date)
+    if (!event) return
 
-    const debts = { ...(numberOfDebts() ?? {}) };
+    const debts = { ...(numberOfDebts() ?? {}) }
 
-    if (event.type === "cleaned" && event.onBehalfOf) {
-      debts[event.actor] = (debts[event.actor] ?? 0) + 1;
-    } else if (event.type === "went_into_debt" && event.onBehalfOf) {
-      debts[event.onBehalfOf] = Math.max(
-        (debts[event.onBehalfOf] ?? 0) - 1,
-        0,
-      );
-    } else if (event.type === "forgiven" && event.onBehalfOf) {
-      debts[event.onBehalfOf] = (debts[event.onBehalfOf] ?? 0) + 1;
+    if (event.type === 'cleaned' && event.onBehalfOf) {
+      debts[event.actor] = (debts[event.actor] ?? 0) + 1
+    } else if (event.type === 'went_into_debt' && event.onBehalfOf) {
+      debts[event.onBehalfOf] = Math.max((debts[event.onBehalfOf] ?? 0) - 1, 0)
+    } else if (event.type === 'forgiven' && event.onBehalfOf) {
+      debts[event.onBehalfOf] = (debts[event.onBehalfOf] ?? 0) + 1
     }
 
-    numberOfDebts.set(normalizeDebts(debts));
-    await history.remove(weekStartISO(date), event.id);
+    numberOfDebts.set(normalizeDebts(debts))
+    await history.remove(weekStartISO(date), event.id)
   },
-).extend(withAsyncData({ status: true }));
+).extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run full client suite + typecheck**
