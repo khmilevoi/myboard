@@ -19,7 +19,7 @@ describe('clientIp', () => {
     expect(clientIp(req({}, '9.9.9.9'))).toBe('9.9.9.9')
   })
 
-  it('returns an empty string when nothing is available', () => {
-    expect(clientIp(req({}, undefined))).toBe('')
+  it('returns null when nothing is available', () => {
+    expect(clientIp(req({}, undefined))).toBeNull()
   })
 })

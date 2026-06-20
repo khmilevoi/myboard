@@ -23,7 +23,7 @@ export async function handleAppend(
   ops: ValkeyOps,
   key: string,
   payload: AppendPayload,
-  ip: string,
+  ip: string | null,
 ): Promise<{ status: number; value: unknown[] }> {
   const raw = await ops.get(key)
   const parsed: unknown = raw === null ? [] : JSON.parse(raw)
