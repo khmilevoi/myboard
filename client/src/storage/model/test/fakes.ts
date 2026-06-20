@@ -114,7 +114,11 @@ export function createFakeStorage(): StorageApi {
       const all = [...store.keys()]
       return prefix ? all.filter((key) => key.startsWith(prefix)) : all
     },
-    async append<T>(key: string, entry: T, options?: { cap?: number }): Promise<StorageError | void> {
+    async append<T extends Record<string, unknown>>(
+      key: string,
+      entry: T,
+      options?: { cap?: number },
+    ): Promise<StorageError | void> {
       const existing = store.get(key)
       const current: unknown[] = Array.isArray(existing) ? existing : []
       current.push(entry)

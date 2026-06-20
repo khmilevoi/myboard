@@ -52,19 +52,6 @@ export type StorageKeyExt<State> = {
   error: Atom<StorageError | null>;
 };
 
-export function reatomStorageKey<T>(
-  options: WithStorageKeyOptions<T>,
-  name: string,
-) {
-  const value = atom<T | null>(null, name).extend(withStorageKey(options))
-
-  return {
-    value,
-    asyncValue: value.asyncValue,
-    error: value.error,
-  }
-}
-
 /** Reactive value of a single key over StorageApi.subscribe. */
 export const withStorageKey =
   <Target extends Atom>({

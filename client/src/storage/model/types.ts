@@ -36,7 +36,7 @@ export type StorageApi = {
   delete(key: string): Promise<StorageError | void>
   has(key: string): Promise<StorageError | boolean>
   keys(prefix?: string): Promise<StorageError | string[]>
-  append<T>(
+  append<T extends Record<string, unknown>>(
     key: string,
     entry: T,
     options?: { cap?: number },

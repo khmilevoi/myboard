@@ -14,10 +14,10 @@ describe('createFakeStorage', () => {
 
   it('append creates then grows an array and honours cap', async () => {
     const storage = createFakeStorage()
-    await storage.append('log', 1)
-    await storage.append('log', 2)
-    await storage.append('log', 3, { cap: 2 })
-    expect(await storage.get('log')).toEqual([2, 3])
+    await storage.append('log', { n: 1 })
+    await storage.append('log', { n: 2 })
+    await storage.append('log', { n: 3 }, { cap: 2 })
+    expect(await storage.get('log')).toEqual([{ n: 2 }, { n: 3 }])
   })
 
   it('lists keys filtered by prefix', async () => {
@@ -34,7 +34,7 @@ describe('createFakeStorage', () => {
     const off = storage.subscribe('k', (event) => {
       seen.push(event instanceof Error ? 'error' : event.value)
     })
-    await storage.append('k', 'x')
+    await storage.append('k', { value: 'x' })
     await storage.delete('k')
     off()
     expect(seen[0]).toBe('first')

@@ -89,7 +89,7 @@ export function createHttpStorage(
       return body.keys.map((full) => toRelativeKey(namespace, full))
     },
 
-    async append<T>(
+    async append<T extends Record<string, unknown>>(
       key: string,
       entry: T,
       options?: { cap?: number },
