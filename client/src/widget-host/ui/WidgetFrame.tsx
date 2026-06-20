@@ -7,6 +7,7 @@ import { reatomMemo } from "../../shared/reatom/reatom-memo";
 import { resolvedTheme } from "../../theme/model/theme-model";
 import { findWidgetType } from "../../widget-registry/model/registry";
 import type { WidgetMode } from "../model/types";
+import type { WidgetTier } from "../model/tier";
 import { getWidgetReloadKey, retryWidget } from "../model/widget-frame-model";
 import { WidgetErrorBoundary } from "./WidgetErrorBoundary";
 import { WidgetFrameContext, widgetFrameContext } from "./WidgetFrame.context";
@@ -17,6 +18,7 @@ export type WidgetFrameProps = {
   instanceId: string;
   typeId: string;
   mode: WidgetMode;
+  tier: WidgetTier;
   onRequestFullscreen?: () => void;
   onRequestClose?: () => void;
   onDelete?: () => void;
@@ -27,6 +29,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
     instanceId,
     typeId,
     mode,
+    tier,
     onRequestFullscreen,
     onRequestClose,
     onDelete,
@@ -45,6 +48,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         instanceId,
         typeId,
         mode,
+        tier,
         theme,
         requestFullscreen: () => onRequestFullscreen?.(),
         requestClose: () => onRequestClose?.(),
@@ -56,6 +60,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       instanceId,
       typeId,
       mode,
+      tier,
       theme,
       onRequestFullscreen,
       onRequestClose,
@@ -109,6 +114,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
                   instanceId={instanceId}
                   typeId={typeId}
                   mode={mode}
+                  tier={tier}
                   theme={theme}
                   requestFullscreen={context.requestFullscreen}
                   requestClose={context.requestClose}

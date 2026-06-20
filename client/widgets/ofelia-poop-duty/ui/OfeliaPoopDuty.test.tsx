@@ -12,6 +12,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
     instanceId: 'ofelia-poop-duty-1',
     typeId: 'ofelia-poop-duty',
     mode,
+    tier: 'standard',
     theme: 'light',
     requestFullscreen: vi.fn(),
     requestClose: vi.fn(),

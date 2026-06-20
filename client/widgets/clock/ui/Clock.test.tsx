@@ -10,6 +10,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
     instanceId: 'inst-clock',
     typeId: 'clock',
     mode,
+    tier: 'standard',
     theme: 'light',
     requestFullscreen: vi.fn(),
     requestClose: vi.fn(),
