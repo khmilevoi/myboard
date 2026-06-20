@@ -39,3 +39,8 @@ Recent history uses Conventional Commit prefixes, including `fix:`, `build:`, an
 ## Security & Configuration Tips
 
 Do not commit `.env` files. Client environment examples live in `client/.env.example`; server configuration uses `PORT` and `VALKEY_URL`. Prefer Docker commands when changes depend on Valkey or the full client/server stack.
+
+## General Guidelines
+
+- For worktrees you should use `.worktrees` folder
+- Use path aliases for absolute imports like `@/*` or `@shared/*`
