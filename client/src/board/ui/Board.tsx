@@ -7,6 +7,7 @@ import ReactGridLayout, {
 import { GripVertical, Maximize2, X } from "lucide-react";
 import { reatomMemo } from "../../shared/reatom/reatom-memo";
 import { WidgetFrame } from "../../widget-host/ui/WidgetFrame";
+import { DEFAULT_TIERS, resolveTier } from "../../widget-host/model/tier";
 import { findWidgetType } from "../../widget-registry/model/registry";
 import {
   beginBoardInteraction,
@@ -61,6 +62,10 @@ export const Board = reatomMemo(() => {
           {currentInstances.map((instance, index) => {
             const type = findWidgetType(instance.typeId);
             const title = type instanceof Error ? instance.typeId : type.title;
+            const layoutItem = currentLayout.find((item) => item.i === instance.id);
+            const size = layoutItem ? { w: layoutItem.w, h: layoutItem.h } : { w: 0, h: 0 };
+            const tiers = type instanceof Error ? DEFAULT_TIERS : type.tiers ?? DEFAULT_TIERS;
+            const tier = resolveTier(size, tiers);
             return (
               <div
                 key={instance.id}
@@ -104,6 +109,7 @@ export const Board = reatomMemo(() => {
                       instanceId={instance.id}
                       typeId={instance.typeId}
                       mode="small"
+                      tier={tier}
                       onRequestFullscreen={wrap(() =>
                         expandedInstanceId.set(instance.id),
                       )}

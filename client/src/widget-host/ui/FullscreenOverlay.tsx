@@ -62,6 +62,7 @@ export const FullscreenOverlay = reatomMemo(() => {
             instanceId={instance.id}
             typeId={instance.typeId}
             mode="large"
+            tier="fullscreen"
             onRequestClose={close}
             onDelete={wrap(() => removeInstance(instance.id))}
           />

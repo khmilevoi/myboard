@@ -1,5 +1,6 @@
 import * as errore from "errore";
 import type { WidgetLoader } from "../../widget-host/model/types";
+import type { TierConfig } from "../../widget-host/model/tier";
 
 export type WidgetIconName = "Clock" | "CalendarDays";
 
@@ -10,6 +11,8 @@ export type WidgetType = {
   description: string;
   loadComponent: WidgetLoader;
   defaultSize: { w: number; h: number };
+  /** Optional per-type tier thresholds; falls back to DEFAULT_TIERS. */
+  tiers?: TierConfig;
   /** lucide-react icon name used in the catalog menu. */
   icon: WidgetIconName;
 };

@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import { WidgetMode } from "../model/types";
+import type { WidgetTier } from "../model/tier";
 import { ResolvedTheme } from "@/shared/theme/types";
 import { WidgetStorage } from "@/storage/model/widget-storage";
 
@@ -7,6 +8,7 @@ export interface WidgetFrameContext {
   instanceId: string;
   typeId: string;
   mode: WidgetMode;
+  tier: WidgetTier;
   theme: ResolvedTheme;
   requestFullscreen: () => void;
   requestClose: () => void;
