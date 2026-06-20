@@ -90,6 +90,19 @@ describe('handleAppend', () => {
     expect(result.value[1]).toMatchObject({ type: 'cleaned' })
   })
 
+  it('falls back to an empty array when stored JSON is corrupt', async () => {
+    const ops = mockOps({
+      get: vi.fn(async () => '{not json'),
+      set: vi.fn(async () => {}),
+    })
+
+    const result = await handleAppend(ops, 'k', { entry: { type: 'cleaned' } }, '1.2.3.4')
+
+    expect(result.value).toHaveLength(1)
+    expect(result.value[0]).toMatchObject({ type: 'cleaned' })
+    expect(ops.set).toHaveBeenCalledWith('k', JSON.stringify(result.value))
+  })
+
   it('caps to the last N entries', async () => {
     const ops = statefulOps([{ n: 1 }, { n: 2 }, { n: 3 }])
     const result = await handleAppend(ops, 'k', { entry: { n: 4 }, cap: 2 }, '1.2.3.4')

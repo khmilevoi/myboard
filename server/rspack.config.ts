@@ -35,6 +35,9 @@ export default defineConfig({
     ],
   },
   resolve: {
+    alias: {
+      '@shared': path.resolve(import.meta.dirname, '../shared'),
+    },
     extensions: ['.ts', '.js'],
   },
   watchOptions: process.env.CHOKIDAR_USEPOLLING === 'true' ? { poll: 500 } : undefined,

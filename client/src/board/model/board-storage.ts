@@ -1,4 +1,5 @@
 import * as errore from 'errore'
+import { JSONParseError, safeParse } from '@shared/json'
 import type { BoardSnapshot } from './types'
 
 export const STORAGE_KEY = 'myboard.board'
@@ -22,11 +23,10 @@ export function loadBoard(): StorageError | BoardSnapshot | null {
   if (raw instanceof StorageError) return raw
   if (raw === null) return null
 
-  const parsed = errore.try({
-    try: () => JSON.parse(raw) as unknown,
-    catch: (cause) => new StorageError({ reason: 'invalid JSON', cause }),
-  })
-  if (parsed instanceof StorageError) return parsed
+  const parsed = safeParse(raw)
+  if (parsed instanceof JSONParseError) {
+    return new StorageError({ reason: 'invalid JSON', cause: parsed })
+  }
   if (!isSnapshot(parsed)) return new StorageError({ reason: 'stored value has wrong shape' })
 
   return parsed

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
+import { JSONParseError } from '@shared/json'
 import { loadBoard, saveBoard, STORAGE_KEY, StorageError } from './board-storage'
 import type { BoardSnapshot } from './types'
 
@@ -23,7 +24,11 @@ describe('board storage', () => {
 
   it('returns StorageError for corrupt JSON', () => {
     localStorage.setItem(STORAGE_KEY, '{not json')
-    expect(loadBoard()).toBeInstanceOf(StorageError)
+    const result = loadBoard()
+    expect(result).toBeInstanceOf(StorageError)
+    expect(result instanceof StorageError && result.findCause(JSONParseError)).toBeInstanceOf(
+      JSONParseError,
+    )
   })
 
   it('returns StorageError when the stored shape is wrong', () => {
