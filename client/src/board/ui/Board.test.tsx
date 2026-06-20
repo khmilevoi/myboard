@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { context } from '@reatom/core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import type { WidgetComponent } from '../../widget-host/model/types'
+import type { WidgetComponent, WidgetRuntimeProps } from '../../widget-host/model/types'
 import { findWidgetType } from '../../widget-registry/model/registry'
 import { addInstance, instances, layout } from '../model/board-model'
 import { Board } from './Board'
@@ -109,5 +109,37 @@ describe('Board', () => {
     const handle = within(card).getByText('Часы')
     expect(handle).toHaveClass('widget-drag-handle')
     expect(card.querySelector('iframe')).toBeNull()
+  })
+
+  it('computes each widget tier from its layout size', async () => {
+    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+    vi.mocked(findWidgetType).mockImplementation((typeId) => {
+      if (typeId === 'probe') {
+        return {
+          id: 'probe',
+          title: 'Probe',
+          description: 'probe widget',
+          loadComponent: async () => ({ default: Probe }),
+          defaultSize: { w: 3, h: 5 },
+          icon: 'Clock',
+        }
+      }
+
+      return registryHolder.actual(typeId)
+    })
+
+    instances.set([
+      { id: 'big', typeId: 'probe' },
+      { id: 'small', typeId: 'probe' },
+    ])
+    layout.set([
+      { i: 'big', x: 0, y: 0, w: 6, h: 8, minW: 2, minH: 2 },
+      { i: 'small', x: 0, y: 8, w: 2, h: 2, minW: 2, minH: 2 },
+    ])
+
+    render(<Board />)
+
+    expect(await screen.findByText('tier:large')).toBeInTheDocument()
+    expect(await screen.findByText('tier:tiny')).toBeInTheDocument()
   })
 })
