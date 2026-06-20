@@ -11,6 +11,7 @@ function createStorage(): WidgetStorage {
     delete: vi.fn(async () => undefined),
     has: vi.fn(async () => false),
     keys: vi.fn(async () => []),
+    append: vi.fn(async () => undefined),
     subscribe: vi.fn(() => () => {}),
   }
 
@@ -37,7 +38,7 @@ describe('ofeliaDutyModel', () => {
     expect(model.currentWeek().find((day) => day.isToday)?.date.toString()).toBe('2026-06-16')
 
     vi.setSystemTime(new Date('2026-06-17T10:00:00.000Z'))
-    model.numberOfDebts.value.set({ Леша: 0, Карина: 0 })
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 })
 
     expect(model.currentWeek().find((day) => day.isToday)?.date.toString()).toBe('2026-06-17')
   })

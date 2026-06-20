@@ -51,6 +51,19 @@ describe('createDexieStorage', () => {
     expect(await storage.keys('group:')).toEqual(['group:b'])
   })
 
+  it('append creates an array then appends to it', async () => {
+    await storage.append('log', { a: 1 })
+    await storage.append('log', { a: 2 })
+    expect(await storage.get('log')).toEqual([{ a: 1 }, { a: 2 }])
+  })
+
+  it('append caps to the last N entries', async () => {
+    await storage.append('log', 1)
+    await storage.append('log', 2)
+    await storage.append('log', 3, { cap: 2 })
+    expect(await storage.get('log')).toEqual([2, 3])
+  })
+
   it('clearExpired removes only expired rows', async () => {
     await storage.set('live', 1)
     await storage.set('dead', 1, { ttlMs: -1 })

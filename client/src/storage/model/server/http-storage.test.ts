@@ -73,6 +73,31 @@ describe('createHttpStorage', () => {
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
 
+  it('append POSTs the entry and cap to the key /append URL', async () => {
+    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await storage.append('history:2026-06-15', { type: 'cleaned' }, { cap: 100 })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe(`/api/storage/${encodeURIComponent('w:t:clock:history:2026-06-15')}/append`)
+    expect(init).toMatchObject({ method: 'POST' })
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      entry: { type: 'cleaned' },
+      cap: 100,
+    })
+  })
+
+  it('append maps a non-2xx response to StorageError', async () => {
+    stubFetch(() => new Response(null, { status: 500 }))
+    expect(await storage.append('k', { a: 1 })).toBeInstanceOf(StorageError)
+  })
+
+  it('append maps a network failure to StorageError', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))))
+    expect(await storage.append('k', { a: 1 })).toBeInstanceOf(StorageError)
+  })
+
   it('subscribe emits the initial value then live SSE updates', async () => {
     installFakeEventSource()
     stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))

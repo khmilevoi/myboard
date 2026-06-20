@@ -106,6 +106,23 @@ export function createDexieStorage(
         .map((row) => toRelativeKey(namespace, row.key));
     },
 
+    async append<T>(
+      key: string,
+      entry: T,
+      options?: { cap?: number },
+    ): Promise<StorageError | void> {
+      const row = await readValid(toFullKey(namespace, key))
+      if (row instanceof Error) return row
+      const current: unknown[] = Array.isArray(row?.value) ? (row.value as unknown[]) : []
+      current.push(entry)
+      const next =
+        options?.cap != null && current.length > options.cap
+          ? current.slice(current.length - options.cap)
+          : current
+
+      return this.set(key, next)
+    },
+
     subscribe<T>(
       key: string,
       listener: StorageListener<T>,

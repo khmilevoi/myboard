@@ -36,6 +36,11 @@ export type StorageApi = {
   delete(key: string): Promise<StorageError | void>
   has(key: string): Promise<StorageError | boolean>
   keys(prefix?: string): Promise<StorageError | string[]>
+  append<T>(
+    key: string,
+    entry: T,
+    options?: { cap?: number },
+  ): Promise<StorageError | void>
   subscribe<T>(
     key: string,
     listener: StorageListener<T>,
