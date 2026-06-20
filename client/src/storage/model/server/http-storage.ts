@@ -89,6 +89,20 @@ export function createHttpStorage(
       return body.keys.map((full) => toRelativeKey(namespace, full))
     },
 
+    async append<T extends Record<string, unknown>>(
+      key: string,
+      entry: T,
+      options?: { cap?: number },
+    ): Promise<StorageError | void> {
+      const res = await fetch(`${keyUrl(toFullKey(namespace, key))}/append`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ entry, cap: options?.cap }),
+      }).catch((cause) => new StorageError({ reason: 'server APPEND failed', cause }))
+      if (res instanceof Error) return res
+      if (!res.ok) return new StorageError({ reason: `server APPEND ${res.status}` })
+    },
+
     subscribe<T>(
       key: string,
       listener: StorageListener<T>,

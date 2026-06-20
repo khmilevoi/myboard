@@ -51,6 +51,68 @@ describe('createDexieStorage', () => {
     expect(await storage.keys('group:')).toEqual(['group:b'])
   })
 
+  it('append creates an array then appends to it', async () => {
+    await storage.append('log', { a: 1 })
+    await storage.append('log', { a: 2 })
+    expect(await storage.get('log')).toEqual([{ a: 1 }, { a: 2 }])
+  })
+
+  it('append caps to the last N entries', async () => {
+    await storage.append('log', { n: 1 })
+    await storage.append('log', { n: 2 })
+    await storage.append('log', { n: 3 }, { cap: 2 })
+    expect(await storage.get('log')).toEqual([{ n: 2 }, { n: 3 }])
+  })
+
+  it('serializes concurrent appends for the same key', async () => {
+    const fullKey = `${ns}log`
+    const state = new Map<string, unknown>([
+      [fullKey, {
+        key: fullKey,
+        namespace: ns,
+        value: [{ n: 1 }],
+        expiresAt: null,
+        updatedAt: 1,
+      }],
+    ])
+    let releaseFirstPut = () => {}
+    let putCalls = 0
+    const storage = createDexieStorage(ns, {
+      entries: {
+        get: vi.fn(async (key: string) => {
+          const entry = state.get(key)
+          return entry === undefined ? undefined : structuredClone(entry)
+        }),
+        put: vi.fn(async (entry: { key: string; value: unknown }) => {
+          putCalls += 1
+          if (putCalls === 1) await new Promise<void>((resolve) => {
+            releaseFirstPut = resolve
+          })
+          state.set(entry.key, entry)
+        }),
+        delete: vi.fn(async () => undefined),
+        where: vi.fn(() => ({
+          startsWith: vi.fn(() => ({
+            toArray: vi.fn(async () => []),
+          })),
+        })),
+      },
+    } as never)
+
+    const first = storage.append('log', { n: 2 })
+    await vi.waitFor(() => expect(putCalls).toBe(1))
+    const second = storage.append('log', { n: 3 })
+    await Promise.resolve()
+    releaseFirstPut()
+    await Promise.all([first, second])
+
+    expect((state.get(fullKey) as { value: unknown[] }).value).toEqual([
+      { n: 1 },
+      { n: 2 },
+      { n: 3 },
+    ])
+  })
+
   it('clearExpired removes only expired rows', async () => {
     await storage.set('live', 1)
     await storage.set('dead', 1, { ttlMs: -1 })

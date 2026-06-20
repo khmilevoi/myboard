@@ -12,6 +12,24 @@ import { db as defaultDb, type StorageDb } from './db'
 import { parseValue } from '../validate'
 import { registerLocal, publishChange } from './channel'
 
+const appendTails = new Map<string, Promise<unknown>>()
+
+function runAppendExclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = appendTails.get(key) ?? Promise.resolve()
+  const result = previous.then(() => task())
+  const tail = result.then(
+    () => undefined,
+    () => undefined,
+  )
+
+  appendTails.set(key, tail)
+  void tail.then(() => {
+    if (appendTails.get(key) === tail) appendTails.delete(key)
+  })
+
+  return result
+}
+
 export function createDexieStorage(
   namespace: string,
   database: StorageDb = defaultDb,
@@ -104,6 +122,26 @@ export function createDexieStorage(
       return rows
         .filter((row) => row.expiresAt == null || row.expiresAt >= now)
         .map((row) => toRelativeKey(namespace, row.key));
+    },
+
+    async append<T extends Record<string, unknown>>(
+      key: string,
+      entry: T,
+      options?: { cap?: number },
+    ): Promise<StorageError | void> {
+      const fullKey = toFullKey(namespace, key)
+      return runAppendExclusive(fullKey, async () => {
+        const row = await readValid(fullKey)
+        if (row instanceof Error) return row
+        const current: unknown[] = Array.isArray(row?.value) ? [...row.value] : []
+        current.push(entry)
+        const next =
+          options?.cap != null && current.length > options.cap
+            ? current.slice(current.length - options.cap)
+            : current
+
+        return this.set(key, next)
+      })
     },
 
     subscribe<T>(

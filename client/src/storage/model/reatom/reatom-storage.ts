@@ -71,7 +71,7 @@ export const withStorageKey =
 
     target.extend(
       withConnectHook(() => {
-        api.subscribe<AtomState<Target>>(
+        return api.subscribe<AtomState<Target>>(
           key,
           wrap((event) => {
             if (event instanceof Error) return error.set(event);

@@ -1,11 +1,11 @@
 import 'fake-indexeddb/auto'
-import { context, wrap } from '@reatom/core'
+import { atom, context, wrap } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../client/db'
 import { createDexieStorage } from '../client/dexie-storage'
 import { instanceNamespace } from '../scope'
 import { StorageError, type StorageApi } from '../types'
-import { reatomStorageMutations, reatomClearExpired, reatomStorageKey } from './reatom-storage'
+import { reatomStorageMutations, reatomClearExpired, withStorageKey } from './reatom-storage'
 import { installFakeBroadcastChannel } from '../test/fakes'
 
 beforeEach(async () => {
@@ -54,7 +54,7 @@ describe('reatomClearExpired', () => {
   })
 })
 
-describe('reatomStorageKey', () => {
+describe('withStorageKey', () => {
   beforeEach(() => {
     installFakeBroadcastChannel()
   })
@@ -65,11 +65,11 @@ describe('reatomStorageKey', () => {
   it('reflects the current value and live updates while connected', async () => {
     const api: StorageApi = createDexieStorage(instanceNamespace('inst-1'))
     await api.set('draft', 1)
-    const key = reatomStorageKey({ api, key: 'draft' }, 'test.draft')
+    const key = atom<number | null>(null, 'test.draft').extend(withStorageKey({ api, key: 'draft' }))
     await context.start(async () => {
-      const off = key.value.subscribe(() => {}) // connect the atom
-      const check1 = wrap(() => expect(key.value()).toBe(1))
-      const check2 = wrap(() => expect(key.value()).toBe(2))
+      const off = key.subscribe(() => {}) // connect the atom
+      const check1 = wrap(() => expect(key()).toBe(1))
+      const check2 = wrap(() => expect(key()).toBe(2))
       await vi.waitFor(() => check1())
       await api.set('draft', 2)
       await vi.waitFor(() => check2())
@@ -87,9 +87,9 @@ describe('reatomStorageKey', () => {
       keys: vi.fn(),
       subscribe: vi.fn(() => unsubscribe),
     } as unknown as StorageApi
-    const key = reatomStorageKey({ api, key: 'k' }, 'test.k')
+    const key = atom<null>(null, 'test.k').extend(withStorageKey({ api, key: 'k' }))
     await context.start(async () => {
-      const off = key.value.subscribe(() => {})
+      const off = key.subscribe(() => {})
       const checkSubscribe = wrap(() => expect(api.subscribe).toHaveBeenCalled())
       await vi.waitFor(() => checkSubscribe())
       off()

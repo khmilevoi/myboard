@@ -1,11 +1,13 @@
 import { createServer, type ServerResponse } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import Router from 'find-my-way'
-import { createValkeyOps, createValkeySubscriber } from './valkey'
 import { readJsonBody } from './body'
-import { handleGet, handlePut, handleDelete, handleKeys, publishChange, type HandlerResult } from './handlers'
-import { PutPayloadSchema, PrefixQuerySchema, EventsBodySchema, EventsParamsSchema, StorageEventSchema, formatZodError } from './schemas'
+import { clientIp } from './client-ip'
+import { handleGet, handlePut, handleDelete, handleKeys, handleAppend, publishChange, type HandlerResult } from './handlers'
+import { runExclusive } from './key-lock'
+import { PutPayloadSchema, PrefixQuerySchema, AppendPayloadSchema, EventsBodySchema, EventsParamsSchema, StorageEventSchema, formatZodError } from './schemas'
 import { SseRegistry, writeSseEvent, fanout } from './sse'
+import { createValkeyOps, createValkeySubscriber } from './valkey'
 
 const ops = createValkeyOps()
 const router = Router({ ignoreTrailingSlash: true })
@@ -119,6 +121,36 @@ router.on('PUT', '/api/storage/:key', async (req, res, params) => {
   const key = decodeURIComponent(params.key as string)
   send(res, await handlePut(ops, key, parsed.data))
   await publishChange(ops, key, parsed.data.value)
+})
+
+router.on('POST', '/api/storage/:key/append', async (req, res, params) => {
+  let raw: unknown
+  try {
+    raw = await readJsonBody(req)
+  } catch (e) {
+    const status = e instanceof Error && e.message === 'request body too large' ? 413 : 400
+    res.writeHead(status)
+    res.end()
+    return
+  }
+
+  const parsed = AppendPayloadSchema.safeParse(raw)
+  if (!parsed.success) {
+    res.writeHead(422, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(formatZodError(parsed.error)))
+    return
+  }
+
+  const key = decodeURIComponent(params.key as string)
+  const ip = clientIp(req)
+  const status = await runExclusive(key, async () => {
+    const result = await handleAppend(ops, key, parsed.data, ip)
+    await publishChange(ops, key, result.value)
+    return result.status
+  })
+
+  res.writeHead(status)
+  res.end()
 })
 
 router.on('DELETE', '/api/storage/:key', async (_req, res, params) => {

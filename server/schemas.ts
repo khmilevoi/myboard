@@ -5,11 +5,17 @@ export const PutPayloadSchema = z.object({
   ttlMs: z.number().int().positive().optional(),
 })
 
+export const AppendPayloadSchema = z.object({
+  entry: z.record(z.string(), z.unknown()),
+  cap: z.number().int().positive().optional(),
+})
+
 export const PrefixQuerySchema = z.object({
   prefix: z.string().optional(),
 })
 
 export type PutPayload = z.infer<typeof PutPayloadSchema>
+export type AppendPayload = z.infer<typeof AppendPayloadSchema>
 
 export function formatZodError(err: ZodError): { errors: { path: (string | number)[]; message: string }[] } {
   return {
