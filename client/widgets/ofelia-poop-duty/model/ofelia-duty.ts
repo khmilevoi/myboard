@@ -185,7 +185,12 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     if (currentToday == null) return;
 
     const target = date ?? selectedDate() ?? currentToday;
-    const debts = { ...(numberOfDebts() ?? {}) };
+    const storedDebts = await wrap(
+      storage.shared.server.get("debts", NumberOfDebtsSchema),
+    );
+    if (storedDebts instanceof Error) throw storedDebts;
+
+    const debts = storedDebts ?? numberOfDebts() ?? {};
     const debtDay = getDebtDays(debts, currentToday).find((day) =>
       day.date.equals(target),
     );

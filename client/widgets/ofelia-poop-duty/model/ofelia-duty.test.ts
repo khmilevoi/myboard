@@ -191,18 +191,17 @@ describe("ofeliaDutyModel.currentUser", () => {
 
 describe("ofeliaDutyModel.confirmClean", () => {
   it("on a plain day appends cleaned with no debt change", async () => {
-    const storage = createStorage();
+    const storage = createStorage({
+      get: vi.fn(async (key: string) =>
+        key === "debts" ? { Леша: 0, Карина: 0 } : null,
+      ) as StorageApi["get"],
+    });
     const model = ofeliaDutyModel({
       storage,
       timer: createFakeTimer({ today: D("2026-06-16") }),
     });
+    await model.confirmClean(D("2026-06-17"));
 
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
-    await context.start(async () => {
-      await model.confirmClean(D("2026-06-17"));
-    });
-
-    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
     expect(storage.shared.server.append).toHaveBeenCalledWith(
       "history:2026-06-15",
       {
@@ -212,21 +211,29 @@ describe("ofeliaDutyModel.confirmClean", () => {
         by: "Леша",
       },
     );
+    expect(storage.shared.server.set).not.toHaveBeenCalledWith(
+      "debts",
+      expect.anything(),
+    );
   });
 
   it("on a debt-payment day decrements the debtor and records the creditor", async () => {
-    const storage = createStorage();
+    const storage = createStorage({
+      get: vi.fn(async (key: string) =>
+        key === "debts" ? { Леша: 0, Карина: 1 } : null,
+      ) as StorageApi["get"],
+    });
     const model = ofeliaDutyModel({
       storage,
       timer: createFakeTimer({ today: D("2026-06-16") }),
     });
-
-    model.numberOfDebts.set({ Леша: 0, Карина: 1 });
     model.currentUser.set("Карина");
     await model.confirmClean(D("2026-06-16"));
 
-    await vi.waitFor(() =>
-      expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 }),
+    expect(storage.shared.server.set).toHaveBeenCalledWith(
+      "debts",
+      { Леша: 0, Карина: 0 },
+      expect.anything(),
     );
     expect(storage.shared.server.append).toHaveBeenCalledWith(
       "history:2026-06-15",
@@ -241,16 +248,16 @@ describe("ofeliaDutyModel.confirmClean", () => {
   });
 
   it("defaults the date to today when no selected date is set", async () => {
-    const storage = createStorage();
+    const storage = createStorage({
+      get: vi.fn(async (key: string) =>
+        key === "debts" ? { Леша: 0, Карина: 0 } : null,
+      ) as StorageApi["get"],
+    });
     const model = ofeliaDutyModel({
       storage,
       timer: createFakeTimer({ today: D("2026-06-16") }),
     });
-
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
-    await context.start(async () => {
-      await model.confirmClean();
-    });
+    await model.confirmClean();
 
     expect(storage.shared.server.append).toHaveBeenCalledWith(
       "history:2026-06-15",
@@ -269,11 +276,9 @@ describe("ofeliaDutyModel.goIntoDebt", () => {
 
     model.currentUser.set("Карина");
     model.numberOfDebts.set({ Леша: 0, Карина: 0 });
-
     await context.start(async () => {
       await model.goIntoDebt(D("2026-06-16"));
     });
-
     expect(model.numberOfDebts()).toEqual({ Леша: 1, Карина: 0 });
     expect(storage.shared.server.append).toHaveBeenCalledWith(
       "history:2026-06-15",
