@@ -5,7 +5,7 @@ name = "myboard"
 
 [source]
 repo = "git@github.com:khmilevoi/myboard.git"
-branch = "master"
+branch = "main"
 
 [build]
 compose = "docker-compose.yml"
