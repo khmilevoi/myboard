@@ -82,4 +82,41 @@ describe('ofeliaDutyModel server time', () => {
     model.goToCurrentWeek()
     expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
   })
+
+  it('selects a day and resolves the default to today', () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+    })
+
+    expect(model.selectedDate()).toBeNull()
+
+    model.selectDay(Temporal.PlainDate.from('2026-06-15'))
+    expect(model.selectedDate()?.toString()).toBe('2026-06-15')
+  })
+
+  it('allows undo only when the selected day equals server today', () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+    })
+
+    // default selection (null) resolves to today -> available
+    expect(model.undoAvailable()).toBe(true)
+
+    model.selectDay(Temporal.PlainDate.from('2026-06-15'))
+    expect(model.undoAvailable()).toBe(false)
+
+    model.selectDay(Temporal.PlainDate.from('2026-06-16'))
+    expect(model.undoAvailable()).toBe(true)
+  })
+
+  it('blocks undo before the first sync', () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer(),
+    })
+
+    expect(model.undoAvailable()).toBe(false)
+  })
 })

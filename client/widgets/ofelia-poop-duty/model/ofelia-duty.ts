@@ -31,11 +31,11 @@ function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
   });
 }
 
-export const ofeliaDutyModel = ({
-  storage,
-  timer,
-}: OfeliaDutyModelProps) => {
-  const numberOfDebts = atom<NumberOfDebts | null>(null, "ofeliaDuty.numberOfDebts").extend(
+export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
+  const numberOfDebts = atom<NumberOfDebts | null>(
+    null,
+    "ofeliaDuty.numberOfDebts",
+  ).extend(
     withStorageKey({
       api: storage.shared.server,
       key: "debts",
@@ -43,7 +43,7 @@ export const ofeliaDutyModel = ({
     }),
   );
 
-  const today = () => timer.today(DUTY_TIME_ZONE);
+  const today = computed(() => timer.today(DUTY_TIME_ZONE), "today");
 
   const startOfWeekOverride = atom<Temporal.PlainDate | null>(
     null,
@@ -72,6 +72,30 @@ export const ofeliaDutyModel = ({
   const goToCurrentWeek = action(() => {
     startOfWeekOverride.set(null);
   }, "ofeliaDuty.goToCurrentWeek");
+
+  const selectedDate = atom<Temporal.PlainDate | null>(
+    null,
+    "ofeliaDuty.selectedDate",
+  );
+
+  // TODO: useless action
+  const selectDay = action((date: Temporal.PlainDate) => {
+    selectedDate.set(date);
+  }, "ofeliaDuty.selectDay");
+
+  // Placeholder until F4 wires the week log behind this port (spec §5).
+  const hasReversibleEvent = (_date: Temporal.PlainDate): boolean => true;
+
+  const undoAvailable = computed(() => {
+    const currentToday = today();
+    const day = selectedDate() ?? currentToday;
+    return (
+      currentToday != null &&
+      day != null &&
+      day.equals(currentToday) &&
+      hasReversibleEvent(day)
+    );
+  }, "ofeliaDuty.undoAvailable");
 
   const debtDays = computed(() => {
     const debts = numberOfDebts();
@@ -139,9 +163,12 @@ export const ofeliaDutyModel = ({
     goToNextWeek,
     goToPrevWeek,
     goToCurrentWeek,
+    selectedDate,
+    selectDay,
     numberOfDebts,
     debtDays,
     currentWeek,
+    undoAvailable,
     inDebt,
     forgiveDebt,
   };
