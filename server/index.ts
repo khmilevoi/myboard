@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import Router from 'find-my-way'
 import { readJsonBody } from './body'
 import { clientIp } from './client-ip'
-import { handleGet, handlePut, handleDelete, handleKeys, handleAppend, publishChange, type HandlerResult } from './handlers'
+import { handleGet, handlePut, handleDelete, handleKeys, handleAppend, handleTime, publishChange, type HandlerResult } from './handlers'
 import { runExclusive } from './key-lock'
 import { PutPayloadSchema, PrefixQuerySchema, AppendPayloadSchema, EventsBodySchema, EventsParamsSchema, StorageEventSchema, formatZodError } from './schemas'
 import { SseRegistry, writeSseEvent, fanout } from './sse'
@@ -86,6 +86,10 @@ router.on('POST', '/api/storage/events/:connId', async (req, res, params) => {
   if (parsed.data.unsubscribe) registry.unsubscribe(connId, parsed.data.unsubscribe)
   res.writeHead(204)
   res.end()
+})
+
+router.on('GET', '/api/time', (_req, res) => {
+  send(res, handleTime())
 })
 
 router.on('GET', '/api/storage', async (_req, res, _params, _store, query) => {

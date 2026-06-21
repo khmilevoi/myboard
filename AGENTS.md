@@ -42,5 +42,5 @@ Do not commit `.env` files. Client environment examples live in `client/.env.exa
 
 ## General Guidelines
 
-- For worktrees you should use `.worktrees` folder
+- For worktrees you should use `./.worktrees` folder
 - Use path aliases for absolute imports like `@/*` or `@shared/*`

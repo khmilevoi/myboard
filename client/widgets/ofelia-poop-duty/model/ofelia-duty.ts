@@ -1,5 +1,6 @@
 import { withStorageKey } from "@/storage/model/reatom/reatom-storage";
 import { WidgetStorage } from "@/storage/model/widget-storage";
+import { ServerTime } from "@/shared/timer/model/server-time";
 import { action, atom, computed, withAsyncData } from "@reatom/core";
 import z from "zod";
 
@@ -15,6 +16,7 @@ export type DutyPerson = (typeof DUTY_ROTATION)[number];
 
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage;
+  timer: ServerTime;
 }
 
 const NumberOfDebtsSchema = z.record(
@@ -23,20 +25,17 @@ const NumberOfDebtsSchema = z.record(
 );
 type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>;
 
-function getToday(): Temporal.PlainDate {
-  return Temporal.Instant.fromEpochMilliseconds(Date.now())
-    .toZonedDateTimeISO(DUTY_TIME_ZONE)
-    .toPlainDate();
-}
-
 function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
   return date.subtract({
     days: date.dayOfWeek - 1,
   });
 }
 
-export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
-  const numberOfDebts = atom<NumberOfDebts | null>(null).extend(
+export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
+  const numberOfDebts = atom<NumberOfDebts | null>(
+    null,
+    "ofeliaDuty.numberOfDebts",
+  ).extend(
     withStorageKey({
       api: storage.shared.server,
       key: "debts",
@@ -44,77 +43,126 @@ export const ofeliaDutyModel = ({ storage }: OfeliaDutyModelProps) => {
     }),
   );
 
-  const startOfWeek = atom<Temporal.PlainDate>(getStartOfWeek(getToday()));
+  const today = computed(() => timer.today(DUTY_TIME_ZONE), "today");
+
+  const startOfWeekOverride = atom<Temporal.PlainDate | null>(
+    null,
+    "ofeliaDuty.startOfWeekOverride",
+  );
+
+  const viewWeekStart = computed<Temporal.PlainDate | null>(() => {
+    const override = startOfWeekOverride();
+    if (override) return override;
+    const currentToday = today();
+    return currentToday ? getStartOfWeek(currentToday) : null;
+  }, "ofeliaDuty.viewWeekStart");
 
   const goToNextWeek = action(() => {
-    startOfWeek.set(startOfWeek().add({ days: 7 }));
-  });
+    const base = viewWeekStart();
+    if (!base) return;
+    startOfWeekOverride.set(base.add({ days: 7 }));
+  }, "ofeliaDuty.goToNextWeek");
 
   const goToPrevWeek = action(() => {
-    startOfWeek.set(startOfWeek().subtract({ days: 7 }));
-  });
+    const base = viewWeekStart();
+    if (!base) return;
+    startOfWeekOverride.set(base.subtract({ days: 7 }));
+  }, "ofeliaDuty.goToPrevWeek");
 
   const goToCurrentWeek = action(() => {
-    startOfWeek.set(getStartOfWeek(getToday()));
-  });
+    startOfWeekOverride.set(null);
+  }, "ofeliaDuty.goToCurrentWeek");
+
+  const selectedDate = atom<Temporal.PlainDate | null>(
+    null,
+    "ofeliaDuty.selectedDate",
+  );
+
+  // Placeholder until F4 wires the week log behind this port (spec §5).
+  const hasReversibleEvent = (_date: Temporal.PlainDate): boolean => true;
+
+  const undoAvailable = computed(() => {
+    const currentToday = today();
+    const day = selectedDate() ?? currentToday;
+    return (
+      currentToday != null &&
+      day != null &&
+      day.equals(currentToday) &&
+      hasReversibleEvent(day)
+    );
+  }, "ofeliaDuty.undoAvailable");
 
   const debtDays = computed(() => {
     const debts = numberOfDebts();
+    const currentToday = today();
 
-    if (!debts) {
+    if (!debts || !currentToday) {
       return null;
     }
 
-    return getDebtDays(debts, getToday()).reduce((acc, debtDay) => {
+    return getDebtDays(debts, currentToday).reduce((acc, debtDay) => {
       acc.set(debtDay.date.toString(), debtDay);
       return acc;
     }, new Map<string, DebtDay>());
-  });
+  }, "ofeliaDuty.debtDays");
 
   const currentWeek = computed(() => {
-    const today = getToday();
-    const weekStart = startOfWeek();
+    const currentToday = today();
+    const weekStart = viewWeekStart();
 
-    const week = Array.from({ length: 7 }, (_, dayOffset) => {
+    if (!currentToday || !weekStart) {
+      return null;
+    }
+
+    const days = debtDays();
+
+    return Array.from({ length: 7 }, (_, dayOffset) => {
       const date = weekStart.add({ days: dayOffset });
       const duty = getOfeliaDutyByDate(date);
 
-      const debt = debtDays()?.get(date.toString()) ?? null;
+      const debt = days?.get(date.toString()) ?? null;
 
       return {
         date,
-        isToday: date.equals(today),
+        isToday: date.equals(currentToday),
         day: date.day,
         duty,
         debt: debt?.person ?? null,
       };
     });
-    return week;
-  });
+  }, "ofeliaDuty.currentWeek");
 
   const inDebt = action(async (person: DutyPerson) => {
+    if (today() == null) return;
+
     const debts = { ...numberOfDebts() };
 
     debts[person] = (debts[person] ?? 0) + 1;
 
     numberOfDebts.set(normalizeDebts(debts));
-  }).extend(withAsyncData({ status: true }));
+  }, "ofeliaDuty.inDebt").extend(withAsyncData({ status: true }));
 
   const forgiveDebt = action(async (person: DutyPerson) => {
+    if (today() == null) return;
+
     const debts = { ...numberOfDebts() };
 
     debts[person] = Math.max((debts[person] ?? 0) - 1, 0);
 
     numberOfDebts.set(normalizeDebts(debts));
-  }).extend(withAsyncData({ status: true }));
+  }, "ofeliaDuty.forgiveDebt").extend(withAsyncData({ status: true }));
 
   return {
-    startOfWeek,
+    startOfWeekOverride,
+    viewWeekStart,
     goToNextWeek,
     goToPrevWeek,
     goToCurrentWeek,
+    selectedDate,
     numberOfDebts,
+    debtDays,
     currentWeek,
+    undoAvailable,
     inDebt,
     forgiveDebt,
   };

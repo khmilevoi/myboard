@@ -83,7 +83,6 @@ export const withStorageKey =
         );
       }),
       withChangeHook((state, prevState) => {
-        target.set(state);
         api.set(key, state, state).then((err) => {
           if (err instanceof Error) {
             error.set(err);

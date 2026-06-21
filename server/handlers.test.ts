@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { handleGet, handlePut, handleDelete, handleKeys, publishChange, handleAppend } from './handlers'
+import { handleGet, handlePut, handleDelete, handleKeys, publishChange, handleAppend, handleTime } from './handlers'
 import type { ValkeyOps } from './valkey'
 
 function mockOps(overrides: Partial<ValkeyOps> = {}): ValkeyOps {
@@ -130,3 +130,18 @@ describe('handleAppend', () => {
     vi.useRealTimers()
   })
 })
+
+describe('handleTime', () => {
+  it('returns 200 with the current epoch ms', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-21T12:00:00.000Z'))
+
+    expect(handleTime()).toEqual({
+      status: 200,
+      body: { now: Date.parse('2026-06-21T12:00:00.000Z') },
+    })
+
+    vi.useRealTimers()
+  })
+})
+
