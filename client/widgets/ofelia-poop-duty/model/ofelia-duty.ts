@@ -1,6 +1,6 @@
 import { withStorageKey } from "@/storage/model/reatom/reatom-storage";
 import { WidgetStorage } from "@/storage/model/widget-storage";
-import { ServerTime, getServerTime } from "@/shared/timer/model/server-time";
+import { ServerTime } from "@/shared/timer/model/server-time";
 import { action, atom, computed, withAsyncData } from "@reatom/core";
 import z from "zod";
 
@@ -16,7 +16,7 @@ export type DutyPerson = (typeof DUTY_ROTATION)[number];
 
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage;
-  timer?: ServerTime;
+  timer: ServerTime;
 }
 
 const NumberOfDebtsSchema = z.record(
@@ -33,9 +33,9 @@ function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
 
 export const ofeliaDutyModel = ({
   storage,
-  timer = getServerTime(),
+  timer,
 }: OfeliaDutyModelProps) => {
-  const numberOfDebts = atom<NumberOfDebts | null>(null).extend(
+  const numberOfDebts = atom<NumberOfDebts | null>(null, "ofeliaDuty.numberOfDebts").extend(
     withStorageKey({
       api: storage.shared.server,
       key: "debts",
@@ -43,18 +43,7 @@ export const ofeliaDutyModel = ({
     }),
   );
 
-  const today = () => {
-    const serverToday = timer.today(DUTY_TIME_ZONE);
-    if (serverToday) {
-      return serverToday;
-    }
-    if (timer === getServerTime() && !timer.isSynced()) {
-      return Temporal.Instant.fromEpochMilliseconds(Date.now())
-        .toZonedDateTimeISO(DUTY_TIME_ZONE)
-        .toPlainDate();
-    }
-    return null;
-  };
+  const today = () => timer.today(DUTY_TIME_ZONE);
 
   const startOfWeekOverride = atom<Temporal.PlainDate | null>(
     null,
@@ -72,17 +61,17 @@ export const ofeliaDutyModel = ({
     const base = viewWeekStart();
     if (!base) return;
     startOfWeekOverride.set(base.add({ days: 7 }));
-  });
+  }, "ofeliaDuty.goToNextWeek");
 
   const goToPrevWeek = action(() => {
     const base = viewWeekStart();
     if (!base) return;
     startOfWeekOverride.set(base.subtract({ days: 7 }));
-  });
+  }, "ofeliaDuty.goToPrevWeek");
 
   const goToCurrentWeek = action(() => {
     startOfWeekOverride.set(null);
-  });
+  }, "ofeliaDuty.goToCurrentWeek");
 
   const debtDays = computed(() => {
     const debts = numberOfDebts();
@@ -132,7 +121,7 @@ export const ofeliaDutyModel = ({
     debts[person] = (debts[person] ?? 0) + 1;
 
     numberOfDebts.set(normalizeDebts(debts));
-  }).extend(withAsyncData({ status: true }));
+  }, "ofeliaDuty.inDebt").extend(withAsyncData({ status: true }));
 
   const forgiveDebt = action(async (person: DutyPerson) => {
     if (today() == null) return;
@@ -142,7 +131,7 @@ export const ofeliaDutyModel = ({
     debts[person] = Math.max((debts[person] ?? 0) - 1, 0);
 
     numberOfDebts.set(normalizeDebts(debts));
-  }).extend(withAsyncData({ status: true }));
+  }, "ofeliaDuty.forgiveDebt").extend(withAsyncData({ status: true }));
 
   return {
     startOfWeekOverride,

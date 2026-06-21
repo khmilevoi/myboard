@@ -3,7 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { WidgetRuntimeProps } from '../../../src/widget-host/model/types'
 import { createWidgetStorage } from '../../../src/storage/model/widget-storage'
+import { createFakeTimer } from '../../../src/shared/timer/model/fakes'
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
+
+vi.mock('../../../src/shared/timer/model/server-time', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/shared/timer/model/server-time')>()
+  const fake = createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') })
+  return {
+    ...actual,
+    getServerTime: () => fake,
+  }
+})
 
 const fixedNow = new Date('2026-06-16T10:00:00.000Z')
 
