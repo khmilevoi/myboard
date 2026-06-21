@@ -15,8 +15,8 @@ export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(
 
     if (!week) {
       return (
-        <section className={mode === "large" ? styles.root : styles.small}>
-          <div className={styles.label}>Загрузка...</div>
+        <section className={styles.small}>
+          <div className={styles.label}>Загрузка…</div>
         </section>
       );
     }
