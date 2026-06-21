@@ -1,7 +1,7 @@
 {
   "name": "client",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -28,6 +28,7 @@
     "radix-ui": "^1.6.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-error-boundary": "^6.1.2",
     "react-grid-layout": "^2.2.3",
     "react-resizable": "^4.0.1",
     "shadcn": "^4.11.0",
