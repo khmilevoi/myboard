@@ -190,7 +190,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     );
     if (storedDebts instanceof Error) throw storedDebts;
 
-    const debts = storedDebts ?? numberOfDebts() ?? {};
+    const debts: Partial<NumberOfDebts> = storedDebts ?? numberOfDebts() ?? {};
     const debtDay = getDebtDays(debts, currentToday).find((day) =>
       day.date.equals(target),
     );
@@ -221,7 +221,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
 
     const target = date ?? selectedDate() ?? currentToday;
     const duty = getOfeliaDutyByDate(target);
-    const debts = { ...(numberOfDebts() ?? {}) };
+    const debts: Partial<NumberOfDebts> = { ...(numberOfDebts() ?? {}) };
     debts[duty] = (debts[duty] ?? 0) + 1;
     numberOfDebts.set(normalizeDebts(debts));
 
@@ -240,11 +240,43 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   }, "ofeliaDuty.goIntoDebt").extend(withAsyncData({ status: true }));
 
   const forgive = action(async (date?: Temporal.PlainDate) => {
-    void date;
+    const currentToday = today();
+    if (currentToday == null) return;
+
+    const target = date ?? selectedDate() ?? currentToday;
+    const debts = { ...(numberOfDebts() ?? {}) };
+    const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0);
+    if (!debtor) return;
+
+    debts[debtor] = Math.max((debts[debtor] ?? 0) - 1, 0);
+    numberOfDebts.set(normalizeDebts(debts));
+
+    const result = await wrap(
+      storage.shared.server.append(historyKey(target), {
+        date: target.toString(),
+        type: "forgiven",
+        actor: otherPerson(debtor),
+        onBehalfOf: debtor,
+        by: currentUser(),
+      }),
+    );
+    if (result instanceof Error) throw result;
   }, "ofeliaDuty.forgive").extend(withAsyncData({ status: true }));
 
   const undo = action(async (events: HistoryEvent[]) => {
-    void events;
+    const currentToday = today();
+    if (currentToday == null) return;
+    if (getDayStatus(events, currentToday) !== "closed") return;
+
+    const result = await wrap(
+      storage.shared.server.append(historyKey(currentToday), {
+        date: currentToday.toString(),
+        type: "cancelled",
+        actor: effectiveDuty(currentToday, numberOfDebts() ?? {}, currentToday),
+        by: currentUser(),
+      }),
+    );
+    if (result instanceof Error) throw result;
   }, "ofeliaDuty.undo").extend(withAsyncData({ status: true }));
 
   return {

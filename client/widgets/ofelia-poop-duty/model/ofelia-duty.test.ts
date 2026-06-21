@@ -218,18 +218,20 @@ describe("ofeliaDutyModel.confirmClean", () => {
   });
 
   it("on a debt-payment day decrements the debtor and records the creditor", async () => {
-    const storage = createStorage({
-      get: vi.fn(async (key: string) =>
-        key === "debts" ? { Леша: 0, Карина: 1 } : null,
-      ) as StorageApi["get"],
-    });
+    const storage = createStorage();
     const model = ofeliaDutyModel({
       storage,
       timer: createFakeTimer({ today: D("2026-06-16") }),
     });
-    model.currentUser.set("Карина");
-    await model.confirmClean(D("2026-06-16"));
-
+    await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {});
+      const userOff = model.currentUser.subscribe(() => {});
+      model.numberOfDebts.set({ Леша: 0, Карина: 1 });
+      model.currentUser.set("Карина");
+      await model.confirmClean(D("2026-06-16"));
+      off();
+      userOff();
+    });
     expect(storage.shared.server.set).toHaveBeenCalledWith(
       "debts",
       { Леша: 0, Карина: 0 },
@@ -273,13 +275,20 @@ describe("ofeliaDutyModel.goIntoDebt", () => {
       storage,
       timer: createFakeTimer({ today: D("2026-06-16") }),
     });
-
-    model.currentUser.set("Карина");
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
     await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {});
+      const userOff = model.currentUser.subscribe(() => {});
+      model.currentUser.set("Карина");
+      model.numberOfDebts.set({ Леша: 0, Карина: 0 });
       await model.goIntoDebt(D("2026-06-16"));
+      off();
+      userOff();
     });
-    expect(model.numberOfDebts()).toEqual({ Леша: 1, Карина: 0 });
+    expect(storage.shared.server.set).toHaveBeenCalledWith(
+      "debts",
+      { Леша: 1, Карина: 0 },
+      expect.anything(),
+    );
     expect(storage.shared.server.append).toHaveBeenCalledWith(
       "history:2026-06-15",
       {
