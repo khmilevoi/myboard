@@ -3,7 +3,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakeTimer } from "../../../src/shared/timer/model/fakes";
 import type { StorageApi } from "../../../src/storage/model/types";
 import type { WidgetStorage } from "../../../src/storage/model/widget-storage";
-import { ofeliaDutyModel } from "./ofelia-duty";
+import {
+  DEBT_WARNING_THRESHOLD,
+  effectiveDuty,
+  getDayStatus,
+  historyKey,
+  isDebtDay,
+  isOverDebtWarning,
+  ofeliaDutyModel,
+  otherPerson,
+  weekStartISO,
+} from "./ofelia-duty";
+import type { HistoryEvent } from "./ofelia-duty";
 
 function createStorage(): WidgetStorage {
   const api: StorageApi = {
@@ -21,6 +32,19 @@ function createStorage(): WidgetStorage {
     shared: { client: api, server: api },
   };
 }
+
+const D = (iso: string) => Temporal.PlainDate.from(iso);
+
+const ev = (overrides: Partial<HistoryEvent> = {}): HistoryEvent => ({
+  id: "event-1",
+  ts: 1,
+  ip: "127.0.0.1",
+  date: "2026-06-16",
+  type: "cleaned",
+  actor: "Леша",
+  by: "Леша",
+  ...overrides,
+});
 
 afterEach(() => {
   context.reset();
@@ -120,5 +144,59 @@ describe("ofeliaDutyModel server time", () => {
     });
 
     expect(model.undoAvailable()).toBe(false);
+  });
+});
+
+describe("ofelia-duty selectors", () => {
+  it("otherPerson returns the partner", () => {
+    expect(otherPerson("Леша")).toBe("Карина");
+    expect(otherPerson("Карина")).toBe("Леша");
+  });
+
+  it("weekStartISO/historyKey use the Monday of the date week", () => {
+    expect(weekStartISO(D("2026-06-16"))).toBe("2026-06-15");
+    expect(historyKey(D("2026-06-17"))).toBe("history:2026-06-15");
+  });
+
+  it("effectiveDuty / isDebtDay reflect projected debt days", () => {
+    const debts = { Леша: 0, Карина: 1 };
+    const today = D("2026-06-16");
+    expect(isDebtDay(D("2026-06-16"), debts, today)).toBe(true);
+    expect(effectiveDuty(D("2026-06-16"), debts, today)).toBe("Карина");
+    expect(isDebtDay(D("2026-06-17"), {}, today)).toBe(false);
+    expect(effectiveDuty(D("2026-06-17"), {}, today)).toBe("Карина");
+  });
+
+  it("isOverDebtWarning fires strictly above the threshold", () => {
+    expect(DEBT_WARNING_THRESHOLD).toBe(7);
+    expect(isOverDebtWarning({ Леша: 7 }, "Леша")).toBe(false);
+    expect(isOverDebtWarning({ Леша: 8 }, "Леша")).toBe(true);
+  });
+
+  it("getDayStatus closes on cleaned/went_into_debt and reopens on cancelled", () => {
+    const date = D("2026-06-16");
+    expect(getDayStatus([], date)).toBe("pending");
+    expect(getDayStatus([ev({ type: "forgiven" })], date)).toBe("pending");
+    expect(getDayStatus([ev({ type: "cleaned" })], date)).toBe("closed");
+    expect(getDayStatus([ev({ type: "went_into_debt" })], date)).toBe("closed");
+    expect(
+      getDayStatus(
+        [ev({ ts: 1, type: "cleaned" }), ev({ ts: 2, type: "cancelled" })],
+        date,
+      ),
+    ).toBe("pending");
+    expect(
+      getDayStatus(
+        [
+          ev({ ts: 1, type: "cleaned" }),
+          ev({ ts: 2, type: "cancelled" }),
+          ev({ ts: 3, type: "cleaned" }),
+        ],
+        date,
+      ),
+    ).toBe("closed");
+    expect(getDayStatus([ev({ date: "2026-06-17", type: "cleaned" })], date)).toBe(
+      "pending",
+    );
   });
 });

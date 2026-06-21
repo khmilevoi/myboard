@@ -13,6 +13,28 @@ export const BASE_DUTY_DATE = Temporal.PlainDate.from({
 export const DUTY_ROTATION = ["Леша", "Карина"] as const;
 
 export type DutyPerson = (typeof DUTY_ROTATION)[number];
+export type Person = DutyPerson;
+
+export type HistoryEventType =
+  | "cleaned"
+  | "went_into_debt"
+  | "forgiven"
+  | "cancelled";
+
+export type HistoryEvent = {
+  id: string;
+  ts: number;
+  ip: string;
+  date: string;
+  type: HistoryEventType;
+  actor: Person;
+  onBehalfOf?: Person;
+  by: Person;
+};
+
+export type HistoryEventDraft = Omit<HistoryEvent, "id" | "ts" | "ip">;
+
+export const DEBT_WARNING_THRESHOLD = 7;
 
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage;
@@ -23,6 +45,7 @@ const NumberOfDebtsSchema = z.record(
   z.enum(DUTY_ROTATION),
   z.int().nonnegative(),
 );
+const PersonSchema = z.enum(DUTY_ROTATION);
 type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>;
 
 function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
@@ -225,6 +248,62 @@ export function getOfeliaDutyByDate(date: Temporal.PlainDate): DutyPerson {
   const rotationIndex = positiveModulo(diffDays, DUTY_ROTATION.length);
 
   return DUTY_ROTATION[rotationIndex];
+}
+
+export function weekStartISO(date: Temporal.PlainDate): string {
+  return getStartOfWeek(date).toString();
+}
+
+export function historyKey(date: Temporal.PlainDate): string {
+  return `history:${weekStartISO(date)}`;
+}
+
+export function otherPerson(person: Person): Person {
+  return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person;
+}
+
+export function effectiveDuty(
+  date: Temporal.PlainDate,
+  debts: Partial<NumberOfDebts>,
+  today: Temporal.PlainDate,
+): Person {
+  const debtDay = getDebtDays(debts, today).find((day) => day.date.equals(date));
+  return debtDay?.person ?? getOfeliaDutyByDate(date);
+}
+
+export function isDebtDay(
+  date: Temporal.PlainDate,
+  debts: Partial<NumberOfDebts>,
+  today: Temporal.PlainDate,
+): boolean {
+  return getDebtDays(debts, today).some((day) => day.date.equals(date));
+}
+
+export function isOverDebtWarning(
+  debts: Partial<NumberOfDebts>,
+  person: Person,
+): boolean {
+  return (debts[person] ?? 0) > DEBT_WARNING_THRESHOLD;
+}
+
+export function getDayStatus(
+  events: HistoryEvent[],
+  date: Temporal.PlainDate,
+): "closed" | "pending" {
+  const iso = date.toString();
+  let closed = false;
+
+  for (const event of events
+    .filter((candidate) => candidate.date === iso)
+    .sort((a, b) => a.ts - b.ts)) {
+    if (event.type === "cleaned" || event.type === "went_into_debt") {
+      closed = true;
+    } else if (event.type === "cancelled") {
+      closed = false;
+    }
+  }
+
+  return closed ? "closed" : "pending";
 }
 
 function positiveModulo(value: number, divisor: number): number {
