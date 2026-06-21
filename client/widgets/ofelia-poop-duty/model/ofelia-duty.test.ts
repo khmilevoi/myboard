@@ -189,6 +189,74 @@ describe("ofeliaDutyModel.currentUser", () => {
   });
 });
 
+describe("ofeliaDutyModel.confirmClean", () => {
+  it("on a plain day appends cleaned with no debt change", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+
+    await context.start(async () => {
+      await model.confirmClean(D("2026-06-17"));
+      expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
+      expect(storage.shared.server.append).toHaveBeenCalledWith(
+        "history:2026-06-15",
+        {
+          date: "2026-06-17",
+          type: "cleaned",
+          actor: "Карина",
+          by: "Леша",
+        },
+      );
+    });
+  });
+
+  it("on a debt-payment day decrements the debtor and records the creditor", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+
+    model.numberOfDebts.set({ Леша: 0, Карина: 1 });
+    model.currentUser.set("Карина");
+    await model.confirmClean(D("2026-06-16"));
+
+    await vi.waitFor(() =>
+      expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 }),
+    );
+    expect(storage.shared.server.append).toHaveBeenCalledWith(
+      "history:2026-06-15",
+      {
+        date: "2026-06-16",
+        type: "cleaned",
+        actor: "Карина",
+        onBehalfOf: "Леша",
+        by: "Карина",
+      },
+    );
+  });
+
+  it("defaults the date to today when no selected date is set", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+
+    await context.start(async () => {
+      await model.confirmClean();
+      expect(storage.shared.server.append).toHaveBeenCalledWith(
+        "history:2026-06-15",
+        expect.objectContaining({ date: "2026-06-16" }),
+      );
+    });
+  });
+});
+
 describe("ofelia-duty selectors", () => {
   it("otherPerson returns the partner", () => {
     expect(otherPerson("Леша")).toBe("Карина");

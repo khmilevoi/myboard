@@ -181,7 +181,33 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   }, "ofeliaDuty.currentWeek");
 
   const confirmClean = action(async (date?: Temporal.PlainDate) => {
-    void date;
+    const currentToday = today();
+    if (currentToday == null) return;
+
+    const target = date ?? selectedDate() ?? currentToday;
+    const debts = { ...(numberOfDebts() ?? {}) };
+    const debtDay = getDebtDays(debts, currentToday).find((day) =>
+      day.date.equals(target),
+    );
+    const actor = debtDay?.person ?? getOfeliaDutyByDate(target);
+
+    if (debtDay) {
+      debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0);
+      numberOfDebts.set(normalizeDebts(debts));
+    }
+
+    const draft: HistoryEventDraft = {
+      date: target.toString(),
+      type: "cleaned",
+      actor,
+      by: currentUser(),
+      ...(debtDay ? { onBehalfOf: getOfeliaDutyByDate(target) } : {}),
+    };
+
+    const result = await wrap(
+      storage.shared.server.append(historyKey(target), draft),
+    );
+    if (result instanceof Error) throw result;
   }, "ofeliaDuty.confirmClean").extend(withAsyncData({ status: true }));
 
   const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
