@@ -8,6 +8,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY client/package.json ./client/
 COPY server/package.json ./server/
 RUN pnpm install --frozen-lockfile --filter server...
+COPY shared ./shared
 COPY server ./server
 WORKDIR /app/server
 RUN pnpm build

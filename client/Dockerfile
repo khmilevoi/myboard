@@ -8,6 +8,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY client/package.json ./client/
 COPY server/package.json ./server/
 RUN pnpm install --frozen-lockfile --filter client...
+COPY shared ./shared
 COPY client ./client
 # Type-checking runs in CI (`pnpm -r typecheck`); the deploy image only needs
 # the bundle, so run Vite directly to keep Raspberry Pi builds fast.
