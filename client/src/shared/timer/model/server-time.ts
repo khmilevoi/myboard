@@ -33,9 +33,10 @@ export function createServerTime(
 
   const today = (timeZone: string): Temporal.PlainDate | null => {
     const now = nowMs()
-    return now == null
-      ? null
-      : Temporal.Instant.fromEpochMilliseconds(now).toZonedDateTimeISO(timeZone).toPlainDate()
+    if (now == null) return null
+    return Temporal.Instant.fromEpochMilliseconds(now)
+      .toZonedDateTimeISO(timeZone)
+      .toPlainDate()
   }
 
   const sync = action(async () => {
