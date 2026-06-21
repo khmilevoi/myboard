@@ -22,6 +22,10 @@ export async function handlePut(
   return { status: 204 }
 }
 
+export function handleTime(): HandlerResult {
+  return { status: 200, body: { now: Date.now() } }
+}
+
 export async function handleAppend(
   ops: ValkeyOps,
   key: string,
