@@ -49,10 +49,15 @@ export interface OfeliaDutyModelProps {
   timer: ServerTime;
 }
 
-const NumberOfDebtsSchema = z.record(
-  z.enum(DUTY_ROTATION),
-  z.int().nonnegative(),
-);
+// z.object with explicit keys (vs z.record) enables .partial(), which tolerates
+// legacy/partial storage records where some rotation keys may be absent.
+const NumberOfDebtsSchema = z
+  .object({
+    // Keep in sync with DUTY_ROTATION tuple.
+    Леша: z.int().nonnegative(),
+    Карина: z.int().nonnegative(),
+  })
+  .partial();
 const PersonSchema = z.enum(DUTY_ROTATION);
 type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>;
 
@@ -181,39 +186,35 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   }, "ofeliaDuty.currentWeek");
 
   const confirmClean = action(async (date?: Temporal.PlainDate) => {
-    const currentToday = today();
-    if (currentToday == null) return;
+    const currentToday = today()
+    if (currentToday == null) return
 
-    const target = date ?? selectedDate() ?? currentToday;
-    const storedDebts = await wrap(
-      storage.shared.server.get("debts", NumberOfDebtsSchema),
-    );
-    if (storedDebts instanceof Error) throw storedDebts;
-
-    const debts: Partial<NumberOfDebts> = storedDebts ?? numberOfDebts() ?? {};
+    const target = date ?? selectedDate() ?? currentToday
+    // Use the local atom as the single source of truth (same as goIntoDebt/forgive).
+    const debts: Partial<NumberOfDebts> = { ...(numberOfDebts() ?? {}) }
     const debtDay = getDebtDays(debts, currentToday).find((day) =>
       day.date.equals(target),
-    );
-    const actor = debtDay?.person ?? getOfeliaDutyByDate(target);
+    )
+    const actor = debtDay?.person ?? getOfeliaDutyByDate(target)
 
     if (debtDay) {
-      debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0);
-      numberOfDebts.set(normalizeDebts(debts));
+      debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0)
+      numberOfDebts.set(normalizeDebts(debts))
     }
 
     const draft: HistoryEventDraft = {
       date: target.toString(),
-      type: "cleaned",
+      type: 'cleaned',
       actor,
       by: currentUser(),
       ...(debtDay ? { onBehalfOf: getOfeliaDutyByDate(target) } : {}),
-    };
+    }
 
     const result = await wrap(
       storage.shared.server.append(historyKey(target), draft),
-    );
-    if (result instanceof Error) throw result;
-  }, "ofeliaDuty.confirmClean").extend(withAsyncData({ status: true }));
+    )
+    if (result instanceof Error) throw result
+  }, 'ofeliaDuty.confirmClean').extend(withAsyncData({ status: true }))
 
   const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today();
@@ -264,20 +265,26 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   }, "ofeliaDuty.forgive").extend(withAsyncData({ status: true }));
 
   const undo = action(async (events: HistoryEvent[]) => {
-    const currentToday = today();
-    if (currentToday == null) return;
-    if (getDayStatus(events, currentToday) !== "closed") return;
+    const currentToday = today()
+    if (currentToday == null) return
+    if (getDayStatus(events, currentToday) !== 'closed') return
 
+    // `cancelled` re-opens the day status (getDayStatus returns "pending" again)
+    // but intentionally does NOT decrement numberOfDebts — the debt was already
+    // incurred and the undo only cancels the "closed" marking for today.
+    // This keeps the audit log append-only and avoids mutating historical debt counts.
     const result = await wrap(
       storage.shared.server.append(historyKey(currentToday), {
         date: currentToday.toString(),
-        type: "cancelled",
+        type: 'cancelled',
+        // effectiveDuty resolves to whoever was responsible on this day
+        // (debt assignee if a debt day, otherwise scheduled duty person).
         actor: effectiveDuty(currentToday, numberOfDebts() ?? {}, currentToday),
         by: currentUser(),
       }),
-    );
-    if (result instanceof Error) throw result;
-  }, "ofeliaDuty.undo").extend(withAsyncData({ status: true }));
+    )
+    if (result instanceof Error) throw result
+  }, 'ofeliaDuty.undo').extend(withAsyncData({ status: true }))
 
   return {
     startOfWeekOverride,
