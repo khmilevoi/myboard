@@ -3,7 +3,7 @@ import path from 'node:path'
 
 export default defineConfig({
   target: 'node',
-  entry: './index.ts',
+  entry: './src/index.ts',
   output: {
     path: path.resolve(import.meta.dirname, 'dist'),
     filename: 'index.cjs',
