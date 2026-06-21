@@ -2,6 +2,7 @@ import {
   action,
   atom,
   computed,
+  effect,
   withAsyncData,
   withChangeHook,
   withConnectHook,
@@ -40,6 +41,17 @@ export type HistoryEvent = {
 export type HistoryEventDraft = Omit<HistoryEvent, 'id' | 'ts' | 'ip'>
 
 export const DEBT_WARNING_THRESHOLD = 7
+export const IP_TAIL_LENGTH = 5
+
+export type HistoryEntryView = {
+  id: string
+  date: string
+  type: HistoryEventType
+  actor: Person
+  onBehalfOf?: Person
+  by: Person
+  ipTail: string
+}
 
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage
@@ -56,6 +68,20 @@ const NumberOfDebtsSchema = z
   })
   .partial()
 const PersonSchema = z.enum(DUTY_ROTATION)
+const HistoryEventTypeSchema = z.enum(['cleaned', 'went_into_debt', 'forgiven', 'cancelled'])
+
+const HistoryEventSchema = z.object({
+  id: z.string(),
+  ts: z.number(),
+  ip: z.string(),
+  date: z.string(),
+  type: HistoryEventTypeSchema,
+  actor: PersonSchema,
+  onBehalfOf: PersonSchema.optional(),
+  by: PersonSchema,
+})
+
+const HistoryEventsSchema = z.array(HistoryEventSchema)
 type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>
 
 function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
@@ -117,14 +143,61 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
 
   const selectedDate = atom<Temporal.PlainDate | null>(null, 'ofeliaDuty.selectedDate')
 
-  // Placeholder until F4 wires the week log behind this port (spec §5).
-  const hasReversibleEvent = (_date: Temporal.PlainDate): boolean => true
+  const historyEvents = atom<HistoryEvent[]>([], 'ofeliaDuty.historyEvents')
+  const onHistoryEvent = wrap((event) => {
+    if (event instanceof Error || event == null) return
+    historyEvents.set(event.value ?? [])
+  })
+  let offHistoryEvents: () => void = () => {}
+
+  effect(() => {
+    offHistoryEvents()
+    offHistoryEvents = () => {}
+
+    const week = viewWeekStart()
+    if (week == null) {
+      historyEvents.set([])
+      return
+    }
+
+    offHistoryEvents = storage.shared.server.subscribe<HistoryEvent[]>(
+      historyKey(week),
+      onHistoryEvent,
+      HistoryEventsSchema,
+    )
+
+    return () => {
+      offHistoryEvents()
+      offHistoryEvents = () => {}
+    }
+  }, 'ofeliaDuty.historyEvents.sync')
+
+  const historyView = computed<HistoryEntryView[]>(
+    () =>
+      historyEvents()
+        .slice()
+        .sort((a, b) => b.ts - a.ts)
+        .map((event) => ({
+          id: event.id,
+          date: event.date,
+          type: event.type,
+          actor: event.actor,
+          ...(event.onBehalfOf ? { onBehalfOf: event.onBehalfOf } : {}),
+          by: event.by,
+          ipTail: event.ip.slice(-IP_TAIL_LENGTH),
+        })),
+    'ofeliaDuty.historyView',
+  )
 
   const undoAvailable = computed(() => {
+    const events = historyEvents()
     const currentToday = today()
     const day = selectedDate() ?? currentToday
     return (
-      currentToday != null && day != null && day.equals(currentToday) && hasReversibleEvent(day)
+      currentToday != null &&
+      day != null &&
+      day.equals(currentToday) &&
+      getDayStatus(events, day) === 'closed'
     )
   }, 'ofeliaDuty.undoAvailable')
 
@@ -241,10 +314,10 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     if (result instanceof Error) throw result
   }, 'ofeliaDuty.forgive').extend(withAsyncData({ status: true }))
 
-  const undo = action(async (events: HistoryEvent[]) => {
+  const undo = action(async () => {
     const currentToday = today()
     if (currentToday == null) return
-    if (getDayStatus(events, currentToday) !== 'closed') return
+    if (getDayStatus(historyEvents(), currentToday) !== 'closed') return
 
     // `cancelled` re-opens the day status (getDayStatus returns "pending" again)
     // but intentionally does NOT decrement numberOfDebts — the debt was already
@@ -274,6 +347,8 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     numberOfDebts,
     debtDays,
     currentWeek,
+    historyEvents,
+    historyView,
     undoAvailable,
     confirmClean,
     goIntoDebt,
