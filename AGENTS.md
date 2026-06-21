@@ -44,3 +44,11 @@ Do not commit `.env` files. Client environment examples live in `client/.env.exa
 
 - For worktrees you should use `./.worktrees` folder
 - Use path aliases for absolute imports like `@/*` or `@shared/*`
+
+## Failure Modes to Avoid
+
+- Keep the scope tight. Do not spend time re-reading plans, skills, or history once the actual code change is localized.
+- Do not use subagents when a task is already reduced to a small, single-file or two-file edit. Delegate only when it reduces complexity.
+- Verify in the correct workspace and cwd. If a test runner or package manager fails because of the shell environment, fix the invocation once and move on.
+- Do not mix publication concerns with implementation work. Create PRs from the exact commit range that belongs to the task.
+- Stop when the code, tests, and typecheck are green. Do not keep expanding the process after the required checks pass.
