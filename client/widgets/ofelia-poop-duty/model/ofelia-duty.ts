@@ -78,11 +78,6 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     "ofeliaDuty.selectedDate",
   );
 
-  // TODO: useless action
-  const selectDay = action((date: Temporal.PlainDate) => {
-    selectedDate.set(date);
-  }, "ofeliaDuty.selectDay");
-
   // Placeholder until F4 wires the week log behind this port (spec §5).
   const hasReversibleEvent = (_date: Temporal.PlainDate): boolean => true;
 
@@ -164,7 +159,6 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     goToPrevWeek,
     goToCurrentWeek,
     selectedDate,
-    selectDay,
     numberOfDebts,
     debtDays,
     currentWeek,
