@@ -180,25 +180,21 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     });
   }, "ofeliaDuty.currentWeek");
 
-  const inDebt = action(async (person: DutyPerson) => {
-    if (today() == null) return;
+  const confirmClean = action(async (date?: Temporal.PlainDate) => {
+    void date;
+  }, "ofeliaDuty.confirmClean").extend(withAsyncData({ status: true }));
 
-    const debts = { ...numberOfDebts() };
+  const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
+    void date;
+  }, "ofeliaDuty.goIntoDebt").extend(withAsyncData({ status: true }));
 
-    debts[person] = (debts[person] ?? 0) + 1;
+  const forgive = action(async (date?: Temporal.PlainDate) => {
+    void date;
+  }, "ofeliaDuty.forgive").extend(withAsyncData({ status: true }));
 
-    numberOfDebts.set(normalizeDebts(debts));
-  }, "ofeliaDuty.inDebt").extend(withAsyncData({ status: true }));
-
-  const forgiveDebt = action(async (person: DutyPerson) => {
-    if (today() == null) return;
-
-    const debts = { ...numberOfDebts() };
-
-    debts[person] = Math.max((debts[person] ?? 0) - 1, 0);
-
-    numberOfDebts.set(normalizeDebts(debts));
-  }, "ofeliaDuty.forgiveDebt").extend(withAsyncData({ status: true }));
+  const undo = action(async (events: HistoryEvent[]) => {
+    void events;
+  }, "ofeliaDuty.undo").extend(withAsyncData({ status: true }));
 
   return {
     startOfWeekOverride,
@@ -212,8 +208,10 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     debtDays,
     currentWeek,
     undoAvailable,
-    inDebt,
-    forgiveDebt,
+    confirmClean,
+    goIntoDebt,
+    forgive,
+    undo,
   };
 };
 

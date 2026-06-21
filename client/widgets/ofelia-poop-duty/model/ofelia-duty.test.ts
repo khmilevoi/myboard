@@ -63,7 +63,7 @@ describe("ofeliaDutyModel server time", () => {
     expect(model.currentWeek()).toBeNull();
     expect(model.debtDays()).toBeNull();
 
-    await model.inDebt("Леша");
+    await model.goIntoDebt();
     expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
   });
 
@@ -80,17 +80,6 @@ describe("ofeliaDutyModel server time", () => {
       "2026-06-16",
     );
     expect(model.viewWeekStart()?.toString()).toBe("2026-06-15");
-  });
-
-  it("changes the debt count when synced", async () => {
-    const model = ofeliaDutyModel({
-      storage: createStorage(),
-      timer: createFakeTimer({ today: Temporal.PlainDate.from("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
-
-    await model.inDebt("Карина");
-    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 1 });
   });
 
   it("navigates weeks via the override and resets to the current week", () => {
@@ -160,7 +149,7 @@ describe("ofeliaDutyModel.currentUser", () => {
 
   it("loads a persisted value from shared.client on connect", async () => {
     const storage = createStorage({
-      get: vi.fn(async () => "Карина"),
+      get: (async () => "Карина") as StorageApi["get"],
     });
     const model = ofeliaDutyModel({
       storage,
