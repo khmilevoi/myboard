@@ -1,13 +1,32 @@
-import { createServer, type ServerResponse } from 'node:http'
 import { randomUUID } from 'node:crypto'
+import { createServer, type ServerResponse } from 'node:http'
+
 import Router from 'find-my-way'
+
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
-import { handleGet, handlePut, handleDelete, handleKeys, handleAppend, handleTime, publishChange, type HandlerResult } from './storage/handlers'
-import { runExclusive } from './storage/key-lock'
-import { PutPayloadSchema, PrefixQuerySchema, AppendPayloadSchema, EventsBodySchema, EventsParamsSchema, StorageEventSchema, formatZodError } from './storage/schemas'
-import { createValkeyOps, createValkeySubscriber } from './storage/valkey'
 import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
+import {
+  handleGet,
+  handlePut,
+  handleDelete,
+  handleKeys,
+  handleAppend,
+  handleTime,
+  publishChange,
+  type HandlerResult,
+} from './storage/handlers'
+import { runExclusive } from './storage/key-lock'
+import {
+  PutPayloadSchema,
+  PrefixQuerySchema,
+  AppendPayloadSchema,
+  EventsBodySchema,
+  EventsParamsSchema,
+  StorageEventSchema,
+  formatZodError,
+} from './storage/schemas'
+import { createValkeyOps, createValkeySubscriber } from './storage/valkey'
 
 const ops = createValkeyOps()
 const router = Router({ ignoreTrailingSlash: true })

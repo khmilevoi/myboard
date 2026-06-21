@@ -1,4 +1,5 @@
 import { action, atom, withAsync } from '@reatom/core'
+
 import type { ServerTime } from './server-time'
 
 /** In-memory ServerTime double for model tests: controllable today()/nowMs(). */

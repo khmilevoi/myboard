@@ -1,7 +1,8 @@
-import { configDefaults, defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'node:path'
+
+import tailwindcss from '@tailwindcss/vite'
+import react from '@vitejs/plugin-react'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -34,9 +35,7 @@ export default defineConfig({
     // CHOKIDAR_USEPOLLING=true to switch the watcher to polling. Outside
     // Docker this is unset, so normal `pnpm dev` keeps native watching.
     watch:
-      process.env.CHOKIDAR_USEPOLLING === 'true'
-        ? { usePolling: true, interval: 100 }
-        : undefined,
+      process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true, interval: 100 } : undefined,
     proxy: {
       '/api': {
         target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',

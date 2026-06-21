@@ -1,5 +1,7 @@
 import { action, atom, effect } from '@reatom/core'
-import { findWidgetType } from '../../widget-registry/model/registry'
+
+import { findWidgetType } from '@/widget-registry/model/registry'
+
 import { loadBoard, saveBoard } from './board-storage'
 import type { LayoutItem, WidgetInstance } from './types'
 

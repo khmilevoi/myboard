@@ -1,11 +1,13 @@
 import { wrap } from '@reatom/core'
 import { CalendarDays, Clock, Lock, Plus, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverArrow, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { reatomMemo } from '../../shared/reatom/reatom-memo'
-import type { WidgetIconName } from '../../widget-registry/model/registry'
+import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import type { WidgetIconName } from '@/widget-registry/model/registry'
+
 import {
   catalogQuery,
   closeAddWidgetMenu,
@@ -14,6 +16,7 @@ import {
   openAddWidgetMenu,
 } from '../model/add-widget-menu-model'
 import { addInstance } from '../model/board-model'
+
 import styles from './AddWidgetMenu.module.css'
 
 const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { Clock, CalendarDays }

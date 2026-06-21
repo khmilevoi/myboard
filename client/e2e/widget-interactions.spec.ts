@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+
 import { BoardPage } from './pages/BoardPage.js'
 import { HeaderPage } from './pages/HeaderPage.js'
 import { OverlayPage } from './pages/OverlayPage.js'
@@ -52,7 +53,9 @@ test('widget can be expanded without duplicate fullscreen or close controls', as
   await expect(overlay.dialog).toHaveCount(0)
 })
 
-test('widget loading skeleton disappears after the loadable component is ready', async ({ page }) => {
+test('widget loading skeleton disappears after the loadable component is ready', async ({
+  page,
+}) => {
   await seedClockWidget(page)
 
   const card = new BoardPage(page).getCard(0)

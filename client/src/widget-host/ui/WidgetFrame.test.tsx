@@ -1,12 +1,15 @@
+import { fireEvent, render, screen } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { findWidgetType, UnknownWidgetTypeError } from '../../widget-registry/model/registry'
+
+import { findWidgetType, UnknownWidgetTypeError } from '@/widget-registry/model/registry'
+
 import type { WidgetRuntimeProps } from '../model/types'
 import { WidgetFrame } from './WidgetFrame'
 
 const holder = vi.hoisted(() => ({
-  actual: null as unknown as typeof import('../../widget-registry/model/registry')['findWidgetType'],
+  actual:
+    null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {

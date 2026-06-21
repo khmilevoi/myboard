@@ -1,10 +1,12 @@
+import { render, screen } from '@testing-library/react'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import type { WidgetRuntimeProps } from '../../../src/widget-host/model/types'
-import { createWidgetStorage } from '../../../src/storage/model/widget-storage'
-import { createFakeTimer } from '../../../src/shared/timer/model/fakes'
-import type { ServerTime } from '../../../src/shared/timer/model/server-time'
+
+import { createFakeTimer } from '@/shared/timer/model/fakes'
+import type { ServerTime } from '@/shared/timer/model/server-time'
+import { createWidgetStorage } from '@/storage/model/widget-storage'
+import type { WidgetRuntimeProps } from '@/widget-host/model/types'
+
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 
 // vi.hoisted lifts the holder above the (also-hoisted) vi.mock factory. The
@@ -54,7 +56,9 @@ describe('OfeliaPoopDuty', () => {
   it('shows today and tomorrow in large mode once synced', () => {
     render(<OfeliaPoopDuty {...props('large')} />)
 
-    expect(screen.getByRole('heading', { name: 'Кто сегодня убирает какахи Офелии' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Кто сегодня убирает какахи Офелии' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('Леша')).toBeInTheDocument()
     expect(screen.getByText('Завтра: Карина')).toBeInTheDocument()
   })

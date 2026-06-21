@@ -1,6 +1,7 @@
-import { AddWidgetMenu } from '../../board/ui/AddWidgetMenu'
-import { reatomMemo } from '../../shared/reatom/reatom-memo'
-import { ThemeToggle } from '../../theme/ui/ThemeToggle'
+import { AddWidgetMenu } from '@/board/ui/AddWidgetMenu'
+import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { ThemeToggle } from '@/theme/ui/ThemeToggle'
+
 import styles from './Header.module.css'
 
 export const Header = reatomMemo(() => {

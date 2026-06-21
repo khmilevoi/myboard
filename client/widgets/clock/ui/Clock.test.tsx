@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+
+import { createWidgetStorage } from '@/storage/model/widget-storage'
+import type { WidgetRuntimeProps } from '@/widget-host/model/types'
+
 import { Clock } from './Clock'
-import type { WidgetRuntimeProps } from '../../../src/widget-host/model/types'
-import { createWidgetStorage } from '../../../src/storage/model/widget-storage'
 
 function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
   return {

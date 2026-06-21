@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import { handleGet, handlePut, handleDelete, handleKeys, publishChange, handleAppend, handleTime } from './handlers'
+
+import {
+  handleGet,
+  handlePut,
+  handleDelete,
+  handleKeys,
+  publishChange,
+  handleAppend,
+  handleTime,
+} from './handlers'
 import type { ValkeyOps } from './valkey'
 
 function mockOps(overrides: Partial<ValkeyOps> = {}): ValkeyOps {
@@ -38,7 +47,10 @@ describe('handlers', () => {
 
   it('KEYS returns scanned keys', async () => {
     const ops = mockOps({ scanKeys: vi.fn(async () => ['w:t:clock:a']) })
-    expect(await handleKeys(ops, 'w:t:clock:')).toEqual({ status: 200, body: { keys: ['w:t:clock:a'] } })
+    expect(await handleKeys(ops, 'w:t:clock:')).toEqual({
+      status: 200,
+      body: { keys: ['w:t:clock:a'] },
+    })
     expect(ops.scanKeys).toHaveBeenCalledWith('w:t:clock:')
   })
 })
@@ -47,7 +59,10 @@ describe('publishChange', () => {
   it('publishes the change envelope to the events channel', async () => {
     const ops = mockOps({ publish: vi.fn(async () => {}) })
     await publishChange(ops, 'w:t:clock:settings', { a: 1 })
-    expect(ops.publish).toHaveBeenCalledWith('storage:events', JSON.stringify({ key: 'w:t:clock:settings', value: { a: 1 } }))
+    expect(ops.publish).toHaveBeenCalledWith(
+      'storage:events',
+      JSON.stringify({ key: 'w:t:clock:settings', value: { a: 1 } }),
+    )
   })
 })
 
@@ -68,7 +83,12 @@ describe('handleAppend', () => {
     vi.setSystemTime(new Date('2026-06-20T00:00:00.000Z'))
     const ops = statefulOps()
 
-    const result = await handleAppend(ops, 'history:2026-06-15', { entry: { type: 'cleaned' } }, '1.2.3.4')
+    const result = await handleAppend(
+      ops,
+      'history:2026-06-15',
+      { entry: { type: 'cleaned' } },
+      '1.2.3.4',
+    )
 
     expect(result.status).toBe(204)
     expect(result.value).toHaveLength(1)
@@ -144,4 +164,3 @@ describe('handleTime', () => {
     vi.useRealTimers()
   })
 })
-

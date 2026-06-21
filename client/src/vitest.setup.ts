@@ -74,7 +74,7 @@ import vm from 'node:vm'
 try {
   const nodeGlobalTemporal = vm.runInThisContext('Temporal')
   if (nodeGlobalTemporal) {
-    (globalThis as any).Temporal = nodeGlobalTemporal
+    ;(globalThis as any).Temporal = nodeGlobalTemporal
   }
 } catch {
   // Ignore

@@ -17,10 +17,14 @@ export const PrefixQuerySchema = z.object({
 export type PutPayload = z.infer<typeof PutPayloadSchema>
 export type AppendPayload = z.infer<typeof AppendPayloadSchema>
 
-export function formatZodError(err: ZodError): { errors: { path: (string | number)[]; message: string }[] } {
+export function formatZodError(err: ZodError): {
+  errors: { path: (string | number)[]; message: string }[]
+} {
   return {
     errors: err.issues.map((issue: ZodError['issues'][number]) => ({
-      path: issue.path.map((part) => (typeof part === 'symbol' ? part.description ?? part.toString() : part)),
+      path: issue.path.map((part) =>
+        typeof part === 'symbol' ? (part.description ?? part.toString()) : part,
+      ),
       message: issue.message,
     })),
   }

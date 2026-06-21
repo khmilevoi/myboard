@@ -22,31 +22,31 @@ These apply to **every** task. Each task's requirements implicitly include this 
 - **Path alias:** `@/` → `client/src`. Use `@/components/ui/...`, `@/lib/utils`, `@/shared/...`.
 - **Russian copy & label map (single source of truth — use these exact strings):**
 
-  | Location | String |
-  |---|---|
-  | Header add-widget button (visible) | `Добавить виджет` |
-  | Theme group `aria-label` | `Тема` |
-  | Theme item `aria-label` — light / dark / system | `Светлая тема` / `Тёмная тема` / `Системная тема` |
-  | Catalog popover title | `Каталог виджетов` |
-  | Catalog close `aria-label` | `Закрыть` |
-  | Catalog search `placeholder` | `Поиск виджетов` |
-  | Catalog count (mono, uppercase) | `Доступные · {N}` |
-  | Catalog row add-button `aria-label` | `` Добавить: {title} `` |
-  | Catalog footer note | `Каждый виджет работает изолированно` |
-  | Board card fullscreen `aria-label` | `Развернуть` |
-  | Board card remove `aria-label` | `Удалить` |
-  | Empty heading | `Начните с первого виджета` |
-  | Empty description | `Добавляйте виджеты из каталога, свободно перемещайте их и меняйте размер. Раскладка сохранится на этом устройстве.` |
-  | Empty primary button | `Добавить виджет` |
-  | Empty secondary button | `Открыть каталог` |
-  | Overlay close `aria-label` | `Закрыть` |
-  | Overlay size badge | `large` |
-  | Error card title | `Виджет не отвечает` |
-  | Error card subtext (boundary) | `Не удалось загрузить виджет` |
-  | Error retry button | `Повторить` |
-  | Error delete button | `Удалить` |
-  | Registry `clock` | title `Часы`, description `Текущее время и дата` |
-  | Registry `ofelia-poop-duty` | title `Лоток Офелии`, description `Чья сегодня очередь убирать` |
+  | Location                                        | String                                                                                                               |
+  | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+  | Header add-widget button (visible)              | `Добавить виджет`                                                                                                    |
+  | Theme group `aria-label`                        | `Тема`                                                                                                               |
+  | Theme item `aria-label` — light / dark / system | `Светлая тема` / `Тёмная тема` / `Системная тема`                                                                    |
+  | Catalog popover title                           | `Каталог виджетов`                                                                                                   |
+  | Catalog close `aria-label`                      | `Закрыть`                                                                                                            |
+  | Catalog search `placeholder`                    | `Поиск виджетов`                                                                                                     |
+  | Catalog count (mono, uppercase)                 | `Доступные · {N}`                                                                                                    |
+  | Catalog row add-button `aria-label`             | `Добавить: {title}`                                                                                                  |
+  | Catalog footer note                             | `Каждый виджет работает изолированно`                                                                                |
+  | Board card fullscreen `aria-label`              | `Развернуть`                                                                                                         |
+  | Board card remove `aria-label`                  | `Удалить`                                                                                                            |
+  | Empty heading                                   | `Начните с первого виджета`                                                                                          |
+  | Empty description                               | `Добавляйте виджеты из каталога, свободно перемещайте их и меняйте размер. Раскладка сохранится на этом устройстве.` |
+  | Empty primary button                            | `Добавить виджет`                                                                                                    |
+  | Empty secondary button                          | `Открыть каталог`                                                                                                    |
+  | Overlay close `aria-label`                      | `Закрыть`                                                                                                            |
+  | Overlay size badge                              | `large`                                                                                                              |
+  | Error card title                                | `Виджет не отвечает`                                                                                                 |
+  | Error card subtext (boundary)                   | `Не удалось загрузить виджет`                                                                                        |
+  | Error retry button                              | `Повторить`                                                                                                          |
+  | Error delete button                             | `Удалить`                                                                                                            |
+  | Registry `clock`                                | title `Часы`, description `Текущее время и дата`                                                                     |
+  | Registry `ofelia-poop-duty`                     | title `Лоток Офелии`, description `Чья сегодня очередь убирать`                                                      |
 
 - **Verification commands** (run from repo root unless noted):
   - Single test file: `pnpm --filter client exec vitest run <relative/path.test.tsx>`
@@ -61,10 +61,12 @@ These apply to **every** task. Each task's requirements implicitly include this 
 ## File Structure
 
 **Rewrite (full file replacement):**
+
 - `client/src/shared/theme/tokens.css` — single semantic + app token layer, keyed to `data-theme`.
 - `client/src/app/global.css` — Tailwind imports, font imports, `data-theme` dark variant, `@theme inline`, flat body, kept keyframes/guards.
 
 **Add (shadcn primitives, `reatomMemo`-wrapped):**
+
 - `client/src/components/ui/input.tsx`
 - `client/src/components/ui/badge.tsx`
 - `client/src/components/ui/separator.tsx`
@@ -75,10 +77,12 @@ These apply to **every** task. Each task's requirements implicitly include this 
 - `client/src/components/ui/primitives.test.tsx` — smoke test for the new primitives.
 
 **Edit (model):**
+
 - `client/src/widget-registry/model/registry.ts` — `description` field + Russian titles/descriptions.
 - `client/src/board/model/add-widget-menu-model.ts` — `catalogQuery` atom + `filteredWidgetTypes` computed + query-clearing close.
 
 **Edit (ui + module.css):**
+
 - `client/src/app/ui/Header.tsx` (+ `Header.module.css`)
 - `client/src/theme/ui/ThemeToggle.tsx` (+ `ThemeToggle.module.css`)
 - `client/src/board/ui/AddWidgetMenu.tsx` (+ `AddWidgetMenu.module.css`)
@@ -88,6 +92,7 @@ These apply to **every** task. Each task's requirements implicitly include this 
 - `client/src/widget-host/ui/FullscreenOverlay.tsx` (+ `FullscreenOverlay.module.css`)
 
 **Edit (deps + tests + e2e):**
+
 - `client/package.json` — add Hanken Grotesk + JetBrains Mono fontsource; remove Fraunces/Nunito/Geist.
 - Tests: `registry.test.ts`, `add-widget-menu-model.test.ts`, `Header.test.tsx`, `ThemeToggle.test.tsx`, `AddWidgetMenu.test.tsx`, `WidgetFrame.test.tsx`, `WidgetErrorBoundary.test.tsx`, `Board.test.tsx`, `FullscreenOverlay.test.tsx`, new `EmptyState.test.tsx`.
 - E2E: `client/e2e/pages/HeaderPage.ts`, `BoardPage.ts`, `OverlayPage.ts`, `client/e2e/widget-interactions.spec.ts`.
@@ -103,6 +108,7 @@ Do this before Task 1 and before any implementation edits. This makes the PR's b
 - [ ] **Step 1: Create the artifact directories**
 
 Run:
+
 ```powershell
 New-Item -ItemType Directory -Force -Path docs/superpowers/artifacts/2026-06-18-myboard-design-update/before
 New-Item -ItemType Directory -Force -Path docs/superpowers/artifacts/2026-06-18-myboard-design-update/after
@@ -168,21 +174,25 @@ If any surface cannot be reached in the current UI, add `before/notes.md` with t
 Pure styling/config change — the load-bearing part of the spec. There is no clean jsdom unit test for CSS-variable resolution, so this task's gate is: existing theme tests still pass + typecheck + the app boots. The real "dark tokens resolve" assertion is added later in Task 11 (Playwright, real browser).
 
 **Files:**
+
 - Modify: `client/package.json`
 - Rewrite: `client/src/shared/theme/tokens.css`
 - Rewrite: `client/src/app/global.css`
 
 **Interfaces:**
+
 - Produces (CSS custom properties available app-wide, both themes): shadcn semantic — `--background --foreground --card --card-foreground --popover --popover-foreground --primary --primary-foreground --secondary --secondary-foreground --muted --muted-foreground --accent --accent-foreground --destructive --border --input --ring --radius`; app-specific — `--board --border-strong --text-3 --accent-soft --scrim --success --dot-grid --shadow-card --shadow-overlay --ease`; fonts — `--font-sans` (`'Hanken Grotesk Variable'…`), `--font-mono` (`'JetBrains Mono Variable'…`). Also keep compatibility aliases for untouched widget internals: `--surface --text --text-dim --font-ui --font-display --accent-2`.
 - The `dark:` Tailwind variant now activates under `[data-theme='dark']`.
 
 - [ ] **Step 1: Swap font dependencies**
 
 Run (from repo root):
+
 ```bash
 pnpm --filter client add @fontsource-variable/hanken-grotesk @fontsource-variable/jetbrains-mono
 pnpm --filter client remove @fontsource-variable/fraunces @fontsource-variable/nunito @fontsource-variable/geist
 ```
+
 Expected: `client/package.json` `dependencies` now lists `@fontsource-variable/hanken-grotesk` and `@fontsource-variable/jetbrains-mono`, and no longer lists fraunces/nunito/geist.
 
 - [ ] **Step 2: Rewrite `tokens.css`**
@@ -278,14 +288,14 @@ Replace the entire contents of `client/src/shared/theme/tokens.css` with:
 Replace the entire contents of `client/src/app/global.css` with (note: font imports and font `@theme inline` tokens live here; the greyscale `:root{}`/`.dark{}` blocks and sidebar/chart mappings are removed; the dark variant now tracks `data-theme`):
 
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 @import '../shared/theme/tokens.css';
 @import 'react-grid-layout/css/styles.css';
 @import 'react-resizable/css/styles.css';
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/hanken-grotesk";
-@import "@fontsource-variable/jetbrains-mono";
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/hanken-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
@@ -390,23 +400,29 @@ body[data-board-interacting='true'] [data-widget-surface] {
 - [ ] **Step 4: Verify existing theme tests still pass**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/theme
 ```
+
 Expected: PASS (`theme-model`, `resolve-theme`, `theme-storage`, `ThemeToggle` suites green — `data-theme` still flips light/dark/system).
 
 - [ ] **Step 5: Verify typecheck and that the app boots**
 
 Run:
+
 ```bash
 pnpm --filter client typecheck
 ```
+
 Expected: PASS (no type errors).
 
 Then boot the dev server briefly to confirm CSS compiles (no Tailwind/`@import`/`@theme` errors) and fonts load:
+
 ```bash
 pnpm --filter client exec vite build
 ```
+
 Expected: build succeeds with no unresolved `@import` (Hanken Grotesk + JetBrains Mono resolve; no Fraunces/Nunito/Geist references remain).
 
 - [ ] **Step 6: Commit**
@@ -415,6 +431,7 @@ Expected: build succeeds with no unresolved `@import` (Hanken Grotesk + JetBrain
 git add client/package.json pnpm-lock.yaml client/src/shared/theme/tokens.css client/src/app/global.css
 git commit -m "feat(client): replace theme tokens with mockup palette and fix dark mode"
 ```
+
 (Root `pnpm-lock.yaml` is the workspace lockfile. Do not add `client/pnpm-lock.yaml` unless a future repo change creates it.)
 
 ---
@@ -424,6 +441,7 @@ git commit -m "feat(client): replace theme tokens with mockup palette and fix da
 Add the seven primitives the spec requires, each defined with `reatomMemo` (radix-primitive re-exports exempt). One smoke test renders each so a reviewer can reject a broken primitive independently.
 
 **Files:**
+
 - Create: `client/src/components/ui/input.tsx`
 - Create: `client/src/components/ui/badge.tsx`
 - Create: `client/src/components/ui/separator.tsx`
@@ -434,6 +452,7 @@ Add the seven primitives the spec requires, each defined with `reatomMemo` (radi
 - Create: `client/src/components/ui/primitives.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `cn` from `@/lib/utils`, `reatomMemo` from `@/shared/reatom/reatom-memo`, unified `radix-ui` package (verified to export `Popover`, `Dialog`, `ToggleGroup`, `Separator`, `Slot`).
 - Produces (named exports later tasks import):
   - `input.tsx`: `Input`
@@ -515,9 +534,11 @@ describe('ui primitives', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/components/ui/primitives.test.tsx
 ```
+
 Expected: FAIL — cannot resolve `./input`, `./badge`, etc. (modules not created yet).
 
 - [ ] **Step 3: Create `input.tsx`**
@@ -556,7 +577,7 @@ import { cn } from '@/lib/utils'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-colors [&>svg]:pointer-events-none [&>svg]:size-3",
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-colors [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
@@ -575,9 +596,7 @@ type BadgeProps = React.ComponentProps<'span'> &
 
 const Badge = reatomMemo<BadgeProps>(({ className, variant, asChild = false, ...props }) => {
   const Comp = asChild ? Slot.Root : 'span'
-  return (
-    <Comp data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />
-  )
+  return <Comp data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />
 }, 'Badge')
 
 export { Badge, badgeVariants }
@@ -819,13 +838,17 @@ export { ToggleGroup, ToggleGroupItem }
 - [ ] **Step 10: Run the smoke test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/components/ui/primitives.test.tsx
 ```
+
 Expected: PASS (all four cases). Then typecheck:
+
 ```bash
 pnpm --filter client typecheck
 ```
+
 Expected: PASS.
 
 - [ ] **Step 11: Commit**
@@ -840,11 +863,13 @@ git commit -m "feat(client): add shadcn input, badge, separator, skeleton, popov
 ## Task 3: Registry — descriptions + Russian titles
 
 **Files:**
+
 - Modify: `client/src/widget-registry/model/registry.ts`
 - Test: `client/src/widget-registry/model/registry.test.ts`
 - Test: `client/src/widget-host/ui/WidgetFrame.test.tsx` (mock `WidgetType` gets `description` immediately so typecheck stays green after this task)
 
 **Interfaces:**
+
 - Produces: `WidgetType` now has `description: string`. `clock` → `{ title: 'Часы', description: 'Текущее время и дата' }`; `ofelia-poop-duty` → `{ title: 'Лоток Офелии', description: 'Чья сегодня очередь убирать' }`. (Catalog, overlay subtitle, and board titles consume these.)
 
 - [ ] **Step 1: Update the failing test**
@@ -852,43 +877,45 @@ git commit -m "feat(client): add shadcn input, badge, separator, skeleton, popov
 Edit `client/src/widget-registry/model/registry.test.ts`. Replace the `loads the Ofelia poop duty widget` `toMatchObject` block and add description assertions:
 
 ```tsx
-  it('loads the Ofelia poop duty widget', async () => {
-    const type = findWidgetType('ofelia-poop-duty')
-    if (type instanceof Error) throw type
+it('loads the Ofelia poop duty widget', async () => {
+  const type = findWidgetType('ofelia-poop-duty')
+  if (type instanceof Error) throw type
 
-    expect(type).not.toHaveProperty('entry')
-    expect(typeof type.loadComponent).toBe('function')
-    expect(type).toMatchObject({
-      id: 'ofelia-poop-duty',
-      title: 'Лоток Офелии',
-      description: 'Чья сегодня очередь убирать',
-      defaultSize: { w: 3, h: 2 },
-      icon: 'CalendarDays',
-    })
-
-    const mod = await type.loadComponent()
-    expect(mod.default).toEqual(
-      expect.objectContaining({ $$typeof: expect.any(Symbol), type: expect.any(Function) }),
-    )
+  expect(type).not.toHaveProperty('entry')
+  expect(typeof type.loadComponent).toBe('function')
+  expect(type).toMatchObject({
+    id: 'ofelia-poop-duty',
+    title: 'Лоток Офелии',
+    description: 'Чья сегодня очередь убирать',
+    defaultSize: { w: 3, h: 2 },
+    icon: 'CalendarDays',
   })
 
-  it('gives every widget a Russian title and description', () => {
-    const clock = findWidgetType('clock')
-    if (clock instanceof Error) throw clock
-    expect(clock.title).toBe('Часы')
-    expect(clock.description).toBe('Текущее время и дата')
-    for (const type of widgetTypes) {
-      expect(type.description.length).toBeGreaterThan(0)
-    }
-  })
+  const mod = await type.loadComponent()
+  expect(mod.default).toEqual(
+    expect.objectContaining({ $$typeof: expect.any(Symbol), type: expect.any(Function) }),
+  )
+})
+
+it('gives every widget a Russian title and description', () => {
+  const clock = findWidgetType('clock')
+  if (clock instanceof Error) throw clock
+  expect(clock.title).toBe('Часы')
+  expect(clock.description).toBe('Текущее время и дата')
+  for (const type of widgetTypes) {
+    expect(type.description.length).toBeGreaterThan(0)
+  }
+})
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-registry/model/registry.test.ts
 ```
+
 Expected: FAIL — `description` is `undefined` and `title` is `Какахи Офелии` / `Clock`.
 
 - [ ] **Step 3: Update `registry.ts`**
@@ -938,23 +965,25 @@ export const widgetTypes: WidgetType[] = [
 In `client/src/widget-host/ui/WidgetFrame.test.tsx`, add `description` to the loading-skeleton mock `WidgetType` object literal so this task does not leave typecheck broken:
 
 ```tsx
-    vi.mocked(findWidgetType).mockReturnValue({
-      id: 'clock',
-      title: 'Clock',
-      description: 'Текущее время и дата',
-      loadComponent: () => new Promise<never>(() => {}),
-      defaultSize: { w: 3, h: 2 },
-      icon: 'Clock',
-    })
+vi.mocked(findWidgetType).mockReturnValue({
+  id: 'clock',
+  title: 'Clock',
+  description: 'Текущее время и дата',
+  loadComponent: () => new Promise<never>(() => {}),
+  defaultSize: { w: 3, h: 2 },
+  icon: 'Clock',
+})
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-registry/model/registry.test.ts src/widget-host/ui/WidgetFrame.test.tsx
 pnpm --filter client typecheck
 ```
+
 Expected: PASS (the updated public `WidgetType` shape is accepted repo-wide; no intermediate commit leaves typecheck broken).
 
 - [ ] **Step 6: Commit**
@@ -969,11 +998,13 @@ git commit -m "feat(client): add widget descriptions and Russian catalog titles"
 ## Task 4: Header
 
 **Files:**
+
 - Modify: `client/src/app/ui/Header.tsx`
 - Modify: `client/src/app/ui/Header.module.css`
 - Test: `client/src/app/ui/Header.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `ThemeToggle`, `AddWidgetMenu` (unchanged imports). The add-widget button text becomes `Добавить виджет` (provided by `AddWidgetMenu` in Task 6); Header itself drops the `LayoutGrid` icon and renders the two-tone text logo.
 
 - [ ] **Step 1: Update the failing test**
@@ -994,9 +1025,11 @@ describe('Header', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/app/ui/Header.test.tsx
 ```
+
 Expected: FAIL — `getByText('board')`/`getByText('my')` not found (logo currently renders `myboard` as one span).
 
 - [ ] **Step 3: Rewrite `Header.tsx`**
@@ -1070,9 +1103,11 @@ export const Header = reatomMemo(() => {
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/app/ui/Header.test.tsx
 ```
+
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -1087,12 +1122,14 @@ git commit -m "feat(client): restyle header with two-tone logo and flat card bar
 ## Task 5: ThemeToggle (ToggleGroup)
 
 **Files:**
+
 - Modify: `client/src/theme/ui/ThemeToggle.tsx`
 - Modify: `client/src/theme/ui/ThemeToggle.module.css`
 - Test: `client/src/theme/ui/ThemeToggle.test.tsx`
 - Modify: `client/src/app/ui/Header.test.tsx` (integration label update after the theme group is renamed)
 
 **Interfaces:**
+
 - Consumes: `ToggleGroup`, `ToggleGroupItem` from `@/components/ui/toggle-group`; `themeMode` atom. Group `aria-label` = `Тема`; item `aria-label`s = `Светлая тема`/`Тёмная тема`/`Системная тема`; each item keeps explicit `aria-pressed` and the View-Transition reveal.
 
 - [ ] **Step 1: Update the failing test**
@@ -1143,9 +1180,11 @@ describe('ThemeToggle', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/theme/ui/ThemeToggle.test.tsx
 ```
+
 Expected: FAIL — labels are currently English (`Light`/`Dark`/`System theme`), group name `Theme`.
 
 - [ ] **Step 3: Rewrite `ThemeToggle.tsx`**
@@ -1190,12 +1229,7 @@ function setMode(mode: ThemeMode, event: MouseEvent) {
 export const ThemeToggle = reatomMemo(() => {
   const current = themeMode()
   return (
-    <ToggleGroup
-      type="single"
-      value={current}
-      aria-label="Тема"
-      className={styles.group}
-    >
+    <ToggleGroup type="single" value={current} aria-label="Тема" className={styles.group}>
       {OPTIONS.map(({ mode, label, Icon }) => (
         <ToggleGroupItem
           key={mode}
@@ -1257,9 +1291,11 @@ export const ThemeToggle = reatomMemo(() => {
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/theme/ui/ThemeToggle.test.tsx
 ```
+
 Expected: PASS (3 cases).
 
 - [ ] **Step 6: Update the Header integration assertion**
@@ -1278,9 +1314,11 @@ describe('Header', () => {
 ```
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/app/ui/Header.test.tsx
 ```
+
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
@@ -1295,6 +1333,7 @@ git commit -m "feat(client): render theme toggle as a segmented ToggleGroup"
 ## Task 6: Catalog (AddWidgetMenu) — Popover + search filter
 
 **Files:**
+
 - Modify: `client/src/board/model/add-widget-menu-model.ts`
 - Test: `client/src/board/model/add-widget-menu-model.test.ts`
 - Modify: `client/src/board/ui/AddWidgetMenu.tsx`
@@ -1303,6 +1342,7 @@ git commit -m "feat(client): render theme toggle as a segmented ToggleGroup"
 - Modify: `client/src/app/ui/Header.test.tsx` (integration label update after the add button is renamed)
 
 **Interfaces:**
+
 - Consumes: `Popover`, `PopoverTrigger`, `PopoverContent` (Task 2); `Input` (Task 2); `widgetTypes` with `description` (Task 3); `addInstance` (board-model); `WIDGET_ICONS` map (`Clock`, `CalendarDays`).
 - Produces (model): `catalogQuery` atom (`''`), `filteredWidgetTypes` computed (`WidgetType[]`), and `closeAddWidgetMenu` now also clears the query. `openAddWidgetMenu`/`toggleAddWidgetMenu` unchanged in signature.
 
@@ -1340,9 +1380,11 @@ describe('catalog search model', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/model/add-widget-menu-model.test.ts
 ```
+
 Expected: FAIL — `catalogQuery`/`filteredWidgetTypes` are not exported.
 
 - [ ] **Step 3: Rewrite `add-widget-menu-model.ts`**
@@ -1359,8 +1401,7 @@ export const filteredWidgetTypes = computed<WidgetType[]>(() => {
   if (!query) return widgetTypes
   return widgetTypes.filter(
     (type) =>
-      type.title.toLowerCase().includes(query) ||
-      type.description.toLowerCase().includes(query),
+      type.title.toLowerCase().includes(query) || type.description.toLowerCase().includes(query),
   )
 }, 'board.addWidgetMenu.filtered')
 
@@ -1376,9 +1417,11 @@ export const closeAddWidgetMenu = action(() => {
 - [ ] **Step 4: Run the model test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/model/add-widget-menu-model.test.ts
 ```
+
 Expected: PASS (original visibility test + 3 new cases).
 
 - [ ] **Step 5: Rewrite the component test (failing for the new markup)**
@@ -1436,9 +1479,11 @@ describe('AddWidgetMenu', () => {
 - [ ] **Step 6: Run to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/ui/AddWidgetMenu.test.tsx
 ```
+
 Expected: FAIL — current markup uses `role="menu"`/`menuitem` and English `Add widget`; no `Каталог виджетов`/search.
 
 - [ ] **Step 7: Rewrite `AddWidgetMenu.tsx`**
@@ -1598,7 +1643,9 @@ export const AddWidgetMenu = reatomMemo(() => {
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
-  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
 }
 .close:hover {
   background: var(--secondary);
@@ -1640,7 +1687,9 @@ export const AddWidgetMenu = reatomMemo(() => {
   padding: 10px;
   border: 1px solid transparent;
   border-radius: 11px;
-  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
 }
 .row:hover {
   background: var(--secondary);
@@ -1692,7 +1741,10 @@ export const AddWidgetMenu = reatomMemo(() => {
   background: var(--card);
   color: var(--foreground);
   cursor: pointer;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease), border-color 0.15s var(--ease);
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
 }
 .add:hover {
   background: var(--primary);
@@ -1718,9 +1770,11 @@ export const AddWidgetMenu = reatomMemo(() => {
 - [ ] **Step 9: Run the component test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/ui/AddWidgetMenu.test.tsx
 ```
+
 Expected: PASS (3 cases).
 
 - [ ] **Step 10: Update the Header add-widget assertion**
@@ -1740,9 +1794,11 @@ describe('Header', () => {
 ```
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/app/ui/Header.test.tsx src/board/ui/AddWidgetMenu.test.tsx
 ```
+
 Expected: PASS.
 
 - [ ] **Step 11: Commit**
@@ -1759,6 +1815,7 @@ git commit -m "feat(client): rebuild add-widget catalog as a searchable Popover"
 Do this **before** Board: Board passes the new `onDelete` prop.
 
 **Files:**
+
 - Modify: `client/src/widget-host/ui/WidgetErrorBoundary.tsx`
 - Test: `client/src/widget-host/ui/WidgetErrorBoundary.test.tsx`
 - Modify: `client/src/widget-host/ui/WidgetFrame.tsx`
@@ -1766,6 +1823,7 @@ Do this **before** Board: Board passes the new `onDelete` prop.
 - Test: `client/src/widget-host/ui/WidgetFrame.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `Badge` (Task 2), `Skeleton` (Task 2).
 - Produces:
   - `WidgetErrorBoundary` props gain `onDelete?: () => void`; fallback shows title `Виджет не отвечает`, subtext `Не удалось загрузить виджет`, a warning `Badge` with `error.name`, `Повторить` (calls `onRetry`), and `Удалить` (calls `onDelete`, rendered only when provided).
@@ -1853,9 +1911,11 @@ describe('WidgetErrorBoundary', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-host/ui/WidgetErrorBoundary.test.tsx
 ```
+
 Expected: FAIL — fallback text is `Widget failed to load`, retry label is `Retry`, no delete button.
 
 - [ ] **Step 3: Rewrite `WidgetErrorBoundary.tsx`**
@@ -1913,11 +1973,7 @@ class WidgetErrorBoundaryView extends Component<Props, State> {
             <RotateCw size={15} aria-hidden /> Повторить
           </button>
           {this.props.onDelete && (
-            <button
-              className={styles.delete}
-              aria-label="Удалить"
-              onClick={this.props.onDelete}
-            >
+            <button className={styles.delete} aria-label="Удалить" onClick={this.props.onDelete}>
               Удалить
             </button>
           )}
@@ -1945,7 +2001,8 @@ import { findWidgetType, UnknownWidgetTypeError } from '../../widget-registry/mo
 import { WidgetFrame } from './WidgetFrame'
 
 const holder = vi.hoisted(() => ({
-  actual: null as unknown as typeof import('../../widget-registry/model/registry')['findWidgetType'],
+  actual:
+    null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {
@@ -1968,9 +2025,7 @@ describe('WidgetFrame', () => {
   it('calls onDelete from the unknown-type card', () => {
     vi.mocked(findWidgetType).mockReturnValue(new UnknownWidgetTypeError({ typeId: 'missing' }))
     const onDelete = vi.fn()
-    render(
-      <WidgetFrame instanceId="inst-2" typeId="missing" mode="small" onDelete={onDelete} />,
-    )
+    render(<WidgetFrame instanceId="inst-2" typeId="missing" mode="small" onDelete={onDelete} />)
     fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
@@ -2000,9 +2055,11 @@ describe('WidgetFrame', () => {
 - [ ] **Step 5: Run to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-host/ui/WidgetFrame.test.tsx
 ```
+
 Expected: FAIL — current unknown-type card says `Widget unavailable`, has no delete button, and the loading state is a `div` (no `data-slot="skeleton"`).
 
 - [ ] **Step 6: Rewrite `WidgetFrame.tsx`**
@@ -2200,13 +2257,17 @@ Replace the file with (drops the old shimmer keyframes — `Skeleton` uses Tailw
 - [ ] **Step 8: Run both tests to verify they pass**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-host/ui/WidgetErrorBoundary.test.tsx src/widget-host/ui/WidgetFrame.test.tsx
 ```
+
 Expected: PASS (boundary 5 cases + frame 4 cases). Then:
+
 ```bash
 pnpm --filter client typecheck
 ```
+
 Expected: PASS (the mock `WidgetType` literal now includes `description`).
 
 - [ ] **Step 9: Commit**
@@ -2221,11 +2282,13 @@ git commit -m "feat(client): restyle widget error and loading states with delete
 ## Task 8: Board (card chrome + dot-grid + delete wiring)
 
 **Files:**
+
 - Modify: `client/src/board/ui/Board.tsx`
 - Modify: `client/src/board/ui/Board.module.css`
 - Test: `client/src/board/ui/Board.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `WidgetFrame` with `onDelete` (Task 7); `removeInstance`, `expandedInstanceId`, `layout`, `instances`, `updateLayout` (board-model); `isBoardInteracting` (board-interaction-model). Card header icon-buttons use `aria-label` `Развернуть` (fullscreen) and `Удалить` (remove). Board passes `onDelete={wrap(() => removeInstance(instance.id))}` to each `WidgetFrame`.
 
 - [ ] **Step 1: Update the failing test**
@@ -2243,7 +2306,8 @@ import { addInstance, instances, layout } from '../model/board-model'
 import { Board } from './Board'
 
 const registryHolder = vi.hoisted(() => ({
-  actual: null as unknown as typeof import('../../widget-registry/model/registry')['findWidgetType'],
+  actual:
+    null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {
@@ -2351,9 +2415,11 @@ describe('Board', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/ui/Board.test.tsx
 ```
+
 Expected: FAIL — remove button label is `Remove`; drag handle text is `Clock`; unknown-widget fallback and runtime error-boundary fallback do not yet expose the Russian error-card delete path.
 
 - [ ] **Step 3: Rewrite `Board.tsx`**
@@ -2509,7 +2575,9 @@ Flat card chrome + dot-grid overlay while interacting + accent ring on the dragg
 .gridItem:global(.react-draggable-dragging) .card,
 .gridItem:global(.react-resizable-resizing) .card {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-card);
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    var(--shadow-card);
 }
 
 .header {
@@ -2605,9 +2673,11 @@ Flat card chrome + dot-grid overlay while interacting + accent ring on the dragg
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/ui/Board.test.tsx
 ```
+
 Expected: PASS (4 cases).
 
 - [ ] **Step 6: Commit**
@@ -2622,12 +2692,14 @@ git commit -m "feat(client): restyle board cards, dot-grid interaction and delet
 ## Task 9: EmptyState / onboarding
 
 **Files:**
+
 - Modify: `client/src/board/ui/EmptyState.tsx`
 - Modify: `client/src/board/ui/EmptyState.module.css`
 - Create: `client/src/board/ui/EmptyState.test.tsx`
 - Modify: `client/src/board/ui/Board.test.tsx` (integration empty-state assertion after the copy is translated)
 
 **Interfaces:**
+
 - Consumes: `openAddWidgetMenu` from `add-widget-menu-model`. Both the primary (`Добавить виджет`) and secondary (`Открыть каталог`) buttons call `openAddWidgetMenu()`.
 
 - [ ] **Step 1: Write the failing test**
@@ -2673,9 +2745,11 @@ describe('EmptyState', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/ui/EmptyState.test.tsx
 ```
+
 Expected: FAIL — current EmptyState has English copy and no action buttons.
 
 - [ ] **Step 3: Rewrite `EmptyState.tsx`**
@@ -2811,9 +2885,11 @@ export const EmptyState = reatomMemo(() => {
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/ui/EmptyState.test.tsx
 ```
+
 Expected: PASS (3 cases).
 
 - [ ] **Step 6: Update the Board empty-state assertion**
@@ -2828,9 +2904,11 @@ it('shows the empty state when there are no widgets', () => {
 ```
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/board/ui/Board.test.tsx src/board/ui/EmptyState.test.tsx
 ```
+
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
@@ -2845,11 +2923,13 @@ git commit -m "feat(client): rebuild empty state with dot-grid onboarding and ca
 ## Task 10: FullscreenOverlay (Dialog)
 
 **Files:**
+
 - Modify: `client/src/widget-host/ui/FullscreenOverlay.tsx`
 - Modify: `client/src/widget-host/ui/FullscreenOverlay.module.css`
 - Test: `client/src/widget-host/ui/FullscreenOverlay.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `Dialog`, `DialogContent`, `DialogTitle` (Task 2); `Badge` (Task 2); `WidgetFrame` (Task 7); `expandedInstanceId`, `instances`, `removeInstance` (board-model); `findWidgetType` (registry, with `description`). Driven by `expandedInstanceId`: Dialog `open` when an instance is expanded; `onOpenChange(false)` sets it to `null` (preserves Escape + focus trap via Radix). Close button `aria-label` = `Закрыть`; size `Badge` text = `large`; header shows icon tile + title (`DialogTitle`) + badge + subtitle (`description`).
 
 - [ ] **Step 1: Update the failing test**
@@ -2905,9 +2985,11 @@ describe('FullscreenOverlay', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-host/ui/FullscreenOverlay.test.tsx
 ```
+
 Expected: FAIL — current close label is `Close`, not `Закрыть` (and the hand-rolled backdrop differs from the Dialog markup).
 
 - [ ] **Step 3: Rewrite `FullscreenOverlay.tsx`**
@@ -3067,7 +3149,9 @@ export const FullscreenOverlay = reatomMemo(() => {
   background: var(--card);
   color: var(--text-3);
   cursor: pointer;
-  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
 }
 .close:hover {
   background: var(--secondary);
@@ -3088,9 +3172,11 @@ export const FullscreenOverlay = reatomMemo(() => {
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-host/ui/FullscreenOverlay.test.tsx
 ```
+
 Expected: PASS (3 cases).
 
 - [ ] **Step 6: Commit**
@@ -3105,12 +3191,14 @@ git commit -m "feat(client): move fullscreen overlay to shadcn Dialog with rich 
 ## Task 11: E2E selectors + dark-token verification
 
 **Files:**
+
 - Modify: `client/e2e/pages/HeaderPage.ts`
 - Modify: `client/e2e/pages/BoardPage.ts`
 - Modify: `client/e2e/pages/OverlayPage.ts`
 - Modify: `client/e2e/widget-interactions.spec.ts`
 
 **Interfaces:**
+
 - Consumes: all Russian copy from the Global Constraints map. Adds a Playwright assertion that the dark palette actually applies (the real check the jsdom tests can't do).
 
 - [ ] **Step 1: Update `HeaderPage.ts`**
@@ -3198,6 +3286,7 @@ export class OverlayPage {
 - [ ] **Step 4: Update `widget-interactions.spec.ts`**
 
 Apply these string swaps (logic unchanged):
+
 - `seedClockWidget`: `await header.addWidget('Clock')` → `await header.addWidget('Часы')`.
 - Theme test: `header.setTheme('Dark')` → `header.setTheme('Тёмная тема')`; the two `getByRole('button', { name: 'Dark' })` → `{ name: 'Тёмная тема' }`; `header.setTheme('Light')` → `'Светлая тема'`; `{ name: 'Light' }` → `{ name: 'Светлая тема' }`.
 - Expand test: `getByRole('button', { name: 'Expand' })` → `{ name: 'Развернуть' }`; `getByRole('button', { name: 'Close' })` → `{ name: 'Закрыть' }`.
@@ -3224,10 +3313,12 @@ test('dark theme applies the dark background token', async ({ page }) => {
 - [ ] **Step 5: Typecheck and run the e2e suite**
 
 Run:
+
 ```bash
 pnpm --filter client typecheck:e2e
 pnpm --filter client test:e2e
 ```
+
 Expected: PASS (e2e TypeScript helpers compile; theme switch, expand-without-duplicate-controls, skeleton, resize, drag, and the new dark-token test pass). If the dev/preview server is required, Playwright's `webServer` config starts it automatically; otherwise start `pnpm --filter client dev` first.
 
 - [ ] **Step 6: Commit**
@@ -3246,33 +3337,41 @@ git commit -m "test(client): update e2e selectors for Russian copy and verify da
 - [ ] **Step 1: Run the complete workspace test suite**
 
 Run:
+
 ```bash
 pnpm test
 ```
+
 Expected: PASS — workspace unit suites green (registry, models, every component, primitives smoke test, and server/package tests if present).
 
 - [ ] **Step 2: Typecheck the workspace**
 
 Run:
+
 ```bash
 pnpm typecheck
 ```
+
 Expected: PASS (client + node configs).
 
 - [ ] **Step 3: Typecheck e2e**
 
 Run:
+
 ```bash
 pnpm --filter client typecheck:e2e
 ```
+
 Expected: PASS.
 
 - [ ] **Step 4: Run e2e**
 
 Run:
+
 ```bash
 pnpm test:e2e
 ```
+
 Expected: PASS.
 
 - [ ] **Step 5: Capture after screenshots**
@@ -3298,6 +3397,7 @@ Open the PR summarizing scope, listing the verification commands above, and incl
 ## Self-Review (performed against the spec)
 
 **Spec coverage** — every spec section maps to a task:
+
 - §5.1 token mechanism (data-theme variant, semantic + app tokens, remove greyscale blocks) → Task 1. §5.2 palette → Task 1 (exact values transcribed). §5.3 shape/elevation (`--shadow-card`, `--shadow-overlay`, radii as literals, flat body) → Task 1 + per-component CSS. §5.4 typography (fontsource add/remove, `--font-sans`/`--font-mono`, mono usage) → Task 1 (deps/vars) + Tasks 6/8/10 (mono labels/badges).
 - §6 primitives (popover, input, dialog, toggle-group, badge, separator, skeleton, all `reatomMemo`) → Task 2.
 - §7.1 Header → Task 4. §7.2 ThemeToggle (ToggleGroup, VT preserved, aria-pressed) → Task 5. §7.3 Catalog (Popover, arrow, Input filter, count, rows, recommended first row, footer copy, registry description) → Tasks 3 + 6. §7.4 Board (card chrome, grip handle, hover actions, `se` accent corner glyph, dot-grid + accent ring on interaction, RGL config kept) → Task 8. §7.5 EmptyState → Task 9. §7.6 FullscreenOverlay (Dialog) → Task 10. §7.7 widget states (error/unknown/loading, `onDelete` wiring) → Task 7 (+ Board wiring in Task 8, FullscreenOverlay wiring in Task 10). §7.8 global.css → Task 1.

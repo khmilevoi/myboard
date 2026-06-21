@@ -44,10 +44,12 @@
 ## Task 1: Tier model (`resolveTier` + `DEFAULT_TIERS`)
 
 **Files:**
+
 - Create: `client/src/widget-host/model/tier.ts`
 - Test: `client/src/widget-host/model/tier.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
   - `type WidgetTier = 'tiny' | 'compact' | 'standard' | 'large' | 'fullscreen'`
@@ -111,9 +113,7 @@ describe('DEFAULT_TIERS', () => {
   })
 
   it('exposes thresholds for every non-fullscreen tier', () => {
-    expect(Object.keys(DEFAULT_TIERS).sort()).toEqual(
-      ['compact', 'large', 'standard', 'tiny'],
-    )
+    expect(Object.keys(DEFAULT_TIERS).sort()).toEqual(['compact', 'large', 'standard', 'tiny'])
   })
 })
 ```
@@ -128,18 +128,18 @@ Expected: FAIL — `Cannot find module './tier'` (file does not exist yet).
 Create `client/src/widget-host/model/tier.ts`:
 
 ```ts
-export type WidgetTier = "tiny" | "compact" | "standard" | "large" | "fullscreen";
+export type WidgetTier = 'tiny' | 'compact' | 'standard' | 'large' | 'fullscreen'
 
-export type TierThreshold = { minW: number; minH: number };
+export type TierThreshold = { minW: number; minH: number }
 
 // Thresholds in grid units (cols=12, rowHeight=30 in Board).
 // 'fullscreen' is intentionally excluded — the overlay sets it directly.
 export type TierConfig = {
-  tiny: TierThreshold;
-  compact: TierThreshold;
-  standard: TierThreshold;
-  large: TierThreshold;
-};
+  tiny: TierThreshold
+  compact: TierThreshold
+  standard: TierThreshold
+  large: TierThreshold
+}
 
 // Chosen so the Ofelia default (3x5) lands in 'standard' and clock (3x4) in 'compact'.
 // Tunable (spec §9).
@@ -148,20 +148,17 @@ export const DEFAULT_TIERS: TierConfig = {
   compact: { minW: 2, minH: 3 },
   standard: { minW: 3, minH: 5 },
   large: { minW: 5, minH: 7 },
-};
+}
 
 // Largest tier whose minW AND minH are both met; floor is 'tiny'.
-const RESOLVE_ORDER = ["large", "standard", "compact"] as const;
+const RESOLVE_ORDER = ['large', 'standard', 'compact'] as const
 
-export function resolveTier(
-  size: { w: number; h: number },
-  config: TierConfig,
-): WidgetTier {
+export function resolveTier(size: { w: number; h: number }, config: TierConfig): WidgetTier {
   for (const tier of RESOLVE_ORDER) {
-    const threshold = config[tier];
-    if (size.w >= threshold.minW && size.h >= threshold.minH) return tier;
+    const threshold = config[tier]
+    if (size.w >= threshold.minW && size.h >= threshold.minH) return tier
   }
-  return "tiny";
+  return 'tiny'
 }
 ```
 
@@ -182,6 +179,7 @@ git commit -m "feat(widget-host): add widget tier model and resolver"
 ## Task 2: Thread `tier` through the host (runtime props → context → widget)
 
 **Files:**
+
 - Modify: `client/src/widget-host/model/types.ts`
 - Modify: `client/src/widget-host/ui/WidgetFrame.context.ts`
 - Modify: `client/src/widget-host/ui/WidgetFrame.tsx`
@@ -190,6 +188,7 @@ git commit -m "feat(widget-host): add widget tier model and resolver"
 - Modify (compile fix): `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `WidgetTier` from `client/src/widget-host/model/tier.ts` (Task 1).
 - Produces:
   - `WidgetRuntimeProps` gains `tier: WidgetTier`.
@@ -232,14 +231,24 @@ render(<WidgetFrame instanceId="inst-2" typeId="missing" mode="small" tier="stan
 
 // 2) "calls onDelete from the unknown-type card"
 render(
-  <WidgetFrame instanceId="inst-2" typeId="missing" mode="small" tier="standard" onDelete={onDelete} />,
+  <WidgetFrame
+    instanceId="inst-2"
+    typeId="missing"
+    mode="small"
+    tier="standard"
+    onDelete={onDelete}
+  />,
 )
 
 // 3) "renders the loadable widget component content"
-const { container } = render(<WidgetFrame instanceId="inst-1" typeId="clock" mode="small" tier="standard" />)
+const { container } = render(
+  <WidgetFrame instanceId="inst-1" typeId="clock" mode="small" tier="standard" />,
+)
 
 // 4) "shows the loading skeleton while the component is loading"
-const { container } = render(<WidgetFrame instanceId="inst-skel" typeId="clock" mode="small" tier="standard" />)
+const { container } = render(
+  <WidgetFrame instanceId="inst-skel" typeId="clock" mode="small" tier="standard" />,
+)
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -252,28 +261,28 @@ Expected: FAIL — the new test renders no `tier:fullscreen` text because `Widge
 In `client/src/widget-host/model/types.ts`, import the tier type and add the field:
 
 ```ts
-import type { ComponentType } from "react";
-import type { ResolvedTheme } from "@/shared/theme/types";
-import { WidgetStorage } from "@/storage/model/widget-storage";
-import type { WidgetTier } from "./tier";
+import type { ComponentType } from 'react'
+import type { ResolvedTheme } from '@/shared/theme/types'
+import { WidgetStorage } from '@/storage/model/widget-storage'
+import type { WidgetTier } from './tier'
 
-export type WidgetMode = "small" | "large";
+export type WidgetMode = 'small' | 'large'
 
 export type WidgetRuntimeProps = {
-  instanceId: string;
-  typeId: string;
-  mode: WidgetMode;
-  tier: WidgetTier;
-  theme: ResolvedTheme;
-  requestFullscreen: () => void;
-  requestClose: () => void;
-  reportError: (error: Error) => void;
-  storage: WidgetStorage;
-};
+  instanceId: string
+  typeId: string
+  mode: WidgetMode
+  tier: WidgetTier
+  theme: ResolvedTheme
+  requestFullscreen: () => void
+  requestClose: () => void
+  reportError: (error: Error) => void
+  storage: WidgetStorage
+}
 
-export type WidgetComponent = ComponentType<WidgetRuntimeProps>;
-export type WidgetComponentModule = { default: WidgetComponent };
-export type WidgetLoader = () => Promise<WidgetComponentModule>;
+export type WidgetComponent = ComponentType<WidgetRuntimeProps>
+export type WidgetComponentModule = { default: WidgetComponent }
+export type WidgetLoader = () => Promise<WidgetComponentModule>
 ```
 
 - [ ] **Step 3b: Add `tier` to the frame context**
@@ -281,33 +290,31 @@ export type WidgetLoader = () => Promise<WidgetComponentModule>;
 In `client/src/widget-host/ui/WidgetFrame.context.ts`:
 
 ```ts
-import { createContext, useContext } from "react";
-import { WidgetMode } from "../model/types";
-import type { WidgetTier } from "../model/tier";
-import { ResolvedTheme } from "@/shared/theme/types";
-import { WidgetStorage } from "@/storage/model/widget-storage";
+import { createContext, useContext } from 'react'
+import { WidgetMode } from '../model/types'
+import type { WidgetTier } from '../model/tier'
+import { ResolvedTheme } from '@/shared/theme/types'
+import { WidgetStorage } from '@/storage/model/widget-storage'
 
 export interface WidgetFrameContext {
-  instanceId: string;
-  typeId: string;
-  mode: WidgetMode;
-  tier: WidgetTier;
-  theme: ResolvedTheme;
-  requestFullscreen: () => void;
-  requestClose: () => void;
-  reportError: (error: Error) => void;
-  storage: WidgetStorage;
+  instanceId: string
+  typeId: string
+  mode: WidgetMode
+  tier: WidgetTier
+  theme: ResolvedTheme
+  requestFullscreen: () => void
+  requestClose: () => void
+  reportError: (error: Error) => void
+  storage: WidgetStorage
 }
 
-export const widgetFrameContext = createContext<WidgetFrameContext | null>(
-  null,
-);
+export const widgetFrameContext = createContext<WidgetFrameContext | null>(null)
 
 export const useWidgetFrameContext = () => {
-  const context = useContext(widgetFrameContext);
-  if (!context) throw new Error("WidgetFrameContext is not available");
-  return context;
-};
+  const context = useContext(widgetFrameContext)
+  if (!context) throw new Error('WidgetFrameContext is not available')
+  return context
+}
 ```
 
 - [ ] **Step 3c: Thread `tier` through `WidgetFrame`**
@@ -317,21 +324,21 @@ In `client/src/widget-host/ui/WidgetFrame.tsx`:
 1. Add the import (next to the other `../model` imports):
 
 ```tsx
-import type { WidgetTier } from "../model/tier";
+import type { WidgetTier } from '../model/tier'
 ```
 
 2. Add `tier` to `WidgetFrameProps`:
 
 ```tsx
 export type WidgetFrameProps = {
-  instanceId: string;
-  typeId: string;
-  mode: WidgetMode;
-  tier: WidgetTier;
-  onRequestFullscreen?: () => void;
-  onRequestClose?: () => void;
-  onDelete?: () => void;
-};
+  instanceId: string
+  typeId: string
+  mode: WidgetMode
+  tier: WidgetTier
+  onRequestFullscreen?: () => void
+  onRequestClose?: () => void
+  onDelete?: () => void
+}
 ```
 
 3. Destructure `tier` from props:
@@ -351,44 +358,35 @@ export type WidgetFrameProps = {
 4. Put `tier` in the memoized context object and add it to the dependency array:
 
 ```tsx
-    const context = useMemo<WidgetFrameContext>(() => {
-      return {
-        instanceId,
-        typeId,
-        mode,
-        tier,
-        theme,
-        requestFullscreen: () => onRequestFullscreen?.(),
-        requestClose: () => onRequestClose?.(),
-        reportError: (error) =>
-          console.warn(`[widget ${instanceId}] error:`, error),
-        storage: createWidgetStorage({ instanceId, typeId }),
-      };
-    }, [
-      instanceId,
-      typeId,
-      mode,
-      tier,
-      theme,
-      onRequestFullscreen,
-      onRequestClose,
-    ]);
+const context = useMemo<WidgetFrameContext>(() => {
+  return {
+    instanceId,
+    typeId,
+    mode,
+    tier,
+    theme,
+    requestFullscreen: () => onRequestFullscreen?.(),
+    requestClose: () => onRequestClose?.(),
+    reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
+    storage: createWidgetStorage({ instanceId, typeId }),
+  }
+}, [instanceId, typeId, mode, tier, theme, onRequestFullscreen, onRequestClose])
 ```
 
 5. Pass `tier` to the rendered widget:
 
 ```tsx
-                <LazyWidget
-                  instanceId={instanceId}
-                  typeId={typeId}
-                  mode={mode}
-                  tier={tier}
-                  theme={theme}
-                  requestFullscreen={context.requestFullscreen}
-                  requestClose={context.requestClose}
-                  reportError={context.reportError}
-                  storage={context.storage}
-                />
+<LazyWidget
+  instanceId={instanceId}
+  typeId={typeId}
+  mode={mode}
+  tier={tier}
+  theme={theme}
+  requestFullscreen={context.requestFullscreen}
+  requestClose={context.requestClose}
+  reportError={context.reportError}
+  storage={context.storage}
+/>
 ```
 
 - [ ] **Step 3d: Fix the widget test prop helpers**
@@ -396,39 +394,39 @@ export type WidgetFrameProps = {
 In `client/widgets/clock/ui/Clock.test.tsx`, add `tier` to the returned object in `props()`:
 
 ```tsx
-  return {
+return {
+  instanceId: 'inst-clock',
+  typeId: 'clock',
+  mode,
+  tier: 'standard',
+  theme: 'light',
+  requestFullscreen: vi.fn(),
+  requestClose: vi.fn(),
+  reportError: vi.fn(),
+  storage: createWidgetStorage({
     instanceId: 'inst-clock',
     typeId: 'clock',
-    mode,
-    tier: 'standard',
-    theme: 'light',
-    requestFullscreen: vi.fn(),
-    requestClose: vi.fn(),
-    reportError: vi.fn(),
-    storage: createWidgetStorage({
-      instanceId: 'inst-clock',
-      typeId: 'clock',
-    }),
-  }
+  }),
+}
 ```
 
 In `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.test.tsx`, add `tier` to the returned object in `props()`:
 
 ```tsx
-  return {
+return {
+  instanceId: 'ofelia-poop-duty-1',
+  typeId: 'ofelia-poop-duty',
+  mode,
+  tier: 'standard',
+  theme: 'light',
+  requestFullscreen: vi.fn(),
+  requestClose: vi.fn(),
+  reportError: vi.fn(),
+  storage: createWidgetStorage({
     instanceId: 'ofelia-poop-duty-1',
     typeId: 'ofelia-poop-duty',
-    mode,
-    tier: 'standard',
-    theme: 'light',
-    requestFullscreen: vi.fn(),
-    requestClose: vi.fn(),
-    reportError: vi.fn(),
-    storage: createWidgetStorage({
-      instanceId: 'ofelia-poop-duty-1',
-      typeId: 'ofelia-poop-duty',
-    }),
-  }
+  }),
+}
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -455,11 +453,13 @@ git commit -m "feat(widget-host): thread tier through frame to widgets"
 ## Task 3: Registry `tiers?` field + Board tier computation
 
 **Files:**
+
 - Modify: `client/src/widget-registry/model/registry.ts`
 - Modify: `client/src/board/ui/Board.tsx`
 - Test: `client/src/board/ui/Board.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `resolveTier`, `DEFAULT_TIERS`, `TierConfig` from `client/src/widget-host/model/tier.ts` (Task 1); `WidgetFrame` now requires `tier` (Task 2); `layout` atom items have `{ i, w, h }` (`client/src/board/model/types.ts`).
 - Produces: `WidgetType` gains optional `tiers?: TierConfig`; `Board` passes a computed `tier` to every `WidgetFrame`.
 
@@ -519,24 +519,24 @@ Expected: FAIL — `Board` does not pass `tier` to `WidgetFrame` yet (type error
 In `client/src/widget-registry/model/registry.ts`, import the config type and add the optional field:
 
 ```ts
-import * as errore from "errore";
-import type { WidgetLoader } from "../../widget-host/model/types";
-import type { TierConfig } from "../../widget-host/model/tier";
+import * as errore from 'errore'
+import type { WidgetLoader } from '../../widget-host/model/types'
+import type { TierConfig } from '../../widget-host/model/tier'
 
-export type WidgetIconName = "Clock" | "CalendarDays";
+export type WidgetIconName = 'Clock' | 'CalendarDays'
 
 export type WidgetType = {
-  id: string;
-  title: string;
+  id: string
+  title: string
   /** One-line catalog/overlay subtitle. */
-  description: string;
-  loadComponent: WidgetLoader;
-  defaultSize: { w: number; h: number };
+  description: string
+  loadComponent: WidgetLoader
+  defaultSize: { w: number; h: number }
   /** Optional per-type tier thresholds; falls back to DEFAULT_TIERS. */
-  tiers?: TierConfig;
+  tiers?: TierConfig
   /** lucide-react icon name used in the catalog menu. */
-  icon: WidgetIconName;
-};
+  icon: WidgetIconName
+}
 ```
 
 (Do **not** set `tiers` on the existing `clock`/`ofelia-poop-duty` entries — they intentionally use `DEFAULT_TIERS`.)
@@ -548,38 +548,31 @@ In `client/src/board/ui/Board.tsx`:
 1. Add the import (next to the registry import):
 
 ```tsx
-import { DEFAULT_TIERS, resolveTier } from "../../widget-host/model/tier";
+import { DEFAULT_TIERS, resolveTier } from '../../widget-host/model/tier'
 ```
 
 2. Inside `currentInstances.map((instance, index) => { ... })`, right after the existing `const type = findWidgetType(instance.typeId);` line, compute the tier:
 
 ```tsx
-            const type = findWidgetType(instance.typeId);
-            const title = type instanceof Error ? instance.typeId : type.title;
-            const layoutItem = currentLayout.find(
-              (item) => item.i === instance.id,
-            );
-            const size = layoutItem
-              ? { w: layoutItem.w, h: layoutItem.h }
-              : { w: 0, h: 0 };
-            const tiers =
-              type instanceof Error ? DEFAULT_TIERS : type.tiers ?? DEFAULT_TIERS;
-            const tier = resolveTier(size, tiers);
+const type = findWidgetType(instance.typeId)
+const title = type instanceof Error ? instance.typeId : type.title
+const layoutItem = currentLayout.find((item) => item.i === instance.id)
+const size = layoutItem ? { w: layoutItem.w, h: layoutItem.h } : { w: 0, h: 0 }
+const tiers = type instanceof Error ? DEFAULT_TIERS : (type.tiers ?? DEFAULT_TIERS)
+const tier = resolveTier(size, tiers)
 ```
 
 3. Pass `tier` to the `WidgetFrame`:
 
 ```tsx
-                    <WidgetFrame
-                      instanceId={instance.id}
-                      typeId={instance.typeId}
-                      mode="small"
-                      tier={tier}
-                      onRequestFullscreen={wrap(() =>
-                        expandedInstanceId.set(instance.id),
-                      )}
-                      onDelete={wrap(() => removeInstance(instance.id))}
-                    />
+<WidgetFrame
+  instanceId={instance.id}
+  typeId={instance.typeId}
+  mode="small"
+  tier={tier}
+  onRequestFullscreen={wrap(() => expandedInstanceId.set(instance.id))}
+  onDelete={wrap(() => removeInstance(instance.id))}
+/>
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -599,10 +592,12 @@ git commit -m "feat(board): compute widget tier from layout size"
 ## Task 4: Fullscreen overlay forces `tier="fullscreen"`
 
 **Files:**
+
 - Modify: `client/src/widget-host/ui/FullscreenOverlay.tsx`
 - Test: `client/src/widget-host/ui/FullscreenOverlay.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `WidgetFrame` now requires `tier` (Task 2); `findWidgetType` (mockable per existing patterns); `addInstance`, `expandedInstanceId` from `board-model`.
 - Produces: nothing new — completes the contract by guaranteeing the overlay child always renders with `tier === 'fullscreen'`.
 
@@ -622,7 +617,8 @@ Add the registry mock (top-level, before `describe`), mirroring the pattern used
 
 ```tsx
 const registryHolder = vi.hoisted(() => ({
-  actual: null as unknown as typeof import('../../widget-registry/model/registry')['findWidgetType'],
+  actual:
+    null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {
@@ -681,14 +677,14 @@ Expected: FAIL — `FullscreenOverlay` does not pass `tier` to `WidgetFrame` (ty
 In `client/src/widget-host/ui/FullscreenOverlay.tsx`, update the `WidgetFrame` render in the body:
 
 ```tsx
-          <WidgetFrame
-            instanceId={instance.id}
-            typeId={instance.typeId}
-            mode="large"
-            tier="fullscreen"
-            onRequestClose={close}
-            onDelete={wrap(() => removeInstance(instance.id))}
-          />
+<WidgetFrame
+  instanceId={instance.id}
+  typeId={instance.typeId}
+  mode="large"
+  tier="fullscreen"
+  onRequestClose={close}
+  onDelete={wrap(() => removeInstance(instance.id))}
+/>
 ```
 
 - [ ] **Step 4: Run test to verify it passes**

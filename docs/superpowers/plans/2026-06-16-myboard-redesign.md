@@ -11,6 +11,7 @@
 **Design spec:** [docs/superpowers/specs/2026-06-16-myboard-redesign-design.md](../specs/2026-06-16-myboard-redesign-design.md)
 
 **Conventions for every task:**
+
 - UI strings and `aria-label`s stay in **English** (matches the current codebase and existing tests). Translating UI text is out of scope.
 - Targeted test run: `pnpm test <path>` (this forwards to `vitest run <path>`).
 - Typecheck: `pnpm typecheck`. Full build: `pnpm build`. Full test suite: `pnpm test`.
@@ -21,6 +22,7 @@
 ## Task 1: Fonts, theme types, design tokens, global base
 
 **Files:**
+
 - Modify: `package.json` (add font deps)
 - Create: `src/shared/theme/types.ts`
 - Create: `src/shared/theme/tokens.css`
@@ -180,6 +182,7 @@ git commit -m "feat(theme): add Soft Clay design tokens, theme types and self-ho
 ## Task 2: Theme storage (errore)
 
 **Files:**
+
 - Create: `src/theme/theme-storage.ts`
 - Test: `src/theme/theme-storage.test.ts`
 
@@ -244,7 +247,8 @@ export function loadThemeMode(): ThemeStorageError | ThemeMode | null {
   })
   if (raw instanceof ThemeStorageError) return raw
   if (raw === null) return null
-  if (!isThemeMode(raw)) return new ThemeStorageError({ reason: 'stored value is not a theme mode' })
+  if (!isThemeMode(raw))
+    return new ThemeStorageError({ reason: 'stored value is not a theme mode' })
   return raw
 }
 
@@ -274,6 +278,7 @@ git commit -m "feat(theme): errore-wrapped localStorage for theme mode"
 ## Task 3: Theme resolution + Reatom model + jsdom matchMedia mock
 
 **Files:**
+
 - Create: `src/theme/resolve-theme.ts`
 - Test: `src/theme/resolve-theme.test.ts`
 - Create: `src/theme/theme-model.ts`
@@ -484,6 +489,7 @@ git commit -m "feat(theme): Reatom theme model (light/dark/system) with matchMed
 ## Task 4: Bridge protocol — init.theme + theme-change message
 
 **Files:**
+
 - Modify: `src/shared/widget-bridge/messages.ts`
 - Modify: `src/shared/widget-bridge/parse.ts`
 - Test: `src/shared/widget-bridge/parse.test.ts`
@@ -535,12 +541,22 @@ describe('parseHostMessage', () => {
   })
 
   it('keeps an explicit theme on init', () => {
-    const result = parseHostMessage({ type: 'init', instanceId: 'a1', mode: 'small', theme: 'dark' })
+    const result = parseHostMessage({
+      type: 'init',
+      instanceId: 'a1',
+      mode: 'small',
+      theme: 'dark',
+    })
     expect(result).toEqual({ type: 'init', instanceId: 'a1', mode: 'small', theme: 'dark' })
   })
 
   it('rejects an init message with an invalid theme', () => {
-    const result = parseHostMessage({ type: 'init', instanceId: 'a1', mode: 'small', theme: 'neon' })
+    const result = parseHostMessage({
+      type: 'init',
+      instanceId: 'a1',
+      mode: 'small',
+      theme: 'neon',
+    })
     expect(result).toBeInstanceOf(BridgeError)
   })
 
@@ -596,26 +612,26 @@ function isTheme(value: unknown): value is ResolvedTheme {
 Replace the `init` branch inside `parseHostMessage` with:
 
 ```ts
-  if (data.type === 'init') {
-    if (typeof data.instanceId !== 'string') {
-      return new BridgeError({ reason: 'init.instanceId must be a string' })
-    }
-    if (!isMode(data.mode)) return new BridgeError({ reason: 'init.mode is invalid' })
-    if (data.theme !== undefined && !isTheme(data.theme)) {
-      return new BridgeError({ reason: 'init.theme is invalid' })
-    }
-    const theme: ResolvedTheme = isTheme(data.theme) ? data.theme : 'light'
-    return { type: 'init', instanceId: data.instanceId, mode: data.mode, theme }
+if (data.type === 'init') {
+  if (typeof data.instanceId !== 'string') {
+    return new BridgeError({ reason: 'init.instanceId must be a string' })
   }
+  if (!isMode(data.mode)) return new BridgeError({ reason: 'init.mode is invalid' })
+  if (data.theme !== undefined && !isTheme(data.theme)) {
+    return new BridgeError({ reason: 'init.theme is invalid' })
+  }
+  const theme: ResolvedTheme = isTheme(data.theme) ? data.theme : 'light'
+  return { type: 'init', instanceId: data.instanceId, mode: data.mode, theme }
+}
 ```
 
 Add a new `theme-change` branch immediately after the `mode-change` branch:
 
 ```ts
-  if (data.type === 'theme-change') {
-    if (!isTheme(data.theme)) return new BridgeError({ reason: 'theme-change.theme is invalid' })
-    return { type: 'theme-change', theme: data.theme }
-  }
+if (data.type === 'theme-change') {
+  if (!isTheme(data.theme)) return new BridgeError({ reason: 'theme-change.theme is invalid' })
+  return { type: 'theme-change', theme: data.theme }
+}
 ```
 
 - [ ] **Step 5: Run the test to verify it passes**
@@ -635,6 +651,7 @@ git commit -m "feat(bridge): carry theme in init and add theme-change message"
 ## Task 5: Widget client SDK — theme + onThemeChange
 
 **Files:**
+
 - Modify: `src/shared/widget-bridge/client.ts`
 - Test: `src/shared/widget-bridge/client.test.ts`
 
@@ -830,6 +847,7 @@ git commit -m "feat(bridge): widget client exposes theme and onThemeChange"
 ## Task 6: WidgetConnection carries theme in init
 
 **Files:**
+
 - Modify: `src/widget-host/widget-connection.ts`
 - Test: `src/widget-host/widget-connection.test.ts`
 - Test: `tests/bridge-handshake.test.ts`
@@ -839,13 +857,13 @@ git commit -m "feat(bridge): widget client exposes theme and onThemeChange"
 In `src/widget-host/widget-connection.test.ts`, add `theme: 'light'` to every `createWidgetConnection({ ... })` options object (there are three). For example the first becomes:
 
 ```ts
-    const conn = createWidgetConnection({
-      instanceId: 'inst-1',
-      mode: 'small',
-      targetOrigin: 'http://localhost',
-      theme: 'light',
-      handlers: {},
-    })
+const conn = createWidgetConnection({
+  instanceId: 'inst-1',
+  mode: 'small',
+  targetOrigin: 'http://localhost',
+  theme: 'light',
+  handlers: {},
+})
 ```
 
 Apply the same `theme: 'light'` addition to the `inst-2` and `inst-3` connections in that file.
@@ -863,7 +881,12 @@ Update the imports to include `ResolvedTheme`:
 
 ```ts
 import { HandshakeTimeoutError, parseWidgetMessage } from '../shared/widget-bridge'
-import type { HostMessage, ResolvedTheme, WidgetErrorMessage, WidgetMode } from '../shared/widget-bridge'
+import type {
+  HostMessage,
+  ResolvedTheme,
+  WidgetErrorMessage,
+  WidgetMode,
+} from '../shared/widget-bridge'
 ```
 
 Add `theme` to the options type:
@@ -881,11 +904,11 @@ export type CreateWidgetConnectionOptions = {
 Destructure `theme` and include it in the `init` message:
 
 ```ts
-  const { instanceId, mode, targetOrigin, theme, handlers } = options
+const { instanceId, mode, targetOrigin, theme, handlers } = options
 ```
 
 ```ts
-      const init: HostMessage = { type: 'init', instanceId, mode, theme }
+const init: HostMessage = { type: 'init', instanceId, mode, theme }
 ```
 
 Note: `ResolvedTheme` is re-exported from `../shared/widget-bridge` because `messages.ts` is barrelled through `index.ts`. To make that re-export available, add this line to `src/shared/widget-bridge/messages.ts` (top, just below the existing `ResolvedTheme` type import):
@@ -899,13 +922,13 @@ export type { ResolvedTheme, ThemeMode } from '../theme/types'
 In `tests/bridge-handshake.test.ts`, add `theme: 'light'` to the `createWidgetConnection({ ... })` options:
 
 ```ts
-    const conn = createWidgetConnection({
-      instanceId: 'inst-int',
-      mode: 'small',
-      targetOrigin: '*',
-      theme: 'light',
-      handlers: { onReady, onRequestFullscreen },
-    })
+const conn = createWidgetConnection({
+  instanceId: 'inst-int',
+  mode: 'small',
+  targetOrigin: '*',
+  theme: 'light',
+  handlers: { onReady, onRequestFullscreen },
+})
 ```
 
 - [ ] **Step 5: Run both tests to verify they pass**
@@ -925,6 +948,7 @@ git commit -m "feat(bridge): host connection sends resolved theme on init"
 ## Task 7: Widget registry icon + Add-widget menu
 
 **Files:**
+
 - Modify: `src/widget-registry/registry.ts`
 - Create: `src/board/AddWidgetMenu.tsx`
 - Create: `src/board/AddWidgetMenu.module.css`
@@ -1110,7 +1134,9 @@ Create `src/board/AddWidgetMenu.module.css`:
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-raised), 0 12px 32px rgba(0, 0, 0, 0.18);
+  box-shadow:
+    var(--shadow-raised),
+    0 12px 32px rgba(0, 0, 0, 0.18);
   animation: menuIn 0.14s var(--ease);
 }
 @keyframes menuIn {
@@ -1167,6 +1193,7 @@ git commit -m "feat(board): add-widget catalog menu with registry icons"
 ## Task 8: ThemeToggle component
 
 **Files:**
+
 - Create: `src/app/ThemeToggle.tsx`
 - Create: `src/app/ThemeToggle.module.css`
 - Test: `src/app/ThemeToggle.test.tsx`
@@ -1333,6 +1360,7 @@ git commit -m "feat(theme): segmented light/dark/system toggle with view-transit
 ## Task 9: Header + app shell wiring
 
 **Files:**
+
 - Create: `src/app/Header.tsx`
 - Create: `src/app/Header.module.css`
 - Test: `src/app/Header.test.tsx`
@@ -1529,6 +1557,7 @@ git commit -m "feat(app): sticky header with brand, theme toggle and add-widget;
 ## Task 10: WidgetFrame — live theme push + restyled states
 
 **Files:**
+
 - Modify: `src/widget-host/WidgetFrame.tsx`
 - Modify: `src/widget-host/WidgetFrame.module.css`
 
@@ -1759,6 +1788,7 @@ git commit -m "feat(widget-host): live theme push to iframes + Soft Clay loading
 ## Task 11: Board re-skin + empty state + lucide controls
 
 **Files:**
+
 - Create: `src/board/EmptyState.tsx`
 - Create: `src/board/EmptyState.module.css`
 - Modify: `src/board/Board.tsx`
@@ -2013,7 +2043,9 @@ Replace the contents of `src/board/Board.module.css` with:
 }
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-raised), 0 8px 20px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    var(--shadow-raised),
+    0 8px 20px rgba(0, 0, 0, 0.06);
 }
 @keyframes cardRise {
   from {
@@ -2110,6 +2142,7 @@ git commit -m "feat(board): Soft Clay cards, empty state and lucide card control
 ## Task 12: FullscreenOverlay — Escape/focus + re-skin
 
 **Files:**
+
 - Modify: `src/widget-host/FullscreenOverlay.tsx`
 - Modify: `src/widget-host/FullscreenOverlay.module.css`
 - Test: `src/widget-host/FullscreenOverlay.test.tsx`
@@ -2119,15 +2152,15 @@ git commit -m "feat(board): Soft Clay cards, empty state and lucide card control
 In `src/widget-host/FullscreenOverlay.test.tsx`, add the imports `addInstance` and `expandedInstanceId` to the existing import from `../board-model/board-model` (it already imports `addInstance, expandedInstanceId, instances`), then add this test inside the `describe` block:
 
 ```tsx
-  it('closes on Escape', () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
-    expandedInstanceId.set(id)
+it('closes on Escape', () => {
+  const id = addInstance('clock')
+  if (id instanceof Error) throw id
+  expandedInstanceId.set(id)
 
-    render(<FullscreenOverlay />)
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(expandedInstanceId()).toBeNull()
-  })
+  render(<FullscreenOverlay />)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(expandedInstanceId()).toBeNull()
+})
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -2280,6 +2313,7 @@ git commit -m "feat(widget-host): re-skin fullscreen overlay; Escape-to-close + 
 ## Task 13: Clock widget re-skin + theme application
 
 **Files:**
+
 - Modify: `widgets/clock/main.tsx`
 - Modify: `widgets/clock/Clock.tsx`
 - Modify: `widgets/clock/clock.module.css`
@@ -2504,6 +2538,7 @@ Expected: build succeeds (host + `widget-clock` entries emitted).
 - [ ] **Step 4: Manual smoke test in the browser**
 
 Run: `pnpm dev`, open the printed URL, and confirm:
+
 - Empty state shows "No widgets yet" on a fresh board (clear `localStorage` if needed).
 - "Add widget" opens the catalog menu; clicking "Clock" adds a card.
 - Card hover reveals the `Maximize2` and `X` controls; the grip/title drags the card; resize handle works.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { parseEnv, EnvError } from './env'
 
 describe('parseEnv', () => {

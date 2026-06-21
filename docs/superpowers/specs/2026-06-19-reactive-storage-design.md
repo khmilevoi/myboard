@@ -38,14 +38,14 @@ transport plumbing that makes cross-device reactivity work.
 
 ## Decisions (from brainstorming)
 
-| Question | Decision |
-|---|---|
+| Question            | Decision                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Reactivity boundary | Cross-device: server writes reach subscribers on other devices via server push (superset → client + server both reactive). |
-| Granularity | Exact key only. |
-| API shape | Low-level `subscribe(key, cb) -> unsubscribe` primitive on `StorageApi` + a Reatom atom on top. |
-| Scope | Widgets only (`widget-storage`); host app untouched. |
-| Server transport | SSE + app-level `PUBLISH` to Valkey Pub/Sub (Approach A). |
-| Schema validation | Lives in the storage layer (`get` + `subscribe` take `schema?`); the Reatom layer just forwards the argument. |
+| Granularity         | Exact key only.                                                                                                            |
+| API shape           | Low-level `subscribe(key, cb) -> unsubscribe` primitive on `StorageApi` + a Reatom atom on top.                            |
+| Scope               | Widgets only (`widget-storage`); host app untouched.                                                                       |
+| Server transport    | SSE + app-level `PUBLISH` to Valkey Pub/Sub (Approach A).                                                                  |
+| Schema validation   | Lives in the storage layer (`get` + `subscribe` take `schema?`); the Reatom layer just forwards the argument.              |
 
 ## Contract (`types.ts`)
 
@@ -98,7 +98,8 @@ One shared helper, called by both adapters — no duplicated `zod` logic:
 export function parseValue<T>(schema: z.ZodType<T> | undefined, value: unknown): StorageError | T {
   if (!schema) return value as T // unchanged behavior: bare typed cast
   const parsed = schema.safeParse(value)
-  if (!parsed.success) return new StorageError({ reason: 'schema validation failed', cause: parsed.error })
+  if (!parsed.success)
+    return new StorageError({ reason: 'schema validation failed', cause: parsed.error })
   return parsed.data
 }
 ```

@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { StorageError } from '../types'
-import { createHttpStorage } from './http-storage'
+
 import { typeNamespace } from '../scope'
 import { FakeEventSource, installFakeEventSource } from '../test/fakes'
+import { StorageError } from '../types'
+import { createHttpStorage } from './http-storage'
 
 const ns = typeNamespace('clock')
 const storage = createHttpStorage(ns)
@@ -12,7 +13,10 @@ afterEach(() => {
 })
 
 function stubFetch(impl: (input: string, init?: RequestInit) => Response) {
-  vi.stubGlobal('fetch', vi.fn((input: string, init?: RequestInit) => Promise.resolve(impl(input, init))))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: string, init?: RequestInit) => Promise.resolve(impl(input, init))),
+  )
 }
 
 describe('createHttpStorage', () => {
@@ -40,7 +44,10 @@ describe('createHttpStorage', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe(`/api/storage/${encodeURIComponent('w:t:clock:settings')}`)
     expect(init).toMatchObject({ method: 'PUT' })
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ value: { a: 1 }, ttlMs: 1000 })
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      value: { a: 1 },
+      ttlMs: 1000,
+    })
   })
 
   it('DELETE sends a DELETE', async () => {
@@ -61,15 +68,22 @@ describe('createHttpStorage', () => {
 
   it('keys queries by prefix and strips the namespace', async () => {
     const fetchMock = vi.fn((_url: string) =>
-      Promise.resolve(new Response(JSON.stringify({ keys: ['w:t:clock:a', 'w:t:clock:b'] }), { status: 200 })),
+      Promise.resolve(
+        new Response(JSON.stringify({ keys: ['w:t:clock:a', 'w:t:clock:b'] }), { status: 200 }),
+      ),
     )
     vi.stubGlobal('fetch', fetchMock)
     expect(await storage.keys()).toEqual(['a', 'b'])
-    expect(fetchMock.mock.calls[0][0]).toBe(`/api/storage?prefix=${encodeURIComponent('w:t:clock:')}`)
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `/api/storage?prefix=${encodeURIComponent('w:t:clock:')}`,
+    )
   })
 
   it('maps a network failure to StorageError', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('offline'))),
+    )
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
 
@@ -94,7 +108,10 @@ describe('createHttpStorage', () => {
   })
 
   it('append maps a network failure to StorageError', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('offline'))),
+    )
     expect(await storage.append('k', { a: 1 })).toBeInstanceOf(StorageError)
   })
 

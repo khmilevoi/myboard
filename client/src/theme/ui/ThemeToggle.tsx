@@ -1,11 +1,14 @@
 import { wrap } from '@reatom/core'
-import type { MouseEvent } from 'react'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { MouseEvent } from 'react'
+
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { reatomMemo } from '../../shared/reatom/reatom-memo'
-import type { ThemeMode } from '../../shared/theme/types'
+import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import type { ThemeMode } from '@/shared/theme/types'
+
 import { themeMode } from '../model/theme-model'
+
 import styles from './ThemeToggle.module.css'
 
 const OPTIONS: { mode: ThemeMode; label: string; Icon: LucideIcon }[] = [
@@ -35,12 +38,7 @@ function setMode(mode: ThemeMode, event: MouseEvent) {
 export const ThemeToggle = reatomMemo(() => {
   const current = themeMode()
   return (
-    <ToggleGroup
-      type="single"
-      value={current}
-      aria-label="Тема"
-      className={styles.group}
-    >
+    <ToggleGroup type="single" value={current} aria-label="Тема" className={styles.group}>
       {OPTIONS.map(({ mode, label, Icon }) => (
         <ToggleGroupItem
           key={mode}

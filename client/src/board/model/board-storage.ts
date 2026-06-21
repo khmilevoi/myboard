@@ -1,5 +1,6 @@
-import * as errore from 'errore'
 import { JSONParseError, safeParse } from '@shared/json'
+import * as errore from 'errore'
+
 import type { BoardSnapshot } from './types'
 
 export const STORAGE_KEY = 'myboard.board'

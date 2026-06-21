@@ -1,9 +1,10 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { db, clearExpired } from './db'
-import { createDexieStorage } from './dexie-storage'
+
 import { instanceNamespace } from '../scope'
 import { installFakeBroadcastChannel } from '../test/fakes'
+import { db, clearExpired } from './db'
+import { createDexieStorage } from './dexie-storage'
 
 const ns = instanceNamespace('inst-1')
 const storage = createDexieStorage(ns)
@@ -67,13 +68,16 @@ describe('createDexieStorage', () => {
   it('serializes concurrent appends for the same key', async () => {
     const fullKey = `${ns}log`
     const state = new Map<string, unknown>([
-      [fullKey, {
-        key: fullKey,
-        namespace: ns,
-        value: [{ n: 1 }],
-        expiresAt: null,
-        updatedAt: 1,
-      }],
+      [
+        fullKey,
+        {
+          key: fullKey,
+          namespace: ns,
+          value: [{ n: 1 }],
+          expiresAt: null,
+          updatedAt: 1,
+        },
+      ],
     ])
     let releaseFirstPut = () => {}
     let putCalls = 0
@@ -85,9 +89,10 @@ describe('createDexieStorage', () => {
         }),
         put: vi.fn(async (entry: { key: string; value: unknown }) => {
           putCalls += 1
-          if (putCalls === 1) await new Promise<void>((resolve) => {
-            releaseFirstPut = resolve
-          })
+          if (putCalls === 1)
+            await new Promise<void>((resolve) => {
+              releaseFirstPut = resolve
+            })
           state.set(entry.key, entry)
         }),
         delete: vi.fn(async () => undefined),

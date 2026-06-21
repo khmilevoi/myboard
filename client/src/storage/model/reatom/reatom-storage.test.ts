@@ -1,12 +1,13 @@
 import 'fake-indexeddb/auto'
 import { atom, context, wrap } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { db } from '../client/db'
 import { createDexieStorage } from '../client/dexie-storage'
 import { instanceNamespace } from '../scope'
+import { installFakeBroadcastChannel } from '../test/fakes'
 import { StorageError, type StorageApi } from '../types'
 import { reatomStorageMutations, reatomClearExpired, withStorageKey } from './reatom-storage'
-import { installFakeBroadcastChannel } from '../test/fakes'
 
 beforeEach(async () => {
   await db.entries.clear()
@@ -65,7 +66,9 @@ describe('withStorageKey', () => {
   it('reflects the current value and live updates while connected', async () => {
     const api: StorageApi = createDexieStorage(instanceNamespace('inst-1'))
     await api.set('draft', 1)
-    const key = atom<number | null>(null, 'test.draft').extend(withStorageKey({ api, key: 'draft' }))
+    const key = atom<number | null>(null, 'test.draft').extend(
+      withStorageKey({ api, key: 'draft' }),
+    )
     await context.start(async () => {
       const off = key.subscribe(() => {}) // connect the atom
       const check1 = wrap(() => expect(key()).toBe(1))

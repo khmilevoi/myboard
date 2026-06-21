@@ -1,5 +1,7 @@
 import { atom, computed, effect, wrap } from '@reatom/core'
-import type { ResolvedTheme, ThemeMode } from '../../shared/theme/types'
+
+import type { ResolvedTheme, ThemeMode } from '@/shared/theme/types'
+
 import { resolveTheme } from './resolve-theme'
 import { loadThemeMode, saveThemeMode } from './theme-storage'
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { DEFAULT_TIERS, resolveTier, type TierConfig } from './tier'
 
 const config: TierConfig = {
@@ -46,8 +47,6 @@ describe('DEFAULT_TIERS', () => {
   })
 
   it('exposes thresholds for every non-fullscreen tier', () => {
-    expect(Object.keys(DEFAULT_TIERS).sort()).toEqual(
-      ['compact', 'large', 'standard', 'tiny'],
-    )
+    expect(Object.keys(DEFAULT_TIERS).sort()).toEqual(['compact', 'large', 'standard', 'tiny'])
   })
 })

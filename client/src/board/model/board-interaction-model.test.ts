@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
 import { beforeEach, describe, expect, it } from 'vitest'
+
 import {
   beginBoardInteraction,
   endBoardInteraction,

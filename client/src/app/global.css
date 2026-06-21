@@ -1,11 +1,11 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @import '../shared/theme/tokens.css';
 @import 'react-grid-layout/css/styles.css';
 @import 'react-resizable/css/styles.css';
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/hanken-grotesk";
-@import "@fontsource-variable/jetbrains-mono";
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/hanken-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 

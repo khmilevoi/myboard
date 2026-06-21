@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { StorageError, type StorageListener } from './types'
+
 import { subscribeStorageKey } from './subscribe-key'
+import { StorageError, type StorageListener } from './types'
 
 function deferred<T>() {
   let resolve!: (value: T) => void

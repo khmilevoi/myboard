@@ -20,6 +20,7 @@
   ```
   Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
   ```
+
 - **Run a single test:** `pnpm exec vitest run <path>` ; watch with `pnpm exec vitest <path>`.
 
 ---
@@ -83,6 +84,7 @@ Unit tests live next to their module as `*.test.ts(x)`.
 ## Task 1: Project scaffolding
 
 **Files:**
+
 - Create: `package.json`, `tsconfig.json`, `tsconfig.node.json`, `vite.config.ts`, `index.html`, `.env.example`, `src/vitest.setup.ts`, `src/env.ts`, `src/env.test.ts`, `src/setup.ts`, `src/app/global.css`, `src/app/main.tsx`, `src/app/App.tsx`
 
 - [ ] **Step 1: Create `package.json`**
@@ -289,7 +291,12 @@ describe('parseEnv', () => {
   })
 
   it('returns EnvError for a non-positive timeout', () => {
-    const result = parseEnv({ MODE: 'x', DEV: false, PROD: true, VITE_WIDGET_HANDSHAKE_TIMEOUT_MS: '-5' })
+    const result = parseEnv({
+      MODE: 'x',
+      DEV: false,
+      PROD: true,
+      VITE_WIDGET_HANDSHAKE_TIMEOUT_MS: '-5',
+    })
     expect(result).toBeInstanceOf(EnvError)
   })
 })
@@ -333,9 +340,13 @@ if (env.DEV) {
   --danger: #ff5d5d;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body, #root {
+html,
+body,
+#root {
   margin: 0;
   height: 100%;
 }
@@ -343,7 +354,12 @@ html, body, #root {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
 }
 ```
 
@@ -411,6 +427,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 2: Bridge message types and tagged errors
 
 **Files:**
+
 - Create: `src/shared/widget-bridge/messages.ts`
 - Create: `src/shared/widget-bridge/errors.ts`
 
@@ -480,6 +497,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 3: Message validation (parse functions)
 
 **Files:**
+
 - Create: `src/shared/widget-bridge/parse.ts`
 - Test: `src/shared/widget-bridge/parse.test.ts`
 
@@ -602,7 +620,9 @@ export function parseWidgetMessage(data: unknown): BridgeError | WidgetMessage {
       return new BridgeError({ reason: 'error.message must be a string' })
     }
     const name = typeof data.name === 'string' ? data.name : undefined
-    return name ? { type: 'error', message: data.message, name } : { type: 'error', message: data.message }
+    return name
+      ? { type: 'error', message: data.message, name }
+      : { type: 'error', message: data.message }
   }
 
   if (data.type === 'pong') return { type: 'pong' }
@@ -629,6 +649,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 4: Widget-side SDK (`createWidgetClient`)
 
 **Files:**
+
 - Create: `src/shared/widget-bridge/client.ts`
 - Create: `src/shared/widget-bridge/index.ts`
 - Test: `src/shared/widget-bridge/client.test.ts`
@@ -765,7 +786,8 @@ export function createWidgetClient(
         mode,
         requestFullscreen: () => send({ type: 'request-fullscreen', instanceId }),
         requestClose: () => send({ type: 'request-close', instanceId }),
-        reportError: (error: Error) => send({ type: 'error', message: error.message, name: error.name }),
+        reportError: (error: Error) =>
+          send({ type: 'error', message: error.message, name: error.name }),
         onModeChange: (cb) => {
           modeChangeListeners.add(cb)
           return () => modeChangeListeners.delete(cb)
@@ -808,6 +830,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 5: Host-side connection (`createWidgetConnection`)
 
 **Files:**
+
 - Create: `src/widget-host/widget-connection.ts`
 - Test: `src/widget-host/widget-connection.test.ts`
 
@@ -898,15 +921,8 @@ Expected: FAIL — `widget-connection.ts` not found.
 - [ ] **Step 3: Write `src/widget-host/widget-connection.ts`**
 
 ```ts
-import {
-  HandshakeTimeoutError,
-  parseWidgetMessage,
-} from '../shared/widget-bridge'
-import type {
-  HostMessage,
-  WidgetErrorMessage,
-  WidgetMode,
-} from '../shared/widget-bridge'
+import { HandshakeTimeoutError, parseWidgetMessage } from '../shared/widget-bridge'
+import type { HostMessage, WidgetErrorMessage, WidgetMode } from '../shared/widget-bridge'
 
 export type WidgetConnectionHandlers = {
   onReady?: () => void
@@ -928,9 +944,7 @@ export type WidgetConnection = {
   close: () => void
 }
 
-export function createWidgetConnection(
-  options: CreateWidgetConnectionOptions,
-): WidgetConnection {
+export function createWidgetConnection(options: CreateWidgetConnectionOptions): WidgetConnection {
   const { instanceId, mode, targetOrigin, handlers } = options
   const channel = new MessageChannel()
   let closed = false
@@ -948,7 +962,10 @@ export function createWidgetConnection(
   }
   channel.port1.start()
 
-  function handshake(contentWindow: Window, timeoutMs = 5000): Promise<HandshakeTimeoutError | void> {
+  function handshake(
+    contentWindow: Window,
+    timeoutMs = 5000,
+  ): Promise<HandshakeTimeoutError | void> {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         resolve(new HandshakeTimeoutError({ instanceId, timeoutMs }))
@@ -1001,6 +1018,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 6: Widget registry
 
 **Files:**
+
 - Create: `src/widget-registry/registry.ts`
 - Test: `src/widget-registry/registry.test.ts`
 
@@ -1087,6 +1105,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 7: Board storage (errore-wrapped localStorage)
 
 **Files:**
+
 - Create: `src/board-model/types.ts`
 - Create: `src/board-model/board-storage.ts`
 - Test: `src/board-model/board-storage.test.ts`
@@ -1220,6 +1239,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 8: Board model (Reatom atoms + actions)
 
 **Files:**
+
 - Create: `src/board-model/board-model.ts`
 - Test: `src/board-model/board-model.test.ts`
 
@@ -1375,6 +1395,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 9: WidgetFrame component
 
 **Files:**
+
 - Create: `src/widget-host/WidgetFrame.tsx`
 - Create: `src/widget-host/WidgetFrame.module.css`
 - Test: `src/widget-host/WidgetFrame.test.tsx`
@@ -1579,6 +1600,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 10: Board component (react-grid-layout)
 
 **Files:**
+
 - Create: `src/board/Board.tsx`
 - Create: `src/board/Board.module.css`
 - Test: `src/board/Board.test.tsx`
@@ -1682,7 +1704,9 @@ Expected: FAIL — `Board.tsx` not found.
   border-radius: 4px;
 }
 
-.iconButton:hover { background: var(--border); }
+.iconButton:hover {
+  background: var(--border);
+}
 
 .body {
   flex: 1;
@@ -1795,6 +1819,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 11: Fullscreen overlay
 
 **Files:**
+
 - Create: `src/widget-host/FullscreenOverlay.tsx`
 - Create: `src/widget-host/FullscreenOverlay.module.css`
 - Test: `src/widget-host/FullscreenOverlay.test.tsx`
@@ -1860,7 +1885,10 @@ Expected: FAIL — `FullscreenOverlay.tsx` not found.
   border-bottom: 1px solid var(--border);
 }
 
-.title { color: var(--text); font-size: 14px; }
+.title {
+  color: var(--text);
+  font-size: 14px;
+}
 
 .close {
   padding: 6px 12px;
@@ -1871,7 +1899,10 @@ Expected: FAIL — `FullscreenOverlay.tsx` not found.
   cursor: pointer;
 }
 
-.body { flex: 1; min-height: 0; }
+.body {
+  flex: 1;
+  min-height: 0;
+}
 ```
 
 - [ ] **Step 4: Write `src/widget-host/FullscreenOverlay.tsx`**
@@ -1933,6 +1964,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 12: App shell + error boundary + bootstrap
 
 **Files:**
+
 - Create: `src/app/ErrorBoundary.tsx`
 - Create: `src/app/App.module.css`
 - Modify: `src/app/App.tsx` (replace placeholder from Task 1)
@@ -2037,6 +2069,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 13: Clock widget
 
 **Files:**
+
 - Create: `widgets/clock/index.html`
 - Create: `widgets/clock/main.tsx`
 - Create: `widgets/clock/Clock.tsx`
@@ -2219,6 +2252,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 14: End-to-end bridge integration test
 
 **Files:**
+
 - Create: `tests/bridge-handshake.test.ts`
 
 Proves the host connection and the widget client agree on the protocol, wired port-to-port through a single `MessageChannel`, with no DOM.
@@ -2316,6 +2350,7 @@ Open the printed URL in a browser.
 - [ ] **Step 2: Verify the full flow**
 
 Confirm each, by observation:
+
 1. Click **Add clock** → a card appears on the board showing the clock's **small** view (current time, `HH:MM:SS`).
 2. The small view **ticks every second** (proves the widget runs live inside its iframe).
 3. **Drag** the card by its header → it moves; **resize** from the corner → it resizes.
@@ -2346,4 +2381,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - **Config additions:** `vite.config.ts` auto-discovers widget entries from `widgets/<name>/index.html`, so adding a widget needs no config edit (only a new registry entry for board metadata). Env is validated once with zod in `src/env.ts` (testable `parseEnv` boundary + fail-fast `env`); its one custom var `VITE_WIDGET_HANDSHAKE_TIMEOUT_MS` feeds the host handshake (Task 9).
 - **Known environment caveats flagged inline:** exact `@reatom/react` version/exports and calling `useContainerWidth` inside `reatomComponent` (Tasks 1, 10), `crypto.randomUUID` needing Node 19+ (Task 8), and the `MessagePort.dispatchEvent` env note (Task 14).
 - **react-grid-layout v2 specifics:** board uses the v2 hook API; jsdom needs the `ResizeObserver` mock (Task 1, Step 6) so `useContainerWidth` doesn't throw, and the `width || 1200` fallback keeps cards rendering under test. v2 ships its own types — if installing `@types/react-grid-layout@^2.1.0` causes duplicate-declaration errors, remove that devDependency and rely on the bundled types.
+
+```
+
 ```

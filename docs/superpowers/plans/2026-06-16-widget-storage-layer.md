@@ -54,6 +54,7 @@ Modify:
 ### Task 1: Contract and scope helpers
 
 **Files:**
+
 - Create: `src/storage/types.ts`
 - Create: `src/storage/scope.ts`
 - Test: `src/storage/scope.test.ts`
@@ -173,6 +174,7 @@ git commit -m "feat(storage): add StorageApi contract and scope helpers"
 ### Task 2: Dexie client adapter
 
 **Files:**
+
 - Create: `src/storage/client/db.ts`
 - Create: `src/storage/client/dexie-storage.ts`
 - Test: `src/storage/client/dexie-storage.test.ts`
@@ -383,6 +385,7 @@ git commit -m "feat(storage): add Dexie client adapter"
 ### Task 3: HTTP server adapter
 
 **Files:**
+
 - Create: `src/storage/server/http-storage.ts`
 - Test: `src/storage/server/http-storage.test.ts`
 
@@ -404,7 +407,10 @@ afterEach(() => {
 })
 
 function stubFetch(impl: (input: string, init?: RequestInit) => Response) {
-  vi.stubGlobal('fetch', vi.fn((input: string, init?: RequestInit) => Promise.resolve(impl(input, init))))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: string, init?: RequestInit) => Promise.resolve(impl(input, init))),
+  )
 }
 
 describe('createHttpStorage', () => {
@@ -432,7 +438,10 @@ describe('createHttpStorage', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe(`/api/storage/${encodeURIComponent('w:t:clock:settings')}`)
     expect(init).toMatchObject({ method: 'PUT' })
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ value: { a: 1 }, ttlMs: 1000 })
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      value: { a: 1 },
+      ttlMs: 1000,
+    })
   })
 
   it('DELETE sends a DELETE', async () => {
@@ -453,15 +462,22 @@ describe('createHttpStorage', () => {
 
   it('keys queries by prefix and strips the namespace', async () => {
     const fetchMock = vi.fn((_url: string) =>
-      Promise.resolve(new Response(JSON.stringify({ keys: ['w:t:clock:a', 'w:t:clock:b'] }), { status: 200 })),
+      Promise.resolve(
+        new Response(JSON.stringify({ keys: ['w:t:clock:a', 'w:t:clock:b'] }), { status: 200 }),
+      ),
     )
     vi.stubGlobal('fetch', fetchMock)
     expect(await storage.keys()).toEqual(['a', 'b'])
-    expect(fetchMock.mock.calls[0][0]).toBe(`/api/storage?prefix=${encodeURIComponent('w:t:clock:')}`)
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `/api/storage?prefix=${encodeURIComponent('w:t:clock:')}`,
+    )
   })
 
   it('maps a network failure to StorageError', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('offline'))),
+    )
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
 })
@@ -561,6 +577,7 @@ git commit -m "feat(storage): add HTTP server adapter"
 ### Task 4: createWidgetStorage
 
 **Files:**
+
 - Create: `src/storage/widget-storage.ts`
 - Test: `src/storage/widget-storage.test.ts`
 
@@ -670,6 +687,7 @@ git commit -m "feat(storage): add createWidgetStorage factory"
 ### Task 5: Backend — Valkey ops, handlers, body reader
 
 **Files:**
+
 - Create: `server/valkey.ts`
 - Create: `server/handlers.ts`
 - Create: `server/handlers.test.ts`
@@ -740,7 +758,10 @@ describe('handlers', () => {
 
   it('KEYS returns scanned keys', async () => {
     const ops = mockOps({ scanKeys: vi.fn(async () => ['w:t:clock:a']) })
-    expect(await handleKeys(ops, 'w:t:clock:')).toEqual({ status: 200, body: { keys: ['w:t:clock:a'] } })
+    expect(await handleKeys(ops, 'w:t:clock:')).toEqual({
+      status: 200,
+      body: { keys: ['w:t:clock:a'] },
+    })
     expect(ops.scanKeys).toHaveBeenCalledWith('w:t:clock:')
   })
 })
@@ -790,7 +811,9 @@ export type ValkeyOps = {
   scanKeys(matchPrefix: string): Promise<string[]>
 }
 
-export function createValkeyOps(url = process.env.VALKEY_URL ?? 'redis://localhost:6379'): ValkeyOps {
+export function createValkeyOps(
+  url = process.env.VALKEY_URL ?? 'redis://localhost:6379',
+): ValkeyOps {
   const client = new Valkey(url)
   return {
     async get(key) {
@@ -884,6 +907,7 @@ git commit -m "feat(server): add Valkey ops, storage handlers, and body reader"
 ### Task 6: Backend HTTP wiring and Vite proxy
 
 **Files:**
+
 - Create: `server/index.ts`
 - Modify: `vite.config.ts`
 
@@ -936,7 +960,14 @@ router.on('PUT', '/api/storage/:key', async (req, res, params) => {
     res.end()
     return
   }
-  send(res, await handlePut(ops, decodeURIComponent(params.key), payload as { value: unknown; ttlMs?: number }))
+  send(
+    res,
+    await handlePut(
+      ops,
+      decodeURIComponent(params.key),
+      payload as { value: unknown; ttlMs?: number },
+    ),
+  )
 })
 
 router.on('DELETE', '/api/storage/:key', async (_req, res, params) => {
@@ -983,6 +1014,7 @@ git commit -m "feat(server): wire storage routes with find-my-way and add /api d
 ### Task 7: Docker Compose stack
 
 **Files:**
+
 - Create: `server/Dockerfile`
 - Create: `docker-compose.yml`
 
@@ -1060,6 +1092,7 @@ git commit -m "feat(server): add Dockerized client + server + valkey stack"
 This task is optional — the storage feature is complete without it. It adds a small observable layer for widgets that use Reatom. Skip it if no widget needs reactive status yet.
 
 **Files:**
+
 - Create: `src/storage/reatom/reatom-storage.ts`
 - Test: `src/storage/reatom/reatom-storage.test.ts`
 
@@ -1164,7 +1197,7 @@ export function reatomClearExpired(name: string) {
 }
 ```
 
-> **Note for the implementer:** `withAsync({ status: true })` exposes `set.error()`, `set.status()`, and `set.ready()`. Reactive *reads* are intentionally not included here — a widget that needs one should create a local `computed(async () => { const r = await wrap(api.get(key)); if (r instanceof Error) throw r; return r }).extend(withAsyncData())`, per the Reatom v1000 pattern. Add that only when a widget actually needs it (YAGNI).
+> **Note for the implementer:** `withAsync({ status: true })` exposes `set.error()`, `set.status()`, and `set.ready()`. Reactive _reads_ are intentionally not included here — a widget that needs one should create a local `computed(async () => { const r = await wrap(api.get(key)); if (r instanceof Error) throw r; return r }).extend(withAsyncData())`, per the Reatom v1000 pattern. Add that only when a widget actually needs it (YAGNI).
 
 - [ ] **Step 4: Run the test to verify it passes**
 

@@ -17,6 +17,7 @@
 ## 2. Границы (scope)
 
 **Входит в MVP:**
+
 - Борда на `react-grid-layout`: добавление/удаление/перетаскивание/ресайз инстансов; раскладка
   сохраняется локально.
 - Изоляция виджета в `iframe` + типизированный мост host ↔ widget (postMessage поверх `MessageChannel`).
@@ -25,6 +26,7 @@
 - Обработка ошибок через **errore** (errors-as-values) на всех ненадёжных границах.
 
 **Не входит в MVP (отложено):**
+
 - KV-хранилище состояния виджета на стороне host'а (get/set через мост). Зарезервировано в протоколе,
   но не реализуется. Это же — точка, где позже можно делить состояние между small/large.
 - IndexedDB (пока достаточно localStorage — структура борды это маленький JSON).
@@ -35,16 +37,16 @@
 
 ## 3. Стек и ключевые решения
 
-| Решение | Выбор | Причина |
-|---|---|---|
-| Сборка/рантайм | **Vite (multi-entry) + React + TypeScript**, SPA | local-first, без SSR |
-| Сетка борды | **react-grid-layout** | требование заказчика |
-| Логика/состояние | **Reatom v1000** (`@reatom/core@1000`) | требование заказчика |
-| Ошибки | **errore** (errors-as-values) | требование заказчика |
-| Загрузка виджета | **Подход A** — отдельная HTML-точка входа (Vite-entry) на виджет | максимальная изоляция, чистый контракт, путь к сторонним виджетам |
-| Стилизация | **CSS-модули** | требование заказчика |
-| Хранилище | **localStorage** через persist-привязку Reatom | структура борды — крошечный JSON; IndexedDB на будущее |
-| Расположение моста | `src/shared/widget-bridge` (общий код, не отдельный monorepo-пакет) | проще для MVP |
+| Решение            | Выбор                                                               | Причина                                                           |
+| ------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Сборка/рантайм     | **Vite (multi-entry) + React + TypeScript**, SPA                    | local-first, без SSR                                              |
+| Сетка борды        | **react-grid-layout**                                               | требование заказчика                                              |
+| Логика/состояние   | **Reatom v1000** (`@reatom/core@1000`)                              | требование заказчика                                              |
+| Ошибки             | **errore** (errors-as-values)                                       | требование заказчика                                              |
+| Загрузка виджета   | **Подход A** — отдельная HTML-точка входа (Vite-entry) на виджет    | максимальная изоляция, чистый контракт, путь к сторонним виджетам |
+| Стилизация         | **CSS-модули**                                                      | требование заказчика                                              |
+| Хранилище          | **localStorage** через persist-привязку Reatom                      | структура борды — крошечный JSON; IndexedDB на будущее            |
+| Расположение моста | `src/shared/widget-bridge` (общий код, не отдельный monorepo-пакет) | проще для MVP                                                     |
 
 ## 4. Архитектура
 
@@ -113,6 +115,7 @@ widgets/demo ──> widget-bridge (createWidgetClient) ────────
 ## 5. Протокол моста (postMessage поверх MessageChannel)
 
 **Установление связи:**
+
 1. Host создаёт `<iframe src="/widgets/<id>/index.html?mode=small&instanceId=...">`.
 2. По событию `load` host создаёт `MessageChannel` и шлёт виджету `init` через `iframe.contentWindow.postMessage(initMsg, targetOrigin, [port2])`.
 3. Виджет в `createWidgetClient()` слушает `message`, получает `port`, отвечает `ready` по этому порту.
@@ -120,11 +123,13 @@ widgets/demo ──> widget-bridge (createWidgetClient) ────────
 5. Если `ready` не пришёл за таймаут (по умолчанию **5000 мс**) → `HandshakeTimeoutError`, карточка «сломан».
 
 **Сообщения host → widget:**
+
 - `init { type:'init', instanceId, mode: 'small'|'large', theme? }`
 - `mode-change { type:'mode-change', mode }` — зарезервировано (MVP использует отдельные iframe'ы)
 - `ping { type:'ping' }`
 
 **Сообщения widget → host:**
+
 - `ready { type:'ready', instanceId }`
 - `request-fullscreen { type:'request-fullscreen', instanceId }`
 - `request-close { type:'request-close', instanceId }`
@@ -154,12 +159,14 @@ widgets/demo ──> widget-bridge (createWidgetClient) ────────
 ## 8. Обработка ошибок (errore)
 
 Tagged-ошибки через `createTaggedError`:
+
 - `StorageError` — чтение/запись/parse localStorage.
 - `BridgeError` — невалидный/неожиданный payload моста.
 - `WidgetLoadError` — сбой загрузки iframe.
 - `HandshakeTimeoutError` — виджет не прислал `ready` в срок.
 
 Правила:
+
 - Все ненадёжные границы возвращают `Error | T`; вызывающий проверяет `instanceof Error`.
 - Сбой одного виджета изолирован в его фрейме — показывается карточка «виджет сломан» + retry,
   остальная борда работает.

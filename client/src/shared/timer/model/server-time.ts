@@ -8,6 +8,7 @@ import {
   type Action,
   type Computed,
 } from '@reatom/core'
+
 import { fetchServerTime, type TimeError } from './http-time'
 
 export interface ServerTime {
@@ -34,9 +35,7 @@ export function createServerTime(
   const today = (timeZone: string): Temporal.PlainDate | null => {
     const now = nowMs()
     if (now == null) return null
-    return Temporal.Instant.fromEpochMilliseconds(now)
-      .toZonedDateTimeISO(timeZone)
-      .toPlainDate()
+    return Temporal.Instant.fromEpochMilliseconds(now).toZonedDateTimeISO(timeZone).toPlainDate()
   }
 
   const sync = action(async () => {

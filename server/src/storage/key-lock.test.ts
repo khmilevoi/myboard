@@ -1,17 +1,22 @@
 import { describe, expect, it } from 'vitest'
+
 import { runExclusive } from './key-lock'
 
 describe('runExclusive', () => {
   it('serializes tasks for the same key', async () => {
     const order: string[] = []
     let releaseA = () => {}
-    const a = runExclusive('k', () => new Promise<void>((resolve) => {
-      order.push('a-start')
-      releaseA = () => {
-        order.push('a-end')
-        resolve()
-      }
-    }))
+    const a = runExclusive(
+      'k',
+      () =>
+        new Promise<void>((resolve) => {
+          order.push('a-start')
+          releaseA = () => {
+            order.push('a-end')
+            resolve()
+          }
+        }),
+    )
     const b = runExclusive('k', async () => {
       order.push('b-start')
       order.push('b-end')
@@ -28,10 +33,14 @@ describe('runExclusive', () => {
   it('runs different keys concurrently', async () => {
     const order: string[] = []
     let releaseA = () => {}
-    const a = runExclusive('a', () => new Promise<void>((resolve) => {
-      order.push('a-start')
-      releaseA = resolve
-    }))
+    const a = runExclusive(
+      'a',
+      () =>
+        new Promise<void>((resolve) => {
+          order.push('a-start')
+          releaseA = resolve
+        }),
+    )
     const b = runExclusive('b', async () => {
       order.push('b-ran')
     })

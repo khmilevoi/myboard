@@ -1,5 +1,6 @@
 import * as errore from 'errore'
-import type { ThemeMode } from '../../shared/theme/types'
+
+import type { ThemeMode } from '@/shared/theme/types'
 
 export const THEME_STORAGE_KEY = 'myboard.theme'
 
@@ -21,7 +22,8 @@ export function loadThemeMode(): ThemeStorageError | ThemeMode | null {
   })
   if (raw instanceof ThemeStorageError) return raw
   if (raw === null) return null
-  if (!isThemeMode(raw)) return new ThemeStorageError({ reason: 'stored value is not a theme mode' })
+  if (!isThemeMode(raw))
+    return new ThemeStorageError({ reason: 'stored value is not a theme mode' })
   return raw
 }
 

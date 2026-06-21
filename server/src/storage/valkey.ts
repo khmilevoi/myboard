@@ -8,7 +8,9 @@ export type ValkeyOps = {
   publish(channel: string, message: string): Promise<void>
 }
 
-export function createValkeyOps(url = process.env.VALKEY_URL ?? 'redis://localhost:6379'): ValkeyOps {
+export function createValkeyOps(
+  url = process.env.VALKEY_URL ?? 'redis://localhost:6379',
+): ValkeyOps {
   const client = new Valkey(url)
   return {
     async get(key) {

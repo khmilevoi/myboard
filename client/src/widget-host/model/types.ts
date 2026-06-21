@@ -1,22 +1,24 @@
-import type { ComponentType } from "react";
-import type { ResolvedTheme } from "@/shared/theme/types";
-import { WidgetStorage } from "@/storage/model/widget-storage";
-import type { WidgetTier } from "./tier";
+import type { ComponentType } from 'react'
 
-export type WidgetMode = "small" | "large";
+import type { ResolvedTheme } from '@/shared/theme/types'
+import { WidgetStorage } from '@/storage/model/widget-storage'
+
+import type { WidgetTier } from './tier'
+
+export type WidgetMode = 'small' | 'large'
 
 export type WidgetRuntimeProps = {
-  instanceId: string;
-  typeId: string;
-  mode: WidgetMode;
-  tier: WidgetTier;
-  theme: ResolvedTheme;
-  requestFullscreen: () => void;
-  requestClose: () => void;
-  reportError: (error: Error) => void;
-  storage: WidgetStorage;
-};
+  instanceId: string
+  typeId: string
+  mode: WidgetMode
+  tier: WidgetTier
+  theme: ResolvedTheme
+  requestFullscreen: () => void
+  requestClose: () => void
+  reportError: (error: Error) => void
+  storage: WidgetStorage
+}
 
-export type WidgetComponent = ComponentType<WidgetRuntimeProps>;
-export type WidgetComponentModule = { default: WidgetComponent };
-export type WidgetLoader = () => Promise<WidgetComponentModule>;
+export type WidgetComponent = ComponentType<WidgetRuntimeProps>
+export type WidgetComponentModule = { default: WidgetComponent }
+export type WidgetLoader = () => Promise<WidgetComponentModule>

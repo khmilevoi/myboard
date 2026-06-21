@@ -26,12 +26,14 @@
 Move all client sources into `client/`, give `client` and `server` their own manifests and tsconfigs, strip the root `package.json` to a workspace root, regenerate the lockfile, and prove the existing test suite still passes. This is a refactor under the existing (green) test suite — the tests are the safety net.
 
 **Files:**
+
 - Create: `client/package.json`, `server/package.json`, `server/tsconfig.json`
 - Move (via `git mv`): `src`, `widgets`, `tests`, `e2e`, `index.html`, `vite.config.ts`, `playwright.config.ts`, `tsconfig.json`, `tsconfig.node.json`, `tsconfig.e2e.json`, `.env.example` → `client/`; `web/Dockerfile` → `client/Dockerfile`; `web/nginx.conf` → `client/nginx.conf`
 - Modify: `client/tsconfig.node.json` (drop `server` from `include`), `package.json` (root), `pnpm-workspace.yaml`
 - Remove: empty `web/` directory
 
 **Interfaces:**
+
 - Produces (consumed by Task 2): package names `client` and `server`; regenerated `pnpm-lock.yaml`; client production build output at `client/dist`; nginx config at `client/nginx.conf`; per-package manifests `client/package.json` and `server/package.json`.
 
 - [ ] **Step 1: Create the feature branch**
@@ -39,6 +41,7 @@ Move all client sources into `client/`, give `client` and `server` their own man
 ```bash
 git checkout -b restructure/client-server-monorepo
 ```
+
 Expected: `Switched to a new branch 'restructure/client-server-monorepo'`.
 
 - [ ] **Step 2: Move client sources into `client/`**
@@ -47,6 +50,7 @@ Expected: `Switched to a new branch 'restructure/client-server-monorepo'`.
 mkdir -p client
 git mv src widgets tests e2e index.html vite.config.ts playwright.config.ts tsconfig.json tsconfig.node.json tsconfig.e2e.json .env.example client/
 ```
+
 Expected: `git status` shows the above as renames into `client/`. No edits needed to `vite.config.ts` (its `__dirname`-relative `widgets`/`index.html` paths travel with the file), `tsconfig.json`, `tsconfig.e2e.json`, or `playwright.config.ts` (all paths are relative).
 
 - [ ] **Step 3: Move the nginx image into `client/` and drop `web/`**
@@ -56,6 +60,7 @@ git mv web/Dockerfile client/Dockerfile
 git mv web/nginx.conf client/nginx.conf
 rmdir web
 ```
+
 Expected: `web/` no longer exists; `client/Dockerfile` and `client/nginx.conf` present. (The Dockerfile is rewritten in Task 2; moving it here records the rename.)
 
 - [ ] **Step 4: Create `client/package.json`**
@@ -176,6 +181,7 @@ The moved file currently reads `"include": ["vite.config.ts", "server"]`. Edit i
   "include": ["vite.config.ts"]
 }
 ```
+
 (Only the `include` array changes — `"server"` is removed; the server now has its own tsconfig.)
 
 - [ ] **Step 8: Rewrite the root `package.json` as a workspace root**
@@ -204,6 +210,7 @@ The moved file currently reads `"include": ["vite.config.ts", "server"]`. Edit i
   }
 }
 ```
+
 (All `dependencies`/`devDependencies` and `"type": "module"` are removed — the root holds no source.)
 
 - [ ] **Step 9: List the workspace packages in `pnpm-workspace.yaml`**
@@ -222,6 +229,7 @@ onlyBuiltDependencies:
 rm -rf node_modules dist test-results client/node_modules server/node_modules
 pnpm install
 ```
+
 Expected: install completes without `ERR_PNPM_*`; `pnpm-lock.yaml` is updated; `client/node_modules` and `server/node_modules` are created. (If install reports the lockfile is out of date, that is expected on the first run — it regenerates it.)
 
 - [ ] **Step 11: Confirm each package has its own `node_modules`**
@@ -229,6 +237,7 @@ Expected: install completes without `ERR_PNPM_*`; `pnpm-lock.yaml` is updated; `
 ```bash
 ls -d client/node_modules server/node_modules
 ```
+
 Expected: both paths listed (no error).
 
 - [ ] **Step 12: Typecheck both packages**
@@ -236,6 +245,7 @@ Expected: both paths listed (no error).
 ```bash
 pnpm -r typecheck
 ```
+
 Expected: runs `typecheck` in `client` and `server`; both finish with no TypeScript errors.
 
 - [ ] **Step 13: Run unit tests in both packages**
@@ -243,6 +253,7 @@ Expected: runs `typecheck` in `client` and `server`; both finish with no TypeScr
 ```bash
 pnpm -r test
 ```
+
 Expected: `client` Vitest suite passes (jsdom, via `client/vite.config.ts` test block) and `server` Vitest suite passes (node). No failures.
 
 - [ ] **Step 14: Build the client bundle**
@@ -250,6 +261,7 @@ Expected: `client` Vitest suite passes (jsdom, via `client/vite.config.ts` test 
 ```bash
 pnpm --filter client build
 ```
+
 Expected: tsc passes, Vite build succeeds, output written to `client/dist` (contains `index.html` plus the per-widget entries).
 
 - [ ] **Step 15: Commit**
@@ -268,10 +280,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 Point both Dockerfiles at the workspace layout (context `.`, copy the root manifests + both package manifests, filtered install), rename the prod `web` service to `client`, fix the dev compose for per-package `node_modules` volumes with a single shared install, add a root `.dockerignore`, and update `pi.toml` ingress.
 
 **Files:**
+
 - Modify: `server/Dockerfile`, `client/Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, `pi.toml`
 - Create: `.dockerignore` (root)
 
 **Interfaces:**
+
 - Consumes (from Task 1): package names `client`/`server`, regenerated `pnpm-lock.yaml`, `client/dist` build output, `client/nginx.conf`, both package manifests.
 
 - [ ] **Step 1: Rewrite `server/Dockerfile`**
@@ -485,6 +499,7 @@ docker compose config >/dev/null && echo PROD_OK
 docker compose -f docker-compose.dev.yml config >/dev/null && echo DEV_OK
 docker compose config --services
 ```
+
 Expected: prints `PROD_OK` and `DEV_OK`; the services list contains `client` (and `server`, `valkey`) and **no** `web`.
 
 - [ ] **Step 8: Build the production images**
@@ -492,6 +507,7 @@ Expected: prints `PROD_OK` and `DEV_OK`; the services list contains `client` (an
 ```bash
 docker compose build
 ```
+
 Expected: both `server` and `client` images build successfully. This takes several minutes (the `client` image runs `pnpm install` + `vite build`). The filtered installs must succeed against the frozen lockfile regenerated in Task 1.
 
 - [ ] **Step 9 (optional): Smoke-test the dev stack**
@@ -502,6 +518,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 curl -fsS http://localhost:5173 >/dev/null && echo CLIENT_DEV_OK
 docker compose -f docker-compose.dev.yml down
 ```
+
 Expected: `CLIENT_DEV_OK` (the Vite dev server responds). Heavier/optional — skip if Docker is unavailable in the execution environment.
 
 - [ ] **Step 10: Commit**
@@ -518,6 +535,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Self-Review
 
 **Spec coverage** (each spec section maps to a task):
+
 - Target structure / file moves → Task 1, Steps 2–3.
 - Workspace model (`pnpm-workspace.yaml`, per-package `node_modules`) → Task 1, Steps 9–11.
 - Dependency & script split (client/server/root manifests) → Task 1, Steps 4–5, 8.

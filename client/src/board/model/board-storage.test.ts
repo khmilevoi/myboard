@@ -1,6 +1,7 @@
+import { JSONParseError } from '@shared/json'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { JSONParseError } from '@shared/json'
+
 import { loadBoard, saveBoard, STORAGE_KEY, StorageError } from './board-storage'
 import type { BoardSnapshot } from './types'
 

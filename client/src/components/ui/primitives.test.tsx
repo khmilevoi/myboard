@@ -1,13 +1,14 @@
+import { fireEvent, render, screen } from '@testing-library/react'
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { Input } from './input'
+
 import { Badge } from './badge'
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from './dialog'
+import { Input } from './input'
+import { Popover, PopoverContent, PopoverTrigger } from './popover'
 import { Separator } from './separator'
 import { Skeleton } from './skeleton'
 import { ToggleGroup, ToggleGroupItem } from './toggle-group'
-import { Popover, PopoverContent, PopoverTrigger } from './popover'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from './dialog'
 
 describe('ui primitives', () => {
   it('renders Input, Badge, Separator and Skeleton', () => {

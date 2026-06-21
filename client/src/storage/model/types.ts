@@ -28,11 +28,7 @@ export type StorageListener<T = unknown> = (event: StorageError | StorageChange<
 
 export type StorageApi = {
   get<T>(key: string, schema?: z.ZodType<T>): Promise<StorageError | T | null>
-  set<T>(
-    key: string,
-    value: T,
-    options?: StorageOptions,
-  ): Promise<StorageError | void>
+  set<T>(key: string, value: T, options?: StorageOptions): Promise<StorageError | void>
   delete(key: string): Promise<StorageError | void>
   has(key: string): Promise<StorageError | boolean>
   keys(prefix?: string): Promise<StorageError | string[]>
@@ -41,10 +37,5 @@ export type StorageApi = {
     entry: T,
     options?: { cap?: number },
   ): Promise<StorageError | void>
-  subscribe<T>(
-    key: string,
-    listener: StorageListener<T>,
-    schema?: z.ZodType<T>,
-  ): () => void
+  subscribe<T>(key: string, listener: StorageListener<T>, schema?: z.ZodType<T>): () => void
 }
-

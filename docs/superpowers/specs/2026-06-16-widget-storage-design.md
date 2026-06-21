@@ -49,7 +49,7 @@ type ScopedStorage = { client: StorageApi; server: StorageApi }
 
 type WidgetStorage = {
   instance: ScopedStorage // namespace  w:i:<instanceId>:  — this placement only
-  shared:   ScopedStorage // namespace  w:t:<typeId>:      — all placements of this type
+  shared: ScopedStorage // namespace  w:t:<typeId>:      — all placements of this type
 }
 ```
 
@@ -100,10 +100,10 @@ docker-compose.yml          # client + server + valkey
 export type StorageOptions = { ttlMs?: number }
 
 export type StorageEntry<T = unknown> = {
-  key: string               // full namespaced key
+  key: string // full namespaced key
   value: T
-  expiresAt: number | null  // epoch ms; null = never expires
-  updatedAt: number         // epoch ms
+  expiresAt: number | null // epoch ms; null = never expires
+  updatedAt: number // epoch ms
 }
 
 export class StorageError extends errore.createTaggedError({
@@ -143,7 +143,7 @@ four `StorageApi` instances (`instance.client`, `instance.server`,
 One Dexie DB `myboard-storage`, one table:
 
 ```ts
-entries: 'key, namespace, expiresAt, updatedAt'   // key = primary key
+entries: 'key, namespace, expiresAt, updatedAt' // key = primary key
 ```
 
 Each row is a `StorageEntry` with `namespace` set to the scope prefix so listing
@@ -168,12 +168,12 @@ A `find-my-way` router on Node's `http` server. The server is an opaque JSON
 pass-through — it never inspects values, and relies on **Valkey-native TTL**
 (`PX`) rather than storing `expiresAt` itself.
 
-| Method | Path | Valkey | Response |
-|---|---|---|---|
-| `GET` | `/api/storage/:key` | `GET key` | `200 { value }` / `404` |
-| `PUT` | `/api/storage/:key` | `SET key json [PX ttlMs]` | `204` |
-| `DELETE` | `/api/storage/:key` | `DEL key` | `204` |
-| `GET` | `/api/storage?prefix=…` | `SCAN MATCH prefix*` | `200 { keys }` |
+| Method   | Path                    | Valkey                    | Response                |
+| -------- | ----------------------- | ------------------------- | ----------------------- |
+| `GET`    | `/api/storage/:key`     | `GET key`                 | `200 { value }` / `404` |
+| `PUT`    | `/api/storage/:key`     | `SET key json [PX ttlMs]` | `204`                   |
+| `DELETE` | `/api/storage/:key`     | `DEL key`                 | `204`                   |
+| `GET`    | `/api/storage?prefix=…` | `SCAN MATCH prefix*`      | `200 { keys }`          |
 
 Details:
 
@@ -234,9 +234,11 @@ root.render(<Clock client={client} storage={storage} />)
 Usage inside the component:
 
 ```ts
-await storage.instance.client.set('draft', draft)        // w:i:<instanceId>:draft (Dexie)
+await storage.instance.client.set('draft', draft) // w:i:<instanceId>:draft (Dexie)
 const settings = await storage.shared.server.get('settings') // w:t:clock:settings (Valkey)
-if (settings instanceof Error) { /* fall back to defaults */ }
+if (settings instanceof Error) {
+  /* fall back to defaults */
+}
 ```
 
 ## Data flow (server read example)

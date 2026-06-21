@@ -1,12 +1,12 @@
-import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Slot } from 'radix-ui'
+import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-colors [&>svg]:pointer-events-none [&>svg]:size-3",
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-colors [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
@@ -25,9 +25,7 @@ type BadgeProps = React.ComponentProps<'span'> &
 
 const Badge = reatomMemo<BadgeProps>(({ className, variant, asChild = false, ...props }) => {
   const Comp = asChild ? Slot.Root : 'span'
-  return (
-    <Comp data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />
-  )
+  return <Comp data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />
 }, 'Badge')
 
 export { Badge, badgeVariants }

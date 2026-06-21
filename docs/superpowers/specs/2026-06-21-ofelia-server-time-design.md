@@ -89,9 +89,7 @@ export interface ServerTime {
 
 ```ts
 export type ServerTimeResponse = { now: number } // epoch ms, UTC
-export function fetchServerTime(
-  baseUrl = '/api/time',
-): Promise<number | TimeError>
+export function fetchServerTime(baseUrl = '/api/time'): Promise<number | TimeError>
 ```
 
 - `fetch(baseUrl)` → zod-парс `{ now: number }`; ошибки — значениями (тегированный

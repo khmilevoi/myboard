@@ -15,8 +15,8 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"],
-    },
+      "@shared/*": ["../shared/*"]
+    }
   },
-  "include": ["src", "widgets", "tests"],
+  "include": ["src", "widgets", "tests"]
 }

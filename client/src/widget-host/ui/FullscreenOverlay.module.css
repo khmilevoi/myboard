@@ -75,7 +75,9 @@
   background: var(--card);
   color: var(--text-3);
   cursor: pointer;
-  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
 }
 .close:hover {
   background: var(--secondary);

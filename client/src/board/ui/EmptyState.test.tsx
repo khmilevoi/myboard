@@ -1,7 +1,8 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
 import { context } from '@reatom/core'
 import { fireEvent, render, screen } from '@testing-library/react'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it } from 'vitest'
+
 import { isAddWidgetMenuOpen } from '../model/add-widget-menu-model'
 import { EmptyState } from './EmptyState'
 

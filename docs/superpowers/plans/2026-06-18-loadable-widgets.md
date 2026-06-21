@@ -91,6 +91,7 @@ Historical docs under `docs/superpowers/specs` and older plans can remain unchan
 ### Task 1: Introduce In-Process Widget Runtime Types And Registry Loaders
 
 **Files:**
+
 - Create: `client/src/widget-host/types.ts`
 - Modify: `client/src/widget-registry/registry.ts`
 - Modify: `client/src/widget-registry/registry.test.ts`
@@ -214,6 +215,7 @@ git commit -m "refactor(widgets): register loadable widget components"
 ### Task 2: Convert Widget Components From `WidgetClient` To Direct Runtime Props
 
 **Files:**
+
 - Modify: `client/widgets/clock/Clock.tsx`
 - Create: `client/widgets/clock/Clock.test.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/OfeliaPoopDuty.tsx`
@@ -326,6 +328,7 @@ git commit -m "refactor(widgets): accept host runtime props directly"
 ### Task 3: Replace `WidgetFrame` Iframe Host With Lazy Component Host
 
 **Files:**
+
 - Create: `client/src/widget-host/WidgetErrorBoundary.tsx`
 - Create: `client/src/widget-host/WidgetErrorBoundary.test.tsx`
 - Modify: `client/src/widget-host/WidgetFrame.tsx`
@@ -530,6 +533,7 @@ git commit -m "refactor(widget-host): render loadable components"
 ### Task 4: Update Board Drag Semantics For In-Process Widgets
 
 **Files:**
+
 - Modify: `client/src/board/Board.tsx`
 - Modify: `client/src/board/Board.test.tsx`
 - Modify: `client/src/app/global.css`
@@ -616,6 +620,7 @@ git commit -m "refactor(board): remove iframe drag assumptions"
 ### Task 5: Remove Bridge, Iframe Entrypoints, And Handshake Env
 
 **Files:**
+
 - Modify: `client/vite.config.ts`
 - Modify: `client/src/env.ts`
 - Modify: `client/src/env.test.ts`
@@ -710,6 +715,7 @@ git commit -m "refactor(widgets): remove iframe bridge runtime"
 ### Task 6: Update Playwright E2E Coverage
 
 **Files:**
+
 - Modify: `client/e2e/widget-interactions.spec.ts`
 - Optionally modify: `client/e2e/pages/BoardPage.ts`
 
@@ -798,6 +804,7 @@ git commit -m "test(e2e): assert loadable widget rendering"
 ### Task 7: Update Documentation And Residual Search
 
 **Files:**
+
 - Modify or create: `docs/superpowers/specs/2026-06-18-loadable-widgets-design.md` if a durable design note is wanted.
 - Do not rewrite older historical specs/plans unless explicitly requested.
 
@@ -848,6 +855,7 @@ Skip this commit if no design note was created.
 ### Task 8: Full Verification
 
 **Files:**
+
 - No planned source changes.
 
 - [ ] **Step 1: Run all client unit tests**

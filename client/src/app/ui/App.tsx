@@ -1,9 +1,11 @@
-import { Board } from '../../board/ui/Board'
-import { reatomMemo } from '../../shared/reatom/reatom-memo'
-import { FullscreenOverlay } from '../../widget-host/ui/FullscreenOverlay'
-import styles from './App.module.css'
+import { Board } from '@/board/ui/Board'
+import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { FullscreenOverlay } from '@/widget-host/ui/FullscreenOverlay'
+
 import { ErrorBoundary } from './ErrorBoundary'
 import { Header } from './Header'
+
+import styles from './App.module.css'
 
 export const App = reatomMemo(() => {
   return (

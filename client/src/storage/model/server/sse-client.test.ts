@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { FakeEventSource, installFakeEventSource } from '../test/fakes'
 
 beforeEach(() => {
   installFakeEventSource()
   vi.resetModules()
-  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
+  )
 })
 
 afterEach(() => {

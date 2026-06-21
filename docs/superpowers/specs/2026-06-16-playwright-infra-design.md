@@ -60,33 +60,33 @@ Each class receives `page: Page` in its constructor. They expose locators and ac
 
 ### `BoardPage`
 
-| Member | Detail |
-|--------|--------|
-| `widgetCards` | `page.locator('[data-testid="widget-card"]')` |
-| `emptyState` | locator for the empty-state element |
-| `getCard(index)` | returns the nth widget card locator |
-| `expandCard(index)` | clicks the Expand button on card at index |
-| `removeCard(index)` | clicks the Remove button on card at index |
+| Member              | Detail                                        |
+| ------------------- | --------------------------------------------- |
+| `widgetCards`       | `page.locator('[data-testid="widget-card"]')` |
+| `emptyState`        | locator for the empty-state element           |
+| `getCard(index)`    | returns the nth widget card locator           |
+| `expandCard(index)` | clicks the Expand button on card at index     |
+| `removeCard(index)` | clicks the Remove button on card at index     |
 
 ### `HeaderPage`
 
-| Member | Detail |
-|--------|--------|
-| `addWidgetButton` | the "Add widget" trigger button |
-| `themeToggle` | the theme toggle button |
-| `widgetMenu` | the dropdown `role=menu` |
+| Member            | Detail                                      |
+| ----------------- | ------------------------------------------- |
+| `addWidgetButton` | the "Add widget" trigger button             |
+| `themeToggle`     | the theme toggle button                     |
+| `widgetMenu`      | the dropdown `role=menu`                    |
 | `addWidget(name)` | opens menu, clicks the item matching `name` |
-| `toggleTheme()` | clicks the theme toggle |
+| `toggleTheme()`   | clicks the theme toggle                     |
 
 ### `OverlayPage`
 
-| Member | Detail |
-|--------|--------|
-| `dialog` | `page.getByRole('dialog')` |
-| `closeButton` | `dialog.getByRole('button', { name: 'Close' })` |
-| `waitForOpen()` | waits for dialog to be visible |
-| `close()` | clicks the close button |
-| `pressEscape()` | dispatches Escape key on the page |
+| Member          | Detail                                          |
+| --------------- | ----------------------------------------------- |
+| `dialog`        | `page.getByRole('dialog')`                      |
+| `closeButton`   | `dialog.getByRole('button', { name: 'Close' })` |
+| `waitForOpen()` | waits for dialog to be visible                  |
+| `close()`       | clicks the close button                         |
+| `pressEscape()` | dispatches Escape key on the page               |
 
 ## Usage Pattern (for future tests)
 

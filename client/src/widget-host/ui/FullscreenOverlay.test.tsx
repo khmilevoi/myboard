@@ -1,14 +1,17 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { context } from '@reatom/core'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { addInstance, expandedInstanceId } from '../../board/model/board-model'
-import { findWidgetType } from '../../widget-registry/model/registry'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { addInstance, expandedInstanceId } from '@/board/model/board-model'
+import { findWidgetType } from '@/widget-registry/model/registry'
+
 import type { WidgetRuntimeProps } from '../model/types'
 import { FullscreenOverlay } from './FullscreenOverlay'
 
 const registryHolder = vi.hoisted(() => ({
-  actual: null as unknown as typeof import('../../widget-registry/model/registry')['findWidgetType'],
+  actual:
+    null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {

@@ -26,22 +26,24 @@
 ## File Structure
 
 **Client (`client/src/storage/model/`):**
-- `validate.ts` *(new)* — `parseValue(schema, value)`. Single validation helper used by both adapters.
-- `types.ts` *(modify)* — add `StorageChange`, `StorageListener`, `subscribe`, and `schema?` on `get`/`subscribe`.
-- `client/channel.ts` *(new)* — Dexie-backend reactivity: shared `BroadcastChannel`, full-key subscriber registry, `registerLocal` / `publishChange` / `notifyLocal`.
-- `client/dexie-storage.ts` *(modify)* — `get(schema)`, `subscribe`, broadcast on `set`/`delete`.
-- `client/db.ts` *(modify)* — `clearExpired` broadcasts tombstones.
-- `server/sse-client.ts` *(new)* — HTTP-backend reactivity: one `EventSource` per `baseUrl`, full-key registry, server-side registration sync.
-- `server/http-storage.ts` *(modify)* — `get(schema)`, `subscribe` via the SSE manager.
-- `reatom/reatom-storage.ts` *(modify)* — add `reatomStorageKey({ api, key, schema }, name)`.
-- `test/fakes.ts` *(new)* — `FakeBroadcastChannel`, `FakeEventSource` test doubles.
+
+- `validate.ts` _(new)_ — `parseValue(schema, value)`. Single validation helper used by both adapters.
+- `types.ts` _(modify)_ — add `StorageChange`, `StorageListener`, `subscribe`, and `schema?` on `get`/`subscribe`.
+- `client/channel.ts` _(new)_ — Dexie-backend reactivity: shared `BroadcastChannel`, full-key subscriber registry, `registerLocal` / `publishChange` / `notifyLocal`.
+- `client/dexie-storage.ts` _(modify)_ — `get(schema)`, `subscribe`, broadcast on `set`/`delete`.
+- `client/db.ts` _(modify)_ — `clearExpired` broadcasts tombstones.
+- `server/sse-client.ts` _(new)_ — HTTP-backend reactivity: one `EventSource` per `baseUrl`, full-key registry, server-side registration sync.
+- `server/http-storage.ts` _(modify)_ — `get(schema)`, `subscribe` via the SSE manager.
+- `reatom/reatom-storage.ts` _(modify)_ — add `reatomStorageKey({ api, key, schema }, name)`.
+- `test/fakes.ts` _(new)_ — `FakeBroadcastChannel`, `FakeEventSource` test doubles.
 
 **Server (`server/`):**
-- `sse.ts` *(new)* — `SseRegistry`, `writeSseEvent`, `fanout`.
-- `valkey.ts` *(modify)* — add `publish` op + `createValkeySubscriber`.
-- `handlers.ts` *(modify)* — add `publishChange(ops, key, value)`.
-- `schemas.ts` *(modify)* — add `EventsBodySchema`.
-- `index.ts` *(modify)* — SSE route, registration route, publish-on-write wiring, subscriber boot.
+
+- `sse.ts` _(new)_ — `SseRegistry`, `writeSseEvent`, `fanout`.
+- `valkey.ts` _(modify)_ — add `publish` op + `createValkeySubscriber`.
+- `handlers.ts` _(modify)_ — add `publishChange(ops, key, value)`.
+- `schemas.ts` _(modify)_ — add `EventsBodySchema`.
+- `index.ts` _(modify)_ — SSE route, registration route, publish-on-write wiring, subscriber boot.
 
 The Dexie registry (`client/channel.ts`) and the HTTP registry (`server/sse-client.ts`) are **deliberately separate**: a client key and a server key share the same full key string but are different stores, so a Dexie write must not notify HTTP subscribers and vice versa.
 
@@ -50,6 +52,7 @@ The Dexie registry (`client/channel.ts`) and the HTTP registry (`server/sse-clie
 ## Task 1: Schema-validated reads (`parseValue` + `get(schema)`)
 
 **Files:**
+
 - Create: `client/src/storage/model/validate.ts`
 - Create (test): `client/src/storage/model/validate.test.ts`
 - Modify: `client/src/storage/model/types.ts` (add `schema?` to `get`)
@@ -57,6 +60,7 @@ The Dexie registry (`client/channel.ts`) and the HTTP registry (`server/sse-clie
 - Modify: `client/src/storage/model/server/http-storage.ts` (`get` honors schema)
 
 **Interfaces:**
+
 - Produces: `parseValue<T>(schema: z.ZodType<T> | undefined, value: unknown): StorageError | T`
 - Produces: `StorageApi.get<T>(key: string, schema?: z.ZodType<T>): Promise<StorageError | T | null>`
 
@@ -101,7 +105,8 @@ import { StorageError } from './types'
 export function parseValue<T>(schema: z.ZodType<T> | undefined, value: unknown): StorageError | T {
   if (!schema) return value as T
   const parsed = schema.safeParse(value)
-  if (!parsed.success) return new StorageError({ reason: 'schema validation failed', cause: parsed.error })
+  if (!parsed.success)
+    return new StorageError({ reason: 'schema validation failed', cause: parsed.error })
   return parsed.data
 }
 ```
@@ -178,15 +183,15 @@ Replace the `get` method:
 Append to `client/src/storage/model/client/dexie-storage.test.ts` inside the `describe`:
 
 ```ts
-  it('get validates against a schema and returns StorageError on mismatch', async () => {
-    const { z } = await import('zod')
-    const schema = z.object({ text: z.string() })
-    await storage.set('draft', { text: 'hi' })
-    expect(await storage.get('draft', schema)).toEqual({ text: 'hi' })
-    await storage.set('draft', { text: 123 })
-    const { StorageError } = await import('../types')
-    expect(await storage.get('draft', schema)).toBeInstanceOf(StorageError)
-  })
+it('get validates against a schema and returns StorageError on mismatch', async () => {
+  const { z } = await import('zod')
+  const schema = z.object({ text: z.string() })
+  await storage.set('draft', { text: 'hi' })
+  expect(await storage.get('draft', schema)).toEqual({ text: 'hi' })
+  await storage.set('draft', { text: 123 })
+  const { StorageError } = await import('../types')
+  expect(await storage.get('draft', schema)).toBeInstanceOf(StorageError)
+})
 ```
 
 - [ ] **Step 9: Run the full storage suite**
@@ -211,11 +216,13 @@ git commit -m "feat(storage): schema-validated get via parseValue"
 ## Task 2: Client broadcast registry (`client/channel.ts`)
 
 **Files:**
+
 - Create: `client/src/storage/model/client/channel.ts`
 - Create (test): `client/src/storage/model/test/fakes.ts`
 - Create (test): `client/src/storage/model/client/channel.test.ts`
 
 **Interfaces:**
+
 - Produces: `getStorageChannel(): BroadcastChannel`
 - Produces: `notifyLocal(fullKey: string, rawValue: unknown): void`
 - Produces: `registerLocal(fullKey: string, deliver: (rawValue: unknown) => void): () => void`
@@ -441,6 +448,7 @@ git commit -m "feat(storage): client broadcast registry for cross-tab reactivity
 ## Task 3: `subscribe` contract + Dexie reactivity (+ HTTP initial-emit stub)
 
 **Files:**
+
 - Modify: `client/src/storage/model/types.ts` (add `StorageChange`, `StorageListener`, `subscribe`)
 - Modify: `client/src/storage/model/client/dexie-storage.ts` (`subscribe`, broadcast on write)
 - Modify: `client/src/storage/model/client/db.ts` (`clearExpired` tombstones)
@@ -448,6 +456,7 @@ git commit -m "feat(storage): client broadcast registry for cross-tab reactivity
 - Modify (test): `client/src/storage/model/client/dexie-storage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `registerLocal`, `publishChange` (Task 2); `parseValue` (Task 1)
 - Produces: `StorageChange<T> = { value: T | null }`
 - Produces: `StorageListener<T> = (event: StorageError | StorageChange<T>) => void`
@@ -520,7 +529,13 @@ In `client/src/storage/model/client/dexie-storage.ts`:
 Update imports:
 
 ```ts
-import { StorageError, type StorageApi, type StorageEntry, type StorageListener, type StorageOptions } from '../types'
+import {
+  StorageError,
+  type StorageApi,
+  type StorageEntry,
+  type StorageListener,
+  type StorageOptions,
+} from '../types'
 import { toFullKey, toRelativeKey } from '../scope'
 import { db as defaultDb, type StorageDb } from './db'
 import { parseValue } from '../validate'
@@ -530,11 +545,11 @@ import { registerLocal, publishChange } from './channel'
 In `set`, after the successful `table.put`, broadcast. Replace the `set` body's tail:
 
 ```ts
-      const result = await table.put(entry).catch(
-        (cause) => new StorageError({ reason: 'dexie write failed', cause }),
-      )
-      if (result instanceof Error) return result
-      publishChange(toFullKey(namespace, key), value)
+const result = await table
+  .put(entry)
+  .catch((cause) => new StorageError({ reason: 'dexie write failed', cause }))
+if (result instanceof Error) return result
+publishChange(toFullKey(namespace, key), value)
 ```
 
 In `delete`, after a successful delete, broadcast a tombstone:
@@ -584,23 +599,23 @@ Expected: PASS.
 Append to `client/src/storage/model/client/dexie-storage.test.ts` inside the `subscribe` describe block. `db` and `clearExpired` are already imported at the top of the file (`import { db, clearExpired } from './db'`). The expired row is inserted directly (bypassing `set`) so the initial-emit `get` does not purge it first:
 
 ```ts
-  it('clearExpired broadcasts a tombstone for purged keys', async () => {
-    const seen: unknown[] = []
-    storage.subscribe('temp', (event) => {
-      seen.push(event instanceof Error ? 'error' : event.value)
-    })
-    await vi.waitFor(() => expect(seen.length).toBe(1)) // initial emit: null (missing)
-    seen.length = 0
-    await db.entries.put({
-      key: `${ns}temp`,
-      namespace: ns,
-      value: 5,
-      expiresAt: Date.now() - 1,
-      updatedAt: Date.now(),
-    })
-    await clearExpired()
-    await vi.waitFor(() => expect(seen).toEqual([null]))
+it('clearExpired broadcasts a tombstone for purged keys', async () => {
+  const seen: unknown[] = []
+  storage.subscribe('temp', (event) => {
+    seen.push(event instanceof Error ? 'error' : event.value)
   })
+  await vi.waitFor(() => expect(seen.length).toBe(1)) // initial emit: null (missing)
+  seen.length = 0
+  await db.entries.put({
+    key: `${ns}temp`,
+    namespace: ns,
+    value: 5,
+    expiresAt: Date.now() - 1,
+    updatedAt: Date.now(),
+  })
+  await clearExpired()
+  await vi.waitFor(() => expect(seen).toEqual([null]))
+})
 ```
 
 - [ ] **Step 7: Run to verify it fails**
@@ -677,14 +692,14 @@ Add `subscribe` to the returned object (after `keys`):
 Append to `client/src/storage/model/server/http-storage.test.ts` inside the `describe`:
 
 ```ts
-  it('subscribe emits the current value once on attach', async () => {
-    stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
-    const seen: unknown[] = []
-    storage.subscribe('settings', (event) => {
-      seen.push(event instanceof Error ? 'error' : event.value)
-    })
-    await vi.waitFor(() => expect(seen).toEqual([{ a: 1 }]))
+it('subscribe emits the current value once on attach', async () => {
+  stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
+  const seen: unknown[] = []
+  storage.subscribe('settings', (event) => {
+    seen.push(event instanceof Error ? 'error' : event.value)
   })
+  await vi.waitFor(() => expect(seen).toEqual([{ a: 1 }]))
+})
 ```
 
 - [ ] **Step 12: Run the full storage suite + typecheck**
@@ -706,6 +721,7 @@ git commit -m "feat(storage): subscribe primitive with Dexie cross-tab reactivit
 ## Task 4: Server SSE endpoint + Valkey Pub/Sub
 
 **Files:**
+
 - Create: `server/sse.ts`
 - Create (test): `server/sse.test.ts`
 - Modify: `server/valkey.ts` (add `publish` op + `createValkeySubscriber`)
@@ -715,6 +731,7 @@ git commit -m "feat(storage): subscribe primitive with Dexie cross-tab reactivit
 - Modify: `server/index.ts` (routes + wiring)
 
 **Interfaces:**
+
 - Produces: `class SseRegistry` with `add(id, res)`, `remove(id)`, `subscribe(id, keys)`, `unsubscribe(id, keys)`, `subscribersOf(key): string[]`, `connection(id): SseConnection | undefined`
 - Produces: `writeSseEvent(res, event: string | undefined, data: unknown): void`
 - Produces: `fanout(registry: SseRegistry, message: { key: string; value: unknown }): void`
@@ -930,7 +947,10 @@ describe('publishChange', () => {
   it('publishes the change envelope to the events channel', async () => {
     const ops = mockOps({ publish: vi.fn(async () => {}) })
     await publishChange(ops, 'w:t:clock:settings', { a: 1 })
-    expect(ops.publish).toHaveBeenCalledWith('storage:events', JSON.stringify({ key: 'w:t:clock:settings', value: { a: 1 } }))
+    expect(ops.publish).toHaveBeenCalledWith(
+      'storage:events',
+      JSON.stringify({ key: 'w:t:clock:settings', value: { a: 1 } }),
+    )
   })
 })
 ```
@@ -995,7 +1015,14 @@ import { randomUUID } from 'node:crypto'
 import Router from 'find-my-way'
 import { createValkeyOps, createValkeySubscriber } from './valkey'
 import { readJsonBody } from './body'
-import { handleGet, handlePut, handleDelete, handleKeys, publishChange, type HandlerResult } from './handlers'
+import {
+  handleGet,
+  handlePut,
+  handleDelete,
+  handleKeys,
+  publishChange,
+  type HandlerResult,
+} from './handlers'
 import { PutPayloadSchema, PrefixQuerySchema, EventsBodySchema, formatZodError } from './schemas'
 import { SseRegistry, writeSseEvent, fanout } from './sse'
 ```
@@ -1062,9 +1089,9 @@ router.on('POST', '/api/storage/events/:connId', async (req, res, params) => {
 In the existing `PUT` route, after `send(res, ...)`, publish the change. Replace the final line of the PUT handler:
 
 ```ts
-  const key = decodeURIComponent(params.key as string)
-  send(res, await handlePut(ops, key, parsed.data))
-  await publishChange(ops, key, parsed.data.value)
+const key = decodeURIComponent(params.key as string)
+send(res, await handlePut(ops, key, parsed.data))
+await publishChange(ops, key, parsed.data.value)
 ```
 
 In the existing `DELETE` route, replace the body:
@@ -1099,6 +1126,7 @@ git commit -m "feat(server): SSE event stream + Valkey pub/sub fanout"
 ## Task 5: Client SSE manager + live HTTP `subscribe`
 
 **Files:**
+
 - Create: `client/src/storage/model/server/sse-client.ts`
 - Modify: `client/src/storage/model/test/fakes.ts` (add `FakeEventSource`)
 - Modify: `client/src/storage/model/server/http-storage.ts` (`subscribe` uses the SSE manager)
@@ -1106,6 +1134,7 @@ git commit -m "feat(server): SSE event stream + Valkey pub/sub fanout"
 - Modify (test): `client/src/storage/model/server/http-storage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `parseValue` (Task 1); the server routes `GET /api/storage/events`, `POST /api/storage/events/:connId` (Task 4)
 - Produces: `getSseManager(baseUrl: string): { add(fullKey: string, deliver: (rawValue: unknown) => void): () => void }`
 - Produces (test): `FakeEventSource` with static `instances` + `emit(event, data)` helpers
@@ -1159,7 +1188,10 @@ import { FakeEventSource, installFakeEventSource } from '../test/fakes'
 beforeEach(() => {
   installFakeEventSource()
   vi.resetModules()
-  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
+  )
 })
 
 afterEach(() => {
@@ -1349,20 +1381,20 @@ import { FakeEventSource, installFakeEventSource } from '../test/fakes'
 Replace the `subscribe emits the current value once on attach` test with:
 
 ```ts
-  it('subscribe emits the initial value then live SSE updates', async () => {
-    installFakeEventSource()
-    stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
-    const seen: unknown[] = []
-    storage.subscribe<{ a: number }>('settings', (event) => {
-      seen.push(event instanceof Error ? 'error' : event.value)
-    })
-    await vi.waitFor(() => expect(seen).toContainEqual({ a: 1 }))
-
-    const es = FakeEventSource.instances[0]
-    es.emit('ready', { connId: 'c1' })
-    es.emit('message', { key: 'w:t:clock:settings', value: { a: 2 } })
-    expect(seen).toContainEqual({ a: 2 })
+it('subscribe emits the initial value then live SSE updates', async () => {
+  installFakeEventSource()
+  stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
+  const seen: unknown[] = []
+  storage.subscribe<{ a: number }>('settings', (event) => {
+    seen.push(event instanceof Error ? 'error' : event.value)
   })
+  await vi.waitFor(() => expect(seen).toContainEqual({ a: 1 }))
+
+  const es = FakeEventSource.instances[0]
+  es.emit('ready', { connId: 'c1' })
+  es.emit('message', { key: 'w:t:clock:settings', value: { a: 2 } })
+  expect(seen).toContainEqual({ a: 2 })
+})
 ```
 
 - [ ] **Step 8: Run the full storage suite + typecheck**
@@ -1384,10 +1416,12 @@ git commit -m "feat(storage): live HTTP subscribe over shared SSE connection"
 ## Task 6: Reatom reactive-key wrapper (`reatomStorageKey`)
 
 **Files:**
+
 - Modify: `client/src/storage/model/reatom/reatom-storage.ts`
 - Modify (test): `client/src/storage/model/reatom/reatom-storage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `StorageApi.subscribe` (Task 3/5); `StorageError`, `StorageListener` (Task 3)
 - Produces: `reatomStorageKey<T>(options: { api: StorageApi; key: string; schema?: z.ZodType<T> }, name: string): { value: Atom<T | null>; error: Atom<StorageError | null> }`
 

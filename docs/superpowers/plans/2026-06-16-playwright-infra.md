@@ -12,21 +12,22 @@
 
 ## File Map
 
-| Action | Path | Responsibility |
-|--------|------|----------------|
-| Create | `playwright.config.ts` | Playwright config — chromium, port 4173, webServer |
-| Create | `tsconfig.e2e.json` | TS config for `e2e/` tree |
-| Modify | `package.json` | Add `test:e2e`, `test:e2e:ui`, `typecheck:e2e` scripts |
-| Modify | `.gitignore` | Ignore Playwright artifacts |
-| Create | `e2e/pages/BoardPage.ts` | Locators and actions for the widget grid |
-| Create | `e2e/pages/HeaderPage.ts` | Locators and actions for the header bar |
-| Create | `e2e/pages/OverlayPage.ts` | Locators and actions for the fullscreen overlay |
+| Action | Path                       | Responsibility                                         |
+| ------ | -------------------------- | ------------------------------------------------------ |
+| Create | `playwright.config.ts`     | Playwright config — chromium, port 4173, webServer     |
+| Create | `tsconfig.e2e.json`        | TS config for `e2e/` tree                              |
+| Modify | `package.json`             | Add `test:e2e`, `test:e2e:ui`, `typecheck:e2e` scripts |
+| Modify | `.gitignore`               | Ignore Playwright artifacts                            |
+| Create | `e2e/pages/BoardPage.ts`   | Locators and actions for the widget grid               |
+| Create | `e2e/pages/HeaderPage.ts`  | Locators and actions for the header bar                |
+| Create | `e2e/pages/OverlayPage.ts` | Locators and actions for the fullscreen overlay        |
 
 ---
 
 ## Task 1: Install Playwright and download Chromium
 
 **Files:**
+
 - Modify: `package.json` (devDependencies)
 
 - [ ] **Step 1: Install the package**
@@ -44,6 +45,7 @@ npx playwright install chromium
 ```
 
 Expected output contains a line like:
+
 ```
 Chromium 130.x.x (playwright build ...) downloaded to ...
 ```
@@ -78,6 +80,7 @@ git commit -m "chore: install @playwright/test and download Chromium"
 ## Task 2: Create playwright.config.ts and update package.json scripts
 
 **Files:**
+
 - Create: `playwright.config.ts`
 - Create: `tsconfig.e2e.json`
 - Modify: `package.json` (scripts section)
@@ -109,6 +112,7 @@ export default defineConfig({
 ```
 
 Key decisions:
+
 - `reuseExistingServer: !process.env['CI']` — in local dev, skips rebuilding if `vite preview` is already running; in CI always rebuilds.
 - `outputDir: 'test-results'` — where Playwright writes screenshots and traces on failure.
 - `screenshot: 'only-on-failure'` — captures a screenshot automatically when a test fails.
@@ -131,6 +135,7 @@ Key decisions:
 ```
 
 Why a separate tsconfig:
+
 - The main `tsconfig.json` includes `vitest/globals` and `@testing-library/jest-dom` types — wrong for Playwright.
 - `moduleResolution: "node"` (not `"bundler"`) because Playwright runs tests in Node.js, not through Vite.
 - `@playwright/test` types are automatically available via `skipLibCheck` and the `@playwright/test` package itself (no explicit `types` entry needed).
@@ -185,6 +190,7 @@ git commit -m "chore: add playwright.config.ts and e2e scripts"
 ## Task 3: Create Page Object stubs
 
 **Files:**
+
 - Create: `e2e/pages/BoardPage.ts`
 - Create: `e2e/pages/HeaderPage.ts`
 - Create: `e2e/pages/OverlayPage.ts`
@@ -192,6 +198,7 @@ git commit -m "chore: add playwright.config.ts and e2e scripts"
 Each class: receives `page: Page` in constructor, exposes typed `Locator` properties, and provides action methods that return `Promise<void>`. No assertions anywhere in these files.
 
 Locators derive from actual DOM attributes found in the source:
+
 - `[data-testid="widget-card"]` — set in `src/board/Board.tsx:47`
 - `aria-label="Expand"` / `aria-label="Remove"` — `src/board/Board.tsx:56,62`
 - `aria-label="Add widget"` text content — `src/board/AddWidgetMenu.tsx:23`

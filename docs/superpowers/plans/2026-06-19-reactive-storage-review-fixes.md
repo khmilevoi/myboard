@@ -13,6 +13,7 @@
 ## File Structure
 
 **Client storage:**
+
 - Create: `client/src/storage/model/subscribe-key.ts` — shared subscribe orchestration for initial read + live changes.
 - Create: `client/src/storage/model/subscribe-key.test.ts` — deterministic tests for stale initial emit, unsubscribe, and schema errors.
 - Modify: `client/src/storage/model/client/dexie-storage.ts` — delegate `subscribe` to `subscribeStorageKey`.
@@ -21,15 +22,18 @@
 - Modify: `client/src/storage/model/server/http-storage.test.ts` — keep adapter smoke tests; add a live-before-initial HTTP regression if useful.
 
 **Client SSE:**
+
 - Modify: `client/src/storage/model/server/sse-client.ts` — validate `ready` and message frames, retry failed registrations, treat non-2xx POST as failure.
 - Modify: `client/src/storage/model/server/sse-client.test.ts` — cover malformed frames, rejected registration POST, and non-2xx registration POST.
 
 **Server SSE/pubsub:**
+
 - Modify: `server/schemas.ts` — add `StorageEventSchema` and `EventsParamsSchema`.
 - Modify: `server/index.ts` — validate pub/sub events and route params before fanout/registration.
 - Modify: `server/sse.test.ts` or create route-level tests if server test harness exists — cover invalid pub/sub payloads and invalid params at the smallest available seam.
 
 **Widget/typecheck fallout:**
+
 - Modify: `client/widgets/clock/ui/Clock.test.tsx` — provide `storage` in test props.
 - Modify: `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.test.tsx` — provide `storage` in test props.
 - Modify: `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.tsx` — actually use the model values, or remove the model creation if UI is intentionally static.
@@ -40,6 +44,7 @@
 ## Task 1: Shared Subscribe Helper Prevents Stale Initial Emits
 
 **Files:**
+
 - Create: `client/src/storage/model/subscribe-key.ts`
 - Create: `client/src/storage/model/subscribe-key.test.ts`
 - Modify: `client/src/storage/model/client/dexie-storage.ts`
@@ -261,6 +266,7 @@ git commit -m "fix(storage): guard initial subscription emissions"
 ## Task 2: SSE Registration Retries Failed POSTs
 
 **Files:**
+
 - Modify: `client/src/storage/model/server/sse-client.ts`
 - Modify: `client/src/storage/model/server/sse-client.test.ts`
 
@@ -269,44 +275,44 @@ git commit -m "fix(storage): guard initial subscription emissions"
 Append to `client/src/storage/model/server/sse-client.test.ts`:
 
 ```ts
-  it('retries registration when the POST rejects', async () => {
-    vi.useFakeTimers()
-    const fetchMock = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    vi.stubGlobal('fetch', fetchMock)
+it('retries registration when the POST rejects', async () => {
+  vi.useFakeTimers()
+  const fetchMock = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+  vi.stubGlobal('fetch', fetchMock)
 
-    const { getSseManager } = await import('./sse-client')
-    const mgr = getSseManager('/api/storage')
-    mgr.add('k1', () => {})
+  const { getSseManager } = await import('./sse-client')
+  const mgr = getSseManager('/api/storage')
+  mgr.add('k1', () => {})
 
-    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+  FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
 
-    await vi.advanceTimersByTimeAsync(1_000)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    vi.useRealTimers()
-  })
+  await vi.advanceTimersByTimeAsync(1_000)
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+  vi.useRealTimers()
+})
 
-  it('retries registration when the POST returns non-2xx', async () => {
-    vi.useFakeTimers()
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(null, { status: 500 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    vi.stubGlobal('fetch', fetchMock)
+it('retries registration when the POST returns non-2xx', async () => {
+  vi.useFakeTimers()
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(null, { status: 500 }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+  vi.stubGlobal('fetch', fetchMock)
 
-    const { getSseManager } = await import('./sse-client')
-    getSseManager('/api/storage').add('k1', () => {})
+  const { getSseManager } = await import('./sse-client')
+  getSseManager('/api/storage').add('k1', () => {})
 
-    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+  FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
 
-    await vi.advanceTimersByTimeAsync(1_000)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    vi.useRealTimers()
-  })
+  await vi.advanceTimersByTimeAsync(1_000)
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+  vi.useRealTimers()
+})
 ```
 
 Ensure `afterEach` calls `vi.useRealTimers()` before `vi.unstubAllGlobals()`.
@@ -328,46 +334,46 @@ const REGISTER_RETRY_MS = 1_000
 Inside `createSseManager`, add:
 
 ```ts
-  let retryTimer: ReturnType<typeof setTimeout> | undefined
+let retryTimer: ReturnType<typeof setTimeout> | undefined
 
-  function scheduleRetry(): void {
-    if (retryTimer) return
-    retryTimer = setTimeout(() => {
-      retryTimer = undefined
-      scheduleSync()
-    }, REGISTER_RETRY_MS)
-  }
+function scheduleRetry(): void {
+  if (retryTimer) return
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined
+    scheduleSync()
+  }, REGISTER_RETRY_MS)
+}
 ```
 
 Replace `sync()` with:
 
 ```ts
-  async function sync(): Promise<void> {
-    if (!connId) return
-    const subscribe = [...desired].filter((key) => !registered.has(key))
-    const unsubscribe = [...registered].filter((key) => !desired.has(key))
-    if (subscribe.length === 0 && unsubscribe.length === 0) return
+async function sync(): Promise<void> {
+  if (!connId) return
+  const subscribe = [...desired].filter((key) => !registered.has(key))
+  const unsubscribe = [...registered].filter((key) => !desired.has(key))
+  if (subscribe.length === 0 && unsubscribe.length === 0) return
 
-    const nextRegistered = new Set(desired)
-    const response = await fetch(`${baseUrl}/events/${connId}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ subscribe, unsubscribe }),
-    }).catch((cause) => {
-      console.warn('storage SSE registration failed', cause)
-      return null
-    })
+  const nextRegistered = new Set(desired)
+  const response = await fetch(`${baseUrl}/events/${connId}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ subscribe, unsubscribe }),
+  }).catch((cause) => {
+    console.warn('storage SSE registration failed', cause)
+    return null
+  })
 
-    if (response === null || !response.ok) {
-      if (response !== null) {
-        console.warn('storage SSE registration failed', response.status)
-      }
-      scheduleRetry()
-      return
+  if (response === null || !response.ok) {
+    if (response !== null) {
+      console.warn('storage SSE registration failed', response.status)
     }
-
-    registered = nextRegistered
+    scheduleRetry()
+    return
   }
+
+  registered = nextRegistered
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -388,6 +394,7 @@ git commit -m "fix(storage): retry SSE registration failures"
 ## Task 3: Validate SSE and Pub/Sub Payloads
 
 **Files:**
+
 - Modify: `client/src/storage/model/server/sse-client.ts`
 - Modify: `client/src/storage/model/server/sse-client.test.ts`
 - Modify: `server/schemas.ts`
@@ -399,24 +406,24 @@ git commit -m "fix(storage): retry SSE registration failures"
 Append to `client/src/storage/model/server/sse-client.test.ts`:
 
 ```ts
-  it('ignores malformed ready frames without registering', async () => {
-    const { getSseManager } = await import('./sse-client')
-    getSseManager('/api/storage').add('k1', () => {})
+it('ignores malformed ready frames without registering', async () => {
+  const { getSseManager } = await import('./sse-client')
+  getSseManager('/api/storage').add('k1', () => {})
 
-    FakeEventSource.instances[0].emit('ready', { connId: 123 })
-    await Promise.resolve()
+  FakeEventSource.instances[0].emit('ready', { connId: 123 })
+  await Promise.resolve()
 
-    expect(globalThis.fetch).not.toHaveBeenCalled()
-  })
+  expect(globalThis.fetch).not.toHaveBeenCalled()
+})
 
-  it('ignores malformed message frames without delivery', async () => {
-    const { getSseManager } = await import('./sse-client')
-    const seen: unknown[] = []
-    getSseManager('/api/storage').add('k1', (raw) => seen.push(raw))
+it('ignores malformed message frames without delivery', async () => {
+  const { getSseManager } = await import('./sse-client')
+  const seen: unknown[] = []
+  getSseManager('/api/storage').add('k1', (raw) => seen.push(raw))
 
-    FakeEventSource.instances[0].emit('message', { key: 123, value: 1 })
-    expect(seen).toEqual([])
-  })
+  FakeEventSource.instances[0].emit('message', { key: 123, value: 1 })
+  expect(seen).toEqual([])
+})
 ```
 
 - [ ] **Step 2: Add server schema tests**
@@ -510,13 +517,13 @@ createValkeySubscriber('storage:events', (message) => {
 Replace the unchecked connId cast:
 
 ```ts
-  const parsedParams = EventsParamsSchema.safeParse(params)
-  if (!parsedParams.success) {
-    res.writeHead(422, { 'content-type': 'application/json' })
-    res.end(JSON.stringify(formatZodError(parsedParams.error)))
-    return
-  }
-  const { connId } = parsedParams.data
+const parsedParams = EventsParamsSchema.safeParse(params)
+if (!parsedParams.success) {
+  res.writeHead(422, { 'content-type': 'application/json' })
+  res.end(JSON.stringify(formatZodError(parsedParams.error)))
+  return
+}
+const { connId } = parsedParams.data
 ```
 
 - [ ] **Step 6: Validate client SSE frames**
@@ -551,40 +558,40 @@ function parseMessageData(event: MessageEvent): unknown | Error {
 Replace the `ready` listener:
 
 ```ts
-  source.addEventListener('ready', (event) => {
-    const raw = parseMessageData(event)
-    if (raw instanceof Error) {
-      console.warn('invalid storage SSE ready frame', raw)
-      return
-    }
-    const parsed = ReadyEventSchema.safeParse(raw)
-    if (!parsed.success) {
-      console.warn('invalid storage SSE ready frame', parsed.error)
-      return
-    }
-    connId = parsed.data.connId
-    registered = new Set()
-    scheduleSync()
-  })
+source.addEventListener('ready', (event) => {
+  const raw = parseMessageData(event)
+  if (raw instanceof Error) {
+    console.warn('invalid storage SSE ready frame', raw)
+    return
+  }
+  const parsed = ReadyEventSchema.safeParse(raw)
+  if (!parsed.success) {
+    console.warn('invalid storage SSE ready frame', parsed.error)
+    return
+  }
+  connId = parsed.data.connId
+  registered = new Set()
+  scheduleSync()
+})
 ```
 
 Replace `source.onmessage`:
 
 ```ts
-  source.onmessage = (event) => {
-    const raw = parseMessageData(event)
-    if (raw instanceof Error) {
-      console.warn('invalid storage SSE message frame', raw)
-      return
-    }
-    const parsed = StorageEventSchema.safeParse(raw)
-    if (!parsed.success) {
-      console.warn('invalid storage SSE message frame', parsed.error)
-      return
-    }
-    const set = subscribers.get(parsed.data.key)
-    if (set) for (const deliver of set) deliver(parsed.data.value)
+source.onmessage = (event) => {
+  const raw = parseMessageData(event)
+  if (raw instanceof Error) {
+    console.warn('invalid storage SSE message frame', raw)
+    return
   }
+  const parsed = StorageEventSchema.safeParse(raw)
+  if (!parsed.success) {
+    console.warn('invalid storage SSE message frame', parsed.error)
+    return
+  }
+  const set = subscribers.get(parsed.data.key)
+  if (set) for (const deliver of set) deliver(parsed.data.value)
+}
 ```
 
 - [ ] **Step 7: Run focused tests**
@@ -610,6 +617,7 @@ git commit -m "fix(storage): validate SSE event payloads"
 ## Task 4: Fix Widget Typecheck Fallout
 
 **Files:**
+
 - Modify: `client/widgets/clock/ui/Clock.test.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.test.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.tsx`
@@ -646,9 +654,9 @@ For Ofelia, use its IDs:
 In `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.tsx`, read from the model so `model` is not dead and the existing tests have rendered duty names:
 
 ```tsx
-    const week = model.currentWeek()
-    const today = week[0]
-    const tomorrow = week[1]
+const week = model.currentWeek()
+const today = week[0]
+const tomorrow = week[1]
 ```
 
 Render the values in both branches:
@@ -667,13 +675,13 @@ In `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`, ensure the current di
 - If `startOfWeek` is needed by UI controls, use it in `currentWeek`:
 
 ```ts
-  const currentWeek = computed(() => {
-    const today = startOfWeek()
-    const weekStart = today.subtract({
-      days: today.dayOfWeek - 1,
-    })
-    // ...
+const currentWeek = computed(() => {
+  const today = startOfWeek()
+  const weekStart = today.subtract({
+    days: today.dayOfWeek - 1,
   })
+  // ...
+})
 ```
 
 - If there is no UI control for changing week, remove `startOfWeek` entirely and keep `Temporal.Now.plainDateISO(DUTY_TIME_ZONE)` inside `currentWeek`.

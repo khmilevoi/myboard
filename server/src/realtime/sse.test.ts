@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
 import type { ServerResponse } from 'node:http'
-import { SseRegistry, writeSseEvent, fanout } from './sse'
+
+import { describe, expect, it, vi } from 'vitest'
+
 import { EventsParamsSchema, StorageEventSchema } from '../storage/schemas'
+import { SseRegistry, writeSseEvent, fanout } from './sse'
 
 function fakeRes() {
   return { write: vi.fn(), writableEnded: false } as unknown as ServerResponse

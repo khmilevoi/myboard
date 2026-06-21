@@ -1,7 +1,8 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
 import { context } from '@reatom/core'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it } from 'vitest'
+
 import { instances } from '../model/board-model'
 import { AddWidgetMenu } from './AddWidgetMenu'
 

@@ -1,6 +1,6 @@
 import { createDexieStorage } from './client/dexie-storage'
-import { createHttpStorage } from './server/http-storage'
 import { instanceNamespace, typeNamespace } from './scope'
+import { createHttpStorage } from './server/http-storage'
 import type { StorageApi } from './types'
 
 export type ScopedStorage = { client: StorageApi; server: StorageApi }

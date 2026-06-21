@@ -2,6 +2,7 @@
 import { context, atom, wrap } from '@reatom/core'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { reatomMemo } from './reatom-memo'
 
 const counter = atom(0, 'test.counter')
@@ -30,13 +31,10 @@ describe('reatomMemo', () => {
 
   it('memoizes the exported component for unchanged props', () => {
     const renderSpy = vi.fn()
-    const Label = reatomMemo<{ label: string }>(
-      ({ label }) => {
-        renderSpy(label)
-        return <span>{label}</span>
-      },
-      'TestLabel',
-    )
+    const Label = reatomMemo<{ label: string }>(({ label }) => {
+      renderSpy(label)
+      return <span>{label}</span>
+    }, 'TestLabel')
 
     const { rerender } = render(<Label label="stable" />)
     rerender(<Label label="stable" />)

@@ -1,12 +1,15 @@
 import { wrap } from '@reatom/core'
 import { CalendarDays, Clock, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+
+import { expandedInstanceId, instances, removeInstance } from '@/board/model/board-model'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { expandedInstanceId, instances, removeInstance } from '../../board/model/board-model'
-import { reatomMemo } from '../../shared/reatom/reatom-memo'
-import { findWidgetType, type WidgetIconName } from '../../widget-registry/model/registry'
+import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { findWidgetType, type WidgetIconName } from '@/widget-registry/model/registry'
+
 import { WidgetFrame } from './WidgetFrame'
+
 import styles from './FullscreenOverlay.module.css'
 
 const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { Clock, CalendarDays }

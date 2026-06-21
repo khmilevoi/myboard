@@ -1,6 +1,8 @@
-import { reatomMemo } from '../../../src/shared/reatom/reatom-memo'
-import type { WidgetRuntimeProps } from '../../../src/widget-host/model/types'
+import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import type { WidgetRuntimeProps } from '@/widget-host/model/types'
+
 import { clockNow } from '../model/clock-model'
+
 import styles from './clock.module.css'
 
 const timeFmt = new Intl.DateTimeFormat(undefined, {

@@ -1,5 +1,6 @@
 import { context } from '@reatom/core'
 import { afterEach, describe, expect, it } from 'vitest'
+
 import { createFakeTimer } from './fakes'
 
 afterEach(() => {

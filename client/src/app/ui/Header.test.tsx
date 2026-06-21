@@ -1,7 +1,8 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
 import { context } from '@reatom/core'
 import { render, screen } from '@testing-library/react'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it } from 'vitest'
+
 import { Header } from './Header'
 
 beforeEach(() => {

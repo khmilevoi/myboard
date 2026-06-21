@@ -1,58 +1,55 @@
-import * as errore from "errore";
-import type { WidgetLoader } from "../../widget-host/model/types";
-import type { TierConfig } from "../../widget-host/model/tier";
+import * as errore from 'errore'
 
-export type WidgetIconName = "Clock" | "CalendarDays";
+import type { TierConfig } from '@/widget-host/model/tier'
+import type { WidgetLoader } from '@/widget-host/model/types'
+
+export type WidgetIconName = 'Clock' | 'CalendarDays'
 
 export type WidgetType = {
-  id: string;
-  title: string;
+  id: string
+  title: string
   /** One-line catalog/overlay subtitle. */
-  description: string;
-  loadComponent: WidgetLoader;
-  defaultSize: { w: number; h: number };
+  description: string
+  loadComponent: WidgetLoader
+  defaultSize: { w: number; h: number }
   /** Optional per-type tier thresholds; falls back to DEFAULT_TIERS. */
-  tiers?: TierConfig;
+  tiers?: TierConfig
   /** lucide-react icon name used in the catalog menu. */
-  icon: WidgetIconName;
-};
+  icon: WidgetIconName
+}
 
 export class UnknownWidgetTypeError extends errore.createTaggedError({
-  name: "UnknownWidgetTypeError",
-  message: "Unknown widget type: $typeId",
+  name: 'UnknownWidgetTypeError',
+  message: 'Unknown widget type: $typeId',
 }) {}
 
 export const widgetTypes: WidgetType[] = [
   {
-    id: "clock",
-    title: "Часы",
-    description: "Текущее время и дата",
+    id: 'clock',
+    title: 'Часы',
+    description: 'Текущее время и дата',
     loadComponent: () =>
-      import("../../../widgets/clock/ui/Clock").then((mod) => ({
+      import('../../../widgets/clock/ui/Clock').then((mod) => ({
         default: mod.Clock,
       })),
     defaultSize: { w: 3, h: 4 },
-    icon: "Clock",
+    icon: 'Clock',
   },
   {
-    id: "ofelia-poop-duty",
-    title: "Лоток Офелии",
-    description: "Чья сегодня очередь убирать",
+    id: 'ofelia-poop-duty',
+    title: 'Лоток Офелии',
+    description: 'Чья сегодня очередь убирать',
     loadComponent: () =>
-      import("../../../widgets/ofelia-poop-duty/ui/OfeliaPoopDuty").then(
-        (mod) => ({
-          default: mod.OfeliaPoopDuty,
-        }),
-      ),
+      import('../../../widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
+        default: mod.OfeliaPoopDuty,
+      })),
     defaultSize: { w: 3, h: 5 },
-    icon: "CalendarDays",
+    icon: 'CalendarDays',
   },
-];
+]
 
-export function findWidgetType(
-  typeId: string,
-): UnknownWidgetTypeError | WidgetType {
-  const type = widgetTypes.find((item) => item.id === typeId);
-  if (!type) return new UnknownWidgetTypeError({ typeId });
-  return type;
+export function findWidgetType(typeId: string): UnknownWidgetTypeError | WidgetType {
+  const type = widgetTypes.find((item) => item.id === typeId)
+  if (!type) return new UnknownWidgetTypeError({ typeId })
+  return type
 }

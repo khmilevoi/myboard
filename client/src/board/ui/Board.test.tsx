@@ -1,14 +1,17 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { context } from '@reatom/core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import type { WidgetComponent, WidgetRuntimeProps } from '../../widget-host/model/types'
-import { findWidgetType } from '../../widget-registry/model/registry'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { WidgetComponent, WidgetRuntimeProps } from '@/widget-host/model/types'
+import { findWidgetType } from '@/widget-registry/model/registry'
+
 import { addInstance, instances, layout } from '../model/board-model'
 import { Board } from './Board'
 
 const registryHolder = vi.hoisted(() => ({
-  actual: null as unknown as typeof import('../../widget-registry/model/registry')['findWidgetType'],
+  actual:
+    null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {

@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+
 import type { StorageEntry } from '../types'
 import { publishChange } from './channel'
 

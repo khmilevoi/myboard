@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { parseValue } from './validate'
+
 import { StorageError } from './types'
+import { parseValue } from './validate'
 
 describe('parseValue', () => {
   it('returns the value unchanged when no schema is given', () => {

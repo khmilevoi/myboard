@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { findWidgetType, widgetTypes, UnknownWidgetTypeError, type WidgetIconName } from './registry'
+
+import {
+  findWidgetType,
+  widgetTypes,
+  UnknownWidgetTypeError,
+  type WidgetIconName,
+} from './registry'
 
 describe('widget registry', () => {
   it('contains the clock widget', () => {

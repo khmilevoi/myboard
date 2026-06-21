@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
+
 import { loadThemeMode, saveThemeMode, THEME_STORAGE_KEY, ThemeStorageError } from './theme-storage'
 
 afterEach(() => localStorage.clear())

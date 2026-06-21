@@ -6,7 +6,7 @@
 
 **Baseline (server-time slice already merged):** This plan is rebased onto the server-time slice (`docs/superpowers/plans/2026-06-21-ofelia-server-time.md`), which is already implemented. That slice changed the model factory to `ofeliaDutyModel({ storage, timer })`, made "today" come from an injected `ServerTime` (`timer.today(DUTY_TIME_ZONE)` → `Temporal.PlainDate | null`, `null` before the first sync), replaced the old `startOfWeek` atom with `startOfWeekOverride` + a derived `viewWeekStart` computed, added a nullable `selectedDate` atom (set **directly** — there is no `selectDay`), added the `undoAvailable` computed with a `hasReversibleEvent` placeholder, and made `debtDays`/`currentWeek` nullable. F3 builds on that surface; it does **not** re-add `selectedDate`/`viewWeekStart`/`undoAvailable`.
 
-**Architecture:** Everything lands in the existing `model/ofelia-duty.ts` — no new model files. `currentUser` is a plain writable atom **inside** `ofeliaDutyModel`, persisted device-local with connect/change hooks (no action, no computed, no separate model). The four domain actions read "today" from the model-internal `today()` computed (timer-derived) and **no-op before the first sync** (`today() == null`); their target day defaults to `selectedDate() ?? today()`. Debt stays a **stored counter** (`numberOfDebts`); the history log is written **directly** via `storage.shared.server.append(historyKey(date), draft)` (no `HistoryPort`). Day status is a **pure selector** over the week's events. **Undo is v1-simplified:** it appends a `cancelled` event for **today only** and does **not** change debt; a cancelled day reopens to *pending*. The widget UI is untouched (F6 wires buttons later); the factory signature stays `ofeliaDutyModel({ storage, timer })`.
+**Architecture:** Everything lands in the existing `model/ofelia-duty.ts` — no new model files. `currentUser` is a plain writable atom **inside** `ofeliaDutyModel`, persisted device-local with connect/change hooks (no action, no computed, no separate model). The four domain actions read "today" from the model-internal `today()` computed (timer-derived) and **no-op before the first sync** (`today() == null`); their target day defaults to `selectedDate() ?? today()`. Debt stays a **stored counter** (`numberOfDebts`); the history log is written **directly** via `storage.shared.server.append(historyKey(date), draft)` (no `HistoryPort`). Day status is a **pure selector** over the week's events. **Undo is v1-simplified:** it appends a `cancelled` event for **today only** and does **not** change debt; a cancelled day reopens to _pending_. The widget UI is untouched (F6 wires buttons later); the factory signature stays `ofeliaDutyModel({ storage, timer })`.
 
 **Tech Stack:** TypeScript (ESM), Reatom v1001 (`atom`/`computed`/`action`/`withAsyncData`/`withConnectHook`/`withChangeHook`/`wrap`), Zod v4, Temporal (global polyfill), the `ServerTime` timer (`@/shared/timer/model/server-time`) with `createFakeTimer` in tests, Vitest + jsdom.
 
@@ -37,10 +37,12 @@ No other files change. `OfeliaPoopDuty.tsx` keeps calling `ofeliaDutyModel({ sto
 ## Task 1: Types, constant, helpers, and pure selectors
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `DUTY_ROTATION`, `DutyPerson`, `getOfeliaDutyByDate`, `getDebtDays` (private), `getStartOfWeek` (private). `getToday` no longer exists; selectors that need "today" take it as a parameter.
 - Produces (all `export`ed unless noted):
   - `type Person = DutyPerson`
@@ -73,74 +75,69 @@ import {
   otherPerson,
   DEBT_WARNING_THRESHOLD,
   type HistoryEvent,
-} from "./ofelia-duty";
+} from './ofelia-duty'
 
-const D = (iso: string) => Temporal.PlainDate.from(iso);
+const D = (iso: string) => Temporal.PlainDate.from(iso)
 
 const ev = (over: Partial<HistoryEvent>): HistoryEvent => ({
-  id: "id",
+  id: 'id',
   ts: 0,
-  ip: "0.0.0.0",
-  date: "2026-06-16",
-  type: "cleaned",
-  actor: "Леша",
-  by: "Леша",
+  ip: '0.0.0.0',
+  date: '2026-06-16',
+  type: 'cleaned',
+  actor: 'Леша',
+  by: 'Леша',
   ...over,
-});
+})
 
-describe("ofelia-duty selectors", () => {
-  it("otherPerson returns the partner", () => {
-    expect(otherPerson("Леша")).toBe("Карина");
-    expect(otherPerson("Карина")).toBe("Леша");
-  });
+describe('ofelia-duty selectors', () => {
+  it('otherPerson returns the partner', () => {
+    expect(otherPerson('Леша')).toBe('Карина')
+    expect(otherPerson('Карина')).toBe('Леша')
+  })
 
-  it("weekStartISO/historyKey use the Monday of the date week", () => {
-    expect(weekStartISO(D("2026-06-16"))).toBe("2026-06-15");
-    expect(historyKey(D("2026-06-17"))).toBe("history:2026-06-15");
-  });
+  it('weekStartISO/historyKey use the Monday of the date week', () => {
+    expect(weekStartISO(D('2026-06-16'))).toBe('2026-06-15')
+    expect(historyKey(D('2026-06-17'))).toBe('history:2026-06-15')
+  })
 
-  it("effectiveDuty / isDebtDay reflect projected debt days", () => {
-    const debts = { Леша: 0, Карина: 1 };
-    const today = D("2026-06-16");
-    expect(isDebtDay(D("2026-06-16"), debts, today)).toBe(true);
-    expect(effectiveDuty(D("2026-06-16"), debts, today)).toBe("Карина");
-    expect(isDebtDay(D("2026-06-17"), {}, today)).toBe(false);
-    expect(effectiveDuty(D("2026-06-17"), {}, today)).toBe("Карина");
-  });
+  it('effectiveDuty / isDebtDay reflect projected debt days', () => {
+    const debts = { Леша: 0, Карина: 1 }
+    const today = D('2026-06-16')
+    expect(isDebtDay(D('2026-06-16'), debts, today)).toBe(true)
+    expect(effectiveDuty(D('2026-06-16'), debts, today)).toBe('Карина')
+    expect(isDebtDay(D('2026-06-17'), {}, today)).toBe(false)
+    expect(effectiveDuty(D('2026-06-17'), {}, today)).toBe('Карина')
+  })
 
-  it("isOverDebtWarning fires strictly above the threshold", () => {
-    expect(DEBT_WARNING_THRESHOLD).toBe(7);
-    expect(isOverDebtWarning({ Леша: 7 }, "Леша")).toBe(false);
-    expect(isOverDebtWarning({ Леша: 8 }, "Леша")).toBe(true);
-  });
+  it('isOverDebtWarning fires strictly above the threshold', () => {
+    expect(DEBT_WARNING_THRESHOLD).toBe(7)
+    expect(isOverDebtWarning({ Леша: 7 }, 'Леша')).toBe(false)
+    expect(isOverDebtWarning({ Леша: 8 }, 'Леша')).toBe(true)
+  })
 
-  it("getDayStatus closes on cleaned/went_into_debt and reopens on cancelled", () => {
-    const date = D("2026-06-16");
-    expect(getDayStatus([], date)).toBe("pending");
-    expect(getDayStatus([ev({ type: "forgiven" })], date)).toBe("pending");
-    expect(getDayStatus([ev({ type: "cleaned" })], date)).toBe("closed");
-    expect(getDayStatus([ev({ type: "went_into_debt" })], date)).toBe("closed");
+  it('getDayStatus closes on cleaned/went_into_debt and reopens on cancelled', () => {
+    const date = D('2026-06-16')
+    expect(getDayStatus([], date)).toBe('pending')
+    expect(getDayStatus([ev({ type: 'forgiven' })], date)).toBe('pending')
+    expect(getDayStatus([ev({ type: 'cleaned' })], date)).toBe('closed')
+    expect(getDayStatus([ev({ type: 'went_into_debt' })], date)).toBe('closed')
     expect(
-      getDayStatus(
-        [ev({ ts: 1, type: "cleaned" }), ev({ ts: 2, type: "cancelled" })],
-        date,
-      ),
-    ).toBe("pending");
+      getDayStatus([ev({ ts: 1, type: 'cleaned' }), ev({ ts: 2, type: 'cancelled' })], date),
+    ).toBe('pending')
     expect(
       getDayStatus(
         [
-          ev({ ts: 1, type: "cleaned" }),
-          ev({ ts: 2, type: "cancelled" }),
-          ev({ ts: 3, type: "cleaned" }),
+          ev({ ts: 1, type: 'cleaned' }),
+          ev({ ts: 2, type: 'cancelled' }),
+          ev({ ts: 3, type: 'cleaned' }),
         ],
         date,
       ),
-    ).toBe("closed");
-    expect(getDayStatus([ev({ date: "2026-06-17", type: "cleaned" })], date)).toBe(
-      "pending",
-    );
-  });
-});
+    ).toBe('closed')
+    expect(getDayStatus([ev({ date: '2026-06-17', type: 'cleaned' })], date)).toBe('pending')
+  })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -155,34 +152,30 @@ In `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`:
 (a) Below `export type DutyPerson = (typeof DUTY_ROTATION)[number];` add:
 
 ```ts
-export type Person = DutyPerson;
+export type Person = DutyPerson
 
-export type HistoryEventType =
-  | "cleaned"
-  | "went_into_debt"
-  | "forgiven"
-  | "cancelled";
+export type HistoryEventType = 'cleaned' | 'went_into_debt' | 'forgiven' | 'cancelled'
 
 export type HistoryEvent = {
-  id: string;
-  ts: number;
-  ip: string;
-  date: string;
-  type: HistoryEventType;
-  actor: Person;
-  onBehalfOf?: Person;
-  by: Person;
-};
+  id: string
+  ts: number
+  ip: string
+  date: string
+  type: HistoryEventType
+  actor: Person
+  onBehalfOf?: Person
+  by: Person
+}
 
-export type HistoryEventDraft = Omit<HistoryEvent, "id" | "ts" | "ip">;
+export type HistoryEventDraft = Omit<HistoryEvent, 'id' | 'ts' | 'ip'>
 
-export const DEBT_WARNING_THRESHOLD = 7;
+export const DEBT_WARNING_THRESHOLD = 7
 ```
 
 (b) Next to `NumberOfDebtsSchema` add the person schema (used by Task 2):
 
 ```ts
-const PersonSchema = z.enum(DUTY_ROTATION);
+const PersonSchema = z.enum(DUTY_ROTATION)
 ```
 
 (c) No `getToday`/`getStartOfWeek` export changes: `getToday` no longer exists, and `getStartOfWeek` stays private (the new `weekStartISO` calls it within the module).
@@ -191,15 +184,15 @@ const PersonSchema = z.enum(DUTY_ROTATION);
 
 ```ts
 export function weekStartISO(date: Temporal.PlainDate): string {
-  return getStartOfWeek(date).toString();
+  return getStartOfWeek(date).toString()
 }
 
 export function historyKey(date: Temporal.PlainDate): string {
-  return `history:${weekStartISO(date)}`;
+  return `history:${weekStartISO(date)}`
 }
 
 export function otherPerson(person: Person): Person {
-  return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person;
+  return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person
 }
 
 export function effectiveDuty(
@@ -207,10 +200,8 @@ export function effectiveDuty(
   debts: Partial<NumberOfDebts>,
   today: Temporal.PlainDate,
 ): Person {
-  const debtDay = getDebtDays(debts, today).find((day) =>
-    day.date.equals(date),
-  );
-  return debtDay?.person ?? getOfeliaDutyByDate(date);
+  const debtDay = getDebtDays(debts, today).find((day) => day.date.equals(date))
+  return debtDay?.person ?? getOfeliaDutyByDate(date)
 }
 
 export function isDebtDay(
@@ -218,32 +209,27 @@ export function isDebtDay(
   debts: Partial<NumberOfDebts>,
   today: Temporal.PlainDate,
 ): boolean {
-  return getDebtDays(debts, today).some((day) => day.date.equals(date));
+  return getDebtDays(debts, today).some((day) => day.date.equals(date))
 }
 
-export function isOverDebtWarning(
-  debts: Partial<NumberOfDebts>,
-  person: Person,
-): boolean {
-  return (debts[person] ?? 0) > DEBT_WARNING_THRESHOLD;
+export function isOverDebtWarning(debts: Partial<NumberOfDebts>, person: Person): boolean {
+  return (debts[person] ?? 0) > DEBT_WARNING_THRESHOLD
 }
 
 export function getDayStatus(
   events: HistoryEvent[],
   date: Temporal.PlainDate,
-): "closed" | "pending" {
-  const iso = date.toString();
-  let closed = false;
-  for (const event of events
-    .filter((e) => e.date === iso)
-    .sort((a, b) => a.ts - b.ts)) {
-    if (event.type === "cleaned" || event.type === "went_into_debt") {
-      closed = true;
-    } else if (event.type === "cancelled") {
-      closed = false;
+): 'closed' | 'pending' {
+  const iso = date.toString()
+  let closed = false
+  for (const event of events.filter((e) => e.date === iso).sort((a, b) => a.ts - b.ts)) {
+    if (event.type === 'cleaned' || event.type === 'went_into_debt') {
+      closed = true
+    } else if (event.type === 'cancelled') {
+      closed = false
     }
   }
-  return closed ? "closed" : "pending";
+  return closed ? 'closed' : 'pending'
 }
 ```
 
@@ -264,10 +250,12 @@ git commit -m "feat(ofelia): event types, debt threshold, and pure day/debt sele
 ## Task 2: Inline `currentUser` atom + device-local persistence
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PersonSchema` (Task 1), `storage.shared.client`, `withConnectHook`/`withChangeHook`/`wrap`.
 - Produces: `ofeliaDutyModel(...)` now returns `currentUser: Atom<Person>` — a plain writable atom (default `DUTY_ROTATION[0]`), loaded from and persisted to `storage.shared.client` under key `currentUser`. No `setCurrentUser`, no computed.
 
@@ -276,7 +264,7 @@ git commit -m "feat(ofelia): event types, debt threshold, and pure day/debt sele
 The test file builds a `WidgetStorage` fake. Make it accept per-call overrides so individual tests can stub `get`/`set`/`subscribe`, and add `wrap`/`StorageApi` to the existing imports. Replace the existing `createStorage` helper with:
 
 ```ts
-import { context, wrap } from "@reatom/core";
+import { context, wrap } from '@reatom/core'
 // StorageApi is already imported as a type at the top of the file.
 
 function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
@@ -289,64 +277,58 @@ function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
     append: vi.fn(async () => undefined),
     subscribe: vi.fn(() => () => {}),
     ...overrides,
-  };
+  }
 
   return {
     instance: { client: api, server: api },
     shared: { client: api, server: api },
-  };
+  }
 }
 ```
 
 Add a describe block. `currentUser` does not read "today", so an unsynced `createFakeTimer()` is fine here:
 
 ```ts
-describe("ofeliaDutyModel.currentUser", () => {
-  it("defaults to the first roster member", () => {
+describe('ofeliaDutyModel.currentUser', () => {
+  it('defaults to the first roster member', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer(),
-    });
-    expect(model.currentUser()).toBe("Леша");
-  });
+    })
+    expect(model.currentUser()).toBe('Леша')
+  })
 
-  it("loads the persisted value from shared.client on connect", async () => {
-    const get = vi.fn(async (key: string) =>
-      key === "currentUser" ? "Карина" : null,
-    );
+  it('loads the persisted value from shared.client on connect', async () => {
+    const get = vi.fn(async (key: string) => (key === 'currentUser' ? 'Карина' : null))
     const model = ofeliaDutyModel({
       storage: createStorage({ get }),
       timer: createFakeTimer(),
-    });
+    })
     await context.start(async () => {
-      const off = model.currentUser.subscribe(() => {});
-      const check = wrap(() => expect(model.currentUser()).toBe("Карина"));
-      await vi.waitFor(() => check());
-      off();
-    });
-  });
+      const off = model.currentUser.subscribe(() => {})
+      const check = wrap(() => expect(model.currentUser()).toBe('Карина'))
+      await vi.waitFor(() => check())
+      off()
+    })
+  })
 
-  it("persists the selection to shared.client on change", async () => {
-    const set = vi.fn(async () => undefined);
+  it('persists the selection to shared.client on change', async () => {
+    const set = vi.fn(async () => undefined)
     const model = ofeliaDutyModel({
       storage: createStorage({ set }),
       timer: createFakeTimer(),
-    });
+    })
     await context.start(async () => {
-      const off = model.currentUser.subscribe(() => {});
-      model.currentUser.set("Карина");
+      const off = model.currentUser.subscribe(() => {})
+      model.currentUser.set('Карина')
       const check = wrap(() =>
-        expect(
-          set.mock.calls.some(
-            (c) => c[0] === "currentUser" && c[1] === "Карина",
-          ),
-        ).toBe(true),
-      );
-      await vi.waitFor(() => check());
-      off();
-    });
-  });
-});
+        expect(set.mock.calls.some((c) => c[0] === 'currentUser' && c[1] === 'Карина')).toBe(true),
+      )
+      await vi.waitFor(() => check())
+      off()
+    })
+  })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -367,32 +349,29 @@ import {
   withChangeHook,
   withConnectHook,
   wrap,
-} from "@reatom/core";
+} from '@reatom/core'
 ```
 
 (b) Inside `ofeliaDutyModel`, after `numberOfDebts`, add the atom:
 
 ```ts
-const currentUser = atom<Person>(
-  DUTY_ROTATION[0],
-  "ofeliaDuty.currentUser",
-).extend(
+const currentUser = atom<Person>(DUTY_ROTATION[0], 'ofeliaDuty.currentUser').extend(
   withConnectHook(() => {
-    storage.shared.client.get("currentUser", PersonSchema).then(
+    storage.shared.client.get('currentUser', PersonSchema).then(
       wrap((value) => {
         if (value != null && !(value instanceof Error)) {
-          currentUser.set(value);
+          currentUser.set(value)
         }
       }),
-    );
-    return () => {};
+    )
+    return () => {}
   }),
   withChangeHook((state, prevState) => {
     if (state !== prevState) {
-      storage.shared.client.set("currentUser", state);
+      storage.shared.client.set('currentUser', state)
     }
   }),
-);
+)
 ```
 
 (c) Add `currentUser` to the model's `return { ... }` object.
@@ -416,10 +395,12 @@ git commit -m "feat(ofelia): inline per-device currentUser atom"
 ## Task 3: Remove legacy debt actions; add the four guarded action stubs
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts`
 
 **Interfaces:**
+
 - Produces: the four domain actions `confirmClean`/`goIntoDebt`/`forgive`/`undo` are added as no-op stubs (filled in Tasks 4–7) so the return shape is stable. The superseded `inDebt`/`forgiveDebt` are **removed**. `selectedDate`/`viewWeekStart`/`startOfWeekOverride`/`undoAvailable`/the week-nav actions already exist (server-time slice) and are left untouched.
 
 > `confirmClean`/`goIntoDebt`/`forgive` take an optional `(date?: Temporal.PlainDate)` (resolved to `selectedDate() ?? today()` in Tasks 4–6); `undo` takes `(events: HistoryEvent[])`.
@@ -444,20 +425,20 @@ In `ofeliaDutyModel`, delete the `inDebt` and `forgiveDebt` definitions and repl
 
 ```ts
 const confirmClean = action(async (date?: Temporal.PlainDate) => {
-  void date;
-}, "ofeliaDuty.confirmClean").extend(withAsyncData({ status: true }));
+  void date
+}, 'ofeliaDuty.confirmClean').extend(withAsyncData({ status: true }))
 
 const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
-  void date;
-}, "ofeliaDuty.goIntoDebt").extend(withAsyncData({ status: true }));
+  void date
+}, 'ofeliaDuty.goIntoDebt').extend(withAsyncData({ status: true }))
 
 const forgive = action(async (date?: Temporal.PlainDate) => {
-  void date;
-}, "ofeliaDuty.forgive").extend(withAsyncData({ status: true }));
+  void date
+}, 'ofeliaDuty.forgive').extend(withAsyncData({ status: true }))
 
 const undo = action(async (events: HistoryEvent[]) => {
-  void events;
-}, "ofeliaDuty.undo").extend(withAsyncData({ status: true }));
+  void events
+}, 'ofeliaDuty.undo').extend(withAsyncData({ status: true }))
 
 return {
   startOfWeekOverride,
@@ -475,7 +456,7 @@ return {
   goIntoDebt,
   forgive,
   undo,
-};
+}
 ```
 
 > Keep `today`, `startOfWeekOverride`, `viewWeekStart`, the three nav actions, `selectedDate`, `hasReversibleEvent`, `undoAvailable`, `debtDays`, and `currentWeek` exactly as they are. Only `inDebt`/`forgiveDebt` are removed (and dropped from the return).
@@ -499,10 +480,12 @@ git commit -m "feat(ofelia): drop legacy debt actions; add F3 action stubs"
 ## Task 4: `confirmClean(date)` — confirm cleaning
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts`
 
 **Interfaces:**
+
 - Produces: `confirmClean` real body. §3.2 row 1 — on a **debt-payment day** the day's effective duty is the debtor: decrement their debt by 1 and set `onBehalfOf` = the scheduled rotation duty (creditor); on a plain day, no debt change. Always append a `cleaned` event with `actor` = effective duty, `by` = `currentUser()`, to `historyKey(target)`. Target day defaults to `selectedDate() ?? today()`; no-op before the first sync.
 
 - [ ] **Step 1: Write the failing tests**
@@ -510,69 +493,63 @@ git commit -m "feat(ofelia): drop legacy debt actions; add F3 action stubs"
 The model now needs a synced timer; `D` is the helper from Task 1:
 
 ```ts
-describe("ofeliaDutyModel.confirmClean", () => {
-  it("on a plain day appends cleaned with no debt change", async () => {
-    const storage = createStorage();
+describe('ofeliaDutyModel.confirmClean', () => {
+  it('on a plain day appends cleaned with no debt change', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 })
     await context.start(async () => {
-      await model.confirmClean(D("2026-06-17"));
-    });
-    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
-    expect(storage.shared.server.append).toHaveBeenCalledWith(
-      "history:2026-06-15",
-      {
-        date: "2026-06-17",
-        type: "cleaned",
-        actor: "Карина",
-        by: "Леша",
-      },
-    );
-  });
+      await model.confirmClean(D('2026-06-17'))
+    })
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 })
+    expect(storage.shared.server.append).toHaveBeenCalledWith('history:2026-06-15', {
+      date: '2026-06-17',
+      type: 'cleaned',
+      actor: 'Карина',
+      by: 'Леша',
+    })
+  })
 
-  it("on a debt-payment day decrements the debtor and records the creditor", async () => {
-    const storage = createStorage();
+  it('on a debt-payment day decrements the debtor and records the creditor', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 1 });
-    model.currentUser.set("Карина");
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 0, Карина: 1 })
+    model.currentUser.set('Карина')
     await context.start(async () => {
-      await model.confirmClean(D("2026-06-16"));
-    });
-    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
-    expect(storage.shared.server.append).toHaveBeenCalledWith(
-      "history:2026-06-15",
-      {
-        date: "2026-06-16",
-        type: "cleaned",
-        actor: "Карина",
-        onBehalfOf: "Леша",
-        by: "Карина",
-      },
-    );
-  });
+      await model.confirmClean(D('2026-06-16'))
+    })
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 })
+    expect(storage.shared.server.append).toHaveBeenCalledWith('history:2026-06-15', {
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Карина',
+      onBehalfOf: 'Леша',
+      by: 'Карина',
+    })
+  })
 
-  it("defaults the date to selectedDate (falling back to today)", async () => {
-    const storage = createStorage();
+  it('defaults the date to selectedDate (falling back to today)', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 })
     await context.start(async () => {
-      await model.confirmClean();
-    });
+      await model.confirmClean()
+    })
     expect(storage.shared.server.append).toHaveBeenCalledWith(
-      "history:2026-06-15",
-      expect.objectContaining({ date: "2026-06-16" }),
-    );
-  });
-});
+      'history:2026-06-15',
+      expect.objectContaining({ date: '2026-06-16' }),
+    )
+  })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -586,32 +563,30 @@ Replace the `confirmClean` stub body:
 
 ```ts
 const confirmClean = action(async (date?: Temporal.PlainDate) => {
-  const currentToday = today();
-  if (currentToday == null) return;
-  const target = date ?? selectedDate() ?? currentToday;
+  const currentToday = today()
+  if (currentToday == null) return
+  const target = date ?? selectedDate() ?? currentToday
 
-  const debts = { ...(numberOfDebts() ?? {}) };
-  const debtDay = getDebtDays(debts, currentToday).find((day) =>
-    day.date.equals(target),
-  );
-  const actor = debtDay?.person ?? getOfeliaDutyByDate(target);
+  const debts = { ...(numberOfDebts() ?? {}) }
+  const debtDay = getDebtDays(debts, currentToday).find((day) => day.date.equals(target))
+  const actor = debtDay?.person ?? getOfeliaDutyByDate(target)
 
   const draft: HistoryEventDraft = {
     date: target.toString(),
-    type: "cleaned",
+    type: 'cleaned',
     actor,
     by: currentUser(),
     ...(debtDay ? { onBehalfOf: getOfeliaDutyByDate(target) } : {}),
-  };
-
-  if (debtDay) {
-    debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0);
-    numberOfDebts.set(normalizeDebts(debts));
   }
 
-  const result = await wrap(storage.shared.server.append(historyKey(target), draft));
-  if (result instanceof Error) throw result;
-}, "ofeliaDuty.confirmClean").extend(withAsyncData({ status: true }));
+  if (debtDay) {
+    debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0)
+    numberOfDebts.set(normalizeDebts(debts))
+  }
+
+  const result = await wrap(storage.shared.server.append(historyKey(target), draft))
+  if (result instanceof Error) throw result
+}, 'ofeliaDuty.confirmClean').extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -631,40 +606,39 @@ git commit -m "feat(ofelia): confirmClean action with debt-payment handling"
 ## Task 5: `goIntoDebt(date)` — go into debt
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts`
 
 **Interfaces:**
+
 - Produces: `goIntoDebt` real body. §3.2 row 2 — the day's effective duty `duty` gains `+1` (someone else cleaned). Append `went_into_debt` with `actor` = `otherPerson(duty)`, `onBehalfOf` = `duty`, `by` = `currentUser()`. Target day defaults to `selectedDate() ?? today()`; no-op before the first sync.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
-describe("ofeliaDutyModel.goIntoDebt", () => {
-  it("adds a debt to the day duty and records who covered", async () => {
-    const storage = createStorage();
+describe('ofeliaDutyModel.goIntoDebt', () => {
+  it('adds a debt to the day duty and records who covered', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
-    model.currentUser.set("Карина");
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 })
+    model.currentUser.set('Карина')
     await context.start(async () => {
-      await model.goIntoDebt(D("2026-06-16"));
-    });
-    expect(model.numberOfDebts()).toEqual({ Леша: 1, Карина: 0 });
-    expect(storage.shared.server.append).toHaveBeenCalledWith(
-      "history:2026-06-15",
-      {
-        date: "2026-06-16",
-        type: "went_into_debt",
-        actor: "Карина",
-        onBehalfOf: "Леша",
-        by: "Карина",
-      },
-    );
-  });
-});
+      await model.goIntoDebt(D('2026-06-16'))
+    })
+    expect(model.numberOfDebts()).toEqual({ Леша: 1, Карина: 0 })
+    expect(storage.shared.server.append).toHaveBeenCalledWith('history:2026-06-15', {
+      date: '2026-06-16',
+      type: 'went_into_debt',
+      actor: 'Карина',
+      onBehalfOf: 'Леша',
+      by: 'Карина',
+    })
+  })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -678,31 +652,29 @@ Replace the `goIntoDebt` stub body:
 
 ```ts
 const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
-  const currentToday = today();
-  if (currentToday == null) return;
-  const target = date ?? selectedDate() ?? currentToday;
+  const currentToday = today()
+  if (currentToday == null) return
+  const target = date ?? selectedDate() ?? currentToday
 
-  const debts = { ...(numberOfDebts() ?? {}) };
-  const debtDay = getDebtDays(debts, currentToday).find((day) =>
-    day.date.equals(target),
-  );
-  const duty = debtDay?.person ?? getOfeliaDutyByDate(target);
-  const cleaner = otherPerson(duty);
+  const debts = { ...(numberOfDebts() ?? {}) }
+  const debtDay = getDebtDays(debts, currentToday).find((day) => day.date.equals(target))
+  const duty = debtDay?.person ?? getOfeliaDutyByDate(target)
+  const cleaner = otherPerson(duty)
 
-  debts[duty] = (debts[duty] ?? 0) + 1;
-  numberOfDebts.set(normalizeDebts(debts));
+  debts[duty] = (debts[duty] ?? 0) + 1
+  numberOfDebts.set(normalizeDebts(debts))
 
   const result = await wrap(
     storage.shared.server.append(historyKey(target), {
       date: target.toString(),
-      type: "went_into_debt",
+      type: 'went_into_debt',
       actor: cleaner,
       onBehalfOf: duty,
       by: currentUser(),
     }),
-  );
-  if (result instanceof Error) throw result;
-}, "ofeliaDuty.goIntoDebt").extend(withAsyncData({ status: true }));
+  )
+  if (result instanceof Error) throw result
+}, 'ofeliaDuty.goIntoDebt').extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -722,54 +694,53 @@ git commit -m "feat(ofelia): goIntoDebt action"
 ## Task 6: `forgive(date)` — forgive a debt
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts`
 
 **Interfaces:**
+
 - Produces: `forgive` real body. §3.2 row 3 — find the current debtor (the unique person with debt > 0 after normalization), decrement by 1 (floor 0). Append `forgiven` with `actor` = `otherPerson(debtor)` (creditor), `onBehalfOf` = `debtor`, `by` = `currentUser()`. No debtor ⇒ no-op (no debt change, no event). Also no-op before the first sync. Target day defaults to `selectedDate() ?? today()`.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
-describe("ofeliaDutyModel.forgive", () => {
-  it("decrements the debtor and records the forgiver", async () => {
-    const storage = createStorage();
+describe('ofeliaDutyModel.forgive', () => {
+  it('decrements the debtor and records the forgiver', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 1, Карина: 0 });
-    model.currentUser.set("Карина");
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 1, Карина: 0 })
+    model.currentUser.set('Карина')
     await context.start(async () => {
-      await model.forgive(D("2026-06-16"));
-    });
-    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
-    expect(storage.shared.server.append).toHaveBeenCalledWith(
-      "history:2026-06-15",
-      {
-        date: "2026-06-16",
-        type: "forgiven",
-        actor: "Карина",
-        onBehalfOf: "Леша",
-        by: "Карина",
-      },
-    );
-  });
+      await model.forgive(D('2026-06-16'))
+    })
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 })
+    expect(storage.shared.server.append).toHaveBeenCalledWith('history:2026-06-15', {
+      date: '2026-06-16',
+      type: 'forgiven',
+      actor: 'Карина',
+      onBehalfOf: 'Леша',
+      by: 'Карина',
+    })
+  })
 
-  it("is a no-op when nobody owes", async () => {
-    const storage = createStorage();
+  it('is a no-op when nobody owes', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 })
     await context.start(async () => {
-      await model.forgive(D("2026-06-16"));
-    });
-    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
-    expect(storage.shared.server.append).not.toHaveBeenCalled();
-  });
-});
+      await model.forgive(D('2026-06-16'))
+    })
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 })
+    expect(storage.shared.server.append).not.toHaveBeenCalled()
+  })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -783,29 +754,29 @@ Replace the `forgive` stub body:
 
 ```ts
 const forgive = action(async (date?: Temporal.PlainDate) => {
-  const currentToday = today();
-  if (currentToday == null) return;
-  const target = date ?? selectedDate() ?? currentToday;
+  const currentToday = today()
+  if (currentToday == null) return
+  const target = date ?? selectedDate() ?? currentToday
 
-  const debts = { ...(numberOfDebts() ?? {}) };
-  const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0);
-  if (!debtor) return;
-  const forgiver = otherPerson(debtor);
+  const debts = { ...(numberOfDebts() ?? {}) }
+  const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0)
+  if (!debtor) return
+  const forgiver = otherPerson(debtor)
 
-  debts[debtor] = Math.max((debts[debtor] ?? 0) - 1, 0);
-  numberOfDebts.set(normalizeDebts(debts));
+  debts[debtor] = Math.max((debts[debtor] ?? 0) - 1, 0)
+  numberOfDebts.set(normalizeDebts(debts))
 
   const result = await wrap(
     storage.shared.server.append(historyKey(target), {
       date: target.toString(),
-      type: "forgiven",
+      type: 'forgiven',
       actor: forgiver,
       onBehalfOf: debtor,
       by: currentUser(),
     }),
-  );
-  if (result instanceof Error) throw result;
-}, "ofeliaDuty.forgive").extend(withAsyncData({ status: true }));
+  )
+  if (result instanceof Error) throw result
+}, 'ofeliaDuty.forgive').extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -825,10 +796,12 @@ git commit -m "feat(ofelia): forgive action"
 ## Task 7: `undo(events)` — append a cancellation for today
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts`
 
 **Interfaces:**
+
 - Consumes: `getDayStatus`, `effectiveDuty`, `historyKey`, `currentUser`, `numberOfDebts`, the model-internal `today()`.
 - Produces: `undo` real body. Today-only and debt-neutral. Given the viewed week's `events`, if `today() != null` and `getDayStatus(events, today())` is `closed`, append a `cancelled` event for today (`actor` = `effectiveDuty(today, debts, today)`, `by` = `currentUser()`); otherwise no-op. **Debt is not changed.**
 
@@ -837,53 +810,50 @@ git commit -m "feat(ofelia): forgive action"
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
-describe("ofeliaDutyModel.undo", () => {
-  it("appends a cancellation for today without changing debt", async () => {
-    const storage = createStorage();
+describe('ofeliaDutyModel.undo', () => {
+  it('appends a cancellation for today without changing debt', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 })
     const events: HistoryEvent[] = [
       {
-        id: "e1",
+        id: 'e1',
         ts: 1,
-        ip: "x",
-        date: "2026-06-16",
-        type: "cleaned",
-        actor: "Леша",
-        by: "Леша",
+        ip: 'x',
+        date: '2026-06-16',
+        type: 'cleaned',
+        actor: 'Леша',
+        by: 'Леша',
       },
-    ];
+    ]
     await context.start(async () => {
-      await model.undo(events);
-    });
-    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
-    expect(storage.shared.server.append).toHaveBeenCalledWith(
-      "history:2026-06-15",
-      {
-        date: "2026-06-16",
-        type: "cancelled",
-        actor: "Леша",
-        by: "Леша",
-      },
-    );
-  });
+      await model.undo(events)
+    })
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 })
+    expect(storage.shared.server.append).toHaveBeenCalledWith('history:2026-06-15', {
+      date: '2026-06-16',
+      type: 'cancelled',
+      actor: 'Леша',
+      by: 'Леша',
+    })
+  })
 
-  it("is a no-op when today is not closed", async () => {
-    const storage = createStorage();
+  it('is a no-op when today is not closed', async () => {
+    const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer({ today: D("2026-06-16") }),
-    });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 })
     await context.start(async () => {
-      await model.undo([]);
-    });
-    expect(storage.shared.server.append).not.toHaveBeenCalled();
-  });
-});
+      await model.undo([])
+    })
+    expect(storage.shared.server.append).not.toHaveBeenCalled()
+  })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -897,20 +867,20 @@ Replace the `undo` stub body:
 
 ```ts
 const undo = action(async (events: HistoryEvent[]) => {
-  const currentToday = today();
-  if (currentToday == null) return;
-  if (getDayStatus(events, currentToday) !== "closed") return;
+  const currentToday = today()
+  if (currentToday == null) return
+  if (getDayStatus(events, currentToday) !== 'closed') return
 
   const result = await wrap(
     storage.shared.server.append(historyKey(currentToday), {
       date: currentToday.toString(),
-      type: "cancelled",
+      type: 'cancelled',
       actor: effectiveDuty(currentToday, numberOfDebts() ?? {}, currentToday),
       by: currentUser(),
     }),
-  );
-  if (result instanceof Error) throw result;
-}, "ofeliaDuty.undo").extend(withAsyncData({ status: true }));
+  )
+  if (result instanceof Error) throw result
+}, 'ofeliaDuty.undo').extend(withAsyncData({ status: true }))
 ```
 
 - [ ] **Step 4: Run full client suite + typecheck**
@@ -934,6 +904,7 @@ git commit -m "feat(ofelia): undo appends a today-only cancellation event"
 ## Self-Review (run against the spec + brainstorm decisions)
 
 **1. Coverage:**
+
 - currentUser inline atom, device-local persist, default `DUTY_ROTATION[0]`, no action/computed/separate model → Task 2. ✅
 - `confirmClean`/`goIntoDebt`/`forgive` over a target date defaulting to `selectedDate() ?? today()`, guarded before first sync, writing `date` + `by = currentUser()` per §3.2 → Tasks 4–6. ✅
 - Undo v1: today-only, append `cancelled`, debt-neutral, reopen-to-pending via `getDayStatus`, no-op before first sync → Tasks 1 (selector) + 7 (action). ✅
@@ -946,6 +917,7 @@ git commit -m "feat(ofelia): undo appends a today-only cancellation event"
 **3. Type/name consistency:** `Person`/`DutyPerson`, `HistoryEvent`/`HistoryEventDraft`, `historyKey`/`weekStartISO`, `effectiveDuty`/`isDebtDay`/`getDayStatus`/`isOverDebtWarning` (`effectiveDuty`/`isDebtDay` now take a `today` parameter), factory return members (`currentUser`, the four actions, plus the existing `selectedDate`/`viewWeekStart`/`undoAvailable`/…) are consistent across tasks. Factory signature stays `ofeliaDutyModel({ storage, timer })`. Every atom/action/computed carries an `"ofeliaDuty.<name>"`.
 
 **Spec deltas recorded (apply to the spec doc separately if desired):**
+
 - **Drop contract §4.5 (HistoryPort).** Actions append to storage directly.
 - **Simplify §4.6 (currentUser):** a writable `Atom<Person>` inside `ofeliaDutyModel`, device-local persistence via hand-rolled connect/change hooks (not `withStorageKey`), no action/computed.
 - **Change §3.2 undo:** append-only `cancelled` event, **no** debt reversal, **today-only**; §3.3 append-only now holds with no exceptions. A cancelled day reopens to `pending`.

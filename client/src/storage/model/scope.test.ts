@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { StorageError } from './types'
+
 import { instanceNamespace, typeNamespace, toFullKey, toRelativeKey } from './scope'
+import { StorageError } from './types'
 
 describe('scope', () => {
   it('builds instance and type namespaces', () => {

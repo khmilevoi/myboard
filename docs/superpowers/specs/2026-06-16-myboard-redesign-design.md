@@ -20,6 +20,7 @@ myboard — local-first веб-приложение: настраиваемая 
 ## 2. Границы (scope)
 
 **Входит:**
+
 - Дизайн-система Soft Clay на CSS-переменных (единый источник цвета/формы), две темы.
 - Темы light/dark/system: состояние на Reatom, персист в localStorage, реакция на `prefers-color-scheme`, применение через `data-theme` на `<html>`.
 - Передача темы в виджеты: расширение протокола моста (`init.theme` + новое сообщение `theme-change`), живое переключение без перезагрузки iframe.
@@ -30,6 +31,7 @@ myboard — local-first веб-приложение: настраиваемая 
 - Тесты под изменения моста и модель темы.
 
 **Не входит (YAGNI):**
+
 - Новые виджеты помимо Clock (инфраструктура добавления каталога — да, новые типы — нет).
 - KV-хранилище состояния виджета, IndexedDB, вынос виджетов на отдельный origin (как и в исходном спеке — отложено).
 - UI-фреймворки и CSS-in-JS (остаёмся на CSS-модулях + глобальных токенах — требование заказчика).
@@ -42,19 +44,19 @@ myboard — local-first веб-приложение: настраиваемая 
 
 ### 3.1. Палитра
 
-| Токен | Light (бумага) | Dark (Ink) |
-|---|---|---|
-| `--bg` | `#efe6d8` | `#0d0e11` |
-| `--bg-grad` | радиальный тёплый блик (`#f6efe2 → #ebe0d0`) | мягкий радиальный (`#1a1c20 → #0d0e11`) |
-| `--surface` (карточка) | `#faf5ec` | `#1b1d22` |
-| `--surface-inset` (сегменты/поля) | `#e4d8c5` | `#15161a` |
-| `--text` | `#463726` | `#e9e4d9` |
-| `--text-dim` | приглушённый коричнево-серый | приглушённый тёплый серый |
-| `--accent` (терракота) | `#cf7b53` | `#e08a5f` |
-| `--accent-2` (шалфей, цифры) | `#3f5d4a` | `#a3c79a` |
-| `--shadow-dark` | `#d8c9b2` | `#0a0b0d` |
-| `--shadow-light` | `#fffdf6` | `#24262d` |
-| `--border` (тонкая граница, где нужна) | полупрозрачный тёплый | полупрозрачный светлый |
+| Токен                                  | Light (бумага)                               | Dark (Ink)                              |
+| -------------------------------------- | -------------------------------------------- | --------------------------------------- |
+| `--bg`                                 | `#efe6d8`                                    | `#0d0e11`                               |
+| `--bg-grad`                            | радиальный тёплый блик (`#f6efe2 → #ebe0d0`) | мягкий радиальный (`#1a1c20 → #0d0e11`) |
+| `--surface` (карточка)                 | `#faf5ec`                                    | `#1b1d22`                               |
+| `--surface-inset` (сегменты/поля)      | `#e4d8c5`                                    | `#15161a`                               |
+| `--text`                               | `#463726`                                    | `#e9e4d9`                               |
+| `--text-dim`                           | приглушённый коричнево-серый                 | приглушённый тёплый серый               |
+| `--accent` (терракота)                 | `#cf7b53`                                    | `#e08a5f`                               |
+| `--accent-2` (шалфей, цифры)           | `#3f5d4a`                                    | `#a3c79a`                               |
+| `--shadow-dark`                        | `#d8c9b2`                                    | `#0a0b0d`                               |
+| `--shadow-light`                       | `#fffdf6`                                    | `#24262d`                               |
+| `--border` (тонкая граница, где нужна) | полупрозрачный тёплый                        | полупрозрачный светлый                  |
 
 Точные значения уточняются при имплементации в пределах подтверждённого визуального направления; контраст текста/иконок проверяется под WCAG AA (см. §7).
 
@@ -80,6 +82,7 @@ myboard — local-first веб-приложение: настраиваемая 
 ### 4.1. Типы
 
 `src/shared/theme/types.ts`:
+
 - `type ThemeMode = 'light' | 'dark' | 'system'` — пользовательское предпочтение.
 - `type ResolvedTheme = 'light' | 'dark'` — вычисленная тема, которая реально применяется и уходит в виджеты.
 
@@ -88,6 +91,7 @@ myboard — local-first веб-приложение: настраиваемая 
 ### 4.2. Reatom-модель
 
 `src/theme/theme-model.ts`:
+
 - `themeMode = atom<ThemeMode>('system', 'theme.mode')` — персистится в localStorage.
 - `systemPrefersDark = atom<boolean>(..., 'theme.systemPrefersDark')` — инициализируется из `matchMedia('(prefers-color-scheme: dark)').matches`; слушатель `change` обновляет атом.
 - `resolvedTheme` — computed: `mode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : mode`.
@@ -100,6 +104,7 @@ myboard — local-first веб-приложение: настраиваемая 
 ### 4.3. Переключатель темы
 
 `src/app/ThemeToggle.tsx` (+ `.module.css`):
+
 - Сегментированный контрол на 3 кнопки: `Sun` (light), `Moon` (dark), `Monitor` (system) — иконки lucide.
 - Семантика: группа `role="group"` (или radiogroup) с `aria-label="Тема"`; активная кнопка — `aria-pressed="true"`.
 - Анимация «таблетки» под активным сегментом (CSS), `--shadow-pressed` на дорожке.
@@ -111,16 +116,19 @@ myboard — local-first веб-приложение: настраиваемая 
 ### 5.1. Изменения протокола (`src/shared/widget-bridge`)
 
 `messages.ts`:
+
 - Импорт `ResolvedTheme` из `shared/theme/types`.
 - `InitMessage` → `{ type:'init'; instanceId; mode; theme: ResolvedTheme }`.
 - Новое: `ThemeChangeMessage = { type:'theme-change'; theme: ResolvedTheme }`.
 - `HostMessage` включает `ThemeChangeMessage`.
 
 `parse.ts` (`parseHostMessage`):
+
 - В ветке `init`: валидировать `theme` (`'light' | 'dark'`); невалид → `BridgeError`. Для обратной совместимости допускается отсутствие `theme` с фолбэком на `'light'` (решение зафиксировать в тесте).
 - Новая ветка `theme-change`: валидировать `theme`; невалид → `BridgeError`.
 
 `client.ts` (`WidgetClient`):
+
 - Добавить поле `theme: ResolvedTheme` (из `init`).
 - Добавить `onThemeChange(cb: (t: ResolvedTheme) => void): () => void` — рядом с существующим `onModeChange`.
 - В `port.onmessage`: обрабатывать `theme-change`, оповещая слушателей.
@@ -128,9 +136,11 @@ myboard — local-first веб-приложение: настраиваемая 
 ### 5.2. Изменения host-стороны
 
 `widget-connection.ts`:
+
 - `CreateWidgetConnectionOptions` получает `theme: ResolvedTheme`; `init` формируется с темой.
 
 `WidgetFrame.tsx`:
+
 - Передаёт текущую `resolvedTheme()` при создании соединения (в `init`).
 - **Отдельный** эффект подписывается на атом `resolvedTheme` и шлёт `connection.send({ type:'theme-change', theme })`, **не** пересоздавая соединение (тема не входит в зависимости основного эффекта, чтобы не перезагружать iframe). Ссылка на текущее соединение хранится в ref.
 
@@ -143,16 +153,16 @@ myboard — local-first веб-приложение: настраиваемая 
 
 `lucide-react@1.19.0` уже в зависимостях. Текстовые контролы заменяются иконками (с `aria-label`):
 
-| Сейчас | Станет |
-|---|---|
-| «Add clock» | `Plus` + «Добавить виджет» → `AddWidgetMenu` |
-| «Expand» | `Maximize2` (на ховере шапки карточки) |
-| «Remove» | `X` (на ховере шапки карточки) |
-| «Close» (оверлей) | `X` |
-| «Retry» (ошибка) | `RotateCw` |
-| drag-ручка | `GripVertical` |
-| бренд | `LayoutGrid` (мини-логотип) |
-| ошибка | `AlertTriangle` |
+| Сейчас            | Станет                                       |
+| ----------------- | -------------------------------------------- |
+| «Add clock»       | `Plus` + «Добавить виджет» → `AddWidgetMenu` |
+| «Expand»          | `Maximize2` (на ховере шапки карточки)       |
+| «Remove»          | `X` (на ховере шапки карточки)               |
+| «Close» (оверлей) | `X`                                          |
+| «Retry» (ошибка)  | `RotateCw`                                   |
+| drag-ручка        | `GripVertical`                               |
+| бренд             | `LayoutGrid` (мини-логотип)                  |
+| ошибка            | `AlertTriangle`                              |
 
 - **Header** (`src/app/Header.tsx`): бренд + `ThemeToggle` + кнопка «Добавить виджет». Забирает тулбар из `Board` (тулбар разрастается — выносим в shell). `App` рендерит `Header` над `Board`.
 - **Карточка виджета** (`Board.module.css`): `--surface`, `--shadow-raised`, подъём на ховере; шапка с лейблом и контролами `Maximize2`/`X`, проявляющимися на ховере/фокусе; drag-ручка `GripVertical` остаётся drag-handle для RGL.
@@ -164,11 +174,13 @@ myboard — local-first веб-приложение: настраиваемая 
 ## 7. Анимации, доступность, состояния
 
 ### 7.1. Анимации (CSS-first)
+
 - **Появление борды:** карточки каскадом (fade + подъём) через `animation-delay` от индекса (CSS-переменная `--i`).
 - **Смена темы:** мягкий кросс-фейд токенов (`transition` цвета/тени). Прогрессивное улучшение — **View Transitions API** (`document.startViewTransition`): круговое раскрытие новой темы из точки клика по тумблеру; фолбэк на обычный transition.
 - **Микро:** подъём карточки на ховере, нажатие кнопок, проявление контролов шапки, «таблетка» в `ThemeToggle`.
 
 ### 7.2. Доступность (WCAG AA)
+
 - Иконочные кнопки — `aria-label`; `ThemeToggle` — группа с `aria-pressed`.
 - Контраст текста/иконок на глиняных поверхностях ≥ AA (токены с запасом; неуморфизм не должен ронять читаемость).
 - Видимые focus-ring акцентным цветом на всех интерактивных элементах.
@@ -176,6 +188,7 @@ myboard — local-first веб-приложение: настраиваемая 
 - `system`-тема следует за `prefers-color-scheme`; все нетривиальные анимации отключаются при `prefers-reduced-motion: reduce`.
 
 ### 7.3. Состояния загрузки/ошибки
+
 - **Загрузка** (`status:'connecting'`): мягкий скелетон/пульс на глиняной плашке (сейчас визуала нет).
 - **Ошибка/таймаут:** карточка «виджет сломан» в стиле Soft Clay, `AlertTriangle` + `RotateCw` retry. Логика errore не меняется — только вид.
 

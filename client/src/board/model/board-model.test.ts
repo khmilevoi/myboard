@@ -1,6 +1,7 @@
+import { context } from '@reatom/core'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { context } from '@reatom/core'
+
 import {
   instances,
   layout,

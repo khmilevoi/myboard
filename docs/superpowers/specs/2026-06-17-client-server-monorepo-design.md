@@ -206,7 +206,7 @@ Ignore `node_modules`, `**/node_modules`, `**/dist`, `test-results`,
 Work on a feature branch. Use `git mv` to preserve history.
 
 1. **Move files:** `git mv src widgets tests e2e index.html vite.config.ts
-   playwright.config.ts tsconfig.e2e.json .env.example client/`;
+playwright.config.ts tsconfig.e2e.json .env.example client/`;
    `git mv web/Dockerfile client/Dockerfile`;
    `git mv web/nginx.conf client/nginx.conf`; remove the empty `web/`.
    Server files already live in `server/`.

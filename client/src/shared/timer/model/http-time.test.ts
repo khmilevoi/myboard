@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { fetchServerTime, TimeError } from './http-time'
 
 afterEach(() => {
@@ -16,7 +17,10 @@ describe('fetchServerTime', () => {
   })
 
   it('returns a TimeError on a non-ok status', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 500 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 500 })),
+    )
 
     const result = await fetchServerTime()
     expect(result).toBeInstanceOf(TimeError)
@@ -32,7 +36,12 @@ describe('fetchServerTime', () => {
   })
 
   it('returns a TimeError when fetch rejects', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network down') }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network down')
+      }),
+    )
 
     expect(await fetchServerTime()).toBeInstanceOf(TimeError)
   })

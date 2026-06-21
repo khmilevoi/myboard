@@ -23,7 +23,8 @@ export async function fetchServerTime(baseUrl = '/api/time'): Promise<number | T
   if (body instanceof Error) return body as TimeError
 
   const parsed = ServerTimeSchema.safeParse(body)
-  if (!parsed.success) return new TimeError({ reason: 'invalid response shape', cause: parsed.error })
+  if (!parsed.success)
+    return new TimeError({ reason: 'invalid response shape', cause: parsed.error })
 
   return parsed.data.now
 }
