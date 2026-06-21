@@ -2,7 +2,8 @@ import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
-import type { StorageApi } from '@/storage/model/types'
+import { createFakeStorage } from '@/storage/model/test/fakes'
+import type { StorageApi, StorageListener } from '@/storage/model/types'
 import type { WidgetStorage } from '@/storage/model/widget-storage'
 
 import {
@@ -10,13 +11,14 @@ import {
   effectiveDuty,
   getDayStatus,
   historyKey,
+  IP_TAIL_LENGTH,
   isDebtDay,
   isOverDebtWarning,
   ofeliaDutyModel,
   otherPerson,
   weekStartISO,
 } from './ofelia-duty'
-import type { HistoryEvent } from './ofelia-duty'
+import type { HistoryEntryView, HistoryEvent } from './ofelia-duty'
 
 function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
   const api: StorageApi = {
@@ -34,6 +36,45 @@ function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
     instance: { client: api, server: api },
     shared: { client: api, server: api },
   }
+}
+
+type SubscribeCall = {
+  key: string
+  listener: StorageListener<HistoryEvent[]>
+  unsubscribe: ReturnType<typeof vi.fn>
+}
+
+function createHistoryStorage() {
+  const api = createFakeStorage()
+  const calls: SubscribeCall[] = []
+  const append = vi.fn(api.append)
+
+  const subscribe = vi.fn((key: string, listener: StorageListener<HistoryEvent[]>) => {
+    const unsubscribe = vi.fn()
+    const off = api.subscribe(key, listener)
+    calls.push({ key, listener, unsubscribe })
+    return () => {
+      unsubscribe()
+      off()
+    }
+  }) as unknown as StorageApi['subscribe']
+
+  const storage = createStorage({
+    ...api,
+    append,
+    subscribe,
+  })
+
+  const emit = async (key: string, value: HistoryEvent[] | null) => {
+    if (value === null) {
+      await api.delete(key)
+      return
+    }
+
+    await api.set(key, value)
+  }
+
+  return { storage, subscribe, calls, emit }
 }
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
@@ -111,20 +152,29 @@ describe('ofeliaDutyModel server time', () => {
     expect(model.selectedDate()?.toString()).toBe('2026-06-15')
   })
 
-  it('allows undo only when the selected day equals server today', () => {
+  it('allows undo only when today is closed and selected', async () => {
+    const { storage, emit } = createHistoryStorage()
     const model = ofeliaDutyModel({
-      storage: createStorage(),
-      timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+      storage,
+      timer: createFakeTimer({ today: D('2026-06-16') }),
     })
 
-    // default selection (null) resolves to today -> available
-    expect(model.undoAvailable()).toBe(true)
+    await context.start(async () => {
+      const off = model.undoAvailable.subscribe(() => {})
 
-    model.selectedDate.set(Temporal.PlainDate.from('2026-06-15'))
-    expect(model.undoAvailable()).toBe(false)
+      expect(model.undoAvailable()).toBe(false)
 
-    model.selectedDate.set(Temporal.PlainDate.from('2026-06-16'))
-    expect(model.undoAvailable()).toBe(true)
+      await emit('history:2026-06-15', [ev({ date: '2026-06-16', type: 'cleaned' })])
+      await vi.waitFor(() => expect(model.undoAvailable()).toBe(true))
+
+      model.selectedDate.set(D('2026-06-15'))
+      expect(model.undoAvailable()).toBe(false)
+
+      model.selectedDate.set(D('2026-06-16'))
+      expect(model.undoAvailable()).toBe(true)
+
+      off()
+    })
   })
 
   it('blocks undo before the first sync', () => {
@@ -134,6 +184,100 @@ describe('ofeliaDutyModel server time', () => {
     })
 
     expect(model.undoAvailable()).toBe(false)
+  })
+})
+
+describe('ofeliaDutyModel.historyEvents', () => {
+  it('defaults to an empty array', () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer(),
+    })
+
+    expect(model.historyEvents()).toEqual([])
+  })
+
+  it('subscribes to the viewed week key and reflects emitted events', async () => {
+    const { storage, calls, emit } = createHistoryStorage()
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+
+    await context.start(async () => {
+      const off = model.historyEvents.subscribe(() => {})
+
+      await vi.waitFor(() => expect(calls[0]?.key).toBe('history:2026-06-15'))
+
+      await emit('history:2026-06-15', [ev({ date: '2026-06-16', type: 'cleaned' })])
+
+      await vi.waitFor(() => expect(model.historyEvents()).toHaveLength(1))
+      expect(model.historyEvents()[0]?.type).toBe('cleaned')
+
+      off()
+    })
+  })
+
+  it('re-subscribes to the new week and drops the old subscription on navigation', async () => {
+    const { storage, calls } = createHistoryStorage()
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+
+    await context.start(async () => {
+      const off = model.historyEvents.subscribe(() => {})
+
+      await vi.waitFor(() => expect(calls[0]?.key).toBe('history:2026-06-15'))
+
+      model.goToNextWeek()
+
+      await vi.waitFor(() =>
+        expect(calls.map((call) => call.key)).toEqual(['history:2026-06-15', 'history:2026-06-22']),
+      )
+      expect(calls[0]?.unsubscribe).toHaveBeenCalled()
+
+      off()
+    })
+  })
+})
+
+describe('ofeliaDutyModel.historyView', () => {
+  it('maps events newest-first with an IP tail', () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+
+    model.historyEvents.set([
+      ev({ id: 'a', ts: 1, ip: '10.0.0.11', type: 'cleaned' }),
+      ev({ id: 'b', ts: 3, ip: '10.0.0.22', type: 'went_into_debt', onBehalfOf: 'Карина' }),
+      ev({ id: 'c', ts: 2, ip: '10.0.0.33', type: 'forgiven' }),
+    ])
+
+    const view = model.historyView()
+
+    expect(view.map((entry) => entry.id)).toEqual(['b', 'c', 'a'])
+    expect(view[0]).toMatchObject({
+      id: 'b',
+      type: 'went_into_debt',
+      onBehalfOf: 'Карина',
+      ipTail: '.0.22',
+    })
+    expect(IP_TAIL_LENGTH).toBe(5)
+    expect(view[0]?.ipTail).toBe('10.0.0.22'.slice(-IP_TAIL_LENGTH))
+  })
+
+  it('omits onBehalfOf when the event has none', () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+
+    model.historyEvents.set([ev({ id: 'a', ts: 1, type: 'cleaned' })])
+
+    const entry: HistoryEntryView | undefined = model.historyView()[0]
+    expect(entry?.onBehalfOf).toBeUndefined()
   })
 })
 
@@ -339,7 +483,7 @@ describe('ofeliaDutyModel.forgive', () => {
 
 describe('ofeliaDutyModel.undo', () => {
   it('appends a cancellation for today without changing debt', async () => {
-    const storage = createStorage()
+    const { storage, emit } = createHistoryStorage()
     const model = ofeliaDutyModel({
       storage,
       timer: createFakeTimer({ today: D('2026-06-16') }),
@@ -347,20 +491,16 @@ describe('ofeliaDutyModel.undo', () => {
 
     model.numberOfDebts.set({ Леша: 0, Карина: 0 })
 
-    const events: HistoryEvent[] = [
-      {
-        id: 'e1',
-        ts: 1,
-        ip: 'x',
-        date: '2026-06-16',
-        type: 'cleaned',
-        actor: 'Леша',
-        by: 'Леша',
-      },
-    ]
-
     await context.start(async () => {
-      await model.undo(events)
+      const off = model.historyEvents.subscribe(() => {})
+
+      await emit('history:2026-06-15', [
+        ev({ date: '2026-06-16', type: 'cleaned', actor: 'Леша', by: 'Леша' }),
+      ])
+      await vi.waitFor(() => expect(model.historyEvents()).toHaveLength(1))
+
+      await model.undo()
+      off()
     })
 
     expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 })
@@ -373,7 +513,7 @@ describe('ofeliaDutyModel.undo', () => {
   })
 
   it('is a no-op when today is not closed', async () => {
-    const storage = createStorage()
+    const { storage } = createHistoryStorage()
     const model = ofeliaDutyModel({
       storage,
       timer: createFakeTimer({ today: D('2026-06-16') }),
@@ -382,7 +522,9 @@ describe('ofeliaDutyModel.undo', () => {
     model.numberOfDebts.set({ Леша: 0, Карина: 0 })
 
     await context.start(async () => {
-      await model.undo([])
+      const off = model.historyEvents.subscribe(() => {})
+      await model.undo()
+      off()
     })
 
     expect(storage.shared.server.append).not.toHaveBeenCalled()

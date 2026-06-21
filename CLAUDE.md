@@ -7,6 +7,7 @@ See [AGENTS.md](./AGENTS.md) for the canonical repository guidelines (project st
 ## Required skills
 
 Before editing this repo, load the `reatom` and `errore` skills (referenced in AGENTS.md):
+
 - **Reatom**: used for all atoms, actions, async flows, and React integration in `client/`.
 - **errore**: used for TypeScript errors-as-values (tagged errors, `instanceof` narrowing, no throwing) across both `client/` and `server/`.
 
@@ -31,12 +32,14 @@ pnpm docker:up                  # production-style Docker stack
 ```
 
 Run a single test file or test name with Vitest directly, e.g.:
+
 ```bash
 pnpm --filter client exec vitest run src/widget-registry/model/registry.test.ts
 pnpm --filter client exec vitest run -t "test name substring"
 ```
 
 Playwright specs (`client/e2e`) can be filtered the same way:
+
 ```bash
 pnpm --filter client exec playwright test e2e/<file>.spec.ts
 ```
@@ -48,6 +51,7 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 ### Widget system
 
 Widgets are the core extensibility unit. There are two layers:
+
 - **`client/src/widget-registry`**: the static catalog (`registry.ts`) — each `WidgetType` declares an id, title, default grid size, an icon, optional tier config, and a lazy `loadComponent` loader pointing at a standalone widget module.
 - **`client/widgets/<widget-name>`**: the actual widget implementations (e.g. `clock`, `ofelia-poop-duty`), each split into `model/` and `ui/` like other features. New widgets are added by creating a folder here and registering a `WidgetType` entry in the registry.
 - **`client/src/widget-host`**: hosts a widget instance on the board — `WidgetFrame` (rendering, error boundary via `react-error-boundary`, fullscreen overlay) and `tier.ts` (resolves widget tier/size thresholds).
@@ -55,6 +59,7 @@ Widgets are the core extensibility unit. There are two layers:
 ### Storage system (offline-first + sync)
 
 `client/src/storage/model` implements per-widget storage with two scopes and two backends:
+
 - **Scopes**: `instance` (namespaced to one widget placement, `w:i:<instanceId>:`) and `shared` (namespaced to a widget type, `w:t:<typeId>:`), created together by `createWidgetStorage()`.
 - **Backends**: `client/dexie-storage.ts` (local IndexedDB via Dexie, the offline source of truth) and `server/http-storage.ts` (talks to the storage API server). `server/sse-client.ts` subscribes to server-sent events for live updates across clients; `client/channel.ts` is the cross-tab `BroadcastChannel` glue.
 - `reatom/reatom-storage.ts` wires a storage scope into Reatom atoms for reactive read/write in widget models.
@@ -63,6 +68,7 @@ Widgets are the core extensibility unit. There are two layers:
 ### Server (storage API)
 
 `server/src/index.ts` is a plain `node:http` server routed with `find-my-way`, backed by Valkey (Redis-compatible):
+
 - REST-ish endpoints under `/api/storage` (`GET`/`PUT`/`DELETE` by key, prefix listing, atomic `append` via `runExclusive` per-key locking in `storage/key-lock.ts`).
 - `GET /api/storage/events` opens an SSE stream; clients `POST /api/storage/events/:connId` to subscribe/unsubscribe to key prefixes. Server-side fanout (`realtime/sse.ts`) is driven by a Valkey pub/sub subscriber on the `storage:events` channel, so writes from any server instance reach all connected SSE clients.
 - All request/response bodies are validated with Zod schemas (`storage/schemas.ts`); validation failures return 422 with a formatted Zod error.
