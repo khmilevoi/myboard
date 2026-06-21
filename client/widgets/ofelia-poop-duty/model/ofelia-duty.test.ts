@@ -1,4 +1,4 @@
-import { context } from "@reatom/core";
+import { context, wrap } from "@reatom/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakeTimer } from "../../../src/shared/timer/model/fakes";
 import type { StorageApi } from "../../../src/storage/model/types";
@@ -16,7 +16,7 @@ import {
 } from "./ofelia-duty";
 import type { HistoryEvent } from "./ofelia-duty";
 
-function createStorage(): WidgetStorage {
+function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
   const api: StorageApi = {
     get: vi.fn(async () => null),
     set: vi.fn(async () => undefined),
@@ -25,6 +25,7 @@ function createStorage(): WidgetStorage {
     keys: vi.fn(async () => []),
     append: vi.fn(async () => undefined),
     subscribe: vi.fn(() => () => {}),
+    ...overrides,
   };
 
   return {
@@ -144,6 +145,58 @@ describe("ofeliaDutyModel server time", () => {
     });
 
     expect(model.undoAvailable()).toBe(false);
+  });
+});
+
+describe("ofeliaDutyModel.currentUser", () => {
+  it("defaults to the first roster member", () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer(),
+    });
+
+    expect(model.currentUser()).toBe("Леша");
+  });
+
+  it("loads a persisted value from shared.client on connect", async () => {
+    const storage = createStorage({
+      get: vi.fn(async () => "Карина"),
+    });
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer(),
+    });
+
+    await context.start(async () => {
+      const off = model.currentUser.subscribe(() => {});
+      const check = wrap(() => expect(model.currentUser()).toBe("Карина"));
+
+      await vi.waitFor(() => check());
+      off();
+    });
+  });
+
+  it("persists the selection to shared.client on change", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer(),
+    });
+
+    await context.start(async () => {
+      const off = model.currentUser.subscribe(() => {});
+      model.currentUser.set("Карина");
+
+      const check = wrap(() =>
+        expect(storage.shared.client.set).toHaveBeenCalledWith(
+          "currentUser",
+          "Карина",
+        ),
+      );
+
+      await vi.waitFor(() => check());
+      off();
+    });
   });
 });
 

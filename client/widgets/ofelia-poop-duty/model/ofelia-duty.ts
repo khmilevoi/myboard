@@ -1,7 +1,15 @@
 import { withStorageKey } from "@/storage/model/reatom/reatom-storage";
 import { WidgetStorage } from "@/storage/model/widget-storage";
 import { ServerTime } from "@/shared/timer/model/server-time";
-import { action, atom, computed, withAsyncData } from "@reatom/core";
+import {
+  action,
+  atom,
+  computed,
+  withAsyncData,
+  withChangeHook,
+  withConnectHook,
+  wrap,
+} from "@reatom/core";
 import z from "zod";
 
 export const DUTY_TIME_ZONE = "Europe/Warsaw" as const;
@@ -63,6 +71,23 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
       api: storage.shared.server,
       key: "debts",
       schema: NumberOfDebtsSchema,
+    }),
+  );
+
+  const currentUser = atom<Person>(
+    DUTY_ROTATION[0],
+    "ofeliaDuty.currentUser",
+  ).extend(
+    withConnectHook(() => {
+      void wrap(storage.shared.client.get("currentUser", PersonSchema)).then(
+        (storedUser) => {
+          if (storedUser instanceof Error || storedUser === null) return;
+          currentUser.set(storedUser);
+        },
+      );
+    }),
+    withChangeHook((state) => {
+      void wrap(storage.shared.client.set("currentUser", state));
     }),
   );
 
@@ -182,6 +207,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     goToPrevWeek,
     goToCurrentWeek,
     selectedDate,
+    currentUser,
     numberOfDebts,
     debtDays,
     currentWeek,
