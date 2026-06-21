@@ -302,6 +302,114 @@ describe("ofeliaDutyModel.goIntoDebt", () => {
   });
 });
 
+describe("ofeliaDutyModel.forgive", () => {
+  it("decrements the debtor and records the forgiver", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+
+    await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {});
+      const userOff = model.currentUser.subscribe(() => {});
+      model.numberOfDebts.set({ Леша: 1, Карина: 0 });
+      model.currentUser.set("Карина");
+      await model.forgive(D("2026-06-16"));
+      off();
+      userOff();
+    });
+
+    expect(storage.shared.server.set).toHaveBeenCalledWith(
+      "debts",
+      { Леша: 0, Карина: 0 },
+      expect.anything(),
+    );
+    expect(storage.shared.server.append).toHaveBeenCalledWith(
+      "history:2026-06-15",
+      {
+        date: "2026-06-16",
+        type: "forgiven",
+        actor: "Карина",
+        onBehalfOf: "Леша",
+        by: "Карина",
+      },
+    );
+  });
+
+  it("is a no-op when nobody owes", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+
+    await context.start(async () => {
+      await model.forgive(D("2026-06-16"));
+    });
+
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
+    expect(storage.shared.server.append).not.toHaveBeenCalled();
+  });
+});
+
+describe("ofeliaDutyModel.undo", () => {
+  it("appends a cancellation for today without changing debt", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+
+    const events: HistoryEvent[] = [
+      {
+        id: "e1",
+        ts: 1,
+        ip: "x",
+        date: "2026-06-16",
+        type: "cleaned",
+        actor: "Леша",
+        by: "Леша",
+      },
+    ];
+
+    await context.start(async () => {
+      await model.undo(events);
+    });
+
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
+    expect(storage.shared.server.append).toHaveBeenCalledWith(
+      "history:2026-06-15",
+      {
+        date: "2026-06-16",
+        type: "cancelled",
+        actor: "Леша",
+        by: "Леша",
+      },
+    );
+  });
+
+  it("is a no-op when today is not closed", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+
+    await context.start(async () => {
+      await model.undo([]);
+    });
+
+    expect(storage.shared.server.append).not.toHaveBeenCalled();
+  });
+});
+
 describe("ofelia-duty selectors", () => {
   it("otherPerson returns the partner", () => {
     expect(otherPerson("Леша")).toBe("Карина");
