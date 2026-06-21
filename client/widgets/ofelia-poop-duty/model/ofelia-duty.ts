@@ -211,7 +211,27 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   }, "ofeliaDuty.confirmClean").extend(withAsyncData({ status: true }));
 
   const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
-    void date;
+    const currentToday = today();
+    if (currentToday == null) return;
+
+    const target = date ?? selectedDate() ?? currentToday;
+    const duty = getOfeliaDutyByDate(target);
+    const debts = { ...(numberOfDebts() ?? {}) };
+    debts[duty] = (debts[duty] ?? 0) + 1;
+    numberOfDebts.set(normalizeDebts(debts));
+
+    const draft: HistoryEventDraft = {
+      date: target.toString(),
+      type: "went_into_debt",
+      actor: otherPerson(duty),
+      onBehalfOf: duty,
+      by: currentUser(),
+    };
+
+    const result = await wrap(
+      storage.shared.server.append(historyKey(target), draft),
+    );
+    if (result instanceof Error) throw result;
   }, "ofeliaDuty.goIntoDebt").extend(withAsyncData({ status: true }));
 
   const forgive = action(async (date?: Temporal.PlainDate) => {

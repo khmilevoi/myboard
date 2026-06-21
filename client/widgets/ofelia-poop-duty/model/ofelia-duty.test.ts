@@ -196,21 +196,22 @@ describe("ofeliaDutyModel.confirmClean", () => {
       storage,
       timer: createFakeTimer({ today: D("2026-06-16") }),
     });
-    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
 
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
     await context.start(async () => {
       await model.confirmClean(D("2026-06-17"));
-      expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
-      expect(storage.shared.server.append).toHaveBeenCalledWith(
-        "history:2026-06-15",
-        {
-          date: "2026-06-17",
-          type: "cleaned",
-          actor: "Карина",
-          by: "Леша",
-        },
-      );
     });
+
+    expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 0 });
+    expect(storage.shared.server.append).toHaveBeenCalledWith(
+      "history:2026-06-15",
+      {
+        date: "2026-06-17",
+        type: "cleaned",
+        actor: "Карина",
+        by: "Леша",
+      },
+    );
   });
 
   it("on a debt-payment day decrements the debtor and records the creditor", async () => {
@@ -245,15 +246,45 @@ describe("ofeliaDutyModel.confirmClean", () => {
       storage,
       timer: createFakeTimer({ today: D("2026-06-16") }),
     });
+
+    model.numberOfDebts.set({ Леша: 0, Карина: 0 });
+    await context.start(async () => {
+      await model.confirmClean();
+    });
+
+    expect(storage.shared.server.append).toHaveBeenCalledWith(
+      "history:2026-06-15",
+      expect.objectContaining({ date: "2026-06-16" }),
+    );
+  });
+});
+
+describe("ofeliaDutyModel.goIntoDebt", () => {
+  it("adds a debt to the day duty and records who covered", async () => {
+    const storage = createStorage();
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D("2026-06-16") }),
+    });
+
+    model.currentUser.set("Карина");
     model.numberOfDebts.set({ Леша: 0, Карина: 0 });
 
     await context.start(async () => {
-      await model.confirmClean();
-      expect(storage.shared.server.append).toHaveBeenCalledWith(
-        "history:2026-06-15",
-        expect.objectContaining({ date: "2026-06-16" }),
-      );
+      await model.goIntoDebt(D("2026-06-16"));
     });
+
+    expect(model.numberOfDebts()).toEqual({ Леша: 1, Карина: 0 });
+    expect(storage.shared.server.append).toHaveBeenCalledWith(
+      "history:2026-06-15",
+      {
+        date: "2026-06-16",
+        type: "went_into_debt",
+        actor: "Карина",
+        onBehalfOf: "Леша",
+        by: "Карина",
+      },
+    );
   });
 });
 
