@@ -30,7 +30,9 @@ export const StandardTier = reatomMemo(() => {
       <div className={styles.who}>
         <Avatar person={selected.person} size="md" />
         <div>
-          <div className={styles.name}>{selected.person}</div>
+          <div className={styles.name} data-testid="ofelia-duty-person">
+            {selected.person}
+          </div>
           <div className={styles.sub}>{selectedDaySubtitle(selected, balance)}</div>
         </div>
       </div>
