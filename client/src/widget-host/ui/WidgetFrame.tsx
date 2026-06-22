@@ -1,46 +1,53 @@
-import { wrap } from '@reatom/core'
-import { AlertTriangle } from 'lucide-react'
-import { lazy, Suspense, useMemo } from 'react'
+import { wrap } from "@reatom/core";
+import { AlertTriangle } from "lucide-react";
+import { lazy, Suspense, useMemo } from "react";
+import { useEvent } from "@khmilevoi/use-event";
 
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
-import { createWidgetStorage } from '@/storage/model/widget-storage'
-import { resolvedTheme } from '@/theme/model/theme-model'
-import { findWidgetType } from '@/widget-registry/model/registry'
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { reatomMemo } from "@/shared/reatom/reatom-memo";
+import { createWidgetStorage } from "@/storage/model/widget-storage";
+import { resolvedTheme } from "@/theme/model/theme-model";
+import { findWidgetType } from "@/widget-registry/model/registry";
 
-import type { WidgetTier } from '../model/tier'
-import type { WidgetMode } from '../model/types'
-import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
-import { WidgetErrorBoundary } from './WidgetErrorBoundary'
-import { WidgetFrameContext, widgetFrameContext } from './WidgetFrame.context'
+import type { WidgetTier } from "../model/tier";
+import type { WidgetMode } from "../model/types";
+import { getWidgetReloadKey, retryWidget } from "../model/widget-frame-model";
+import { WidgetErrorBoundary } from "./WidgetErrorBoundary";
+import { WidgetFrameContext, widgetFrameContext } from "./WidgetFrame.context";
 
-import styles from './WidgetFrame.module.css'
+import styles from "./WidgetFrame.module.css";
 
 export type WidgetFrameProps = {
-  instanceId: string
-  typeId: string
-  mode: WidgetMode
-  tier: WidgetTier
-  onRequestFullscreen?: () => void
-  onRequestClose?: () => void
-  onDelete?: () => void
-}
+  instanceId: string;
+  typeId: string;
+  mode: WidgetMode;
+  tier: WidgetTier;
+  onRequestFullscreen?: () => void;
+  onRequestClose?: () => void;
+  onDelete?: () => void;
+};
 
 export const WidgetFrame = reatomMemo<WidgetFrameProps>(
-  ({ instanceId, typeId, mode, tier, onRequestFullscreen, onRequestClose, onDelete }) => {
-    const type = findWidgetType(typeId)
-    const theme = resolvedTheme()
-    const reloadKey = getWidgetReloadKey(instanceId)
+  ({ instanceId, typeId, mode, tier, ...callbacks }) => {
+    const type = findWidgetType(typeId);
+    const theme = resolvedTheme();
+    const reloadKey = getWidgetReloadKey(instanceId);
+
+    const onDelete = useEvent(callbacks.onDelete ?? (() => null));
+    const onRequestFullscreen = useEvent(
+      callbacks.onRequestFullscreen ?? (() => null),
+    );
+    const onRequestClose = useEvent(callbacks.onRequestClose ?? (() => null));
 
     const LazyWidget = useMemo(() => {
-      if (type instanceof Error) return null
-      return lazy(type.loadComponent)
+      if (type instanceof Error) return null;
+      return lazy(type.loadComponent);
       // reloadKey is unused above but must stay a dependency: lazy() caches a
       // failed import's rejected promise, so retrying requires a fresh lazy()
       // call rather than reusing the memoized component.
       // oxlint-disable-next-line react-hooks/exhaustive-deps
-    }, [type, reloadKey])
+    }, [type, reloadKey]);
 
     const context = useMemo<WidgetFrameContext>(() => {
       return {
@@ -49,12 +56,21 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         mode,
         tier,
         theme,
-        requestFullscreen: () => onRequestFullscreen?.(),
-        requestClose: () => onRequestClose?.(),
-        reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
+        requestFullscreen: onRequestFullscreen,
+        requestClose: onRequestClose,
+        reportError: (error) =>
+          console.warn(`[widget ${instanceId}] error:`, error),
         storage: createWidgetStorage({ instanceId, typeId }),
-      }
-    }, [instanceId, typeId, mode, tier, theme, onRequestFullscreen, onRequestClose])
+      };
+    }, [
+      instanceId,
+      typeId,
+      mode,
+      tier,
+      theme,
+      onRequestFullscreen,
+      onRequestClose,
+    ]);
 
     if (type instanceof Error) {
       return (
@@ -70,14 +86,18 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
             </Badge>
             {onDelete && (
               <div className={styles.errorActions}>
-                <button className={styles.delete} aria-label="Удалить" onClick={onDelete}>
+                <button
+                  className={styles.delete}
+                  aria-label="Удалить"
+                  onClick={onDelete}
+                >
                   Удалить
                 </button>
               </div>
             )}
           </div>
         </div>
-      )
+      );
     }
 
     return (
@@ -86,7 +106,10 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
           <WidgetErrorBoundary
             resetKey={reloadKey}
             onError={(error) =>
-              console.warn(`[widget ${instanceId}] render failed:`, error.message)
+              console.warn(
+                `[widget ${instanceId}] render failed:`,
+                error.message,
+              )
             }
             onRetry={wrap(() => retryWidget(instanceId))}
             onDelete={onDelete}
@@ -109,7 +132,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
           </WidgetErrorBoundary>
         </widgetFrameContext.Provider>
       </div>
-    )
+    );
   },
-  'WidgetFrame',
-)
+  "WidgetFrame",
+);
