@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { CalendarDays, Clock, Lock, Plus, X } from 'lucide-react'
+import { CalendarDays, Clock, Lock, Plus, Cat, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,11 @@ import { addInstance } from '../model/board-model'
 
 import styles from './AddWidgetMenu.module.css'
 
-const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { Clock, CalendarDays }
+const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = {
+  Clock,
+  CalendarDays,
+  Cat,
+}
 
 export const AddWidgetMenu = reatomMemo(() => {
   const open = isAddWidgetMenuOpen()

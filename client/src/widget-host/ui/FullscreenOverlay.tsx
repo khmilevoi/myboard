@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { CalendarDays, Clock, X } from 'lucide-react'
+import { CalendarDays, Clock, Cat, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { expandedInstanceId, instances, removeInstance } from '@/board/model/board-model'
@@ -12,7 +12,11 @@ import { WidgetFrame } from './WidgetFrame'
 
 import styles from './FullscreenOverlay.module.css'
 
-const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { Clock, CalendarDays }
+const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = {
+  Clock,
+  CalendarDays,
+  Cat,
+}
 
 export const FullscreenOverlay = reatomMemo(() => {
   const id = expandedInstanceId()

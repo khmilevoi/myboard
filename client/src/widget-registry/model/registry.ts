@@ -3,7 +3,7 @@ import * as errore from 'errore'
 import type { TierConfig } from '@/widget-host/model/tier'
 import type { WidgetLoader } from '@/widget-host/model/types'
 
-export type WidgetIconName = 'Clock' | 'CalendarDays'
+export type WidgetIconName = 'Clock' | 'CalendarDays' | 'Cat'
 
 export type WidgetType = {
   id: string
@@ -44,7 +44,7 @@ export const widgetTypes: WidgetType[] = [
         default: mod.OfeliaPoopDuty,
       })),
     defaultSize: { w: 3, h: 5 },
-    icon: 'CalendarDays',
+    icon: 'Cat',
   },
 ]
 
