@@ -1,4 +1,4 @@
-import { DUTY_ROTATION } from '../../model/ofelia-duty'
+import { DUTY_ROTATION } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
 import type { Person } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
