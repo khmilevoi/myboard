@@ -163,4 +163,8 @@ describe('handleTime', () => {
 
     vi.useRealTimers()
   })
+
+  it('uses an injected clock when provided', () => {
+    expect(handleTime(() => 123)).toEqual({ status: 200, body: { now: 123 } })
+  })
 })
