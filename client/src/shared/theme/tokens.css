@@ -70,6 +70,7 @@
 :root {
   --radius: 0.625rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
   /* Compatibility for existing widget internals; do not use in new host chrome. */
   --surface: var(--card);
