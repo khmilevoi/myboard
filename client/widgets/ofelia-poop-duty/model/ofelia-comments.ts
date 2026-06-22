@@ -7,7 +7,7 @@ import {
   withConnectHook,
   wrap,
 } from '@reatom/core'
-import type { Atom } from '@reatom/core'
+import type { Atom, AtomLike } from '@reatom/core'
 import z from 'zod'
 
 import type { WidgetStorage } from '@/storage/model/widget-storage'
@@ -43,7 +43,7 @@ export function commentsKey(date: Temporal.PlainDate): string {
 
 export interface OfeliaCommentsModelProps {
   storage: WidgetStorage
-  viewWeekStart: Atom<Temporal.PlainDate | null>
+  viewWeekStart: AtomLike<Temporal.PlainDate | null>
   currentUser: Atom<Person>
 }
 
