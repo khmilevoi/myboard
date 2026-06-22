@@ -25,19 +25,6 @@ export const DUTY_ROTATION = ['Леша', 'Карина'] as const
 export type DutyPerson = (typeof DUTY_ROTATION)[number]
 export type Person = DutyPerson
 
-export type HistoryEventType = 'cleaned' | 'went_into_debt' | 'forgiven' | 'cancelled'
-
-export type HistoryEvent = {
-  id: string
-  ts: number
-  ip: string
-  date: string
-  type: HistoryEventType
-  actor: Person
-  onBehalfOf?: Person
-  by: Person
-}
-
 export type HistoryEventDraft = Omit<HistoryEvent, 'id' | 'ts' | 'ip'>
 
 export const DEBT_WARNING_THRESHOLD = 7
@@ -69,6 +56,7 @@ const NumberOfDebtsSchema = z
   .partial()
 const PersonSchema = z.enum(DUTY_ROTATION)
 const HistoryEventTypeSchema = z.enum(['cleaned', 'went_into_debt', 'forgiven', 'cancelled'])
+export type HistoryEventType = z.infer<typeof HistoryEventTypeSchema>
 
 const HistoryEventSchema = z.object({
   id: z.string(),
@@ -80,6 +68,8 @@ const HistoryEventSchema = z.object({
   onBehalfOf: PersonSchema.optional(),
   by: PersonSchema,
 })
+
+export type HistoryEvent = z.infer<typeof HistoryEventSchema>
 
 const HistoryEventsSchema = z.array(HistoryEventSchema)
 type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>
