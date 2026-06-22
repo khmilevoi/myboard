@@ -44,4 +44,15 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    // Vite preview is a static server and 404s `/api`; the e2e harness serves
+    // the production build here while routing the API (incl. the
+    // `/api/storage/events` SSE stream) to the test server.
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',
+        changeOrigin: true,
+      },
+    },
+  },
 })
