@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { useAtomValue } from '@/shared/reatom/use-atom-value'
 import { getServerTime } from '@/shared/timer/model/server-time'
 import type { WidgetTier } from '@/widget-host/model/tier'
 import type { WidgetRuntimeProps } from '@/widget-host/model/types'
@@ -90,7 +91,9 @@ export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(({ tier, storage, r
 
   // The loading guard subscribes to just the boolean readiness slice; the first
   // server-time sync flips it to true and the tiers (reading other slices) mount.
-  if (!value.view.ready()) {
+  // Read race-free (useSyncExternalStore) so a warm /api/time response that lands
+  // in the render→subscribe window isn't dropped, leaving the card stuck loading.
+  if (!useAtomValue(value.view.ready)) {
     return (
       <div className={styles.widget} data-tier={tier satisfies WidgetTier}>
         <div className={styles.loading}>Загрузка…</div>

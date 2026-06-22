@@ -1,6 +1,7 @@
 import { Cat } from 'lucide-react'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { useAtomValue } from '@/shared/reatom/use-atom-value'
 
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
@@ -13,11 +14,15 @@ import styles from './StandardTier.module.css'
 
 export const StandardTier = reatomMemo(() => {
   const { view, currentUser, actions } = useOfelia()
-  const selected = view.selected()
+  // Day status and debt balance load asynchronously on mount (history + debts).
+  // Read them race-free (useSyncExternalStore) so a warm server's response that
+  // lands in the render→subscribe window isn't dropped, leaving a stale card.
+  // Hooks must run unconditionally, so read every slice before the guard.
+  const selected = useAtomValue(view.selected)
+  const balance = useAtomValue(view.balance)
+  const canForgive = useAtomValue(view.canForgive)
+  const user = useAtomValue(currentUser)
   if (!selected) return null
-
-  const balance = view.balance()
-  const canForgive = view.canForgive()
 
   return (
     <div className={styles.root}>
@@ -47,7 +52,7 @@ export const StandardTier = reatomMemo(() => {
       <div className={styles.spacer} />
 
       <div className={styles.footer}>
-        <UserToggle value={currentUser()} onChange={actions.onSetUser} />
+        <UserToggle value={user} onChange={actions.onSetUser} />
         <ActionButtons
           status={selected.status}
           canUndo={selected.canUndo}
