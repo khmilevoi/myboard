@@ -47,3 +47,10 @@ export type StorageEvent = z.infer<typeof StorageEventSchema>
 export const EventsParamsSchema = z.object({
   connId: z.string(),
 })
+
+export const TestTimeSchema = z.object({
+  iso: z.string().optional(),
+  ms: z.number().optional(),
+})
+
+export type TestTime = z.infer<typeof TestTimeSchema>
