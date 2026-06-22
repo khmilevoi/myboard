@@ -17,6 +17,7 @@
   "dependencies": {
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@khmilevoi/use-event": "^1.1.6",
     "@reatom/core": "^1001.1.0",
     "@reatom/react": "^1001.0.0",
     "@tailwindcss/vite": "^4.3.1",

@@ -1,3 +1,4 @@
+import { useEvent } from '@khmilevoi/use-event'
 import { wrap } from '@reatom/core'
 import { AlertTriangle } from 'lucide-react'
 import { lazy, Suspense, useMemo } from 'react'
@@ -28,10 +29,14 @@ export type WidgetFrameProps = {
 }
 
 export const WidgetFrame = reatomMemo<WidgetFrameProps>(
-  ({ instanceId, typeId, mode, tier, onRequestFullscreen, onRequestClose, onDelete }) => {
+  ({ instanceId, typeId, mode, tier, ...callbacks }) => {
     const type = findWidgetType(typeId)
     const theme = resolvedTheme()
     const reloadKey = getWidgetReloadKey(instanceId)
+
+    const onDelete = useEvent(callbacks.onDelete ?? (() => null))
+    const onRequestFullscreen = useEvent(callbacks.onRequestFullscreen ?? (() => null))
+    const onRequestClose = useEvent(callbacks.onRequestClose ?? (() => null))
 
     const LazyWidget = useMemo(() => {
       if (type instanceof Error) return null
@@ -49,8 +54,8 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         mode,
         tier,
         theme,
-        requestFullscreen: () => onRequestFullscreen?.(),
-        requestClose: () => onRequestClose?.(),
+        requestFullscreen: onRequestFullscreen,
+        requestClose: onRequestClose,
         reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
         storage: createWidgetStorage({ instanceId, typeId }),
       }
