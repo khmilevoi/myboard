@@ -1,0 +1,98 @@
+.icons {
+  display: flex;
+  gap: 0.3125rem;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  inline-size: 1.625rem;
+  block-size: 1.625rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4375rem;
+  background: var(--surface);
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.icon:disabled {
+  color: var(--text-3);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4375rem;
+}
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  block-size: 2.625rem;
+  border: none;
+  border-radius: 0.6875rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary {
+  display: flex;
+  gap: 0.4375rem;
+}
+
+.ghost {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  block-size: 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.confirmedRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  block-size: 2.625rem;
+}
+
+.plaque {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  block-size: 2.625rem;
+  border-radius: 0.6875rem;
+  background: var(--ofelia-ok-soft);
+  color: var(--ofelia-ok-fg);
+  font-weight: 600;
+}
+
+.undo {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 2.625rem;
+  block-size: 2.625rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6875rem;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+}
