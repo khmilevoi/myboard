@@ -187,7 +187,10 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
       selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
       historyEvents: atom<HistoryEvent[]>([], 'test.historyEvents'),
-      numberOfDebts: atom<Partial<Record<Person, number>> | null>({ Карина: 1 }, 'test.numberOfDebts'),
+      numberOfDebts: atom<Partial<Record<Person, number>> | null>(
+        { Карина: 1 },
+        'test.numberOfDebts',
+      ),
     }
     const view = makeOfeliaViewModel(duty)
 
@@ -350,7 +353,12 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
   const selected = computed(() => {
     const week = duty.currentWeek()
     if (!week) return null
-    return resolveSelected(week, duty.selectedDate(), duty.historyEvents(), duty.numberOfDebts() ?? {})
+    return resolveSelected(
+      week,
+      duty.selectedDate(),
+      duty.historyEvents(),
+      duty.numberOfDebts() ?? {},
+    )
   }, 'ofelia.selected')
 
   // Primitive output → reatomComponent bail-out: TinyTier re-renders only when
@@ -1064,13 +1072,69 @@ import { WeekStrip } from './WeekStrip'
 
 function days(): WeekDayView[] {
   return [
-    { iso: '2026-06-15', weekday: 'ПН', dayOfMonth: 15, person: 'Леша', isToday: false, isDebtDay: false, isSelected: false },
-    { iso: '2026-06-16', weekday: 'ВТ', dayOfMonth: 16, person: 'Карина', isToday: true, isDebtDay: false, isSelected: true },
-    { iso: '2026-06-17', weekday: 'СР', dayOfMonth: 17, person: 'Карина', isToday: false, isDebtDay: true, isSelected: false },
-    { iso: '2026-06-18', weekday: 'ЧТ', dayOfMonth: 18, person: 'Леша', isToday: false, isDebtDay: false, isSelected: false },
-    { iso: '2026-06-19', weekday: 'ПТ', dayOfMonth: 19, person: 'Карина', isToday: false, isDebtDay: false, isSelected: false },
-    { iso: '2026-06-20', weekday: 'СБ', dayOfMonth: 20, person: 'Леша', isToday: false, isDebtDay: false, isSelected: false },
-    { iso: '2026-06-21', weekday: 'ВС', dayOfMonth: 21, person: 'Карина', isToday: false, isDebtDay: false, isSelected: false },
+    {
+      iso: '2026-06-15',
+      weekday: 'ПН',
+      dayOfMonth: 15,
+      person: 'Леша',
+      isToday: false,
+      isDebtDay: false,
+      isSelected: false,
+    },
+    {
+      iso: '2026-06-16',
+      weekday: 'ВТ',
+      dayOfMonth: 16,
+      person: 'Карина',
+      isToday: true,
+      isDebtDay: false,
+      isSelected: true,
+    },
+    {
+      iso: '2026-06-17',
+      weekday: 'СР',
+      dayOfMonth: 17,
+      person: 'Карина',
+      isToday: false,
+      isDebtDay: true,
+      isSelected: false,
+    },
+    {
+      iso: '2026-06-18',
+      weekday: 'ЧТ',
+      dayOfMonth: 18,
+      person: 'Леша',
+      isToday: false,
+      isDebtDay: false,
+      isSelected: false,
+    },
+    {
+      iso: '2026-06-19',
+      weekday: 'ПТ',
+      dayOfMonth: 19,
+      person: 'Карина',
+      isToday: false,
+      isDebtDay: false,
+      isSelected: false,
+    },
+    {
+      iso: '2026-06-20',
+      weekday: 'СБ',
+      dayOfMonth: 20,
+      person: 'Леша',
+      isToday: false,
+      isDebtDay: false,
+      isSelected: false,
+    },
+    {
+      iso: '2026-06-21',
+      weekday: 'ВС',
+      dayOfMonth: 21,
+      person: 'Карина',
+      isToday: false,
+      isDebtDay: false,
+      isSelected: false,
+    },
   ]
 }
 
@@ -1251,6 +1315,7 @@ git commit -m "feat(ofelia): WeekStrip calendar part with day selection"
 
 - Consumes: `lucide-react` icons (`Check`, `Clock`, `Minus`, `Undo2`).
 - Produces: `ActionButtons` — `reatomMemo`, props:
+
   ```ts
   type ActionButtonsProps = {
     status: 'pending' | 'closed'
@@ -1322,9 +1387,7 @@ describe('ActionButtons (full)', () => {
   })
 
   it('keeps the secondary row after confirmation when alwaysSecondary is set', () => {
-    render(
-      <ActionButtons status="closed" canUndo canForgive alwaysSecondary {...handlers()} />,
-    )
+    render(<ActionButtons status="closed" canUndo canForgive alwaysSecondary {...handlers()} />)
     expect(screen.getByText('Уборка подтверждена')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'В долг' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Простить' })).toBeInTheDocument()
@@ -1447,8 +1510,7 @@ export const ActionButtons = reatomMemo<ActionButtonsProps>(
               </button>
             ) : null}
             <button type="button" className={styles.ghost} onClick={onDebt}>
-              <Clock size={15} aria-hidden />
-              В долг
+              <Clock size={15} aria-hidden />В долг
             </button>
           </div>
         ) : null}
@@ -1687,13 +1749,69 @@ import type {
 const noop = () => {}
 
 const WEEK: WeekDayView[] = [
-  { iso: '2026-06-15', weekday: 'ПН', dayOfMonth: 15, person: 'Леша', isToday: false, isDebtDay: false, isSelected: false },
-  { iso: '2026-06-16', weekday: 'ВТ', dayOfMonth: 16, person: 'Карина', isToday: true, isDebtDay: false, isSelected: true },
-  { iso: '2026-06-17', weekday: 'СР', dayOfMonth: 17, person: 'Карина', isToday: false, isDebtDay: true, isSelected: false },
-  { iso: '2026-06-18', weekday: 'ЧТ', dayOfMonth: 18, person: 'Леша', isToday: false, isDebtDay: false, isSelected: false },
-  { iso: '2026-06-19', weekday: 'ПТ', dayOfMonth: 19, person: 'Карина', isToday: false, isDebtDay: false, isSelected: false },
-  { iso: '2026-06-20', weekday: 'СБ', dayOfMonth: 20, person: 'Леша', isToday: false, isDebtDay: false, isSelected: false },
-  { iso: '2026-06-21', weekday: 'ВС', dayOfMonth: 21, person: 'Карина', isToday: false, isDebtDay: false, isSelected: false },
+  {
+    iso: '2026-06-15',
+    weekday: 'ПН',
+    dayOfMonth: 15,
+    person: 'Леша',
+    isToday: false,
+    isDebtDay: false,
+    isSelected: false,
+  },
+  {
+    iso: '2026-06-16',
+    weekday: 'ВТ',
+    dayOfMonth: 16,
+    person: 'Карина',
+    isToday: true,
+    isDebtDay: false,
+    isSelected: true,
+  },
+  {
+    iso: '2026-06-17',
+    weekday: 'СР',
+    dayOfMonth: 17,
+    person: 'Карина',
+    isToday: false,
+    isDebtDay: true,
+    isSelected: false,
+  },
+  {
+    iso: '2026-06-18',
+    weekday: 'ЧТ',
+    dayOfMonth: 18,
+    person: 'Леша',
+    isToday: false,
+    isDebtDay: false,
+    isSelected: false,
+  },
+  {
+    iso: '2026-06-19',
+    weekday: 'ПТ',
+    dayOfMonth: 19,
+    person: 'Карина',
+    isToday: false,
+    isDebtDay: false,
+    isSelected: false,
+  },
+  {
+    iso: '2026-06-20',
+    weekday: 'СБ',
+    dayOfMonth: 20,
+    person: 'Леша',
+    isToday: false,
+    isDebtDay: false,
+    isSelected: false,
+  },
+  {
+    iso: '2026-06-21',
+    weekday: 'ВС',
+    dayOfMonth: 21,
+    person: 'Карина',
+    isToday: false,
+    isDebtDay: false,
+    isSelected: false,
+  },
 ]
 
 const DEFAULT_SELECTED: SelectedDayView = {
@@ -1932,7 +2050,9 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onClose }) => {
 
       <div className={styles.body}>
         <section className={styles.panel}>
-          <div className={styles.panelLabel}>{selectedDay?.isToday ? 'Сегодня' : selectedDay?.weekday}</div>
+          <div className={styles.panelLabel}>
+            {selectedDay?.isToday ? 'Сегодня' : selectedDay?.weekday}
+          </div>
           <div className={styles.today}>
             <Avatar person={selected.person} size="lg" />
             <div className={styles.todayName}>{selected.person}</div>
@@ -1950,7 +2070,9 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onClose }) => {
             onForgive={actions.onForgive}
           />
 
-          <p className={styles.hint}>Не успеваешь — сегодня уберёт другой, а тебе запишется +1 день.</p>
+          <p className={styles.hint}>
+            Не успеваешь — сегодня уберёт другой, а тебе запишется +1 день.
+          </p>
 
           <div className={styles.balance}>
             <div className={styles.balanceTitle}>Баланс долга</div>
@@ -3078,7 +3200,9 @@ export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(({ tier, storage, r
           const date = targetDate()
           if (date) dutyModel.forgive(date)
         }),
-        onSelectDay: wrap((iso: string) => dutyModel.selectedDate.set(Temporal.PlainDate.from(iso))),
+        onSelectDay: wrap((iso: string) =>
+          dutyModel.selectedDate.set(Temporal.PlainDate.from(iso)),
+        ),
         onSetUser: wrap((person: Person) => dutyModel.currentUser.set(person)),
       },
       nav: {

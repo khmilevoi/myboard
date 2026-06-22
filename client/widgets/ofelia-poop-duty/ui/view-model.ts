@@ -132,7 +132,12 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
   const selected = computed(() => {
     const week = duty.currentWeek()
     if (!week) return null
-    return resolveSelected(week, duty.selectedDate(), duty.historyEvents(), duty.numberOfDebts() ?? {})
+    return resolveSelected(
+      week,
+      duty.selectedDate(),
+      duty.historyEvents(),
+      duty.numberOfDebts() ?? {},
+    )
   }, 'ofelia.selected')
 
   // Primitive output → reatomComponent bail-out: TinyTier re-renders only when

@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
 import type { ReactNode } from 'react'
+import { describe, expect, it } from 'vitest'
 
 import { ofeliaContext } from '../ofelia-context'
 import type { OfeliaContextValue } from '../ofelia-context'
 import { makeOfeliaValue, makeOfeliaView } from '../ofelia.fixture'
-
 import { StandardTier } from './StandardTier'
 
 function withOfelia(value: OfeliaContextValue, node: ReactNode) {

@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { SelectedDayView } from './view-model'
-
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from './format'
+import type { SelectedDayView } from './view-model'
 
 describe('pluralizeDays', () => {
   it('applies Russian plural rules', () => {

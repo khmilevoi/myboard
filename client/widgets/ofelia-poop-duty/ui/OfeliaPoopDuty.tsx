@@ -10,7 +10,6 @@ import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
 import type { Person } from '../model/ofelia-duty'
-
 import { ofeliaContext } from './ofelia-context'
 import type { OfeliaContextValue } from './ofelia-context'
 import { CompactTier } from './tiers/CompactTier'
@@ -66,7 +65,9 @@ export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(({ tier, storage, r
           const date = targetDate()
           if (date) dutyModel.forgive(date)
         }),
-        onSelectDay: wrap((iso: string) => dutyModel.selectedDate.set(Temporal.PlainDate.from(iso))),
+        onSelectDay: wrap((iso: string) =>
+          dutyModel.selectedDate.set(Temporal.PlainDate.from(iso)),
+        ),
         onSetUser: wrap((person: Person) => dutyModel.currentUser.set(person)),
       },
       nav: {

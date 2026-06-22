@@ -46,9 +46,7 @@ describe('ActionButtons (full)', () => {
   })
 
   it('keeps the secondary row after confirmation when alwaysSecondary is set', () => {
-    render(
-      <ActionButtons status="closed" canUndo canForgive alwaysSecondary {...handlers()} />,
-    )
+    render(<ActionButtons status="closed" canUndo canForgive alwaysSecondary {...handlers()} />)
     expect(screen.getByText('Уборка подтверждена')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'В долг' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Простить' })).toBeInTheDocument()

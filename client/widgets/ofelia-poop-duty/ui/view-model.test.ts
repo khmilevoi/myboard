@@ -2,7 +2,6 @@ import { atom } from '@reatom/core'
 import { describe, expect, it } from 'vitest'
 
 import type { HistoryEvent, Person } from '../model/ofelia-duty'
-
 import { makeOfeliaViewModel, resolveSelected, toBalance, toWeekDays } from './view-model'
 import type { DutyDay } from './view-model'
 
@@ -100,7 +99,10 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
       selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
       historyEvents: atom<HistoryEvent[]>([], 'test.historyEvents'),
-      numberOfDebts: atom<Partial<Record<Person, number>> | null>({ Карина: 1 }, 'test.numberOfDebts'),
+      numberOfDebts: atom<Partial<Record<Person, number>> | null>(
+        { Карина: 1 },
+        'test.numberOfDebts',
+      ),
     }
     const view = makeOfeliaViewModel(duty)
 

@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
+import { describe, expect, it, vi } from 'vitest'
 
 import { ofeliaContext } from '../ofelia-context'
 import { makeOfeliaValue } from '../ofelia.fixture'
-
 import { FullscreenTier } from './FullscreenTier'
 import { LargeTier } from './LargeTier'
 

@@ -1,6 +1,7 @@
 import type { Person } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
+
 import { personInitial, personTone } from '../person'
 
 import styles from './Avatar.module.css'

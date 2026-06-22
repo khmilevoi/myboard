@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import type { DebtBalanceEntry } from '../view-model'
-
 import { DebtChips } from './DebtChips'
 
 const balance: DebtBalanceEntry[] = [
