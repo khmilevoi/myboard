@@ -18,4 +18,10 @@ describe('Avatar', () => {
     expect(badge).toHaveAttribute('data-tone', 'l')
     expect(badge).toHaveAttribute('data-size', 'lg')
   })
+
+  it('renders with exact pixel size via px prop', () => {
+    const { container } = render(<Avatar person="Карина" px={26} />)
+    const avatar = container.querySelector('[data-tone="k"]')!
+    expect(avatar).toHaveStyle({ width: '26px', height: '26px' })
+  })
 })
