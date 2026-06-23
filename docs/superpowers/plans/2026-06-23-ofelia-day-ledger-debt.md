@@ -312,7 +312,123 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: Convert model + view-model + wiring to the ledger
+### Task 3: Read-only storage-key extender (`withStorageKeyReadonly`)
+
+Extract the read-only "mirror an atom from a storage key over `subscribe`" pattern (hand-rolled today in `historyEvents` and `ofelia-comments`, and needed again by the ledger) into a reusable extender beside `withStorageKey`. Unlike `withStorageKey` it has **no write-back** — the atom never PUTs itself, which matches append-only / server-owned values written via `api.append`.
+
+**Files:**
+- Modify: `client/src/storage/model/reatom/reatom-storage.ts`
+- Test: `client/src/storage/model/reatom/reatom-storage.test.ts` (extend)
+
+**Interfaces:**
+- Consumes: `StorageApi`, `withConnectHook`, `wrap`, `AtomState`, `Atom`, `Ext` (all already imported in the file).
+- Produces:
+  - `type WithStorageKeyReadonlyOptions<T> = { api: StorageApi; key: string; schema?: z.ZodType<T>; fallback: T }`
+  - `withStorageKeyReadonly<Target extends Atom>(opts): Ext<Target, Record<string, never>>` — subscribes on connect, `target.set(event.value ?? fallback)` on delivery, drops errors, never writes back.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `client/src/storage/model/reatom/reatom-storage.test.ts` and add `withStorageKeyReadonly` to the existing `import { … } from './reatom-storage'` line:
+
+```ts
+describe('withStorageKeyReadonly', () => {
+  beforeEach(() => {
+    installFakeBroadcastChannel()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('mirrors the stored value, applies fallback on delete, and never writes back', async () => {
+    const real = createDexieStorage(instanceNamespace('inst-ro'))
+    const set = vi.fn(real.set)
+    const api = { ...real, set } as StorageApi
+    await real.set('led', [1, 2, 3])
+
+    const led = atom<number[]>([], 'test.led').extend(
+      withStorageKeyReadonly({ api, key: 'led', fallback: [] }),
+    )
+
+    await context.start(async () => {
+      const off = led.subscribe(() => {})
+      const seeded = wrap(() => expect(led()).toEqual([1, 2, 3]))
+      await vi.waitFor(() => seeded())
+      await real.delete('led')
+      const emptied = wrap(() => expect(led()).toEqual([]))
+      await vi.waitFor(() => emptied())
+      off()
+    })
+
+    expect(set).not.toHaveBeenCalled()
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm --filter client exec vitest run src/storage/model/reatom/reatom-storage.test.ts -t "withStorageKeyReadonly"`
+Expected: FAIL — `withStorageKeyReadonly` is not exported.
+
+- [ ] **Step 3: Implement the extender**
+
+In `client/src/storage/model/reatom/reatom-storage.ts`, after `withStorageKey`, add:
+
+```ts
+export type WithStorageKeyReadonlyOptions<T> = {
+  api: StorageApi
+  key: string
+  schema?: z.ZodType<T>
+  /** Applied when the key is absent/deleted (StorageChange.value === null). */
+  fallback: T
+}
+
+/**
+ * Read-only reactive mirror of a single key over StorageApi.subscribe. Unlike
+ * withStorageKey there is NO write-back: the atom never PUTs itself. Use for
+ * append-only / server-owned values written via api.append (server-stamped
+ * id/ts/ip), never api.set.
+ */
+export const withStorageKeyReadonly =
+  <Target extends Atom>({
+    api,
+    key,
+    schema,
+    fallback,
+  }: WithStorageKeyReadonlyOptions<AtomState<Target>>): Ext<Target, Record<string, never>> =>
+  (target) => {
+    target.extend(
+      withConnectHook(() =>
+        api.subscribe<AtomState<Target>>(
+          key,
+          wrap((event) => {
+            if (event instanceof Error) return
+            target.set(event.value ?? fallback)
+          }),
+          schema,
+        ),
+      ),
+    )
+    return {}
+  }
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `pnpm --filter client exec vitest run src/storage/model/reatom/reatom-storage.test.ts -t "withStorageKeyReadonly"`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add client/src/storage/model/reatom/reatom-storage.ts client/src/storage/model/reatom/reatom-storage.test.ts
+git commit -m "feat(storage): withStorageKeyReadonly extender for append-only keys
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 4: Convert model + view-model + wiring to the ledger
 
 The central conversion. `numberOfDebts` becomes a `computed`; the `debts` stored atom and the per-week `historyEvents` subscription are removed; the four actions each do one `append` to `LEDGER_KEY`; `undo` works on any closed day; `view-model.ts` reads `dayResolution`; `OfeliaPoopDuty.tsx` passes the target date to `undo`. Model, view-model, wiring, and both test files change together because the model's exported surface (`historyEvents` → `dayResolution`, removal of `getDayStatus`) is consumed by the view-model — they form one reviewer gate.
 
@@ -324,7 +440,7 @@ The central conversion. `numberOfDebts` becomes a `computed`; the `debts` stored
 - Test: `client/widgets/ofelia-poop-duty/ui/view-model.test.ts` (rewrite affected blocks)
 
 **Interfaces:**
-- Consumes: `foldDebt`, `resolveDays`, `LedgerEntry`, `LedgerEntriesSchema`, `LedgerEntryDraft`, `LEDGER_KEY`, `DayResolution` (Tasks 1–2); existing `getDebtDays`, `getOfeliaDutyByDate`, `otherPerson`, `DUTY_ROTATION`, `weekStartISO`, `IP_TAIL_LENGTH`.
+- Consumes: `foldDebt`, `resolveDays`, `LedgerEntry`, `LedgerEntriesSchema`, `LedgerEntryDraft`, `LEDGER_KEY`, `DayResolution` (Tasks 1–2); `withStorageKeyReadonly` from `@/storage/model/reatom/reatom-storage` (Task 3); existing `getDebtDays`, `getOfeliaDutyByDate`, `otherPerson`, `DUTY_ROTATION`, `weekStartISO`, `IP_TAIL_LENGTH`.
 - Produces (model return shape changes):
   - adds `dayResolution: Computed<Map<string, DayResolution>>` (the `ledger` atom stays internal — the computeds connect it)
   - `numberOfDebts: Computed<NumberOfDebts>` (was a stored atom)
@@ -359,16 +475,12 @@ export type HistoryEntryView = {
 
 ```ts
 const ledger = atom<LedgerEntry[]>([], 'ofeliaDuty.ledger').extend(
-  withConnectHook(() =>
-    storage.shared.server.subscribe<LedgerEntry[]>(
-      LEDGER_KEY,
-      (event) => {
-        if (event instanceof Error) return
-        ledger.set(event.value ?? [])
-      },
-      LedgerEntriesSchema,
-    ),
-  ),
+  withStorageKeyReadonly({
+    api: storage.shared.server,
+    key: LEDGER_KEY,
+    schema: LedgerEntriesSchema,
+    fallback: [],
+  }),
 )
 
 const numberOfDebts = computed(() => foldDebt(ledger()), 'ofeliaDuty.numberOfDebts')
@@ -417,7 +529,7 @@ const debtDays = computed(() => {
 }, 'ofeliaDuty.debtDays')
 ```
 
-6. Remove `getDayStatus` (the exported function ~lines 440–458) and `historyKey` (~lines 411–413) — both are now unused. Remove the now-unused imports `effect`, `withChangeHook` is still used by `currentUser` (keep it), `withStorageKey` (remove), and `wrap` (keep). Update the model `return { … }` object: remove `historyEvents`, add `dayResolution`, keep `historyView`, `numberOfDebts`, `undoAvailable`.
+6. Remove `getDayStatus` (the exported function ~lines 440–458) and `historyKey` (~lines 411–413) — both are now unused. Imports: add `withStorageKeyReadonly` from `@/storage/model/reatom/reatom-storage`; remove `withStorageKey` and `effect`; keep `withConnectHook` (still used by `currentUser`, and by the cleanup hook in Task 7), `withChangeHook` (`currentUser`), and `wrap`. Update the model `return { … }` object: remove `historyEvents`, add `dayResolution`, keep `historyView`, `numberOfDebts`, `undoAvailable`.
 
 - [ ] **Step 2: Rewrite the four actions to a single append**
 
@@ -856,7 +968,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Week strip shows who actually cleaned
+### Task 5: Week strip shows who actually cleaned
 
 Additive: each day in `currentWeek` carries the resolved actor for closed days, and both the strip (`toWeekDays`) and the selected-day person prefer it. This surfaces "кто по итогу убрался" — e.g. a repaid debt day keeps showing the debtor who cleaned it, instead of reverting to the scheduled person once the debt is gone.
 
@@ -866,7 +978,7 @@ Additive: each day in `currentWeek` carries the resolved actor for closed days, 
 - Test: `client/widgets/ofelia-poop-duty/ui/view-model.test.ts` (extend)
 
 **Interfaces:**
-- Consumes: `dayResolution` (Task 3).
+- Consumes: `dayResolution` (Task 4).
 - Produces: `DutyDay` gains `resolvedActor: Person | null`; `toWeekDays`/`resolveSelected` person precedence becomes `resolvedActor ?? debt ?? duty`.
 
 - [ ] **Step 1: Write the failing test**
@@ -979,7 +1091,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: History list badge for `reset`
+### Task 6: History list badge for `reset`
 
 The history list now renders ledger entries, which include `reset` (re-open) rows. Add a readable badge so an undo shows up clearly in the audit list.
 
@@ -988,7 +1100,7 @@ The history list now renders ledger entries, which include `reset` (re-open) row
 - Test: `client/widgets/ofelia-poop-duty/ui/parts/HistoryList.test.tsx` (extend)
 
 **Interfaces:**
-- Consumes: `HistoryEntryView.type` now includes `'reset'` (Task 3).
+- Consumes: `HistoryEntryView.type` now includes `'reset'` (Task 4).
 - Produces: `badgeLabel` returns `{ text: 'переоткрыто', tone: 'forgive' }` for `reset`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1005,7 +1117,7 @@ Append to `HistoryList.test.tsx`:
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter client exec vitest run widgets/ofelia-poop-duty/ui/parts/HistoryList.test.tsx`
-Expected: FAIL — no `переоткрыто` text (and TS: `'reset'` must be assignable to `HistoryEntryView['type']`, which it is after Task 3).
+Expected: FAIL — no `переоткрыто` text (and TS: `'reset'` must be assignable to `HistoryEntryView['type']`, which it is after Task 4).
 
 - [ ] **Step 3: Add the badge branch**
 
@@ -1031,12 +1143,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-### Task 6: Best-effort cleanup of legacy keys
+### Task 7: Best-effort cleanup of legacy keys
 
-One-shot, idempotent, fire-and-forget cleanup of the retired `debts` and `history:*` keys on model connect. Correctness does not depend on it (nothing reads those keys after Task 3); it only keeps the store tidy. errore-as-value: ignore failures.
+One-shot, idempotent, fire-and-forget cleanup of the retired `debts` and `history:*` keys on model connect. Correctness does not depend on it (nothing reads those keys after Task 4); it only keeps the store tidy. errore-as-value: ignore failures.
 
 **Files:**
-- Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts` (extend the `ledger` atom's connect hook)
+- Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts` (add a second connect hook to the `ledger` atom)
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts` (extend)
 
 **Interfaces:**
@@ -1072,30 +1184,27 @@ describe('legacy key cleanup', () => {
 Run: `pnpm --filter client exec vitest run widgets/ofelia-poop-duty/model/ofelia-duty.test.ts -t "legacy key cleanup"`
 Expected: FAIL — `delete` is never called.
 
-- [ ] **Step 3: Add the cleanup to the connect hook**
+- [ ] **Step 3: Add a second connect hook for cleanup**
 
-In `ofelia-duty.ts`, extend the `ledger` atom's `withConnectHook` to also kick off cleanup once:
+In `ofelia-duty.ts`, chain a second `withConnectHook` onto the `ledger` atom, after the `withStorageKeyReadonly` from Task 4. Reatom composes connect hooks — both fire when the atom connects; the cleanup hook returns `void` (no disposer):
 
 ```ts
 const ledger = atom<LedgerEntry[]>([], 'ofeliaDuty.ledger').extend(
+  withStorageKeyReadonly({
+    api: storage.shared.server,
+    key: LEDGER_KEY,
+    schema: LedgerEntriesSchema,
+    fallback: [],
+  }),
+  // One-shot, best-effort cleanup of retired keys (composes with the helper's
+  // subscription hook above; correctness never depends on it).
   withConnectHook(() => {
-    const off = storage.shared.server.subscribe<LedgerEntry[]>(
-      LEDGER_KEY,
-      (event) => {
-        if (event instanceof Error) return
-        ledger.set(event.value ?? [])
-      },
-      LedgerEntriesSchema,
-    )
-
     void wrap(async () => {
       await storage.shared.server.delete('debts')
       const keys = await storage.shared.server.keys('history:')
       if (keys instanceof Error) return
       for (const key of keys) await storage.shared.server.delete(key)
     })()
-
-    return off
   }),
 )
 ```
@@ -1116,7 +1225,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-### Task 7: Update the e2e spec to seed the ledger
+### Task 8: Update the e2e spec to seed the ledger
 
 The "Простить" e2e seeds debt by PUT-ing the old `debts` key. Debt is now derived, so seed a `ledger` entry instead — a `went_into_debt` on a **past** Леша-duty day (`2026-06-14`) so today (`2026-06-16`) stays pending and "Простить" renders.
 
@@ -1182,4 +1291,4 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - [ ] Typecheck: `pnpm typecheck` — clean.
 - [ ] Lint: `pnpm lint` — clean.
 - [ ] e2e: `pnpm --filter client exec playwright test e2e/ofelia-duty.spec.ts` — green.
-- [ ] Grep for stragglers: no remaining references to `getDayStatus`, `historyEvents`, `historyKey`, `HistoryEvent`, or the `'debts'` storage key under `client/widgets/ofelia-poop-duty/` (except the e2e cleanup/test-server fixtures and the legacy-cleanup code in Task 6).
+- [ ] Grep for stragglers: no remaining references to `getDayStatus`, `historyEvents`, `historyKey`, `HistoryEvent`, or the `'debts'` storage key under `client/widgets/ofelia-poop-duty/` (except the e2e cleanup/test-server fixtures and the legacy-cleanup code in Task 7).

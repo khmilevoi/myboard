@@ -151,15 +151,22 @@ This replaces `getDayStatus(events, date)`.
 - **Remove:** the `numberOfDebts` stored atom (`withStorageKey('debts')`), the
   per-week `historyEvents` subscription + `effect`, and every `numberOfDebts.set(...)`
   in the actions.
-- **Add:** a single global `ledger` atom subscribed via a connect-hook to the
-  `ledger` key (no week dependency — it is global, like `currentUser` but
-  server-backed and SSE-synced):
+- **Add:** a single global `ledger` atom (no week dependency — global, server-backed,
+  SSE-synced). The read-only "mirror an atom from a storage key over `subscribe`"
+  pattern (also used by `historyEvents`/`ofelia-comments` today) is extracted into a
+  reusable **`withStorageKeyReadonly`** extender beside `withStorageKey`. Unlike
+  `withStorageKey` it has **no write-back** — the atom never PUTs itself, which is
+  required for an append-only key written through `api.append` (server-stamped
+  `id`/`ts`/`ip`), never `api.set`:
 
   ```ts
   const ledger = atom<LedgerEntry[]>([], 'ofeliaDuty.ledger').extend(
-    withConnectHook(() => storage.shared.server.subscribe<LedgerEntry[]>(
-      LEDGER_KEY, onLedger, LedgerEntriesSchema,
-    )),
+    withStorageKeyReadonly({
+      api: storage.shared.server,
+      key: LEDGER_KEY,
+      schema: LedgerEntriesSchema,
+      fallback: [],
+    }),
   )
   ```
 
@@ -262,9 +269,10 @@ Regression guardrail: existing `view-model.test.ts` expectations for `toBalance`
 
 ## 12. Deliverables checklist
 
-- [ ] `LedgerEntry` schema + `STATUS_KEY` in `model/ofelia-duty.ts`.
+- [ ] `LedgerEntry` schema + `LEDGER_KEY` in `model/ofelia-duty.ts`.
 - [ ] Pure `foldDebt` and `resolveDays` helpers + unit tests.
-- [ ] `ledger` global subscription atom; `numberOfDebts`/`dayResolution`/`historyView`
+- [ ] `withStorageKeyReadonly` read-only extender in `storage/model/reatom/reatom-storage.ts` + test.
+- [ ] `ledger` global atom via `withStorageKeyReadonly`; `numberOfDebts`/`dayResolution`/`historyView`
       as derivations; remove `debts` atom and per-week `historyEvents` subscription.
 - [ ] Four actions rewritten to a single append; no `numberOfDebts.set`.
 - [ ] `undo` generalised to any day; `view-model.ts` `status`/`canUndo` from
