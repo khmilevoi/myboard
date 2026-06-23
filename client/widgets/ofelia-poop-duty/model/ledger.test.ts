@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { foldDebt } from './ofelia-duty'
+import { foldDebt, resolveDays } from './ofelia-duty'
 import type { LedgerEntry } from './ofelia-duty'
 
 let seq = 0
@@ -74,5 +74,43 @@ describe('foldDebt', () => {
     ]
     // each owes one → nets to zero
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+  })
+})
+
+describe('resolveDays', () => {
+  it('marks a cleaned day closed with its actor', () => {
+    const map = resolveDays([le({ date: '2026-06-16', type: 'cleaned', actor: 'Леша' })])
+    expect(map.get('2026-06-16')).toMatchObject({ status: 'closed', type: 'cleaned', actor: 'Леша' })
+  })
+
+  it('marks a went_into_debt day closed and carries onBehalfOf', () => {
+    const map = resolveDays([
+      le({ date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')).toMatchObject({ status: 'closed', onBehalfOf: 'Леша' })
+  })
+
+  it('re-opens a day when the latest outcome is reset', () => {
+    const map = resolveDays([
+      le({ ts: 1, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      le({ ts: 2, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')?.status).toBe('pending')
+  })
+
+  it('takes the latest by ts and keeps dates independent', () => {
+    const map = resolveDays([
+      le({ ts: 2, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({ ts: 1, date: '2026-06-17', type: 'cleaned', actor: 'Карина' }),
+    ])
+    expect(map.get('2026-06-16')?.type).toBe('cleaned')
+    expect(map.get('2026-06-17')?.actor).toBe('Карина')
+    expect(map.size).toBe(2)
+  })
+
+  it('ignores forgiven entries (not a day outcome)', () => {
+    const map = resolveDays([le({ date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' })])
+    expect(map.has('2026-06-16')).toBe(false)
   })
 })

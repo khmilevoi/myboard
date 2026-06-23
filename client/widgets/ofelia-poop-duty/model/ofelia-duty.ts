@@ -126,6 +126,26 @@ export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
   return normalizeDebts(debt)
 }
 
+export type DayResolution = {
+  status: 'closed' | 'pending'
+  type: LedgerType
+  actor: Person
+  onBehalfOf?: Person
+}
+
+export function resolveDays(entries: LedgerEntry[]): Map<string, DayResolution> {
+  const out = new Map<string, DayResolution>()
+  for (const [date, entry] of latestOutcomesByDate(entries)) {
+    out.set(date, {
+      status: entry.type === 'reset' ? 'pending' : 'closed',
+      type: entry.type,
+      actor: entry.actor,
+      ...(entry.onBehalfOf ? { onBehalfOf: entry.onBehalfOf } : {}),
+    })
+  }
+  return out
+}
+
 function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
   return date.subtract({
     days: date.dayOfWeek - 1,
