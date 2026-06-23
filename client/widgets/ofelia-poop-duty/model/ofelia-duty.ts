@@ -74,6 +74,58 @@ export type HistoryEvent = z.infer<typeof HistoryEventSchema>
 const HistoryEventsSchema = z.array(HistoryEventSchema)
 type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>
 
+export const LEDGER_KEY = 'ledger'
+
+const LedgerTypeSchema = z.enum(['cleaned', 'went_into_debt', 'reset', 'forgiven'])
+export type LedgerType = z.infer<typeof LedgerTypeSchema>
+
+const LedgerEntrySchema = z.object({
+  id: z.string(),
+  ts: z.number(),
+  ip: z.string(),
+  date: z.string(),
+  type: LedgerTypeSchema,
+  actor: PersonSchema,
+  onBehalfOf: PersonSchema.optional(),
+  by: PersonSchema,
+})
+
+export type LedgerEntry = z.infer<typeof LedgerEntrySchema>
+export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts' | 'ip'>
+export const LedgerEntriesSchema = z.array(LedgerEntrySchema)
+
+const DAY_OUTCOME_TYPES: ReadonlySet<LedgerType> = new Set(['cleaned', 'went_into_debt', 'reset'])
+
+export function latestOutcomesByDate(entries: LedgerEntry[]): Map<string, LedgerEntry> {
+  const latest = new Map<string, LedgerEntry>()
+  for (const entry of entries) {
+    if (!DAY_OUTCOME_TYPES.has(entry.type)) continue
+    const prev = latest.get(entry.date)
+    if (!prev || entry.ts > prev.ts) latest.set(entry.date, entry)
+  }
+  return latest
+}
+
+export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
+  const debt: Partial<NumberOfDebts> = {}
+
+  for (const entry of latestOutcomesByDate(entries).values()) {
+    if (entry.type === 'went_into_debt' && entry.onBehalfOf) {
+      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) + 1
+    } else if (entry.type === 'cleaned' && entry.onBehalfOf) {
+      debt[entry.actor] = (debt[entry.actor] ?? 0) - 1
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.type === 'forgiven' && entry.onBehalfOf) {
+      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) - 1
+    }
+  }
+
+  return normalizeDebts(debt)
+}
+
 function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
   return date.subtract({
     days: date.dayOfWeek - 1,
