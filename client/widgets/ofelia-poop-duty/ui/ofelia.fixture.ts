@@ -86,6 +86,7 @@ const DEFAULT_SELECTED: SelectedDayView = {
   status: 'pending',
   canUndo: false,
   debtRemaining: 2,
+  isFuture: false,
 }
 
 const DEFAULT_BALANCE: DebtBalanceEntry[] = [

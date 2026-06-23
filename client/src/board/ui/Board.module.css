@@ -28,9 +28,13 @@
   background: var(--card);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+  cursor: grab;
   transition:
     box-shadow 0.2s var(--ease),
     border-color 0.2s var(--ease);
+}
+.card:active {
+  cursor: grabbing;
 }
 
 .gridItem:global(.react-draggable-dragging) .card,
@@ -39,69 +43,6 @@
   box-shadow:
     0 0 0 3px var(--accent-soft),
     var(--shadow-card);
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-}
-
-.handle {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: grab;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  user-select: none;
-}
-.handle:active {
-  cursor: grabbing;
-}
-.grip {
-  opacity: 0.6;
-}
-
-.headerActions {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s var(--ease);
-}
-.card:hover .headerActions,
-.card:focus-within .headerActions {
-  opacity: 1;
-}
-
-.iconButton {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--secondary);
-  color: var(--text-3);
-  cursor: pointer;
-  transition:
-    color 0.15s var(--ease),
-    background 0.15s var(--ease);
-}
-.iconButton:hover {
-  color: var(--foreground);
-  background: var(--muted);
-}
-.iconButton:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
 }
 
 .gridItem :global(.react-resizable-handle-se) {

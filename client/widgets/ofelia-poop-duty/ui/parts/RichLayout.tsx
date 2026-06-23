@@ -1,4 +1,4 @@
-import { Cat, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Cat, ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
@@ -14,6 +14,8 @@ import { WeekStrip } from './WeekStrip'
 import styles from './RichLayout.module.css'
 
 export type RichLayoutProps = {
+  onExpand?: () => void
+  onDelete?: () => void
   onClose?: () => void
 }
 
@@ -29,7 +31,7 @@ const CommentsColumn = reatomMemo(() => {
   return <CommentThread comments={comments()} onSend={onSend} />
 }, 'CommentsColumn')
 
-export const RichLayout = reatomMemo<RichLayoutProps>(({ onClose }) => {
+export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onClose }) => {
   const { view, currentUser, actions, nav } = useOfelia()
   const selected = view.selected()
   if (!selected) return null
@@ -57,6 +59,21 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onClose }) => {
         </div>
         <div className={styles.headerActions}>
           <UserToggle value={currentUser()} onChange={actions.onSetUser} />
+          {onExpand ? (
+            <button
+              type="button"
+              className={styles.close}
+              aria-label="Развернуть"
+              onClick={onExpand}
+            >
+              <Maximize2 size={17} aria-hidden />
+            </button>
+          ) : null}
+          {onDelete ? (
+            <button type="button" className={styles.close} aria-label="Удалить" onClick={onDelete}>
+              <X size={17} aria-hidden />
+            </button>
+          ) : null}
           {onClose ? (
             <button type="button" className={styles.close} aria-label="Закрыть" onClick={onClose}>
               <X size={17} aria-hidden />
@@ -76,16 +93,18 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onClose }) => {
             <span className={styles.statusChip}>{selectedDaySubtitle(selected, balance)}</span>
           </div>
 
-          <ActionButtons
-            status={selected.status}
-            canUndo={selected.canUndo}
-            canForgive={canForgive}
-            alwaysSecondary
-            onConfirm={actions.onConfirm}
-            onUndo={actions.onUndo}
-            onDebt={actions.onDebt}
-            onForgive={actions.onForgive}
-          />
+          {selected.isFuture ? null : (
+            <ActionButtons
+              status={selected.status}
+              canUndo={selected.canUndo}
+              canForgive={canForgive}
+              alwaysSecondary
+              onConfirm={actions.onConfirm}
+              onUndo={actions.onUndo}
+              onDebt={actions.onDebt}
+              onForgive={actions.onForgive}
+            />
+          )}
 
           <p className={styles.hint}>
             Не успеваешь — сегодня уберёт другой, а тебе запишется +1 день.

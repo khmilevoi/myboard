@@ -2,6 +2,7 @@ import { Cat } from 'lucide-react'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { useAtomValue } from '@/shared/reatom/use-atom-value'
+import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
@@ -12,7 +13,12 @@ import { UserToggle } from '../parts/UserToggle'
 
 import styles from './StandardTier.module.css'
 
-export const StandardTier = reatomMemo(() => {
+export type StandardTierProps = {
+  onExpand?: () => void
+  onDelete?: () => void
+}
+
+export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete }) => {
   const { view, currentUser, actions } = useOfelia()
   // Day status and debt balance load asynchronously on mount (history + debts).
   // Read them race-free (useSyncExternalStore) so a warm server's response that
@@ -26,6 +32,7 @@ export const StandardTier = reatomMemo(() => {
 
   return (
     <div className={styles.root}>
+      <WidgetControls onExpand={onExpand} onDelete={onDelete} />
       <div className={styles.title}>
         <Cat size={16} aria-hidden />
         Лоток Офелии
@@ -53,15 +60,17 @@ export const StandardTier = reatomMemo(() => {
 
       <div className={styles.footer}>
         <UserToggle value={user} onChange={actions.onSetUser} />
-        <ActionButtons
-          status={selected.status}
-          canUndo={selected.canUndo}
-          canForgive={canForgive}
-          onConfirm={actions.onConfirm}
-          onUndo={actions.onUndo}
-          onDebt={actions.onDebt}
-          onForgive={actions.onForgive}
-        />
+        {selected.isFuture ? null : (
+          <ActionButtons
+            status={selected.status}
+            canUndo={selected.canUndo}
+            canForgive={canForgive}
+            onConfirm={actions.onConfirm}
+            onUndo={actions.onUndo}
+            onDebt={actions.onDebt}
+            onForgive={actions.onForgive}
+          />
+        )}
       </div>
     </div>
   )

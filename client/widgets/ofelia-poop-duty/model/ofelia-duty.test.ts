@@ -123,6 +123,15 @@ describe('ofeliaDutyModel server time', () => {
     expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
   })
 
+  it('exposes today so the view model can gate future-day controls', () => {
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+    })
+
+    expect(model.today()?.toString()).toBe('2026-06-16')
+  })
+
   it('navigates weeks via the override and resets to the current week', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),

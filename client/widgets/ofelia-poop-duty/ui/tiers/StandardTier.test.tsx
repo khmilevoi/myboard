@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { ofeliaContext } from '../ofelia-context'
 import type { OfeliaContextValue } from '../ofelia-context'
@@ -29,6 +29,7 @@ describe('StandardTier', () => {
         status: 'closed',
         canUndo: true,
         debtRemaining: 1,
+        isFuture: false,
       },
     })
     withOfelia(makeOfeliaValue({ view }), <StandardTier />)
@@ -47,6 +48,7 @@ describe('StandardTier', () => {
         status: 'pending',
         canUndo: false,
         debtRemaining: 0,
+        isFuture: false,
       },
       balance: [
         { person: 'Леша', debt: 0, over: false },
@@ -58,5 +60,35 @@ describe('StandardTier', () => {
     expect(screen.getByText('по очереди · долгов нет')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Простить' })).not.toBeInTheDocument()
+  })
+
+  it('state D — a future day hides the action controls', () => {
+    const view = makeOfeliaView({
+      selected: {
+        iso: '2026-06-18',
+        person: 'Леша',
+        isDebtDay: false,
+        status: 'pending',
+        canUndo: false,
+        debtRemaining: 0,
+        isFuture: true,
+      },
+    })
+    withOfelia(makeOfeliaValue({ view }), <StandardTier />)
+
+    expect(screen.queryByRole('button', { name: 'Какашки убраны' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'В долг' })).not.toBeInTheDocument()
+  })
+
+  it('draws its expand/delete controls when wired', () => {
+    const onExpand = vi.fn()
+    const onDelete = vi.fn()
+    withOfelia(makeOfeliaValue(), <StandardTier onExpand={onExpand} onDelete={onDelete} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
+    expect(onExpand).toHaveBeenCalledOnce()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(onDelete).toHaveBeenCalledOnce()
   })
 })

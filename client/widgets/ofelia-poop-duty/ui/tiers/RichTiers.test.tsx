@@ -18,6 +18,18 @@ describe('LargeTier', () => {
     expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Закрыть' })).not.toBeInTheDocument()
   })
+
+  it('forwards onExpand/onDelete to the rich layout header', () => {
+    const onExpand = vi.fn()
+    const onDelete = vi.fn()
+    withOfelia(<LargeTier onExpand={onExpand} onDelete={onDelete} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
+    expect(onExpand).toHaveBeenCalledOnce()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(onDelete).toHaveBeenCalledOnce()
+  })
 })
 
 describe('FullscreenTier', () => {

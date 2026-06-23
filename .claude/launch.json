@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "docker:dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "docker:dev"],
+      "port": 5173
+    }
+  ]
+}

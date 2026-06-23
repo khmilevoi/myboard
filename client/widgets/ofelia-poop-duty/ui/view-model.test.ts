@@ -33,14 +33,14 @@ const ev = (overrides: Partial<HistoryEvent> = {}): HistoryEvent => ({
 
 describe('resolveSelected (§3.1.1 ladder + status)', () => {
   it('defaults to today when no day is selected (current week)', () => {
-    const selected = resolveSelected(week(), null, [], {})
+    const selected = resolveSelected(week(), null, [], {}, D('2026-06-16'))
     expect(selected?.iso).toBe('2026-06-16')
     expect(selected?.person).toBe('Карина')
     expect(selected?.isDebtDay).toBe(false)
   })
 
   it('uses the explicit selection when it is in the viewed week (debt assignee wins)', () => {
-    const selected = resolveSelected(week(), D('2026-06-17'), [], { Карина: 1 })
+    const selected = resolveSelected(week(), D('2026-06-17'), [], { Карина: 1 }, D('2026-06-16'))
     expect(selected?.iso).toBe('2026-06-17')
     expect(selected?.person).toBe('Карина')
     expect(selected?.isDebtDay).toBe(true)
@@ -49,11 +49,11 @@ describe('resolveSelected (§3.1.1 ladder + status)', () => {
 
   it('falls back to the first day of the week when selection is off-week and today is absent', () => {
     const offWeek = week().map((d) => ({ ...d, isToday: false }))
-    expect(resolveSelected(offWeek, D('2026-07-01'), [], {})?.iso).toBe('2026-06-15')
+    expect(resolveSelected(offWeek, D('2026-07-01'), [], {}, null)?.iso).toBe('2026-06-15')
   })
 
   it('marks the day closed and undoable when today has a cleaned event', () => {
-    const selected = resolveSelected(week(), null, [ev({ date: '2026-06-16' })], {})
+    const selected = resolveSelected(week(), null, [ev({ date: '2026-06-16' })], {}, D('2026-06-16'))
     expect(selected?.status).toBe('closed')
     expect(selected?.canUndo).toBe(true)
   })
@@ -64,13 +64,31 @@ describe('resolveSelected (§3.1.1 ladder + status)', () => {
       D('2026-06-17'),
       [ev({ date: '2026-06-17', type: 'went_into_debt' })],
       {},
+      D('2026-06-16'),
     )
     expect(selected?.status).toBe('closed')
     expect(selected?.canUndo).toBe(false)
   })
 
   it('returns null for an empty week', () => {
-    expect(resolveSelected([], null, [], {})).toBeNull()
+    expect(resolveSelected([], null, [], {}, null)).toBeNull()
+  })
+
+  it('flags a selected day after today as future', () => {
+    const selected = resolveSelected(week(), D('2026-06-18'), [], {}, D('2026-06-16'))
+    expect(selected?.isFuture).toBe(true)
+  })
+
+  it('does not flag today or past days as future', () => {
+    const today = resolveSelected(week(), D('2026-06-16'), [], {}, D('2026-06-16'))
+    const past = resolveSelected(week(), D('2026-06-15'), [], {}, D('2026-06-16'))
+    expect(today?.isFuture).toBe(false)
+    expect(past?.isFuture).toBe(false)
+  })
+
+  it('treats every day as non-future when today is unknown', () => {
+    const selected = resolveSelected(week(), D('2026-06-21'), [], {}, null)
+    expect(selected?.isFuture).toBe(false)
   })
 })
 
@@ -103,6 +121,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
         { Карина: 1 },
         'test.numberOfDebts',
       ),
+      today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
     }
     const view = makeOfeliaViewModel(duty)
 

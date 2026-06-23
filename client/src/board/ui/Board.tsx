@@ -1,12 +1,9 @@
 import { wrap } from '@reatom/core'
-import { GripVertical, Maximize2, X } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
-import { DEFAULT_TIERS, resolveTier } from '@/widget-host/model/tier'
 import { WidgetFrame } from '@/widget-host/ui/WidgetFrame'
-import { findWidgetType } from '@/widget-registry/model/registry'
 
 import {
   beginBoardInteraction,
@@ -59,52 +56,24 @@ export const Board = reatomMemo(() => {
           onResizeStop={wrap(() => endBoardInteraction())}
           onLayoutChange={wrap((next) => updateLayout([...next]))}
         >
-          {currentInstances.map((instance, index) => {
-            const type = findWidgetType(instance.typeId)
-            const title = type instanceof Error ? instance.typeId : type.title
-            const layoutItem = currentLayout.find((item) => item.i === instance.id)
-            const size = layoutItem ? { w: layoutItem.w, h: layoutItem.h } : { w: 0, h: 0 }
-            const tiers = type instanceof Error ? DEFAULT_TIERS : (type.tiers ?? DEFAULT_TIERS)
-            const tier = resolveTier(size, tiers)
-            return (
-              <div key={instance.id} data-testid="widget-card" className={styles.gridItem}>
-                <div className={styles.card} style={{ '--i': index } as CSSProperties}>
-                  <div className={styles.header}>
-                    <span className={`${styles.handle} widget-drag-handle`}>
-                      <GripVertical className={styles.grip} size={14} aria-hidden />
-                      {title}
-                    </span>
-                    <div className={styles.headerActions}>
-                      <button
-                        className={styles.iconButton}
-                        aria-label="Развернуть"
-                        onClick={wrap(() => expandedInstanceId.set(instance.id))}
-                      >
-                        <Maximize2 size={15} aria-hidden />
-                      </button>
-                      <button
-                        className={styles.iconButton}
-                        aria-label="Удалить"
-                        onClick={wrap(() => removeInstance(instance.id))}
-                      >
-                        <X size={15} aria-hidden />
-                      </button>
-                    </div>
-                  </div>
-                  <div className={styles.body}>
-                    <WidgetFrame
-                      instanceId={instance.id}
-                      typeId={instance.typeId}
-                      mode="small"
-                      tier={tier}
-                      onRequestFullscreen={wrap(() => expandedInstanceId.set(instance.id))}
-                      onDelete={wrap(() => removeInstance(instance.id))}
-                    />
-                  </div>
+          {currentInstances.map((instance, index) => (
+            <div key={instance.id} data-testid="widget-card" className={styles.gridItem}>
+              <div
+                className={`${styles.card} widget-drag-handle`}
+                style={{ '--i': index } as CSSProperties}
+              >
+                <div className={styles.body}>
+                  <WidgetFrame
+                    instanceId={instance.id}
+                    typeId={instance.typeId}
+                    mode="small"
+                    onRequestFullscreen={wrap(() => expandedInstanceId.set(instance.id))}
+                    onDelete={wrap(() => removeInstance(instance.id))}
+                  />
                 </div>
               </div>
-            )
-          })}
+            </div>
+          ))}
         </ReactGridLayout>
       </div>
     </div>

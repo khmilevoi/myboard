@@ -1,4 +1,5 @@
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 
 import { useOfelia } from '../ofelia-context'
 import { ActionButtons } from '../parts/ActionButtons'
@@ -8,7 +9,12 @@ import { UserToggle } from '../parts/UserToggle'
 
 import styles from './CompactTier.module.css'
 
-export const CompactTier = reatomMemo(() => {
+export type CompactTierProps = {
+  onExpand?: () => void
+  onDelete?: () => void
+}
+
+export const CompactTier = reatomMemo<CompactTierProps>(({ onExpand, onDelete }) => {
   const { view, currentUser, actions } = useOfelia()
   const selected = view.selected()
   if (!selected) return null
@@ -19,18 +25,21 @@ export const CompactTier = reatomMemo(() => {
 
   return (
     <div className={styles.root}>
+      <WidgetControls onExpand={onExpand} onDelete={onDelete} />
       <div className={styles.top}>
         <span className={styles.label}>Сегодня убирает</span>
-        <ActionButtons
-          compact
-          status={selected.status}
-          canUndo={selected.canUndo}
-          canForgive={canForgive}
-          onConfirm={actions.onConfirm}
-          onUndo={actions.onUndo}
-          onDebt={actions.onDebt}
-          onForgive={actions.onForgive}
-        />
+        {selected.isFuture ? null : (
+          <ActionButtons
+            compact
+            status={selected.status}
+            canUndo={selected.canUndo}
+            canForgive={canForgive}
+            onConfirm={actions.onConfirm}
+            onUndo={actions.onUndo}
+            onDebt={actions.onDebt}
+            onForgive={actions.onForgive}
+          />
+        )}
       </div>
 
       <div className={styles.who}>

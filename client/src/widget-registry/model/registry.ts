@@ -45,6 +45,12 @@ export const widgetTypes: WidgetType[] = [
       })),
     defaultSize: { w: 3, h: 5 },
     icon: 'Cat',
+    tiers: {
+      tiny: { minWidthPx: 0, minHeightPx: 0 },
+      compact: { minWidthPx: 440, minHeightPx: 200 },
+      standard: { minWidthPx: 640, minHeightPx: 320 },
+      large: { minWidthPx: 960, minHeightPx: 0 },
+    },
   },
 ]
 

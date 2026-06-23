@@ -5,12 +5,13 @@ import { lazy, Suspense, useMemo } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { createWidgetStorage } from '@/storage/model/widget-storage'
 import { resolvedTheme } from '@/theme/model/theme-model'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
-import type { WidgetTier } from '../model/tier'
+import { DEFAULT_TIERS, resolveTier, type WidgetTier } from '../model/tier'
 import type { WidgetMode } from '../model/types'
 import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
@@ -22,21 +23,26 @@ export type WidgetFrameProps = {
   instanceId: string
   typeId: string
   mode: WidgetMode
-  tier: WidgetTier
+  /** Forces a tier (e.g. the fullscreen overlay). Omit to measure the rendered frame size instead. */
+  tier?: WidgetTier
   onRequestFullscreen?: () => void
   onRequestClose?: () => void
   onDelete?: () => void
 }
 
 export const WidgetFrame = reatomMemo<WidgetFrameProps>(
-  ({ instanceId, typeId, mode, tier, ...callbacks }) => {
+  ({ instanceId, typeId, mode, tier: tierOverride, ...callbacks }) => {
     const type = findWidgetType(typeId)
     const theme = resolvedTheme()
     const reloadKey = getWidgetReloadKey(instanceId)
+    const { width, height, ref } = useElementSize()
 
     const onDelete = useEvent(callbacks.onDelete ?? (() => null))
     const onRequestFullscreen = useEvent(callbacks.onRequestFullscreen ?? (() => null))
     const onRequestClose = useEvent(callbacks.onRequestClose ?? (() => null))
+
+    const tiers = type instanceof Error ? DEFAULT_TIERS : (type.tiers ?? DEFAULT_TIERS)
+    const tier = tierOverride ?? resolveTier({ width, height }, tiers)
 
     const LazyWidget = useMemo(() => {
       if (type instanceof Error) return null
@@ -56,10 +62,11 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         theme,
         requestFullscreen: onRequestFullscreen,
         requestClose: onRequestClose,
+        requestDelete: onDelete,
         reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
         storage: createWidgetStorage({ instanceId, typeId }),
       }
-    }, [instanceId, typeId, mode, tier, theme, onRequestFullscreen, onRequestClose])
+    }, [instanceId, typeId, mode, tier, theme, onRequestFullscreen, onRequestClose, onDelete])
 
     if (type instanceof Error) {
       return (
@@ -86,7 +93,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
     }
 
     return (
-      <div className={styles.frame} data-widget-surface>
+      <div className={styles.frame} data-widget-surface ref={ref}>
         <widgetFrameContext.Provider value={context}>
           <WidgetErrorBoundary
             resetKey={reloadKey}
@@ -106,6 +113,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
                   theme={theme}
                   requestFullscreen={context.requestFullscreen}
                   requestClose={context.requestClose}
+                  requestDelete={context.requestDelete}
                   reportError={context.reportError}
                   storage={context.storage}
                 />

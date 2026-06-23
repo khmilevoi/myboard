@@ -32,6 +32,7 @@ export type SelectedDayView = {
   status: 'closed' | 'pending'
   canUndo: boolean
   debtRemaining: number
+  isFuture: boolean
 }
 
 export type DebtBalanceEntry = {
@@ -64,6 +65,7 @@ export function resolveSelected(
   selectedDate: Temporal.PlainDate | null,
   events: HistoryEvent[],
   debts: Partial<Record<Person, number>>,
+  today: Temporal.PlainDate | null,
 ): SelectedDayView | null {
   if (week.length === 0) return null
 
@@ -80,6 +82,7 @@ export function resolveSelected(
     status,
     canUndo: entry.isToday && status === 'closed',
     debtRemaining: debts[person] ?? 0,
+    isFuture: today != null && Temporal.PlainDate.compare(entry.date, today) > 0,
   }
 }
 
@@ -122,6 +125,7 @@ export type OfeliaDutySources = {
   selectedDate: AtomLike<Temporal.PlainDate | null>
   historyEvents: AtomLike<HistoryEvent[]>
   numberOfDebts: AtomLike<Partial<Record<Person, number>> | null>
+  today: AtomLike<Temporal.PlainDate | null>
 }
 
 // `make` (not `create`) per the repo factory convention; named for its output
@@ -137,6 +141,7 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
       duty.selectedDate(),
       duty.historyEvents(),
       duty.numberOfDebts() ?? {},
+      duty.today(),
     )
   }, 'ofelia.selected')
 

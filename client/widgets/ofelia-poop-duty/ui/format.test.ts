@@ -40,6 +40,7 @@ describe('selectedDaySubtitle', () => {
     status: 'pending',
     canUndo: false,
     debtRemaining: 0,
+    isFuture: false,
     ...overrides,
   })
 

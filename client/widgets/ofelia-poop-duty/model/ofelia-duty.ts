@@ -327,6 +327,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   }, 'ofeliaDuty.undo').extend(withAsyncData({ status: true }))
 
   return {
+    today,
     startOfWeekOverride,
     viewWeekStart,
     goToNextWeek,

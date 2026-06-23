@@ -10,6 +10,7 @@ import { WidgetFrame } from './WidgetFrame'
 const holder = vi.hoisted(() => ({
   actual:
     null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
+  measuredSize: { width: 0, height: 0 },
 }))
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {
@@ -18,8 +19,13 @@ vi.mock('../../widget-registry/model/registry', async (importActual) => {
   return { ...actual, findWidgetType: vi.fn(actual.findWidgetType) }
 })
 
+vi.mock('@/shared/element-size/model/use-element-size', () => ({
+  useElementSize: () => ({ ...holder.measuredSize, ref: () => {} }),
+}))
+
 beforeEach(() => {
   vi.mocked(findWidgetType).mockImplementation(holder.actual)
+  holder.measuredSize = { width: 0, height: 0 }
 })
 
 describe('WidgetFrame', () => {
@@ -83,5 +89,39 @@ describe('WidgetFrame', () => {
     render(<WidgetFrame instanceId="probe-1" typeId="probe" mode="large" tier="fullscreen" />)
 
     expect(await screen.findByText('tier:fullscreen')).toBeInTheDocument()
+  })
+
+  it('resolves the tier from its measured size when no tier override is given', async () => {
+    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+    vi.mocked(findWidgetType).mockReturnValue({
+      id: 'probe',
+      title: 'Probe',
+      description: 'probe widget',
+      loadComponent: async () => ({ default: Probe }),
+      defaultSize: { w: 3, h: 5 },
+      icon: 'Clock',
+    })
+    holder.measuredSize = { width: 320, height: 280 }
+
+    render(<WidgetFrame instanceId="probe-2" typeId="probe" mode="small" />)
+
+    expect(await screen.findByText('tier:standard')).toBeInTheDocument()
+  })
+
+  it('falls back to tiny when the measured size clears no threshold', async () => {
+    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+    vi.mocked(findWidgetType).mockReturnValue({
+      id: 'probe',
+      title: 'Probe',
+      description: 'probe widget',
+      loadComponent: async () => ({ default: Probe }),
+      defaultSize: { w: 3, h: 5 },
+      icon: 'Clock',
+    })
+    holder.measuredSize = { width: 10, height: 10 }
+
+    render(<WidgetFrame instanceId="probe-3" typeId="probe" mode="small" />)
+
+    expect(await screen.findByText('tier:tiny')).toBeInTheDocument()
   })
 })

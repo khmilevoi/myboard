@@ -6,6 +6,11 @@
   background: var(--card);
 }
 
+.frame:hover :global(.widget-controls),
+.frame:focus-within :global(.widget-controls) {
+  opacity: 1;
+}
+
 .skeleton {
   position: absolute;
   inset: 12px;

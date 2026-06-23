@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ofeliaContext } from '../ofelia-context'
 import type { OfeliaContextValue } from '../ofelia-context'
-import { makeOfeliaValue } from '../ofelia.fixture'
+import { makeOfeliaValue, makeOfeliaView } from '../ofelia.fixture'
 import { RichLayout } from './RichLayout'
 
 function renderRich(value: OfeliaContextValue, node: ReactNode) {
@@ -51,5 +51,35 @@ describe('RichLayout', () => {
       </ofeliaContext.Provider>,
     )
     expect(screen.queryByRole('button', { name: 'Закрыть' })).not.toBeInTheDocument()
+  })
+
+  it('shows expand/delete affordances only when those callbacks are provided', () => {
+    const onExpand = vi.fn()
+    const onDelete = vi.fn()
+    renderRich(makeOfeliaValue(), <RichLayout onExpand={onExpand} onDelete={onDelete} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
+    expect(onExpand).toHaveBeenCalledOnce()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(onDelete).toHaveBeenCalledOnce()
+  })
+
+  it('hides the action controls for a future day', () => {
+    const view = makeOfeliaView({
+      selected: {
+        iso: '2026-06-19',
+        person: 'Карина',
+        isDebtDay: false,
+        status: 'pending',
+        canUndo: false,
+        debtRemaining: 0,
+        isFuture: true,
+      },
+    })
+    renderRich(makeOfeliaValue({ view }), <RichLayout />)
+
+    expect(screen.queryByRole('button', { name: 'Какашки убраны' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'В долг' })).not.toBeInTheDocument()
   })
 })

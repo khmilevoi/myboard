@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
@@ -25,6 +25,7 @@ function props(tier: WidgetTier): WidgetRuntimeProps {
     theme: 'light',
     requestFullscreen: vi.fn(),
     requestClose: vi.fn(),
+    requestDelete: vi.fn(),
     reportError: vi.fn(),
     storage: createWidgetStorage({ instanceId: 'ofelia-poop-duty-1', typeId: 'ofelia-poop-duty' }),
   }
@@ -55,6 +56,23 @@ describe('OfeliaPoopDuty tier routing', () => {
     render(<OfeliaPoopDuty {...props('standard')} />)
     expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
+  })
+
+  it('standard — draws its own expand/delete controls wired to runtime callbacks', () => {
+    const widgetProps = props('standard')
+    render(<OfeliaPoopDuty {...widgetProps} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
+    expect(widgetProps.requestFullscreen).toHaveBeenCalledOnce()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(widgetProps.requestDelete).toHaveBeenCalledOnce()
+  })
+
+  it('fullscreen — has no expand/delete controls of its own', () => {
+    render(<OfeliaPoopDuty {...props('fullscreen')} />)
+    expect(screen.queryByRole('button', { name: 'Развернуть' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
   })
 
   it('large — shows the week navigation and the empty history/comments', () => {

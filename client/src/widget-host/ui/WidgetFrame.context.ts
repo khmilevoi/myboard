@@ -14,6 +14,7 @@ export interface WidgetFrameContext {
   theme: ResolvedTheme
   requestFullscreen: () => void
   requestClose: () => void
+  requestDelete: () => void
   reportError: (error: Error) => void
   storage: WidgetStorage
 }
