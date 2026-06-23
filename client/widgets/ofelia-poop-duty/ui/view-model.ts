@@ -13,6 +13,7 @@ export type DutyDay = {
   day: number
   duty: Person
   debt: Person | null
+  resolvedActor: Person | null
 }
 
 export type WeekDayView = {
@@ -72,7 +73,7 @@ export function resolveSelected(
   const explicit = selectedDate ? week.find((day) => day.date.equals(selectedDate)) : undefined
   const entry = explicit ?? week.find((day) => day.isToday) ?? week[0]
 
-  const person = entry.debt ?? entry.duty
+  const person = entry.resolvedActor ?? entry.debt ?? entry.duty
   const status = resolution.get(entry.date.toString())?.status ?? 'pending'
 
   return {
@@ -91,7 +92,7 @@ export function toWeekDays(week: DutyDay[], selectedIso: string | null): WeekDay
     iso: day.date.toString(),
     weekday: WEEKDAY_LABELS[day.date.dayOfWeek - 1],
     dayOfMonth: day.day,
-    person: day.debt ?? day.duty,
+    person: day.resolvedActor ?? day.debt ?? day.duty,
     isToday: day.isToday,
     isDebtDay: day.debt != null,
     isSelected: day.date.toString() === selectedIso,

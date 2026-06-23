@@ -251,6 +251,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     const currentToday = today()
     const weekStart = viewWeekStart()
     const days = debtDays()
+    const resolution = dayResolution()
 
     if (!currentToday || !weekStart || days === null) {
       return null
@@ -258,9 +259,10 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
 
     return Array.from({ length: 7 }, (_, dayOffset) => {
       const date = weekStart.add({ days: dayOffset })
+      const iso = date.toString()
       const duty = getOfeliaDutyByDate(date)
-
-      const debt = days?.get(date.toString()) ?? null
+      const debt = days?.get(iso) ?? null
+      const resolved = resolution.get(iso)
 
       return {
         date,
@@ -268,6 +270,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
         day: date.day,
         duty,
         debt: debt?.person ?? null,
+        resolvedActor: resolved?.status === 'closed' ? resolved.actor : null,
       }
     })
   }, 'ofeliaDuty.currentWeek').extend(withConnectHook(connectLedger))

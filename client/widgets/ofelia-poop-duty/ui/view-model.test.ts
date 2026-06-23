@@ -10,13 +10,62 @@ const D = (iso: string) => Temporal.PlainDate.from(iso)
 // Week of 2026-06-15 (Mon) .. 2026-06-21 (Sun); "today" = Tue 2026-06-16.
 function week(): DutyDay[] {
   return [
-    { date: D('2026-06-15'), isToday: false, day: 15, duty: 'Леша', debt: null },
-    { date: D('2026-06-16'), isToday: true, day: 16, duty: 'Карина', debt: null },
-    { date: D('2026-06-17'), isToday: false, day: 17, duty: 'Леша', debt: 'Карина' },
-    { date: D('2026-06-18'), isToday: false, day: 18, duty: 'Карина', debt: null },
-    { date: D('2026-06-19'), isToday: false, day: 19, duty: 'Леша', debt: null },
-    { date: D('2026-06-20'), isToday: false, day: 20, duty: 'Карина', debt: null },
-    { date: D('2026-06-21'), isToday: false, day: 21, duty: 'Леша', debt: null },
+    {
+      date: D('2026-06-15'),
+      isToday: false,
+      day: 15,
+      duty: 'Леша',
+      debt: null,
+      resolvedActor: null,
+    },
+    {
+      date: D('2026-06-16'),
+      isToday: true,
+      day: 16,
+      duty: 'Карина',
+      debt: null,
+      resolvedActor: null,
+    },
+    {
+      date: D('2026-06-17'),
+      isToday: false,
+      day: 17,
+      duty: 'Леша',
+      debt: 'Карина',
+      resolvedActor: null,
+    },
+    {
+      date: D('2026-06-18'),
+      isToday: false,
+      day: 18,
+      duty: 'Карина',
+      debt: null,
+      resolvedActor: null,
+    },
+    {
+      date: D('2026-06-19'),
+      isToday: false,
+      day: 19,
+      duty: 'Леша',
+      debt: null,
+      resolvedActor: null,
+    },
+    {
+      date: D('2026-06-20'),
+      isToday: false,
+      day: 20,
+      duty: 'Карина',
+      debt: null,
+      resolvedActor: null,
+    },
+    {
+      date: D('2026-06-21'),
+      isToday: false,
+      day: 21,
+      duty: 'Леша',
+      debt: null,
+      resolvedActor: null,
+    },
   ]
 }
 
@@ -101,8 +150,31 @@ describe('toWeekDays', () => {
     const days = toWeekDays(week(), '2026-06-17')
     expect(days.map((d) => d.weekday)).toEqual(['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'])
     expect(days[1]?.isToday).toBe(true)
-    expect(days[2]).toMatchObject({ iso: '2026-06-17', isDebtDay: true, isSelected: true })
+    expect(days[2]).toMatchObject({
+      iso: '2026-06-17',
+      person: 'Карина',
+      isDebtDay: true,
+      isSelected: true,
+    })
     expect(days.filter((d) => d.isSelected)).toHaveLength(1)
+  })
+})
+
+describe('resolved actor in the strip', () => {
+  it('toWeekDays shows the resolved actor when present', () => {
+    const w = week().map((d) =>
+      d.date.toString() === '2026-06-17' ? { ...d, resolvedActor: 'Леша' as const } : d,
+    )
+    const days = toWeekDays(w, null)
+    expect(days.find((d) => d.iso === '2026-06-17')?.person).toBe('Леша')
+  })
+
+  it('resolveSelected prefers the resolved actor over debt/duty', () => {
+    const w = week().map((d) =>
+      d.date.toString() === '2026-06-17' ? { ...d, resolvedActor: 'Леша' as const } : d,
+    )
+    const selected = resolveSelected(w, D('2026-06-17'), new Map(), {}, D('2026-06-16'))
+    expect(selected?.person).toBe('Леша')
   })
 })
 
