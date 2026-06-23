@@ -140,6 +140,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   })
   let ledgerSubscribers = 0
   let disconnectLedger: (() => void) | null = null
+  let legacyCleanupStarted = false
   const connectLedger = () => {
     ledgerSubscribers += 1
     if (ledgerSubscribers === 1) {
@@ -148,6 +149,17 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
         onLedgerChange,
         LedgerEntriesSchema,
       )
+      if (!legacyCleanupStarted) {
+        legacyCleanupStarted = true
+        void wrap(async () => {
+          await storage.shared.server.delete('debts')
+          const keys = await storage.shared.server.keys('history:')
+          if (keys instanceof Error) return
+          for (const key of keys) {
+            await storage.shared.server.delete(key)
+          }
+        })()
+      }
     }
 
     return () => {

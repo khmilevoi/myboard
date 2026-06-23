@@ -437,6 +437,27 @@ describe('ofeliaDutyModel.undo', () => {
   })
 })
 
+describe('legacy key cleanup', () => {
+  it('deletes the retired debts and history:* keys on connect', async () => {
+    const api = createDexieStorage(instanceNamespace(`ofelia-cleanup-${storageSeq++}`))
+    await api.set('debts', { Леша: 3, Карина: 0 })
+    await api.set('history:2026-06-15', [{ id: 'x' }])
+    const del = vi.fn(api.delete)
+    const storage = createStorage({ ...api, delete: del, keys: vi.fn(api.keys) })
+    const model = ofeliaDutyModel({
+      storage,
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+    })
+
+    await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {})
+      await vi.waitFor(() => expect(del).toHaveBeenCalledWith('debts'))
+      await vi.waitFor(() => expect(del).toHaveBeenCalledWith('history:2026-06-15'))
+      off()
+    })
+  })
+})
+
 describe('ofelia-duty selectors', () => {
   it('otherPerson returns the partner', () => {
     expect(otherPerson('Леша')).toBe('Карина')
