@@ -1,0 +1,131 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4375rem;
+}
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  block-size: 2.25rem;
+  border: none;
+  border-radius: 0.5625rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.confirmedRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  block-size: 2.25rem;
+}
+
+.plaque {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  block-size: 2.25rem;
+  border-radius: 0.5625rem;
+  background: var(--ofelia-ok-soft);
+  color: var(--ofelia-ok-fg);
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.undo {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5625rem;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.undoNote {
+  display: flex;
+  align-items: center;
+  gap: 0.3125rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-3);
+}
+
+.secondary {
+  display: flex;
+  gap: 0.4375rem;
+}
+
+.secondary[data-disabled='true'] {
+  opacity: 0.35;
+}
+
+.ghost {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  block-size: 2.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.forgive {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  block-size: 2.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--surface);
+  color: var(--ofelia-forgive);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.inactiveNote {
+  display: flex;
+  align-items: center;
+  gap: 0.3125rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-3);
+}
+
+.noteDot {
+  display: inline-block;
+  inline-size: 0.4375rem;
+  block-size: 0.4375rem;
+  border-radius: 0.125rem;
+  background: var(--border);
+}
+
+.stack[data-inactive='true'] .primary,
+.stack[data-inactive='true'] .ghost,
+.stack[data-inactive='true'] .forgive {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
