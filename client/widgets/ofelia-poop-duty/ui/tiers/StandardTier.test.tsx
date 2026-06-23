@@ -17,10 +17,21 @@ describe('StandardTier', () => {
     withOfelia(makeOfeliaValue(), <StandardTier />)
     expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
-    expect(screen.getByText('гасит долг · осталось 2 дня')).toBeInTheDocument()
+    expect(screen.getByText('гасит долг · 2 дня')).toBeInTheDocument()
   })
 
-  it('state B — a closed day shows the plaque and no secondary actions', () => {
+  it('does not render UserToggle', () => {
+    withOfelia(makeOfeliaValue(), <StandardTier />)
+    expect(screen.queryByText('Я:')).not.toBeInTheDocument()
+  })
+
+  it('shows hint text with other person name', () => {
+    withOfelia(makeOfeliaValue(), <StandardTier />)
+    // Default fixture has Карина as selected person → other is Леша
+    expect(screen.getByText(/Не успеваешь\? Уберёт Леша/)).toBeInTheDocument()
+  })
+
+  it('state B — closed day shows plaque, undo, and disabled secondary', () => {
     const view = makeOfeliaView({
       selected: {
         iso: '2026-06-16',
@@ -36,10 +47,10 @@ describe('StandardTier', () => {
 
     expect(screen.getByText('Уборка подтверждена')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Откатить' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'В долг' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
   })
 
-  it('state C — no debt shows the flat-balance subtitle', () => {
+  it('state C — no debt shows Простить disabled', () => {
     const view = makeOfeliaView({
       selected: {
         iso: '2026-06-16',
@@ -58,11 +69,10 @@ describe('StandardTier', () => {
     withOfelia(makeOfeliaValue({ view }), <StandardTier />)
 
     expect(screen.getByText('по очереди · долгов нет')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Простить' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Простить' })).toBeDisabled()
   })
 
-  it('state D — a future day hides the action controls', () => {
+  it('state D — future day shows disabled buttons instead of hiding them', () => {
     const view = makeOfeliaView({
       selected: {
         iso: '2026-06-18',
@@ -76,8 +86,8 @@ describe('StandardTier', () => {
     })
     withOfelia(makeOfeliaValue({ view }), <StandardTier />)
 
-    expect(screen.queryByRole('button', { name: 'Какашки убраны' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'В долг' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
   })
 
   it('draws its expand/delete controls when wired', () => {

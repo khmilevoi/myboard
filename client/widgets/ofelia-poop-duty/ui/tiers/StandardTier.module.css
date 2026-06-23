@@ -66,8 +66,10 @@
   flex: 1;
 }
 
-.footer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
+.hint {
+  margin: 0 0 0.625rem 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-3);
+  text-wrap: pretty;
 }

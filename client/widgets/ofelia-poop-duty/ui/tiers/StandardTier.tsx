@@ -5,11 +5,11 @@ import { useAtomValue } from '@/shared/reatom/use-atom-value'
 import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 
 import { selectedDaySubtitle } from '../format'
+import { otherPerson } from '../../model/ofelia-duty'
 import { useOfelia } from '../ofelia-context'
 import { ActionButtons } from '../parts/ActionButtons'
 import { Avatar } from '../parts/Avatar'
 import { DebtChips } from '../parts/DebtChips'
-import { UserToggle } from '../parts/UserToggle'
 
 import styles from './StandardTier.module.css'
 
@@ -19,7 +19,7 @@ export type StandardTierProps = {
 }
 
 export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete }) => {
-  const { view, currentUser, actions } = useOfelia()
+  const { view, actions } = useOfelia()
   // Day status and debt balance load asynchronously on mount (history + debts).
   // Read them race-free (useSyncExternalStore) so a warm server's response that
   // lands in the render→subscribe window isn't dropped, leaving a stale card.
@@ -27,7 +27,6 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
   const selected = useAtomValue(view.selected)
   const balance = useAtomValue(view.balance)
   const canForgive = useAtomValue(view.canForgive)
-  const user = useAtomValue(currentUser)
   if (!selected) return null
 
   return (
@@ -58,20 +57,20 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
 
       <div className={styles.spacer} />
 
-      <div className={styles.footer}>
-        <UserToggle value={user} onChange={actions.onSetUser} />
-        {selected.isFuture ? null : (
-          <ActionButtons
-            status={selected.status}
-            canUndo={selected.canUndo}
-            canForgive={canForgive}
-            onConfirm={actions.onConfirm}
-            onUndo={actions.onUndo}
-            onDebt={actions.onDebt}
-            onForgive={actions.onForgive}
-          />
-        )}
-      </div>
+      <p className={styles.hint}>
+        Не успеваешь? Уберёт {otherPerson(selected.person)}, а тебе +1 день долга.
+      </p>
+
+      <ActionButtons
+        status={selected.status}
+        canUndo={selected.canUndo}
+        canForgive={canForgive}
+        inactive={selected.isFuture}
+        onConfirm={actions.onConfirm}
+        onUndo={actions.onUndo}
+        onDebt={actions.onDebt}
+        onForgive={actions.onForgive}
+      />
     </div>
   )
 }, 'StandardTier')
