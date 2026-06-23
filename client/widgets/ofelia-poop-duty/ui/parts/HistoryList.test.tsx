@@ -37,6 +37,11 @@ describe('HistoryList', () => {
     expect(screen.getByText('−1 день')).toBeInTheDocument()
   })
 
+  it('renders "переоткрыто" badge for reset', () => {
+    render(<HistoryList entries={[entry({ type: 'reset' })]} />)
+    expect(screen.getByText('переоткрыто')).toBeInTheDocument()
+  })
+
   it('renders no badge for cleaned without onBehalfOf', () => {
     render(<HistoryList entries={[entry()]} />)
     expect(screen.queryByText(/^за /)).not.toBeInTheDocument()

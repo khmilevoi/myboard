@@ -15,6 +15,7 @@ function badgeLabel(
   if (entry.type === 'cleaned' && entry.onBehalfOf) {
     return { text: `за ${personInitial(entry.onBehalfOf)}`, tone: 'accent' }
   }
+  if (entry.type === 'reset') return { text: 'переоткрыто', tone: 'forgive' }
   return null
 }
 
