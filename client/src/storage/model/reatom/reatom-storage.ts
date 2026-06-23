@@ -100,3 +100,40 @@ export const withStorageKey =
       error,
     }
   }
+
+export type WithStorageKeyReadonlyOptions<T> = {
+  api: StorageApi
+  key: string
+  schema?: z.ZodType<T>
+  /** Applied when the key is absent/deleted (StorageChange.value === null). */
+  fallback: T
+}
+
+/**
+ * Read-only reactive mirror of a single key over StorageApi.subscribe. Unlike
+ * withStorageKey there is NO write-back: the atom never PUTs itself. Use for
+ * append-only / server-owned values written via api.append (server-stamped
+ * id/ts/ip), never api.set.
+ */
+export const withStorageKeyReadonly =
+  <Target extends Atom>({
+    api,
+    key,
+    schema,
+    fallback,
+  }: WithStorageKeyReadonlyOptions<AtomState<Target>>): Ext<Target, Record<string, never>> =>
+  (target) => {
+    target.extend(
+      withConnectHook(() =>
+        api.subscribe<AtomState<Target>>(
+          key,
+          wrap((event) => {
+            if (event instanceof Error) return
+            target.set(event.value ?? fallback)
+          }),
+          schema,
+        ),
+      ),
+    )
+    return {}
+  }

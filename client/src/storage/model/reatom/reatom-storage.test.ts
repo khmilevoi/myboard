@@ -7,7 +7,7 @@ import { createDexieStorage } from '../client/dexie-storage'
 import { instanceNamespace } from '../scope'
 import { installFakeBroadcastChannel } from '../test/fakes'
 import { StorageError, type StorageApi } from '../types'
-import { reatomStorageMutations, reatomClearExpired, withStorageKey } from './reatom-storage'
+import { reatomStorageMutations, reatomClearExpired, withStorageKey, withStorageKeyReadonly } from './reatom-storage'
 
 beforeEach(async () => {
   await db.entries.clear()
@@ -98,5 +98,37 @@ describe('withStorageKey', () => {
       off()
     })
     await vi.waitFor(() => expect(unsubscribe).toHaveBeenCalled())
+  })
+})
+
+describe('withStorageKeyReadonly', () => {
+  beforeEach(() => {
+    installFakeBroadcastChannel()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('mirrors the stored value, applies fallback on delete, and never writes back', async () => {
+    const real = createDexieStorage(instanceNamespace('inst-ro'))
+    const set = vi.fn(real.set)
+    const api = { ...real, set } as StorageApi
+    await real.set('led', [1, 2, 3])
+
+    const led = atom<number[]>([], 'test.led').extend(
+      withStorageKeyReadonly({ api, key: 'led', fallback: [] }),
+    )
+
+    await context.start(async () => {
+      const off = led.subscribe(() => {})
+      const seeded = wrap(() => expect(led()).toEqual([1, 2, 3]))
+      await vi.waitFor(() => seeded())
+      await real.delete('led')
+      const emptied = wrap(() => expect(led()).toEqual([]))
+      await vi.waitFor(() => emptied())
+      off()
+    })
+
+    expect(set).not.toHaveBeenCalled()
   })
 })
