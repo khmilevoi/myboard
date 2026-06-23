@@ -2,7 +2,6 @@ import {
   action,
   atom,
   computed,
-  effect,
   withAsyncData,
   withChangeHook,
   withConnectHook,
@@ -11,7 +10,7 @@ import {
 import z from 'zod'
 
 import { ServerTime } from '@/shared/timer/model/server-time'
-import { withStorageKeyReadonly } from '@/storage/model/reatom/reatom-storage'
+import type { StorageChange, StorageError } from '@/storage/model/types'
 import { WidgetStorage } from '@/storage/model/widget-storage'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
@@ -134,20 +133,39 @@ function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
 }
 
 export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
-  const ledger = atom<LedgerEntry[]>([], 'ofeliaDuty.ledger').extend(
-    withStorageKeyReadonly({
-      api: storage.shared.server,
-      key: LEDGER_KEY,
-      schema: LedgerEntriesSchema,
-      fallback: [],
-    }),
-  )
-  effect(() => {
-    ledger()
-  }, 'ofeliaDuty.ledger.connect')
+  const ledger = atom<LedgerEntry[] | null>(null, 'ofeliaDuty.ledger')
+  const onLedgerChange = wrap((event: StorageError | StorageChange<LedgerEntry[]>) => {
+    if (event instanceof Error) return
+    ledger.set(event.value ?? [])
+  })
+  let ledgerSubscribers = 0
+  let disconnectLedger: (() => void) | null = null
+  const connectLedger = () => {
+    ledgerSubscribers += 1
+    if (ledgerSubscribers === 1) {
+      disconnectLedger = storage.shared.server.subscribe(
+        LEDGER_KEY,
+        onLedgerChange,
+        LedgerEntriesSchema,
+      )
+    }
 
-  const numberOfDebts = computed(() => foldDebt(ledger()), 'ofeliaDuty.numberOfDebts')
-  const dayResolution = computed(() => resolveDays(ledger()), 'ofeliaDuty.dayResolution')
+    return () => {
+      ledgerSubscribers -= 1
+      if (ledgerSubscribers > 0) return
+      disconnectLedger?.()
+      disconnectLedger = null
+    }
+  }
+
+  const numberOfDebts = computed(() => {
+    const entries = ledger()
+    return entries === null ? null : foldDebt(entries)
+  }, 'ofeliaDuty.numberOfDebts').extend(withConnectHook(connectLedger))
+  const dayResolution = computed(() => {
+    const entries = ledger()
+    return entries === null ? new Map<string, DayResolution>() : resolveDays(entries)
+  }, 'ofeliaDuty.dayResolution').extend(withConnectHook(connectLedger))
 
   const currentUser = atom<Person>(DUTY_ROTATION[0], 'ofeliaDuty.currentUser').extend(
     withConnectHook(() => {
@@ -196,8 +214,10 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   const historyView = computed<HistoryEntryView[]>(() => {
     const week = viewWeekStart()
     if (!week) return []
+    const entries = ledger()
+    if (entries === null) return []
     const weekIso = week.toString()
-    return ledger()
+    return entries
       .filter((entry) => weekStartISO(Temporal.PlainDate.from(entry.date)) === weekIso)
       .toSorted((a, b) => b.ts - a.ts)
       .map((entry) => ({
@@ -209,32 +229,32 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
         by: entry.by,
         ipTail: entry.ip.slice(-IP_TAIL_LENGTH),
       }))
-  }, 'ofeliaDuty.historyView')
+  }, 'ofeliaDuty.historyView').extend(withConnectHook(connectLedger))
 
   const undoAvailable = computed(() => {
     const day = selectedDate() ?? today()
     if (day == null) return false
     return dayResolution().get(day.toString())?.status === 'closed'
-  }, 'ofeliaDuty.undoAvailable')
+  }, 'ofeliaDuty.undoAvailable').extend(withConnectHook(connectLedger))
 
   const debtDays = computed(() => {
     const currentToday = today()
-    if (!currentToday) return null
-    return getDebtDays(numberOfDebts(), currentToday).reduce((acc, debtDay) => {
+    const debts = numberOfDebts()
+    if (!currentToday || debts === null) return null
+    return getDebtDays(debts, currentToday).reduce((acc, debtDay) => {
       acc.set(debtDay.date.toString(), debtDay)
       return acc
     }, new Map<string, DebtDay>())
-  }, 'ofeliaDuty.debtDays')
+  }, 'ofeliaDuty.debtDays').extend(withConnectHook(connectLedger))
 
   const currentWeek = computed(() => {
     const currentToday = today()
     const weekStart = viewWeekStart()
+    const days = debtDays()
 
-    if (!currentToday || !weekStart) {
+    if (!currentToday || !weekStart || days === null) {
       return null
     }
-
-    const days = debtDays()
 
     return Array.from({ length: 7 }, (_, dayOffset) => {
       const date = weekStart.add({ days: dayOffset })
@@ -250,13 +270,14 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
         debt: debt?.person ?? null,
       }
     })
-  }, 'ofeliaDuty.currentWeek')
+  }, 'ofeliaDuty.currentWeek').extend(withConnectHook(connectLedger))
 
   const confirmClean = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today()
-    if (currentToday == null) return
+    const debts = numberOfDebts()
+    if (currentToday == null || debts === null) return
     const target = date ?? selectedDate() ?? currentToday
-    const debtDay = getDebtDays(numberOfDebts(), currentToday).find((day) => day.date.equals(target))
+    const debtDay = getDebtDays(debts, currentToday).find((day) => day.date.equals(target))
     const actor = debtDay?.person ?? getOfeliaDutyByDate(target)
 
     const draft: LedgerEntryDraft = {
@@ -272,7 +293,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
 
   const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today()
-    if (currentToday == null) return
+    if (currentToday == null || ledger() === null) return
     const target = date ?? selectedDate() ?? currentToday
     const duty = getOfeliaDutyByDate(target)
 
@@ -292,6 +313,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     if (currentToday == null) return
     const target = date ?? selectedDate() ?? currentToday
     const debts = numberOfDebts()
+    if (debts === null) return
     const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0)
     if (!debtor) return
 
@@ -309,7 +331,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
 
   const undo = action(async (date?: Temporal.PlainDate) => {
     const target = date ?? selectedDate() ?? today()
-    if (target == null) return
+    if (target == null || ledger() === null) return
     const resolution = dayResolution().get(target.toString())
     if (resolution?.status !== 'closed') return
 

@@ -7,7 +7,7 @@ import { createDexieStorage } from '@/storage/model/client/dexie-storage'
 import { db } from '@/storage/model/client/db'
 import { instanceNamespace } from '@/storage/model/scope'
 import { installFakeBroadcastChannel } from '@/storage/model/test/fakes'
-import type { StorageApi } from '@/storage/model/types'
+import type { StorageApi, StorageChange, StorageListener } from '@/storage/model/types'
 import type { WidgetStorage } from '@/storage/model/widget-storage'
 
 import {
@@ -64,8 +64,11 @@ function createLedgerStorage() {
     await vi.waitFor(() =>
       expect(subscribe).toHaveBeenCalledWith(LEDGER_KEY, expect.any(Function), expect.anything()),
     )
-    if (value === null) await real.delete(LEDGER_KEY)
-    else await real.set(LEDGER_KEY, value)
+    const listener = vi.mocked(subscribe).mock.calls.at(-1)?.[1] as
+      | StorageListener<LedgerEntry[] | null>
+      | undefined
+    expect(listener).toBeTypeOf('function')
+    await wrap(() => listener?.({ value } satisfies StorageChange<LedgerEntry[]>))()
   }
   return { storage, append, subscribe, emit }
 }
@@ -95,16 +98,31 @@ describe('ofeliaDutyModel server time', () => {
     expect(storage.shared.server.append).not.toHaveBeenCalled()
   })
 
-  it('derives the week from server today once synced', () => {
-    const model = ofeliaDutyModel({
-      storage: createStorage(),
-      timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
-    })
+  it('blocks append actions while the ledger has not synced yet', async () => {
+    const { storage } = createLedgerStorage()
+    const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
 
-    const week = model.currentWeek()
-    expect(week).not.toBeNull()
-    expect(week?.find((day) => day.isToday)?.date.toString()).toBe('2026-06-16')
-    expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
+    await model.confirmClean(D('2026-06-16'))
+    await model.goIntoDebt(D('2026-06-16'))
+    await model.forgive(D('2026-06-16'))
+    await model.undo(D('2026-06-16'))
+
+    expect(storage.shared.server.append).not.toHaveBeenCalled()
+  })
+
+  it('derives the week from server today once synced', () => {
+    const { storage, emit } = createLedgerStorage()
+    const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
+
+    return context.start(async () => {
+      const off = model.currentWeek.subscribe(() => {})
+      await emit([])
+      await vi.waitFor(() => expect(model.currentWeek()).not.toBeNull())
+      const week = model.currentWeek()
+      expect(week?.find((day) => day.isToday)?.date.toString()).toBe('2026-06-16')
+      expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
+      off()
+    })
   })
 
   it('exposes today so the view model can gate future-day controls', () => {
@@ -117,20 +135,24 @@ describe('ofeliaDutyModel server time', () => {
   })
 
   it('navigates weeks via the override and resets to the current week', () => {
-    const model = ofeliaDutyModel({
-      storage: createStorage(),
-      timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+    const { storage, emit } = createLedgerStorage()
+    const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
+
+    return context.start(async () => {
+      const off = model.currentWeek.subscribe(() => {})
+      await emit([])
+
+      model.goToNextWeek()
+      expect(model.viewWeekStart()?.toString()).toBe('2026-06-22')
+
+      model.goToPrevWeek()
+      expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
+
+      model.goToNextWeek()
+      model.goToCurrentWeek()
+      expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
+      off()
     })
-
-    model.goToNextWeek()
-    expect(model.viewWeekStart()?.toString()).toBe('2026-06-22')
-
-    model.goToPrevWeek()
-    expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
-
-    model.goToNextWeek()
-    model.goToCurrentWeek()
-    expect(model.viewWeekStart()?.toString()).toBe('2026-06-15')
   })
 
   it('selects a day and resolves the default to today', () => {
@@ -264,9 +286,14 @@ describe('ofeliaDutyModel.historyView', () => {
 
 describe('ofeliaDutyModel.confirmClean', () => {
   it('on a plain day appends cleaned with no onBehalfOf', async () => {
-    const { storage } = createLedgerStorage()
+    const { storage, emit } = createLedgerStorage()
     const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
-    await model.confirmClean(D('2026-06-17'))
+    await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {})
+      await emit([])
+      await model.confirmClean(D('2026-06-17'))
+      off()
+    })
 
     expect(storage.shared.server.append).toHaveBeenCalledWith(LEDGER_KEY, {
       date: '2026-06-17',
@@ -302,9 +329,14 @@ describe('ofeliaDutyModel.confirmClean', () => {
   })
 
   it('defaults the date to today when no selected date is set', async () => {
-    const { storage } = createLedgerStorage()
+    const { storage, emit } = createLedgerStorage()
     const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
-    await model.confirmClean()
+    await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {})
+      await emit([])
+      await model.confirmClean()
+      off()
+    })
 
     expect(storage.shared.server.append).toHaveBeenCalledWith(
       LEDGER_KEY,
@@ -315,11 +347,14 @@ describe('ofeliaDutyModel.confirmClean', () => {
 
 describe('ofeliaDutyModel.goIntoDebt', () => {
   it('appends went_into_debt for the scheduled person', async () => {
-    const { storage } = createLedgerStorage()
+    const { storage, emit } = createLedgerStorage()
     const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
 
     await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {})
+      await emit([])
       await model.goIntoDebt(D('2026-06-16'))
+      off()
     })
 
     expect(storage.shared.server.append).toHaveBeenCalledWith(LEDGER_KEY, {
@@ -356,10 +391,13 @@ describe('ofeliaDutyModel.forgive', () => {
   })
 
   it('is a no-op when nobody owes', async () => {
-    const { storage } = createLedgerStorage()
+    const { storage, emit } = createLedgerStorage()
     const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
     await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {})
+      await emit([])
       await model.forgive(D('2026-06-16'))
+      off()
     })
     expect(storage.shared.server.append).not.toHaveBeenCalled()
   })
