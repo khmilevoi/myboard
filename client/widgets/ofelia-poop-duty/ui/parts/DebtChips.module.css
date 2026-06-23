@@ -21,6 +21,12 @@
   color: var(--destructive);
 }
 
+.even {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
 .count {
   font-family: var(--font-mono);
 }
