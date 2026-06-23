@@ -8,6 +8,9 @@ import { CommentThread } from './CommentThread'
 const view = (overrides: Partial<CommentView> = {}): CommentView => ({
   id: 'c1',
   author: 'Карина',
+  authorName: 'Карина',
+  date: '10 июн',
+  ipTail: '13.55',
   text: 'Привет',
   ...overrides,
 })
