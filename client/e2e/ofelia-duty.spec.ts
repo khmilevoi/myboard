@@ -6,7 +6,7 @@ import { OfeliaPage } from './pages/OfeliaPage.js'
 // getOfeliaDutyByDate(2026-06-16) → Леша (diffDays 0 from BASE_DUTY_DATE, even).
 const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
-const DEBTS_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:debts')}`
+const LEDGER_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:ledger')}`
 
 test.beforeEach(async ({ request }) => {
   await request.post('/api/test/reset')
@@ -58,9 +58,25 @@ test('В долг — increments the on-duty person’s debt chip and closes the
 })
 
 test('Простить — decrements an existing debt', async ({ page, request }) => {
-  // Seed a pre-existing debt so today stays pending (the secondary row, and thus
-  // "Простить", only renders while status is pending).
-  await request.put(DEBTS_URL, { data: { value: { Леша: 1, Карина: 0 } } })
+  // Seed a past debt (Леша went into debt on 2026-06-14, a Леша-duty day) so the
+  // global balance shows Леша:1 while today (2026-06-16) stays pending — the
+  // secondary row, and thus "Простить", only renders while status is pending.
+  await request.put(LEDGER_URL, {
+    data: {
+      value: [
+        {
+          id: 'seed-1',
+          ts: 1,
+          ip: '127.0.0.1',
+          date: '2026-06-14',
+          type: 'went_into_debt',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+          by: 'Карина',
+        },
+      ],
+    },
+  })
 
   const ofelia = new OfeliaPage(page)
   await ofelia.seedOfeliaWidget()
