@@ -201,8 +201,15 @@ returns `StorageError | void`; on `Error`, `throw` (caught by `withAsyncData`).
 - **`forgive(date?)`** — `target = date ?? selectedDate() ?? today`. Guard: find a
   debtor with derived debt > 0; if none, no-op. Append
   `{ date: target, type: 'forgiven', actor: otherPerson(debtor), onBehalfOf: debtor, by }`.
-  (`date` is only an audit timestamp anchor here — `forgiven` is an adjustment and is
-  not deduped per date.)
+  (`date` is only an audit timestamp anchor here — `forgiven` is an adjustment, not a
+  day outcome, so it is **not** deduped per date.)
+  **In-flight gate:** because each `forgiven` is additive (unlike the latest-wins day
+  outcomes) and the debtor guard reads SSE-lagging derived debt, dispatching `forgive`
+  again before the round-trip would stack extra `forgiven` and over-forgive — the surplus
+  flips to the other person via `normalizeDebts` and persists. So the model exposes
+  `forgivePending = forgive.pending() > 0`; the wiring ignores a `forgive` click while one
+  is in flight, and the button disables on it (§9). One forgiveness per click; a multi-day
+  debt is cleared with one click per round-trip.
 - **`undo(date?)`** — `target = date ?? selectedDate() ?? today`. Guard: only if the
   target day currently resolves to `closed`. Append
   `{ date, type: 'reset', actor: <resolved actor or effectiveDuty(target)>, by }`.
@@ -231,6 +238,9 @@ returns `StorageError | void`; on `Error`, `throw` (caught by `withAsyncData`).
 - **History list** renders ledger entries. Add a badge for `reset`
   (e.g. «переоткрыто») in `HistoryList.badgeLabel`; existing `went_into_debt` /
   `forgiven` / `cleaned+onBehalfOf` badges unchanged.
+- **Forgive in-flight gate.** `canForgive = (any debt > 0) && !forgivePending`; the
+  «Простить» button is disabled while a forgive is in flight, so rapid presses cannot
+  stack `forgiven` entries before the ledger round-trips.
 - `DebtChips`, week strip, and tiers are otherwise visually unchanged — only their
   data source moves to the derived values.
 
@@ -250,6 +260,7 @@ Model (Reatom, fake storage + fake timer, `context.start`):
 - `numberOfDebts` (now computed) reacts to emitted ledger values over the fake
   subscription.
 - `undo` works for a past day, not only today; `forgive` no-op when nobody owes.
+- View-model `canForgive` is false while `forgivePending` (the forgive in-flight gate).
 - `historyView` filters to the viewed week and re-filters on week navigation without
   re-subscribing.
 
@@ -266,6 +277,12 @@ Regression guardrail: existing `view-model.test.ts` expectations for `toBalance`
   never re-derives it — matching today's write-time decision.
 - **e2e** (`ofelia-duty.spec.ts`) asserts `debts`-driven chips and undo; re-run and
   update once the model is converted (the SSE round-trip now carries `ledger`).
+- **Forgive over-press** — additive `forgiven` + an SSE-lagging debtor guard could
+  over-forgive on rapid presses. Mitigated by the `forgivePending` in-flight gate (one
+  forgiveness per click). Residual: two clients forgiving the same debt within the SSE
+  window can still over-forgive — accepted for a two-person widget. Day-outcome actions
+  (`cleaned`/`went_into_debt`/`reset`) need no such gate — they are latest-wins per date,
+  so repeated presses are idempotent.
 
 ## 12. Deliverables checklist
 
@@ -277,6 +294,8 @@ Regression guardrail: existing `view-model.test.ts` expectations for `toBalance`
 - [ ] Four actions rewritten to a single append; no `numberOfDebts.set`.
 - [ ] `undo` generalised to any day; `view-model.ts` `status`/`canUndo` from
       resolution; `currentWeek` resolved-actor extension.
+- [ ] `forgive` in-flight gate: model `forgivePending`, view-model `canForgive` gated,
+      wiring ignores clicks while pending, button disabled.
 - [ ] `HistoryList` badge for `reset`.
 - [ ] Best-effort idempotent cleanup of legacy `debts` / `history:*` keys.
 - [ ] Updated `ofelia-duty.test.ts` / `view-model.test.ts`; e2e re-run green.

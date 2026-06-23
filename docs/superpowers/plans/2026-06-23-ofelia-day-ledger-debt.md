@@ -444,13 +444,15 @@ The central conversion. `numberOfDebts` becomes a `computed`; the `debts` stored
 - Consumes: `foldDebt`, `resolveDays`, `LedgerEntry`, `LedgerEntriesSchema`, `LedgerEntryDraft`, `LEDGER_KEY`, `DayResolution` (Tasks 1–2); `withStorageKeyReadonly` from `@/storage/model/reatom/reatom-storage` (Task 3); existing `getDebtDays`, `getOfeliaDutyByDate`, `otherPerson`, `DUTY_ROTATION`, `weekStartISO`, `IP_TAIL_LENGTH`.
 - Produces (model return shape changes):
   - adds `dayResolution: Computed<Map<string, DayResolution>>` (the `ledger` atom stays internal — the computeds connect it)
+  - adds `forgivePending: Computed<boolean>` (`forgive.pending() > 0`)
   - `numberOfDebts: Computed<NumberOfDebts>` (was a stored atom)
   - removes `historyEvents` from the return
   - `confirmClean/goIntoDebt/forgive` keep `(date?: Temporal.PlainDate)`; `undo` becomes `(date?: Temporal.PlainDate)`
   - `HistoryEntryView.type` changes from `HistoryEventType` to `LedgerType`
 - Produces (view-model):
-  - `OfeliaDutySources` swaps `historyEvents: AtomLike<HistoryEvent[]>` → `dayResolution: AtomLike<Map<string, DayResolution>>`
+  - `OfeliaDutySources` swaps `historyEvents: AtomLike<HistoryEvent[]>` → `dayResolution: AtomLike<Map<string, DayResolution>>` and adds `forgivePending: AtomLike<boolean>`
   - `resolveSelected(week, selectedDate, resolution, debts, today)` — third arg is the resolution map; `canUndo = status === 'closed'`
+  - `canForgive` gated on `!forgivePending`
 
 - [ ] **Step 1: Rewrite the model read-side**
 
@@ -529,7 +531,7 @@ const debtDays = computed(() => {
 }, 'ofeliaDuty.debtDays')
 ```
 
-6. Remove `getDayStatus` (the exported function ~lines 440–458) and `historyKey` (~lines 411–413) — both are now unused. Imports: add `withStorageKeyReadonly` from `@/storage/model/reatom/reatom-storage`; remove `withStorageKey` and `effect`; keep `withConnectHook` (still used by `currentUser`, and by the cleanup hook in Task 7), `withChangeHook` (`currentUser`), and `wrap`. Update the model `return { … }` object: remove `historyEvents`, add `dayResolution`, keep `historyView`, `numberOfDebts`, `undoAvailable`.
+6. Remove `getDayStatus` (the exported function ~lines 440–458) and `historyKey` (~lines 411–413) — both are now unused. Imports: add `withStorageKeyReadonly` from `@/storage/model/reatom/reatom-storage`; remove `withStorageKey` and `effect`; keep `withConnectHook` (still used by `currentUser`, and by the cleanup hook in Task 7), `withChangeHook` (`currentUser`), and `wrap`. Update the model `return { … }` object: remove `historyEvents`, add `dayResolution`, keep `historyView`, `numberOfDebts`, `undoAvailable`; add `forgivePending` (defined in Step 2).
 
 7. In `client/tsconfig.json`, add `"ES2023"` to the `lib` array (currently `["ES2022", "DOM", "DOM.Iterable", "ESNext.Temporal"]`) so `Array.prototype.toSorted` — used in `historyView` above — typechecks. Runtime already supports it (target stays `ES2022`, which does not downlevel `toSorted`; the deploy targets modern Node/browsers).
 
@@ -607,6 +609,12 @@ const undo = action(async (date?: Temporal.PlainDate) => {
   const result = await wrap(storage.shared.server.append(LEDGER_KEY, draft))
   if (result instanceof Error) throw result
 }, 'ofeliaDuty.undo').extend(withAsyncData({ status: true }))
+
+// Forgive is an additive adjustment (not deduped like day outcomes), so it must
+// not be dispatched twice before the ledger round-trips. Expose its in-flight
+// state; the wiring + button gate on it (Steps 3–4). pending() comes from
+// withAsyncData (Computed<number>). Define AFTER `forgive`.
+const forgivePending = computed(() => forgive.pending() > 0, 'ofeliaDuty.forgivePending')
 ```
 
 - [ ] **Step 3: Update the view-model to read `dayResolution`**
@@ -668,14 +676,33 @@ export function resolveSelected(
   }, 'ofelia.selected')
 ```
 
-- [ ] **Step 4: Pass the target date to `undo` in the wiring**
+5. Add the forgive in-flight guard. In `OfeliaDutySources` add `forgivePending: AtomLike<boolean>`, and gate `canForgive` on it so the button disables while a forgive is in flight:
 
-In `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.tsx`, replace line 61:
+```ts
+const canForgive = computed(
+  () => balance().some((entry) => entry.debt > 0) && !duty.forgivePending(),
+  'ofelia.canForgive',
+)
+```
+
+- [ ] **Step 4: Wire `undo`'s target date and the forgive in-flight guard**
+
+In `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.tsx`, update two handlers. Replace `onUndo` (line 61) to pass the target date:
 
 ```ts
           onUndo: wrap(() => {
             const date = targetDate()
             if (date) dutyModel.undo(date)
+          }),
+```
+
+And replace `onForgive` so a click is ignored while a forgive is in flight (the robust backstop — prevents stacking appends before the ledger round-trips and `canForgive` updates):
+
+```ts
+          onForgive: wrap(() => {
+            if (dutyModel.forgivePending()) return
+            const date = targetDate()
+            if (date) dutyModel.forgive(date)
           }),
 ```
 
@@ -944,10 +971,31 @@ const closed = (
    For the cases that passed `[]` (no events), pass `new Map()`:
    `resolveSelected(week(), null, new Map(), {}, D('2026-06-16'))` etc. (the "defaults to today", "explicit selection", "off-week fallback", "empty week", "future" cases).
 
-4. In the `makeOfeliaViewModel` test, replace the `historyEvents` source atom with a `dayResolution` one:
+4. In the `makeOfeliaViewModel` test, replace the `historyEvents` source atom with `dayResolution` and `forgivePending` ones:
 
 ```ts
       dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
+      forgivePending: atom(false, 'test.forgivePending'),
+```
+
+5. Add a test that the forgive in-flight gate disables forgiving:
+
+```ts
+  it('disables canForgive while a forgive is in flight', () => {
+    const forgivePending = atom(false, 'test.forgivePending')
+    const duty = {
+      currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
+      selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
+      dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
+      numberOfDebts: atom<Partial<Record<Person, number>> | null>({ Карина: 1 }, 'test.numberOfDebts'),
+      today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
+      forgivePending,
+    }
+    const view = makeOfeliaViewModel(duty)
+    expect(view.canForgive()).toBe(true)
+    forgivePending.set(true)
+    expect(view.canForgive()).toBe(false)
+  })
 ```
 
 - [ ] **Step 7: Run the model + view-model suites and typecheck**
