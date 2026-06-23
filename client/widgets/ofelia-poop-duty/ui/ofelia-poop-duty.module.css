@@ -10,6 +10,7 @@
   --ofelia-l-fg: oklch(0.42 0.1 225);
   --ofelia-ok-soft: oklch(0.95 0.05 155);
   --ofelia-ok-fg: oklch(0.45 0.13 155);
+  --ofelia-forgive: oklch(0.55 0.13 155);
 }
 
 :root[data-theme='dark'] .widget {
@@ -19,6 +20,7 @@
   --ofelia-l-fg: oklch(0.85 0.07 215);
   --ofelia-ok-soft: oklch(0.34 0.07 155);
   --ofelia-ok-fg: oklch(0.82 0.13 155);
+  --ofelia-forgive: oklch(0.72 0.14 155);
 }
 
 .loading {
