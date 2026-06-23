@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { Send } from 'lucide-react'
 import type { CommentView } from 'widgets/ofelia-poop-duty/model/ofelia-comments'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
+
+import { Avatar } from './Avatar'
 
 import styles from './CommentThread.module.css'
 
@@ -29,8 +32,17 @@ export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend 
         <ul className={styles.list}>
           {comments.map((comment) => (
             <li key={comment.id} className={styles.item}>
-              <span className={styles.author}>{comment.author}</span>
-              <span className={styles.text}>{comment.text}</span>
+              <Avatar person={comment.author} px={22} />
+              <div className={styles.body}>
+                <div className={styles.meta}>
+                  <span className={styles.author}>{comment.authorName}</span>
+                  <span className={styles.date}>{comment.date}</span>
+                  {comment.ipTail ? (
+                    <span className={styles.ip}>{comment.ipTail}</span>
+                  ) : null}
+                </div>
+                <div className={styles.text}>{comment.text}</div>
+              </div>
             </li>
           ))}
         </ul>
@@ -47,11 +59,11 @@ export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend 
           className={styles.input}
           value={text}
           onChange={(event) => setText(event.target.value)}
-          placeholder="Добавить комментарий…"
+          placeholder="Написать комментарий…"
           aria-label="Комментарий"
         />
-        <button className={styles.send} type="submit">
-          Отправить
+        <button className={styles.send} type="submit" aria-label="Отправить">
+          <Send size={15} aria-hidden />
         </button>
       </form>
     </div>
