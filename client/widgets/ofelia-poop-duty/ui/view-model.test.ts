@@ -1,7 +1,7 @@
 import { atom } from '@reatom/core'
 import { describe, expect, it } from 'vitest'
 
-import type { HistoryEvent, Person } from '../model/ofelia-duty'
+import type { DayResolution, Person } from '../model/ofelia-duty'
 import { makeOfeliaViewModel, resolveSelected, toBalance, toWeekDays } from './view-model'
 import type { DutyDay } from './view-model'
 
@@ -20,27 +20,22 @@ function week(): DutyDay[] {
   ]
 }
 
-const ev = (overrides: Partial<HistoryEvent> = {}): HistoryEvent => ({
-  id: 'e1',
-  ts: 1,
-  ip: '127.0.0.1',
-  date: '2026-06-16',
-  type: 'cleaned',
-  actor: 'Карина',
-  by: 'Карина',
-  ...overrides,
-})
+const closed = (
+  date: string,
+  o: Partial<DayResolution> = {},
+): Map<string, DayResolution> =>
+  new Map([[date, { status: 'closed', type: 'cleaned', actor: 'Карина', ...o }]])
 
 describe('resolveSelected (§3.1.1 ladder + status)', () => {
   it('defaults to today when no day is selected (current week)', () => {
-    const selected = resolveSelected(week(), null, [], {}, D('2026-06-16'))
+    const selected = resolveSelected(week(), null, new Map(), {}, D('2026-06-16'))
     expect(selected?.iso).toBe('2026-06-16')
     expect(selected?.person).toBe('Карина')
     expect(selected?.isDebtDay).toBe(false)
   })
 
   it('uses the explicit selection when it is in the viewed week (debt assignee wins)', () => {
-    const selected = resolveSelected(week(), D('2026-06-17'), [], { Карина: 1 }, D('2026-06-16'))
+    const selected = resolveSelected(week(), D('2026-06-17'), new Map(), { Карина: 1 }, D('2026-06-16'))
     expect(selected?.iso).toBe('2026-06-17')
     expect(selected?.person).toBe('Карина')
     expect(selected?.isDebtDay).toBe(true)
@@ -49,45 +44,45 @@ describe('resolveSelected (§3.1.1 ladder + status)', () => {
 
   it('falls back to the first day of the week when selection is off-week and today is absent', () => {
     const offWeek = week().map((d) => ({ ...d, isToday: false }))
-    expect(resolveSelected(offWeek, D('2026-07-01'), [], {}, null)?.iso).toBe('2026-06-15')
+    expect(resolveSelected(offWeek, D('2026-07-01'), new Map(), {}, null)?.iso).toBe('2026-06-15')
   })
 
-  it('marks the day closed and undoable when today has a cleaned event', () => {
-    const selected = resolveSelected(week(), null, [ev({ date: '2026-06-16' })], {}, D('2026-06-16'))
+  it('marks the day closed and undoable when it has a closing outcome', () => {
+    const selected = resolveSelected(week(), null, closed('2026-06-16'), {}, D('2026-06-16'))
     expect(selected?.status).toBe('closed')
     expect(selected?.canUndo).toBe(true)
   })
 
-  it('never allows undo for a non-today selected day', () => {
+  it('allows undo for any closed day, not only today', () => {
     const selected = resolveSelected(
       week(),
       D('2026-06-17'),
-      [ev({ date: '2026-06-17', type: 'went_into_debt' })],
+      closed('2026-06-17', { type: 'went_into_debt', onBehalfOf: 'Карина' }),
       {},
       D('2026-06-16'),
     )
     expect(selected?.status).toBe('closed')
-    expect(selected?.canUndo).toBe(false)
+    expect(selected?.canUndo).toBe(true)
   })
 
   it('returns null for an empty week', () => {
-    expect(resolveSelected([], null, [], {}, null)).toBeNull()
+    expect(resolveSelected([], null, new Map(), {}, null)).toBeNull()
   })
 
   it('flags a selected day after today as future', () => {
-    const selected = resolveSelected(week(), D('2026-06-18'), [], {}, D('2026-06-16'))
+    const selected = resolveSelected(week(), D('2026-06-18'), new Map(), {}, D('2026-06-16'))
     expect(selected?.isFuture).toBe(true)
   })
 
   it('does not flag today or past days as future', () => {
-    const today = resolveSelected(week(), D('2026-06-16'), [], {}, D('2026-06-16'))
-    const past = resolveSelected(week(), D('2026-06-15'), [], {}, D('2026-06-16'))
+    const today = resolveSelected(week(), D('2026-06-16'), new Map(), {}, D('2026-06-16'))
+    const past = resolveSelected(week(), D('2026-06-15'), new Map(), {}, D('2026-06-16'))
     expect(today?.isFuture).toBe(false)
     expect(past?.isFuture).toBe(false)
   })
 
   it('treats every day as non-future when today is unknown', () => {
-    const selected = resolveSelected(week(), D('2026-06-21'), [], {}, null)
+    const selected = resolveSelected(week(), D('2026-06-21'), new Map(), {}, null)
     expect(selected?.isFuture).toBe(false)
   })
 })
@@ -116,12 +111,13 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     const duty = {
       currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
       selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
-      historyEvents: atom<HistoryEvent[]>([], 'test.historyEvents'),
+      dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
       numberOfDebts: atom<Partial<Record<Person, number>> | null>(
         { Карина: 1 },
         'test.numberOfDebts',
       ),
       today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
+      forgivePending: atom(false, 'test.forgivePending'),
     }
     const view = makeOfeliaViewModel(duty)
 
@@ -136,5 +132,25 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     // invalidated and returns the same reference (the atomic win we are after).
     expect(view.selected()?.iso).toBe('2026-06-17')
     expect(view.balance()).toBe(balanceBefore)
+  })
+
+  it('disables canForgive while a forgive is in flight', () => {
+    const forgivePending = atom(false, 'test.forgivePending')
+    const duty = {
+      currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
+      selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
+      dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
+      numberOfDebts: atom<Partial<Record<Person, number>> | null>(
+        { Карина: 1 },
+        'test.numberOfDebts',
+      ),
+      today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
+      forgivePending,
+    }
+    const view = makeOfeliaViewModel(duty)
+
+    expect(view.canForgive()).toBe(true)
+    forgivePending.set(true)
+    expect(view.canForgive()).toBe(false)
   })
 })

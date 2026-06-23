@@ -58,7 +58,10 @@ export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(
             const date = targetDate()
             if (date) dutyModel.confirmClean(date)
           }),
-          onUndo: wrap(() => dutyModel.undo()),
+          onUndo: wrap(() => {
+            const date = targetDate()
+            if (date) dutyModel.undo(date)
+          }),
           onDebt: wrap(() => {
             const date = targetDate()
             if (date) dutyModel.goIntoDebt(date)

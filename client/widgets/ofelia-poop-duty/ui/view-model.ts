@@ -1,8 +1,8 @@
 import { computed } from '@reatom/core'
 import type { AtomLike, Computed } from '@reatom/core'
 
-import { DUTY_ROTATION, getDayStatus, isOverDebtWarning } from '../model/ofelia-duty'
-import type { HistoryEvent, Person } from '../model/ofelia-duty'
+import { DUTY_ROTATION, isOverDebtWarning } from '../model/ofelia-duty'
+import type { DayResolution, Person } from '../model/ofelia-duty'
 
 const WEEKDAY_LABELS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'] as const
 
@@ -63,7 +63,7 @@ export type OfeliaWeekNav = {
 export function resolveSelected(
   week: DutyDay[],
   selectedDate: Temporal.PlainDate | null,
-  events: HistoryEvent[],
+  resolution: Map<string, DayResolution>,
   debts: Partial<Record<Person, number>>,
   today: Temporal.PlainDate | null,
 ): SelectedDayView | null {
@@ -73,14 +73,14 @@ export function resolveSelected(
   const entry = explicit ?? week.find((day) => day.isToday) ?? week[0]
 
   const person = entry.debt ?? entry.duty
-  const status = getDayStatus(events, entry.date)
+  const status = resolution.get(entry.date.toString())?.status ?? 'pending'
 
   return {
     iso: entry.date.toString(),
     person,
     isDebtDay: entry.debt != null,
     status,
-    canUndo: entry.isToday && status === 'closed',
+    canUndo: status === 'closed',
     debtRemaining: debts[person] ?? 0,
     isFuture: today != null && Temporal.PlainDate.compare(entry.date, today) > 0,
   }
@@ -123,9 +123,10 @@ export type OfeliaViewModel = {
 export type OfeliaDutySources = {
   currentWeek: AtomLike<DutyDay[] | null>
   selectedDate: AtomLike<Temporal.PlainDate | null>
-  historyEvents: AtomLike<HistoryEvent[]>
+  dayResolution: AtomLike<Map<string, DayResolution>>
   numberOfDebts: AtomLike<Partial<Record<Person, number>> | null>
   today: AtomLike<Temporal.PlainDate | null>
+  forgivePending: AtomLike<boolean>
 }
 
 // `make` (not `create`) per the repo factory convention; named for its output
@@ -139,7 +140,7 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
     return resolveSelected(
       week,
       duty.selectedDate(),
-      duty.historyEvents(),
+      duty.dayResolution(),
       duty.numberOfDebts() ?? {},
       duty.today(),
     )
@@ -162,7 +163,10 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
   // Depends ONLY on numberOfDebts → stable ref across week-nav / day-selection.
   const balance = computed(() => toBalance(duty.numberOfDebts() ?? {}), 'ofelia.balance')
 
-  const canForgive = computed(() => balance().some((entry) => entry.debt > 0), 'ofelia.canForgive')
+  const canForgive = computed(
+    () => !duty.forgivePending() && balance().some((entry) => entry.debt > 0),
+    'ofelia.canForgive',
+  )
 
   return { ready, selected, selectedPerson, days, balance, canForgive }
 }
