@@ -34,11 +34,16 @@ describe('TinyTier', () => {
 })
 
 describe('CompactTier', () => {
-  it('renders the label, the icon actions, and the user toggle', () => {
+  it('renders the label and the icon actions', () => {
     withOfelia(makeOfeliaValue(), <CompactTier />)
     expect(screen.getByText('Сегодня убирает')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Леша/ })).toBeInTheDocument()
+  })
+
+  it('does not render UserToggle', () => {
+    withOfelia(makeOfeliaValue(), <CompactTier />)
+    expect(screen.queryByText('Я:')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Леша/ })).not.toBeInTheDocument()
   })
 
   it('confirms the day through context', () => {
@@ -49,16 +54,6 @@ describe('CompactTier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить уборку' }))
     expect(onConfirm).toHaveBeenCalledOnce()
-  })
-
-  it('switches the current user through the toggle', () => {
-    const onSetUser = vi.fn()
-    const value = makeOfeliaValue()
-    value.actions.onSetUser = onSetUser
-    withOfelia(value, <CompactTier />)
-
-    fireEvent.click(screen.getByRole('button', { name: /Леша/ }))
-    expect(onSetUser).toHaveBeenCalledWith('Леша')
   })
 
   it('draws its expand/delete controls when wired', () => {

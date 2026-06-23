@@ -5,7 +5,6 @@ import { useOfelia } from '../ofelia-context'
 import { ActionButtons } from '../parts/ActionButtons'
 import { Avatar } from '../parts/Avatar'
 import { DebtChips } from '../parts/DebtChips'
-import { UserToggle } from '../parts/UserToggle'
 
 import styles from './CompactTier.module.css'
 
@@ -15,7 +14,7 @@ export type CompactTierProps = {
 }
 
 export const CompactTier = reatomMemo<CompactTierProps>(({ onExpand, onDelete }) => {
-  const { view, currentUser, actions } = useOfelia()
+  const { view, actions } = useOfelia()
   const selected = view.selected()
   if (!selected) return null
 
@@ -52,7 +51,6 @@ export const CompactTier = reatomMemo<CompactTierProps>(({ onExpand, onDelete })
 
       <div className={styles.bottom}>
         <DebtChips balance={balance} />
-        <UserToggle value={currentUser()} onChange={actions.onSetUser} />
       </div>
     </div>
   )
