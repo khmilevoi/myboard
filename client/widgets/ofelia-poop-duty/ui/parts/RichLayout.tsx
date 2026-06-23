@@ -98,7 +98,6 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
               status={selected.status}
               canUndo={selected.canUndo}
               canForgive={canForgive}
-              alwaysSecondary
               onConfirm={actions.onConfirm}
               onUndo={actions.onUndo}
               onDebt={actions.onDebt}
