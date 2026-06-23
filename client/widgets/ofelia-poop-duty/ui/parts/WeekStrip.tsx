@@ -28,7 +28,7 @@ export const WeekStrip = reatomMemo<WeekStripProps>(({ days, onSelectDay }) => {
           >
             {day.isDebtDay ? <span className={styles.dot} aria-hidden /> : null}
             <span className={styles.weekday}>{day.weekday}</span>
-            <Avatar person={day.person} size="sm" />
+            <Avatar person={day.person} px={26} />
           </button>
         ))}
       </div>

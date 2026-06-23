@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Cat, ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react'
 
+import { otherPerson } from '../../model/ofelia-duty'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
@@ -8,6 +10,7 @@ import { ActionButtons } from './ActionButtons'
 import { Avatar } from './Avatar'
 import { CommentThread } from './CommentThread'
 import { HistoryList } from './HistoryList'
+import { MobileTabs } from './MobileTabs'
 import { UserToggle } from './UserToggle'
 import { WeekStrip } from './WeekStrip'
 
@@ -33,6 +36,7 @@ const CommentsColumn = reatomMemo(() => {
 
 export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onClose }) => {
   const { view, currentUser, actions, nav } = useOfelia()
+  const [tab, setTab] = useState<'history' | 'comments'>('history')
   const selected = view.selected()
   if (!selected) return null
 
@@ -88,25 +92,27 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
             {selectedDay?.isToday ? 'Сегодня' : selectedDay?.weekday}
           </div>
           <div className={styles.today}>
-            <Avatar person={selected.person} size="lg" />
+            <Avatar person={selected.person} size="lg" px={62} />
             <div className={styles.todayName}>{selected.person}</div>
             <span className={styles.statusChip}>{selectedDaySubtitle(selected, balance)}</span>
           </div>
 
-          {selected.isFuture ? null : (
-            <ActionButtons
-              status={selected.status}
-              canUndo={selected.canUndo}
-              canForgive={canForgive}
-              onConfirm={actions.onConfirm}
-              onUndo={actions.onUndo}
-              onDebt={actions.onDebt}
-              onForgive={actions.onForgive}
-            />
-          )}
+          <ActionButtons
+            status={selected.status}
+            canUndo={selected.canUndo}
+            canForgive={canForgive}
+            primaryLabel="Подтвердить уборку"
+            showNotes
+            inactive={selected.isFuture}
+            onConfirm={actions.onConfirm}
+            onUndo={actions.onUndo}
+            onDebt={actions.onDebt}
+            onForgive={actions.onForgive}
+          />
 
           <p className={styles.hint}>
-            Не успеваешь — сегодня уберёт другой, а тебе запишется +1 день.
+            Не успеваешь — сегодня уберёт {otherPerson(selected.person)}, а тебе запишется +1
+            день.
           </p>
 
           <div className={styles.balance}>
@@ -152,7 +158,9 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
 
           <WeekStrip days={days} onSelectDay={actions.onSelectDay} />
 
-          <div className={styles.split}>
+          <MobileTabs className={styles.mobileTabsVisible} tab={tab} onChange={setTab} />
+
+          <div className={styles.split} data-tab={tab}>
             <div className={styles.historyCol}>
               <div className={styles.colLabel}>История</div>
               <HistoryColumn />

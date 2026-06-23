@@ -30,7 +30,7 @@ export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend 
         <div className={styles.empty}>Пока нет комментариев</div>
       ) : (
         <ul className={styles.list}>
-          {comments.map((comment) => (
+          {[...comments].reverse().map((comment) => (
             <li key={comment.id} className={styles.item}>
               <Avatar person={comment.author} px={22} />
               <div className={styles.body}>

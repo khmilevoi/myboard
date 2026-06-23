@@ -93,6 +93,14 @@ describe('WeekStrip', () => {
     expect(screen.getByTestId('week-day-2026-06-17')).toHaveAttribute('data-debt', 'true')
   })
 
+  it('renders avatars at 26px', () => {
+    render(<WeekStrip days={days()} onSelectDay={vi.fn()} />)
+    const day = screen.getByTestId('week-day-2026-06-15')
+    const avatar = day.querySelector('[data-tone="l"]')
+    expect(avatar).not.toBeNull()
+    expect(avatar).toHaveStyle({ width: '26px', height: '26px' })
+  })
+
   it('calls onSelectDay with the clicked iso date', () => {
     const onSelectDay = vi.fn()
     render(<WeekStrip days={days()} onSelectDay={onSelectDay} />)

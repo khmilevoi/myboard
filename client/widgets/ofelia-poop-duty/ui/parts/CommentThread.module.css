@@ -1,6 +1,8 @@
 .root {
   display: flex;
   min-width: 0;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: 0.5rem;
 }
@@ -10,7 +12,10 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column-reverse;
+  overflow-y: auto;
 }
 
 .item {

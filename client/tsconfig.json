@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "ESNext.Temporal"],
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "ignoreDeprecations": "6.0",
@@ -15,8 +15,8 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
-    }
+      "@shared/*": ["../shared/*"],
+    },
   },
-  "include": ["src", "widgets", "tests"]
+  "include": ["src", "widgets", "tests"],
 }
