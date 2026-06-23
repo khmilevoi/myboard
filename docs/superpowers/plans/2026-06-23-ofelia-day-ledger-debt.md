@@ -433,6 +433,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 The central conversion. `numberOfDebts` becomes a `computed`; the `debts` stored atom and the per-week `historyEvents` subscription are removed; the four actions each do one `append` to `LEDGER_KEY`; `undo` works on any closed day; `view-model.ts` reads `dayResolution`; `OfeliaPoopDuty.tsx` passes the target date to `undo`. Model, view-model, wiring, and both test files change together because the model's exported surface (`historyEvents` → `dayResolution`, removal of `getDayStatus`) is consumed by the view-model — they form one reviewer gate.
 
 **Files:**
+- Modify: `client/tsconfig.json` (add `ES2023` to `lib` for `toSorted`)
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Modify: `client/widgets/ofelia-poop-duty/ui/view-model.ts`
 - Modify: `client/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.tsx:61`
@@ -492,8 +493,7 @@ const historyView = computed<HistoryEntryView[]>(() => {
   const weekIso = week.toString()
   return ledger()
     .filter((entry) => weekStartISO(Temporal.PlainDate.from(entry.date)) === weekIso)
-    .slice()
-    .sort((a, b) => b.ts - a.ts)
+    .toSorted((a, b) => b.ts - a.ts)
     .map((entry) => ({
       id: entry.id,
       date: entry.date,
@@ -530,6 +530,8 @@ const debtDays = computed(() => {
 ```
 
 6. Remove `getDayStatus` (the exported function ~lines 440–458) and `historyKey` (~lines 411–413) — both are now unused. Imports: add `withStorageKeyReadonly` from `@/storage/model/reatom/reatom-storage`; remove `withStorageKey` and `effect`; keep `withConnectHook` (still used by `currentUser`, and by the cleanup hook in Task 7), `withChangeHook` (`currentUser`), and `wrap`. Update the model `return { … }` object: remove `historyEvents`, add `dayResolution`, keep `historyView`, `numberOfDebts`, `undoAvailable`.
+
+7. In `client/tsconfig.json`, add `"ES2023"` to the `lib` array (currently `["ES2022", "DOM", "DOM.Iterable", "ESNext.Temporal"]`) so `Array.prototype.toSorted` — used in `historyView` above — typechecks. Runtime already supports it (target stays `ES2022`, which does not downlevel `toSorted`; the deploy targets modern Node/browsers).
 
 - [ ] **Step 2: Rewrite the four actions to a single append**
 
