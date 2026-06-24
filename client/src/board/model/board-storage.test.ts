@@ -1,39 +1,81 @@
-import { JSONParseError } from '@shared/json'
+import { context } from '@reatom/core'
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
-import { loadBoard, saveBoard, STORAGE_KEY, StorageError } from './board-storage'
-import type { BoardSnapshot } from './types'
+import { activeBoard, activeBoardId, boards, LOCAL_BOARD_ID, localBoard } from './board-storage'
 
-const snapshot: BoardSnapshot = {
-  instances: [{ id: 'a', typeId: 'clock' }],
-  layout: [{ i: 'a', x: 0, y: 0, w: 3, h: 4 }],
+const emptyLocalBoard = {
+  id: LOCAL_BOARD_ID,
+  name: LOCAL_BOARD_ID,
+  instances: [],
+  layout: [],
 }
 
-afterEach(() => localStorage.clear())
+beforeEach(() => {
+  context.reset()
+  localStorage.clear()
+  localBoard.set(emptyLocalBoard)
+  boards.set(null)
+  activeBoardId.set(LOCAL_BOARD_ID)
+})
 
 describe('board storage', () => {
-  it('returns null when nothing is stored', () => {
-    expect(loadBoard()).toBeNull()
+  it('resolves the local board when the local id is active', () => {
+    expect(activeBoard()).toEqual(emptyLocalBoard)
   })
 
-  it('round-trips a snapshot', () => {
-    const saved = saveBoard(snapshot)
-    expect(saved).toBeUndefined()
-    expect(loadBoard()).toEqual(snapshot)
+  it('resolves the selected shared board from the boards list', () => {
+    boards.set([
+      { id: 'main', name: 'Главная', instances: [], layout: [] },
+      { id: 'work', name: 'Рабочая', instances: [], layout: [] },
+    ])
+    activeBoardId.set('work')
+
+    expect(activeBoard()).toMatchObject({ id: 'work', name: 'Рабочая' })
   })
 
-  it('returns StorageError for corrupt JSON', () => {
-    localStorage.setItem(STORAGE_KEY, '{not json')
-    const result = loadBoard()
-    expect(result).toBeInstanceOf(StorageError)
-    expect(result instanceof StorageError && result.findCause(JSONParseError)).toBeInstanceOf(
-      JSONParseError,
-    )
+  it('updates the local board through activeBoard.update', () => {
+    activeBoard.update((board) => {
+      if (!board) return board
+      return {
+        ...board,
+        instances: [{ id: 'clock-1', typeId: 'clock' }],
+      }
+    })
+
+    expect(localBoard().instances).toEqual([{ id: 'clock-1', typeId: 'clock' }])
+    expect(activeBoard()?.instances).toEqual([{ id: 'clock-1', typeId: 'clock' }])
   })
 
-  it('returns StorageError when the stored shape is wrong', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ instances: 'nope' }))
-    expect(loadBoard()).toBeInstanceOf(StorageError)
+  it('updates the selected shared board through activeBoard.update', () => {
+    boards.set([
+      { id: 'main', name: 'Главная', instances: [], layout: [] },
+      { id: 'work', name: 'Рабочая', instances: [], layout: [] },
+    ])
+    activeBoardId.set('main')
+
+    activeBoard.update((board) => {
+      if (!board) return board
+      return {
+        ...board,
+        name: 'Главная 2',
+      }
+    })
+
+    expect(boards()?.find((board) => board.id === 'main')?.name).toBe('Главная 2')
+    expect(activeBoard()?.name).toBe('Главная 2')
+  })
+
+  it('removes the selected shared board when activeBoard.update receives null', () => {
+    boards.set([
+      { id: 'main', name: 'Главная', instances: [], layout: [] },
+      { id: 'work', name: 'Рабочая', instances: [], layout: [] },
+    ])
+    activeBoardId.set('work')
+
+    activeBoard.update(null)
+
+    expect(boards()).toEqual([{ id: 'main', name: 'Главная', instances: [], layout: [] }])
+    expect(activeBoard()).toBeNull()
   })
 })

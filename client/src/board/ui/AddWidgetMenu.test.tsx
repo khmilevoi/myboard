@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { activeBoardId, boards } from '../model/board-storage'
 import { AddWidgetMenu } from './AddWidgetMenu'
+
 import styles from './AddWidgetMenu.module.css'
 
 beforeEach(() => {

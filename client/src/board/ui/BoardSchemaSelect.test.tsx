@@ -10,6 +10,8 @@ const items = [
 ]
 
 describe('BoardSchemaSelect', () => {
+  const currentBoardTrigger = 'Текущая схема: Главная'
+
   it('renders a loading skeleton', () => {
     render(<BoardSchemaSelect items={[]} value={null} isLoading />)
 
@@ -21,7 +23,7 @@ describe('BoardSchemaSelect', () => {
 
     render(<BoardSchemaSelect items={items} value="main" onValueChange={onValueChange} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Схема борды' }))
+    fireEvent.click(screen.getByRole('button', { name: currentBoardTrigger }))
     fireEvent.click(screen.getByRole('button', { name: 'Рабочая' }))
 
     expect(onValueChange).toHaveBeenCalledWith('work')
@@ -32,7 +34,7 @@ describe('BoardSchemaSelect', () => {
 
     render(<BoardSchemaSelect items={items} value="main" onCreate={onCreate} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Схема борды' }))
+    fireEvent.click(screen.getByRole('button', { name: currentBoardTrigger }))
     fireEvent.change(screen.getByLabelText('Название новой схемы'), {
       target: { value: ' Дом ' },
     })
@@ -46,7 +48,7 @@ describe('BoardSchemaSelect', () => {
 
     render(<BoardSchemaSelect items={items} value="main" onRename={onRename} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Схема борды' }))
+    fireEvent.click(screen.getByRole('button', { name: currentBoardTrigger }))
     fireEvent.click(screen.getByRole('button', { name: 'Переименовать схему Главная' }))
     fireEvent.change(screen.getByLabelText('Новое имя схемы Главная'), {
       target: { value: ' Личная ' },
@@ -61,7 +63,7 @@ describe('BoardSchemaSelect', () => {
 
     render(<BoardSchemaSelect items={items} value="main" onDelete={onDelete} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Схема борды' }))
+    fireEvent.click(screen.getByRole('button', { name: currentBoardTrigger }))
     fireEvent.click(screen.getByRole('button', { name: 'Удалить схему Рабочая' }))
 
     expect(onDelete).toHaveBeenCalledWith('work')

@@ -5,9 +5,17 @@ import type { IncomingMessage } from 'node:http'
  * Stored whole; the UI is responsible for only showing a tail.
  */
 export function clientIp(req: Pick<IncomingMessage, 'headers' | 'socket'>): string | null {
+  const forwardedFor = firstForwardedFor(req.headers['x-forwarded-for'])
+  if (forwardedFor) return normalizeIp(forwardedFor) || null
+
   const remoteAddress = req.socket.remoteAddress ?? null
   if (!remoteAddress) return null
   return normalizeIp(remoteAddress) || null
+}
+
+const firstForwardedFor = (header: IncomingMessage['headers']['x-forwarded-for']) => {
+  const value = Array.isArray(header) ? header[0] : header
+  return value?.split(',')[0]?.trim() ?? null
 }
 
 const normalizeIp = (ip: string) => {

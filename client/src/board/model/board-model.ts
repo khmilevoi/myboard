@@ -1,5 +1,4 @@
 import { action, atom } from '@reatom/core'
-import { log } from '@reatom/core'
 import { nanoid } from 'nanoid'
 
 import { findWidgetType, WidgetType } from '@/widget-registry/model/registry'

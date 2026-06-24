@@ -106,7 +106,9 @@ export const BoardSchemaSelect = reatomMemo<BoardSchemaSelectProps>(
         >
           <div className={styles.head}>
             <span className={styles.headTitle}>Схемы борды</span>
-            <span className={styles.headHint}>Выберите, добавьте, переименуйте или удалите схему</span>
+            <span className={styles.headHint}>
+              Выберите, добавьте, переименуйте или удалите схему
+            </span>
           </div>
 
           {items.length > 0 ? (
