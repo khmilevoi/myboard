@@ -18,7 +18,12 @@ export const OfeliaActionControls = reatomMemo<OfeliaActionControlsProps>(
     return (
       <div className={className ? `${styles.root} ${className}` : styles.root}>
         {onExpand ? (
-          <button type="button" className={styles.button} aria-label="Развернуть" onClick={onExpand}>
+          <button
+            type="button"
+            className={styles.button}
+            aria-label="Развернуть"
+            onClick={onExpand}
+          >
             <Maximize2 size={17} aria-hidden />
           </button>
         ) : null}

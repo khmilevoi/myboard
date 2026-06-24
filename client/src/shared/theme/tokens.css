@@ -1,83 +1,82 @@
 :root,
-:root[data-theme="light"] {
-    color-scheme: light;
+:root[data-theme='light'] {
+  color-scheme: light;
 
-    /* shadcn semantic tokens */
-    --background: oklch(0.975 0.003 255);
-    --foreground: oklch(0.27 0.02 262);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.27 0.02 262);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.27 0.02 262);
-    --primary: oklch(0.55 0.17 281);
-    --primary-foreground: #ffffff;
-    --secondary: oklch(0.972 0.004 255);
-    --secondary-foreground: oklch(0.5 0.018 262);
-    --muted: oklch(0.972 0.004 255);
-    --muted-foreground: oklch(0.5 0.018 262);
-    --accent: oklch(0.972 0.004 255);
-    --accent-foreground: oklch(0.27 0.02 262);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.91 0.005 255);
-    --input: oklch(0.91 0.005 255);
-    --ring: oklch(0.55 0.17 281);
+  /* shadcn semantic tokens */
+  --background: oklch(0.975 0.003 255);
+  --foreground: oklch(0.27 0.02 262);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.27 0.02 262);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.27 0.02 262);
+  --primary: oklch(0.55 0.17 281);
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.972 0.004 255);
+  --secondary-foreground: oklch(0.5 0.018 262);
+  --muted: oklch(0.972 0.004 255);
+  --muted-foreground: oklch(0.5 0.018 262);
+  --accent: oklch(0.972 0.004 255);
+  --accent-foreground: oklch(0.27 0.02 262);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.91 0.005 255);
+  --input: oklch(0.91 0.005 255);
+  --ring: oklch(0.55 0.17 281);
 
-    /* app-specific tokens */
-    --board: oklch(0.96 0.004 255);
-    --border-strong: oklch(0.84 0.006 255);
-    --text-3: oklch(0.66 0.012 262);
-    --accent-soft: oklch(0.955 0.032 285);
-    --scrim: oklch(0.45 0.02 262 / 0.34);
-    --success: oklch(0.55 0.13 155);
-    --dot-grid: oklch(0.84 0.006 255);
-    --shadow-card:
-        0 1px 2px rgba(20, 22, 40, 0.05), 0 2px 8px rgba(20, 22, 40, 0.05);
-    --shadow-overlay: 0 24px 50px -18px rgba(30, 32, 55, 0.22);
+  /* app-specific tokens */
+  --board: oklch(0.96 0.004 255);
+  --border-strong: oklch(0.84 0.006 255);
+  --text-3: oklch(0.66 0.012 262);
+  --accent-soft: oklch(0.955 0.032 285);
+  --scrim: oklch(0.45 0.02 262 / 0.34);
+  --success: oklch(0.55 0.13 155);
+  --dot-grid: oklch(0.84 0.006 255);
+  --shadow-card: 0 1px 2px rgba(20, 22, 40, 0.05), 0 2px 8px rgba(20, 22, 40, 0.05);
+  --shadow-overlay: 0 24px 50px -18px rgba(30, 32, 55, 0.22);
 }
 
-:root[data-theme="dark"] {
-    color-scheme: dark;
+:root[data-theme='dark'] {
+  color-scheme: dark;
 
-    --background: oklch(0.19 0.008 262);
-    --foreground: oklch(0.95 0.005 262);
-    --card: oklch(0.225 0.01 262);
-    --card-foreground: oklch(0.95 0.005 262);
-    --popover: oklch(0.225 0.01 262);
-    --popover-foreground: oklch(0.95 0.005 262);
-    --primary: oklch(0.68 0.15 285);
-    --primary-foreground: oklch(0.18 0.03 285);
-    --secondary: oklch(0.26 0.012 262);
-    --secondary-foreground: oklch(0.72 0.012 262);
-    --muted: oklch(0.26 0.012 262);
-    --muted-foreground: oklch(0.72 0.012 262);
-    --accent: oklch(0.26 0.012 262);
-    --accent-foreground: oklch(0.95 0.005 262);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(0.3 0.012 262);
-    --input: oklch(0.3 0.012 262);
-    --ring: oklch(0.68 0.15 285);
+  --background: oklch(0.19 0.008 262);
+  --foreground: oklch(0.95 0.005 262);
+  --card: oklch(0.225 0.01 262);
+  --card-foreground: oklch(0.95 0.005 262);
+  --popover: oklch(0.225 0.01 262);
+  --popover-foreground: oklch(0.95 0.005 262);
+  --primary: oklch(0.68 0.15 285);
+  --primary-foreground: oklch(0.18 0.03 285);
+  --secondary: oklch(0.26 0.012 262);
+  --secondary-foreground: oklch(0.72 0.012 262);
+  --muted: oklch(0.26 0.012 262);
+  --muted-foreground: oklch(0.72 0.012 262);
+  --accent: oklch(0.26 0.012 262);
+  --accent-foreground: oklch(0.95 0.005 262);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.3 0.012 262);
+  --input: oklch(0.3 0.012 262);
+  --ring: oklch(0.68 0.15 285);
 
-    --board: oklch(0.165 0.008 262);
-    --border-strong: oklch(0.36 0.014 262);
-    --text-3: oklch(0.55 0.012 262);
-    --accent-soft: oklch(0.32 0.07 285);
-    --scrim: oklch(0.1 0.01 262 / 0.62);
-    --success: oklch(0.34 0.07 155);
-    --dot-grid: oklch(0.36 0.014 262);
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 10px rgba(0, 0, 0, 0.35);
-    --shadow-overlay: 0 24px 70px rgba(0, 0, 0, 0.55);
+  --board: oklch(0.165 0.008 262);
+  --border-strong: oklch(0.36 0.014 262);
+  --text-3: oklch(0.55 0.012 262);
+  --accent-soft: oklch(0.32 0.07 285);
+  --scrim: oklch(0.1 0.01 262 / 0.62);
+  --success: oklch(0.34 0.07 155);
+  --dot-grid: oklch(0.36 0.014 262);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-overlay: 0 24px 70px rgba(0, 0, 0, 0.55);
 }
 
 :root {
-    --radius: 0.625rem;
-    --ease: cubic-bezier(0.22, 1, 0.36, 1);
-    --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --radius: 0.625rem;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
-    /* Compatibility for existing widget internals; do not use in new host chrome. */
-    --surface: var(--card);
-    --text: var(--foreground);
-    --text-dim: var(--muted-foreground);
-    --font-ui: "Hanken Grotesk Variable", system-ui, sans-serif;
-    --font-display: "Hanken Grotesk Variable", system-ui, sans-serif;
-    --accent-2: var(--primary);
+  /* Compatibility for existing widget internals; do not use in new host chrome. */
+  --surface: var(--card);
+  --text: var(--foreground);
+  --text-dim: var(--muted-foreground);
+  --font-ui: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --font-display: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --accent-2: var(--primary);
 }
