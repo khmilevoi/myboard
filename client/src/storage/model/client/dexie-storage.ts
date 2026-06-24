@@ -31,7 +31,7 @@ function runAppendExclusive<T>(key: string, task: () => Promise<T>): Promise<T> 
   return result
 }
 
-export function createDexieStorage(namespace: string, database: StorageDb = defaultDb): StorageApi {
+export function makeDexieStorage(namespace: string, database: StorageDb = defaultDb): StorageApi {
   const table = database.entries
 
   async function readValid(fullKey: string): Promise<StorageError | StorageEntry | null> {

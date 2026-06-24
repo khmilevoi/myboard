@@ -36,9 +36,9 @@ export const AddWidgetMenu = reatomMemo(() => {
       onOpenChange={wrap((next: boolean) => (next ? openAddWidgetMenu() : closeAddWidgetMenu()))}
     >
       <PopoverTrigger asChild>
-        <Button className={styles.trigger}>
+        <Button className={styles.trigger} aria-label="Добавить виджет">
           <Plus size={16} strokeWidth={2.4} aria-hidden />
-          Добавить виджет
+          <span className={styles.triggerLabel}>Добавить виджет</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent

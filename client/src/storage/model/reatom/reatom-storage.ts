@@ -48,6 +48,8 @@ export type WithStorageKeyOptions<T> = {
 export type StorageKeyExt<State> = {
   asyncValue: Atom<State | null>
   error: Atom<StorageError | null>
+  updatePromise: Atom<Promise<StorageError | void> | null>
+  isLoading: Atom<boolean>
 }
 
 /** Reactive value of a single key over StorageApi.subscribe. */
@@ -60,12 +62,18 @@ export const withStorageKey =
   (target) => {
     const asyncValue = atom<AtomState<Target> | null>(null, `${target.name}.value`)
     const error = atom<StorageError | null>(null, `${target.name}.error`)
+    const updatePromise = atom<Promise<StorageError | void> | null>(
+      null,
+      `${target.name}.updatePromise`,
+    )
+    const isLoading = atom(true, `${target.name}.isLoading`)
 
     target.extend(
       withConnectHook(() => {
         return api.subscribe<AtomState<Target>>(
           key,
           wrap((event) => {
+            isLoading.set(false)
             if (event instanceof Error) return error.set(event)
             error.set(null)
             // Apply the same object reference to both atoms so the change hook
@@ -86,18 +94,24 @@ export const withStorageKey =
         // this change is that echo — skip it. Genuine local mutations always
         // produce a fresh object, so they are never skipped.
         if (Object.is(state, asyncValue())) return
-        api.set(key, state, state).then((err) => {
-          if (err instanceof Error) {
-            error.set(err)
-            target.set(prevState)
-          }
-        })
+        const promise = api
+          .set(key, state)
+          .then((err) => {
+            if (err instanceof Error) {
+              error.set(err)
+              target.set(prevState)
+            }
+          })
+          .finally(() => updatePromise.set(null))
+        updatePromise.set(promise)
       }),
     )
 
     return {
+      isLoading,
       asyncValue,
       error,
+      updatePromise,
     }
   }
 
@@ -107,6 +121,11 @@ export type WithStorageKeyReadonlyOptions<T> = {
   schema?: z.ZodType<T>
   /** Applied when the key is absent/deleted (StorageChange.value === null). */
   fallback: T
+}
+
+export type StorageKeyReadonlyExt = {
+  error: Atom<StorageError | null>
+  isLoading: Atom<boolean>
 }
 
 /**
@@ -121,19 +140,24 @@ export const withStorageKeyReadonly =
     key,
     schema,
     fallback,
-  }: WithStorageKeyReadonlyOptions<AtomState<Target>>): Ext<Target, Record<string, never>> =>
+  }: WithStorageKeyReadonlyOptions<AtomState<Target>>): Ext<Target, StorageKeyReadonlyExt> =>
   (target) => {
+    const isLoading = atom(true, 'storage.isLoading')
+    const error = atom<StorageError | null>(null, 'storage.error')
+
     target.extend(
       withConnectHook(() =>
         api.subscribe<AtomState<Target>>(
           key,
           wrap((event) => {
-            if (event instanceof Error) return
+            isLoading.set(false)
+            if (event instanceof Error) return error.set(event)
+            error.set(null)
             target.set(event.value ?? fallback)
           }),
           schema,
         ),
       ),
     )
-    return {}
+    return { error, isLoading }
   }

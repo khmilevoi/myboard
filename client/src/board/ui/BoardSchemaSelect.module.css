@@ -1,0 +1,231 @@
+.root {
+  min-width: 220px;
+}
+
+.trigger {
+  width: 220px;
+  justify-content: space-between;
+  gap: 10px;
+  padding-inline: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.triggerText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skeleton {
+  width: 220px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.panel {
+  width: 320px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: var(--shadow-overlay);
+}
+
+.arrow {
+  fill: var(--popover);
+  stroke: var(--border);
+  stroke-width: 1px;
+}
+
+.head {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.headTitle {
+  display: block;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--foreground);
+}
+
+.headHint {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selectButton {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  height: 36px;
+  flex: 1;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+
+.selectButton:hover {
+  background: var(--secondary);
+}
+
+.selectButton:focus-visible,
+.iconButton:focus-visible,
+.formButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.selected {
+  border-color: var(--primary);
+  background: var(--accent-soft);
+}
+
+.itemName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check {
+  flex: none;
+  color: var(--primary);
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+
+.iconButton:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.deleteButton:hover {
+  border-color: var(--destructive);
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.empty {
+  padding: 18px 16px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.editForm {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.formButton {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+
+.formButton:hover:not(:disabled) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.formButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 640px) {
+  .root,
+  .trigger,
+  .skeleton {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .root {
+    width: auto;
+    min-width: 36px;
+  }
+
+  .trigger,
+  .skeleton {
+    width: 36px;
+    min-width: 36px;
+  }
+
+  .trigger {
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+
+  .triggerText {
+    display: none;
+  }
+}

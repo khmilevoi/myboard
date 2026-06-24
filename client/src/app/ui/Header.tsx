@@ -1,4 +1,10 @@
+import { wrap } from '@reatom/core'
+import { useMemo } from 'react'
+
+import { addBoard, removeBoard, updateBoard } from '@/board/model/board-model'
+import { activeBoardId, boards } from '@/board/model/board-storage'
 import { AddWidgetMenu } from '@/board/ui/AddWidgetMenu'
+import { BoardSchemaSelect } from '@/board/ui/BoardSchemaSelect'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { ThemeToggle } from '@/theme/ui/ThemeToggle'
 
@@ -12,6 +18,7 @@ export const Header = reatomMemo(() => {
           <span className={styles.logoMuted}>my</span>
           <span className={styles.logoStrong}>board</span>
         </span>
+        <BoardSelect />
       </div>
       <div className={styles.actions}>
         <ThemeToggle />
@@ -20,3 +27,23 @@ export const Header = reatomMemo(() => {
     </header>
   )
 }, 'Header')
+
+export const BoardSelect = reatomMemo(() => {
+  const boardItems = boards()
+  const boardId = activeBoardId()
+
+  const items = useMemo(() => {
+    return boardItems?.map((board) => ({ id: board.id, name: board.name })) ?? []
+  }, [boardItems])
+
+  return (
+    <BoardSchemaSelect
+      items={items}
+      value={boardId ?? null}
+      onCreate={wrap((name) => addBoard(name))}
+      onDelete={wrap((id) => removeBoard(id))}
+      onValueChange={wrap((id) => activeBoardId.set(id))}
+      onRename={wrap((id, name) => updateBoard(id, name))}
+    />
+  )
+})

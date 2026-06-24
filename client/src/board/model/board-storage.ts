@@ -1,42 +1,42 @@
-import { JSONParseError, safeParse } from '@shared/json'
-import * as errore from 'errore'
+import { atom, effect } from '@reatom/core'
+import { computed } from '@reatom/core'
+import z from 'zod'
 
-import type { BoardSnapshot } from './types'
+import { withStorageKey } from '@/storage/model/reatom/reatom-storage'
 
-export const STORAGE_KEY = 'myboard.board'
+import { rootStorage } from './storage'
+import { BoardSnapshot, BoardSnapshots, BoardSnapshotsShema } from './types'
 
-export class StorageError extends errore.createTaggedError({
-  name: 'StorageError',
-  message: 'Storage operation failed: $reason',
-}) {}
+export const boards = atom<BoardSnapshots | null>(null).extend(
+  withStorageKey({ api: rootStorage.server, key: 'boardSchemas', schema: BoardSnapshotsShema }),
+)
+export const activeBoardId = atom<string | null>(null, 'board.activeBoard').extend(
+  withStorageKey({ api: rootStorage.client, key: 'activeBoardId', schema: z.string() }),
+)
+export const activeBoard = computed<BoardSnapshot | null>(() => {
+  return boards()?.find((board) => board.id === activeBoardId()) ?? null
+}).extend(() => ({
+  update: (
+    factory: BoardSnapshot | null | ((state: BoardSnapshot | null) => BoardSnapshot | null),
+  ) => {
+    const nextState = typeof factory === 'function' ? factory(activeBoard()) : factory
 
-function isSnapshot(value: unknown): value is BoardSnapshot {
-  if (typeof value !== 'object' || value === null) return false
-  const record = value as Record<string, unknown>
-  return Array.isArray(record.instances) && Array.isArray(record.layout)
-}
+    return boards.set((prevBoards) => {
+      if (!prevBoards && nextState) return [nextState]
+      else if (prevBoards && nextState)
+        return prevBoards.map((board) => (board.id === activeBoardId() ? nextState : board))
+      else if (prevBoards && !nextState)
+        return prevBoards.filter((board) => board.id !== activeBoardId())
+      else return prevBoards
+    })
+  },
+}))
 
-export function loadBoard(): StorageError | BoardSnapshot | null {
-  const raw = errore.try({
-    try: () => localStorage.getItem(STORAGE_KEY),
-    catch: (cause) => new StorageError({ reason: 'read failed', cause }),
-  })
-  if (raw instanceof StorageError) return raw
-  if (raw === null) return null
+effect(() => {
+  const boardsValue = boards()
 
-  const parsed = safeParse(raw)
-  if (parsed instanceof JSONParseError) {
-    return new StorageError({ reason: 'invalid JSON', cause: parsed })
-  }
-  if (!isSnapshot(parsed)) return new StorageError({ reason: 'stored value has wrong shape' })
+  if (!boardsValue || boardsValue.length === 0) return
+  if (activeBoardId()) return
 
-  return parsed
-}
-
-export function saveBoard(snapshot: BoardSnapshot): StorageError | void {
-  const result = errore.try({
-    try: () => localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)),
-    catch: (cause) => new StorageError({ reason: 'write failed', cause }),
-  })
-  if (result instanceof StorageError) return result
-}
+  activeBoardId.set(boardsValue[0].id)
+})

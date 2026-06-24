@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from './client/db'
-import { createWidgetStorage } from './widget-storage'
+import { makeWidgetStorage } from './storage'
 
 beforeEach(async () => {
   await db.entries.clear()
@@ -10,7 +10,7 @@ beforeEach(async () => {
 
 describe('createWidgetStorage', () => {
   it('isolates instance client storage from shared client storage', async () => {
-    const storage = createWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+    const storage = makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
     await storage.instance.client.set('draft', 'per-instance')
     await storage.shared.client.set('draft', 'per-type')
 
@@ -19,8 +19,8 @@ describe('createWidgetStorage', () => {
   })
 
   it('isolates one instance from another', async () => {
-    const a = createWidgetStorage({ instanceId: 'inst-a', typeId: 'clock' })
-    const b = createWidgetStorage({ instanceId: 'inst-b', typeId: 'clock' })
+    const a = makeWidgetStorage({ instanceId: 'inst-a', typeId: 'clock' })
+    const b = makeWidgetStorage({ instanceId: 'inst-b', typeId: 'clock' })
     await a.instance.client.set('draft', 'a')
     await b.instance.client.set('draft', 'b')
 
@@ -29,7 +29,7 @@ describe('createWidgetStorage', () => {
   })
 
   it('exposes server adapters for both scopes', () => {
-    const storage = createWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+    const storage = makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
     expect(typeof storage.instance.server.get).toBe('function')
     expect(typeof storage.shared.server.get).toBe('function')
   })
