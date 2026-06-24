@@ -205,9 +205,7 @@ describe('ofeliaCommentsModel.commentThread', () => {
     const ip = '203.0.113.55'
     const ts = new Date(2026, 5, 10, 12, 0, 0).getTime()
 
-    model.comments.set([
-      cm({ id: 'c1', ts, ip, author: 'Карина', text: 'hi' }),
-    ])
+    model.comments.set([cm({ id: 'c1', ts, ip, author: 'Карина', text: 'hi' })])
 
     const [entry] = model.commentThread()
 

@@ -19,12 +19,7 @@ export const WidgetControls = reatomMemo<WidgetControlsProps>(({ onExpand, onDel
   return (
     <div className={`${styles.root} widget-controls`}>
       {onExpand && (
-        <button
-          type="button"
-          className={styles.button}
-          aria-label="Развернуть"
-          onClick={onExpand}
-        >
+        <button type="button" className={styles.button} aria-label="Развернуть" onClick={onExpand}>
           <Maximize2 size={15} aria-hidden />
         </button>
       )}

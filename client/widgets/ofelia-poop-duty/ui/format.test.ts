@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  formatDateShort,
-  formatWeekRange,
-  pluralizeDays,
-  selectedDaySubtitle,
-} from './format'
+import { formatDateShort, formatWeekRange, pluralizeDays, selectedDaySubtitle } from './format'
 import type { SelectedDayView } from './view-model'
 
 describe('pluralizeDays', () => {

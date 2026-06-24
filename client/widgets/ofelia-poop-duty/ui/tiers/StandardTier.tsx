@@ -1,15 +1,13 @@
-import { Cat } from 'lucide-react'
-
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { useAtomValue } from '@/shared/reatom/use-atom-value'
-import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 
-import { selectedDaySubtitle } from '../format'
 import { otherPerson } from '../../model/ofelia-duty'
+import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
 import { ActionButtons } from '../parts/ActionButtons'
 import { Avatar } from '../parts/Avatar'
 import { DebtChips } from '../parts/DebtChips'
+import { OfeliaMiniHeader } from '../parts/OfeliaMiniHeader'
 
 import styles from './StandardTier.module.css'
 
@@ -31,11 +29,7 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
 
   return (
     <div className={styles.root}>
-      <WidgetControls onExpand={onExpand} onDelete={onDelete} />
-      <div className={styles.title}>
-        <Cat size={16} aria-hidden />
-        Лоток Офелии
-      </div>
+      <OfeliaMiniHeader onExpand={onExpand} onDelete={onDelete} />
 
       <div className={styles.label}>Сегодня убирает</div>
       <div className={styles.who}>

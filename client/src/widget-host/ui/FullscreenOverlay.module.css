@@ -7,7 +7,7 @@
   display: flex;
   flex-direction: column;
   width: min(900px, 92vw);
-  height: min(680px, 88vh);
+  height: min(680px, calc(100dvh - 2rem));
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: var(--shadow-overlay);
@@ -17,4 +17,5 @@
 .body {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }

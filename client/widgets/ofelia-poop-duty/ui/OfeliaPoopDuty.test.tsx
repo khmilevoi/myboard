@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+import { context } from '@reatom/core'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
 import type { ServerTime } from '@/shared/timer/model/server-time'
-import { createWidgetStorage } from '@/storage/model/widget-storage'
+import { createFakeStorage } from '@/storage/model/test/fakes'
+import type { WidgetStorage } from '@/storage/model/widget-storage'
 import type { WidgetTier } from '@/widget-host/model/tier'
 import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 
@@ -15,6 +17,18 @@ const timerHolder = vi.hoisted(() => ({ current: null as ServerTime | null }))
 vi.mock('@/shared/timer/model/server-time', () => ({
   getServerTime: () => timerHolder.current,
 }))
+
+function fakeWidgetStorage(): WidgetStorage {
+  const instanceClient = createFakeStorage()
+  const instanceServer = createFakeStorage()
+  const sharedClient = createFakeStorage()
+  const sharedServer = createFakeStorage()
+
+  return {
+    instance: { client: instanceClient, server: instanceServer },
+    shared: { client: sharedClient, server: sharedServer },
+  }
+}
 
 function props(tier: WidgetTier): WidgetRuntimeProps {
   return {
@@ -27,7 +41,7 @@ function props(tier: WidgetTier): WidgetRuntimeProps {
     requestClose: vi.fn(),
     requestDelete: vi.fn(),
     reportError: vi.fn(),
-    storage: createWidgetStorage({ instanceId: 'ofelia-poop-duty-1', typeId: 'ofelia-poop-duty' }),
+    storage: fakeWidgetStorage(),
   }
 }
 
@@ -36,6 +50,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  context.reset()
   vi.clearAllMocks()
 })
 

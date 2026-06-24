@@ -34,10 +34,10 @@ describe('TinyTier', () => {
 })
 
 describe('CompactTier', () => {
-  it('renders the label and the icon actions', () => {
+  it('renders the compact card actions', () => {
     withOfelia(makeOfeliaValue(), <CompactTier />)
-    expect(screen.getByText('Сегодня убирает')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Отложить' })).toBeInTheDocument()
   })
 
   it('does not render UserToggle', () => {
@@ -83,7 +83,7 @@ describe('CompactTier', () => {
     withOfelia(makeOfeliaValue({ view }), <CompactTier />)
 
     expect(screen.queryByRole('button', { name: 'Подтвердить уборку' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'В долг' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Отложить' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Простить' })).not.toBeInTheDocument()
   })
 })

@@ -12,8 +12,10 @@ function days(): WeekDayView[] {
       weekday: 'ПН',
       dayOfMonth: 15,
       person: 'Леша',
+      debtOwner: null,
       isToday: false,
       isDebtDay: false,
+      isClosed: false,
       isSelected: false,
     },
     {
@@ -21,8 +23,10 @@ function days(): WeekDayView[] {
       weekday: 'ВТ',
       dayOfMonth: 16,
       person: 'Карина',
+      debtOwner: null,
       isToday: true,
       isDebtDay: false,
+      isClosed: true,
       isSelected: true,
     },
     {
@@ -30,8 +34,10 @@ function days(): WeekDayView[] {
       weekday: 'СР',
       dayOfMonth: 17,
       person: 'Карина',
+      debtOwner: 'Леша',
       isToday: false,
       isDebtDay: true,
+      isClosed: true,
       isSelected: false,
     },
     {
@@ -39,8 +45,10 @@ function days(): WeekDayView[] {
       weekday: 'ЧТ',
       dayOfMonth: 18,
       person: 'Леша',
+      debtOwner: null,
       isToday: false,
       isDebtDay: false,
+      isClosed: false,
       isSelected: false,
     },
     {
@@ -48,8 +56,10 @@ function days(): WeekDayView[] {
       weekday: 'ПТ',
       dayOfMonth: 19,
       person: 'Карина',
+      debtOwner: null,
       isToday: false,
       isDebtDay: false,
+      isClosed: false,
       isSelected: false,
     },
     {
@@ -57,8 +67,10 @@ function days(): WeekDayView[] {
       weekday: 'СБ',
       dayOfMonth: 20,
       person: 'Леша',
+      debtOwner: null,
       isToday: false,
       isDebtDay: false,
+      isClosed: false,
       isSelected: false,
     },
     {
@@ -66,8 +78,10 @@ function days(): WeekDayView[] {
       weekday: 'ВС',
       dayOfMonth: 21,
       person: 'Карина',
+      debtOwner: null,
       isToday: false,
       isDebtDay: false,
+      isClosed: false,
       isSelected: false,
     },
   ]
@@ -86,11 +100,35 @@ describe('WeekStrip', () => {
     const tuesday = screen.getByTestId('week-day-2026-06-16')
     expect(tuesday).toHaveAttribute('data-selected', 'true')
     expect(tuesday).toHaveAttribute('data-today', 'true')
+    expect(tuesday.querySelector('[data-testid="week-day-today-dot"]')).toBeInTheDocument()
   })
 
   it('flags debt days', () => {
     render(<WeekStrip days={days()} onSelectDay={vi.fn()} />)
-    expect(screen.getByTestId('week-day-2026-06-17')).toHaveAttribute('data-debt', 'true')
+    const day = screen.getByTestId('week-day-2026-06-17')
+    expect(day).toHaveAttribute('data-debt', 'true')
+    expect(day.querySelector('[data-testid="week-day-today-dot"]')).not.toBeInTheDocument()
+  })
+
+  it('marks closed days with a check', () => {
+    render(<WeekStrip days={days()} onSelectDay={vi.fn()} />)
+    const day = screen.getByTestId('week-day-2026-06-16')
+    expect(day).toHaveAttribute('data-closed', 'true')
+    expect(day.querySelector('[data-testid="week-day-closed-icon"]')).toBeInTheDocument()
+    expect(day).not.toHaveTextContent('✓')
+  })
+
+  it('renders debt ownership as a small badge over the final actor avatar', () => {
+    render(<WeekStrip days={days()} onSelectDay={vi.fn()} />)
+    const day = screen.getByTestId('week-day-2026-06-17')
+    expect(day.querySelector('[data-testid="week-day-small-badge"]')).toHaveTextContent('Л')
+    expect(day.querySelector('[data-tone="k"]')).not.toBeNull()
+  })
+
+  it('describes the dot as the current-day marker', () => {
+    render(<WeekStrip days={days()} onSelectDay={vi.fn()} />)
+    expect(screen.getByText('текущий день')).toBeInTheDocument()
+    expect(screen.queryByText('дни гашения долга')).not.toBeInTheDocument()
   })
 
   it('renders avatars at 26px', () => {

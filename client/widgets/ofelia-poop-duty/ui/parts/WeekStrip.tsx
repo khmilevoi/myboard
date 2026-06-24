@@ -1,7 +1,10 @@
+import { Check } from 'lucide-react'
+
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
+import { personInitial } from '../person'
 import type { WeekDayView } from '../view-model'
-import { Avatar } from './Avatar'
+import { AvatarWithBadge } from './AvatarWithBadge'
 
 import styles from './WeekStrip.module.css'
 
@@ -22,19 +25,32 @@ export const WeekStrip = reatomMemo<WeekStripProps>(({ days, onSelectDay }) => {
             data-today={day.isToday}
             data-selected={day.isSelected}
             data-debt={day.isDebtDay}
+            data-closed={day.isClosed}
             data-testid={`week-day-${day.iso}`}
             aria-pressed={day.isSelected}
             onClick={() => onSelectDay(day.iso)}
           >
-            {day.isDebtDay ? <span className={styles.dot} aria-hidden /> : null}
+            {day.isClosed ? (
+              <span className={styles.check} aria-hidden>
+                <Check size={12} strokeWidth={3} data-testid="week-day-closed-icon" />
+              </span>
+            ) : null}
+            {day.isToday ? (
+              <span className={styles.dot} data-testid="week-day-today-dot" aria-hidden />
+            ) : null}
             <span className={styles.weekday}>{day.weekday}</span>
-            <Avatar person={day.person} px={26} />
+            <AvatarWithBadge
+              person={day.person}
+              px={26}
+              badge={day.debtOwner ? personInitial(day.debtOwner) : undefined}
+              badgeTone={day.debtOwner ?? undefined}
+            />
           </button>
         ))}
       </div>
       <div className={styles.legend}>
         <span className={styles.dot} aria-hidden />
-        дни гашения долга
+        текущий день
       </div>
     </div>
   )

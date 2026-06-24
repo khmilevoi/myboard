@@ -7,9 +7,7 @@ import { Avatar } from './Avatar'
 
 import styles from './HistoryList.module.css'
 
-function badgeLabel(
-  entry: HistoryEntryView,
-): { text: string; tone: 'accent' | 'forgive' } | null {
+function badgeLabel(entry: HistoryEntryView): { text: string; tone: 'accent' | 'forgive' } | null {
   if (entry.type === 'went_into_debt') return { text: 'долг', tone: 'accent' }
   if (entry.type === 'forgiven') return { text: '−1 день', tone: 'forgive' }
   if (entry.type === 'cleaned' && entry.onBehalfOf) {
@@ -34,7 +32,10 @@ export const HistoryList = reatomMemo<HistoryListProps>(({ entries }) => {
         const badge = badgeLabel(entry)
         return (
           <li key={entry.id} className={styles.item}>
-            <span className={styles.date}>{entry.date}</span>
+            <div className={styles.meta}>
+              <span className={styles.date}>{entry.date}</span>
+              {entry.ipTail ? <span className={styles.ip}>{entry.ipTail}</span> : null}
+            </div>
             <div className={styles.row}>
               <Avatar person={entry.actor} px={20} />
               <span className={styles.name}>{entry.actor}</span>

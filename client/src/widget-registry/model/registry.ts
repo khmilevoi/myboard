@@ -29,7 +29,7 @@ export const widgetTypes: WidgetType[] = [
     title: 'Часы',
     description: 'Текущее время и дата',
     loadComponent: () =>
-      import('../../../widgets/clock/ui/Clock').then((mod) => ({
+      import('widgets/clock/ui/Clock').then((mod) => ({
         default: mod.Clock,
       })),
     defaultSize: { w: 3, h: 4 },
@@ -40,16 +40,16 @@ export const widgetTypes: WidgetType[] = [
     title: 'Лоток Офелии',
     description: 'Чья сегодня очередь убирать',
     loadComponent: () =>
-      import('../../../widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
+      import('widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
         default: mod.OfeliaPoopDuty,
       })),
     defaultSize: { w: 3, h: 5 },
     icon: 'Cat',
     tiers: {
       tiny: { minWidthPx: 0, minHeightPx: 0 },
-      compact: { minWidthPx: 440, minHeightPx: 200 },
-      standard: { minWidthPx: 640, minHeightPx: 320 },
-      large: { minWidthPx: 960, minHeightPx: 0 },
+      compact: { minWidthPx: 200, minHeightPx: 200 },
+      standard: { minWidthPx: 400, minHeightPx: 200 },
+      large: { minWidthPx: 500, minHeightPx: 400 },
     },
   },
 ]

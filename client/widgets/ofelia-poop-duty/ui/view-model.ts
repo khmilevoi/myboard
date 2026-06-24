@@ -21,8 +21,10 @@ export type WeekDayView = {
   weekday: string
   dayOfMonth: number
   person: Person
+  debtOwner: Person | null
   isToday: boolean
   isDebtDay: boolean
+  isClosed: boolean
   isSelected: boolean
 }
 
@@ -88,15 +90,21 @@ export function resolveSelected(
 }
 
 export function toWeekDays(week: DutyDay[], selectedIso: string | null): WeekDayView[] {
-  return week.map((day) => ({
-    iso: day.date.toString(),
-    weekday: WEEKDAY_LABELS[day.date.dayOfWeek - 1],
-    dayOfMonth: day.day,
-    person: day.resolvedActor ?? day.debt ?? day.duty,
-    isToday: day.isToday,
-    isDebtDay: day.debt != null,
-    isSelected: day.date.toString() === selectedIso,
-  }))
+  return week.map((day) => {
+    const replacedDuty = day.resolvedActor != null && day.resolvedActor !== day.duty
+
+    return {
+      iso: day.date.toString(),
+      weekday: WEEKDAY_LABELS[day.date.dayOfWeek - 1],
+      dayOfMonth: day.day,
+      person: day.resolvedActor ?? day.debt ?? day.duty,
+      debtOwner: day.debt != null || replacedDuty ? day.duty : null,
+      isToday: day.isToday,
+      isDebtDay: day.debt != null,
+      isClosed: day.resolvedActor != null,
+      isSelected: day.date.toString() === selectedIso,
+    }
+  })
 }
 
 export function toBalance(debts: Partial<Record<Person, number>>): DebtBalanceEntry[] {
@@ -165,7 +173,10 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
   const balance = computed(() => toBalance(duty.numberOfDebts() ?? {}), 'ofelia.balance')
 
   const canForgive = computed(
-    () => !duty.forgivePending() && balance().some((entry) => entry.debt > 0),
+    () =>
+      !duty.forgivePending() &&
+      selected()?.isDebtDay === true &&
+      balance().some((entry) => entry.debt > 0),
     'ofelia.canForgive',
   )
 

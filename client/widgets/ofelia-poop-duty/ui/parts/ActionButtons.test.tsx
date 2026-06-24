@@ -13,8 +13,24 @@ const handlers = () => ({
 
 describe('ActionButtons (compact)', () => {
   it('routes to IconButtons', () => {
-    render(<ActionButtons compact status="pending" canUndo={false} canForgive={false} {...handlers()} />)
+    render(
+      <ActionButtons compact status="pending" canUndo={false} canForgive={false} {...handlers()} />,
+    )
     expect(screen.getByLabelText('Подтвердить уборку')).toHaveAttribute('data-tone', 'confirm')
+  })
+
+  it('passes inactive to IconButtons', () => {
+    render(
+      <ActionButtons
+        compact
+        status="pending"
+        canUndo={false}
+        canForgive
+        inactive
+        {...handlers()}
+      />,
+    )
+    expect(screen.getByLabelText('Подтвердить уборку')).toBeDisabled()
   })
 })
 

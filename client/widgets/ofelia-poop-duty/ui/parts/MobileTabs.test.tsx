@@ -1,13 +1,18 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { MobileTabs } from './MobileTabs'
+
 import styles from './MobileTabs.module.css'
 
 describe('MobileTabs', () => {
-  const ControlledMobileTabs = ({ onChange }: { onChange: (tab: 'history' | 'comments') => void }) => {
+  const ControlledMobileTabs = ({
+    onChange,
+  }: {
+    onChange: (tab: 'history' | 'comments') => void
+  }) => {
     const [tab, setTab] = useState<'history' | 'comments'>('history')
 
     return (
@@ -45,7 +50,10 @@ describe('MobileTabs', () => {
 
     expect(screen.getByRole('tablist', { hidden: true })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'История' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Комментарии' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: 'Комментарии' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    )
 
     const commentsTab = screen.getByRole('tab', { name: 'Комментарии' })
     fireEvent.pointerDown(commentsTab)
@@ -56,7 +64,10 @@ describe('MobileTabs', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('tab', { name: 'История' })).toHaveAttribute('aria-selected', 'false')
-      expect(screen.getByRole('tab', { name: 'Комментарии' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tab', { name: 'Комментарии' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
       expect(onChange).toHaveBeenCalledWith('comments')
     })
   })

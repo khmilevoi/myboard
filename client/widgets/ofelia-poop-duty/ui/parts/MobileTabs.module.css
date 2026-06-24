@@ -1,25 +1,32 @@
 .root {
   display: none;
+  min-inline-size: 0;
 }
 
 .tabs {
   inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .list {
+  box-sizing: border-box;
   inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
   border-radius: 0.875rem;
   background: var(--surface);
-  padding: 0.25rem;
+  padding: 0;
   border: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .trigger {
+  min-inline-size: 0;
   block-size: 2.25rem;
-  border-radius: 0.625rem;
+  border-radius: 0.75rem;
   color: var(--text-3);
   font-size: 0.78rem;
   font-weight: 600;

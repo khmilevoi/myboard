@@ -23,11 +23,13 @@
 ## File Structure
 
 **New files:**
+
 - `ui/parts/IconButtons.tsx` + `.module.css` + `.test.tsx` — compact icon-only action buttons with color-coding
 - `ui/parts/LabeledButtons.tsx` + `.module.css` + `.test.tsx` — labeled action buttons (36/34px) with A/B/C states
 - `ui/parts/MobileTabs.tsx` + `.module.css` + `.test.tsx` — history/comments tab switcher for narrow RichLayout
 
 **Modified files:**
+
 - `ui/parts/Avatar.tsx` + `.module.css` + `.test.tsx` — add `px` prop
 - `ui/format.ts` + `.test.ts` — `selectedDaySubtitle` without "осталось", add `formatDateShort`
 - `model/ofelia-comments.ts` + `.test.ts` — expand `CommentView` with `authorName`, `date`, `ipTail`
@@ -46,11 +48,13 @@
 ### Task 1: Avatar `px` prop
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/Avatar.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/Avatar.module.css`
 - Test: `client/widgets/ofelia-poop-duty/ui/parts/Avatar.test.tsx`
 
 **Interfaces:**
+
 - Produces: `Avatar` accepts `px?: number` prop; when set, overrides named size with exact pixel dimensions via `style` + `data-px` attribute.
 
 - [ ] **Step 1: Write the failing test**
@@ -112,10 +116,12 @@ git commit -m "feat(ofelia): add px prop to Avatar for pixel-precise sizes"
 ### Task 2: format.ts — selectedDaySubtitle + formatDateShort
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/format.ts`
 - Test: `client/widgets/ofelia-poop-duty/ui/format.test.ts`
 
 **Interfaces:**
+
 - Produces: `selectedDaySubtitle` returns "гасит долг · 2 дня" (no "осталось"). `formatDateShort(ts: number): string` returns "10 июн".
 
 - [ ] **Step 1: Write the failing tests**
@@ -172,8 +178,18 @@ export function selectedDaySubtitle(
 
 // Add formatDateShort
 const MONTHS_SHORT = [
-  'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-  'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+  'янв',
+  'фев',
+  'мар',
+  'апр',
+  'май',
+  'июн',
+  'июл',
+  'авг',
+  'сен',
+  'окт',
+  'ноя',
+  'дек',
 ] as const
 
 export function formatDateShort(ts: number): string {
@@ -199,10 +215,12 @@ git commit -m "feat(ofelia): remove 'осталось' from subtitle, add format
 ### Task 3: CommentView expansion
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-comments.ts`
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-comments.test.ts`
 
 **Interfaces:**
+
 - Produces: `CommentView` type now includes `authorName: string`, `date: string`, `ipTail: string`. `commentThread` computed maps these fields.
 - Consumes: `formatDateShort` from `ui/format.ts`, `IP_TAIL_LENGTH` from `model/ofelia-duty.ts`.
 
@@ -276,12 +294,14 @@ git commit -m "feat(ofelia): expand CommentView with authorName, date, ipTail"
 ### Task 4: IconButtons (extract from ActionButtons)
 
 **Files:**
+
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/IconButtons.tsx`
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/IconButtons.module.css`
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/IconButtons.test.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/ofelia-poop-duty.module.css` — add `--ofelia-forgive` token
 
 **Interfaces:**
+
 - Produces: `IconButtons` component with color-coded icons (confirm=purple, debt=gray, forgive=green).
 - Consumes: `--ofelia-forgive` token, `--ofelia-ok-soft` token.
 
@@ -414,7 +434,9 @@ export const IconButtons = reatomMemo<IconButtonsProps>(
   border-radius: 0.4375rem;
   background: var(--surface);
   cursor: pointer;
-  transition: background 0.12s var(--ease), border-color 0.12s var(--ease);
+  transition:
+    background 0.12s var(--ease),
+    border-color 0.12s var(--ease);
 }
 
 .icon[data-tone='confirm'] {
@@ -464,11 +486,13 @@ git commit -m "feat(ofelia): extract IconButtons with color-coded tones + --ofel
 ### Task 5: LabeledButtons
 
 **Files:**
+
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/LabeledButtons.tsx`
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/LabeledButtons.module.css`
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/LabeledButtons.test.tsx`
 
 **Interfaces:**
+
 - Produces: `LabeledButtons` component with states A/B/C, `primaryLabel`, `showNotes`, `inactive` props.
 
 - [ ] **Step 1: Write the failing test**
@@ -501,7 +525,15 @@ describe('LabeledButtons — State A (pending)', () => {
   })
 
   it('uses custom primaryLabel', () => {
-    render(<LabeledButtons status="pending" canUndo={false} canForgive primaryLabel="Подтвердить уборку" {...handlers()} />)
+    render(
+      <LabeledButtons
+        status="pending"
+        canUndo={false}
+        canForgive
+        primaryLabel="Подтвердить уборку"
+        {...handlers()}
+      />,
+    )
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
   })
 })
@@ -589,7 +621,13 @@ export const LabeledButtons = reatomMemo<LabeledButtonsProps>(
               Уборка подтверждена
             </div>
             {canUndo ? (
-              <button type="button" className={styles.undo} aria-label="Откатить" onClick={onUndo} disabled={inactive}>
+              <button
+                type="button"
+                className={styles.undo}
+                aria-label="Откатить"
+                onClick={onUndo}
+                disabled={inactive}
+              >
                 <Undo2 size={15} aria-hidden />
               </button>
             ) : null}
@@ -615,8 +653,7 @@ export const LabeledButtons = reatomMemo<LabeledButtonsProps>(
             onClick={onDebt}
             disabled={confirmed || inactive}
           >
-            <Clock size={14} aria-hidden />
-            В долг
+            <Clock size={14} aria-hidden />В долг
           </button>
           <button
             type="button"
@@ -794,11 +831,13 @@ git commit -m "feat(ofelia): add LabeledButtons with A/B/C states, notes, inacti
 ### Task 6: ActionButtons refactor (router)
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/ActionButtons.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/ActionButtons.module.css`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/ActionButtons.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `IconButtons`, `LabeledButtons` from Tasks 4-5.
 - Produces: `ActionButtons` routes `compact → IconButtons`, else `→ LabeledButtons`. New props: `inactive`, `primaryLabel`, `showNotes`. Removed: `alwaysSecondary`.
 
@@ -821,7 +860,9 @@ const handlers = () => ({
 
 describe('ActionButtons (compact)', () => {
   it('routes to IconButtons', () => {
-    render(<ActionButtons compact status="pending" canUndo={false} canForgive={false} {...handlers()} />)
+    render(
+      <ActionButtons compact status="pending" canUndo={false} canForgive={false} {...handlers()} />,
+    )
     expect(screen.getByLabelText('Подтвердить уборку')).toHaveAttribute('data-tone', 'confirm')
   })
 })
@@ -833,7 +874,15 @@ describe('ActionButtons (full)', () => {
   })
 
   it('passes primaryLabel to LabeledButtons', () => {
-    render(<ActionButtons status="pending" canUndo={false} canForgive primaryLabel="Подтвердить уборку" {...handlers()} />)
+    render(
+      <ActionButtons
+        status="pending"
+        canUndo={false}
+        canForgive
+        primaryLabel="Подтвердить уборку"
+        {...handlers()}
+      />,
+    )
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
   })
 
@@ -874,34 +923,31 @@ export type ActionButtonsProps = {
   onForgive: () => void
 }
 
-export const ActionButtons = reatomMemo<ActionButtonsProps>(
-  ({ compact, ...rest }) => {
-    if (compact) {
-      const iconProps: IconButtonsProps = {
-        canForgive: rest.canForgive,
-        onConfirm: rest.onConfirm,
-        onDebt: rest.onDebt,
-        onForgive: rest.onForgive,
-      }
-      return <IconButtons {...iconProps} />
-    }
-
-    const labeledProps: LabeledButtonsProps = {
-      status: rest.status,
-      canUndo: rest.canUndo,
+export const ActionButtons = reatomMemo<ActionButtonsProps>(({ compact, ...rest }) => {
+  if (compact) {
+    const iconProps: IconButtonsProps = {
       canForgive: rest.canForgive,
-      inactive: rest.inactive,
-      primaryLabel: rest.primaryLabel,
-      showNotes: rest.showNotes,
       onConfirm: rest.onConfirm,
-      onUndo: rest.onUndo,
       onDebt: rest.onDebt,
       onForgive: rest.onForgive,
     }
-    return <LabeledButtons {...labeledProps} />
-  },
-  'ActionButtons',
-)
+    return <IconButtons {...iconProps} />
+  }
+
+  const labeledProps: LabeledButtonsProps = {
+    status: rest.status,
+    canUndo: rest.canUndo,
+    canForgive: rest.canForgive,
+    inactive: rest.inactive,
+    primaryLabel: rest.primaryLabel,
+    showNotes: rest.showNotes,
+    onConfirm: rest.onConfirm,
+    onUndo: rest.onUndo,
+    onDebt: rest.onDebt,
+    onForgive: rest.onForgive,
+  }
+  return <LabeledButtons {...labeledProps} />
+}, 'ActionButtons')
 ```
 
 Delete the old `ActionButtons.module.css` content (no longer needed — styles moved to IconButtons/LabeledButtons). Keep the file but empty or remove it if no other code imports it.
@@ -928,11 +974,13 @@ git commit -m "refactor(ofelia): ActionButtons as router → IconButtons + Label
 ### Task 7: DebtChips — pluralized units + state C
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/DebtChips.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/DebtChips.module.css`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/DebtChips.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `pluralizeDays` from `../format`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1027,9 +1075,11 @@ git commit -m "feat(ofelia): DebtChips pluralized units + 'баланс ровн
 ### Task 8: CompactTier — remove UserToggle
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/tiers/CompactTier.tsx`
 
 **Interfaces:**
+
 - Consumes: `ActionButtons` (now routes to `IconButtons` for compact).
 
 - [ ] **Step 1: Write the failing test**
@@ -1089,11 +1139,13 @@ git commit -m "feat(ofelia): remove UserToggle from CompactTier"
 ### Task 9: StandardTier — remove UserToggle, add hint, LabeledButtons, inactive
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/tiers/StandardTier.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/tiers/StandardTier.module.css`
 - Modify: `client/widgets/ofelia-poop-duty/ui/tiers/StandardTier.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `ActionButtons` with `inactive`, `primaryLabel` props. `otherPerson` from `model/ofelia-duty`. `selectedDaySubtitle` from `format`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1286,11 +1338,13 @@ git commit -m "feat(ofelia): StandardTier — remove UserToggle, add hint, Label
 ### Task 10: HistoryList — compact badges, vertical layout
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/HistoryList.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/HistoryList.module.css`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/HistoryList.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `Avatar` with `px` prop, `personInitial` from `person.ts`. `HistoryEntryView` from model (has `type`, `actor`, `onBehalfOf`, `date`, `ipTail`).
 
 - [ ] **Step 1: Write the failing tests**
@@ -1472,11 +1526,13 @@ git commit -m "feat(ofelia): HistoryList compact badges + vertical layout"
 ### Task 11: CommentThread — avatar + name + date + IP, icon send
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/CommentThread.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/CommentThread.module.css`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/CommentThread.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `CommentView` with `authorName`, `date`, `ipTail` (from Task 3). `Avatar` with `px` prop. `Send` icon from lucide.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1500,7 +1556,12 @@ const view = (overrides: Partial<CommentView> = {}): CommentView => ({
 
 // Add these tests:
 it('renders comment with avatar, author name, date, and ipTail', () => {
-  render(<CommentThread comments={[view({ authorName: 'Карина', date: '10 июн', ipTail: '0.0.7' })]} onSend={vi.fn()} />)
+  render(
+    <CommentThread
+      comments={[view({ authorName: 'Карина', date: '10 июн', ipTail: '0.0.7' })]}
+      onSend={vi.fn()}
+    />,
+  )
   expect(screen.getByText('Карина')).toBeInTheDocument()
   expect(screen.getByText('10 июн')).toBeInTheDocument()
   expect(screen.getByText('0.0.7')).toBeInTheDocument()
@@ -1563,9 +1624,7 @@ export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend 
                 <div className={styles.meta}>
                   <span className={styles.author}>{comment.authorName}</span>
                   <span className={styles.date}>{comment.date}</span>
-                  {comment.ipTail ? (
-                    <span className={styles.ip}>{comment.ipTail}</span>
-                  ) : null}
+                  {comment.ipTail ? <span className={styles.ip}>{comment.ipTail}</span> : null}
                 </div>
                 <div className={styles.text}>{comment.text}</div>
               </div>
@@ -1717,10 +1776,12 @@ git commit -m "feat(ofelia): CommentThread with avatar, name, date, IP, icon sen
 ### Task 12: WeekStrip — avatar 26px
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/WeekStrip.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/WeekStrip.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `Avatar` with `px={26}`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1765,11 +1826,13 @@ git commit -m "feat(ofelia): WeekStrip avatar 26px"
 ### Task 13: MobileTabs
 
 **Files:**
+
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/MobileTabs.tsx`
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/MobileTabs.module.css`
 - Create: `client/widgets/ofelia-poop-duty/ui/parts/MobileTabs.test.tsx`
 
 **Interfaces:**
+
 - Produces: `MobileTabs` component with `tab: 'history' | 'comments'` and `onChange` callback.
 
 - [ ] **Step 1: Write the failing test**
@@ -1799,7 +1862,10 @@ describe('MobileTabs', () => {
   it('marks the active tab with data-active', () => {
     render(<MobileTabs tab="history" onChange={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'История' })).toHaveAttribute('data-active', 'true')
-    expect(screen.getByRole('button', { name: 'Комментарии' })).toHaveAttribute('data-active', 'false')
+    expect(screen.getByRole('button', { name: 'Комментарии' })).toHaveAttribute(
+      'data-active',
+      'false',
+    )
   })
 })
 ```
@@ -1897,11 +1963,13 @@ git commit -m "feat(ofelia): add MobileTabs for history/comments switching"
 ### Task 14: RichLayout — container queries, MobileTabs, LabeledButtons, hint, avatar 62px
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/RichLayout.tsx`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/RichLayout.module.css`
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/RichLayout.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `ActionButtons` with `primaryLabel`, `showNotes`, `inactive`. `MobileTabs`. `Avatar` with `px`. `otherPerson` from model. `selectedDaySubtitle` (updated).
 
 - [ ] **Step 1: Write the failing tests**
@@ -2008,9 +2076,7 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
 
   return (
     <div className={styles.root}>
-      <header className={styles.header}>
-        {/* ... same header ... */}
-      </header>
+      <header className={styles.header}>{/* ... same header ... */}</header>
 
       <div className={styles.body}>
         <section className={styles.panel}>
@@ -2040,15 +2106,11 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
             Не успеваешь — сегодня уберёт {otherPerson(selected.person)}, а тебе запишется +1 день.
           </p>
 
-          <div className={styles.balance}>
-            {/* ... same balance section ... */}
-          </div>
+          <div className={styles.balance}>{/* ... same balance section ... */}</div>
         </section>
 
         <section className={styles.detail}>
-          <div className={styles.weekNav}>
-            {/* ... same week nav (with Сегодня button) ... */}
-          </div>
+          <div className={styles.weekNav}>{/* ... same week nav (with Сегодня button) ... */}</div>
 
           <WeekStrip days={days} onSelectDay={actions.onSelectDay} />
 

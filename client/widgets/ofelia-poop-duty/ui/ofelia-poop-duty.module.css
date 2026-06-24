@@ -1,32 +1,36 @@
 .widget {
-  block-size: 100%;
-  font-family: var(--font-ui);
-  color: var(--text);
-  user-select: none;
+    block-size: 100%;
+    font-family: var(--font-ui);
+    color: var(--text);
+    user-select: none;
 
-  --ofelia-k-bg: oklch(0.86 0.07 25);
-  --ofelia-k-fg: oklch(0.42 0.13 27);
-  --ofelia-l-bg: oklch(0.87 0.06 215);
-  --ofelia-l-fg: oklch(0.42 0.1 225);
-  --ofelia-ok-soft: oklch(0.95 0.05 155);
-  --ofelia-ok-fg: oklch(0.45 0.13 155);
-  --ofelia-forgive: oklch(0.55 0.13 155);
+    --ofelia-k-bg: oklch(0.86 0.07 25);
+    --ofelia-k-fg: oklch(0.42 0.13 27);
+    --ofelia-l-bg: oklch(0.87 0.06 215);
+    --ofelia-l-fg: oklch(0.42 0.1 225);
+    --ofelia-ok-soft: oklch(0.95 0.05 155);
+    --ofelia-ok-fg: oklch(0.45 0.13 155);
+    --ofelia-forgive: oklch(0.55 0.13 155);
+    --closed-bg: oklch(0.55 0.13 155);
+    --closed-text: #fff;
 }
 
-:root[data-theme='dark'] .widget {
-  --ofelia-k-bg: oklch(0.42 0.1 27);
-  --ofelia-k-fg: oklch(0.86 0.09 25);
-  --ofelia-l-bg: oklch(0.4 0.08 225);
-  --ofelia-l-fg: oklch(0.85 0.07 215);
-  --ofelia-ok-soft: oklch(0.34 0.07 155);
-  --ofelia-ok-fg: oklch(0.82 0.13 155);
-  --ofelia-forgive: oklch(0.72 0.14 155);
+:root[data-theme="dark"] .widget {
+    --ofelia-k-bg: oklch(0.42 0.1 27);
+    --ofelia-k-fg: oklch(0.86 0.09 25);
+    --ofelia-l-bg: oklch(0.4 0.08 225);
+    --ofelia-l-fg: oklch(0.85 0.07 215);
+    --ofelia-ok-soft: oklch(0.34 0.07 155);
+    --ofelia-ok-fg: oklch(0.82 0.13 155);
+    --ofelia-forgive: oklch(0.72 0.14 155);
+    --closed-bg: oklch(0.34 0.07 155);
+    --closed-text: oklch(0.72 0.14 155);
 }
 
 .loading {
-  display: grid;
-  place-items: center;
-  block-size: 100%;
-  font-size: 0.8125rem;
-  color: var(--text-dim);
+    display: grid;
+    place-items: center;
+    block-size: 100%;
+    font-size: 0.8125rem;
+    color: var(--text-dim);
 }

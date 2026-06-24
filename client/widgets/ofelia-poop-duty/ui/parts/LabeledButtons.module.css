@@ -106,21 +106,18 @@
   cursor: pointer;
 }
 
-.inactiveNote {
-  display: flex;
-  align-items: center;
-  gap: 0.3125rem;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  color: var(--text-3);
+.primary:disabled,
+.undo:disabled,
+.ghost:disabled,
+.forgive:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
-.noteDot {
-  display: inline-block;
-  inline-size: 0.4375rem;
-  block-size: 0.4375rem;
-  border-radius: 0.125rem;
-  background: var(--border);
+.ghost:disabled,
+.forgive:disabled,
+.undo:disabled {
+  color: var(--text-3);
 }
 
 .stack[data-inactive='true'] .primary,

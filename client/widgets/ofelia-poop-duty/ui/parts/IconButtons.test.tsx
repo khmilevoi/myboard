@@ -6,13 +6,14 @@ import { IconButtons } from './IconButtons'
 
 const handlers = () => ({
   onConfirm: vi.fn(),
+  onUndo: vi.fn(),
   onDebt: vi.fn(),
   onForgive: vi.fn(),
 })
 
 describe('IconButtons', () => {
   it('renders three icon buttons with correct tones', () => {
-    render(<IconButtons canForgive {...handlers()} />)
+    render(<IconButtons status="pending" canUndo={false} canForgive {...handlers()} />)
     expect(screen.getByLabelText('Подтвердить уборку')).toHaveAttribute('data-tone', 'confirm')
     expect(screen.getByLabelText('В долг')).toHaveAttribute('data-tone', 'debt')
     expect(screen.getByLabelText('Простить')).toHaveAttribute('data-tone', 'forgive')
@@ -20,7 +21,7 @@ describe('IconButtons', () => {
 
   it('fires handlers on click', () => {
     const h = handlers()
-    render(<IconButtons canForgive {...h} />)
+    render(<IconButtons status="pending" canUndo={false} canForgive {...h} />)
     fireEvent.click(screen.getByLabelText('Подтвердить уборку'))
     fireEvent.click(screen.getByLabelText('В долг'))
     fireEvent.click(screen.getByLabelText('Простить'))
@@ -30,7 +31,22 @@ describe('IconButtons', () => {
   })
 
   it('disables forgive when canForgive is false', () => {
-    render(<IconButtons canForgive={false} {...handlers()} />)
+    render(<IconButtons status="pending" canUndo={false} canForgive={false} {...handlers()} />)
+    expect(screen.getByLabelText('Простить')).toBeDisabled()
+  })
+
+  it('switches confirm to undo when the day is already closed', () => {
+    const h = handlers()
+    render(<IconButtons status="closed" canUndo canForgive={false} {...h} />)
+    fireEvent.click(screen.getByLabelText('Откатить'))
+    expect(h.onUndo).toHaveBeenCalledOnce()
+    expect(screen.getByLabelText('В долг')).toBeDisabled()
+  })
+
+  it('disables all compact actions for future days', () => {
+    render(<IconButtons status="pending" canUndo={false} canForgive inactive {...handlers()} />)
+    expect(screen.getByLabelText('Подтвердить уборку')).toBeDisabled()
+    expect(screen.getByLabelText('В долг')).toBeDisabled()
     expect(screen.getByLabelText('Простить')).toBeDisabled()
   })
 })

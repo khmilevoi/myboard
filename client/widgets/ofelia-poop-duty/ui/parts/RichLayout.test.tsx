@@ -7,6 +7,7 @@ import { ofeliaContext } from '../ofelia-context'
 import type { OfeliaContextValue } from '../ofelia-context'
 import { makeOfeliaValue, makeOfeliaView } from '../ofelia.fixture'
 import { RichLayout } from './RichLayout'
+
 import styles from './RichLayout.module.css'
 
 function renderRich(value: OfeliaContextValue, node: ReactNode) {
@@ -70,15 +71,12 @@ describe('RichLayout', () => {
     expect(onDelete).toHaveBeenCalledOnce()
   })
 
-  it('uses the rich action copy, other-person hint, real mobile tabs, and 62px main avatar', () => {
+  it('uses the rich action copy, real mobile tabs, and 62px main avatar', () => {
     const { container } = renderRich(makeOfeliaValue(), <RichLayout />)
     const split = container.querySelector('[data-tab]')
     const mobileTabs = container.querySelector(`.${styles.mobileTabsVisible}`)
 
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
-    expect(
-      screen.getByText('Не успеваешь — сегодня уберёт Леша, а тебе запишется +1 день.'),
-    ).toBeInTheDocument()
     expect(split).toHaveAttribute('data-tab', 'history')
     expect(mobileTabs).toBeInTheDocument()
 
@@ -92,7 +90,10 @@ describe('RichLayout', () => {
     activateTab('Комментарии')
 
     expect(screen.getByRole('tab', { name: 'История' })).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByRole('tab', { name: 'Комментарии' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Комментарии' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
     expect(split).toHaveAttribute('data-tab', 'comments')
 
     const mainAvatar = container.querySelector('[style*="width: 62px"][style*="height: 62px"]')
@@ -100,7 +101,7 @@ describe('RichLayout', () => {
     expect(mainAvatar).toHaveTextContent('К')
   })
 
-  it('disables future-day action controls instead of hiding them and shows the inactive note', () => {
+  it('disables future-day action controls instead of hiding them', () => {
     const view = makeOfeliaView({
       selected: {
         iso: '2026-06-19',
@@ -117,7 +118,6 @@ describe('RichLayout', () => {
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Простить' })).toBeDisabled()
-    expect(screen.getByText('неактивны для других дней')).toBeInTheDocument()
   })
 
   it('keeps the parent-owned tab state bridge on the split container', () => {

@@ -19,7 +19,13 @@ describe('HistoryList', () => {
   it('renders vertical layout with date and avatar+name row', () => {
     render(<HistoryList entries={[entry()]} />)
     expect(screen.getByText('2026-06-16')).toBeInTheDocument()
+    expect(screen.getByText('0.0.22')).toBeInTheDocument()
     expect(screen.getByText('Карина')).toBeInTheDocument()
+  })
+
+  it('omits ip tail when it is missing in the entry data', () => {
+    render(<HistoryList entries={[entry({ ipTail: '' })]} />)
+    expect(screen.queryByText('0.0.22')).not.toBeInTheDocument()
   })
 
   it('renders "долг" badge for went_into_debt', () => {

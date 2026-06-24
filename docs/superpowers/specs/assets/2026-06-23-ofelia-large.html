@@ -1,236 +1,2075 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="./support.js"></script>
-</head>
-<body>
-<x-dc>
-<helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; height:100%; }
-  body { background:#fff; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
-  @container (max-width: 680px) {
-    .fs-head { flex-wrap: wrap !important; gap: 12px 14px !important; padding: 14px 16px !important; }
-    .fs-body { flex-direction: column !important; overflow-y: auto !important; padding: 16px !important; gap: 18px !important; }
-    .fs-today { width: 100% !important; flex: none !important; }
-    .fs-right { flex: none !important; overflow: visible !important; }
-    .fs-split { flex: none !important; flex-direction: column !important; overflow: visible !important; margin-top: 16px !important; border-top: none !important; }
-    .fs-tabs { display: flex !important; }
-    .fs-sec-title { display: none !important; }
-    .fs-history { width: 100% !important; flex: none !important; max-height: 340px !important; border-right: none !important; border-bottom: none !important; padding: 0 !important; }
-    .fs-comments { flex: none !important; padding-left: 0 !important; padding-top: 0 !important; }
-    .fs-cmlist { flex: none !important; height: auto !important; max-height: 340px !important; overflow-y: auto !important; padding-top: 10px !important; }
-    .fs-split[data-tab="history"] .fs-comments { display: none !important; }
-    .fs-split[data-tab="comments"] .fs-history { display: none !important; }
-    .fs-split[data-tab="history"] .fs-tab-h,
-    .fs-split[data-tab="comments"] .fs-tab-c { color: var(--accent) !important; border-bottom-color: var(--accent) !important; background: var(--accent-soft) !important; }
-  }
-</style>
-</helmet>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap"
+          rel="stylesheet"
+        />
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+          }
+          body {
+            background: #fff;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+          }
+          @container (max-width: 680px) {
+            .fs-head {
+              flex-wrap: wrap !important;
+              gap: 12px 14px !important;
+              padding: 14px 16px !important;
+            }
+            .fs-body {
+              flex-direction: column !important;
+              overflow-y: auto !important;
+              padding: 16px !important;
+              gap: 18px !important;
+            }
+            .fs-today {
+              width: 100% !important;
+              flex: none !important;
+            }
+            .fs-right {
+              flex: none !important;
+              overflow: visible !important;
+            }
+            .fs-split {
+              flex: none !important;
+              flex-direction: column !important;
+              overflow: visible !important;
+              margin-top: 16px !important;
+              border-top: none !important;
+            }
+            .fs-tabs {
+              display: flex !important;
+            }
+            .fs-sec-title {
+              display: none !important;
+            }
+            .fs-history {
+              width: 100% !important;
+              flex: none !important;
+              max-height: 340px !important;
+              border-right: none !important;
+              border-bottom: none !important;
+              padding: 0 !important;
+            }
+            .fs-comments {
+              flex: none !important;
+              padding-left: 0 !important;
+              padding-top: 0 !important;
+            }
+            .fs-cmlist {
+              flex: none !important;
+              height: auto !important;
+              max-height: 340px !important;
+              overflow-y: auto !important;
+              padding-top: 10px !important;
+            }
+            .fs-split[data-tab='history'] .fs-comments {
+              display: none !important;
+            }
+            .fs-split[data-tab='comments'] .fs-history {
+              display: none !important;
+            }
+            .fs-split[data-tab='history'] .fs-tab-h,
+            .fs-split[data-tab='comments'] .fs-tab-c {
+              color: var(--accent) !important;
+              border-bottom-color: var(--accent) !important;
+              background: var(--accent-soft) !important;
+            }
+          }
+        </style>
+      </helmet>
 
-<div style="width:100%;height:100%;min-height:0;font-family:'Hanken Grotesk',system-ui,sans-serif;">
-<div class="fs" style="--bg:oklch(0.975 0.003 255);--surface:oklch(1 0 0);--surface-2:oklch(0.972 0.004 255);--border:oklch(0.91 0.005 255);--text:oklch(0.27 0.02 262);--text-2:oklch(0.5 0.018 262);--text-3:oklch(0.66 0.012 262);--accent:oklch(0.55 0.17 281);--accent-soft:oklch(0.955 0.032 285);--on-accent:#ffffff;--shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);width:100%;height:100%;min-height:0;container-type:inline-size;background:var(--surface);border:1px solid rgba(20,22,40,.08);border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);display:flex;flex-direction:column;overflow:hidden;">
-        <!-- header -->
-        <div class="fs-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;padding:18px 22px;border-bottom:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
-            <div>
-              <div style="display:flex;align-items:center;gap:9px;font:600 17px 'Hanken Grotesk';color:var(--text);">Лоток Офелии <span style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 7px;">large</span></div>
-              <div style="font:400 13px 'Hanken Grotesk';color:var(--text-3);margin-top:2px;">Кто убирает за Офелией · чередование</div>
+      <div
+        style="
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          font-family: 'Hanken Grotesk', system-ui, sans-serif;
+        "
+      >
+        <div
+          class="fs"
+          style="
+            --bg: oklch(0.975 0.003 255);
+            --surface: oklch(1 0 0);
+            --surface-2: oklch(0.972 0.004 255);
+            --border: oklch(0.91 0.005 255);
+            --text: oklch(0.27 0.02 262);
+            --text-2: oklch(0.5 0.018 262);
+            --text-3: oklch(0.66 0.012 262);
+            --accent: oklch(0.55 0.17 281);
+            --accent-soft: oklch(0.955 0.032 285);
+            --on-accent: #ffffff;
+            --shadow: 0 1px 2px rgba(20, 22, 40, 0.05), 0 2px 8px rgba(20, 22, 40, 0.05);
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            container-type: inline-size;
+            background: var(--surface);
+            border: 1px solid rgba(20, 22, 40, 0.08);
+            border-radius: 18px;
+            box-shadow:
+              0 1px 2px rgba(30, 32, 50, 0.05),
+              0 24px 50px -18px rgba(30, 32, 55, 0.22);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+          "
+        >
+          <!-- header -->
+          <div
+            class="fs-head"
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 10px;
+              flex: none;
+              padding: 18px 22px;
+              border-bottom: 1px solid var(--border);
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 12px">
+              <div
+                style="
+                  width: 40px;
+                  height: 40px;
+                  border-radius: 11px;
+                  background: var(--accent-soft);
+                  color: var(--accent);
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">
+                  <ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse>
+                  <circle cx="6.4" cy="10.5" r="2.1"></circle>
+                  <circle cx="10" cy="6.6" r="2.1"></circle>
+                  <circle cx="14" cy="6.6" r="2.1"></circle>
+                  <circle cx="17.6" cy="10.5" r="2.1"></circle>
+                </svg>
+              </div>
+              <div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 9px;
+                    font: 600 17px 'Hanken Grotesk';
+                    color: var(--text);
+                  "
+                >
+                  Лоток Офелии
+                  <span
+                    style="
+                      font:
+                        500 10.5px 'JetBrains Mono',
+                        monospace;
+                      letter-spacing: 0.06em;
+                      text-transform: uppercase;
+                      color: var(--accent);
+                      background: var(--accent-soft);
+                      border-radius: 5px;
+                      padding: 2px 7px;
+                    "
+                    >large</span
+                  >
+                </div>
+                <div style="font: 400 13px 'Hanken Grotesk'; color: var(--text-3); margin-top: 2px">
+                  Кто убирает за Офелией · чередование
+                </div>
+              </div>
             </div>
+            <div style="display: flex; align-items: center; gap: 6px">
+              <span
+                style="
+                  font:
+                    500 10.5px 'JetBrains Mono',
+                    monospace;
+                  color: var(--text-3);
+                  letter-spacing: 0.06em;
+                  flex: none;
+                "
+                >Я:</span
+              >
+              <button onClick="{{ selectKarina }}" style="{{ karinaAuthorStyle }}">
+                К · Карина
+              </button>
+              <button onClick="{{ selectLesha }}" style="{{ leshaAuthorStyle }}">Л · Лёша</button>
+            </div>
+            <span
+              style="
+                width: 34px;
+                height: 34px;
+                border-radius: 9px;
+                border: 1px solid var(--border);
+                background: var(--bg);
+                color: var(--text-2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+              "
+              ><svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.9"
+                stroke-linecap="round"
+              >
+                <path d="M6 6l12 12M18 6L6 18"></path></svg
+            ></span>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);letter-spacing:.06em;flex:none;">Я:</span>
-            <button onClick="{{ selectKarina }}" style="{{ karinaAuthorStyle }}">К · Карина</button>
-            <button onClick="{{ selectLesha }}" style="{{ leshaAuthorStyle }}">Л · Лёша</button>
-          </div>
-          <span style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
-        </div>
-        <div class="fs-body" style="flex:1;display:flex;gap:22px;padding:22px;min-height:0;">
-          <!-- left: today -->
-          <div class="fs-today" style="width:236px;flex:none;display:flex;flex-direction:column;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:9px;padding:20px 0 16px;background:var(--bg);border:1px solid var(--border);border-radius:14px;margin-top:0;">
-              <span style="width:62px;height:62px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 25px 'Hanken Grotesk';">К</span>
-              <div style="font:600 22px 'Hanken Grotesk';color:var(--text);">Карина</div>
-              <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:3px 9px;">гасит долг · {{ karinaDebt }} {{ karinaDebtUnit }}</span>
-            </div>
-            <div style="margin-top:12px;height:42px;flex:none;">
-              <sc-if value="{{ notCleaned }}" hint-placeholder-val="{{ true }}">
-                <button onClick="{{ confirmClean }}" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:42px;border:none;border-radius:11px;background:var(--accent);color:var(--on-accent);font:600 14px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Подтвердить уборку</button>
-              </sc-if>
-              <sc-if value="{{ cleanedToday }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;align-items:center;gap:7px;height:42px;">
-                  <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:42px;border-radius:11px;background:oklch(0.95 0.05 155);color:oklch(0.45 0.13 155);font:600 14px 'Hanken Grotesk';"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Уборка подтверждена</div>
-                  <button onClick="{{ undoClean }}" title="Откатить · только для сегодняшнего дня" style="flex:none;width:42px;height:42px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text-2);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-1"></path></svg></button>
+          <div
+            class="fs-body"
+            style="flex: 1; display: flex; gap: 22px; padding: 22px; min-height: 0"
+          >
+            <!-- left: today -->
+            <div
+              class="fs-today"
+              style="width: 236px; flex: none; display: flex; flex-direction: column"
+            >
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 9px;
+                  padding: 20px 0 16px;
+                  background: var(--bg);
+                  border: 1px solid var(--border);
+                  border-radius: 14px;
+                  margin-top: 0;
+                "
+              >
+                <span
+                  style="
+                    width: 62px;
+                    height: 62px;
+                    border-radius: 50%;
+                    background: oklch(0.86 0.07 25);
+                    color: oklch(0.42 0.13 27);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font: 600 25px 'Hanken Grotesk';
+                  "
+                  >К</span
+                >
+                <div style="font: 600 22px 'Hanken Grotesk'; color: var(--text)">Карина</div>
+                <span
+                  style="
+                    font:
+                      500 11px 'JetBrains Mono',
+                      monospace;
+                    color: var(--accent);
+                    background: var(--accent-soft);
+                    border-radius: 6px;
+                    padding: 3px 9px;
+                  "
+                  >гасит долг · {{ karinaDebt }} {{ karinaDebtUnit }}</span
+                >
+              </div>
+              <div style="margin-top: 12px; height: 42px; flex: none">
+                <sc-if value="{{ notCleaned }}" hint-placeholder-val="{{ true }}">
+                  <button
+                    onClick="{{ confirmClean }}"
+                    style="
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 8px;
+                      width: 100%;
+                      height: 42px;
+                      border: none;
+                      border-radius: 11px;
+                      background: var(--accent);
+                      color: var(--on-accent);
+                      font: 600 14px 'Hanken Grotesk';
+                      cursor: pointer;
+                      box-shadow: var(--shadow);
+                    "
+                  >
+                    <svg
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12.5l4.5 4.5L19 7"></path></svg
+                    >Подтвердить уборку
+                  </button>
+                </sc-if>
+                <sc-if value="{{ cleanedToday }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; align-items: center; gap: 7px; height: 42px">
+                    <div
+                      style="
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        height: 42px;
+                        border-radius: 11px;
+                        background: oklch(0.95 0.05 155);
+                        color: oklch(0.45 0.13 155);
+                        font: 600 14px 'Hanken Grotesk';
+                      "
+                    >
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M5 12.5l4.5 4.5L19 7"></path></svg
+                      >Уборка подтверждена
+                    </div>
+                    <button
+                      onClick="{{ undoClean }}"
+                      title="Откатить · только для сегодняшнего дня"
+                      style="
+                        flex: none;
+                        width: 42px;
+                        height: 42px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border: 1px solid var(--border);
+                        border-radius: 11px;
+                        background: var(--surface);
+                        color: var(--text-2);
+                        cursor: pointer;
+                      "
+                    >
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M9 14L4 9l5-5"></path>
+                        <path d="M4 9h11a5 5 0 0 1 0 10h-1"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 5px;
+                      margin-top: 6px;
+                      font:
+                        500 10.5px 'JetBrains Mono',
+                        monospace;
+                      color: var(--text-3);
+                    "
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M9 14L4 9l5-5"></path>
+                      <path d="M4 9h11a5 5 0 0 1 0 10h-1"></path></svg
+                    >анду · только сегодня
+                  </div>
+                </sc-if>
+              </div>
+              <div style="display: flex; gap: 7px; margin-top: 12px">
+                <button
+                  style="
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 7px;
+                    height: 36px;
+                    border: 1px solid var(--border);
+                    border-radius: 10px;
+                    background: var(--surface);
+                    color: var(--text);
+                    font: 600 13px 'Hanken Grotesk';
+                    cursor: pointer;
+                  "
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  >
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M12 7.5V12l3 1.8"></path></svg
+                  >В долг</button
+                ><button
+                  onClick="{{ forgiveDebt }}"
+                  style="
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    height: 36px;
+                    border: 1px solid var(--border);
+                    border-radius: 10px;
+                    background: var(--surface);
+                    color: oklch(0.55 0.13 155);
+                    font: 600 13px 'Hanken Grotesk';
+                    cursor: pointer;
+                  "
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M9 12h6"></path></svg
+                  >Простить
+                </button>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  margin-top: 6px;
+                  font:
+                    500 10.5px 'JetBrains Mono',
+                    monospace;
+                  color: var(--text-3);
+                "
+              >
+                <span
+                  style="
+                    display: inline-block;
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 2px;
+                    background: #e3e4e8;
+                  "
+                ></span
+                >неактивны для других дней
+              </div>
+              <div
+                style="
+                  font: 400 12px/1.45 'Hanken Grotesk';
+                  color: var(--text-3);
+                  margin-top: 8px;
+                  text-wrap: pretty;
+                "
+              >
+                Не успеваешь — сегодня уберёт Лёша, а тебе запишется +1 день.
+              </div>
+              <div style="flex: 1"></div>
+              <div style="padding-top: 14px; border-top: 1px solid var(--border)">
+                <div
+                  style="
+                    font:
+                      500 11px 'JetBrains Mono',
+                      monospace;
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                    color: var(--text-3);
+                    margin-bottom: 11px;
+                  "
+                >
+                  Баланс долга
                 </div>
-                <div style="display:flex;align-items:center;gap:5px;margin-top:6px;font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-1"></path></svg>анду · только сегодня</div>
-              </sc-if>
-            </div>
-            <div style="display:flex;gap:7px;margin-top:12px;"><button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:600 13px 'Hanken Grotesk';cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3 1.8"></path></svg>В долг</button><button onClick="{{ forgiveDebt }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:oklch(0.55 0.13 155);font:600 13px 'Hanken Grotesk';cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>Простить</button></div>
-            <div style="display:flex;align-items:center;gap:5px;margin-top:6px;font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);"><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e3e4e8;"></span>неактивны для других дней</div>
-            <div style="font:400 12px/1.45 'Hanken Grotesk';color:var(--text-3);margin-top:8px;text-wrap:pretty;">Не успеваешь — сегодня уберёт Лёша, а тебе запишется +1 день.</div>
-            <div style="flex:1;"></div>
-            <div style="padding-top:14px;border-top:1px solid var(--border);">
-              <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:11px;">Баланс долга</div>
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
-                <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">К</span>
-                <span style="flex:1;font:500 13px 'Hanken Grotesk';color:var(--text);">Карина</span>
-                <span style="font:600 13px 'JetBrains Mono',monospace;color:var(--text);">{{ karinaDebt }} {{ karinaDebtUnit }}</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:10px;">
-                <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">Л</span>
-                <span style="flex:1;font:500 13px 'Hanken Grotesk';color:var(--text-2);">Лёша</span>
-                <span style="font:600 13px 'JetBrains Mono',monospace;color:var(--text-3);">0 дней</span>
-              </div>
-            </div>
-          </div>
-          <!-- right: schedule + history + comments -->
-          <div class="fs-right" style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;">
-            <!-- FIXED: week nav + calendar -->
-            <div style="flex:none;">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-                <div style="display:flex;align-items:baseline;gap:10px;min-width:0;">
-                  <span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);">Неделя</span>
-                  <span style="font:600 13px 'Hanken Grotesk';color:var(--text-2);white-space:nowrap;">{{ weekRange }}</span>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 9px">
+                  <span
+                    style="
+                      width: 24px;
+                      height: 24px;
+                      border-radius: 50%;
+                      background: oklch(0.86 0.07 25);
+                      color: oklch(0.42 0.13 27);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font: 600 11px 'Hanken Grotesk';
+                    "
+                    >К</span
+                  >
+                  <span style="flex: 1; font: 500 13px 'Hanken Grotesk'; color: var(--text)"
+                    >Карина</span
+                  >
+                  <span
+                    style="
+                      font:
+                        600 13px 'JetBrains Mono',
+                        monospace;
+                      color: var(--text);
+                    "
+                    >{{ karinaDebt }} {{ karinaDebtUnit }}</span
+                  >
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;flex:none;">
-                  <button onClick="{{ prevWeek }}" aria-label="Прошлая неделя" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
-                  <button onClick="{{ nextWeek }}" aria-label="Следующая неделя" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
-                </div>
-              </div>
-              <div style="display:flex;gap:7px;margin-top:12px;">
-                <div style="flex:1;height:82px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1px solid var(--border);border-radius:10px;"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">ПН</span><span style="width:26px;height:26px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">Л</span></div>
-                <div style="flex:1;height:82px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1.5px solid var(--accent);border-radius:10px;background:var(--accent-soft);"><span style="position:absolute;top:8px;right:8px;width:6px;height:6px;border-radius:50%;background:var(--accent);"></span><span style="font:600 10.5px 'JetBrains Mono',monospace;color:var(--accent);">ВТ</span><span style="width:26px;height:26px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">К</span></div>
-                <div style="flex:1;height:82px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1px solid var(--border);border-radius:10px;"><span style="position:absolute;top:8px;right:8px;width:6px;height:6px;border-radius:50%;background:var(--accent);"></span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">СР</span><span style="width:26px;height:26px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">К</span></div>
-                <div style="flex:1;height:82px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1px solid var(--border);border-radius:10px;"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">ЧТ</span><span style="width:26px;height:26px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">Л</span></div>
-                <div style="flex:1;height:82px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1px solid var(--border);border-radius:10px;"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">ПТ</span><span style="width:26px;height:26px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">К</span></div>
-                <div style="flex:1;height:82px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1px solid var(--border);border-radius:10px;"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">СБ</span><span style="width:26px;height:26px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">Л</span></div>
-                <div style="flex:1;height:82px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border:1px solid var(--border);border-radius:10px;"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">ВС</span><span style="width:26px;height:26px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk';">К</span></div>
-              </div>
-              <div style="display:flex;align-items:center;gap:7px;margin-top:11px;font:400 11.5px 'Hanken Grotesk';color:var(--text-3);"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span>дни, когда Карина гасит долг</div>
-            </div>
-            <!-- HORIZONTAL SPLIT: история | комментарии + ввод -->
-            <div class="fs-split" data-tab="{{ mobileTab }}" style="flex:1;display:flex;gap:0;min-height:0;overflow:hidden;margin-top:14px;border-top:1px solid var(--border);">
-              <!-- MOBILE TABS -->
-              <div class="fs-tabs" style="display:none;gap:6px;flex:none;margin-bottom:14px;border-bottom:1px solid var(--border);">
-                <button class="fs-tab fs-tab-h" onClick="{{ showHistory }}" style="flex:1;padding:9px 4px 10px;font:600 12px 'Hanken Grotesk';border:none;border-radius:8px 8px 0 0;background:transparent;color:var(--text-3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;">История</button>
-                <button class="fs-tab fs-tab-c" onClick="{{ showComments }}" style="flex:1;padding:9px 4px 10px;font:600 12px 'Hanken Grotesk';border:none;border-radius:8px 8px 0 0;background:transparent;color:var(--text-3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;">Комментарии</button>
-              </div>
-              <!-- LEFT: История -->
-              <div class="fs-history" style="width:196px;flex:none;align-self:stretch;display:flex;flex-direction:column;min-height:0;padding:14px 14px 0 0;border-right:1px solid var(--border);">
-                <div class="fs-sec-title" style="flex:none;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);">История</div>
-                <div class="fs-histlist" style="margin-top:8px;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;">
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">17 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk';color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">16 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk';color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">долг</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">15 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk';color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">14 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk';color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">13 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">12 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">11 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk';color:oklch(0.55 0.13 155);background:oklch(0.97 0.04 155);border-radius:4px;padding:1px 5px;white-space:nowrap;">−1 день</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">10 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">9 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">8 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk';color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">7 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">6 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">5 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk';color:oklch(0.55 0.13 155);background:oklch(0.97 0.04 155);border-radius:4px;padding:1px 5px;white-space:nowrap;">−1 день</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">4 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">3 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk';color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">долг</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">2 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">1 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">31 мая</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk';color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">30 мая</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">29 мая</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk';flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk';color:var(--text);">Лёша</span></div>
-                  </div>
+                <div style="display: flex; align-items: center; gap: 10px">
+                  <span
+                    style="
+                      width: 24px;
+                      height: 24px;
+                      border-radius: 50%;
+                      background: oklch(0.87 0.06 215);
+                      color: oklch(0.42 0.1 225);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font: 600 11px 'Hanken Grotesk';
+                    "
+                    >Л</span
+                  >
+                  <span style="flex: 1; font: 500 13px 'Hanken Grotesk'; color: var(--text-2)"
+                    >Лёша</span
+                  >
+                  <span
+                    style="
+                      font:
+                        600 13px 'JetBrains Mono',
+                        monospace;
+                      color: var(--text-3);
+                    "
+                    >0 дней</span
+                  >
                 </div>
               </div>
-              <!-- RIGHT: Комментарии + ввод -->
-              <div class="fs-comments" style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;padding-left:14px;">
-                <div class="fs-sec-title" style="flex:none;padding-top:14px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);">Комментарии</div>
-                <div class="fs-cmlist" style="flex:1;height:0;overflow-y:auto;padding-top:10px;">
-                  <sc-for list="{{ comments }}" as="comment" hint-placeholder-count="2">
-                    <div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--border);">
-                      <span style="{{ comment.avatarStyle }}">{{ comment.author }}</span>
-                      <div style="flex:1;min-width:0;">
-                        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;">
-                          <span style="font:600 12.5px 'Hanken Grotesk';color:var(--text);">{{ comment.authorName }}</span>
-                          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">{{ comment.date }}</span>
-                          <span style="font:500 10px 'JetBrains Mono',monospace;color:var(--text-3);opacity:.6;">{{ comment.ip }}</span>
-                        </div>
-                        <div style="font:400 13px/1.4 'Hanken Grotesk';color:var(--text-2);word-break:break-word;">{{ comment.text }}</div>
+            </div>
+            <!-- right: schedule + history + comments -->
+            <div
+              class="fs-right"
+              style="flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden"
+            >
+              <!-- FIXED: week nav + calendar -->
+              <div style="flex: none">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 10px;
+                  "
+                >
+                  <div style="display: flex; align-items: baseline; gap: 10px; min-width: 0">
+                    <span
+                      style="
+                        font:
+                          500 11px 'JetBrains Mono',
+                          monospace;
+                        letter-spacing: 0.08em;
+                        text-transform: uppercase;
+                        color: var(--text-3);
+                      "
+                      >Неделя</span
+                    >
+                    <span
+                      style="
+                        font: 600 13px 'Hanken Grotesk';
+                        color: var(--text-2);
+                        white-space: nowrap;
+                      "
+                      >{{ weekRange }}</span
+                    >
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px; flex: none">
+                    <button
+                      onClick="{{ prevWeek }}"
+                      aria-label="Прошлая неделя"
+                      style="
+                        width: 28px;
+                        height: 28px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border: 1px solid var(--border);
+                        border-radius: 8px;
+                        background: var(--surface);
+                        color: var(--text-2);
+                        cursor: pointer;
+                      "
+                    >
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.1"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M15 6l-6 6 6 6"></path>
+                      </svg>
+                    </button>
+                    <button
+                      onClick="{{ nextWeek }}"
+                      aria-label="Следующая неделя"
+                      style="
+                        width: 28px;
+                        height: 28px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border: 1px solid var(--border);
+                        border-radius: 8px;
+                        background: var(--surface);
+                        color: var(--text-2);
+                        cursor: pointer;
+                      "
+                    >
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.1"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M9 6l6 6-6 6"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 7px; margin-top: 12px">
+                  <div
+                    style="
+                      flex: 1;
+                      height: 82px;
+                      position: relative;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 9px;
+                      border: 1px solid var(--border);
+                      border-radius: 10px;
+                    "
+                  >
+                    <span
+                      style="
+                        font:
+                          500 10.5px 'JetBrains Mono',
+                          monospace;
+                        color: var(--text-3);
+                      "
+                      >ПН</span
+                    ><span
+                      style="
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 50%;
+                        background: oklch(0.87 0.06 215);
+                        color: oklch(0.42 0.1 225);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 600 11px 'Hanken Grotesk';
+                      "
+                      >Л</span
+                    >
+                  </div>
+                  <div
+                    style="
+                      flex: 1;
+                      height: 82px;
+                      position: relative;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 9px;
+                      border: 1.5px solid var(--accent);
+                      border-radius: 10px;
+                      background: var(--accent-soft);
+                    "
+                  >
+                    <span
+                      style="
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        width: 6px;
+                        height: 6px;
+                        border-radius: 50%;
+                        background: var(--accent);
+                      "
+                    ></span
+                    ><span
+                      style="
+                        font:
+                          600 10.5px 'JetBrains Mono',
+                          monospace;
+                        color: var(--accent);
+                      "
+                      >ВТ</span
+                    ><span
+                      style="
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 50%;
+                        background: oklch(0.86 0.07 25);
+                        color: oklch(0.42 0.13 27);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 600 11px 'Hanken Grotesk';
+                      "
+                      >К</span
+                    >
+                  </div>
+                  <div
+                    style="
+                      flex: 1;
+                      height: 82px;
+                      position: relative;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 9px;
+                      border: 1px solid var(--border);
+                      border-radius: 10px;
+                    "
+                  >
+                    <span
+                      style="
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        width: 6px;
+                        height: 6px;
+                        border-radius: 50%;
+                        background: var(--accent);
+                      "
+                    ></span
+                    ><span
+                      style="
+                        font:
+                          500 10.5px 'JetBrains Mono',
+                          monospace;
+                        color: var(--text-3);
+                      "
+                      >СР</span
+                    ><span
+                      style="
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 50%;
+                        background: oklch(0.86 0.07 25);
+                        color: oklch(0.42 0.13 27);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 600 11px 'Hanken Grotesk';
+                      "
+                      >К</span
+                    >
+                  </div>
+                  <div
+                    style="
+                      flex: 1;
+                      height: 82px;
+                      position: relative;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 9px;
+                      border: 1px solid var(--border);
+                      border-radius: 10px;
+                    "
+                  >
+                    <span
+                      style="
+                        font:
+                          500 10.5px 'JetBrains Mono',
+                          monospace;
+                        color: var(--text-3);
+                      "
+                      >ЧТ</span
+                    ><span
+                      style="
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 50%;
+                        background: oklch(0.87 0.06 215);
+                        color: oklch(0.42 0.1 225);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 600 11px 'Hanken Grotesk';
+                      "
+                      >Л</span
+                    >
+                  </div>
+                  <div
+                    style="
+                      flex: 1;
+                      height: 82px;
+                      position: relative;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 9px;
+                      border: 1px solid var(--border);
+                      border-radius: 10px;
+                    "
+                  >
+                    <span
+                      style="
+                        font:
+                          500 10.5px 'JetBrains Mono',
+                          monospace;
+                        color: var(--text-3);
+                      "
+                      >ПТ</span
+                    ><span
+                      style="
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 50%;
+                        background: oklch(0.86 0.07 25);
+                        color: oklch(0.42 0.13 27);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 600 11px 'Hanken Grotesk';
+                      "
+                      >К</span
+                    >
+                  </div>
+                  <div
+                    style="
+                      flex: 1;
+                      height: 82px;
+                      position: relative;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 9px;
+                      border: 1px solid var(--border);
+                      border-radius: 10px;
+                    "
+                  >
+                    <span
+                      style="
+                        font:
+                          500 10.5px 'JetBrains Mono',
+                          monospace;
+                        color: var(--text-3);
+                      "
+                      >СБ</span
+                    ><span
+                      style="
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 50%;
+                        background: oklch(0.87 0.06 215);
+                        color: oklch(0.42 0.1 225);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 600 11px 'Hanken Grotesk';
+                      "
+                      >Л</span
+                    >
+                  </div>
+                  <div
+                    style="
+                      flex: 1;
+                      height: 82px;
+                      position: relative;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 9px;
+                      border: 1px solid var(--border);
+                      border-radius: 10px;
+                    "
+                  >
+                    <span
+                      style="
+                        font:
+                          500 10.5px 'JetBrains Mono',
+                          monospace;
+                        color: var(--text-3);
+                      "
+                      >ВС</span
+                    ><span
+                      style="
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 50%;
+                        background: oklch(0.86 0.07 25);
+                        color: oklch(0.42 0.13 27);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 600 11px 'Hanken Grotesk';
+                      "
+                      >К</span
+                    >
+                  </div>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 7px;
+                    margin-top: 11px;
+                    font: 400 11.5px 'Hanken Grotesk';
+                    color: var(--text-3);
+                  "
+                >
+                  <span
+                    style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent)"
+                  ></span
+                  >дни, когда Карина гасит долг
+                </div>
+              </div>
+              <!-- HORIZONTAL SPLIT: история | комментарии + ввод -->
+              <div
+                class="fs-split"
+                data-tab="{{ mobileTab }}"
+                style="
+                  flex: 1;
+                  display: flex;
+                  gap: 0;
+                  min-height: 0;
+                  overflow: hidden;
+                  margin-top: 14px;
+                  border-top: 1px solid var(--border);
+                "
+              >
+                <!-- MOBILE TABS -->
+                <div
+                  class="fs-tabs"
+                  style="
+                    display: none;
+                    gap: 6px;
+                    flex: none;
+                    margin-bottom: 14px;
+                    border-bottom: 1px solid var(--border);
+                  "
+                >
+                  <button
+                    class="fs-tab fs-tab-h"
+                    onClick="{{ showHistory }}"
+                    style="
+                      flex: 1;
+                      padding: 9px 4px 10px;
+                      font: 600 12px 'Hanken Grotesk';
+                      border: none;
+                      border-radius: 8px 8px 0 0;
+                      background: transparent;
+                      color: var(--text-3);
+                      border-bottom: 2px solid transparent;
+                      margin-bottom: -1px;
+                      cursor: pointer;
+                    "
+                  >
+                    История
+                  </button>
+                  <button
+                    class="fs-tab fs-tab-c"
+                    onClick="{{ showComments }}"
+                    style="
+                      flex: 1;
+                      padding: 9px 4px 10px;
+                      font: 600 12px 'Hanken Grotesk';
+                      border: none;
+                      border-radius: 8px 8px 0 0;
+                      background: transparent;
+                      color: var(--text-3);
+                      border-bottom: 2px solid transparent;
+                      margin-bottom: -1px;
+                      cursor: pointer;
+                    "
+                  >
+                    Комментарии
+                  </button>
+                </div>
+                <!-- LEFT: История -->
+                <div
+                  class="fs-history"
+                  style="
+                    width: 196px;
+                    flex: none;
+                    align-self: stretch;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 0;
+                    padding: 14px 14px 0 0;
+                    border-right: 1px solid var(--border);
+                  "
+                >
+                  <div
+                    class="fs-sec-title"
+                    style="
+                      flex: none;
+                      font:
+                        500 11px 'JetBrains Mono',
+                        monospace;
+                      letter-spacing: 0.08em;
+                      text-transform: uppercase;
+                      color: var(--text-3);
+                    "
+                  >
+                    История
+                  </div>
+                  <div
+                    class="fs-histlist"
+                    style="
+                      margin-top: 8px;
+                      flex: 1;
+                      min-height: 0;
+                      overflow-y: auto;
+                      display: flex;
+                      flex-direction: column;
+                    "
+                  >
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >17 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: var(--accent);
+                            background: var(--accent-soft);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >за К</span
+                        >
                       </div>
                     </div>
-                  </sc-for>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >16 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: var(--accent);
+                            background: var(--accent-soft);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >долг</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >15 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: var(--accent);
+                            background: var(--accent-soft);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >за К</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >14 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: var(--accent);
+                            background: var(--accent-soft);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >за К</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >13 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >12 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >11 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: oklch(0.55 0.13 155);
+                            background: oklch(0.97 0.04 155);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >−1 день</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >10 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >9 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >8 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: var(--accent);
+                            background: var(--accent-soft);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >за К</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >7 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >6 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >5 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: oklch(0.55 0.13 155);
+                            background: oklch(0.97 0.04 155);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >−1 день</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >4 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >3 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: var(--accent);
+                            background: var(--accent-soft);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >долг</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >2 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >1 июн</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >31 мая</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        ><span
+                          style="
+                            font: 500 10px 'Hanken Grotesk';
+                            color: var(--accent);
+                            background: var(--accent-soft);
+                            border-radius: 4px;
+                            padding: 1px 5px;
+                            white-space: nowrap;
+                          "
+                          >за К</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                        padding: 8px 0;
+                        border-bottom: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >30 мая</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.86 0.07 25);
+                            color: oklch(0.42 0.13 27);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >К</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Карина</span
+                        >
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 3px; padding: 8px 0">
+                      <span
+                        style="
+                          font:
+                            500 11px 'JetBrains Mono',
+                            monospace;
+                          color: var(--text-3);
+                        "
+                        >29 мая</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 7px">
+                        <span
+                          style="
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: oklch(0.87 0.06 215);
+                            color: oklch(0.42 0.1 225);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font: 600 9px 'Hanken Grotesk';
+                            flex: none;
+                          "
+                          >Л</span
+                        ><span style="font: 500 12.5px 'Hanken Grotesk'; color: var(--text)"
+                          >Лёша</span
+                        >
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <!-- поле ввода -->
-                <div style="flex:none;padding-top:10px;padding-bottom:2px;border-top:1px solid var(--border);margin-top:6px;">
-                  <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="text" placeholder="Написать комментарий…" value="{{ commentText }}" onChange="{{ updateCommentText }}" onKeyDown="{{ handleCommentKey }}" style="flex:1;height:36px;border:1px solid var(--border);border-radius:9px;background:var(--bg);font:400 13px 'Hanken Grotesk';color:var(--text);padding:0 12px;outline:none;" />
-                    <button onClick="{{ addComment }}" title="Отправить" style="width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;border:none;border-radius:9px;background:var(--accent);color:#fff;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2L15 22 11 13 2 9l20-7z"></path></svg></button>
+                <!-- RIGHT: Комментарии + ввод -->
+                <div
+                  class="fs-comments"
+                  style="
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                    overflow: hidden;
+                    padding-left: 14px;
+                  "
+                >
+                  <div
+                    class="fs-sec-title"
+                    style="
+                      flex: none;
+                      padding-top: 14px;
+                      font:
+                        500 11px 'JetBrains Mono',
+                        monospace;
+                      letter-spacing: 0.08em;
+                      text-transform: uppercase;
+                      color: var(--text-3);
+                    "
+                  >
+                    Комментарии
+                  </div>
+                  <div
+                    class="fs-cmlist"
+                    style="flex: 1; height: 0; overflow-y: auto; padding-top: 10px"
+                  >
+                    <sc-for list="{{ comments }}" as="comment" hint-placeholder-count="2">
+                      <div
+                        style="
+                          display: flex;
+                          gap: 9px;
+                          padding: 9px 0;
+                          border-bottom: 1px solid var(--border);
+                        "
+                      >
+                        <span style="{{ comment.avatarStyle }}">{{ comment.author }}</span>
+                        <div style="flex: 1; min-width: 0">
+                          <div
+                            style="
+                              display: flex;
+                              align-items: baseline;
+                              gap: 6px;
+                              margin-bottom: 3px;
+                            "
+                          >
+                            <span style="font: 600 12.5px 'Hanken Grotesk'; color: var(--text)"
+                              >{{ comment.authorName }}</span
+                            >
+                            <span
+                              style="
+                                font:
+                                  500 10.5px 'JetBrains Mono',
+                                  monospace;
+                                color: var(--text-3);
+                              "
+                              >{{ comment.date }}</span
+                            >
+                            <span
+                              style="
+                                font:
+                                  500 10px 'JetBrains Mono',
+                                  monospace;
+                                color: var(--text-3);
+                                opacity: 0.6;
+                              "
+                              >{{ comment.ip }}</span
+                            >
+                          </div>
+                          <div
+                            style="
+                              font: 400 13px/1.4 'Hanken Grotesk';
+                              color: var(--text-2);
+                              word-break: break-word;
+                            "
+                          >
+                            {{ comment.text }}
+                          </div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <!-- поле ввода -->
+                  <div
+                    style="
+                      flex: none;
+                      padding-top: 10px;
+                      padding-bottom: 2px;
+                      border-top: 1px solid var(--border);
+                      margin-top: 6px;
+                    "
+                  >
+                    <div style="display: flex; gap: 6px; align-items: center">
+                      <input
+                        type="text"
+                        placeholder="Написать комментарий…"
+                        value="{{ commentText }}"
+                        onChange="{{ updateCommentText }}"
+                        onKeyDown="{{ handleCommentKey }}"
+                        style="
+                          flex: 1;
+                          height: 36px;
+                          border: 1px solid var(--border);
+                          border-radius: 9px;
+                          background: var(--bg);
+                          font: 400 13px 'Hanken Grotesk';
+                          color: var(--text);
+                          padding: 0 12px;
+                          outline: none;
+                        "
+                      />
+                      <button
+                        onClick="{{ addComment }}"
+                        title="Отправить"
+                        style="
+                          width: 36px;
+                          height: 36px;
+                          flex: none;
+                          display: flex;
+                          align-items: center;
+                          justify-content: center;
+                          border: none;
+                          border-radius: 9px;
+                          background: var(--accent);
+                          color: #fff;
+                          cursor: pointer;
+                        "
+                      >
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M22 2L11 13"></path>
+                          <path d="M22 2L15 22 11 13 2 9l20-7z"></path>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -238,108 +2077,107 @@
           </div>
         </div>
       </div>
-</div>
-</x-dc>
-<script type="text/x-dc" data-dc-script>
-class Component extends DCLogic {
-  state = {
-    karinaDebt: 2,
-    weekOffset: 0,
-    cleanedToday: false,
-    debtBeforeClean: 2,
-    commentText: '',
-    commentAuthor: 'К',
-    mobileTab: 'history',
-    comments: [
-      { id: 1, author: 'Л', authorName: 'Лёша', date: '10 июн', ip: '192.168.1.4', text: 'Офелия ела что-то на улице, последствия…', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
-      { id: 2, author: 'К', authorName: 'Карина', date: '11 июн', ip: '10.0.0.7', text: 'Простила долг — ты три раза подряд убирал, спасибо', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.86 0.07 25)', color: 'oklch(0.42 0.13 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
-      { id: 3, author: 'Л', authorName: 'Лёша', date: '12 июн', ip: '192.168.1.4', text: 'Ок, завтра тоже уберу — всё равно дома', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
-      { id: 4, author: 'К', authorName: 'Карина', date: '13 июн', ip: '10.0.0.7', text: 'Купила новые пакеты, лежат под раковиной', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.86 0.07 25)', color: 'oklch(0.42 0.13 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
-      { id: 5, author: 'Л', authorName: 'Лёша', date: '14 июн', ip: '192.168.1.4', text: 'Убрал дважды — она напачкала с утра и после прогулки', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
-      { id: 6, author: 'К', authorName: 'Карина', date: '15 июн', ip: '10.0.0.7', text: 'Офелия сегодня особенно активная, держись 🐾', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.86 0.07 25)', color: 'oklch(0.42 0.13 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
-      { id: 7, author: 'Л', authorName: 'Лёша', date: '16 июн', ip: '192.168.1.4', text: 'Кстати, надо решить — что если долг больше недели? Может автоматом прощать?', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
-    ],
-  };
+    </x-dc>
+    <script type="text/x-dc" data-dc-script>
+      class Component extends DCLogic {
+        state = {
+          karinaDebt: 2,
+          weekOffset: 0,
+          cleanedToday: false,
+          debtBeforeClean: 2,
+          commentText: '',
+          commentAuthor: 'К',
+          mobileTab: 'history',
+          comments: [
+            { id: 1, author: 'Л', authorName: 'Лёша', date: '10 июн', ip: '192.168.1.4', text: 'Офелия ела что-то на улице, последствия…', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
+            { id: 2, author: 'К', authorName: 'Карина', date: '11 июн', ip: '10.0.0.7', text: 'Простила долг — ты три раза подряд убирал, спасибо', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.86 0.07 25)', color: 'oklch(0.42 0.13 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
+            { id: 3, author: 'Л', authorName: 'Лёша', date: '12 июн', ip: '192.168.1.4', text: 'Ок, завтра тоже уберу — всё равно дома', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
+            { id: 4, author: 'К', authorName: 'Карина', date: '13 июн', ip: '10.0.0.7', text: 'Купила новые пакеты, лежат под раковиной', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.86 0.07 25)', color: 'oklch(0.42 0.13 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
+            { id: 5, author: 'Л', authorName: 'Лёша', date: '14 июн', ip: '192.168.1.4', text: 'Убрал дважды — она напачкала с утра и после прогулки', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
+            { id: 6, author: 'К', authorName: 'Карина', date: '15 июн', ip: '10.0.0.7', text: 'Офелия сегодня особенно активная, держись 🐾', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.86 0.07 25)', color: 'oklch(0.42 0.13 27)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
+            { id: 7, author: 'Л', authorName: 'Лёша', date: '16 июн', ip: '192.168.1.4', text: 'Кстати, надо решить — что если долг больше недели? Может автоматом прощать?', avatarStyle: { width: '22px', height: '22px', borderRadius: '50%', background: 'oklch(0.87 0.06 215)', color: 'oklch(0.42 0.1 225)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "600 10px 'Hanken Grotesk'", flexShrink: 0 } },
+          ],
+        };
 
-  makeAvatarStyle(author) {
-    const isK = author === 'К';
-    return {
-      width: '22px', height: '22px', borderRadius: '50%',
-      background: isK ? 'oklch(0.86 0.07 25)' : 'oklch(0.87 0.06 215)',
-      color: isK ? 'oklch(0.42 0.13 27)' : 'oklch(0.42 0.1 225)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      font: "600 10px 'Hanken Grotesk'", flexShrink: 0,
-    };
-  }
+        makeAvatarStyle(author) {
+          const isK = author === 'К';
+          return {
+            width: '22px', height: '22px', borderRadius: '50%',
+            background: isK ? 'oklch(0.86 0.07 25)' : 'oklch(0.87 0.06 215)',
+            color: isK ? 'oklch(0.42 0.13 27)' : 'oklch(0.42 0.1 225)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            font: "600 10px 'Hanken Grotesk'", flexShrink: 0,
+          };
+        }
 
-  authorBtnStyle(selected) {
-    return {
-      display: 'flex', alignItems: 'center', height: '26px',
-      padding: '0 10px', borderRadius: '7px', cursor: 'pointer',
-      font: "500 12px 'Hanken Grotesk'",
-      border: selected ? '1.5px solid oklch(0.55 0.17 281)' : '1px solid oklch(0.91 0.005 255)',
-      background: selected ? 'oklch(0.955 0.032 285)' : 'oklch(1 0 0)',
-      color: selected ? 'oklch(0.55 0.17 281)' : 'oklch(0.66 0.012 262)',
-      fontWeight: selected ? 600 : 500,
-    };
-  }
+        authorBtnStyle(selected) {
+          return {
+            display: 'flex', alignItems: 'center', height: '26px',
+            padding: '0 10px', borderRadius: '7px', cursor: 'pointer',
+            font: "500 12px 'Hanken Grotesk'",
+            border: selected ? '1.5px solid oklch(0.55 0.17 281)' : '1px solid oklch(0.91 0.005 255)',
+            background: selected ? 'oklch(0.955 0.032 285)' : 'oklch(1 0 0)',
+            color: selected ? 'oklch(0.55 0.17 281)' : 'oklch(0.66 0.012 262)',
+            fontWeight: selected ? 600 : 500,
+          };
+        }
 
-  weekRange(offset) {
-    const m = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-    const start = new Date(2026, 5, 15);
-    start.setDate(start.getDate() + offset * 7);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    if (start.getMonth() === end.getMonth()) {
-      return start.getDate() + '–' + end.getDate() + ' ' + m[end.getMonth()];
-    }
-    return start.getDate() + ' ' + m[start.getMonth()] + ' – ' + end.getDate() + ' ' + m[end.getMonth()];
-  }
+        weekRange(offset) {
+          const m = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+          const start = new Date(2026, 5, 15);
+          start.setDate(start.getDate() + offset * 7);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          if (start.getMonth() === end.getMonth()) {
+            return start.getDate() + '–' + end.getDate() + ' ' + m[end.getMonth()];
+          }
+          return start.getDate() + ' ' + m[start.getMonth()] + ' – ' + end.getDate() + ' ' + m[end.getMonth()];
+        }
 
-  addCommentAction() {
-    const text = this.state.commentText.trim();
-    if (!text) return;
-    const author = this.state.commentAuthor;
-    const authorName = author === 'К' ? 'Карина' : 'Лёша';
-    const now = new Date();
-    const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
-    const date = now.getDate() + ' ' + months[now.getMonth()];
-    const ip = author === 'К' ? '10.0.0.7' : '192.168.1.4';
-    const newComment = { id: Date.now(), author, authorName, date, ip, text, avatarStyle: this.makeAvatarStyle(author) };
-    this.setState(s => ({ comments: [...s.comments, newComment], commentText: '' }));
-  }
+        addCommentAction() {
+          const text = this.state.commentText.trim();
+          if (!text) return;
+          const author = this.state.commentAuthor;
+          const authorName = author === 'К' ? 'Карина' : 'Лёша';
+          const now = new Date();
+          const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+          const date = now.getDate() + ' ' + months[now.getMonth()];
+          const ip = author === 'К' ? '10.0.0.7' : '192.168.1.4';
+          const newComment = { id: Date.now(), author, authorName, date, ip, text, avatarStyle: this.makeAvatarStyle(author) };
+          this.setState(s => ({ comments: [...s.comments, newComment], commentText: '' }));
+        }
 
-  renderVals() {
-    const d = this.state.karinaDebt;
-    const unit = d === 1 ? 'день' : (d >= 2 && d <= 4) ? 'дня' : 'дней';
-    const isK = this.state.commentAuthor === 'К';
-    return {
-      todayName: 'Карина',
-      karinaDebt: d,
-      karinaDebtUnit: unit,
-      forgiveDebt: () => this.setState(s => ({ karinaDebt: Math.max(0, s.karinaDebt - 1) })),
-      weekRange: this.weekRange(this.state.weekOffset),
-      prevWeek: () => this.setState(s => ({ weekOffset: s.weekOffset - 1 })),
-      nextWeek: () => this.setState(s => ({ weekOffset: s.weekOffset + 1 })),
-      cleanedToday: this.state.cleanedToday,
-      notCleaned: !this.state.cleanedToday,
-      confirmClean: () => this.setState(s => ({ cleanedToday: true, karinaDebt: Math.max(0, s.karinaDebt - 1), debtBeforeClean: s.karinaDebt })),
-      undoClean: () => this.setState(s => ({ cleanedToday: false, karinaDebt: s.debtBeforeClean })),
-      comments: this.state.comments,
-      commentText: this.state.commentText,
-      updateCommentText: (e) => this.setState({ commentText: e.target.value }),
-      handleCommentKey: (e) => { if (e.key === 'Enter') this.addCommentAction(); },
-      addComment: () => this.addCommentAction(),
-      selectKarina: () => this.setState({ commentAuthor: 'К' }),
-      selectLesha: () => this.setState({ commentAuthor: 'Л' }),
-      mobileTab: this.state.mobileTab,
-      showHistory: () => this.setState({ mobileTab: 'history' }),
-      showComments: () => this.setState({ mobileTab: 'comments' }),
-      karinaAuthorStyle: this.authorBtnStyle(isK),
-      leshaAuthorStyle: this.authorBtnStyle(!isK),
-    };
-  }
-}
-</script>
-</body>
+        renderVals() {
+          const d = this.state.karinaDebt;
+          const unit = d === 1 ? 'день' : (d >= 2 && d <= 4) ? 'дня' : 'дней';
+          const isK = this.state.commentAuthor === 'К';
+          return {
+            todayName: 'Карина',
+            karinaDebt: d,
+            karinaDebtUnit: unit,
+            forgiveDebt: () => this.setState(s => ({ karinaDebt: Math.max(0, s.karinaDebt - 1) })),
+            weekRange: this.weekRange(this.state.weekOffset),
+            prevWeek: () => this.setState(s => ({ weekOffset: s.weekOffset - 1 })),
+            nextWeek: () => this.setState(s => ({ weekOffset: s.weekOffset + 1 })),
+            cleanedToday: this.state.cleanedToday,
+            notCleaned: !this.state.cleanedToday,
+            confirmClean: () => this.setState(s => ({ cleanedToday: true, karinaDebt: Math.max(0, s.karinaDebt - 1), debtBeforeClean: s.karinaDebt })),
+            undoClean: () => this.setState(s => ({ cleanedToday: false, karinaDebt: s.debtBeforeClean })),
+            comments: this.state.comments,
+            commentText: this.state.commentText,
+            updateCommentText: (e) => this.setState({ commentText: e.target.value }),
+            handleCommentKey: (e) => { if (e.key === 'Enter') this.addCommentAction(); },
+            addComment: () => this.addCommentAction(),
+            selectKarina: () => this.setState({ commentAuthor: 'К' }),
+            selectLesha: () => this.setState({ commentAuthor: 'Л' }),
+            mobileTab: this.state.mobileTab,
+            showHistory: () => this.setState({ mobileTab: 'history' }),
+            showComments: () => this.setState({ mobileTab: 'comments' }),
+            karinaAuthorStyle: this.authorBtnStyle(isK),
+            leshaAuthorStyle: this.authorBtnStyle(!isK),
+          };
+        }
+      }
+    </script>
+  </body>
 </html>

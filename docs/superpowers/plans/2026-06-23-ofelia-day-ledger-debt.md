@@ -25,10 +25,12 @@
 Introduces the ledger data model and the debt fold as pure, exported functions in `model/ofelia-duty.ts` (kept in this file to reuse `DUTY_ROTATION`/`PersonSchema`/`NumberOfDebts`/`normalizeDebts` without a circular import). Pure-function tests live in a new focused test file.
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts` (add after the existing `PersonSchema`/`NumberOfDebtsSchema` block, ~line 57–75; add helpers near `getDebtDays`)
 - Test: `client/widgets/ofelia-poop-duty/model/ledger.test.ts` (create)
 
 **Interfaces:**
+
 - Consumes: `PersonSchema`, `DUTY_ROTATION`, `Person`, `NumberOfDebts` (internal type), `normalizeDebts` — all already in `ofelia-duty.ts`.
 - Produces:
   - `LEDGER_KEY = 'ledger'`
@@ -74,14 +76,20 @@ describe('foldDebt', () => {
   })
 
   it('went_into_debt adds one to the scheduled person (onBehalfOf)', () => {
-    expect(
-      foldDebt([le({ type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })]),
-    ).toEqual({ Леша: 1, Карина: 0 })
+    expect(foldDebt([le({ type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })])).toEqual(
+      { Леша: 1, Карина: 0 },
+    )
   })
 
   it('cleaning a debt day (cleaned + onBehalfOf) repays the cleaner', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 2, date: '2026-06-17', type: 'cleaned', actor: 'Леша', onBehalfOf: 'Карина' }),
     ]
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -89,7 +97,13 @@ describe('foldDebt', () => {
 
   it('forgiven subtracts one from the debtor (onBehalfOf)', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 2, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
     ]
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -97,7 +111,13 @@ describe('foldDebt', () => {
 
   it('latest entry per date wins for day outcomes (reset reverses the day)', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 2, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
     ]
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -105,8 +125,20 @@ describe('foldDebt', () => {
 
   it('forgiven is independent of per-date dedup and stacks', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-14', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
-      le({ ts: 2, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-14',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({
+        ts: 2,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 3, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
     ]
     // two debts incurred, one forgiven → net 1
@@ -115,8 +147,20 @@ describe('foldDebt', () => {
 
   it('nets two-sided debt down via normalizeDebts', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-15', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
-      le({ ts: 2, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-15',
+        type: 'went_into_debt',
+        actor: 'Леша',
+        onBehalfOf: 'Карина',
+      }),
+      le({
+        ts: 2,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
     ]
     // each owes one → nets to zero
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -210,10 +254,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 Adds the second pure fold: the latest day-outcome per date mapped to a `{ status, actor, onBehalfOf? }` resolution. Replaces the old `getDayStatus(events, date)`.
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts` (add after `foldDebt`)
 - Test: `client/widgets/ofelia-poop-duty/model/ledger.test.ts` (extend)
 
 **Interfaces:**
+
 - Consumes: `latestOutcomesByDate`, `LedgerEntry` (Task 1).
 - Produces:
   - `type DayResolution = { status: 'closed' | 'pending'; type: LedgerType; actor: Person; onBehalfOf?: Person }`
@@ -229,7 +275,11 @@ import { resolveDays } from './ofelia-duty'
 describe('resolveDays', () => {
   it('marks a cleaned day closed with its actor', () => {
     const map = resolveDays([le({ date: '2026-06-16', type: 'cleaned', actor: 'Леша' })])
-    expect(map.get('2026-06-16')).toMatchObject({ status: 'closed', type: 'cleaned', actor: 'Леша' })
+    expect(map.get('2026-06-16')).toMatchObject({
+      status: 'closed',
+      type: 'cleaned',
+      actor: 'Леша',
+    })
   })
 
   it('marks a went_into_debt day closed and carries onBehalfOf', () => {
@@ -250,7 +300,13 @@ describe('resolveDays', () => {
   it('takes the latest by ts and keeps dates independent', () => {
     const map = resolveDays([
       le({ ts: 2, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 1, date: '2026-06-17', type: 'cleaned', actor: 'Карина' }),
     ])
     expect(map.get('2026-06-16')?.type).toBe('cleaned')
@@ -259,7 +315,9 @@ describe('resolveDays', () => {
   })
 
   it('ignores forgiven entries (not a day outcome)', () => {
-    const map = resolveDays([le({ date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' })])
+    const map = resolveDays([
+      le({ date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
+    ])
     expect(map.has('2026-06-16')).toBe(false)
   })
 })
@@ -317,10 +375,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 Extract the read-only "mirror an atom from a storage key over `subscribe`" pattern (hand-rolled today in `historyEvents` and `ofelia-comments`, and needed again by the ledger) into a reusable extender beside `withStorageKey`. Unlike `withStorageKey` it has **no write-back** — the atom never PUTs itself, which matches append-only / server-owned values written via `api.append`.
 
 **Files:**
+
 - Modify: `client/src/storage/model/reatom/reatom-storage.ts`
 - Test: `client/src/storage/model/reatom/reatom-storage.test.ts` (extend)
 
 **Interfaces:**
+
 - Consumes: `StorageApi`, `withConnectHook`, `wrap`, `AtomState`, `Atom`, `Ext` (all already imported in the file).
 - Produces:
   - `type WithStorageKeyReadonlyOptions<T> = { api: StorageApi; key: string; schema?: z.ZodType<T>; fallback: T }`
@@ -433,6 +493,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 The central conversion. `numberOfDebts` becomes a `computed`; the `debts` stored atom and the per-week `historyEvents` subscription are removed; the four actions each do one `append` to `LEDGER_KEY`; `undo` works on any closed day; `view-model.ts` reads `dayResolution`; `OfeliaPoopDuty.tsx` passes the target date to `undo`. Model, view-model, wiring, and both test files change together because the model's exported surface (`historyEvents` → `dayResolution`, removal of `getDayStatus`) is consumed by the view-model — they form one reviewer gate.
 
 **Files:**
+
 - Modify: `client/tsconfig.json` (add `ES2023` to `lib` for `toSorted`)
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts`
 - Modify: `client/widgets/ofelia-poop-duty/ui/view-model.ts`
@@ -441,6 +502,7 @@ The central conversion. `numberOfDebts` becomes a `computed`; the `debts` stored
 - Test: `client/widgets/ofelia-poop-duty/ui/view-model.test.ts` (rewrite affected blocks)
 
 **Interfaces:**
+
 - Consumes: `foldDebt`, `resolveDays`, `LedgerEntry`, `LedgerEntriesSchema`, `LedgerEntryDraft`, `LEDGER_KEY`, `DayResolution` (Tasks 1–2); `withStorageKeyReadonly` from `@/storage/model/reatom/reatom-storage` (Task 3); existing `getDebtDays`, `getOfeliaDutyByDate`, `otherPerson`, `DUTY_ROTATION`, `weekStartISO`, `IP_TAIL_LENGTH`.
 - Produces (model return shape changes):
   - adds `dayResolution: Computed<Map<string, DayResolution>>` (the `ledger` atom stays internal — the computeds connect it)
@@ -663,17 +725,17 @@ export function resolveSelected(
 4. In `makeOfeliaViewModel`, change the `selected` computed call from `duty.historyEvents()` to `duty.dayResolution()`:
 
 ```ts
-  const selected = computed(() => {
-    const week = duty.currentWeek()
-    if (!week) return null
-    return resolveSelected(
-      week,
-      duty.selectedDate(),
-      duty.dayResolution(),
-      duty.numberOfDebts() ?? {},
-      duty.today(),
-    )
-  }, 'ofelia.selected')
+const selected = computed(() => {
+  const week = duty.currentWeek()
+  if (!week) return null
+  return resolveSelected(
+    week,
+    duty.selectedDate(),
+    duty.dayResolution(),
+    duty.numberOfDebts() ?? {},
+    duty.today(),
+  )
+}, 'ofelia.selected')
 ```
 
 5. Add the forgive in-flight guard. In `OfeliaDutySources` add `forgivePending: AtomLike<boolean>`, and gate `canForgive` on it so the button disables while a forgive is in flight:
@@ -768,7 +830,15 @@ describe('ofeliaDutyModel.confirmClean', () => {
       model.currentUser.set('Карина')
       // Карина owes one (Леша covered her 2026-06-15 duty). getDebtDays assigns her to
       // the next day Леша is scheduled — 2026-06-16 — so cleaning it repays the debt.
-      await emit([le({ ts: 1, date: '2026-06-15', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' })])
+      await emit([
+        le({
+          ts: 1,
+          date: '2026-06-15',
+          type: 'went_into_debt',
+          actor: 'Леша',
+          onBehalfOf: 'Карина',
+        }),
+      ])
       await vi.waitFor(() => expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 1 }))
 
       await model.confirmClean(D('2026-06-16'))
@@ -817,7 +887,15 @@ describe('ofeliaDutyModel.forgive', () => {
       const off = model.numberOfDebts.subscribe(() => {})
       const userOff = model.currentUser.subscribe(() => {})
       model.currentUser.set('Карина')
-      await emit([le({ ts: 1, date: '2026-06-14', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })])
+      await emit([
+        le({
+          ts: 1,
+          date: '2026-06-14',
+          type: 'went_into_debt',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+        }),
+      ])
       await vi.waitFor(() => expect(model.numberOfDebts()).toEqual({ Леша: 1, Карина: 0 }))
 
       await model.forgive(D('2026-06-16'))
@@ -851,7 +929,9 @@ describe('ofeliaDutyModel.undo', () => {
 
     await context.start(async () => {
       const off = model.dayResolution.subscribe(() => {})
-      await emit([le({ ts: 1, date: '2026-06-15', type: 'cleaned', actor: 'Карина', by: 'Карина' })])
+      await emit([
+        le({ ts: 1, date: '2026-06-15', type: 'cleaned', actor: 'Карина', by: 'Карина' }),
+      ])
       await vi.waitFor(() => expect(model.dayResolution().get('2026-06-15')?.status).toBe('closed'))
 
       await model.undo(D('2026-06-15'))
@@ -882,17 +962,17 @@ describe('ofeliaDutyModel.undo', () => {
 4. Update the `ofeliaDutyModel server time` block: remove every `model.numberOfDebts.set(...)` (it is a computed now). The "returns null projections / blocks actions before sync" test keeps its `debtDays`/`currentWeek` null assertions (they gate on `today`), and asserts `goIntoDebt` did not append:
 
 ```ts
-  it('returns null projections and blocks actions before the first sync', async () => {
-    const { storage } = createLedgerStorage()
-    const model = ofeliaDutyModel({ storage, timer: createFakeTimer() })
+it('returns null projections and blocks actions before the first sync', async () => {
+  const { storage } = createLedgerStorage()
+  const model = ofeliaDutyModel({ storage, timer: createFakeTimer() })
 
-    expect(model.viewWeekStart()).toBeNull()
-    expect(model.currentWeek()).toBeNull()
-    expect(model.debtDays()).toBeNull()
+  expect(model.viewWeekStart()).toBeNull()
+  expect(model.currentWeek()).toBeNull()
+  expect(model.debtDays()).toBeNull()
 
-    await model.goIntoDebt()
-    expect(storage.shared.server.append).not.toHaveBeenCalled()
-  })
+  await model.goIntoDebt()
+  expect(storage.shared.server.append).not.toHaveBeenCalled()
+})
 ```
 
 In the remaining server-time tests (`derives the week…`, `exposes today…`, `navigates weeks…`, `selects a day…`) delete the `model.numberOfDebts.set({ … })` lines; the model needs no debt seed.
@@ -909,13 +989,34 @@ describe('ofeliaDutyModel.historyView', () => {
       const off = model.historyView.subscribe(() => {})
       await emit([
         le({ id: 'a', ts: 1, ip: '10.0.0.11', date: '2026-06-16', type: 'cleaned' }),
-        le({ id: 'b', ts: 3, ip: '10.0.0.22', date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
-        le({ id: 'c', ts: 2, ip: '10.0.0.33', date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
+        le({
+          id: 'b',
+          ts: 3,
+          ip: '10.0.0.22',
+          date: '2026-06-16',
+          type: 'went_into_debt',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+        }),
+        le({
+          id: 'c',
+          ts: 2,
+          ip: '10.0.0.33',
+          date: '2026-06-16',
+          type: 'forgiven',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+        }),
       ])
       await vi.waitFor(() => expect(model.historyView()).toHaveLength(3))
       const view = model.historyView()
       expect(view.map((entry) => entry.id)).toEqual(['b', 'c', 'a'])
-      expect(view[0]).toMatchObject({ id: 'b', type: 'went_into_debt', onBehalfOf: 'Леша', ipTail: '.0.22' })
+      expect(view[0]).toMatchObject({
+        id: 'b',
+        type: 'went_into_debt',
+        onBehalfOf: 'Леша',
+        ipTail: '.0.22',
+      })
       off()
     })
   })
@@ -925,9 +1026,9 @@ describe('ofeliaDutyModel.historyView', () => {
 6. In the `ofelia-duty selectors` block, delete the `getDayStatus` test and the `weekStartISO/historyKey` test's `historyKey` assertion (keep the `weekStartISO` assertion):
 
 ```ts
-  it('weekStartISO uses the Monday of the date week', () => {
-    expect(weekStartISO(D('2026-06-16'))).toBe('2026-06-15')
-  })
+it('weekStartISO uses the Monday of the date week', () => {
+  expect(weekStartISO(D('2026-06-16'))).toBe('2026-06-15')
+})
 ```
 
 - [ ] **Step 6: Rewrite the affected view-model tests**
@@ -939,37 +1040,34 @@ In `client/widgets/ofelia-poop-duty/ui/view-model.test.ts`:
 2. Replace the `ev` builder with a resolution-map builder:
 
 ```ts
-const closed = (
-  date: string,
-  o: Partial<DayResolution> = {},
-): Map<string, DayResolution> =>
+const closed = (date: string, o: Partial<DayResolution> = {}): Map<string, DayResolution> =>
   new Map([[date, { status: 'closed', type: 'cleaned', actor: 'Карина', ...o }]])
 ```
 
 3. Update the four `resolveSelected` calls that passed `[]`/`[ev(...)]` to pass a resolution map. The status/undo cases become:
 
 ```ts
-  it('marks the day closed and undoable when it has a closing outcome', () => {
-    const selected = resolveSelected(week(), null, closed('2026-06-16'), {}, D('2026-06-16'))
-    expect(selected?.status).toBe('closed')
-    expect(selected?.canUndo).toBe(true)
-  })
+it('marks the day closed and undoable when it has a closing outcome', () => {
+  const selected = resolveSelected(week(), null, closed('2026-06-16'), {}, D('2026-06-16'))
+  expect(selected?.status).toBe('closed')
+  expect(selected?.canUndo).toBe(true)
+})
 
-  it('allows undo for any closed day, not only today', () => {
-    const selected = resolveSelected(
-      week(),
-      D('2026-06-17'),
-      closed('2026-06-17', { type: 'went_into_debt', onBehalfOf: 'Карина' }),
-      {},
-      D('2026-06-16'),
-    )
-    expect(selected?.status).toBe('closed')
-    expect(selected?.canUndo).toBe(true)
-  })
+it('allows undo for any closed day, not only today', () => {
+  const selected = resolveSelected(
+    week(),
+    D('2026-06-17'),
+    closed('2026-06-17', { type: 'went_into_debt', onBehalfOf: 'Карина' }),
+    {},
+    D('2026-06-16'),
+  )
+  expect(selected?.status).toBe('closed')
+  expect(selected?.canUndo).toBe(true)
+})
 ```
 
-   For the cases that passed `[]` (no events), pass `new Map()`:
-   `resolveSelected(week(), null, new Map(), {}, D('2026-06-16'))` etc. (the "defaults to today", "explicit selection", "off-week fallback", "empty week", "future" cases).
+For the cases that passed `[]` (no events), pass `new Map()`:
+`resolveSelected(week(), null, new Map(), {}, D('2026-06-16'))` etc. (the "defaults to today", "explicit selection", "off-week fallback", "empty week", "future" cases).
 
 4. In the `makeOfeliaViewModel` test, replace the `historyEvents` source atom with `dayResolution` and `forgivePending` ones:
 
@@ -981,30 +1079,35 @@ const closed = (
 5. Add a test that the forgive in-flight gate disables forgiving:
 
 ```ts
-  it('disables canForgive while a forgive is in flight', () => {
-    const forgivePending = atom(false, 'test.forgivePending')
-    const duty = {
-      currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
-      selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
-      dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
-      numberOfDebts: atom<Partial<Record<Person, number>> | null>({ Карина: 1 }, 'test.numberOfDebts'),
-      today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
-      forgivePending,
-    }
-    const view = makeOfeliaViewModel(duty)
-    expect(view.canForgive()).toBe(true)
-    forgivePending.set(true)
-    expect(view.canForgive()).toBe(false)
-  })
+it('disables canForgive while a forgive is in flight', () => {
+  const forgivePending = atom(false, 'test.forgivePending')
+  const duty = {
+    currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
+    selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
+    dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
+    numberOfDebts: atom<Partial<Record<Person, number>> | null>(
+      { Карина: 1 },
+      'test.numberOfDebts',
+    ),
+    today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
+    forgivePending,
+  }
+  const view = makeOfeliaViewModel(duty)
+  expect(view.canForgive()).toBe(true)
+  forgivePending.set(true)
+  expect(view.canForgive()).toBe(false)
+})
 ```
 
 - [ ] **Step 7: Run the model + view-model suites and typecheck**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run widgets/ofelia-poop-duty/model/ofelia-duty.test.ts widgets/ofelia-poop-duty/ui/view-model.test.ts widgets/ofelia-poop-duty/model/ledger.test.ts
 pnpm typecheck
 ```
+
 Expected: PASS for all three suites; `tsc --noEmit` clean (no references to removed `getDayStatus`/`historyEvents`/`historyKey`).
 
 - [ ] **Step 8: Commit**
@@ -1023,11 +1126,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 Additive: each day in `currentWeek` carries the resolved actor for closed days, and both the strip (`toWeekDays`) and the selected-day person prefer it. This surfaces "кто по итогу убрался" — e.g. a repaid debt day keeps showing the debtor who cleaned it, instead of reverting to the scheduled person once the debt is gone.
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts` (the `currentWeek` computed)
 - Modify: `client/widgets/ofelia-poop-duty/ui/view-model.ts` (`DutyDay`, `toWeekDays`, `resolveSelected`)
 - Test: `client/widgets/ofelia-poop-duty/ui/view-model.test.ts` (extend)
 
 **Interfaces:**
+
 - Consumes: `dayResolution` (Task 4).
 - Produces: `DutyDay` gains `resolvedActor: Person | null`; `toWeekDays`/`resolveSelected` person precedence becomes `resolvedActor ?? debt ?? duty`.
 
@@ -1086,7 +1191,7 @@ In `toWeekDays`, change the person field:
 In `resolveSelected`, change the person derivation:
 
 ```ts
-  const person = entry.resolvedActor ?? entry.debt ?? entry.duty
+const person = entry.resolvedActor ?? entry.debt ?? entry.duty
 ```
 
 - [ ] **Step 4: Populate `resolvedActor` in the model**
@@ -1124,10 +1229,12 @@ const currentWeek = computed(() => {
 - [ ] **Step 5: Run tests + typecheck**
 
 Run:
+
 ```bash
 pnpm --filter client exec vitest run widgets/ofelia-poop-duty/ui/view-model.test.ts
 pnpm typecheck
 ```
+
 Expected: PASS; typecheck clean (all `DutyDay` literals include `resolvedActor`).
 
 - [ ] **Step 6: Commit**
@@ -1146,10 +1253,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 The history list now renders ledger entries, which include `reset` (re-open) rows. Add a readable badge so an undo shows up clearly in the audit list.
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/ui/parts/HistoryList.tsx:10-19`
 - Test: `client/widgets/ofelia-poop-duty/ui/parts/HistoryList.test.tsx` (extend)
 
 **Interfaces:**
+
 - Consumes: `HistoryEntryView.type` now includes `'reset'` (Task 4).
 - Produces: `badgeLabel` returns `{ text: 'переоткрыто', tone: 'forgive' }` for `reset`.
 
@@ -1174,7 +1283,7 @@ Expected: FAIL — no `переоткрыто` text (and TS: `'reset'` must be a
 In `HistoryList.tsx` `badgeLabel`, add before the final `return null`:
 
 ```ts
-  if (entry.type === 'reset') return { text: 'переоткрыто', tone: 'forgive' }
+if (entry.type === 'reset') return { text: 'переоткрыто', tone: 'forgive' }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -1198,10 +1307,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 One-shot, idempotent, fire-and-forget cleanup of the retired `debts` and `history:*` keys on model connect. Correctness does not depend on it (nothing reads those keys after Task 4); it only keeps the store tidy. errore-as-value: ignore failures.
 
 **Files:**
+
 - Modify: `client/widgets/ofelia-poop-duty/model/ofelia-duty.ts` (add a second connect hook to the `ledger` atom)
 - Test: `client/widgets/ofelia-poop-duty/model/ofelia-duty.test.ts` (extend)
 
 **Interfaces:**
+
 - Consumes: `storage.shared.server.keys`, `storage.shared.server.delete`.
 - Produces: no new exports — behavior only.
 
@@ -1280,10 +1391,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 The "Простить" e2e seeds debt by PUT-ing the old `debts` key. Debt is now derived, so seed a `ledger` entry instead — a `went_into_debt` on a **past** Леша-duty day (`2026-06-14`) so today (`2026-06-16`) stays pending and "Простить" renders.
 
 **Files:**
+
 - Modify: `client/e2e/ofelia-duty.spec.ts:9,60-74`
 - Test: the spec itself (Playwright).
 
 **Interfaces:**
+
 - Consumes: the running test server (`/api/storage`, `/api/test/reset`, `/api/test/time`) and `OfeliaPage`.
 - Produces: no new exports.
 
@@ -1298,25 +1411,25 @@ const LEDGER_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:ledg
 Replace the seed PUT inside the "Простить" test (lines 62-63) with a ledger array carrying one debt-incurring entry on a past Леша-duty day:
 
 ```ts
-  // Seed a past debt (Леша went into debt on 2026-06-14, a Леша-duty day) so the
-  // global balance shows Леша:1 while today (2026-06-16) stays pending — the
-  // secondary row, and thus "Простить", only renders while status is pending.
-  await request.put(LEDGER_URL, {
-    data: {
-      value: [
-        {
-          id: 'seed-1',
-          ts: 1,
-          ip: '127.0.0.1',
-          date: '2026-06-14',
-          type: 'went_into_debt',
-          actor: 'Карина',
-          onBehalfOf: 'Леша',
-          by: 'Карина',
-        },
-      ],
-    },
-  })
+// Seed a past debt (Леша went into debt on 2026-06-14, a Леша-duty day) so the
+// global balance shows Леша:1 while today (2026-06-16) stays pending — the
+// secondary row, and thus "Простить", only renders while status is pending.
+await request.put(LEDGER_URL, {
+  data: {
+    value: [
+      {
+        id: 'seed-1',
+        ts: 1,
+        ip: '127.0.0.1',
+        date: '2026-06-14',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+        by: 'Карина',
+      },
+    ],
+  },
+})
 ```
 
 - [ ] **Step 2: Run the e2e spec**

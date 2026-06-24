@@ -3,8 +3,8 @@ import { context, wrap } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
-import { createDexieStorage } from '@/storage/model/client/dexie-storage'
 import { db } from '@/storage/model/client/db'
+import { createDexieStorage } from '@/storage/model/client/dexie-storage'
 import { instanceNamespace } from '@/storage/model/scope'
 import { installFakeBroadcastChannel } from '@/storage/model/test/fakes'
 import type { StorageApi, StorageChange, StorageListener } from '@/storage/model/types'
@@ -260,13 +260,70 @@ describe('ofeliaDutyModel.historyView', () => {
       const off = model.historyView.subscribe(() => {})
       await emit([
         le({ id: 'a', ts: 1, ip: '10.0.0.11', date: '2026-06-16', type: 'cleaned' }),
-        le({ id: 'b', ts: 3, ip: '10.0.0.22', date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
-        le({ id: 'c', ts: 2, ip: '10.0.0.33', date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
+        le({
+          id: 'b',
+          ts: 3,
+          ip: '10.0.0.22',
+          date: '2026-06-16',
+          type: 'went_into_debt',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+        }),
+        le({
+          id: 'c',
+          ts: 2,
+          ip: '10.0.0.33',
+          date: '2026-06-16',
+          type: 'forgiven',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+        }),
       ])
       await vi.waitFor(() => expect(model.historyView()).toHaveLength(3))
       const view = model.historyView()
       expect(view.map((entry) => entry.id)).toEqual(['b', 'c', 'a'])
-      expect(view[0]).toMatchObject({ id: 'b', type: 'went_into_debt', onBehalfOf: 'Леша', ipTail: '.0.22' })
+      expect(view[0]).toMatchObject({
+        id: 'b',
+        type: 'went_into_debt',
+        onBehalfOf: 'Леша',
+        ipTail: '.0.22',
+      })
+      off()
+    })
+  })
+
+  it('sorts by date first, then by newest event within the date', async () => {
+    const { storage, emit } = createLedgerStorage()
+    const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-24') }) })
+
+    await context.start(async () => {
+      const off = model.historyView.subscribe(() => {})
+      await emit([
+        le({
+          id: 'older-day-late-write',
+          ts: 9,
+          date: '2026-06-22',
+          type: 'reset',
+          actor: 'Карина',
+        }),
+        le({ id: 'newest-day', ts: 2, date: '2026-06-24', type: 'cleaned', actor: 'Леша' }),
+        le({ id: 'middle-day', ts: 5, date: '2026-06-23', type: 'cleaned', actor: 'Карина' }),
+        le({
+          id: 'newest-day-newer-write',
+          ts: 3,
+          date: '2026-06-24',
+          type: 'went_into_debt',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+        }),
+      ])
+      await vi.waitFor(() => expect(model.historyView()).toHaveLength(4))
+      expect(model.historyView().map((entry) => entry.id)).toEqual([
+        'newest-day-newer-write',
+        'newest-day',
+        'middle-day',
+        'older-day-late-write',
+      ])
       off()
     })
   })
@@ -312,7 +369,15 @@ describe('ofeliaDutyModel.confirmClean', () => {
       const off = model.numberOfDebts.subscribe(() => {})
       // Карина owes one (Леша covered her 2026-06-15 duty). getDebtDays assigns her to
       // the next day Леша is scheduled — 2026-06-16 — so cleaning it repays the debt.
-      await emit([le({ ts: 1, date: '2026-06-15', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' })])
+      await emit([
+        le({
+          ts: 1,
+          date: '2026-06-15',
+          type: 'went_into_debt',
+          actor: 'Леша',
+          onBehalfOf: 'Карина',
+        }),
+      ])
       await vi.waitFor(() => expect(model.numberOfDebts()).toEqual({ Леша: 0, Карина: 1 }))
 
       await wrap(() => model.confirmClean(D('2026-06-16')))()
@@ -374,7 +439,15 @@ describe('ofeliaDutyModel.forgive', () => {
 
     await context.start(async () => {
       const off = model.numberOfDebts.subscribe(() => {})
-      await emit([le({ ts: 1, date: '2026-06-14', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })])
+      await emit([
+        le({
+          ts: 1,
+          date: '2026-06-14',
+          type: 'went_into_debt',
+          actor: 'Карина',
+          onBehalfOf: 'Леша',
+        }),
+      ])
       await vi.waitFor(() => expect(model.numberOfDebts()).toEqual({ Леша: 1, Карина: 0 }))
 
       await wrap(() => model.forgive(D('2026-06-16')))()
@@ -410,7 +483,9 @@ describe('ofeliaDutyModel.undo', () => {
 
     await context.start(async () => {
       const off = model.dayResolution.subscribe(() => {})
-      await emit([le({ ts: 1, date: '2026-06-15', type: 'cleaned', actor: 'Карина', by: 'Карина' })])
+      await emit([
+        le({ ts: 1, date: '2026-06-15', type: 'cleaned', actor: 'Карина', by: 'Карина' }),
+      ])
       await vi.waitFor(() => expect(model.dayResolution().get('2026-06-15')?.status).toBe('closed'))
 
       await wrap(() => model.undo(D('2026-06-15')))()

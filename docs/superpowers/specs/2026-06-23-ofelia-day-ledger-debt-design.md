@@ -85,14 +85,14 @@ const LEDGER_KEY = 'ledger'
 const LedgerTypeSchema = z.enum(['cleaned', 'went_into_debt', 'reset', 'forgiven'])
 
 const LedgerEntrySchema = z.object({
-  id: z.string(),        // server-stamped (randomUUID)
-  ts: z.number(),        // server-stamped (Date.now) — ordering / latest-wins
-  ip: z.string(),        // server-stamped — audit
-  date: z.string(),      // ISO PlainDate — the day this entry is about
+  id: z.string(), // server-stamped (randomUUID)
+  ts: z.number(), // server-stamped (Date.now) — ordering / latest-wins
+  ip: z.string(), // server-stamped — audit
+  date: z.string(), // ISO PlainDate — the day this entry is about
   type: LedgerTypeSchema,
-  actor: PersonSchema,   // who cleaned / who went into debt / forgiven debtor
+  actor: PersonSchema, // who cleaned / who went into debt / forgiven debtor
   onBehalfOf: PersonSchema.optional(), // scheduled person (debt repay / debt / forgive)
-  by: PersonSchema,      // who performed the action (currentUser) — audit
+  by: PersonSchema, // who performed the action (currentUser) — audit
 })
 
 type LedgerEntry = z.infer<typeof LedgerEntrySchema>
@@ -217,8 +217,7 @@ returns `StorageError | void`; on `Error`, `throw` (caught by `withAsyncData`).
 
 ## 8. Migration / cutover
 
-- Fresh start: the `ledger` key does not exist → the subscription yields `[]` → debt
-  0. No backfill.
+- Fresh start: the `ledger` key does not exist → the subscription yields `[]` → debt 0. No backfill.
 - The legacy `debts` and `history:<week>` keys become dead data. Add a **one-time
   idempotent cleanup** on connect (best-effort, errore-as-value, ignore failures):
   `delete('debts')` and `delete` each `history:*` key (via `keys('history:')`). This

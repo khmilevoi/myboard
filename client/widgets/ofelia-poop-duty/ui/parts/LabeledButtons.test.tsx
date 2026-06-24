@@ -24,7 +24,15 @@ describe('LabeledButtons — State A (pending)', () => {
   })
 
   it('uses custom primaryLabel', () => {
-    render(<LabeledButtons status="pending" canUndo={false} canForgive primaryLabel="Подтвердить уборку" {...handlers()} />)
+    render(
+      <LabeledButtons
+        status="pending"
+        canUndo={false}
+        canForgive
+        primaryLabel="Подтвердить уборку"
+        {...handlers()}
+      />,
+    )
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
   })
 })

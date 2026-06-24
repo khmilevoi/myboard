@@ -20,7 +20,13 @@ describe('CommentThread', () => {
     render(
       <CommentThread
         comments={[
-          view({ id: 'c1', author: 'Карина', authorName: 'Карина', date: '10 июн', text: 'Первый' }),
+          view({
+            id: 'c1',
+            author: 'Карина',
+            authorName: 'Карина',
+            date: '10 июн',
+            text: 'Первый',
+          }),
           view({ id: 'c2', author: 'Леша', authorName: 'Леша', date: '11 июн', text: 'Второй' }),
         ]}
         onSend={vi.fn()}

@@ -1,8 +1,8 @@
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
-import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 
 import { useOfelia } from '../ofelia-context'
 import { Avatar } from '../parts/Avatar'
+import { OfeliaMiniHeader } from '../parts/OfeliaMiniHeader'
 
 import styles from './TinyTier.module.css'
 
@@ -18,9 +18,11 @@ export const TinyTier = reatomMemo<TinyTierProps>(({ onExpand, onDelete }) => {
 
   return (
     <div className={styles.root}>
-      <WidgetControls onExpand={onExpand} onDelete={onDelete} />
-      <Avatar person={person} size="lg" />
-      <div className={styles.name}>{person}</div>
+      <OfeliaMiniHeader onExpand={onExpand} onDelete={onDelete} />
+      <div className={styles.body}>
+        <Avatar person={person} size="lg" />
+        <div className={styles.name}>{person}</div>
+      </div>
     </div>
   )
 }, 'TinyTier')

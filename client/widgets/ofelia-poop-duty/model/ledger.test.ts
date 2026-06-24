@@ -28,14 +28,20 @@ describe('foldDebt', () => {
   })
 
   it('went_into_debt adds one to the scheduled person (onBehalfOf)', () => {
-    expect(
-      foldDebt([le({ type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })]),
-    ).toEqual({ Леша: 1, Карина: 0 })
+    expect(foldDebt([le({ type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })])).toEqual(
+      { Леша: 1, Карина: 0 },
+    )
   })
 
   it('cleaning a debt day (cleaned + onBehalfOf) repays the cleaner', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 2, date: '2026-06-17', type: 'cleaned', actor: 'Леша', onBehalfOf: 'Карина' }),
     ]
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -43,7 +49,13 @@ describe('foldDebt', () => {
 
   it('forgiven subtracts one from the debtor (onBehalfOf)', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 2, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
     ]
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -51,7 +63,13 @@ describe('foldDebt', () => {
 
   it('latest entry per date wins for day outcomes (reset reverses the day)', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 2, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
     ]
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -59,8 +77,20 @@ describe('foldDebt', () => {
 
   it('forgiven is independent of per-date dedup and stacks', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-14', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
-      le({ ts: 2, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-14',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({
+        ts: 2,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 3, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
     ]
     // two debts incurred, one forgiven → net 1
@@ -69,8 +99,20 @@ describe('foldDebt', () => {
 
   it('nets two-sided debt down via normalizeDebts', () => {
     const entries = [
-      le({ ts: 1, date: '2026-06-15', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
-      le({ ts: 2, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-15',
+        type: 'went_into_debt',
+        actor: 'Леша',
+        onBehalfOf: 'Карина',
+      }),
+      le({
+        ts: 2,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
     ]
     // each owes one → nets to zero
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
@@ -80,7 +122,11 @@ describe('foldDebt', () => {
 describe('resolveDays', () => {
   it('marks a cleaned day closed with its actor', () => {
     const map = resolveDays([le({ date: '2026-06-16', type: 'cleaned', actor: 'Леша' })])
-    expect(map.get('2026-06-16')).toMatchObject({ status: 'closed', type: 'cleaned', actor: 'Леша' })
+    expect(map.get('2026-06-16')).toMatchObject({
+      status: 'closed',
+      type: 'cleaned',
+      actor: 'Леша',
+    })
   })
 
   it('marks a went_into_debt day closed and carries onBehalfOf', () => {
@@ -101,7 +147,13 @@ describe('resolveDays', () => {
   it('takes the latest by ts and keeps dates independent', () => {
     const map = resolveDays([
       le({ ts: 2, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
-      le({ ts: 1, date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
       le({ ts: 1, date: '2026-06-17', type: 'cleaned', actor: 'Карина' }),
     ])
     expect(map.get('2026-06-16')?.type).toBe('cleaned')
@@ -110,7 +162,9 @@ describe('resolveDays', () => {
   })
 
   it('ignores forgiven entries (not a day outcome)', () => {
-    const map = resolveDays([le({ date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' })])
+    const map = resolveDays([
+      le({ date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
+    ])
     expect(map.has('2026-06-16')).toBe(false)
   })
 })

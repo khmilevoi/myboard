@@ -7,7 +7,12 @@ import { createDexieStorage } from '../client/dexie-storage'
 import { instanceNamespace } from '../scope'
 import { installFakeBroadcastChannel } from '../test/fakes'
 import { StorageError, type StorageApi } from '../types'
-import { reatomStorageMutations, reatomClearExpired, withStorageKey, withStorageKeyReadonly } from './reatom-storage'
+import {
+  reatomStorageMutations,
+  reatomClearExpired,
+  withStorageKey,
+  withStorageKeyReadonly,
+} from './reatom-storage'
 
 beforeEach(async () => {
   await db.entries.clear()

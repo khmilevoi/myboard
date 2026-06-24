@@ -58,7 +58,11 @@ const TabsTrigger = reatomMemo<React.ComponentProps<typeof TabsPrimitive.Trigger
 const TabsContent = reatomMemo<React.ComponentProps<typeof TabsPrimitive.Content>>(
   ({ className, children, ...props }) => {
     return (
-      <TabsPrimitive.Content data-slot="tabs-content" className={cn('outline-none', className)} {...props}>
+      <TabsPrimitive.Content
+        data-slot="tabs-content"
+        className={cn('outline-none', className)}
+        {...props}
+      >
         {children}
       </TabsPrimitive.Content>
     )

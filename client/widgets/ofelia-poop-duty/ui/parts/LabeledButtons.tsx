@@ -5,11 +5,14 @@ import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import styles from './LabeledButtons.module.css'
 
 export type LabeledButtonsProps = {
+  className?: string
   status: 'pending' | 'closed'
   canUndo: boolean
   canForgive: boolean
   inactive?: boolean
   primaryLabel?: string
+  debtLabel?: string
+  forgiveLabel?: string
   showNotes?: boolean
   onConfirm: () => void
   onUndo: () => void
@@ -19,11 +22,14 @@ export type LabeledButtonsProps = {
 
 export const LabeledButtons = reatomMemo<LabeledButtonsProps>(
   ({
+    className,
     status,
     canUndo,
     canForgive,
     inactive = false,
     primaryLabel = 'Какашки убраны',
+    debtLabel = 'В долг',
+    forgiveLabel = 'Простить',
     showNotes = false,
     onConfirm,
     onUndo,
@@ -33,7 +39,11 @@ export const LabeledButtons = reatomMemo<LabeledButtonsProps>(
     const confirmed = status === 'closed' && !inactive
 
     return (
-      <div className={styles.stack} data-inactive={inactive}>
+      <div
+        className={className ? `${styles.stack} ${className}` : styles.stack}
+        data-inactive={inactive}
+        data-slot="labeled-buttons"
+      >
         {confirmed ? (
           <div className={styles.confirmedRow}>
             <div className={styles.plaque}>
@@ -41,13 +51,25 @@ export const LabeledButtons = reatomMemo<LabeledButtonsProps>(
               Уборка подтверждена
             </div>
             {canUndo ? (
-              <button type="button" className={styles.undo} aria-label="Откатить" onClick={onUndo} disabled={inactive}>
+              <button
+                type="button"
+                className={styles.undo}
+                aria-label="Откатить"
+                onClick={onUndo}
+                disabled={inactive}
+              >
                 <Undo2 size={15} aria-hidden />
               </button>
             ) : null}
           </div>
         ) : (
-          <button type="button" className={styles.primary} onClick={onConfirm} disabled={inactive}>
+          <button
+            type="button"
+            className={styles.primary}
+            data-slot="primary"
+            onClick={onConfirm}
+            disabled={inactive}
+          >
             <Check size={17} aria-hidden />
             {primaryLabel}
           </button>
@@ -60,33 +82,32 @@ export const LabeledButtons = reatomMemo<LabeledButtonsProps>(
           </div>
         ) : null}
 
-        <div className={styles.secondary} data-disabled={confirmed || inactive}>
+        <div
+          className={styles.secondary}
+          data-slot="secondary"
+          data-disabled={confirmed || inactive}
+        >
           <button
             type="button"
             className={styles.ghost}
+            data-slot="debt"
             onClick={onDebt}
             disabled={confirmed || inactive}
           >
             <Clock size={14} aria-hidden />
-            В долг
+            {debtLabel}
           </button>
           <button
             type="button"
             className={styles.forgive}
+            data-slot="forgive"
             onClick={onForgive}
             disabled={confirmed || inactive || !canForgive}
           >
             <Minus size={14} aria-hidden />
-            Простить
+            {forgiveLabel}
           </button>
         </div>
-
-        {showNotes ? (
-          <div className={styles.inactiveNote}>
-            <span className={styles.noteDot} aria-hidden />
-            неактивны для других дней
-          </div>
-        ) : null}
       </div>
     )
   },

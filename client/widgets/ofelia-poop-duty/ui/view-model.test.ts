@@ -69,10 +69,7 @@ function week(): DutyDay[] {
   ]
 }
 
-const closed = (
-  date: string,
-  o: Partial<DayResolution> = {},
-): Map<string, DayResolution> =>
+const closed = (date: string, o: Partial<DayResolution> = {}): Map<string, DayResolution> =>
   new Map([[date, { status: 'closed', type: 'cleaned', actor: 'Карина', ...o }]])
 
 describe('resolveSelected (§3.1.1 ladder + status)', () => {
@@ -84,7 +81,13 @@ describe('resolveSelected (§3.1.1 ladder + status)', () => {
   })
 
   it('uses the explicit selection when it is in the viewed week (debt assignee wins)', () => {
-    const selected = resolveSelected(week(), D('2026-06-17'), new Map(), { Карина: 1 }, D('2026-06-16'))
+    const selected = resolveSelected(
+      week(),
+      D('2026-06-17'),
+      new Map(),
+      { Карина: 1 },
+      D('2026-06-16'),
+    )
     expect(selected?.iso).toBe('2026-06-17')
     expect(selected?.person).toBe('Карина')
     expect(selected?.isDebtDay).toBe(true)
@@ -146,15 +149,27 @@ describe('toBalance', () => {
 })
 
 describe('toWeekDays', () => {
-  it('maps weekday labels, debt dots, and the selected flag across the strip', () => {
-    const days = toWeekDays(week(), '2026-06-17')
+  it('maps weekday labels, debt dots, closed status, debt owner, and selected flag across the strip', () => {
+    const w = week().map((d) =>
+      d.date.toString() === '2026-06-18' ? { ...d, resolvedActor: 'Леша' as const } : d,
+    )
+    const days = toWeekDays(w, '2026-06-17')
     expect(days.map((d) => d.weekday)).toEqual(['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'])
     expect(days[1]?.isToday).toBe(true)
     expect(days[2]).toMatchObject({
       iso: '2026-06-17',
       person: 'Карина',
+      debtOwner: 'Леша',
       isDebtDay: true,
+      isClosed: false,
       isSelected: true,
+    })
+    expect(days[3]).toMatchObject({
+      iso: '2026-06-18',
+      person: 'Леша',
+      debtOwner: 'Карина',
+      isDebtDay: false,
+      isClosed: true,
     })
     expect(days.filter((d) => d.isSelected)).toHaveLength(1)
   })
@@ -195,7 +210,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
 
     expect(view.ready()).toBe(true)
     expect(view.selected()?.iso).toBe('2026-06-16')
-    expect(view.canForgive()).toBe(true)
+    expect(view.canForgive()).toBe(false)
 
     const balanceBefore = view.balance()
     duty.selectedDate.set(D('2026-06-17'))
@@ -204,6 +219,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     // invalidated and returns the same reference (the atomic win we are after).
     expect(view.selected()?.iso).toBe('2026-06-17')
     expect(view.balance()).toBe(balanceBefore)
+    expect(view.canForgive()).toBe(true)
   })
 
   it('disables canForgive while a forgive is in flight', () => {
@@ -221,6 +237,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     }
     const view = makeOfeliaViewModel(duty)
 
+    duty.selectedDate.set(D('2026-06-17'))
     expect(view.canForgive()).toBe(true)
     forgivePending.set(true)
     expect(view.canForgive()).toBe(false)

@@ -19,8 +19,10 @@ const WEEK: WeekDayView[] = [
     weekday: 'ПН',
     dayOfMonth: 15,
     person: 'Леша',
+    debtOwner: null,
     isToday: false,
     isDebtDay: false,
+    isClosed: false,
     isSelected: false,
   },
   {
@@ -28,8 +30,10 @@ const WEEK: WeekDayView[] = [
     weekday: 'ВТ',
     dayOfMonth: 16,
     person: 'Карина',
+    debtOwner: null,
     isToday: true,
     isDebtDay: false,
+    isClosed: false,
     isSelected: true,
   },
   {
@@ -37,8 +41,10 @@ const WEEK: WeekDayView[] = [
     weekday: 'СР',
     dayOfMonth: 17,
     person: 'Карина',
+    debtOwner: 'Леша',
     isToday: false,
     isDebtDay: true,
+    isClosed: false,
     isSelected: false,
   },
   {
@@ -46,8 +52,10 @@ const WEEK: WeekDayView[] = [
     weekday: 'ЧТ',
     dayOfMonth: 18,
     person: 'Леша',
+    debtOwner: null,
     isToday: false,
     isDebtDay: false,
+    isClosed: false,
     isSelected: false,
   },
   {
@@ -55,8 +63,10 @@ const WEEK: WeekDayView[] = [
     weekday: 'ПТ',
     dayOfMonth: 19,
     person: 'Карина',
+    debtOwner: null,
     isToday: false,
     isDebtDay: false,
+    isClosed: false,
     isSelected: false,
   },
   {
@@ -64,8 +74,10 @@ const WEEK: WeekDayView[] = [
     weekday: 'СБ',
     dayOfMonth: 20,
     person: 'Леша',
+    debtOwner: null,
     isToday: false,
     isDebtDay: false,
+    isClosed: false,
     isSelected: false,
   },
   {
@@ -73,8 +85,10 @@ const WEEK: WeekDayView[] = [
     weekday: 'ВС',
     dayOfMonth: 21,
     person: 'Карина',
+    debtOwner: null,
     isToday: false,
     isDebtDay: false,
+    isClosed: false,
     isSelected: false,
   },
 ]
@@ -113,7 +127,10 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
     selectedPerson: atom<Person | null>(selected?.person ?? null, 'fixture.selectedPerson'),
     days: atom<WeekDayView[]>(o.days ?? WEEK, 'fixture.days'),
     balance: atom<DebtBalanceEntry[]>(balance, 'fixture.balance'),
-    canForgive: atom(o.canForgive ?? balance.some((entry) => entry.debt > 0), 'fixture.canForgive'),
+    canForgive: atom(
+      o.canForgive ?? (selected?.isDebtDay === true && balance.some((entry) => entry.debt > 0)),
+      'fixture.canForgive',
+    ),
   }
 }
 

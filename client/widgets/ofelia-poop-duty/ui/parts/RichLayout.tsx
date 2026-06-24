@@ -1,7 +1,6 @@
+import { Cat, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { Cat, ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react'
 
-import { otherPerson } from '../../model/ofelia-duty'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
@@ -11,6 +10,7 @@ import { Avatar } from './Avatar'
 import { CommentThread } from './CommentThread'
 import { HistoryList } from './HistoryList'
 import { MobileTabs } from './MobileTabs'
+import { OfeliaActionControls } from './OfeliaActionControls'
 import { UserToggle } from './UserToggle'
 import { WeekStrip } from './WeekStrip'
 
@@ -43,7 +43,6 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
   const balance = view.balance()
   const canForgive = view.canForgive()
   const days = view.days()
-  const selectedDay = days.find((day) => day.isSelected)
   const range = formatWeekRange(days)
 
   return (
@@ -63,57 +62,52 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
         </div>
         <div className={styles.headerActions}>
           <UserToggle value={currentUser()} onChange={actions.onSetUser} />
-          {onExpand ? (
-            <button
-              type="button"
-              className={styles.close}
-              aria-label="Развернуть"
-              onClick={onExpand}
-            >
-              <Maximize2 size={17} aria-hidden />
-            </button>
-          ) : null}
-          {onDelete ? (
-            <button type="button" className={styles.close} aria-label="Удалить" onClick={onDelete}>
-              <X size={17} aria-hidden />
-            </button>
-          ) : null}
-          {onClose ? (
-            <button type="button" className={styles.close} aria-label="Закрыть" onClick={onClose}>
-              <X size={17} aria-hidden />
-            </button>
-          ) : null}
         </div>
+        <OfeliaActionControls
+          className={styles.headerClose}
+          onExpand={onExpand}
+          onDelete={onDelete}
+          onClose={onClose}
+        />
       </header>
 
       <div className={styles.body}>
         <section className={styles.panel}>
-          <div className={styles.panelLabel}>
-            {selectedDay?.isToday ? 'Сегодня' : selectedDay?.weekday}
-          </div>
           <div className={styles.today}>
             <Avatar person={selected.person} size="lg" px={62} />
-            <div className={styles.todayName}>{selected.person}</div>
-            <span className={styles.statusChip}>{selectedDaySubtitle(selected, balance)}</span>
+            <div className={styles.todayMeta}>
+              <div className={styles.todayName}>{selected.person}</div>
+              <span className={styles.statusChip}>{selectedDaySubtitle(selected, balance)}</span>
+            </div>
           </div>
 
-          <ActionButtons
-            status={selected.status}
-            canUndo={selected.canUndo}
-            canForgive={canForgive}
-            primaryLabel="Подтвердить уборку"
-            showNotes
-            inactive={selected.isFuture}
-            onConfirm={actions.onConfirm}
-            onUndo={actions.onUndo}
-            onDebt={actions.onDebt}
-            onForgive={actions.onForgive}
-          />
+          <div className={styles.actionsDesktop}>
+            <ActionButtons
+              status={selected.status}
+              canUndo={selected.canUndo}
+              canForgive={canForgive}
+              primaryLabel="Подтвердить уборку"
+              inactive={selected.isFuture}
+              onConfirm={actions.onConfirm}
+              onUndo={actions.onUndo}
+              onDebt={actions.onDebt}
+              onForgive={actions.onForgive}
+            />
+          </div>
 
-          <p className={styles.hint}>
-            Не успеваешь — сегодня уберёт {otherPerson(selected.person)}, а тебе запишется +1
-            день.
-          </p>
+          <div className={styles.actionsMobile}>
+            <ActionButtons
+              compact
+              status={selected.status}
+              canUndo={selected.canUndo}
+              canForgive={canForgive}
+              inactive={selected.isFuture}
+              onConfirm={actions.onConfirm}
+              onUndo={actions.onUndo}
+              onDebt={actions.onDebt}
+              onForgive={actions.onForgive}
+            />
+          </div>
 
           <div className={styles.balance}>
             <div className={styles.balanceTitle}>Баланс долга</div>
