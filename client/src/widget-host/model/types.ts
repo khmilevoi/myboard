@@ -15,6 +15,7 @@ export type WidgetRuntimeProps = {
   theme: ResolvedTheme
   requestFullscreen: () => void
   requestClose: () => void
+  requestDelete: () => void
   reportError: (error: Error) => void
   storage: WidgetStorage
 }

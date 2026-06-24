@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StorageApi, StorageListener } from '@/storage/model/types'
 import type { WidgetStorage } from '@/storage/model/widget-storage'
 
+import { formatDateShort } from '../ui/format'
 import { commentsKey, ofeliaCommentsModel } from './ofelia-comments'
 import type { Comment, CommentView } from './ofelia-comments'
+import { IP_TAIL_LENGTH } from './ofelia-duty'
 import type { Person } from './ofelia-duty'
 
 function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
@@ -185,9 +187,42 @@ describe('ofeliaCommentsModel.commentThread', () => {
     expect(thread.map((entry) => entry.id)).toEqual(['a', 'c', 'b'])
 
     const first: CommentView | undefined = thread[0]
-    expect(first).toEqual({ id: 'a', author: 'Леша', text: 'first' })
+    expect(first).toEqual({
+      id: 'a',
+      author: 'Леша',
+      authorName: 'Леша',
+      date: formatDateShort(1),
+      ipTail: '127.0.0.1'.slice(-IP_TAIL_LENGTH),
+      text: 'first',
+    })
     expect(first).not.toHaveProperty('ts')
     expect(first).not.toHaveProperty('ip')
+  })
+
+  it('maps authorName, date, and ipTail from raw comments', () => {
+    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
+
+    const ip = '203.0.113.55'
+    const ts = new Date(2026, 5, 10, 12, 0, 0).getTime()
+
+    model.comments.set([cm({ id: 'c1', ts, ip, author: 'Карина', text: 'hi' })])
+
+    const [entry] = model.commentThread()
+
+    expect(entry?.authorName).toBe('Карина')
+    expect(entry?.date).toBe('10 июн')
+    expect(entry?.ipTail).toBe(ip.slice(-IP_TAIL_LENGTH))
+    expect(entry?.ipTail).toBe('13.55')
+  })
+
+  it('uses an empty ipTail when the raw comment has no ip', () => {
+    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
+
+    model.comments.set([cm({ id: 'c1', ip: undefined })])
+
+    const [entry] = model.commentThread()
+
+    expect(entry?.ipTail).toBe('')
   })
 })
 

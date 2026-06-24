@@ -10,6 +10,7 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
+      widgets: resolve(__dirname, './widgets'),
     },
   },
   define: {
@@ -36,6 +37,17 @@ export default defineConfig({
     // Docker this is unset, so normal `pnpm dev` keeps native watching.
     watch:
       process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true, interval: 100 } : undefined,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    // Vite preview is a static server and 404s `/api`; the e2e harness serves
+    // the production build here while routing the API (incl. the
+    // `/api/storage/events` SSE stream) to the test server.
     proxy: {
       '/api': {
         target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',

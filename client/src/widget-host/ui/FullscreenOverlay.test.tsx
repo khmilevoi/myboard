@@ -33,7 +33,7 @@ describe('FullscreenOverlay', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('renders a large frame for the expanded instance and closes via the close button', async () => {
+  it('renders a large frame for the expanded instance', async () => {
     const id = addInstance('clock')
     if (id instanceof Error) throw id
     expandedInstanceId.set(id)
@@ -41,8 +41,33 @@ describe('FullscreenOverlay', () => {
     render(<FullscreenOverlay />)
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(await screen.findByText(/:/)).toBeInTheDocument()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+  it('closes when the widget itself calls requestClose (the dialog draws no close button of its own)', async () => {
+    const Probe = (props: WidgetRuntimeProps) => (
+      <button onClick={props.requestClose}>widget close</button>
+    )
+    vi.mocked(findWidgetType).mockImplementation((typeId) => {
+      if (typeId === 'probe') {
+        return {
+          id: 'probe',
+          title: 'Probe',
+          description: 'probe widget',
+          loadComponent: async () => ({ default: Probe }),
+          defaultSize: { w: 3, h: 5 },
+          icon: 'Clock',
+        }
+      }
+
+      return registryHolder.actual(typeId)
+    })
+
+    const id = addInstance('probe')
+    if (id instanceof Error) throw id
+    expandedInstanceId.set(id)
+
+    render(<FullscreenOverlay />)
+    fireEvent.click(await screen.findByRole('button', { name: 'widget close' }))
     expect(expandedInstanceId()).toBeNull()
   })
 

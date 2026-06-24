@@ -23,6 +23,9 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: ^5.2.8
         version: 5.2.8
+      '@khmilevoi/use-event':
+        specifier: ^1.1.6
+        version: 1.1.6(react@19.2.7)
       '@reatom/core':
         specifier: ^1001.1.0
         version: 1001.1.0
@@ -695,6 +698,11 @@ packages:
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
+
+  '@khmilevoi/use-event@1.1.6':
+    resolution: {integrity: sha512-0DsYUgzXfq1epg7IDZe0X8B2gxe8Dc98OFOD8G5oM/Ml+SWThJHxscLc57rH0cEnNtY0dFlv5cbAVZNRkaElhg==}
+    peerDependencies:
+      react: ^19.1.0
 
   '@leichtgewicht/ip-codec@2.0.5':
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
@@ -4918,6 +4926,10 @@ snapshots:
       '@jsonjoy.com/buffers': 17.67.0(tslib@2.8.1)
       '@jsonjoy.com/codegen': 17.67.0(tslib@2.8.1)
       tslib: 2.8.1
+
+  '@khmilevoi/use-event@1.1.6(react@19.2.7)':
+    dependencies:
+      react: 19.2.7
 
   '@leichtgewicht/ip-codec@2.0.5': {}
 

@@ -68,6 +68,8 @@ export const withStorageKey =
           wrap((event) => {
             if (event instanceof Error) return error.set(event)
             error.set(null)
+            // Apply the same object reference to both atoms so the change hook
+            // can identity-match it as a server echo (see the guard below).
             asyncValue.set(event.value)
             target.set(event.value)
           }),
@@ -75,6 +77,15 @@ export const withStorageKey =
         )
       }),
       withChangeHook((state, prevState) => {
+        // Echo guard: the connect hook applies server-delivered values via
+        // `target.set`, which re-enters this change hook (the change hook fires
+        // asynchronously, so a flag set around `target.set` would already be
+        // cleared by now). Writing that value back would republish it over SSE
+        // and re-deliver it here, looping forever. The connect hook reuses the
+        // exact object it stored in `asyncValue`, so an identity match means
+        // this change is that echo — skip it. Genuine local mutations always
+        // produce a fresh object, so they are never skipped.
+        if (Object.is(state, asyncValue())) return
         api.set(key, state, state).then((err) => {
           if (err instanceof Error) {
             error.set(err)
@@ -88,4 +99,41 @@ export const withStorageKey =
       asyncValue,
       error,
     }
+  }
+
+export type WithStorageKeyReadonlyOptions<T> = {
+  api: StorageApi
+  key: string
+  schema?: z.ZodType<T>
+  /** Applied when the key is absent/deleted (StorageChange.value === null). */
+  fallback: T
+}
+
+/**
+ * Read-only reactive mirror of a single key over StorageApi.subscribe. Unlike
+ * withStorageKey there is NO write-back: the atom never PUTs itself. Use for
+ * append-only / server-owned values written via api.append (server-stamped
+ * id/ts/ip), never api.set.
+ */
+export const withStorageKeyReadonly =
+  <Target extends Atom>({
+    api,
+    key,
+    schema,
+    fallback,
+  }: WithStorageKeyReadonlyOptions<AtomState<Target>>): Ext<Target, Record<string, never>> =>
+  (target) => {
+    target.extend(
+      withConnectHook(() =>
+        api.subscribe<AtomState<Target>>(
+          key,
+          wrap((event) => {
+            if (event instanceof Error) return
+            target.set(event.value ?? fallback)
+          }),
+          schema,
+        ),
+      ),
+    )
+    return {}
   }

@@ -1,0 +1,33 @@
+.root {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+}
+
+.badge {
+  position: absolute;
+  inset-inline-end: -0.1875rem;
+  inset-block-end: -0.125rem;
+  min-inline-size: 0.9375rem;
+  block-size: 0.9375rem;
+  padding-inline: 0.125rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--avatar-badge-ring, var(--surface));
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.badge[data-tone='k'] {
+  background: var(--ofelia-k-bg);
+  color: var(--ofelia-k-fg);
+}
+
+.badge[data-tone='l'] {
+  background: var(--ofelia-l-bg);
+  color: var(--ofelia-l-fg);
+}

@@ -2,7 +2,6 @@ import {
   action,
   atom,
   computed,
-  effect,
   withAsyncData,
   withChangeHook,
   withConnectHook,
@@ -11,7 +10,7 @@ import {
 import z from 'zod'
 
 import { ServerTime } from '@/shared/timer/model/server-time'
-import { withStorageKey } from '@/storage/model/reatom/reatom-storage'
+import { withStorageKeyReadonly } from '@/storage/model/reatom/reatom-storage'
 import { WidgetStorage } from '@/storage/model/widget-storage'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
@@ -25,28 +24,13 @@ export const DUTY_ROTATION = ['Леша', 'Карина'] as const
 export type DutyPerson = (typeof DUTY_ROTATION)[number]
 export type Person = DutyPerson
 
-export type HistoryEventType = 'cleaned' | 'went_into_debt' | 'forgiven' | 'cancelled'
-
-export type HistoryEvent = {
-  id: string
-  ts: number
-  ip: string
-  date: string
-  type: HistoryEventType
-  actor: Person
-  onBehalfOf?: Person
-  by: Person
-}
-
-export type HistoryEventDraft = Omit<HistoryEvent, 'id' | 'ts' | 'ip'>
-
 export const DEBT_WARNING_THRESHOLD = 7
 export const IP_TAIL_LENGTH = 5
 
 export type HistoryEntryView = {
   id: string
   date: string
-  type: HistoryEventType
+  type: LedgerType
   actor: Person
   onBehalfOf?: Person
   by: Person
@@ -68,21 +52,79 @@ const NumberOfDebtsSchema = z
   })
   .partial()
 const PersonSchema = z.enum(DUTY_ROTATION)
-const HistoryEventTypeSchema = z.enum(['cleaned', 'went_into_debt', 'forgiven', 'cancelled'])
+type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>
 
-const HistoryEventSchema = z.object({
+export const LEDGER_KEY = 'ledger'
+
+const LedgerTypeSchema = z.enum(['cleaned', 'went_into_debt', 'reset', 'forgiven'])
+export type LedgerType = z.infer<typeof LedgerTypeSchema>
+
+const LedgerEntrySchema = z.object({
   id: z.string(),
   ts: z.number(),
   ip: z.string(),
   date: z.string(),
-  type: HistoryEventTypeSchema,
+  type: LedgerTypeSchema,
   actor: PersonSchema,
   onBehalfOf: PersonSchema.optional(),
   by: PersonSchema,
 })
 
-const HistoryEventsSchema = z.array(HistoryEventSchema)
-type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>
+export type LedgerEntry = z.infer<typeof LedgerEntrySchema>
+export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts' | 'ip'>
+export const LedgerEntriesSchema = z.array(LedgerEntrySchema)
+
+const DAY_OUTCOME_TYPES: ReadonlySet<LedgerType> = new Set(['cleaned', 'went_into_debt', 'reset'])
+
+export function latestOutcomesByDate(entries: LedgerEntry[]): Map<string, LedgerEntry> {
+  const latest = new Map<string, LedgerEntry>()
+  for (const entry of entries) {
+    if (!DAY_OUTCOME_TYPES.has(entry.type)) continue
+    const prev = latest.get(entry.date)
+    if (!prev || entry.ts > prev.ts) latest.set(entry.date, entry)
+  }
+  return latest
+}
+
+export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
+  const debt: Partial<NumberOfDebts> = {}
+
+  for (const entry of latestOutcomesByDate(entries).values()) {
+    if (entry.type === 'went_into_debt' && entry.onBehalfOf) {
+      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) + 1
+    } else if (entry.type === 'cleaned' && entry.onBehalfOf) {
+      debt[entry.actor] = (debt[entry.actor] ?? 0) - 1
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.type === 'forgiven' && entry.onBehalfOf) {
+      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) - 1
+    }
+  }
+
+  return normalizeDebts(debt)
+}
+
+export type DayResolution = {
+  status: 'closed' | 'pending'
+  type: LedgerType
+  actor: Person
+  onBehalfOf?: Person
+}
+
+export function resolveDays(entries: LedgerEntry[]): Map<string, DayResolution> {
+  const out = new Map<string, DayResolution>()
+  for (const [date, entry] of latestOutcomesByDate(entries)) {
+    out.set(date, {
+      status: entry.type === 'reset' ? 'pending' : 'closed',
+      type: entry.type,
+      actor: entry.actor,
+      ...(entry.onBehalfOf ? { onBehalfOf: entry.onBehalfOf } : {}),
+    })
+  }
+  return out
+}
 
 function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
   return date.subtract({
@@ -91,13 +133,28 @@ function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
 }
 
 export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
-  const numberOfDebts = atom<NumberOfDebts | null>(null, 'ofeliaDuty.numberOfDebts').extend(
-    withStorageKey({
+  // Reactive mirror of the append-only, server-owned ledger key. null is the
+  // "not loaded yet" sentinel the computeds below branch on. The connect hook
+  // lives on the atom itself: Reatom's dependency graph connects `ledger` when
+  // any derived computed gains a subscriber and disconnects (auto-unsubscribing
+  // the SSE listener) when the last one goes away — no manual ref-counting.
+  const ledger = atom<LedgerEntry[] | null>(null, 'ofeliaDuty.ledger').extend(
+    withStorageKeyReadonly({
       api: storage.shared.server,
-      key: 'debts',
-      schema: NumberOfDebtsSchema,
+      key: LEDGER_KEY,
+      schema: LedgerEntriesSchema,
+      fallback: [],
     }),
   )
+
+  const numberOfDebts = computed(() => {
+    const entries = ledger()
+    return entries === null ? null : foldDebt(entries)
+  }, 'ofeliaDuty.numberOfDebts')
+  const dayResolution = computed(() => {
+    const entries = ledger()
+    return entries === null ? new Map<string, DayResolution>() : resolveDays(entries)
+  }, 'ofeliaDuty.dayResolution')
 
   const currentUser = atom<Person>(DUTY_ROTATION[0], 'ofeliaDuty.currentUser').extend(
     withConnectHook(() => {
@@ -143,72 +200,36 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
 
   const selectedDate = atom<Temporal.PlainDate | null>(null, 'ofeliaDuty.selectedDate')
 
-  const historyEvents = atom<HistoryEvent[]>([], 'ofeliaDuty.historyEvents')
-  const onHistoryEvent = wrap((event) => {
-    if (event instanceof Error || event == null) return
-    historyEvents.set(event.value ?? [])
-  })
-  let offHistoryEvents: () => void = () => {}
-
-  effect(() => {
-    offHistoryEvents()
-    offHistoryEvents = () => {}
-
+  const historyView = computed<HistoryEntryView[]>(() => {
     const week = viewWeekStart()
-    if (week == null) {
-      historyEvents.set([])
-      return
-    }
-
-    offHistoryEvents = storage.shared.server.subscribe<HistoryEvent[]>(
-      historyKey(week),
-      onHistoryEvent,
-      HistoryEventsSchema,
-    )
-
-    return () => {
-      offHistoryEvents()
-      offHistoryEvents = () => {}
-    }
-  }, 'ofeliaDuty.historyEvents.sync')
-
-  const historyView = computed<HistoryEntryView[]>(
-    () =>
-      historyEvents()
-        .slice()
-        .sort((a, b) => b.ts - a.ts)
-        .map((event) => ({
-          id: event.id,
-          date: event.date,
-          type: event.type,
-          actor: event.actor,
-          ...(event.onBehalfOf ? { onBehalfOf: event.onBehalfOf } : {}),
-          by: event.by,
-          ipTail: event.ip.slice(-IP_TAIL_LENGTH),
-        })),
-    'ofeliaDuty.historyView',
-  )
+    if (!week) return []
+    const entries = ledger()
+    if (entries === null) return []
+    const weekIso = week.toString()
+    return entries
+      .filter((entry) => weekStartISO(Temporal.PlainDate.from(entry.date)) === weekIso)
+      .toSorted((a, b) => b.ts - a.ts)
+      .map((entry) => ({
+        id: entry.id,
+        date: entry.date,
+        type: entry.type,
+        actor: entry.actor,
+        ...(entry.onBehalfOf ? { onBehalfOf: entry.onBehalfOf } : {}),
+        by: entry.by,
+        ipTail: entry.ip.slice(-IP_TAIL_LENGTH),
+      }))
+  }, 'ofeliaDuty.historyView')
 
   const undoAvailable = computed(() => {
-    const events = historyEvents()
-    const currentToday = today()
-    const day = selectedDate() ?? currentToday
-    return (
-      currentToday != null &&
-      day != null &&
-      day.equals(currentToday) &&
-      getDayStatus(events, day) === 'closed'
-    )
+    const day = selectedDate() ?? today()
+    if (day == null) return false
+    return dayResolution().get(day.toString())?.status === 'closed'
   }, 'ofeliaDuty.undoAvailable')
 
   const debtDays = computed(() => {
-    const debts = numberOfDebts()
     const currentToday = today()
-
-    if (!debts || !currentToday) {
-      return null
-    }
-
+    const debts = numberOfDebts()
+    if (!currentToday || debts === null) return null
     return getDebtDays(debts, currentToday).reduce((acc, debtDay) => {
       acc.set(debtDay.date.toString(), debtDay)
       return acc
@@ -218,18 +239,19 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
   const currentWeek = computed(() => {
     const currentToday = today()
     const weekStart = viewWeekStart()
+    const days = debtDays()
+    const resolution = dayResolution()
 
-    if (!currentToday || !weekStart) {
+    if (!currentToday || !weekStart || days === null) {
       return null
     }
 
-    const days = debtDays()
-
     return Array.from({ length: 7 }, (_, dayOffset) => {
       const date = weekStart.add({ days: dayOffset })
+      const iso = date.toString()
       const duty = getOfeliaDutyByDate(date)
-
-      const debt = days?.get(date.toString()) ?? null
+      const debt = days?.get(iso) ?? null
+      const resolved = resolution.get(iso)
 
       return {
         date,
@@ -237,106 +259,86 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
         day: date.day,
         duty,
         debt: debt?.person ?? null,
+        resolvedActor: resolved?.status === 'closed' ? resolved.actor : null,
       }
     })
   }, 'ofeliaDuty.currentWeek')
 
   const confirmClean = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today()
-    if (currentToday == null) return
-
+    const debts = numberOfDebts()
+    if (currentToday == null || debts === null) return
     const target = date ?? selectedDate() ?? currentToday
-    // Use the local atom as the single source of truth (same as goIntoDebt/forgive).
-    const debts: Partial<NumberOfDebts> = { ...numberOfDebts() }
     const debtDay = getDebtDays(debts, currentToday).find((day) => day.date.equals(target))
     const actor = debtDay?.person ?? getOfeliaDutyByDate(target)
 
-    if (debtDay) {
-      debts[actor] = Math.max((debts[actor] ?? 0) - 1, 0)
-      numberOfDebts.set(normalizeDebts(debts))
-    }
-
-    const draft: HistoryEventDraft = {
+    const draft: LedgerEntryDraft = {
       date: target.toString(),
       type: 'cleaned',
       actor,
       by: currentUser(),
       ...(debtDay ? { onBehalfOf: getOfeliaDutyByDate(target) } : {}),
     }
-
-    const result = await wrap(storage.shared.server.append(historyKey(target), draft))
+    const result = await wrap(storage.shared.server.append(LEDGER_KEY, draft))
     if (result instanceof Error) throw result
   }, 'ofeliaDuty.confirmClean').extend(withAsyncData({ status: true }))
 
   const goIntoDebt = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today()
-    if (currentToday == null) return
-
+    if (currentToday == null || ledger() === null) return
     const target = date ?? selectedDate() ?? currentToday
     const duty = getOfeliaDutyByDate(target)
-    const debts: Partial<NumberOfDebts> = { ...numberOfDebts() }
-    debts[duty] = (debts[duty] ?? 0) + 1
-    numberOfDebts.set(normalizeDebts(debts))
 
-    const draft: HistoryEventDraft = {
+    const draft: LedgerEntryDraft = {
       date: target.toString(),
       type: 'went_into_debt',
       actor: otherPerson(duty),
       onBehalfOf: duty,
       by: currentUser(),
     }
-
-    const result = await wrap(storage.shared.server.append(historyKey(target), draft))
+    const result = await wrap(storage.shared.server.append(LEDGER_KEY, draft))
     if (result instanceof Error) throw result
   }, 'ofeliaDuty.goIntoDebt').extend(withAsyncData({ status: true }))
 
   const forgive = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today()
     if (currentToday == null) return
-
     const target = date ?? selectedDate() ?? currentToday
-    const debts = { ...numberOfDebts() }
+    const debts = numberOfDebts()
+    if (debts === null) return
     const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0)
     if (!debtor) return
 
-    debts[debtor] = Math.max((debts[debtor] ?? 0) - 1, 0)
-    numberOfDebts.set(normalizeDebts(debts))
-
-    const result = await wrap(
-      storage.shared.server.append(historyKey(target), {
-        date: target.toString(),
-        type: 'forgiven',
-        actor: otherPerson(debtor),
-        onBehalfOf: debtor,
-        by: currentUser(),
-      }),
-    )
+    const draft: LedgerEntryDraft = {
+      date: target.toString(),
+      type: 'forgiven',
+      actor: otherPerson(debtor),
+      onBehalfOf: debtor,
+      by: currentUser(),
+    }
+    const result = await wrap(storage.shared.server.append(LEDGER_KEY, draft))
     if (result instanceof Error) throw result
   }, 'ofeliaDuty.forgive').extend(withAsyncData({ status: true }))
+  const forgivePending = computed(() => forgive.pending() > 0, 'ofeliaDuty.forgivePending')
 
-  const undo = action(async () => {
-    const currentToday = today()
-    if (currentToday == null) return
-    if (getDayStatus(historyEvents(), currentToday) !== 'closed') return
+  const undo = action(async (date?: Temporal.PlainDate) => {
+    const target = date ?? selectedDate() ?? today()
+    if (target == null || ledger() === null) return
+    const resolution = dayResolution().get(target.toString())
+    if (resolution?.status !== 'closed') return
 
-    // `cancelled` re-opens the day status (getDayStatus returns "pending" again)
-    // but intentionally does NOT decrement numberOfDebts — the debt was already
-    // incurred and the undo only cancels the "closed" marking for today.
-    // This keeps the audit log append-only and avoids mutating historical debt counts.
-    const result = await wrap(
-      storage.shared.server.append(historyKey(currentToday), {
-        date: currentToday.toString(),
-        type: 'cancelled',
-        // effectiveDuty resolves to whoever was responsible on this day
-        // (debt assignee if a debt day, otherwise scheduled duty person).
-        actor: effectiveDuty(currentToday, numberOfDebts() ?? {}, currentToday),
-        by: currentUser(),
-      }),
-    )
+    const draft: LedgerEntryDraft = {
+      date: target.toString(),
+      type: 'reset',
+      actor: resolution.actor,
+      by: currentUser(),
+    }
+    const result = await wrap(storage.shared.server.append(LEDGER_KEY, draft))
     if (result instanceof Error) throw result
   }, 'ofeliaDuty.undo').extend(withAsyncData({ status: true }))
 
   return {
+    today,
     startOfWeekOverride,
     viewWeekStart,
     goToNextWeek,
@@ -347,9 +349,10 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     numberOfDebts,
     debtDays,
     currentWeek,
-    historyEvents,
+    dayResolution,
     historyView,
     undoAvailable,
+    forgivePending,
     confirmClean,
     goIntoDebt,
     forgive,
@@ -417,10 +420,6 @@ export function weekStartISO(date: Temporal.PlainDate): string {
   return getStartOfWeek(date).toString()
 }
 
-export function historyKey(date: Temporal.PlainDate): string {
-  return `history:${weekStartISO(date)}`
-}
-
 export function otherPerson(person: Person): Person {
   return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person
 }
@@ -444,26 +443,6 @@ export function isDebtDay(
 
 export function isOverDebtWarning(debts: Partial<NumberOfDebts>, person: Person): boolean {
   return (debts[person] ?? 0) > DEBT_WARNING_THRESHOLD
-}
-
-export function getDayStatus(
-  events: HistoryEvent[],
-  date: Temporal.PlainDate,
-): 'closed' | 'pending' {
-  const iso = date.toString()
-  let closed = false
-
-  for (const event of events
-    .filter((candidate) => candidate.date === iso)
-    .sort((a, b) => a.ts - b.ts)) {
-    if (event.type === 'cleaned' || event.type === 'went_into_debt') {
-      closed = true
-    } else if (event.type === 'cancelled') {
-      closed = false
-    }
-  }
-
-  return closed ? 'closed' : 'pending'
 }
 
 function positiveModulo(value: number, divisor: number): number {

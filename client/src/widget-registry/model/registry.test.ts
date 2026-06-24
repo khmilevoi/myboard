@@ -38,7 +38,7 @@ describe('widget registry', () => {
       title: 'Лоток Офелии',
       description: 'Чья сегодня очередь убирать',
       defaultSize: { w: 3, h: 5 },
-      icon: 'CalendarDays',
+      icon: 'Cat',
     })
 
     const mod = await type.loadComponent()
@@ -59,7 +59,7 @@ describe('widget registry', () => {
 
   it('uses a shared widget icon name type', () => {
     const iconNames: WidgetIconName[] = widgetTypes.map((type) => type.icon)
-    expect(iconNames).toEqual(['Clock', 'CalendarDays'])
+    expect(iconNames).toEqual(['Clock', 'Cat'])
   })
 
   it('returns UnknownWidgetTypeError for an unknown type', () => {

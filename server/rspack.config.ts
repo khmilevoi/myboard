@@ -4,10 +4,13 @@ import { defineConfig } from '@rspack/cli'
 
 export default defineConfig({
   target: 'node',
-  entry: './src/index.ts',
+  entry: {
+    index: './src/index.ts',
+    'test-server': './src/test-server.ts',
+  },
   output: {
     path: path.resolve(import.meta.dirname, 'dist'),
-    filename: 'index.cjs',
+    filename: '[name].cjs',
     libraryTarget: 'commonjs2',
     // dev.mjs restarts the server by polling the bundle's mtime; without this,
     // rspack skips rewriting the file when output is byte-identical to what's

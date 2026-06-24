@@ -1,0 +1,32 @@
+.row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chip[data-over='false'] {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.chip[data-over='true'] {
+  color: var(--destructive);
+}
+
+.even {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.count {
+  font-family: var(--font-mono);
+}

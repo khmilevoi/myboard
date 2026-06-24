@@ -1,0 +1,66 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  padding: 1.0625rem 1.125rem;
+}
+
+.label {
+  margin-block-start: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-start: 0.6875rem;
+}
+
+.name {
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.sub {
+  margin-block-start: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--text-3);
+}
+
+.divider {
+  block-size: 1px;
+  background: var(--border);
+  margin: 0.8125rem 0;
+}
+
+.debtRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.debtLabel {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.hint {
+  margin: 0 0 0.625rem 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-3);
+  text-wrap: pretty;
+}

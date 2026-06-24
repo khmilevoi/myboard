@@ -16,21 +16,42 @@ const entry = (overrides: Partial<HistoryEntryView> = {}): HistoryEntryView => (
 })
 
 describe('HistoryList', () => {
-  it('renders an entry with name, action label, and IP tail', () => {
+  it('renders vertical layout with date and avatar+name row', () => {
     render(<HistoryList entries={[entry()]} />)
-
-    expect(screen.getByText('Карина')).toBeInTheDocument()
-    expect(screen.getByText('убрал(а)')).toBeInTheDocument()
     expect(screen.getByText('2026-06-16')).toBeInTheDocument()
     expect(screen.getByText('0.0.22')).toBeInTheDocument()
+    expect(screen.getByText('Карина')).toBeInTheDocument()
   })
 
-  it('renders an "за X" badge only when onBehalfOf is present', () => {
-    const { rerender } = render(<HistoryList entries={[entry({ onBehalfOf: 'Леша' })]} />)
-    expect(screen.getByText('за Леша')).toBeInTheDocument()
+  it('omits ip tail when it is missing in the entry data', () => {
+    render(<HistoryList entries={[entry({ ipTail: '' })]} />)
+    expect(screen.queryByText('0.0.22')).not.toBeInTheDocument()
+  })
 
-    rerender(<HistoryList entries={[entry()]} />)
+  it('renders "долг" badge for went_into_debt', () => {
+    render(<HistoryList entries={[entry({ type: 'went_into_debt' })]} />)
+    expect(screen.getByText('долг')).toBeInTheDocument()
+  })
+
+  it('renders "за {initial}" badge for cleaned with onBehalfOf', () => {
+    render(<HistoryList entries={[entry({ onBehalfOf: 'Леша' })]} />)
+    expect(screen.getByText('за Л')).toBeInTheDocument()
+  })
+
+  it('renders "−1 день" badge for forgiven', () => {
+    render(<HistoryList entries={[entry({ type: 'forgiven' })]} />)
+    expect(screen.getByText('−1 день')).toBeInTheDocument()
+  })
+
+  it('renders "переоткрыто" badge for reset', () => {
+    render(<HistoryList entries={[entry({ type: 'reset' })]} />)
+    expect(screen.getByText('переоткрыто')).toBeInTheDocument()
+  })
+
+  it('renders no badge for cleaned without onBehalfOf', () => {
+    render(<HistoryList entries={[entry()]} />)
     expect(screen.queryByText(/^за /)).not.toBeInTheDocument()
+    expect(screen.queryByText('долг')).not.toBeInTheDocument()
   })
 
   it('renders an empty state when there are no entries', () => {

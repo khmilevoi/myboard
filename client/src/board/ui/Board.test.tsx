@@ -48,7 +48,10 @@ describe('Board', () => {
     if (id instanceof Error) throw id
     render(<Board />)
     const card = await screen.findByTestId('widget-card')
-    fireEvent.click(within(card).getByRole('button', { name: 'Удалить' }))
+    // The delete control now lives inside the lazily-loaded widget itself, so
+    // it only appears once the widget's chunk has resolved.
+    const deleteButton = await within(card).findByRole('button', { name: 'Удалить' })
+    fireEvent.click(deleteButton)
     expect(instances()).toHaveLength(0)
   })
 
@@ -60,12 +63,9 @@ describe('Board', () => {
 
     const card = await screen.findByTestId('widget-card')
     expect(within(card).getByText('Виджет не отвечает')).toBeInTheDocument()
-    const deleteButtons = within(card).getAllByRole('button', { name: 'Удалить' })
-    expect(deleteButtons).toHaveLength(2)
-    const errorDeleteButton = deleteButtons[1]
-    if (!errorDeleteButton) throw new Error('error delete button not found')
+    const deleteButton = within(card).getByRole('button', { name: 'Удалить' })
 
-    fireEvent.click(errorDeleteButton)
+    fireEvent.click(deleteButton)
 
     expect(instances()).toHaveLength(0)
     expect(layout()).toHaveLength(0)
@@ -94,27 +94,29 @@ describe('Board', () => {
 
     const card = await screen.findByTestId('widget-card')
     expect(await within(card).findByText('Виджет не отвечает')).toBeInTheDocument()
-    const deleteButtons = within(card).getAllByRole('button', { name: 'Удалить' })
-    const errorDeleteButton = deleteButtons.at(-1)
-    if (!errorDeleteButton) throw new Error('error-boundary delete button not found')
+    const deleteButton = within(card).getByRole('button', { name: 'Удалить' })
 
-    fireEvent.click(errorDeleteButton)
+    fireEvent.click(deleteButton)
 
     expect(instances()).toHaveLength(0)
     expect(layout()).toHaveLength(0)
   })
 
-  it('renders a stable drag handle for grid interactions', async () => {
+  it('makes the whole card draggable instead of a dedicated handle element', async () => {
     const id = addInstance('clock')
     if (id instanceof Error) throw id
     render(<Board />)
     const card = await screen.findByTestId('widget-card')
-    const handle = within(card).getByText('Часы')
-    expect(handle).toHaveClass('widget-drag-handle')
+    const handle = card.querySelector('.widget-drag-handle')
+    expect(handle).not.toBeNull()
+    expect(handle).toBe(card.firstElementChild)
     expect(card.querySelector('iframe')).toBeNull()
   })
 
-  it('computes each widget tier from its layout size', async () => {
+  it('does not derive tier from grid layout size — WidgetFrame measures its own rendered size', async () => {
+    // Grid columns resize with the viewport, so a fixed w/h in grid units maps to a
+    // different pixel size on every screen. Board must leave tier resolution to
+    // WidgetFrame's own size measurement instead of computing it from layout units.
     const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
     vi.mocked(findWidgetType).mockImplementation((typeId) => {
       if (typeId === 'probe') {
@@ -131,18 +133,11 @@ describe('Board', () => {
       return registryHolder.actual(typeId)
     })
 
-    instances.set([
-      { id: 'big', typeId: 'probe' },
-      { id: 'small', typeId: 'probe' },
-    ])
-    layout.set([
-      { i: 'big', x: 0, y: 0, w: 6, h: 8, minW: 2, minH: 2 },
-      { i: 'small', x: 0, y: 8, w: 2, h: 2, minW: 2, minH: 2 },
-    ])
+    instances.set([{ id: 'big', typeId: 'probe' }])
+    layout.set([{ i: 'big', x: 0, y: 0, w: 6, h: 8, minW: 2, minH: 2 }])
 
     render(<Board />)
 
-    expect(await screen.findByText('tier:large')).toBeInTheDocument()
     expect(await screen.findByText('tier:tiny')).toBeInTheDocument()
   })
 })

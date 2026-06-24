@@ -1,0 +1,55 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.copy {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.name {
+  font-weight: 600;
+  font-size: 1.75rem;
+  line-height: 1.05;
+}
+
+.sub {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 1.75rem;
+  padding: 0.125rem 0.75rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--primary);
+  font-family: Georgia, serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-block-start: auto;
+}
+
+.actions [data-slot='secondary'] {
+  gap: 0.4375rem;
+}
+
+.actions [data-slot='forgive'] {
+  color: #0f8a4b;
+}

@@ -1,8 +1,12 @@
 export type WidgetTier = 'tiny' | 'compact' | 'standard' | 'large' | 'fullscreen'
 
-export type TierThreshold = { minW: number; minH: number }
+export type TierThreshold = { minWidthPx: number; minHeightPx: number }
 
-// Thresholds are defined in grid units. The fullscreen tier is assigned explicitly.
+// Thresholds are the widget's actual rendered size in CSS pixels, measured
+// from its frame element — not grid units. Grid columns resize with the
+// viewport, so a fixed column count maps to a different pixel size on every
+// screen; only the rendered size is a stable signal for layout decisions.
+// The fullscreen tier is assigned explicitly by the overlay.
 export type TierConfig = {
   tiny: TierThreshold
   compact: TierThreshold
@@ -11,18 +15,21 @@ export type TierConfig = {
 }
 
 export const DEFAULT_TIERS: TierConfig = {
-  tiny: { minW: 1, minH: 1 },
-  compact: { minW: 2, minH: 3 },
-  standard: { minW: 3, minH: 5 },
-  large: { minW: 5, minH: 7 },
+  tiny: { minWidthPx: 0, minHeightPx: 0 },
+  compact: { minWidthPx: 220, minHeightPx: 160 },
+  standard: { minWidthPx: 320, minHeightPx: 280 },
+  large: { minWidthPx: 480, minHeightPx: 420 },
 }
 
 const RESOLVE_ORDER = ['large', 'standard', 'compact'] as const
 
-export function resolveTier(size: { w: number; h: number }, config: TierConfig): WidgetTier {
+export function resolveTier(
+  size: { width: number; height: number },
+  config: TierConfig,
+): WidgetTier {
   for (const tier of RESOLVE_ORDER) {
     const threshold = config[tier]
-    if (size.w >= threshold.minW && size.h >= threshold.minH) return tier
+    if (size.width >= threshold.minWidthPx && size.height >= threshold.minHeightPx) return tier
   }
 
   return 'tiny'

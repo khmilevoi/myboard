@@ -7,12 +7,13 @@ import {
   withConnectHook,
   wrap,
 } from '@reatom/core'
-import type { Atom } from '@reatom/core'
+import type { Atom, AtomLike } from '@reatom/core'
 import z from 'zod'
 
 import type { WidgetStorage } from '@/storage/model/widget-storage'
 
-import { DUTY_ROTATION, weekStartISO } from './ofelia-duty'
+import { formatDateShort } from '../ui/format'
+import { DUTY_ROTATION, IP_TAIL_LENGTH, weekStartISO } from './ofelia-duty'
 import type { Person } from './ofelia-duty'
 
 const AuthorSchema = z.enum(DUTY_ROTATION)
@@ -34,6 +35,9 @@ export type CommentDraft = Pick<Comment, 'author' | 'text'>
 export type CommentView = {
   id: string
   author: Person
+  authorName: string
+  date: string
+  ipTail: string
   text: string
 }
 
@@ -43,7 +47,7 @@ export function commentsKey(date: Temporal.PlainDate): string {
 
 export interface OfeliaCommentsModelProps {
   storage: WidgetStorage
-  viewWeekStart: Atom<Temporal.PlainDate | null>
+  viewWeekStart: AtomLike<Temporal.PlainDate | null>
   currentUser: Atom<Person>
 }
 
@@ -93,6 +97,9 @@ export const ofeliaCommentsModel = ({
         .map((comment) => ({
           id: comment.id,
           author: comment.author,
+          authorName: comment.author,
+          date: formatDateShort(comment.ts),
+          ipTail: comment.ip?.slice(-IP_TAIL_LENGTH) ?? '',
           text: comment.text,
         })),
     'ofeliaComments.commentThread',

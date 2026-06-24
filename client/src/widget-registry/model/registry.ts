@@ -3,7 +3,7 @@ import * as errore from 'errore'
 import type { TierConfig } from '@/widget-host/model/tier'
 import type { WidgetLoader } from '@/widget-host/model/types'
 
-export type WidgetIconName = 'Clock' | 'CalendarDays'
+export type WidgetIconName = 'Clock' | 'CalendarDays' | 'Cat'
 
 export type WidgetType = {
   id: string
@@ -29,7 +29,7 @@ export const widgetTypes: WidgetType[] = [
     title: 'Часы',
     description: 'Текущее время и дата',
     loadComponent: () =>
-      import('../../../widgets/clock/ui/Clock').then((mod) => ({
+      import('widgets/clock/ui/Clock').then((mod) => ({
         default: mod.Clock,
       })),
     defaultSize: { w: 3, h: 4 },
@@ -40,11 +40,17 @@ export const widgetTypes: WidgetType[] = [
     title: 'Лоток Офелии',
     description: 'Чья сегодня очередь убирать',
     loadComponent: () =>
-      import('../../../widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
+      import('widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
         default: mod.OfeliaPoopDuty,
       })),
     defaultSize: { w: 3, h: 5 },
-    icon: 'CalendarDays',
+    icon: 'Cat',
+    tiers: {
+      tiny: { minWidthPx: 0, minHeightPx: 0 },
+      compact: { minWidthPx: 200, minHeightPx: 200 },
+      standard: { minWidthPx: 400, minHeightPx: 200 },
+      large: { minWidthPx: 500, minHeightPx: 400 },
+    },
   },
 ]
 

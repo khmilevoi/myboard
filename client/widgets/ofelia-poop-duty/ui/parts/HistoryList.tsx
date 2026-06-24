@@ -2,13 +2,19 @@ import type { HistoryEntryView } from 'widgets/ofelia-poop-duty/model/ofelia-dut
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
+import { personInitial } from '../person'
+import { Avatar } from './Avatar'
+
 import styles from './HistoryList.module.css'
 
-const ACTION_LABEL: Record<HistoryEntryView['type'], string> = {
-  cleaned: 'убрал(а)',
-  went_into_debt: 'ушёл(ла) в долг',
-  forgiven: 'простил(а)',
-  cancelled: 'отменил(а)',
+function badgeLabel(entry: HistoryEntryView): { text: string; tone: 'accent' | 'forgive' } | null {
+  if (entry.type === 'went_into_debt') return { text: 'долг', tone: 'accent' }
+  if (entry.type === 'forgiven') return { text: '−1 день', tone: 'forgive' }
+  if (entry.type === 'cleaned' && entry.onBehalfOf) {
+    return { text: `за ${personInitial(entry.onBehalfOf)}`, tone: 'accent' }
+  }
+  if (entry.type === 'reset') return { text: 'переоткрыто', tone: 'forgive' }
+  return null
 }
 
 export type HistoryListProps = {
@@ -22,26 +28,26 @@ export const HistoryList = reatomMemo<HistoryListProps>(({ entries }) => {
 
   return (
     <ul className={styles.list}>
-      {entries.map((entry) => (
-        <li key={entry.id} className={styles.item}>
-          <span className={styles.avatar} aria-hidden>
-            {entry.actor.slice(0, 1)}
-          </span>
-          <div className={styles.body}>
-            <div className={styles.line}>
-              <span className={styles.name}>{entry.actor}</span>
-              <span className={styles.action}>{ACTION_LABEL[entry.type]}</span>
-              {entry.onBehalfOf ? (
-                <span className={styles.badge}>за {entry.onBehalfOf}</span>
-              ) : null}
-            </div>
+      {entries.map((entry) => {
+        const badge = badgeLabel(entry)
+        return (
+          <li key={entry.id} className={styles.item}>
             <div className={styles.meta}>
               <span className={styles.date}>{entry.date}</span>
-              <span className={styles.ip}>{entry.ipTail}</span>
+              {entry.ipTail ? <span className={styles.ip}>{entry.ipTail}</span> : null}
             </div>
-          </div>
-        </li>
-      ))}
+            <div className={styles.row}>
+              <Avatar person={entry.actor} px={20} />
+              <span className={styles.name}>{entry.actor}</span>
+              {badge ? (
+                <span className={styles.badge} data-tone={badge.tone}>
+                  {badge.text}
+                </span>
+              ) : null}
+            </div>
+          </li>
+        )
+      })}
     </ul>
   )
 }, 'HistoryList')
