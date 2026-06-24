@@ -13,6 +13,7 @@ import styles from './BoardSchemaSelect.module.css'
 export type BoardSchemaSelectItem = {
   id: string
   name: string
+  isReadonly?: boolean
 }
 
 export type BoardSchemaSelectProps = {
@@ -113,6 +114,7 @@ export const BoardSchemaSelect = reatomMemo<BoardSchemaSelectProps>(
               {items.map((item) => {
                 const isSelected = item.id === value
                 const isEditing = item.id === editingId
+                const canChangeItem = !item.isReadonly
 
                 return (
                   <li key={item.id} className={styles.item}>
@@ -147,7 +149,7 @@ export const BoardSchemaSelect = reatomMemo<BoardSchemaSelectProps>(
                           ) : null}
                           <span className={styles.itemName}>{item.name}</span>
                         </button>
-                        {onRename ? (
+                        {onRename && canChangeItem ? (
                           <button
                             type="button"
                             className={styles.iconButton}
@@ -157,7 +159,7 @@ export const BoardSchemaSelect = reatomMemo<BoardSchemaSelectProps>(
                             <Pencil size={14} aria-hidden />
                           </button>
                         ) : null}
-                        {onDelete ? (
+                        {onDelete && canChangeItem ? (
                           <button
                             type="button"
                             className={cn(styles.iconButton, styles.deleteButton)}

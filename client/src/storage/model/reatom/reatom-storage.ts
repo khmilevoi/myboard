@@ -70,6 +70,8 @@ export const withStorageKey =
 
     target.extend(
       withConnectHook(() => {
+        const defaultValue = target()
+
         return api.subscribe<AtomState<Target>>(
           key,
           wrap((event) => {
@@ -79,7 +81,7 @@ export const withStorageKey =
             // Apply the same object reference to both atoms so the change hook
             // can identity-match it as a server echo (see the guard below).
             asyncValue.set(event.value)
-            target.set(event.value)
+            target.set(event.value ?? defaultValue)
           }),
           schema,
         )
