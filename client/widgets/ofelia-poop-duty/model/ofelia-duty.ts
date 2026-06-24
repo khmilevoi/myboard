@@ -11,7 +11,7 @@ import z from 'zod'
 
 import { ServerTime } from '@/shared/timer/model/server-time'
 import { withStorageKeyReadonly } from '@/storage/model/reatom/reatom-storage'
-import { WidgetStorage } from '@/storage/model/widget-storage'
+import { WidgetStorage } from '@/storage/model/storage'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
 export const BASE_DUTY_DATE = Temporal.PlainDate.from({

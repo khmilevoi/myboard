@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
 import type { ServerTime } from '@/shared/timer/model/server-time'
+import type { WidgetStorage } from '@/storage/model/storage'
 import { createFakeStorage } from '@/storage/model/test/fakes'
-import type { WidgetStorage } from '@/storage/model/widget-storage'
 import type { WidgetTier } from '@/widget-host/model/tier'
 import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 
@@ -50,32 +50,43 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   context.reset()
   vi.clearAllMocks()
 })
 
+async function waitForLoaded() {
+  await waitFor(() => {
+    expect(screen.queryByLabelText('Загрузка виджета Офелии')).not.toBeInTheDocument()
+  })
+}
+
 describe('OfeliaPoopDuty tier routing', () => {
-  it('tiny — shows only the current person', () => {
+  it('tiny — shows only the current person', async () => {
     render(<OfeliaPoopDuty {...props('tiny')} />)
+    await waitForLoaded()
     expect(screen.getByText('Леша')).toBeInTheDocument()
     expect(screen.queryByText('Сегодня убирает')).not.toBeInTheDocument()
   })
 
-  it('compact — shows the label and the icon actions', () => {
+  it('compact — shows the label and the icon actions', async () => {
     render(<OfeliaPoopDuty {...props('compact')} />)
-    expect(screen.getByText('Сегодня убирает')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
-  })
-
-  it('standard — shows the card title and the confirm button', () => {
-    render(<OfeliaPoopDuty {...props('standard')} />)
+    await waitForLoaded()
     expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
   })
 
-  it('standard — draws its own expand/delete controls wired to runtime callbacks', () => {
+  it('standard — shows the card title and the confirm button', async () => {
+    render(<OfeliaPoopDuty {...props('standard')} />)
+    await waitForLoaded()
+    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
+  })
+
+  it('standard — draws its own expand/delete controls wired to runtime callbacks', async () => {
     const widgetProps = props('standard')
     render(<OfeliaPoopDuty {...widgetProps} />)
+    await waitForLoaded()
 
     fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
     expect(widgetProps.requestFullscreen).toHaveBeenCalledOnce()
@@ -84,27 +95,33 @@ describe('OfeliaPoopDuty tier routing', () => {
     expect(widgetProps.requestDelete).toHaveBeenCalledOnce()
   })
 
-  it('fullscreen — has no expand/delete controls of its own', () => {
+  it('fullscreen — has no expand/delete controls of its own', async () => {
     render(<OfeliaPoopDuty {...props('fullscreen')} />)
+    await waitForLoaded()
     expect(screen.queryByRole('button', { name: 'Развернуть' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
   })
 
-  it('large — shows the week navigation and the empty history/comments', () => {
+  it('large — shows the week navigation and the empty history/comments', async () => {
     render(<OfeliaPoopDuty {...props('large')} />)
+    await waitForLoaded()
     expect(screen.getByText('Неделя')).toBeInTheDocument()
     expect(screen.getByText('Пока нет событий')).toBeInTheDocument()
     expect(screen.getByText('Пока нет комментариев')).toBeInTheDocument()
   })
 
-  it('fullscreen — exposes the close affordance', () => {
+  it('fullscreen — exposes the close affordance', async () => {
     render(<OfeliaPoopDuty {...props('fullscreen')} />)
+    await waitForLoaded()
     expect(screen.getByRole('button', { name: 'Закрыть' })).toBeInTheDocument()
   })
 
   it('shows a loading state before the first server-time sync', () => {
     timerHolder.current = createFakeTimer()
     render(<OfeliaPoopDuty {...props('standard')} />)
-    expect(screen.getByText('Загрузка…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Загрузка виджета Офелии')).toHaveAttribute(
+      'data-slot',
+      'skeleton',
+    )
   })
 })

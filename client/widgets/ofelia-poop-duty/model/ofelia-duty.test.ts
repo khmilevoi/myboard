@@ -2,8 +2,8 @@ import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
+import type { WidgetStorage } from '@/storage/model/storage'
 import type { StorageApi } from '@/storage/model/types'
-import type { WidgetStorage } from '@/storage/model/widget-storage'
 
 import {
   DEBT_WARNING_THRESHOLD,
