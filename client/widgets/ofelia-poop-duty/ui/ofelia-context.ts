@@ -14,7 +14,7 @@ export type OfeliaContextValue = {
   comments: AtomLike<CommentView[]>
   actions: OfeliaActions
   nav: OfeliaWeekNav
-  onSend: (text: string) => void
+  onSend: (text: string) => Promise<void>
 }
 
 export const ofeliaContext = createContext<OfeliaContextValue | null>(null)

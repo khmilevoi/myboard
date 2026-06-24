@@ -10,18 +10,21 @@ import styles from './CommentThread.module.css'
 
 export type CommentThreadProps = {
   comments: CommentView[]
-  onSend: (text: string) => void
+  onSend: (text: string) => Promise<void>
 }
 
 export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend }) => {
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
 
   const submit = () => {
     const trimmed = text.trim()
     if (trimmed.length === 0) return
 
-    onSend(trimmed)
+    onSend(trimmed).then(() => {
+      listRef.current?.scrollTo(0, 0)
+    })
     setText('')
   }
 
@@ -30,7 +33,7 @@ export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend 
       {comments.length === 0 ? (
         <div className={styles.empty}>Пока нет комментариев</div>
       ) : (
-        <ul className={styles.list}>
+        <ul ref={listRef} className={styles.list}>
           {[...comments].reverse().map((comment) => (
             <li key={comment.id} className={styles.item}>
               <Avatar person={comment.author} px={22} />

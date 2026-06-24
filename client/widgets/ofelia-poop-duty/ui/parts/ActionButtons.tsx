@@ -1,9 +1,7 @@
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
 import { IconButtons } from './IconButtons'
-import type { IconButtonsProps } from './IconButtons'
 import { LabeledButtons } from './LabeledButtons'
-import type { LabeledButtonsProps } from './LabeledButtons'
 
 export type ActionButtonsProps = {
   status: 'pending' | 'closed'
