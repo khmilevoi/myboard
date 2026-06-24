@@ -10,7 +10,7 @@ import {
 import z from 'zod'
 
 import { ServerTime } from '@/shared/timer/model/server-time'
-import type { StorageChange, StorageError } from '@/storage/model/types'
+import { withStorageKeyReadonly } from '@/storage/model/reatom/reatom-storage'
 import { WidgetStorage } from '@/storage/model/widget-storage'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
@@ -133,51 +133,28 @@ function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
 }
 
 export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
-  const ledger = atom<LedgerEntry[] | null>(null, 'ofeliaDuty.ledger')
-  const onLedgerChange = wrap((event: StorageError | StorageChange<LedgerEntry[]>) => {
-    if (event instanceof Error) return
-    ledger.set(event.value ?? [])
-  })
-  let ledgerSubscribers = 0
-  let disconnectLedger: (() => void) | null = null
-  let legacyCleanupStarted = false
-  const connectLedger = () => {
-    ledgerSubscribers += 1
-    if (ledgerSubscribers === 1) {
-      disconnectLedger = storage.shared.server.subscribe(
-        LEDGER_KEY,
-        onLedgerChange,
-        LedgerEntriesSchema,
-      )
-      if (!legacyCleanupStarted) {
-        legacyCleanupStarted = true
-        void wrap(async () => {
-          await storage.shared.server.delete('debts')
-          const keys = await storage.shared.server.keys('history:')
-          if (keys instanceof Error) return
-          for (const key of keys) {
-            await storage.shared.server.delete(key)
-          }
-        })()
-      }
-    }
-
-    return () => {
-      ledgerSubscribers -= 1
-      if (ledgerSubscribers > 0) return
-      disconnectLedger?.()
-      disconnectLedger = null
-    }
-  }
+  // Reactive mirror of the append-only, server-owned ledger key. null is the
+  // "not loaded yet" sentinel the computeds below branch on. The connect hook
+  // lives on the atom itself: Reatom's dependency graph connects `ledger` when
+  // any derived computed gains a subscriber and disconnects (auto-unsubscribing
+  // the SSE listener) when the last one goes away — no manual ref-counting.
+  const ledger = atom<LedgerEntry[] | null>(null, 'ofeliaDuty.ledger').extend(
+    withStorageKeyReadonly({
+      api: storage.shared.server,
+      key: LEDGER_KEY,
+      schema: LedgerEntriesSchema,
+      fallback: [],
+    }),
+  )
 
   const numberOfDebts = computed(() => {
     const entries = ledger()
     return entries === null ? null : foldDebt(entries)
-  }, 'ofeliaDuty.numberOfDebts').extend(withConnectHook(connectLedger))
+  }, 'ofeliaDuty.numberOfDebts')
   const dayResolution = computed(() => {
     const entries = ledger()
     return entries === null ? new Map<string, DayResolution>() : resolveDays(entries)
-  }, 'ofeliaDuty.dayResolution').extend(withConnectHook(connectLedger))
+  }, 'ofeliaDuty.dayResolution')
 
   const currentUser = atom<Person>(DUTY_ROTATION[0], 'ofeliaDuty.currentUser').extend(
     withConnectHook(() => {
@@ -241,13 +218,13 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
         by: entry.by,
         ipTail: entry.ip.slice(-IP_TAIL_LENGTH),
       }))
-  }, 'ofeliaDuty.historyView').extend(withConnectHook(connectLedger))
+  }, 'ofeliaDuty.historyView')
 
   const undoAvailable = computed(() => {
     const day = selectedDate() ?? today()
     if (day == null) return false
     return dayResolution().get(day.toString())?.status === 'closed'
-  }, 'ofeliaDuty.undoAvailable').extend(withConnectHook(connectLedger))
+  }, 'ofeliaDuty.undoAvailable')
 
   const debtDays = computed(() => {
     const currentToday = today()
@@ -257,7 +234,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
       acc.set(debtDay.date.toString(), debtDay)
       return acc
     }, new Map<string, DebtDay>())
-  }, 'ofeliaDuty.debtDays').extend(withConnectHook(connectLedger))
+  }, 'ofeliaDuty.debtDays')
 
   const currentWeek = computed(() => {
     const currentToday = today()
@@ -285,7 +262,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
         resolvedActor: resolved?.status === 'closed' ? resolved.actor : null,
       }
     })
-  }, 'ofeliaDuty.currentWeek').extend(withConnectHook(connectLedger))
+  }, 'ofeliaDuty.currentWeek')
 
   const confirmClean = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today()
