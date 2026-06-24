@@ -11,6 +11,7 @@ This is a private pnpm workspace with two packages: `client` and `server`. The R
 ## Build, Test, and Development Commands
 
 Use pnpm from the repository root.
+Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default sandbox with escalated permissions. In this environment the executables live under `C:\nvm4w\nodejs` and `C:\Users\Khmil\AppData\Local\pnpm`, and sandboxed runs can fail with `pnpm` not found or `Access is denied`.
 
 - `pnpm dev`: start the client Vite dev server.
 - `pnpm dev:server`: start the server in watch mode.
