@@ -51,6 +51,7 @@ export const activeBoard = computed<BoardSnapshot | null>(() => {
 effect(() => {
   const boardsValue = boards()
 
+  if (boards.isLoading()) return
   if (!boardsValue) return activeBoardId.set(LOCAL_BOARD_ID)
   if (boardsValue.length === 0) return
   if (activeBoardId()) return
