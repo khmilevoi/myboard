@@ -11,7 +11,7 @@ import type {
   WeekDayView,
 } from './view-model'
 
-const noop = () => {}
+const noop = async () => {}
 
 const WEEK: WeekDayView[] = [
   {
@@ -140,7 +140,7 @@ type MakeOfeliaValueOptions = {
   history?: HistoryEntryView[]
   comments?: CommentView[]
   actions?: Partial<OfeliaActions>
-  onSend?: (text: string) => void
+  onSend?: (text: string) => Promise<void>
 }
 
 export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextValue {
