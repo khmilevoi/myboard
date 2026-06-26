@@ -126,9 +126,40 @@ export default defineConfig({
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+      },
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react-vendor',
+              test: /node_modules[\\/](react|react-dom)[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'grid-vendor',
+              test: /node_modules[\\/](react-grid-layout|react-resizable)[\\/]/,
+              priority: 18,
+            },
+            {
+              name: 'reatom-vendor',
+              test: /node_modules[\\/]@reatom[\\/]/,
+              priority: 16,
+            },
+            {
+              name: 'storage-vendor',
+              test: /node_modules[\\/](dexie|zod|errore)[\\/]/,
+              priority: 14,
+            },
+            {
+              name: 'ui-vendor',
+              test: /node_modules[\\/](radix-ui|lucide-react)[\\/]/,
+              priority: 12,
+            },
+          ],
+        },
       },
     },
   },

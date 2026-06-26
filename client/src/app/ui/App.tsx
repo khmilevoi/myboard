@@ -1,4 +1,5 @@
-import { Board } from '@/board/ui/Board'
+import { lazy, Suspense } from 'react'
+
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { FullscreenOverlay } from '@/widget-host/ui/FullscreenOverlay'
 
@@ -8,13 +9,17 @@ import { UpdateBanner } from './UpdateBanner'
 
 import styles from './App.module.css'
 
+const Board = lazy(() => import('@/board/ui/Board').then((mod) => ({ default: mod.Board })))
+
 export const App = reatomMemo(() => {
   return (
     <ErrorBoundary>
       <div className={styles.app}>
         <Header />
         <main className={styles.main}>
-          <Board />
+          <Suspense fallback={<div className={styles.boardFallback} />}>
+            <Board />
+          </Suspense>
         </main>
         <FullscreenOverlay />
         <UpdateBanner />
