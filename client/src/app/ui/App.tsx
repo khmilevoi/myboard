@@ -4,6 +4,7 @@ import { FullscreenOverlay } from '@/widget-host/ui/FullscreenOverlay'
 
 import { ErrorBoundary } from './ErrorBoundary'
 import { Header } from './Header'
+import { UpdateBanner } from './UpdateBanner'
 
 import styles from './App.module.css'
 
@@ -16,6 +17,7 @@ export const App = reatomMemo(() => {
           <Board />
         </main>
         <FullscreenOverlay />
+        <UpdateBanner />
       </div>
     </ErrorBoundary>
   )
