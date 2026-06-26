@@ -60,21 +60,38 @@ const LedgerTypeSchema = z.enum(['cleaned', 'went_into_debt', 'reset', 'forgiven
 export type LedgerType = z.infer<typeof LedgerTypeSchema>
 
 const LedgerEntrySchema = z.object({
-  id: z.string(),
-  ts: z.number(),
-  ip: z.string(),
-  date: z.string(),
-  type: LedgerTypeSchema,
-  actor: PersonSchema,
-  onBehalfOf: PersonSchema.optional(),
-  by: PersonSchema,
+  id: z.string().describe('Уникальный идентификатор записи в append-only журнале'),
+  ts: z
+    .number()
+    .describe(
+      'Серверная метка времени создания записи для сортировки и выбора последнего решения дня',
+    ),
+  ip: z
+    .string()
+    .describe('IP автора записи, из которого в истории показывается только хвост для аудита'),
+  date: z.string().describe('ISO-дата дежурства, к которому относится действие'),
+  type: LedgerTypeSchema.describe(
+    'Тип действия: уборка, уход в долг, сброс решения или прощение долга',
+  ),
+  actor: PersonSchema.describe(
+    'Человек, который фактически убрал, ушел в долг или связан с изменением долга',
+  ),
+  onBehalfOf: PersonSchema.optional().describe(
+    'Человек, за которого выполнено действие или чей долг изменяется',
+  ),
+  by: PersonSchema.describe('Текущий пользователь, который создал запись в журнале'),
 })
 
 export type LedgerEntry = z.infer<typeof LedgerEntrySchema>
 export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts' | 'ip'>
 export const LedgerEntriesSchema = z.array(LedgerEntrySchema)
 
-const DAY_OUTCOME_TYPES: ReadonlySet<LedgerType> = new Set(['cleaned', 'went_into_debt', 'reset'])
+const DAY_OUTCOME_TYPES: ReadonlySet<LedgerType> = new Set([
+  'cleaned',
+  'went_into_debt',
+  'reset',
+  'forgiven',
+])
 
 export function latestOutcomesByDate(entries: LedgerEntry[]): Map<string, LedgerEntry> {
   const latest = new Map<string, LedgerEntry>()
@@ -94,11 +111,7 @@ export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
       debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) + 1
     } else if (entry.type === 'cleaned' && entry.onBehalfOf) {
       debt[entry.actor] = (debt[entry.actor] ?? 0) - 1
-    }
-  }
-
-  for (const entry of entries) {
-    if (entry.type === 'forgiven' && entry.onBehalfOf) {
+    } else if (entry.type === 'forgiven' && entry.onBehalfOf) {
       debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) - 1
     }
   }
@@ -230,7 +243,7 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     const currentToday = today()
     const debts = numberOfDebts()
     if (!currentToday || debts === null) return null
-    return getDebtDays(debts, currentToday).reduce((acc, debtDay) => {
+    return getDebtDays(debts, currentToday, dayResolution()).reduce((acc, debtDay) => {
       acc.set(debtDay.date.toString(), debtDay)
       return acc
     }, new Map<string, DebtDay>())
@@ -269,7 +282,9 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     const debts = numberOfDebts()
     if (currentToday == null || debts === null) return
     const target = date ?? selectedDate() ?? currentToday
-    const debtDay = getDebtDays(debts, currentToday).find((day) => day.date.equals(target))
+    const debtDay = getDebtDays(debts, currentToday, dayResolution()).find((day) =>
+      day.date.equals(target),
+    )
     const actor = debtDay?.person ?? getOfeliaDutyByDate(target)
 
     const draft: LedgerEntryDraft = {
@@ -288,12 +303,17 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     if (currentToday == null || ledger() === null) return
     const target = date ?? selectedDate() ?? currentToday
     const duty = getOfeliaDutyByDate(target)
+    const debts = numberOfDebts()
+    const debtDay =
+      debts &&
+      getDebtDays(debts, currentToday, dayResolution()).find((day) => day.date.equals(target))
+    const actor = debtDay?.person ?? duty
 
     const draft: LedgerEntryDraft = {
       date: target.toString(),
       type: 'went_into_debt',
-      actor: otherPerson(duty),
-      onBehalfOf: duty,
+      actor: otherPerson(actor),
+      onBehalfOf: actor,
       by: currentUser(),
     }
     const result = await wrap(storage.shared.server.append(LEDGER_KEY, draft))
@@ -302,19 +322,22 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
 
   const forgive = action(async (date?: Temporal.PlainDate) => {
     const currentToday = today()
-    if (currentToday == null) return
-    const target = date ?? selectedDate() ?? currentToday
     const debts = numberOfDebts()
-    if (debts === null) return
-    const debtor = DUTY_ROTATION.find((person) => (debts[person] ?? 0) > 0)
-    if (!debtor) return
+    if (currentToday == null || debts === null) return
+    const target = date ?? selectedDate() ?? currentToday
+    const debtDay = getDebtDays(debts, currentToday, dayResolution()).find((day) =>
+      day.date.equals(target),
+    )
+    if (debtDay == null) return
+    const duty = getOfeliaDutyByDate(target)
+    if (debtDay.person === duty) return
 
     const draft: LedgerEntryDraft = {
       date: target.toString(),
       type: 'forgiven',
-      actor: otherPerson(debtor),
-      onBehalfOf: debtor,
+      actor: duty,
       by: currentUser(),
+      onBehalfOf: debtDay.person,
     }
     const result = await wrap(storage.shared.server.append(LEDGER_KEY, draft))
     if (result instanceof Error) throw result
@@ -365,7 +388,11 @@ type DebtDay = {
   person: DutyPerson
 }
 
-function getDebtDays(debts: Partial<NumberOfDebts>, startDate: Temporal.PlainDate): DebtDay[] {
+function getDebtDays(
+  debts: Partial<NumberOfDebts>,
+  startDate: Temporal.PlainDate,
+  resolution: ReadonlyMap<string, DayResolution> = new Map(),
+): DebtDay[] {
   if (DUTY_ROTATION.length < 2) {
     return []
   }
@@ -378,8 +405,9 @@ function getDebtDays(debts: Partial<NumberOfDebts>, startDate: Temporal.PlainDat
 
     while (remainingDebt > 0) {
       const plannedDuty = getOfeliaDutyByDate(currentDate)
+      const isClosed = resolution.get(currentDate.toString())?.status === 'closed'
 
-      if (plannedDuty !== person) {
+      if (plannedDuty !== person && !isClosed) {
         days.push({
           date: currentDate,
           person,
@@ -428,8 +456,9 @@ export function effectiveDuty(
   date: Temporal.PlainDate,
   debts: Partial<NumberOfDebts>,
   today: Temporal.PlainDate,
+  resolution?: ReadonlyMap<string, DayResolution>,
 ): Person {
-  const debtDay = getDebtDays(debts, today).find((day) => day.date.equals(date))
+  const debtDay = getDebtDays(debts, today, resolution).find((day) => day.date.equals(date))
   return debtDay?.person ?? getOfeliaDutyByDate(date)
 }
 
@@ -437,8 +466,9 @@ export function isDebtDay(
   date: Temporal.PlainDate,
   debts: Partial<NumberOfDebts>,
   today: Temporal.PlainDate,
+  resolution?: ReadonlyMap<string, DayResolution>,
 ): boolean {
-  return getDebtDays(debts, today).some((day) => day.date.equals(date))
+  return getDebtDays(debts, today, resolution).some((day) => day.date.equals(date))
 }
 
 export function isOverDebtWarning(debts: Partial<NumberOfDebts>, person: Person): boolean {

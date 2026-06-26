@@ -140,7 +140,7 @@ type MakeOfeliaValueOptions = {
   history?: HistoryEntryView[]
   comments?: CommentView[]
   actions?: Partial<OfeliaActions>
-  onSend?: (text: string) => void
+  onSend?: (text: string) => Promise<void>
 }
 
 export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextValue {
@@ -159,6 +159,6 @@ export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextVa
       ...o.actions,
     },
     nav: { onPrevWeek: noop, onNextWeek: noop, onCurrentWeek: noop },
-    onSend: o.onSend ?? noop,
+    onSend: o.onSend ?? (() => Promise.resolve()),
   }
 }

@@ -91,20 +91,28 @@ export function resolveSelected(
 
 export function toWeekDays(week: DutyDay[], selectedIso: string | null): WeekDayView[] {
   return week.map((day) => {
-    const replacedDuty = day.resolvedActor != null && day.resolvedActor !== day.duty
-
     return {
       iso: day.date.toString(),
       weekday: WEEKDAY_LABELS[day.date.dayOfWeek - 1],
       dayOfMonth: day.day,
       person: day.resolvedActor ?? day.debt ?? day.duty,
-      debtOwner: day.debt != null || replacedDuty ? day.duty : null,
+      debtOwner: resolveDebtOwnerBadge(day),
       isToday: day.isToday,
       isDebtDay: day.debt != null,
       isClosed: day.resolvedActor != null,
       isSelected: day.date.toString() === selectedIso,
     }
   })
+}
+
+function resolveDebtOwnerBadge(day: DutyDay): Person | null {
+  if (day.debt == null) {
+    return day.resolvedActor != null && day.resolvedActor !== day.duty ? day.duty : null
+  }
+
+  if (day.resolvedActor === day.duty) return day.debt
+
+  return day.duty
 }
 
 export function toBalance(debts: Partial<Record<Person, number>>): DebtBalanceEntry[] {

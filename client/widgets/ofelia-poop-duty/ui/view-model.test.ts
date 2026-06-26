@@ -173,6 +173,20 @@ describe('toWeekDays', () => {
     })
     expect(days.filter((d) => d.isSelected)).toHaveLength(1)
   })
+
+  it('keeps the debt person visible when a debt day is closed by the planned duty', () => {
+    const w = week().map((d) =>
+      d.date.toString() === '2026-06-17' ? { ...d, resolvedActor: 'Леша' as const } : d,
+    )
+
+    expect(toWeekDays(w, null)[2]).toMatchObject({
+      iso: '2026-06-17',
+      person: 'Леша',
+      debtOwner: 'Карина',
+      isDebtDay: true,
+      isClosed: true,
+    })
+  })
 })
 
 describe('resolved actor in the strip', () => {
