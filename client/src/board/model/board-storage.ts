@@ -54,6 +54,7 @@ effect(() => {
   if (boards.isLoading()) return
   if (!boardsValue) return activeBoardId.set(LOCAL_BOARD_ID)
   if (boardsValue.length === 0) return
+  if (activeBoardId.isLoading()) return
   if (activeBoardId()) return
 
   activeBoardId.set(boardsValue[0].id)
