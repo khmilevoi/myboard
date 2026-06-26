@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 
 import type { ResolvedTheme } from '@/shared/theme/types'
-import { WidgetStorage } from '@/storage/model/widget-storage'
+import { WidgetStorage } from '@/storage/model/storage'
 
 import type { WidgetTier } from './tier'
 

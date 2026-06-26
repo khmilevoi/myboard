@@ -36,7 +36,7 @@ describe('TinyTier', () => {
 describe('CompactTier', () => {
   it('renders the compact card actions', () => {
     withOfelia(makeOfeliaValue(), <CompactTier />)
-    expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Отложить' })).toBeInTheDocument()
   })
 
@@ -52,7 +52,7 @@ describe('CompactTier', () => {
     value.actions.onConfirm = onConfirm
     withOfelia(value, <CompactTier />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить уборку' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Какашки убраны' }))
     expect(onConfirm).toHaveBeenCalledOnce()
   })
 

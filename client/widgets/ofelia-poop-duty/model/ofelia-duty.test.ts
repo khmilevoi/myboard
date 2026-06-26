@@ -2,8 +2,8 @@ import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
+import type { WidgetStorage } from '@/storage/model/storage'
 import type { StorageApi } from '@/storage/model/types'
-import type { WidgetStorage } from '@/storage/model/widget-storage'
 
 import {
   DEBT_WARNING_THRESHOLD,
@@ -15,6 +15,7 @@ import {
   otherPerson,
   weekStartISO,
 } from './ofelia-duty'
+import type { DayResolution } from './ofelia-duty'
 
 // The ledger reactive flows (subscribe -> derived projections -> append actions)
 // are covered by the Playwright e2e suite. They are intentionally not unit-tested:
@@ -191,6 +192,26 @@ describe('ofelia-duty selectors', () => {
     expect(effectiveDuty(D('2026-06-16'), debts, today)).toBe('Карина')
     expect(isDebtDay(D('2026-06-17'), {}, today)).toBe(false)
     expect(effectiveDuty(D('2026-06-17'), {}, today)).toBe('Карина')
+  })
+
+  it('effectiveDuty / isDebtDay skip already closed days when projecting debt', () => {
+    const debts = { Леша: 0, Карина: 1 }
+    const today = D('2026-06-16')
+    const resolution = new Map([
+      [
+        '2026-06-16',
+        {
+          status: 'closed',
+          type: 'went_into_debt',
+          actor: 'Леша',
+          onBehalfOf: 'Карина',
+        } satisfies DayResolution,
+      ],
+    ])
+
+    expect(isDebtDay(D('2026-06-16'), debts, today, resolution)).toBe(false)
+    expect(isDebtDay(D('2026-06-18'), debts, today, resolution)).toBe(true)
+    expect(effectiveDuty(D('2026-06-18'), debts, today, resolution)).toBe('Карина')
   })
 
   it('isOverDebtWarning fires strictly above the threshold', () => {

@@ -11,16 +11,30 @@ This is a private pnpm workspace with two packages: `client` and `server`. The R
 ## Build, Test, and Development Commands
 
 Use pnpm from the repository root.
+Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default sandbox with escalated permissions. In this environment the executables live under `C:\nvm4w\nodejs` and `C:\Users\Khmil\AppData\Local\pnpm`, and sandboxed runs can fail with `pnpm` not found or `Access is denied`.
 
 - `pnpm dev`: start the client Vite dev server.
 - `pnpm dev:server`: start the server in watch mode.
 - `pnpm build`: typecheck and build the client.
 - `pnpm --filter server build`: bundle server with Rspack.
 - `pnpm test`: run workspace Vitest tests.
+- `pnpm --filter client test -- src/board/model/board-storage.test.ts`: run a specific client Vitest file, using a path relative to `client`.
 - `pnpm test:e2e`: run client Playwright tests.
 - `pnpm typecheck`: run workspace TypeScript checks.
 - `pnpm docker:dev`: run Valkey, server, and client with hot reload.
 - `pnpm docker:up`: build and run the production-style Docker stack.
+
+### Windows Test Runner Notes
+
+- `rg` may be unavailable in this shell. If so, use PowerShell-native discovery such as `Get-ChildItem -Recurse`, `Select-String`, and `Get-Content` instead of spending time fixing PATH.
+- Vitest path filters for client tests are relative to `client`, not the repository root. Use `pnpm --filter client test -- src/board/model/board-storage.test.ts`, not `client/src/...`.
+- If `pnpm --filter client test -- <file>` hangs or hides useful output, run the client Vitest entrypoint directly from `client` with the Visual Studio Node 20 binary:
+  `& 'C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Microsoft\VisualStudio\NodeJs\node.exe' .\node_modules\vitest\vitest.mjs run src/board/model/board-storage.test.ts --reporter verbose`
+- Avoid switching targeted unit tests to `--pool vmThreads` as a first response: this repo's Vitest config passes `--harmony-temporal`, which can be invalid for worker threads in this environment.
+- If a model-only test fails during jsdom worker startup with `ERR_REQUIRE_ESM` from `html-encoding-sniffer` / `@exodus/bytes`, prefer `// @vitest-environment node` for that test file. If importing storage code creates Dexie, add `import 'fake-indexeddb/auto'` before importing the model.
+- For Reatom model tests that call `context.reset()`, module-level `effect(...)` subscriptions are aborted. Export the effect when it is part of the behavior under test, subscribe in `beforeEach`, and unsubscribe in `afterEach`.
+- Reatom effects run through Reatom queues. When asserting effect-driven changes, use `vi.waitFor(...)` or `schedule(() => undefined)` from `@reatom/core` to flush the queue before the assertion.
+- If `pnpm --filter client typecheck` fails in an unrelated file, report the exact existing error and do not chase it unless the current task requires it.
 
 ## Coding Style & Naming Conventions
 

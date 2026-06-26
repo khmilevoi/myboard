@@ -1,6 +1,6 @@
-import { createDexieStorage } from './client/dexie-storage'
+import { makeDexieStorage } from './client/dexie-storage'
 import { instanceNamespace, typeNamespace } from './scope'
-import { createHttpStorage } from './server/http-storage'
+import { makeHttpStorage } from './server/http-storage'
 import type { StorageApi } from './types'
 
 export type ScopedStorage = { client: StorageApi; server: StorageApi }
@@ -12,24 +12,26 @@ export type WidgetStorage = {
   shared: ScopedStorage
 }
 
-export type CreateWidgetStorageOptions = {
+export type MakeWidgetStorageOptions = {
   instanceId: string
   typeId: string
   /** Override the server base URL (defaults to '/api/storage'). */
   serverBaseUrl?: string
 }
 
-export function createWidgetStorage(options: CreateWidgetStorageOptions): WidgetStorage {
+export function makeWidgetStorage(options: MakeWidgetStorageOptions): WidgetStorage {
   const instanceNs = instanceNamespace(options.instanceId)
   const typeNs = typeNamespace(options.typeId)
   return {
-    instance: {
-      client: createDexieStorage(instanceNs),
-      server: createHttpStorage(instanceNs, options.serverBaseUrl),
-    },
-    shared: {
-      client: createDexieStorage(typeNs),
-      server: createHttpStorage(typeNs, options.serverBaseUrl),
-    },
+    instance: makeScopedStorage(instanceNs, options.serverBaseUrl),
+    shared: makeScopedStorage(typeNs, options.serverBaseUrl),
+  }
+}
+
+export function makeScopedStorage(scope: string, serverBaseUrl?: string): ScopedStorage {
+  const scopeWithColon = `${scope}:`
+  return {
+    client: makeDexieStorage(scopeWithColon),
+    server: makeHttpStorage(scopeWithColon, serverBaseUrl),
   }
 }

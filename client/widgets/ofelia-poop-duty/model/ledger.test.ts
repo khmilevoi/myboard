@@ -51,7 +51,7 @@ describe('foldDebt', () => {
     const entries = [
       le({
         ts: 1,
-        date: '2026-06-16',
+        date: '2026-06-14',
         type: 'went_into_debt',
         actor: 'Карина',
         onBehalfOf: 'Леша',
@@ -75,7 +75,7 @@ describe('foldDebt', () => {
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 
-  it('forgiven is independent of per-date dedup and stacks', () => {
+  it('forgiven wins as the latest day outcome and subtracts one debtor debt', () => {
     const entries = [
       le({
         ts: 1,
@@ -93,8 +93,9 @@ describe('foldDebt', () => {
       }),
       le({ ts: 3, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
     ]
-    // two debts incurred, one forgiven → net 1
-    expect(foldDebt(entries)).toEqual({ Леша: 1, Карина: 0 })
+    // the 2026-06-16 forgiven entry replaces that date's went_into_debt outcome
+    // and forgives one existing debt.
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 
   it('nets two-sided debt down via normalizeDebts', () => {
@@ -161,10 +162,15 @@ describe('resolveDays', () => {
     expect(map.size).toBe(2)
   })
 
-  it('ignores forgiven entries (not a day outcome)', () => {
+  it('marks a forgiven day closed with planned actor and forgiven debtor', () => {
     const map = resolveDays([
       le({ date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
     ])
-    expect(map.has('2026-06-16')).toBe(false)
+    expect(map.get('2026-06-16')).toMatchObject({
+      status: 'closed',
+      type: 'forgiven',
+      actor: 'Карина',
+      onBehalfOf: 'Леша',
+    })
   })
 })

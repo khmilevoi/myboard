@@ -5,29 +5,19 @@ import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-gri
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { WidgetFrame } from '@/widget-host/ui/WidgetFrame'
 
-import {
-  beginBoardInteraction,
-  endBoardInteraction,
-  isBoardInteracting,
-} from '../model/board-interaction-model'
-import {
-  expandedInstanceId,
-  instances,
-  layout,
-  removeInstance,
-  updateLayout,
-} from '../model/board-model'
+import { isBoardInteracting } from '../model/board-interaction-model'
+import { expandedInstanceId, removeInstance, updateLayout } from '../model/board-model'
+import { activeBoard } from '../model/board-storage'
 import { EmptyState } from './EmptyState'
 
 import styles from './Board.module.css'
 
 export const Board = reatomMemo(() => {
-  const currentInstances = instances()
-  const currentLayout = layout()
+  const board = activeBoard()
   const isInteracting = isBoardInteracting()
   const { width, containerRef } = useContainerWidth()
 
-  if (currentInstances.length === 0) {
+  if (!board || board.instances.length === 0) {
     return (
       <div className={styles.root}>
         <EmptyState />
@@ -41,7 +31,7 @@ export const Board = reatomMemo(() => {
         <ReactGridLayout
           className="layout"
           width={width || 1200}
-          layout={currentLayout}
+          layout={board.layout}
           gridConfig={{ cols: 12, rowHeight: 30 }}
           dragConfig={{
             enabled: true,
@@ -50,13 +40,13 @@ export const Board = reatomMemo(() => {
           }}
           resizeConfig={{ enabled: true, handles: ['se'] }}
           compactor={verticalCompactor}
-          onDragStart={wrap(() => beginBoardInteraction())}
-          onDragStop={wrap(() => endBoardInteraction())}
-          onResizeStart={wrap(() => beginBoardInteraction())}
-          onResizeStop={wrap(() => endBoardInteraction())}
+          onDragStart={wrap(() => isBoardInteracting.setTrue())}
+          onDragStop={wrap(() => isBoardInteracting.setFalse())}
+          onResizeStart={wrap(() => isBoardInteracting.setTrue())}
+          onResizeStop={wrap(() => isBoardInteracting.setFalse())}
           onLayoutChange={wrap((next) => updateLayout([...next]))}
         >
-          {currentInstances.map((instance, index) => (
+          {board.instances.map((instance, index) => (
             <div key={instance.id} data-testid="widget-card" className={styles.gridItem}>
               <div
                 className={`${styles.card} widget-drag-handle`}

@@ -3,81 +3,86 @@ import { context } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
-  instances,
-  layout,
-  expandedInstanceId,
+  addBoard,
   addInstance,
+  expandedInstanceId,
+  removeBoard,
   removeInstance,
+  updateBoard,
   updateLayout,
-  initBoard,
 } from './board-model'
-import { saveBoard } from './board-storage'
+import { activeBoard, activeBoardId, boards, LOCAL_BOARD_ID, localBoard } from './board-storage'
+
+const resetLocalBoard = () =>
+  localBoard.set({
+    id: LOCAL_BOARD_ID,
+    name: LOCAL_BOARD_ID,
+    instances: [],
+    layout: [],
+  })
 
 beforeEach(() => {
   context.reset()
   localStorage.clear()
+  resetLocalBoard()
+  boards.set(null)
+  activeBoardId.set(LOCAL_BOARD_ID)
 })
 
 afterEach(() => localStorage.clear())
 
 describe('board-model', () => {
-  it('starts empty', () => {
-    expect(instances()).toEqual([])
-    expect(layout()).toEqual([])
+  it('starts with an empty local board', () => {
+    expect(activeBoard()?.instances).toEqual([])
+    expect(activeBoard()?.layout).toEqual([])
   })
 
   it('adds an instance with a layout item sized from the registry', () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
+    addInstance('clock')
 
-    expect(instances()).toHaveLength(1)
-    expect(instances()[0]).toMatchObject({ id, typeId: 'clock' })
+    const board = activeBoard()
+    expect(board?.instances).toHaveLength(1)
+    expect(board?.instances[0]?.typeId).toBe('clock')
 
-    const item = layout().find((layoutItem) => layoutItem.i === id)
-    expect(item).toMatchObject({ w: 3, h: 4 })
+    const id = board?.instances[0]?.id
+    expect(id).toEqual(expect.any(String))
+
+    const item = board?.layout.find((layoutItem) => layoutItem.i === id)
+    expect(item).toMatchObject({ w: 3, h: 4, minW: 2, minH: 2 })
   })
 
-  it('adds an instance when crypto.randomUUID is unavailable', () => {
-    const originalRandomUUID = globalThis.crypto.randomUUID
-    Object.defineProperty(globalThis.crypto, 'randomUUID', {
-      configurable: true,
-      value: undefined,
-    })
+  it('generates a non-empty id when adding an instance', () => {
+    addInstance('clock')
 
-    try {
-      const id = addInstance('clock')
-      if (id instanceof Error) throw id
-
-      expect(id).toEqual(expect.any(String))
-      expect(id.length).toBeGreaterThan(0)
-      expect(instances()[0]).toMatchObject({ id, typeId: 'clock' })
-      expect(layout()[0]?.i).toBe(id)
-    } finally {
-      Object.defineProperty(globalThis.crypto, 'randomUUID', {
-        configurable: true,
-        value: originalRandomUUID,
-      })
-    }
+    const id = activeBoard()?.instances[0]?.id
+    expect(id).toEqual(expect.any(String))
+    expect(id?.length).toBeGreaterThan(0)
   })
 
-  it('returns an error when adding an unknown type', () => {
-    const result = addInstance('nope')
-    expect(result).toBeInstanceOf(Error)
-    expect(instances()).toHaveLength(0)
+  it('ignores unknown widget types and keeps the board unchanged', () => {
+    addInstance('nope')
+
+    expect(activeBoard()?.instances).toEqual([])
+    expect(activeBoard()?.layout).toEqual([])
   })
 
   it('removes an instance and its layout item', () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
+    addInstance('clock')
+    const id = activeBoard()?.instances[0]?.id
+    if (!id) throw new Error('expected instance id after addInstance')
+
     removeInstance(id)
-    expect(instances()).toHaveLength(0)
-    expect(layout().some((layoutItem) => layoutItem.i === id)).toBe(false)
+
+    expect(activeBoard()?.instances).toHaveLength(0)
+    expect(activeBoard()?.layout.some((layoutItem) => layoutItem.i === id)).toBe(false)
   })
 
   it('replaces the layout via updateLayout', () => {
-    const next = [{ i: 'x', x: 1, y: 2, w: 3, h: 4 }]
+    const next = [{ i: 'x', x: 1, y: 2, w: 3, h: 4, minW: 2, minH: 2 }]
+
     updateLayout(next)
-    expect(layout()).toEqual(next)
+
+    expect(activeBoard()?.layout).toEqual(next)
   })
 
   it('tracks the expanded instance', () => {
@@ -86,17 +91,23 @@ describe('board-model', () => {
     expect(expandedInstanceId()).toBe('abc')
   })
 
-  it('restores a persisted snapshot during initBoard without clobbering storage first', () => {
-    const snapshot = {
-      instances: [{ id: 'persisted', typeId: 'clock' }],
-      layout: [{ i: 'persisted', x: 0, y: 0, w: 3, h: 2 }],
-    }
-    const saved = saveBoard(snapshot)
-    if (saved instanceof Error) throw saved
+  it('adds, renames, and removes shared boards', () => {
+    addBoard('Главная')
 
-    initBoard()
+    const created = boards()?.[0]
+    expect(created).toMatchObject({
+      name: 'Главная',
+      instances: [],
+      layout: [],
+    })
+    expect(created?.id).toEqual(expect.any(String))
 
-    expect(instances()).toEqual(snapshot.instances)
-    expect(layout()).toEqual(snapshot.layout)
+    if (!created) throw new Error('expected shared board after addBoard')
+
+    updateBoard(created.id, 'Рабочая')
+    expect(boards()?.[0]?.name).toBe('Рабочая')
+
+    removeBoard(created.id)
+    expect(boards()).toEqual([])
   })
 })

@@ -99,8 +99,14 @@ export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(
     // in the render→subscribe window isn't dropped, leaving the card stuck loading.
     if (!useAtomValue(value.view.ready)) {
       return (
-        <div className={styles.widget} data-tier={tier satisfies WidgetTier}>
-          <div className={styles.loading}>Загрузка…</div>
+        <div className={styles.widget} data-tier={tier}>
+          <div className={styles.loading}>
+            <div
+              data-slot="skeleton"
+              aria-label="Загрузка виджета Офелии"
+              className={`animate-pulse rounded-md bg-accent ${styles.loadingSkeleton}`}
+            />
+          </div>
         </div>
       )
     }

@@ -11,7 +11,7 @@ export type WidgetType = {
   /** One-line catalog/overlay subtitle. */
   description: string
   loadComponent: WidgetLoader
-  defaultSize: { w: number; h: number }
+  defaultSize: { w: number; h: number; minW?: number; minH?: number }
   /** Optional per-type tier thresholds; falls back to DEFAULT_TIERS. */
   tiers?: TierConfig
   /** lucide-react icon name used in the catalog menu. */
@@ -32,7 +32,7 @@ export const widgetTypes: WidgetType[] = [
       import('widgets/clock/ui/Clock').then((mod) => ({
         default: mod.Clock,
       })),
-    defaultSize: { w: 3, h: 4 },
+    defaultSize: { w: 3, h: 4, minW: 2, minH: 2 },
     icon: 'Clock',
   },
   {
@@ -43,7 +43,7 @@ export const widgetTypes: WidgetType[] = [
       import('widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
         default: mod.OfeliaPoopDuty,
       })),
-    defaultSize: { w: 3, h: 5 },
+    defaultSize: { w: 3, h: 5, minW: 2, minH: 3 },
     icon: 'Cat',
     tiers: {
       tiny: { minWidthPx: 0, minHeightPx: 0 },

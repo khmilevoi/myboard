@@ -2,7 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { createWidgetStorage } from '@/storage/model/widget-storage'
+import { makeWidgetStorage } from '@/storage/model/storage'
 import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 
 import { Clock } from './Clock'
@@ -18,7 +18,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
     requestClose: vi.fn(),
     requestDelete: vi.fn(),
     reportError: vi.fn(),
-    storage: createWidgetStorage({
+    storage: makeWidgetStorage({
       instanceId: 'inst-clock',
       typeId: 'clock',
     }),

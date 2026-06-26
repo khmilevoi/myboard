@@ -76,7 +76,7 @@ describe('RichLayout', () => {
     const split = container.querySelector('[data-tab]')
     const mobileTabs = container.querySelector(`.${styles.mobileTabsVisible}`)
 
-    expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Подтвердить уборку' })).toHaveLength(2)
     expect(split).toHaveAttribute('data-tab', 'history')
     expect(mobileTabs).toBeInTheDocument()
 
@@ -115,9 +115,15 @@ describe('RichLayout', () => {
     })
     renderRich(makeOfeliaValue({ view }), <RichLayout />)
 
-    expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Простить' })).toBeDisabled()
+    for (const button of screen.getAllByRole('button', { name: 'Подтвердить уборку' })) {
+      expect(button).toBeDisabled()
+    }
+    for (const button of screen.getAllByRole('button', { name: 'В долг' })) {
+      expect(button).toBeDisabled()
+    }
+    for (const button of screen.getAllByRole('button', { name: 'Простить' })) {
+      expect(button).toBeDisabled()
+    }
   })
 
   it('keeps the parent-owned tab state bridge on the split container', () => {
