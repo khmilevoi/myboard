@@ -1,8 +1,16 @@
-import { context } from '@reatom/core'
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
+// @vitest-environment node
+import 'fake-indexeddb/auto'
+import { context, schedule } from '@reatom/core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { activeBoard, activeBoardId, boards, LOCAL_BOARD_ID, localBoard } from './board-storage'
+import {
+  activeBoard,
+  activeBoardId,
+  boards,
+  LOCAL_BOARD_ID,
+  localBoard,
+  selectInitialActiveBoard,
+} from './board-storage'
 
 const emptyLocalBoard = {
   id: LOCAL_BOARD_ID,
@@ -11,12 +19,23 @@ const emptyLocalBoard = {
   layout: [],
 }
 
+const markStorageLoaded = () => {
+  boards.isLoading.set(false)
+  activeBoardId.isLoading.set(false)
+}
+
+let unsubscribeSelectInitialActiveBoard = () => {}
+
 beforeEach(() => {
   context.reset()
-  localStorage.clear()
+  unsubscribeSelectInitialActiveBoard = selectInitialActiveBoard.subscribe()
   localBoard.set(emptyLocalBoard)
   boards.set(null)
   activeBoardId.set(LOCAL_BOARD_ID)
+})
+
+afterEach(() => {
+  unsubscribeSelectInitialActiveBoard()
 })
 
 describe('board storage', () => {
@@ -77,5 +96,56 @@ describe('board storage', () => {
 
     expect(boards()).toEqual([{ id: 'main', name: 'Главная', instances: [], layout: [] }])
     expect(activeBoard()).toBeNull()
+  })
+
+  it('falls back to the local board when the shared boards list is empty after loading', async () => {
+    markStorageLoaded()
+    activeBoardId.set(null)
+    boards.set([])
+
+    await vi.waitFor(() => expect(activeBoardId()).toBe(LOCAL_BOARD_ID))
+    expect(activeBoard()).toEqual(emptyLocalBoard)
+  })
+
+  it('waits for the stored active board id before applying a fallback', async () => {
+    boards.isLoading.set(false)
+    activeBoardId.isLoading.set(true)
+    activeBoardId.set(null)
+    boards.set([])
+
+    await schedule(() => undefined)
+    expect(activeBoardId()).toBeNull()
+  })
+
+  it('keeps the restored active board id when boards load first', async () => {
+    boards.isLoading.set(false)
+    activeBoardId.isLoading.set(true)
+    activeBoardId.set(null)
+    boards.set([
+      { id: 'main', name: 'Главная', instances: [], layout: [] },
+      { id: 'work', name: 'Рабочая', instances: [], layout: [] },
+    ])
+
+    await schedule(() => undefined)
+    expect(activeBoardId()).toBeNull()
+
+    activeBoardId.set('work')
+    activeBoardId.isLoading.set(false)
+
+    await vi.waitFor(() => expect(activeBoardId()).toBe('work'))
+    expect(activeBoard()).toMatchObject({ id: 'work', name: 'Рабочая' })
+  })
+
+  it('adds a selected shared board through activeBoard.update when the id is missing', () => {
+    boards.set([{ id: 'main', name: 'Главная', instances: [], layout: [] }])
+    activeBoardId.set('work')
+
+    activeBoard.update({ id: 'work', name: 'Рабочая', instances: [], layout: [] })
+
+    expect(boards()).toEqual([
+      { id: 'main', name: 'Главная', instances: [], layout: [] },
+      { id: 'work', name: 'Рабочая', instances: [], layout: [] },
+    ])
+    expect(activeBoard()).toMatchObject({ id: 'work', name: 'Рабочая' })
   })
 })

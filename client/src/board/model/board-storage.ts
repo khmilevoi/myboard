@@ -39,23 +39,26 @@ export const activeBoard = computed<BoardSnapshot | null>(() => {
 
     return boards.set((prevBoards) => {
       if (!prevBoards && nextState) return [nextState]
-      else if (prevBoards && nextState)
+      else if (prevBoards && nextState) {
+        const hasActiveBoard = prevBoards.some((board) => board.id === activeBoardId())
+        if (!hasActiveBoard) return [...prevBoards, nextState]
         return prevBoards.map((board) => (board.id === activeBoardId() ? nextState : board))
-      else if (prevBoards && !nextState)
+      } else if (prevBoards && !nextState)
         return prevBoards.filter((board) => board.id !== activeBoardId())
       else return prevBoards
     })
   },
 }))
 
-effect(() => {
+export const selectInitialActiveBoard = effect(() => {
+  const activeId = activeBoardId()
   const boardsValue = boards()
 
-  if (boards.isLoading()) return
-  if (!boardsValue) return activeBoardId.set(LOCAL_BOARD_ID)
-  if (boardsValue.length === 0) return
   if (activeBoardId.isLoading()) return
-  if (activeBoardId()) return
+  if (boards.isLoading()) return
+  if (activeId) return
+  if (!boardsValue) return activeBoardId.set(LOCAL_BOARD_ID)
+  if (boardsValue.length === 0) return activeBoardId.set(LOCAL_BOARD_ID)
 
   activeBoardId.set(boardsValue[0].id)
-})
+}, 'board.selectInitialActiveBoard')
