@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WidgetComponent, WidgetRuntimeProps } from '@/widget-host/model/types'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
-import { addInstance, instances, layout } from '../model/board-model'
+import { addInstance } from '../model/board-model'
+import { activeBoard, activeBoardId, LOCAL_BOARD_ID, localBoard } from '../model/board-storage'
 import { Board } from './Board'
 
 const registryHolder = vi.hoisted(() => ({
@@ -27,6 +28,13 @@ const BrokenWidget = (() => {
 beforeEach(() => {
   context.reset()
   localStorage.clear()
+  localBoard.set({
+    id: LOCAL_BOARD_ID,
+    name: LOCAL_BOARD_ID,
+    instances: [],
+    layout: [],
+  })
+  activeBoardId.set(LOCAL_BOARD_ID)
   vi.mocked(findWidgetType).mockImplementation(registryHolder.actual)
 })
 
@@ -37,27 +45,29 @@ describe('Board', () => {
   })
 
   it('renders a card for each instance', () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
+    addInstance('clock')
     render(<Board />)
     expect(screen.getByTestId('widget-card')).toBeInTheDocument()
   })
 
   it('removes a widget via its remove button', async () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
+    addInstance('clock')
     render(<Board />)
     const card = await screen.findByTestId('widget-card')
     // The delete control now lives inside the lazily-loaded widget itself, so
     // it only appears once the widget's chunk has resolved.
     const deleteButton = await within(card).findByRole('button', { name: 'Удалить' })
     fireEvent.click(deleteButton)
-    expect(instances()).toHaveLength(0)
+    expect(activeBoard()?.instances).toHaveLength(0)
   })
 
   it('removes an unknown widget via the error-card delete action', async () => {
-    instances.set([{ id: 'missing-1', typeId: 'missing' }])
-    layout.set([{ i: 'missing-1', x: 0, y: 0, w: 3, h: 2, minW: 2, minH: 2 }])
+    localBoard.set({
+      id: LOCAL_BOARD_ID,
+      name: LOCAL_BOARD_ID,
+      instances: [{ id: 'missing-1', typeId: 'missing' }],
+      layout: [{ i: 'missing-1', x: 0, y: 0, w: 3, h: 2, minW: 2, minH: 2 }],
+    })
 
     render(<Board />)
 
@@ -67,8 +77,8 @@ describe('Board', () => {
 
     fireEvent.click(deleteButton)
 
-    expect(instances()).toHaveLength(0)
-    expect(layout()).toHaveLength(0)
+    expect(activeBoard()?.instances).toHaveLength(0)
+    expect(activeBoard()?.layout).toHaveLength(0)
   })
 
   it('removes a crashed widget via the error-boundary delete action', async () => {
@@ -87,8 +97,7 @@ describe('Board', () => {
       return registryHolder.actual(typeId)
     })
 
-    const id = addInstance('boom')
-    if (id instanceof Error) throw id
+    addInstance('boom')
 
     render(<Board />)
 
@@ -98,13 +107,12 @@ describe('Board', () => {
 
     fireEvent.click(deleteButton)
 
-    expect(instances()).toHaveLength(0)
-    expect(layout()).toHaveLength(0)
+    expect(activeBoard()?.instances).toHaveLength(0)
+    expect(activeBoard()?.layout).toHaveLength(0)
   })
 
   it('makes the whole card draggable instead of a dedicated handle element', async () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
+    addInstance('clock')
     render(<Board />)
     const card = await screen.findByTestId('widget-card')
     const handle = card.querySelector('.widget-drag-handle')
@@ -133,8 +141,12 @@ describe('Board', () => {
       return registryHolder.actual(typeId)
     })
 
-    instances.set([{ id: 'big', typeId: 'probe' }])
-    layout.set([{ i: 'big', x: 0, y: 0, w: 6, h: 8, minW: 2, minH: 2 }])
+    localBoard.set({
+      id: LOCAL_BOARD_ID,
+      name: LOCAL_BOARD_ID,
+      instances: [{ id: 'big', typeId: 'probe' }],
+      layout: [{ i: 'big', x: 0, y: 0, w: 6, h: 8, minW: 2, minH: 2 }],
+    })
 
     render(<Board />)
 

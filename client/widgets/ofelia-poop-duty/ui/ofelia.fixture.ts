@@ -159,6 +159,6 @@ export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextVa
       ...o.actions,
     },
     nav: { onPrevWeek: noop, onNextWeek: noop, onCurrentWeek: noop },
-    onSend: o.onSend ?? noop,
+    onSend: o.onSend ?? (() => Promise.resolve()),
   }
 }

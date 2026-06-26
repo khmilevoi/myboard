@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { addInstance, expandedInstanceId } from '@/board/model/board-model'
+import { activeBoardId, LOCAL_BOARD_ID, localBoard } from '@/board/model/board-storage'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
 import type { WidgetRuntimeProps } from '../model/types'
@@ -23,6 +24,13 @@ vi.mock('../../widget-registry/model/registry', async (importActual) => {
 beforeEach(() => {
   context.reset()
   localStorage.clear()
+  localBoard.set({
+    id: LOCAL_BOARD_ID,
+    name: LOCAL_BOARD_ID,
+    instances: [],
+    layout: [],
+  })
+  activeBoardId.set(LOCAL_BOARD_ID)
   vi.mocked(findWidgetType).mockImplementation(registryHolder.actual)
 })
 
@@ -34,8 +42,9 @@ describe('FullscreenOverlay', () => {
   })
 
   it('renders a large frame for the expanded instance', async () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
+    addInstance('clock')
+    const id = localBoard().instances[0]?.id
+    if (!id) throw new Error('expected instance id after addInstance')
     expandedInstanceId.set(id)
 
     render(<FullscreenOverlay />)
@@ -62,8 +71,9 @@ describe('FullscreenOverlay', () => {
       return registryHolder.actual(typeId)
     })
 
-    const id = addInstance('probe')
-    if (id instanceof Error) throw id
+    addInstance('probe')
+    const id = localBoard().instances[0]?.id
+    if (!id) throw new Error('expected instance id after addInstance')
     expandedInstanceId.set(id)
 
     render(<FullscreenOverlay />)
@@ -72,8 +82,9 @@ describe('FullscreenOverlay', () => {
   })
 
   it('closes on Escape', async () => {
-    const id = addInstance('clock')
-    if (id instanceof Error) throw id
+    addInstance('clock')
+    const id = localBoard().instances[0]?.id
+    if (!id) throw new Error('expected instance id after addInstance')
     expandedInstanceId.set(id)
 
     render(<FullscreenOverlay />)
@@ -99,8 +110,9 @@ describe('FullscreenOverlay', () => {
       return registryHolder.actual(typeId)
     })
 
-    const id = addInstance('probe')
-    if (id instanceof Error) throw id
+    addInstance('probe')
+    const id = localBoard().instances[0]?.id
+    if (!id) throw new Error('expected instance id after addInstance')
     expandedInstanceId.set(id)
 
     render(<FullscreenOverlay />)

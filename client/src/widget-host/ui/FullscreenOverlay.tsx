@@ -1,7 +1,8 @@
 import { wrap } from '@reatom/core'
 import { VisuallyHidden } from 'radix-ui'
 
-import { expandedInstanceId, instances, removeInstance } from '@/board/model/board-model'
+import { expandedInstanceId, removeInstance } from '@/board/model/board-model'
+import { activeBoard } from '@/board/model/board-storage'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { findWidgetType } from '@/widget-registry/model/registry'
@@ -19,7 +20,7 @@ export const FullscreenOverlay = reatomMemo(() => {
   const id = expandedInstanceId()
   if (id === null) return null
 
-  const instance = instances().find((item) => item.id === id)
+  const instance = activeBoard()?.instances?.find((item) => item.id === id)
   if (!instance) return null
 
   const type = findWidgetType(instance.typeId)

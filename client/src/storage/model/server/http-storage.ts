@@ -6,7 +6,7 @@ import { StorageError, type StorageApi, type StorageListener, type StorageOption
 import { parseValue } from '../validate'
 import { getSseManager } from './sse-client'
 
-export function createHttpStorage(namespace: string, baseUrl = '/api/storage'): StorageApi {
+export function makeHttpStorage(namespace: string, baseUrl = '/api/storage'): StorageApi {
   const keyUrl = (fullKey: string) => `${baseUrl}/${encodeURIComponent(fullKey)}`
 
   return {

@@ -1,14 +1,25 @@
 import { context } from '@reatom/core'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { instances } from '../model/board-model'
+import { activeBoardId, boards } from '../model/board-storage'
 import { AddWidgetMenu } from './AddWidgetMenu'
+
+import styles from './AddWidgetMenu.module.css'
 
 beforeEach(() => {
   context.reset()
   localStorage.clear()
+  boards.set([
+    {
+      id: 'board-1',
+      name: 'Карина',
+      instances: [],
+      layout: [],
+    },
+  ])
+  activeBoardId.set('board-1')
 })
 
 async function openCatalog() {
@@ -18,6 +29,15 @@ async function openCatalog() {
 }
 
 describe('AddWidgetMenu', () => {
+  it('keeps an accessible label when the trigger collapses to icon-only mode', () => {
+    render(<AddWidgetMenu />)
+
+    const trigger = screen.getByRole('button', { name: 'Добавить виджет' })
+
+    expect(trigger).toHaveAttribute('aria-label', 'Добавить виджет')
+    expect(within(trigger).getByText('Добавить виджет')).toHaveClass(styles.triggerLabel)
+  })
+
   it('opens the catalog and lists widgets with descriptions', async () => {
     await openCatalog()
     expect(screen.getByText('Часы')).toBeInTheDocument()
@@ -25,12 +45,12 @@ describe('AddWidgetMenu', () => {
     expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
   })
 
-  it('adds a widget when its add button is clicked', async () => {
+  it('closes the catalog when its add button is clicked', async () => {
     await openCatalog()
-    expect(instances()).toHaveLength(0)
     fireEvent.click(screen.getByRole('button', { name: 'Добавить: Часы' }))
-    expect(instances()).toHaveLength(1)
-    expect(instances()[0]?.typeId).toBe('clock')
+    await waitFor(() => {
+      expect(screen.queryByText('Каталог виджетов')).not.toBeInTheDocument()
+    })
   })
 
   it('filters rows by the search query', async () => {

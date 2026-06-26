@@ -3,10 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { typeNamespace } from '../scope'
 import { FakeEventSource, installFakeEventSource } from '../test/fakes'
 import { StorageError } from '../types'
-import { createHttpStorage } from './http-storage'
+import { makeHttpStorage } from './http-storage'
 
 const ns = typeNamespace('clock')
-const storage = createHttpStorage(ns)
+const storage = makeHttpStorage(ns)
 
 afterEach(() => {
   vi.unstubAllGlobals()

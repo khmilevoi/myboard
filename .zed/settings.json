@@ -1,5 +1,15 @@
 {
   "lsp": {
+    "vtsls": {
+      "settings": {
+        "typescript": {
+          "tsdk": "./client/node_modules/typescript/lib"
+        },
+        "javascript": {
+          "tsdk": "./client/node_modules/typescript/lib"
+        }
+      }
+    },
     "oxfmt": {
       "initialization_options": {
         "settings": {

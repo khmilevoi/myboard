@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { instanceNamespace } from '../scope'
 import { installFakeBroadcastChannel } from '../test/fakes'
 import { db, clearExpired } from './db'
-import { createDexieStorage } from './dexie-storage'
+import { makeDexieStorage } from './dexie-storage'
 
 const ns = instanceNamespace('inst-1')
-const storage = createDexieStorage(ns)
+const storage = makeDexieStorage(ns)
 
 beforeEach(async () => {
   await db.entries.clear()
@@ -81,7 +81,7 @@ describe('createDexieStorage', () => {
     ])
     let releaseFirstPut = () => {}
     let putCalls = 0
-    const storage = createDexieStorage(ns, {
+    const storage = makeDexieStorage(ns, {
       entries: {
         get: vi.fn(async (key: string) => {
           const entry = state.get(key)

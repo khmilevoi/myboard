@@ -1,7 +1,8 @@
+import { otherPerson } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
+
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { useAtomValue } from '@/shared/reatom/use-atom-value'
 
-import { otherPerson } from '../../model/ofelia-duty'
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
 import { ActionButtons } from '../parts/ActionButtons'

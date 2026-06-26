@@ -17,6 +17,15 @@ services:
     ports:
       - '127.0.0.1:6379:6379'
 
+  redisinsight:
+    image: redis/redisinsight:latest
+    ports:
+      - '127.0.0.1:5540:5540'
+    volumes:
+      - redisinsight:/data
+    depends_on:
+      - valkey
+
   install:
     image: node:22-alpine
     working_dir: /app
@@ -72,3 +81,4 @@ volumes:
   root_node_modules:
   client_node_modules:
   server_node_modules:
+  redisinsight:

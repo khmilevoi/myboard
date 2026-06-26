@@ -12,7 +12,7 @@ export type WidgetType = {
   description: string
   loadComponent: WidgetLoader
   preloadComponent?: () => void
-  defaultSize: { w: number; h: number }
+  defaultSize: { w: number; h: number; minW?: number; minH?: number }
   /** Optional per-type tier thresholds; falls back to DEFAULT_TIERS. */
   tiers?: TierConfig
   /** lucide-react icon name used in the catalog menu. */
@@ -30,7 +30,10 @@ type IdleDeadline = {
 }
 
 type WindowWithIdleCallback = Window & {
-  requestIdleCallback?: (callback: (deadline: IdleDeadline) => void, options?: { timeout: number }) => number
+  requestIdleCallback?: (
+    callback: (deadline: IdleDeadline) => void,
+    options?: { timeout: number },
+  ) => number
 }
 
 function createLazyWidgetLoader(loader: WidgetLoader) {
@@ -64,7 +67,7 @@ export const widgetTypes: WidgetType[] = [
         default: mod.Clock,
       })),
     ),
-    defaultSize: { w: 3, h: 4 },
+    defaultSize: { w: 3, h: 4, minW: 2, minH: 2 },
     icon: 'Clock',
   },
   {
@@ -76,7 +79,7 @@ export const widgetTypes: WidgetType[] = [
         default: mod.OfeliaPoopDuty,
       })),
     ),
-    defaultSize: { w: 3, h: 5 },
+    defaultSize: { w: 3, h: 5, minW: 2, minH: 3 },
     icon: 'Cat',
     tiers: {
       tiny: { minWidthPx: 0, minHeightPx: 0 },

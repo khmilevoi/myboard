@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
-import { createWidgetStorage } from '@/storage/model/widget-storage'
+import { makeWidgetStorage } from '@/storage/model/storage'
 import { resolvedTheme } from '@/theme/model/theme-model'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
@@ -53,6 +53,10 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       // oxlint-disable-next-line react-hooks/exhaustive-deps
     }, [type, reloadKey])
 
+    const widgetStorage = useMemo(() => {
+      return makeWidgetStorage({ instanceId, typeId })
+    }, [instanceId, typeId])
+
     const context = useMemo<WidgetFrameContext>(() => {
       return {
         instanceId,
@@ -64,9 +68,19 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         requestClose: onRequestClose,
         requestDelete: onDelete,
         reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
-        storage: createWidgetStorage({ instanceId, typeId }),
+        storage: widgetStorage,
       }
-    }, [instanceId, typeId, mode, tier, theme, onRequestFullscreen, onRequestClose, onDelete])
+    }, [
+      instanceId,
+      typeId,
+      mode,
+      tier,
+      theme,
+      onRequestFullscreen,
+      onRequestClose,
+      onDelete,
+      widgetStorage,
+    ])
 
     if (type instanceof Error) {
       return (

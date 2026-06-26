@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { CommentView } from 'widgets/ofelia-poop-duty/model/ofelia-comments'
 
@@ -46,8 +46,8 @@ describe('CommentThread', () => {
     expect(screen.getByText('Пока нет комментариев')).toBeInTheDocument()
   })
 
-  it('sends the trimmed text and clears the input when the send icon is clicked', () => {
-    const onSend = vi.fn()
+  it('sends the trimmed text and clears the input when the send icon is clicked', async () => {
+    const onSend = vi.fn().mockResolvedValue(undefined)
     render(<CommentThread comments={[]} onSend={onSend} />)
 
     const input = screen.getByPlaceholderText('Написать комментарий…') as HTMLInputElement
@@ -55,11 +55,13 @@ describe('CommentThread', () => {
     fireEvent.click(screen.getByLabelText('Отправить'))
 
     expect(onSend).toHaveBeenCalledWith('Привет')
-    expect(input.value).toBe('')
+    await waitFor(() => {
+      expect(input.value).toBe('')
+    })
   })
 
-  it('sends on Enter via native form submit', () => {
-    const onSend = vi.fn()
+  it('sends on Enter via native form submit', async () => {
+    const onSend = vi.fn().mockResolvedValue(undefined)
     const { container } = render(<CommentThread comments={[]} onSend={onSend} />)
 
     const input = screen.getByPlaceholderText('Написать комментарий…') as HTMLInputElement
@@ -67,11 +69,13 @@ describe('CommentThread', () => {
     fireEvent.submit(container.querySelector('form') as HTMLFormElement)
 
     expect(onSend).toHaveBeenCalledWith('Ку')
-    expect(input.value).toBe('')
+    await waitFor(() => {
+      expect(input.value).toBe('')
+    })
   })
 
   it('does not send empty or whitespace-only text', () => {
-    const onSend = vi.fn()
+    const onSend = vi.fn().mockResolvedValue(undefined)
     render(<CommentThread comments={[]} onSend={onSend} />)
 
     fireEvent.change(screen.getByPlaceholderText('Написать комментарий…'), {
@@ -83,7 +87,7 @@ describe('CommentThread', () => {
   })
 
   it('renders an icon send button', () => {
-    render(<CommentThread comments={[]} onSend={vi.fn()} />)
+    render(<CommentThread comments={[]} onSend={vi.fn().mockResolvedValue(undefined)} />)
     expect(screen.getByLabelText('Отправить')).toBeInTheDocument()
   })
 })

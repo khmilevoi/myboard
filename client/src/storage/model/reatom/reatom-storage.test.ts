@@ -3,7 +3,7 @@ import { atom, context, wrap } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { db } from '../client/db'
-import { createDexieStorage } from '../client/dexie-storage'
+import { makeDexieStorage } from '../client/dexie-storage'
 import { instanceNamespace } from '../scope'
 import { installFakeBroadcastChannel } from '../test/fakes'
 import { StorageError, type StorageApi } from '../types'
@@ -24,7 +24,7 @@ afterEach(() => {
 
 describe('reatomStorageMutations', () => {
   it('set forwards to the api and leaves error undefined on success', async () => {
-    const api: StorageApi = createDexieStorage(instanceNamespace('inst-1'))
+    const api: StorageApi = makeDexieStorage(instanceNamespace('inst-1'))
     const { set } = reatomStorageMutations(api, 'test')
     await context.start(async () => {
       await set('draft', 42)
@@ -50,7 +50,7 @@ describe('reatomStorageMutations', () => {
 
 describe('reatomClearExpired', () => {
   it('removes expired client rows', async () => {
-    const api = createDexieStorage(instanceNamespace('inst-1'))
+    const api = makeDexieStorage(instanceNamespace('inst-1'))
     await api.set('dead', 1, { ttlMs: -1 })
     const clear = reatomClearExpired('test')
     await context.start(async () => {
@@ -69,7 +69,7 @@ describe('withStorageKey', () => {
   })
 
   it('reflects the current value and live updates while connected', async () => {
-    const api: StorageApi = createDexieStorage(instanceNamespace('inst-1'))
+    const api: StorageApi = makeDexieStorage(instanceNamespace('inst-1'))
     await api.set('draft', 1)
     const key = atom<number | null>(null, 'test.draft').extend(
       withStorageKey({ api, key: 'draft' }),
@@ -115,7 +115,7 @@ describe('withStorageKeyReadonly', () => {
   })
 
   it('mirrors the stored value, applies fallback on delete, and never writes back', async () => {
-    const real = createDexieStorage(instanceNamespace('inst-ro'))
+    const real = makeDexieStorage(instanceNamespace('inst-ro'))
     const set = vi.fn(real.set)
     const api = { ...real, set } as StorageApi
     await real.set('led', [1, 2, 3])

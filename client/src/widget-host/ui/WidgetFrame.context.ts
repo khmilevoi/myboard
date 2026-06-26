@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 
 import { ResolvedTheme } from '@/shared/theme/types'
-import { WidgetStorage } from '@/storage/model/widget-storage'
+import { WidgetStorage } from '@/storage/model/storage'
 
 import type { WidgetTier } from '../model/tier'
 import { WidgetMode } from '../model/types'
