@@ -18,6 +18,15 @@ const themeInitialized = atom(false, 'theme.initialized')
 function applyTheme(theme: ResolvedTheme) {
   if (typeof document !== 'undefined') {
     document.documentElement.dataset.theme = theme
+
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--card').trim()
+    let metaTag = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])')
+    if (!metaTag) {
+      metaTag = document.createElement('meta')
+      metaTag.name = 'theme-color'
+      document.head.appendChild(metaTag)
+    }
+    metaTag.content = color
   }
 }
 
