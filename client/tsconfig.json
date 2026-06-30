@@ -16,15 +16,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@shared/*": ["../shared/*"],
-      "@widgets/*": ["../widgets/*"],
-      "react": ["./node_modules/react"],
-      "react/jsx-runtime": ["./node_modules/react/jsx-runtime"],
-      "react/jsx-dev-runtime": ["./node_modules/react/jsx-dev-runtime"],
-      "react-dom": ["./node_modules/react-dom"],
-      "@reatom/core": ["./node_modules/@reatom/core"],
-      "@testing-library/react": ["./node_modules/@testing-library/react"],
-      "zod": ["./node_modules/zod"],
-      "lucide-react": ["./node_modules/lucide-react"]
+      "@widgets/*": ["../widgets/*"]
     }
   },
   "include": ["src", "../widgets", "tests"]

@@ -70,7 +70,8 @@ export default defineConfig({
           },
           {
             urlPattern: ({ request, url }) => {
-              const origin = (globalThis as unknown as { location: { origin: string } }).location.origin
+              const origin = (globalThis as unknown as { location: { origin: string } }).location
+                .origin
               return (
                 url.origin === origin &&
                 url.pathname.startsWith('/api/') &&
@@ -93,7 +94,8 @@ export default defineConfig({
           },
           {
             urlPattern: ({ request, url }) => {
-              const origin = (globalThis as unknown as { location: { origin: string } }).location.origin
+              const origin = (globalThis as unknown as { location: { origin: string } }).location
+                .origin
               return (
                 url.origin === origin &&
                 ['script', 'style', 'font', 'worker'].includes(request.destination)
@@ -120,14 +122,6 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
       '@widgets': resolve(__dirname, '../widgets'),
-      react: resolve(__dirname, './node_modules/react'),
-      'react/jsx-runtime': resolve(__dirname, './node_modules/react/jsx-runtime.js'),
-      'react/jsx-dev-runtime': resolve(__dirname, './node_modules/react/jsx-dev-runtime.js'),
-      'react-dom': resolve(__dirname, './node_modules/react-dom'),
-      '@reatom/core': resolve(__dirname, './node_modules/@reatom/core'),
-      '@testing-library/react': resolve(__dirname, './node_modules/@testing-library/react'),
-      zod: resolve(__dirname, './node_modules/zod'),
-      'lucide-react': resolve(__dirname, './node_modules/lucide-react'),
     },
   },
   define: {
