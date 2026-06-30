@@ -70,19 +70,36 @@ option.
 manage this: each widget is a federation **remote** exposing its `client.ts`;
 the board is the federation **host** that consumes widgets as remotes and
 declares `react`, `react-dom`, `@reatom/core`, `@reatom/react`, and
-`widget-runtime` as shared singletons. In dev, the plugin's `remoteHmr`
-proxies React Fast Refresh between host and remote dev servers, so editing a
-widget file updates the board live, the same way it does today. In
-production, the plugin resolves remotes from prebuilt assets.
+`widget-runtime` as shared singletons. In production, the plugin resolves
+remotes from prebuilt assets.
 
-Compatibility with this project's Rolldown-based Vite 8 build
-(`build.rolldownOptions` in `client/vite.config.ts`) is not confirmed in the
-plugin's documentation, only its declared peer range. The first implementation
-step is a throwaway host/remote spike that proves shared singletons and dev
-HMR work under this project's exact Vite/Rolldown configuration. If it does
-not, the fallback is hand-rolled `external` dependencies plus a host-served
-import map — same package structure and dev workflow below, different
-mechanism for resolving shared singletons in the production build only.
+**Confirmed by spike (2026-06-30).** A throwaway host/remote pair was built
+with this project's exact dependency versions (`vite@8.0.16` with its
+`rolldown` dependency, `@vitejs/plugin-react@6.0.2`, `react@19.2.7`,
+`@reatom/core@1001.1.0`, `@reatom/react@1001.0.0`,
+`@module-federation/vite@1.16.12`). Both `vite build` (remote and host) and
+`vite preview` succeeded cleanly under Rolldown. In a real browser, a
+federation remote rendered inside the host's own React tree, with the host
+and remote each independently exercising a `useState` hook and a
+`@reatom/core` atom — all four counters tracked clicks correctly with no
+"Invalid hook call" or duplicate-dispatcher errors, confirming shared
+singletons work end to end. **Decision: go.** No fallback is needed.
+
+One unrelated finding from the same spike: with `dev: { remoteHmr: true }`,
+editing a federation remote's source does trigger
+`[vite] hot updated: <file>` and preserves component state (no full reload),
+but the new JSX was not reflected in the rendered output for components
+wrapped the way this project wraps them, `memo(reatomComponent(fn, name))`.
+A control check against the unmodified board (`pnpm dev`, editing
+`widgets/clock/ui/Clock.tsx` directly, no federation involved) reproduced the
+exact same symptom: `hot updated` fires, state is preserved, but the visible
+output is stale until a manual reload. This means it is a pre-existing
+`@reatom/react` interaction with React Fast Refresh, not something this
+design introduces or regresses — `remoteHmr` is doing its job correctly,
+relaying the update across the federation boundary, but the underlying
+boundary inside this project's `@vitejs/plugin-react` + `reatomComponent`
+combination does not currently re-render on Fast Refresh either way. It is
+unrelated to this design's success criteria and is not addressed here.
 
 ### Server stays a single bundle
 
@@ -217,11 +234,8 @@ renders, covering the harness itself.
 
 ## Phased Rollout
 
-1. Spike `@module-federation/vite` against this project's Rolldown-based Vite
-   8 build with a throwaway host/remote pair, confirming shared singletons
-   (`react`, `react-dom`, `@reatom/core`, `@reatom/react`) and `remoteHmr`
-   both work. Go/no-go gate; if it fails, switch to the hand-rolled
-   externals + import map fallback before continuing.
+1. ~~Spike `@module-federation/vite` against this project's Rolldown-based
+   Vite 8 build~~ — done 2026-06-30, see "Confirmed by spike" above. Go.
 2. Extract `widget-runtime` from `client/src/storage` and
    `client/src/widget-api`. Pure refactor, no behavior change.
 3. Convert `widgets/*` into individual pnpm packages with federation
