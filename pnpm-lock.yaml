@@ -132,6 +132,9 @@ importers:
 
   server:
     dependencies:
+      errore:
+        specifier: ^0.14.1
+        version: 0.14.1
       find-my-way:
         specifier: ^9.6.0
         version: 9.6.0
