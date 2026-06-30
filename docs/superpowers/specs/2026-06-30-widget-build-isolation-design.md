@@ -177,11 +177,18 @@ board's host dev server consumes the same running process as its remote.
 
 ## Dev Workflow
 
-`pnpm dev` changes from starting only the client to starting the board and
-every widget's dev server together (e.g. `pnpm -r --parallel --filter
-"./widgets/*" --filter client dev`). Each widget gets a fixed dev port
-(convention: `5180 + index`). The host's federation config points
-`remotes` at `http://localhost:<port>/remoteEntry.js` per widget.
+`pnpm dev` stays the single command a developer runs, but its script changes
+from `pnpm --filter client dev` to `pnpm -r --parallel --filter "./widgets/*"
+--filter client dev`, starting the board and every widget's dev server
+together. The `--filter "./widgets/*"` path glob is the same mechanism the
+codegen step (see "Widget Registries and Codegen") relies on: it matches
+whatever widget packages currently exist, so adding a widget folder makes
+`pnpm dev` pick it up automatically — the script itself never lists widgets
+by name and never needs editing.
+
+Each widget gets a fixed dev port (convention: `5180 + index`, assigned by
+the same codegen manifest that drives the host's federation `remotes`
+config, so port numbers stay stable across runs without manual tracking).
 `dev: { remoteHmr: true }` keeps cross-bundle edits hot-reloading instead of
 forcing a full page reload — this must be set on every widget's federation
 config as well as the host's; setting it on the host alone is not enough
@@ -189,11 +196,16 @@ config as well as the host's; setting it on the host alone is not enough
 
 ## Production Build & Deploy
 
-Each widget builds independently: `pnpm --filter widgets-clock build`
-produces `widgets/clock/dist/` (its `remoteEntry.js` plus chunks, with
-`react`/`react-dom`/`@reatom/*`/`widget-runtime` external). The root `pnpm
-build` builds all `widgets/*` first, then `client`, which resolves remotes
-from the already-built widget `dist/` directories.
+`pnpm build` also stays the single command, but its script changes from
+`pnpm --filter client build` to `pnpm --filter "./widgets/*" build && pnpm
+--filter client build`: every widget package builds first (in whatever order
+pnpm resolves the glob; widgets do not depend on each other), each producing
+its own `widgets/<id>/dist/` (`remoteEntry.js` plus chunks, with
+`react`/`react-dom`/`@reatom/*`/`widget-runtime` external), then the client
+build resolves federation remotes from those already-built `dist/`
+directories. Like the dev script, this never names a widget explicitly, so a
+new widget package is included automatically and `pnpm build` does not
+change when widgets are added.
 
 Deployment topology does not change: one Docker image, one nginx, the same
 `pi.toml` target. Built widget `dist/` directories are copied into the
@@ -289,5 +301,11 @@ renders, covering the harness itself.
   directly, using real storage and widget RPC against a running dev server.
 - Adding a new widget package under `widgets/` makes it appear in the client
   catalog and server dispatcher without hand-editing any registry file.
+- `pnpm dev` is the only command needed to start the board and every
+  widget's dev server together; adding a widget package requires no change
+  to this command or its underlying script.
+- `pnpm build` is the only command needed to build every widget and the
+  client for production, in the right order; adding a widget package
+  requires no change to this command or its underlying script.
 - `pnpm build`, `pnpm test`, `pnpm typecheck`, and the Docker production
   build all pass with widgets built and deployed from the same nginx image.
