@@ -3,7 +3,7 @@ import { createContext, useContext } from 'react'
 
 import { ResolvedTheme } from '@/shared/theme/types'
 import { WidgetStorage } from '@widget-runtime/storage'
-import type { WidgetApiError } from '@/widget-api/widget-api'
+import type { WidgetApiError } from '@widget-runtime/widget-api'
 
 import type { WidgetTier } from '../model/tier'
 import { WidgetMode } from '../model/types'

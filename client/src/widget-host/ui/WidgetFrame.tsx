@@ -9,7 +9,7 @@ import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { makeWidgetStorage } from '@widget-runtime/storage'
 import { resolvedTheme } from '@/theme/model/theme-model'
-import { makeWidgetApi } from '@/widget-api/widget-api'
+import { makeWidgetApi } from '@widget-runtime/widget-api'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
 import { DEFAULT_TIERS, resolveTier, type WidgetTier } from '../model/tier'
