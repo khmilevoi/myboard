@@ -120,6 +120,14 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
       '@widgets': resolve(__dirname, '../widgets'),
+      react: resolve(__dirname, './node_modules/react'),
+      'react/jsx-runtime': resolve(__dirname, './node_modules/react/jsx-runtime.js'),
+      'react/jsx-dev-runtime': resolve(__dirname, './node_modules/react/jsx-dev-runtime.js'),
+      'react-dom': resolve(__dirname, './node_modules/react-dom'),
+      '@reatom/core': resolve(__dirname, './node_modules/@reatom/core'),
+      '@testing-library/react': resolve(__dirname, './node_modules/@testing-library/react'),
+      zod: resolve(__dirname, './node_modules/zod'),
+      'lucide-react': resolve(__dirname, './node_modules/lucide-react'),
     },
   },
   define: {
@@ -165,6 +173,10 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    include: [
+      'src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+      '../widgets/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+    ],
     environment: 'jsdom',
     setupFiles: ['./src/vitest.setup.ts'],
     exclude: [...configDefaults.exclude, 'e2e/**'],

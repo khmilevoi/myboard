@@ -11,6 +11,7 @@ import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
 import type { Person } from '../model/ofelia-duty'
+import type { OfeliaEvents } from '../types'
 import { ofeliaContext } from './ofelia-context'
 import type { OfeliaContextValue } from './ofelia-context'
 import { CompactTier } from './tiers/CompactTier'
@@ -22,7 +23,7 @@ import { makeOfeliaViewModel } from './view-model'
 
 import styles from './ofelia-poop-duty.module.css'
 
-export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(
+export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps<OfeliaEvents>>(
   ({ mode, tier, storage, requestFullscreen, requestClose, requestDelete }) => {
     const dutyModel = useMemo(() => ofeliaDutyModel({ storage, timer: getServerTime() }), [storage])
     const commentsModel = useMemo(

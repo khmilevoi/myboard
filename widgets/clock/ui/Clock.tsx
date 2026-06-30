@@ -3,6 +3,7 @@ import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 
 import { clockNow } from '../model/clock-model'
+import type { ClockEvents } from '../types'
 
 import styles from './clock.module.css'
 
@@ -19,7 +20,7 @@ const dateFmt = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
 })
 
-export const Clock = reatomMemo<WidgetRuntimeProps>(
+export const Clock = reatomMemo<WidgetRuntimeProps<ClockEvents>>(
   ({ mode, requestFullscreen, requestDelete }) => {
     const now = clockNow()
 
