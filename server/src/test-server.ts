@@ -1,5 +1,6 @@
 import { createApp } from './app'
 import { createMemoryOps, createMemoryPubSub } from './test/memory-ops'
+import { productionWidgetServerRegistry } from './widgets/production-registry'
 
 // Dedicated e2e entry. Running this bundle (vs dist/index.cjs) IS the test-mode
 // gate: in-memory storage, an in-process pub/sub so the SSE fanout fires without
@@ -13,6 +14,7 @@ const { server } = createApp({
   ops,
   subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
   now: () => currentNow,
+  widgetRegistry: productionWidgetServerRegistry,
   testControls: {
     setNow: (ms) => {
       currentNow = ms

@@ -9,6 +9,7 @@ COPY client/package.json ./client/
 COPY server/package.json ./server/
 RUN pnpm install --frozen-lockfile --filter server...
 COPY shared ./shared
+COPY widgets ./widgets
 COPY server ./server
 WORKDIR /app/server
 RUN pnpm build

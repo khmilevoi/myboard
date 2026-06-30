@@ -28,6 +28,7 @@ export default defineConfig({
         request &&
         !request.startsWith('.') &&
         !request.startsWith('@shared') &&
+        !request.startsWith('@widgets') &&
         !path.isAbsolute(request)
       ) {
         return callback(undefined, `commonjs ${request}`)

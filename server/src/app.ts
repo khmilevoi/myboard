@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { createServer, type Server, type ServerResponse } from 'node:http'
 
 import Router from 'find-my-way'
+import { z } from 'zod'
 
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
@@ -28,8 +29,15 @@ import {
   formatZodError,
 } from './storage/schemas'
 import type { ValkeyOps } from './storage/valkey'
+import { dispatchWidgetEvent } from './widgets/dispatch'
+import { WidgetRequestBodyError, type PublicWidgetDispatchError } from './widgets/errors'
+import type { WidgetServerRegistry } from './widgets/registry'
 
 const HEARTBEAT_MS = 25_000
+const WidgetRequestSchema = z.object({
+  instanceId: z.string().min(1),
+  payload: z.unknown(),
+})
 
 export type TestControls = {
   setNow: (ms: number) => void
@@ -40,6 +48,7 @@ export type AppDeps = {
   ops: ValkeyOps
   subscribe: (onMessage: (message: string) => void) => () => void
   now: () => number
+  widgetRegistry: WidgetServerRegistry
   testControls?: TestControls
 }
 
@@ -77,6 +86,16 @@ export function createApp(deps: AppDeps): App {
     }
     res.writeHead(result.status, { 'content-type': 'application/json' })
     res.end(JSON.stringify(result.body))
+  }
+
+  function sendWidgetError(res: ServerResponse, error: PublicWidgetDispatchError): void {
+    if (error.status === 500) console.error(error)
+    res.writeHead(error.status, { 'content-type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error: { code: error.code, message: error.publicMessage },
+      }),
+    )
   }
 
   router.on('GET', '/api/storage/events', (req, res) => {
@@ -198,6 +217,52 @@ export function createApp(deps: AppDeps): App {
     const key = decodeURIComponent(params.key as string)
     send(res, await handleDelete(ops, key))
     await publishChange(ops, key, null)
+  })
+
+  router.on('POST', '/api/widgets/:typeId/:event', async (req, res, params) => {
+    const raw = await readJsonBody(req).catch((cause) => new WidgetRequestBodyError({ cause }))
+    if (raw instanceof WidgetRequestBodyError) {
+      const tooLarge = raw.cause instanceof Error && raw.cause.message === 'request body too large'
+      res.writeHead(tooLarge ? 413 : 400, { 'content-type': 'application/json' })
+      res.end(
+        JSON.stringify({
+          error: {
+            code: tooLarge ? 'body_too_large' : 'invalid_json',
+            message: tooLarge ? 'Request body is too large' : 'Request JSON is invalid',
+          },
+        }),
+      )
+      return
+    }
+
+    const body = WidgetRequestSchema.safeParse(raw)
+    if (!body.success) {
+      res.writeHead(422, { 'content-type': 'application/json' })
+      res.end(
+        JSON.stringify({
+          error: { code: 'request_invalid', message: 'Widget request is invalid' },
+        }),
+      )
+      return
+    }
+
+    const result = await dispatchWidgetEvent({
+      registry: deps.widgetRegistry,
+      ops,
+      typeId: decodeURIComponent(params.typeId as string),
+      event: decodeURIComponent(params.event as string),
+      instanceId: body.data.instanceId,
+      payload: body.data.payload,
+      ip: clientIp(req),
+      now,
+    })
+    if (result instanceof Error) {
+      sendWidgetError(res, result)
+      return
+    }
+
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(result))
   })
 
   if (deps.testControls) {
