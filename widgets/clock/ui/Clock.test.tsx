@@ -22,6 +22,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
       instanceId: 'inst-clock',
       typeId: 'clock',
     }),
+    api: { invoke: vi.fn() },
   }
 }
 

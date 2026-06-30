@@ -42,6 +42,7 @@ function props(tier: WidgetTier): WidgetRuntimeProps {
     requestDelete: vi.fn(),
     reportError: vi.fn(),
     storage: fakeWidgetStorage(),
+    api: { invoke: vi.fn() },
   }
 }
 
