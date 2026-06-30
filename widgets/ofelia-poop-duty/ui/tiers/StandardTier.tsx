@@ -1,4 +1,4 @@
-import { otherPerson } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
+import { otherPerson } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { useAtomValue } from '@/shared/reatom/use-atom-value'

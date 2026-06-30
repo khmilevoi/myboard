@@ -51,6 +51,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.resolve(import.meta.dirname, '../shared'),
+      '@widgets': path.resolve(import.meta.dirname, '../widgets'),
     },
     extensions: ['.ts', '.js'],
   },

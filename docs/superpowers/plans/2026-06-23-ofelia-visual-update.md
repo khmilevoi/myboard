@@ -1398,7 +1398,7 @@ Expected: FAIL — old full-word labels.
 
 ```tsx
 // HistoryList.tsx
-import type { HistoryEntryView } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
+import type { HistoryEntryView } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 
@@ -1588,7 +1588,7 @@ Expected: FAIL — old format without name/date/ip, text send button.
 // CommentThread.tsx
 import { useState } from 'react'
 import { Send } from 'lucide-react'
-import type { CommentView } from 'widgets/ofelia-poop-duty/model/ofelia-comments'
+import type { CommentView } from '@widgets/ofelia-poop-duty/model/ofelia-comments'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 

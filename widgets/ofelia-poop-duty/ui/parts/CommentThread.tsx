@@ -1,6 +1,6 @@
 import { Send } from 'lucide-react'
 import { useRef, useState } from 'react'
-import type { CommentView } from 'widgets/ofelia-poop-duty/model/ofelia-comments'
+import type { CommentView } from '@widgets/ofelia-poop-duty/model/ofelia-comments'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 

@@ -547,7 +547,7 @@ export function personTone(person: Person): PersonTone {
 Create `client/widgets/ofelia-poop-duty/ui/parts/Avatar.tsx`:
 
 ```tsx
-import type { Person } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
+import type { Person } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { personInitial, personTone } from '../person'
@@ -955,8 +955,8 @@ Expected: FAIL — `./UserToggle` not found.
 Create `client/widgets/ofelia-poop-duty/ui/parts/UserToggle.tsx`:
 
 ```tsx
-import { DUTY_ROTATION } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
-import type { Person } from 'widgets/ofelia-poop-duty/model/ofelia-duty'
+import { DUTY_ROTATION } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
+import type { Person } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { personInitial } from '../person'

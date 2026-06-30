@@ -11,7 +11,8 @@
     "noEmit": true,
     "types": ["node"],
     "paths": {
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@widgets/*": ["../widgets/*"]
     }
   },
   "include": ["**/*.ts"]

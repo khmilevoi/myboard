@@ -63,7 +63,7 @@ export const widgetTypes: WidgetType[] = [
     title: 'Часы',
     description: 'Текущее время и дата',
     ...createLazyWidgetLoader(() =>
-      import('widgets/clock/ui/Clock').then((mod) => ({
+      import('@widgets/clock/ui/Clock').then((mod) => ({
         default: mod.Clock,
       })),
     ),
@@ -75,7 +75,7 @@ export const widgetTypes: WidgetType[] = [
     title: 'Лоток Офелии',
     description: 'Чья сегодня очередь убирать',
     ...createLazyWidgetLoader(() =>
-      import('widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
+      import('@widgets/ofelia-poop-duty/ui/OfeliaPoopDuty').then((mod) => ({
         default: mod.OfeliaPoopDuty,
       })),
     ),
