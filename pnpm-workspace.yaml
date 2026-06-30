@@ -1,5 +1,19 @@
 packages:
   - client
   - server
+  - shared
+  - widgets
+catalog:
+  react: ^19.2.7
+  react-dom: ^19.2.7
+  '@reatom/core': ^1001.1.0
+  zod: ^4.4.3
+  lucide-react: 1.19.0
+  '@testing-library/react': ^16.3.2
+  vitest: ^4.1.9
+  '@types/react': ^19.2.17
+  '@types/react-dom': ^19.2.3
+allowBuilds:
+  esbuild: set this to true or false
 onlyBuiltDependencies:
   - esbuild
