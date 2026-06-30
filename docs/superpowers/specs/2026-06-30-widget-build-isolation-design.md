@@ -182,8 +182,9 @@ contain `client.ts`, `server.ts`, and `package.json`, and generates:
 
 Generated files are gitignored and regenerated as a pre-step before `dev`,
 `build`, and `dev:server`, so they cannot drift from the actual contents of
-`widgets/`. Adding a widget means adding a folder; no other file changes are
-required to make it appear on both client and server.
+`widgets/`. Adding a widget means adding its package folder (with its own
+`package.json`, `vite.config.ts`, `client.ts`, and `server.ts`); no existing
+registry file needs hand-editing to make it appear on both client and server.
 
 The client widget catalog (used by the "add widget" panel for titles/icons)
 becomes asynchronous, since `client.ts` now loads through `loadRemote()`
@@ -255,7 +256,7 @@ renders, covering the harness itself.
   full page reload, matching today's dev experience.
 - Each widget's standalone `dev/` entry renders correctly when opened
   directly, using real storage and widget RPC against a running dev server.
-- Adding a new widget folder under `widgets/` makes it appear in the client
+- Adding a new widget package under `widgets/` makes it appear in the client
   catalog and server dispatcher without hand-editing any registry file.
 - `pnpm build`, `pnpm test`, `pnpm typecheck`, and the Docker production
   build all pass with widgets built and deployed from the same nginx image.
