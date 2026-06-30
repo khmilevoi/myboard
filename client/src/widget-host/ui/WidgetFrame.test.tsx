@@ -127,8 +127,8 @@ describe('WidgetFrame', () => {
   })
 
   it('passes one type- and instance-bound API through props and context', async () => {
-    const fetchRequest = vi.fn(async () =>
-      new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }),
+    const fetchRequest = vi.fn(
+      async () => new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }),
     )
     vi.stubGlobal('fetch', fetchRequest)
 

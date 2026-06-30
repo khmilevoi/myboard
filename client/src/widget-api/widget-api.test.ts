@@ -12,11 +12,12 @@ type TestEvents = {
 
 describe('makeWidgetApi', () => {
   it('binds type and instance identity and returns typed data', async () => {
-    const fetchRequest = vi.fn(async () =>
-      new Response(JSON.stringify({ data: { id: 'entry-1' } }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchRequest = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ data: { id: 'entry-1' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     const api = makeWidgetApi<TestEvents>({
       typeId: 'notes/widget',

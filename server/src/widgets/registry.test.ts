@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest'
-
 import type { RuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
+import { describe, expect, it } from 'vitest'
 
 import { DuplicateWidgetTypeError, UnknownWidgetTypeError } from './errors'
 import { createWidgetServerRegistry, findWidgetServer } from './registry'

@@ -1,7 +1,6 @@
+import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import * as errore from 'errore'
 import { z } from 'zod'
-
-import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 
 const WidgetApiEnvelopeSchema = z.union([
   z.object({ data: z.unknown() }),

@@ -1,6 +1,5 @@
-import { createContext, useContext } from 'react'
-
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
+import { createContext, useContext } from 'react'
 
 import { ResolvedTheme } from '@/shared/theme/types'
 import { WidgetStorage } from '@/storage/model/storage'

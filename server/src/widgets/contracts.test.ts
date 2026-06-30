@@ -1,11 +1,10 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
-import { z } from 'zod'
-
 import {
   defineWidgetServer,
   type InferWidgetEvents,
   type WidgetServerContext,
 } from '@shared/widgets/contracts'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import { z } from 'zod'
 
 const schemas = {
   echo: {

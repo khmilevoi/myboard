@@ -1,11 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import { z } from 'zod'
-
 import {
   defineWidgetServer,
   toRuntimeWidgetServerDefinition,
   type RuntimeWidgetServerDefinition,
 } from '@shared/widgets/contracts'
+import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import { dispatchWidgetEvent } from './dispatch'
@@ -35,8 +34,13 @@ const definition = defineWidgetServer({
   },
 })
 
-const createdRegistry = createWidgetServerRegistry([toRuntimeWidgetServerDefinition(definition)])
-if (createdRegistry instanceof Error) throw createdRegistry
+function createRegistry(definitions: RuntimeWidgetServerDefinition[]) {
+  const registry = createWidgetServerRegistry(definitions)
+  if (registry instanceof Error) throw registry
+  return registry
+}
+
+const createdRegistry = createRegistry([toRuntimeWidgetServerDefinition(definition)])
 
 const invalidResultDefinition: RuntimeWidgetServerDefinition = {
   typeId: 'invalid-result',
@@ -45,8 +49,7 @@ const invalidResultDefinition: RuntimeWidgetServerDefinition = {
     echo: () => ({ echoed: 1, instanceId: 'placement-1' }),
   },
 }
-const invalidResultRegistry = createWidgetServerRegistry([invalidResultDefinition])
-if (invalidResultRegistry instanceof Error) throw invalidResultRegistry
+const invalidResultRegistry = createRegistry([invalidResultDefinition])
 
 const failingDefinition: RuntimeWidgetServerDefinition = {
   typeId: 'failing-widget',
@@ -55,8 +58,7 @@ const failingDefinition: RuntimeWidgetServerDefinition = {
     echo: () => new Error('handler failed'),
   },
 }
-const failingRegistry = createWidgetServerRegistry([failingDefinition])
-if (failingRegistry instanceof Error) throw failingRegistry
+const failingRegistry = createRegistry([failingDefinition])
 
 function dispatch(overrides: Partial<Parameters<typeof dispatchWidgetEvent>[0]> = {}) {
   const pubsub = createMemoryPubSub()
@@ -99,8 +101,8 @@ describe('dispatchWidgetEvent', () => {
   })
 
   it('wraps errors returned by handlers', async () => {
-    expect(
-      await dispatch({ registry: failingRegistry, typeId: 'failing-widget' }),
-    ).toBeInstanceOf(WidgetHandlerError)
+    expect(await dispatch({ registry: failingRegistry, typeId: 'failing-widget' })).toBeInstanceOf(
+      WidgetHandlerError,
+    )
   })
 })

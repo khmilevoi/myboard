@@ -1,16 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
+import { safeParse } from '@shared/json'
+import { instanceNamespace, typeNamespace, toFullKey, toRelativeKey } from '@shared/storage/scope'
+import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
 import * as errore from 'errore'
 import type { z } from 'zod'
-
-import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
-import { safeParse } from '@shared/json'
-import {
-  instanceNamespace,
-  typeNamespace,
-  toFullKey,
-  toRelativeKey,
-} from '@shared/storage/scope'
 
 import { publishChange } from '../storage/handlers'
 import { runExclusive } from '../storage/key-lock'
@@ -83,7 +77,9 @@ export function createWidgetServerApi({
 
     async delete(key: string) {
       const fullKey = toFullKey(namespace, key)
-      const deleted = await ops.del(fullKey).catch((cause) => storageError('delete', fullKey, cause))
+      const deleted = await ops
+        .del(fullKey)
+        .catch((cause) => storageError('delete', fullKey, cause))
       if (deleted instanceof Error) return deleted
 
       const published = await publishChange(ops, fullKey, null).catch((cause) =>
@@ -101,7 +97,9 @@ export function createWidgetServerApi({
 
     async keys(prefix = '') {
       const fullPrefix = toFullKey(namespace, prefix)
-      const keys = await ops.scanKeys(fullPrefix).catch((cause) => storageError('keys', fullPrefix, cause))
+      const keys = await ops
+        .scanKeys(fullPrefix)
+        .catch((cause) => storageError('keys', fullPrefix, cause))
       if (keys instanceof Error) return keys
       return keys.map((key) => toRelativeKey(namespace, key))
     },

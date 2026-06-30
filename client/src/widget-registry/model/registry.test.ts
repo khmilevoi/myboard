@@ -27,29 +27,25 @@ describe('widget registry', () => {
     )
   })
 
-  it(
-    'loads the Ofelia poop duty widget',
-    async () => {
-      const type = findWidgetType('ofelia-poop-duty')
-      if (type instanceof Error) throw type
+  it('loads the Ofelia poop duty widget', async () => {
+    const type = findWidgetType('ofelia-poop-duty')
+    if (type instanceof Error) throw type
 
-      expect(type).not.toHaveProperty('entry')
-      expect(typeof type.loadComponent).toBe('function')
-      expect(type).toMatchObject({
-        id: 'ofelia-poop-duty',
-        title: 'Лоток Офелии',
-        description: 'Чья сегодня очередь убирать',
-        defaultSize: { w: 3, h: 5, minW: 2, minH: 3 },
-        icon: 'Cat',
-      })
+    expect(type).not.toHaveProperty('entry')
+    expect(typeof type.loadComponent).toBe('function')
+    expect(type).toMatchObject({
+      id: 'ofelia-poop-duty',
+      title: 'Лоток Офелии',
+      description: 'Чья сегодня очередь убирать',
+      defaultSize: { w: 3, h: 5, minW: 2, minH: 3 },
+      icon: 'Cat',
+    })
 
-      const mod = await type.loadComponent()
-      expect(mod.default).toEqual(
-        expect.objectContaining({ $$typeof: expect.any(Symbol), type: expect.any(Function) }),
-      )
-    },
-    15000,
-  )
+    const mod = await type.loadComponent()
+    expect(mod.default).toEqual(
+      expect.objectContaining({ $$typeof: expect.any(Symbol), type: expect.any(Function) }),
+    )
+  }, 15000)
 
   it('gives every widget a Russian title and description', () => {
     const clock = findWidgetType('clock')

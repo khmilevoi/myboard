@@ -1,7 +1,6 @@
 import type { WidgetServerContext } from '@shared/widgets/contracts'
 
 import type { ValkeyOps } from '../storage/valkey'
-import { createWidgetServerApi } from './storage'
 import {
   InvalidWidgetPayloadError,
   InvalidWidgetResultError,
@@ -10,6 +9,7 @@ import {
   type PublicWidgetDispatchError,
 } from './errors'
 import { findWidgetServer, type WidgetServerRegistry } from './registry'
+import { createWidgetServerApi } from './storage'
 
 export type DispatchWidgetEventOptions = {
   registry: WidgetServerRegistry

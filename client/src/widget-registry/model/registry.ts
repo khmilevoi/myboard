@@ -1,7 +1,6 @@
-import * as errore from 'errore'
-
 import { clockWidget } from '@widgets/clock/client'
 import { ofeliaWidget } from '@widgets/ofelia-poop-duty/client'
+import * as errore from 'errore'
 
 export { type WidgetIconName, type WidgetType } from './widget-definition'
 import { toWidgetType, type WidgetType } from './widget-definition'
@@ -23,10 +22,7 @@ type WindowWithIdleCallback = Window & {
   ) => number
 }
 
-export const widgetTypes: WidgetType[] = [
-  toWidgetType(clockWidget),
-  toWidgetType(ofeliaWidget),
-]
+export const widgetTypes: WidgetType[] = [toWidgetType(clockWidget), toWidgetType(ofeliaWidget)]
 
 export function preloadWidgetChunks() {
   if (typeof window === 'undefined') return
