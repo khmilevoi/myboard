@@ -27,6 +27,7 @@
     "**/coverage/**",
     "**/playwright-report/**",
     "**/test-results/**",
-    "**/.worktrees/**"
+    "**/.worktrees/**",
+    "**/node_modules/**"
   ]
 }
