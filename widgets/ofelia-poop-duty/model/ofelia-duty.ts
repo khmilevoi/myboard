@@ -9,7 +9,7 @@ import {
 } from '@reatom/core'
 import z from 'zod'
 
-import { ServerTime } from '@/shared/timer/model/server-time'
+import { ServerTime } from '@widget-runtime/timer/server-time'
 import { withStorageKeyReadonly } from '@widget-runtime/storage/reatom/reatom-storage'
 import { WidgetStorage } from '@widget-runtime/storage'
 

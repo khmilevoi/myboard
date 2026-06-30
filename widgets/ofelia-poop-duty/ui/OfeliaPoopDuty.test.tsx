@@ -3,8 +3,8 @@ import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createFakeTimer } from '@/shared/timer/model/fakes'
-import type { ServerTime } from '@/shared/timer/model/server-time'
+import { createFakeTimer } from '@widget-runtime/timer/fakes'
+import type { ServerTime } from '@widget-runtime/timer/server-time'
 import type { WidgetStorage } from '@widget-runtime/storage'
 import { createFakeStorage } from '@widget-runtime/storage/test/fakes'
 import type { WidgetTier } from '@/widget-host/model/tier'
@@ -14,7 +14,7 @@ import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 
 const timerHolder = vi.hoisted(() => ({ current: null as ServerTime | null }))
 
-vi.mock('@/shared/timer/model/server-time', () => ({
+vi.mock('@widget-runtime/timer/server-time', () => ({
   getServerTime: () => timerHolder.current,
 }))
 

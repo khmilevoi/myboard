@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { useAtomValue } from '@/shared/reatom/use-atom-value'
-import { getServerTime } from '@/shared/timer/model/server-time'
+import { getServerTime } from '@widget-runtime/timer/server-time'
 import type { WidgetTier } from '@/widget-host/model/tier'
 import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 
