@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverArrow, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 import styles from './BoardSchemaSelect.module.css'
 

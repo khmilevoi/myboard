@@ -1,4 +1,4 @@
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 import type { WidgetRuntimeProps } from '@widget-runtime/types'
 import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 

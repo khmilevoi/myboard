@@ -2,7 +2,7 @@ import { wrap } from '@reatom/core'
 import type { CSSProperties } from 'react'
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 import { WidgetFrame } from '@/widget-host/ui/WidgetFrame'
 
 import { isBoardInteracting } from '../model/board-interaction-model'

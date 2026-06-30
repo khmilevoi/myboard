@@ -3,7 +3,7 @@ import type { ErrorInfo, ReactNode } from 'react'
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary'
 
 import { Badge } from '@/components/ui/badge'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 import styles from './WidgetFrame.module.css'
 

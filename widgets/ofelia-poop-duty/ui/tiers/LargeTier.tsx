@@ -1,4 +1,4 @@
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 import { RichLayout } from '../parts/RichLayout'
 

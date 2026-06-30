@@ -2,7 +2,7 @@ import { Separator as SeparatorPrimitive } from 'radix-ui'
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 const Separator = reatomMemo<React.ComponentProps<typeof SeparatorPrimitive.Root>>(
   ({ className, orientation = 'horizontal', decorative = true, ...props }) => {
