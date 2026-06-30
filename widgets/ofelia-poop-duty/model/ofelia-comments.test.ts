@@ -1,8 +1,8 @@
 import { atom, context } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { WidgetStorage } from '@/storage/model/storage'
-import type { StorageApi, StorageListener } from '@/storage/model/types'
+import type { WidgetStorage } from '@widget-runtime/storage'
+import type { StorageApi, StorageListener } from '@widget-runtime/storage/types'
 
 import { formatDateShort } from '../ui/format'
 import { commentsKey, ofeliaCommentsModel } from './ofelia-comments'

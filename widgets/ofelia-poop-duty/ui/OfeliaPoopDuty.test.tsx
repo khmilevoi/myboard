@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createFakeTimer } from '@/shared/timer/model/fakes'
 import type { ServerTime } from '@/shared/timer/model/server-time'
-import type { WidgetStorage } from '@/storage/model/storage'
-import { createFakeStorage } from '@/storage/model/test/fakes'
+import type { WidgetStorage } from '@widget-runtime/storage'
+import { createFakeStorage } from '@widget-runtime/storage/test/fakes'
 import type { WidgetTier } from '@/widget-host/model/tier'
 import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 

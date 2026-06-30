@@ -2,7 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { makeWidgetStorage } from '@/storage/model/storage'
+import { makeWidgetStorage } from '@widget-runtime/storage'
 import type { WidgetRuntimeProps } from '@/widget-host/model/types'
 
 import { Clock } from './Clock'

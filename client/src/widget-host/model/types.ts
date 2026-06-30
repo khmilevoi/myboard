@@ -2,7 +2,7 @@ import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import type { ComponentType } from 'react'
 
 import type { ResolvedTheme } from '@/shared/theme/types'
-import { WidgetStorage } from '@/storage/model/storage'
+import { WidgetStorage } from '@widget-runtime/storage'
 import type { WidgetApiError } from '@/widget-api/widget-api'
 
 import type { WidgetTier } from './tier'
