@@ -1,7 +1,10 @@
 import { createContext, useContext } from 'react'
 
+import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
+
 import { ResolvedTheme } from '@/shared/theme/types'
 import { WidgetStorage } from '@/storage/model/storage'
+import type { WidgetApiError } from '@/widget-api/widget-api'
 
 import type { WidgetTier } from '../model/tier'
 import { WidgetMode } from '../model/types'
@@ -17,6 +20,7 @@ export interface WidgetFrameContext {
   requestDelete: () => void
   reportError: (error: Error) => void
   storage: WidgetStorage
+  api: WidgetApi<WidgetEventMap, WidgetApiError>
 }
 
 export const widgetFrameContext = createContext<WidgetFrameContext | null>(null)

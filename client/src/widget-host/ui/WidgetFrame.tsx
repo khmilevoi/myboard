@@ -9,6 +9,7 @@ import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
 import { makeWidgetStorage } from '@/storage/model/storage'
 import { resolvedTheme } from '@/theme/model/theme-model'
+import { makeWidgetApi } from '@/widget-api/widget-api'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
 import { DEFAULT_TIERS, resolveTier, type WidgetTier } from '../model/tier'
@@ -56,6 +57,9 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
     const widgetStorage = useMemo(() => {
       return makeWidgetStorage({ instanceId, typeId })
     }, [instanceId, typeId])
+    const widgetApi = useMemo(() => {
+      return makeWidgetApi({ instanceId, typeId })
+    }, [instanceId, typeId])
 
     const context = useMemo<WidgetFrameContext>(() => {
       return {
@@ -69,6 +73,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         requestDelete: onDelete,
         reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
         storage: widgetStorage,
+        api: widgetApi,
       }
     }, [
       instanceId,
@@ -80,6 +85,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       onRequestClose,
       onDelete,
       widgetStorage,
+      widgetApi,
     ])
 
     if (type instanceof Error) {
@@ -130,6 +136,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
                   requestDelete={context.requestDelete}
                   reportError={context.reportError}
                   storage={context.storage}
+                  api={context.api}
                 />
               )}
             </Suspense>
