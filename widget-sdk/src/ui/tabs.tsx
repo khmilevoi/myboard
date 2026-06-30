@@ -1,8 +1,8 @@
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import * as React from 'react'
 
-import { cn } from '@/lib/utils'
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { cn } from '../lib/utils'
+import { reatomMemo } from '../reatom/reatom-memo'
 
 const Tabs = reatomMemo<React.ComponentProps<typeof TabsPrimitive.Root>>(
   ({ className, children, ...props }) => {

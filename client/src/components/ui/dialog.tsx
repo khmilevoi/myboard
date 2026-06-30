@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import * as React from 'react'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@widget-sdk/lib/utils'
 import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 const Dialog = DialogPrimitive.Root
