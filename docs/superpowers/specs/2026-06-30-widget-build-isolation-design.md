@@ -85,21 +85,36 @@ and remote each independently exercising a `useState` hook and a
 "Invalid hook call" or duplicate-dispatcher errors, confirming shared
 singletons work end to end. **Decision: go.** No fallback is needed.
 
-One unrelated finding from the same spike: with `dev: { remoteHmr: true }`,
-editing a federation remote's source does trigger
-`[vite] hot updated: <file>` and preserves component state (no full reload),
-but the new JSX was not reflected in the rendered output for components
-wrapped the way this project wraps them, `memo(reatomComponent(fn, name))`.
-A control check against the unmodified board (`pnpm dev`, editing
-`widgets/clock/ui/Clock.tsx` directly, no federation involved) reproduced the
-exact same symptom: `hot updated` fires, state is preserved, but the visible
-output is stale until a manual reload. This means it is a pre-existing
-`@reatom/react` interaction with React Fast Refresh, not something this
-design introduces or regresses — `remoteHmr` is doing its job correctly,
-relaying the update across the federation boundary, but the underlying
-boundary inside this project's `@vitejs/plugin-react` + `reatomComponent`
-combination does not currently re-render on Fast Refresh either way. It is
-unrelated to this design's success criteria and is not addressed here.
+**HMR fix confirmed (2026-07-01).** The first spike pass set `dev: {
+remoteHmr: true }` only on the host's federation config. With only the host
+configured, editing the remote's source fired `[vite] hot updated: <file>`
+and preserved component state, but the new JSX was not reflected in the
+rendered output for components wrapped the way this project wraps them,
+`memo(reatomComponent(fn, name))` — and the same stale-render symptom
+reproduced even for the host's own local components, with no remote or
+federation boundary involved at all.
+
+The fix is to set `dev: { remoteHmr: true }` on **both** the host's and
+every remote's federation config, not just the host's. Re-tested after
+applying this on both sides: editing the remote's source now updates the
+rendered output live, `useState` state is preserved across the edit (no full
+reload), and the same is true for edits to the host's own local components.
+This was re-verified across two more edit/click cycles for stability.
+
+One residual nuance, expected rather than a bug: a `@reatom/core` atom
+defined at module scope (e.g. `const counterAtom = atom(0, '...')`, outside
+the component) resets to its initial value on each HMR update of the module
+that defines it, even though the component's own `useState` hook state
+survives. The module re-evaluates on HMR, so a fresh atom instance is
+created — the same thing would happen to any plain module-level variable.
+React hook state survives because React Fast Refresh preserves it
+per-component-instance; module-level reatom state does not get the same
+treatment. This is not specific to federation and applies equally to today's
+plain (non-federated) widgets.
+
+**Action for implementation:** when wiring federation `vite.config.ts` for
+the board and each widget remote (Phased Rollout step 3), set `dev: {
+remoteHmr: true }` symmetrically on every config, not only the host's.
 
 ### Server stays a single bundle
 
@@ -167,8 +182,10 @@ every widget's dev server together (e.g. `pnpm -r --parallel --filter
 "./widgets/*" --filter client dev`). Each widget gets a fixed dev port
 (convention: `5180 + index`). The host's federation config points
 `remotes` at `http://localhost:<port>/remoteEntry.js` per widget.
-`remoteHmr: true` keeps cross-bundle edits hot-reloading instead of forcing a
-full page reload.
+`dev: { remoteHmr: true }` keeps cross-bundle edits hot-reloading instead of
+forcing a full page reload — this must be set on every widget's federation
+config as well as the host's; setting it on the host alone is not enough
+(confirmed by spike, see above).
 
 ## Production Build & Deploy
 
