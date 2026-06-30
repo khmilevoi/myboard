@@ -122,6 +122,8 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
       '@widgets': resolve(__dirname, '../widgets'),
+      '@widget-runtime': resolve(__dirname, '../widget-runtime/src'),
+      '@widget-sdk': resolve(__dirname, '../widget-sdk/src'),
     },
   },
   define: {
