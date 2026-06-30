@@ -7,8 +7,8 @@ import { createFakeTimer } from '@widget-runtime/timer/fakes'
 import type { ServerTime } from '@widget-runtime/timer/server-time'
 import type { WidgetStorage } from '@widget-runtime/storage'
 import { createFakeStorage } from '@widget-runtime/storage/test/fakes'
-import type { WidgetTier } from '@/widget-host/model/tier'
-import type { WidgetRuntimeProps } from '@/widget-host/model/types'
+import type { WidgetTier } from '@widget-runtime/tier'
+import type { WidgetRuntimeProps } from '@widget-runtime/types'
 
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 

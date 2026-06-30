@@ -1,5 +1,5 @@
 import { reatomMemo } from '@/shared/reatom/reatom-memo'
-import type { WidgetRuntimeProps } from '@/widget-host/model/types'
+import type { WidgetRuntimeProps } from '@widget-runtime/types'
 import { WidgetControls } from '@/widget-host/ui/WidgetControls'
 
 import { clockNow } from '../model/clock-model'
