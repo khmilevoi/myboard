@@ -4,18 +4,18 @@
 
 **Goal:** Extract the board-internal code that widgets depend on into two new source-only workspace packages — `widget-runtime` (live-connection singletons) and `widget-sdk` (stateless React glue + UI) — with zero behavior change and all existing tests, typecheck, build, and e2e staying green.
 
-**Architecture:** Both packages are *source-only* (no build step), consumed through path aliases exactly like the existing `shared` package (`@shared/*`). The board keeps its current `@/...` imports unchanged: per-area alias redirects point those paths at the new packages, so board source is barely touched. Widgets (still bundled into the client via `@widgets` in this plan) switch their imports from `@/...` to the new package names, which is the forward-prep that lets them become standalone packages in Plan 2.
+**Architecture:** Both packages are *source-only* (no build step), consumed through path aliases exactly like the existing `shared` package. Package names stay unscoped (`widget-runtime`, `widget-sdk`); their import aliases are `@widget-runtime/*` and `@widget-sdk/*` — mirroring how the `shared` package is imported via `@shared/*`. **Every** consumer — the board (`client/src`) and the widgets (`widgets/*`) — imports the moved code through those aliases. The `@/` alias is restored to its true meaning: `client/src` and nothing else. There are no redirect aliases pointing `@/...` outside `src`.
 
 **Tech Stack:** pnpm workspaces + catalog, Vite 8 (Rolldown) / Vitest 4, TypeScript (`moduleResolution: bundler`), React 19, `@reatom/core` + `@reatom/react`, Dexie, Zod, errore.
 
 ## Global Constraints
 
 - No behavior change. This is a pure refactor; the only acceptance signal is that the **existing** test suite, `pnpm typecheck`, `pnpm build`, and `pnpm test:e2e` all stay green. Do not add features.
-- Every exported React function component stays wrapped with `reatomMemo` (project hard rule). Moving `reatomMemo` must not change any call site's wrapping.
+- `@/` resolves to `client/src` only. Cross-package imports use `@shared/*` (the `shared` package), `@widget-runtime/*`, or `@widget-sdk/*`. No file may import board internals through anything other than `@/` (and no widget may use `@/` at all — widgets are not part of `client/src`).
+- Every exported React function component stays wrapped with `reatomMemo` (project hard rule). Moving `reatomMemo` must not change any call site's wrapping — only the import specifier.
 - errore pattern: errors are values (`Error | T` unions, tagged errors), never thrown for control flow. Moved code keeps its existing error handling verbatim.
-- The new packages are **source-only**, consumed via aliases (`widget-runtime/*`, `widget-sdk/*`) — no `tsc`/bundler build step is added for them, mirroring how `shared` is consumed today.
+- The new packages are **source-only**, consumed via aliases — no `tsc`/bundler build step is added for them, mirroring how `shared` is consumed today.
 - Shared dependency versions come from the pnpm `catalog` (`catalog:` specifier) wherever a catalog entry exists (`react`, `react-dom`, `@reatom/core`, `zod`, `lucide-react`, `@testing-library/react`, `vitest`, `@types/react`, `@types/react-dom`).
-- After this plan, **no file under `widgets/` imports from `@/...`** (it may still import `@shared/...`). This is verified in Task 11.
 - Commit after every task. Use the existing commit-message style; do not push.
 
 ---
@@ -51,7 +51,6 @@ widget-sdk/                     # stateless React glue + UI (Plan 2: shared, not
   src/
     reatom/{reatom-memo,use-atom-value}.ts  # ← client/src/shared/reatom/*
     define-widget-client.ts     # ← client/src/widget-registry/model/widget-definition.ts
-    tier.ts is NOT here         # tier lives in widget-runtime (see architecture note below)
     vite-dev-config.ts          # NEW: shared dev Vite config factory (/api proxy + remoteHmr seam)
     lib/utils.ts                # ← client/src/lib/utils.ts (cn)
     ui/
@@ -61,53 +60,36 @@ widget-sdk/                     # stateless React glue + UI (Plan 2: shared, not
 
 **Architecture note — why `tier` is in `widget-runtime`, not `widget-sdk`:** the brainstorm placed `tier` in `widget-sdk`, but `WidgetRuntimeProps.tier: WidgetTier` (a runtime contract type) and `define-widget-client` (sdk) both reference `tier`. If `tier` lived in `widget-sdk` while the contract types lived in `widget-runtime`, the two packages would import each other (a cycle). Co-locating `tier` with the contract types in `widget-runtime` keeps the dependency one-way (`widget-sdk → widget-runtime`). `tier` is pure logic with no live state, so this does not affect the singleton boundary. This is the one deviation from the spec's package table and is intentional.
 
-**Board-side alias redirects** (added incrementally, each in the task that performs the matching move) so board `@/...` imports resolve to the packages without editing board source:
+**Import rewrite — applied to BOTH `client/src` and `widgets/`** (each move task does its row, for every consumer, in one substitution):
 
-| Board import prefix | Redirects to |
+| Old specifier (in `client/src` and/or `widgets/`) | New specifier |
 | --- | --- |
-| `@/storage/model` | `../widget-runtime/src/storage` |
-| `@/widget-api` | `../widget-runtime/src/widget-api` |
-| `@/shared/timer/model` | `../widget-runtime/src/timer` |
-| `@/widget-host/model/tier` | `../widget-runtime/src/tier` |
-| `@/widget-host/model/types` | `../widget-runtime/src/types` |
-| `@/shared/reatom` | `../widget-sdk/src/reatom` |
-| `@/widget-registry/model/widget-definition` | `../widget-sdk/src/define-widget-client` |
-| `@/lib/utils` | `../widget-sdk/src/lib/utils` |
-| `@/components/ui/tabs` | `../widget-sdk/src/ui/tabs` |
-| `@/widget-host/ui/WidgetControls` | `../widget-sdk/src/ui/WidgetControls` |
+| `@/storage/model/` (prefix) | `@widget-runtime/storage/` |
+| `@/widget-api/` (prefix) | `@widget-runtime/widget-api/` |
+| `@/shared/timer/model/` (prefix) | `@widget-runtime/timer/` |
+| `@/widget-host/model/tier` (exact) | `@widget-runtime/tier` |
+| `@/widget-host/model/types` (exact) | `@widget-runtime/types` |
+| `@/shared/reatom/` (prefix) | `@widget-sdk/reatom/` |
+| `@/lib/utils` (exact) | `@widget-sdk/lib/utils` |
+| `@/components/ui/tabs` (exact) | `@widget-sdk/ui/tabs` |
+| `@/widget-host/ui/WidgetControls` (exact) | `@widget-sdk/ui/WidgetControls` |
+| `@/widget-registry/model/widget-definition` (exact) | `@widget-sdk/define-widget-client` |
 
-Plus two base aliases (added once in Task 1): `widget-runtime` → `../widget-runtime/src`, `widget-sdk` → `../widget-sdk/src`.
+The `tier`/`types`/`WidgetControls` rows are **exact-module** replacements (not directory prefixes) so sibling board files that stay put — `@/widget-host/model/widget-frame-model`, `@/widget-host/ui/WidgetFrame`, etc. — are untouched.
 
-**Widget import remap** (applied in Task 10):
-
-| Old (`widgets/*`) | New |
-| --- | --- |
-| `@/storage/model/storage` | `widget-runtime/storage/storage` |
-| `@/storage/model/types` | `widget-runtime/storage/types` |
-| `@/storage/model/reatom/reatom-storage` | `widget-runtime/storage/reatom/reatom-storage` |
-| `@/storage/model/test/fakes` | `widget-runtime/storage/test/fakes` |
-| `@/shared/timer/model/server-time` | `widget-runtime/timer/server-time` |
-| `@/shared/timer/model/fakes` | `widget-runtime/timer/fakes` |
-| `@/widget-host/model/tier` | `widget-runtime/tier` |
-| `@/widget-host/model/types` | `widget-runtime/types` |
-| `@/shared/reatom/reatom-memo` | `widget-sdk/reatom/reatom-memo` |
-| `@/shared/reatom/use-atom-value` | `widget-sdk/reatom/use-atom-value` |
-| `@/widget-registry/model/widget-definition` | `widget-sdk/define-widget-client` |
-| `@/components/ui/tabs` | `widget-sdk/ui/tabs` |
-| `@/widget-host/ui/WidgetControls` | `widget-sdk/ui/WidgetControls` |
-| `@shared/widgets/contracts` | unchanged |
+**Aliases added once (Task 1):** `@widget-runtime/*` → `../widget-runtime/src/*` and `@widget-sdk/*` → `../widget-sdk/src/*`, in `client/vite.config.ts` (covers vite + vitest), `client/tsconfig.json`, and each new package's own `tsconfig.json` + `vitest.config.ts`. The `@` / `@shared` / `@widgets` aliases keep their current meaning.
 
 ---
 
-## Task 1: Scaffold both packages and base aliases
+## Task 1: Scaffold both packages and the two package aliases
 
 **Files:**
 - Create: `widget-runtime/package.json`, `widget-runtime/tsconfig.json`, `widget-runtime/vitest.config.ts`, `widget-runtime/vitest.setup.ts`, `widget-runtime/src/.gitkeep`
 - Create: `widget-sdk/package.json`, `widget-sdk/tsconfig.json`, `widget-sdk/vitest.config.ts`, `widget-sdk/vitest.setup.ts`, `widget-sdk/src/.gitkeep`
-- Modify: `pnpm-workspace.yaml`, `client/vite.config.ts` (resolve.alias), `client/tsconfig.json` (paths)
+- Modify: `pnpm-workspace.yaml`, `client/vite.config.ts`, `client/tsconfig.json`, `client/package.json`, `widgets/package.json`
 
 **Interfaces:**
-- Produces: workspace packages `widget-runtime` and `widget-sdk`; aliases `widget-runtime` → `../widget-runtime/src`, `widget-sdk` → `../widget-sdk/src` resolvable from the client (vite + tsc + vitest).
+- Produces: workspace packages `widget-runtime` and `widget-sdk`; aliases `@widget-runtime/*` → `../widget-runtime/src/*`, `@widget-sdk/*` → `../widget-sdk/src/*` resolvable from the client (vite + tsc + vitest) and from the packages themselves.
 
 - [ ] **Step 1: Baseline — confirm the suite is green before touching anything**
 
@@ -215,14 +197,14 @@ Set `clsx`, `tailwind-merge`, `@testing-library/jest-dom`, and `jsdom` to the ex
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "@shared/*": ["../shared/*"],
-      "widget-runtime/*": ["./src/*"]
+      "@widget-runtime/*": ["./src/*"]
     }
   },
   "include": ["src"]
 }
 ```
 
-- [ ] **Step 6: Write `widget-sdk/tsconfig.json`** (same shape, with the cross-package alias to `widget-runtime`)
+- [ ] **Step 6: Write `widget-sdk/tsconfig.json`** (adds the cross-package alias to `@widget-runtime`)
 
 ```json
 {
@@ -242,8 +224,8 @@ Set `clsx`, `tailwind-merge`, `@testing-library/jest-dom`, and `jsdom` to the ex
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "@shared/*": ["../shared/*"],
-      "widget-runtime/*": ["../widget-runtime/src/*"],
-      "widget-sdk/*": ["./src/*"]
+      "@widget-runtime/*": ["../widget-runtime/src/*"],
+      "@widget-sdk/*": ["./src/*"]
     }
   },
   "include": ["src"]
@@ -261,7 +243,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.resolve(import.meta.dirname, '../shared'),
-      'widget-runtime': path.resolve(import.meta.dirname, './src'),
+      '@widget-runtime': path.resolve(import.meta.dirname, './src'),
     },
   },
   test: {
@@ -310,8 +292,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.resolve(import.meta.dirname, '../shared'),
-      'widget-runtime': path.resolve(import.meta.dirname, '../widget-runtime/src'),
-      'widget-sdk': path.resolve(import.meta.dirname, './src'),
+      '@widget-runtime': path.resolve(import.meta.dirname, '../widget-runtime/src'),
+      '@widget-sdk': path.resolve(import.meta.dirname, './src'),
     },
   },
   test: {
@@ -333,39 +315,47 @@ import '@testing-library/jest-dom/vitest'
 // ...exact copy of the matchMedia block...
 ```
 
-- [ ] **Step 11: Add the two base aliases to the client (vite + tsc)**
+- [ ] **Step 11: Add the two aliases to the client (vite + tsc)**
 
-In `client/vite.config.ts`, convert `resolve.alias` to **array form** (so ordering is explicit; specific entries added in later tasks must precede the bare `@` entry) and add the two base aliases:
+In `client/vite.config.ts`, add to `resolve.alias` (object form is fine — these keys never collide with `@`, `@shared`, `@widgets`, since none is a prefix of another up to a `/` boundary):
 
 ```ts
   resolve: {
-    alias: [
-      // widget package base aliases (specific @/... redirects get inserted ABOVE the '@' entry in later tasks)
-      { find: 'widget-runtime', replacement: resolve(__dirname, '../widget-runtime/src') },
-      { find: 'widget-sdk', replacement: resolve(__dirname, '../widget-sdk/src') },
-      { find: '@', replacement: resolve(__dirname, './src') },
-      { find: '@shared', replacement: resolve(__dirname, '../shared') },
-      { find: '@widgets', replacement: resolve(__dirname, '../widgets') },
-    ],
+    alias: {
+      '@': resolve(__dirname, './src'),
+      '@shared': resolve(__dirname, '../shared'),
+      '@widgets': resolve(__dirname, '../widgets'),
+      '@widget-runtime': resolve(__dirname, '../widget-runtime/src'),
+      '@widget-sdk': resolve(__dirname, '../widget-sdk/src'),
+    },
   },
 ```
 
-In `client/tsconfig.json`, add to `paths` (these don't conflict with `@/*`):
+In `client/tsconfig.json`, add to `paths`:
 
 ```json
-      "widget-runtime/*": ["../widget-runtime/src/*"],
-      "widget-sdk/*": ["../widget-sdk/src/*"],
+      "@widget-runtime/*": ["../widget-runtime/src/*"],
+      "@widget-sdk/*": ["../widget-sdk/src/*"]
 ```
 
-- [ ] **Step 12: Install and verify nothing regressed**
+- [ ] **Step 12: Declare the workspace deps on the consumers**
+
+Add to BOTH `client/package.json` and `widgets/package.json` `dependencies`:
+
+```json
+    "widget-runtime": "workspace:*",
+    "widget-sdk": "workspace:*",
+```
+
+- [ ] **Step 13: Install and verify nothing regressed**
 
 Run: `pnpm install && pnpm typecheck && pnpm test`
 Expected: install links the two new workspace packages; typecheck no errors; all tests pass. Nothing imports the new packages yet, so this only proves the scaffold is inert.
 
-- [ ] **Step 13: Commit**
+- [ ] **Step 14: Commit**
 
 ```bash
-git add pnpm-workspace.yaml widget-runtime widget-sdk client/vite.config.ts client/tsconfig.json pnpm-lock.yaml
+git add pnpm-workspace.yaml widget-runtime widget-sdk client/vite.config.ts client/tsconfig.json client/package.json widgets/package.json pnpm-lock.yaml
 git commit -m "feat(widgets): scaffold widget-runtime and widget-sdk packages"
 ```
 
@@ -375,45 +365,36 @@ git commit -m "feat(widgets): scaffold widget-runtime and widget-sdk packages"
 
 **Files:**
 - Move: `client/src/storage/model/**` → `widget-runtime/src/storage/**` (every file, including `*.test.ts`)
-- Modify: `client/vite.config.ts`, `client/tsconfig.json` (add `@/storage/model` redirect)
+- Modify: every file under `client/src/**` and `widgets/**` importing `@/storage/model/...`
 
 **Interfaces:**
-- Consumes: base aliases from Task 1.
-- Produces: `widget-runtime/storage/storage` (`makeWidgetStorage`, `WidgetStorage`), `widget-runtime/storage/types` (`StorageApi`, `StorageListener`), `widget-runtime/storage/reatom/reatom-storage` (`withStorageKeyReadonly`, …), `widget-runtime/storage/test/fakes`. The storage tree's only external import is `@shared/storage/scope` (already aliased in the package configs).
+- Consumes: aliases from Task 1.
+- Produces: `@widget-runtime/storage/storage` (`makeWidgetStorage`, `WidgetStorage`), `@widget-runtime/storage/types` (`StorageApi`, `StorageListener`), `@widget-runtime/storage/reatom/reatom-storage`, `@widget-runtime/storage/test/fakes`. The storage tree's only external import is `@shared/storage/scope` (aliased in the package configs).
 
 - [ ] **Step 1: Move the whole tree (preserves git history and co-located tests)**
 
 ```bash
 mkdir -p widget-runtime/src/storage
 git mv client/src/storage/model/* widget-runtime/src/storage/
-git rm -r client/src/storage   # remove the now-empty directory
+git rm -r client/src/storage
 ```
 
-No edits to the moved files are needed: their cross-imports are all relative (resolve unchanged after the move) and their only alias import is `@shared/storage/scope`, which `widget-runtime` aliases.
+No edits to the moved files are needed: their cross-imports are all relative and their only alias import is `@shared/storage/scope`, which `widget-runtime` aliases.
 
-- [ ] **Step 2: Add the board redirect so existing `@/storage/model/...` imports keep resolving**
+- [ ] **Step 2: Rewrite every consumer's import specifier**
 
-In `client/vite.config.ts`, insert ABOVE the `{ find: '@', ... }` entry:
+Find all sites: `git grep -l "@/storage/model" -- client/src widgets`
+Replace the prefix `@/storage/model/` with `@widget-runtime/storage/` in each. (Examples: `@/storage/model/storage` → `@widget-runtime/storage/storage`; `@/storage/model/reatom/reatom-storage` → `@widget-runtime/storage/reatom/reatom-storage`; `@/storage/model/test/fakes` → `@widget-runtime/storage/test/fakes`.)
 
-```ts
-      { find: '@/storage/model', replacement: resolve(__dirname, '../widget-runtime/src/storage') },
-```
+- [ ] **Step 3: Confirm no stale references remain**
 
-In `client/tsconfig.json` `paths`, add (TS picks the most specific match):
+Run: `git grep -n "@/storage/model" -- client/src widgets`
+Expected: empty.
 
-```json
-      "@/storage/model/*": ["../widget-runtime/src/storage/*"],
-```
+- [ ] **Step 4: Run the moved tests and the full suite**
 
-- [ ] **Step 3: Run the moved tests under the runtime package**
-
-Run: `pnpm --filter widget-runtime test`
-Expected: the storage suite (`storage.test.ts`, `dexie-storage.test.ts`, `reatom-storage.test.ts`, `channel.test.ts`, `scope.test.ts`, `subscribe-key.test.ts`, `validate.test.ts`, `http-storage.test.ts`, `sse-client.test.ts`, `fakes.test.ts`) runs and passes under `widget-runtime`'s vitest (jsdom + polyfills + fake-indexeddb + Temporal).
-
-- [ ] **Step 4: Verify the board still resolves storage and is green**
-
-Run: `pnpm typecheck && pnpm test`
-Expected: no typecheck errors; the full suite passes. The board's `@/storage/model/*` imports now resolve through the redirect; client tests that imported storage (e.g. `board-storage.test.ts`) still pass.
+Run: `pnpm --filter widget-runtime test && pnpm typecheck && pnpm test`
+Expected: the storage suite runs and passes under `widget-runtime`'s vitest (jsdom + polyfills + fake-indexeddb + Temporal); board typecheck + full suite green.
 
 - [ ] **Step 5: Commit**
 
@@ -427,11 +408,11 @@ git commit -m "refactor(widgets): move storage into widget-runtime"
 ## Task 3: Move `widget-api` into `widget-runtime`
 
 **Files:**
-- Move: `client/src/widget-api/widget-api.ts` and `client/src/widget-api/widget-api.test.ts` → `widget-runtime/src/widget-api/`
-- Modify: `client/vite.config.ts`, `client/tsconfig.json` (add `@/widget-api` redirect)
+- Move: `client/src/widget-api/{widget-api.ts,widget-api.test.ts}` → `widget-runtime/src/widget-api/`
+- Modify: every consumer importing `@/widget-api/...`
 
 **Interfaces:**
-- Produces: `widget-runtime/widget-api/widget-api` (`makeWidgetApi`, `WidgetApiError`, `MakeWidgetApiOptions`). External imports: `@shared/widgets/contracts`, `errore`, `zod` (all available in the package).
+- Produces: `@widget-runtime/widget-api/widget-api` (`makeWidgetApi`, `WidgetApiError`, `MakeWidgetApiOptions`). External imports: `@shared/widgets/contracts`, `errore`, `zod`.
 
 - [ ] **Step 1: Move the files**
 
@@ -442,26 +423,17 @@ git mv client/src/widget-api/widget-api.test.ts widget-runtime/src/widget-api/wi
 git rm -r client/src/widget-api
 ```
 
-No edits needed — the file imports only `@shared/widgets/contracts`, `errore`, and `zod`.
+No edits to the moved file — it imports only `@shared/widgets/contracts`, `errore`, `zod`.
 
-- [ ] **Step 2: Add the board redirect**
+- [ ] **Step 2: Rewrite consumers**
 
-`client/vite.config.ts` (above `@`):
-
-```ts
-      { find: '@/widget-api', replacement: resolve(__dirname, '../widget-runtime/src/widget-api') },
-```
-
-`client/tsconfig.json` `paths`:
-
-```json
-      "@/widget-api/*": ["../widget-runtime/src/widget-api/*"],
-```
+Find: `git grep -l "@/widget-api" -- client/src widgets`
+Replace prefix `@/widget-api/` with `@widget-runtime/widget-api/`. Then confirm empty: `git grep -n "@/widget-api" -- client/src widgets`.
 
 - [ ] **Step 3: Verify**
 
 Run: `pnpm --filter widget-runtime test && pnpm typecheck && pnpm test`
-Expected: `widget-api.test.ts` passes under `widget-runtime`; full suite and typecheck green.
+Expected: `widget-api.test.ts` passes under `widget-runtime`; full suite + typecheck green.
 
 - [ ] **Step 4: Commit**
 
@@ -475,11 +447,11 @@ git commit -m "refactor(widgets): move widget-api into widget-runtime"
 ## Task 4: Move the timer (server-time) into `widget-runtime`
 
 **Files:**
-- Move: `client/src/shared/timer/model/{server-time,http-time,fakes}.ts` and their `*.test.ts` → `widget-runtime/src/timer/`
-- Modify: `client/vite.config.ts`, `client/tsconfig.json` (add `@/shared/timer/model` redirect)
+- Move: `client/src/shared/timer/model/*` → `widget-runtime/src/timer/`
+- Modify: every consumer importing `@/shared/timer/model/...`
 
 **Interfaces:**
-- Produces: `widget-runtime/timer/server-time` (`getServerTime`, `createServerTime`, `ServerTime`), `widget-runtime/timer/http-time` (`fetchServerTime`, `TimeError`), `widget-runtime/timer/fakes` (`createFakeTimer`). External imports: `@reatom/core`, `errore`, `zod`.
+- Produces: `@widget-runtime/timer/server-time` (`getServerTime`, `createServerTime`, `ServerTime`), `@widget-runtime/timer/http-time`, `@widget-runtime/timer/fakes` (`createFakeTimer`). External imports: `@reatom/core`, `errore`, `zod`.
 
 - [ ] **Step 1: Move the files**
 
@@ -489,26 +461,17 @@ git mv client/src/shared/timer/model/* widget-runtime/src/timer/
 git rm -r client/src/shared/timer
 ```
 
-The moved files import each other relatively (`./http-time`) and `@reatom/core`/`errore`/`zod` — no edits needed.
+The moved files import each other relatively (`./http-time`) and `@reatom/core`/`errore`/`zod` — no edits.
 
-- [ ] **Step 2: Add the board redirect**
+- [ ] **Step 2: Rewrite consumers**
 
-`client/vite.config.ts` (above `@`):
-
-```ts
-      { find: '@/shared/timer/model', replacement: resolve(__dirname, '../widget-runtime/src/timer') },
-```
-
-`client/tsconfig.json` `paths`:
-
-```json
-      "@/shared/timer/model/*": ["../widget-runtime/src/timer/*"],
-```
+Find: `git grep -l "@/shared/timer/model" -- client/src widgets`
+Replace prefix `@/shared/timer/model/` with `@widget-runtime/timer/`. Confirm empty: `git grep -n "@/shared/timer/model" -- client/src widgets`.
 
 - [ ] **Step 3: Verify**
 
 Run: `pnpm --filter widget-runtime test && pnpm typecheck && pnpm test`
-Expected: timer tests pass under `widget-runtime`; full suite + typecheck green (the board's server-time consumers — e.g. theme/clock — resolve through the redirect).
+Expected: timer tests pass under `widget-runtime`; full suite + typecheck green.
 
 - [ ] **Step 4: Commit**
 
@@ -522,14 +485,14 @@ git commit -m "refactor(widgets): move server-time into widget-runtime"
 ## Task 5: Move tier + the runtime contract types into `widget-runtime`
 
 **Files:**
-- Move: `client/src/widget-host/model/tier.ts`, `client/src/widget-host/model/tier.test.ts` → `widget-runtime/src/tier.ts`, `widget-runtime/src/tier.test.ts`
+- Move: `client/src/widget-host/model/{tier.ts,tier.test.ts}` → `widget-runtime/src/{tier.ts,tier.test.ts}`
 - Move: `client/src/widget-host/model/types.ts` → `widget-runtime/src/types.ts`
 - Create: `widget-runtime/src/theme.ts`
-- Modify: `widget-runtime/src/types.ts` (rewrite import block), `client/src/shared/theme/types.ts` (re-export `ResolvedTheme`), `client/vite.config.ts`, `client/tsconfig.json`
+- Modify: `widget-runtime/src/types.ts` (import block); `client/src/shared/theme/types.ts`; every consumer of `@/widget-host/model/tier` and `@/widget-host/model/types`
 
 **Interfaces:**
-- Consumes: `widget-runtime/storage/storage` (`WidgetStorage`), `widget-runtime/widget-api/widget-api` (`WidgetApiError`) from Tasks 2–3.
-- Produces: `widget-runtime/tier` (`WidgetTier`, `TierConfig`, tier resolution helpers), `widget-runtime/types` (`WidgetRuntimeProps`, `WidgetComponent`, `WidgetComponentModule`, `WidgetLoader`, `WidgetMode`), `widget-runtime/theme` (`ResolvedTheme`).
+- Consumes: `@widget-runtime/storage/storage` (`WidgetStorage`), `@widget-runtime/widget-api/widget-api` (`WidgetApiError`) from Tasks 2–3.
+- Produces: `@widget-runtime/tier` (`WidgetTier`, `TierConfig`, tier helpers), `@widget-runtime/types` (`WidgetRuntimeProps`, `WidgetComponent`, `WidgetComponentModule`, `WidgetLoader`, `WidgetMode`), `@widget-runtime/theme` (`ResolvedTheme`).
 
 - [ ] **Step 1: Move tier and the contract types**
 
@@ -539,7 +502,7 @@ git mv client/src/widget-host/model/tier.test.ts widget-runtime/src/tier.test.ts
 git mv client/src/widget-host/model/types.ts widget-runtime/src/types.ts
 ```
 
-(`tier.ts` has no imports, so it moves clean. `widget-host/model/` keeps `widget-frame-model.ts`, which stays in the board.)
+(`widget-host/model/` keeps `widget-frame-model.ts`, which stays in the board.)
 
 - [ ] **Step 2: Create `widget-runtime/src/theme.ts`**
 
@@ -548,9 +511,7 @@ git mv client/src/widget-host/model/types.ts widget-runtime/src/types.ts
 export type ResolvedTheme = 'light' | 'dark'
 ```
 
-- [ ] **Step 3: Rewrite the import block of `widget-runtime/src/types.ts`**
-
-Replace the four leading import lines (the `@shared`, `@/shared/theme/types`, `@/storage/...`, `@/widget-api/...`, `./tier` imports) with package-internal paths. The body (the `export type ...` declarations) is unchanged:
+- [ ] **Step 3: Rewrite the import block of `widget-runtime/src/types.ts`** (body of `export type` declarations unchanged)
 
 ```ts
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
@@ -570,29 +531,18 @@ Edit `client/src/shared/theme/types.ts` so `ResolvedTheme` has a single definiti
 /** What the user picks. */
 export type ThemeMode = 'light' | 'dark' | 'system'
 
-export type { ResolvedTheme } from 'widget-runtime/theme'
+export type { ResolvedTheme } from '@widget-runtime/theme'
 ```
 
-- [ ] **Step 5: Add the board redirects for tier and types**
+- [ ] **Step 5: Rewrite consumers of tier and types (exact-module, not prefix)**
 
-`client/vite.config.ts` (above `@`):
-
-```ts
-      { find: '@/widget-host/model/tier', replacement: resolve(__dirname, '../widget-runtime/src/tier') },
-      { find: '@/widget-host/model/types', replacement: resolve(__dirname, '../widget-runtime/src/types') },
-```
-
-`client/tsconfig.json` `paths`:
-
-```json
-      "@/widget-host/model/tier": ["../widget-runtime/src/tier"],
-      "@/widget-host/model/types": ["../widget-runtime/src/types"],
-```
+Find: `git grep -l "@/widget-host/model/tier\|@/widget-host/model/types" -- client/src widgets`
+Replace `@/widget-host/model/tier` → `@widget-runtime/tier` and `@/widget-host/model/types` → `@widget-runtime/types`. Do **not** touch `@/widget-host/model/widget-frame-model`. Confirm: `git grep -n "@/widget-host/model/tier\b\|@/widget-host/model/types\b" -- client/src widgets` is empty.
 
 - [ ] **Step 6: Verify**
 
 Run: `pnpm --filter widget-runtime test && pnpm typecheck && pnpm test`
-Expected: `tier.test.ts` passes under `widget-runtime`; the many board files importing `@/widget-host/model/types` (Board, WidgetFrame, FullscreenOverlay, etc.) resolve through the redirect; full suite + typecheck green.
+Expected: `tier.test.ts` passes under `widget-runtime`; Board/WidgetFrame/FullscreenOverlay and other consumers of the contract types compile against `@widget-runtime/types`; full suite + typecheck green.
 
 - [ ] **Step 7: Commit**
 
@@ -607,10 +557,10 @@ git commit -m "refactor(widgets): move tier and runtime contract types into widg
 
 **Files:**
 - Move: `client/src/shared/reatom/{reatom-memo.ts,reatom-memo.test.tsx,use-atom-value.ts}` → `widget-sdk/src/reatom/`
-- Modify: `client/vite.config.ts`, `client/tsconfig.json` (add `@/shared/reatom` redirect)
+- Modify: every consumer importing `@/shared/reatom/...`
 
 **Interfaces:**
-- Produces: `widget-sdk/reatom/reatom-memo` (`reatomMemo`), `widget-sdk/reatom/use-atom-value` (`useAtomValue`). External imports: `@reatom/core`, `@reatom/react`, `react`.
+- Produces: `@widget-sdk/reatom/reatom-memo` (`reatomMemo`), `@widget-sdk/reatom/use-atom-value` (`useAtomValue`). External imports: `@reatom/core`, `@reatom/react`, `react`.
 
 - [ ] **Step 1: Move the files**
 
@@ -620,26 +570,17 @@ git mv client/src/shared/reatom/* widget-sdk/src/reatom/
 git rm -r client/src/shared/reatom
 ```
 
-No edits needed — the files import only `@reatom/core`, `@reatom/react`, and `react`.
+No edits — the files import only `@reatom/core`, `@reatom/react`, `react`.
 
-- [ ] **Step 2: Add the board redirect**
+- [ ] **Step 2: Rewrite consumers (this is the highest-fan-out move — `reatomMemo` is imported by nearly every component)**
 
-`client/vite.config.ts` (above `@`):
+Find: `git grep -l "@/shared/reatom" -- client/src widgets`
+Replace prefix `@/shared/reatom/` with `@widget-sdk/reatom/`. Confirm empty: `git grep -n "@/shared/reatom" -- client/src widgets`.
 
-```ts
-      { find: '@/shared/reatom', replacement: resolve(__dirname, '../widget-sdk/src/reatom') },
-```
-
-`client/tsconfig.json` `paths`:
-
-```json
-      "@/shared/reatom/*": ["../widget-sdk/src/reatom/*"],
-```
-
-- [ ] **Step 3: Verify (this is the highest-fan-out move — the redirect must catch every `reatomMemo` import)**
+- [ ] **Step 3: Verify**
 
 Run: `pnpm --filter widget-sdk test && pnpm typecheck && pnpm test`
-Expected: `reatom-memo.test.tsx` passes under `widget-sdk`; every board component (all wrapped with `reatomMemo` via the redirect) typechecks and tests pass.
+Expected: `reatom-memo.test.tsx` passes under `widget-sdk`; every board component (all wrapped with `reatomMemo`) typechecks and tests pass.
 
 - [ ] **Step 4: Commit**
 
@@ -653,14 +594,12 @@ git commit -m "refactor(widgets): move reatomMemo/useAtomValue into widget-sdk"
 ## Task 7: Move `cn`, `tabs`, and `WidgetControls` into `widget-sdk`
 
 **Files:**
-- Move: `client/src/lib/utils.ts` → `widget-sdk/src/lib/utils.ts`
-- Move: `client/src/components/ui/tabs.tsx` → `widget-sdk/src/ui/tabs.tsx`
-- Move: `client/src/widget-host/ui/{WidgetControls.tsx,WidgetControls.module.css,WidgetControls.test.tsx}` → `widget-sdk/src/ui/`
-- Modify: the three moved files' import lines; `client/vite.config.ts`; `client/tsconfig.json`
+- Move: `client/src/lib/utils.ts` → `widget-sdk/src/lib/utils.ts`; `client/src/components/ui/tabs.tsx` → `widget-sdk/src/ui/tabs.tsx`; `client/src/widget-host/ui/WidgetControls.{tsx,module.css,test.tsx}` → `widget-sdk/src/ui/`
+- Modify: the moved files' import lines; consumers of `@/lib/utils`, `@/components/ui/tabs`, `@/widget-host/ui/WidgetControls`
 
 **Interfaces:**
-- Consumes: `widget-sdk/reatom/reatom-memo` from Task 6.
-- Produces: `widget-sdk/lib/utils` (`cn`), `widget-sdk/ui/tabs` (`Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`), `widget-sdk/ui/WidgetControls` (`WidgetControls`).
+- Consumes: `@widget-sdk/reatom/reatom-memo` from Task 6.
+- Produces: `@widget-sdk/lib/utils` (`cn`), `@widget-sdk/ui/tabs` (`Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`), `@widget-sdk/ui/WidgetControls` (`WidgetControls`).
 
 - [ ] **Step 1: Move the files**
 
@@ -673,45 +612,32 @@ git mv client/src/widget-host/ui/WidgetControls.module.css widget-sdk/src/ui/Wid
 git mv client/src/widget-host/ui/WidgetControls.test.tsx widget-sdk/src/ui/WidgetControls.test.tsx
 ```
 
-- [ ] **Step 2: Rewrite imports inside the moved files to package-internal paths**
+- [ ] **Step 2: Rewrite imports inside the moved files to package-internal relative paths**
 
-In `widget-sdk/src/ui/tabs.tsx`, change the two aliased imports:
+`widget-sdk/src/ui/tabs.tsx`:
 
 ```ts
 import { cn } from '../lib/utils'
 import { reatomMemo } from '../reatom/reatom-memo'
 ```
 
-In `widget-sdk/src/ui/WidgetControls.tsx`, change:
+`widget-sdk/src/ui/WidgetControls.tsx`:
 
 ```ts
 import { reatomMemo } from '../reatom/reatom-memo'
 ```
 
-(`widget-sdk/src/lib/utils.ts` imports only `clsx` and `tailwind-merge` — no edit.)
+(`widget-sdk/src/lib/utils.ts` imports only `clsx`/`tailwind-merge` — no edit.)
 
-- [ ] **Step 3: Add the board redirects**
+- [ ] **Step 3: Rewrite consumers (exact-module replacements)**
 
-`client/vite.config.ts` (above `@`):
-
-```ts
-      { find: '@/lib/utils', replacement: resolve(__dirname, '../widget-sdk/src/lib/utils') },
-      { find: '@/components/ui/tabs', replacement: resolve(__dirname, '../widget-sdk/src/ui/tabs') },
-      { find: '@/widget-host/ui/WidgetControls', replacement: resolve(__dirname, '../widget-sdk/src/ui/WidgetControls') },
-```
-
-`client/tsconfig.json` `paths`:
-
-```json
-      "@/lib/utils": ["../widget-sdk/src/lib/utils"],
-      "@/components/ui/tabs": ["../widget-sdk/src/ui/tabs"],
-      "@/widget-host/ui/WidgetControls": ["../widget-sdk/src/ui/WidgetControls"],
-```
+Find: `git grep -l "@/lib/utils\|@/components/ui/tabs\|@/widget-host/ui/WidgetControls" -- client/src widgets`
+Replace: `@/lib/utils` → `@widget-sdk/lib/utils`; `@/components/ui/tabs` → `@widget-sdk/ui/tabs`; `@/widget-host/ui/WidgetControls` → `@widget-sdk/ui/WidgetControls`. Note `cn` is used by every `client/src/components/ui/*` primitive — update all of them. Confirm empty afterwards.
 
 - [ ] **Step 4: Verify**
 
 Run: `pnpm --filter widget-sdk test && pnpm typecheck && pnpm test`
-Expected: `WidgetControls.test.tsx` passes under `widget-sdk`; every board file importing `cn` (all `components/ui/*` use it) resolves via the redirect; full suite + typecheck green.
+Expected: `WidgetControls.test.tsx` passes under `widget-sdk`; all `cn` consumers resolve; full suite + typecheck green.
 
 - [ ] **Step 5: Commit**
 
@@ -725,12 +651,12 @@ git commit -m "refactor(widgets): move cn, tabs, and WidgetControls into widget-
 ## Task 8: Move `defineWidgetClient` into `widget-sdk`
 
 **Files:**
-- Move: `client/src/widget-registry/model/widget-definition.ts`, `client/src/widget-registry/model/widget-definition.test.ts` → `widget-sdk/src/define-widget-client.ts`, `widget-sdk/src/define-widget-client.test.ts`
-- Modify: the moved file's import block; `client/vite.config.ts`; `client/tsconfig.json`
+- Move: `client/src/widget-registry/model/widget-definition.ts` → `widget-sdk/src/define-widget-client.ts`; `client/src/widget-registry/model/widget-definition.test.ts` → `widget-sdk/src/define-widget-client.test.ts`
+- Modify: the moved files' imports; consumers of `@/widget-registry/model/widget-definition`
 
 **Interfaces:**
-- Consumes: `widget-runtime/tier` (`TierConfig`), `widget-runtime/types` (`WidgetComponentModule`, `WidgetLoader`) from Task 5.
-- Produces: `widget-sdk/define-widget-client` (`defineWidgetClient`, `toWidgetType`, `WidgetType`, `WidgetMetadata`, `WidgetClientDefinition`, `WidgetIconName`).
+- Consumes: `@widget-runtime/tier` (`TierConfig`), `@widget-runtime/types` (`WidgetComponentModule`, `WidgetLoader`) from Task 5.
+- Produces: `@widget-sdk/define-widget-client` (`defineWidgetClient`, `toWidgetType`, `WidgetType`, `WidgetMetadata`, `WidgetClientDefinition`, `WidgetIconName`).
 
 - [ ] **Step 1: Move the files**
 
@@ -741,37 +667,26 @@ git mv client/src/widget-registry/model/widget-definition.test.ts widget-sdk/src
 
 - [ ] **Step 2: Rewrite the import block of `widget-sdk/src/define-widget-client.ts`**
 
-Replace the `@/widget-host/model/tier` and `@/widget-host/model/types` imports with cross-package paths (the `@shared/widgets/contracts` import is unchanged):
-
 ```ts
 import type { WidgetEventMap } from '@shared/widgets/contracts'
 
-import type { TierConfig } from 'widget-runtime/tier'
-import type { WidgetComponentModule, WidgetLoader } from 'widget-runtime/types'
+import type { TierConfig } from '@widget-runtime/tier'
+import type { WidgetComponentModule, WidgetLoader } from '@widget-runtime/types'
 ```
 
-- [ ] **Step 3: Update the test file's import if it referenced the old path**
+- [ ] **Step 3: Fix the test file's self-import**
 
-In `widget-sdk/src/define-widget-client.test.ts`, change any `from './widget-definition'` to `from './define-widget-client'`, and any `@/widget-host/...` imports to the `widget-runtime/...` equivalents.
+In `widget-sdk/src/define-widget-client.test.ts`, change `from './widget-definition'` → `from './define-widget-client'`, and any `@/widget-host/...` imports to the `@widget-runtime/...` equivalents.
 
-- [ ] **Step 4: Add the board redirect**
+- [ ] **Step 4: Rewrite consumers**
 
-`client/vite.config.ts` (above `@`):
-
-```ts
-      { find: '@/widget-registry/model/widget-definition', replacement: resolve(__dirname, '../widget-sdk/src/define-widget-client') },
-```
-
-`client/tsconfig.json` `paths`:
-
-```json
-      "@/widget-registry/model/widget-definition": ["../widget-sdk/src/define-widget-client"],
-```
+Find: `git grep -l "@/widget-registry/model/widget-definition" -- client/src widgets`
+Replace `@/widget-registry/model/widget-definition` → `@widget-sdk/define-widget-client` (the board's `client/src/widget-registry/model/registry.ts` re-exports `WidgetType`/`WidgetIconName` and calls `toWidgetType`). Confirm empty.
 
 - [ ] **Step 5: Verify**
 
 Run: `pnpm --filter widget-sdk test && pnpm typecheck && pnpm test`
-Expected: `define-widget-client.test.ts` passes; `client/src/widget-registry/model/registry.ts` (which re-exports `WidgetType`/`WidgetIconName` and calls `toWidgetType`) resolves via the redirect; full suite + typecheck green.
+Expected: `define-widget-client.test.ts` passes; registry resolves; full suite + typecheck green.
 
 - [ ] **Step 6: Commit**
 
@@ -785,15 +700,13 @@ git commit -m "refactor(widgets): move defineWidgetClient into widget-sdk"
 ## Task 9: Add the shared dev Vite config factory to `widget-sdk`
 
 **Files:**
-- Create: `widget-sdk/src/vite-dev-config.ts`
+- Create: `widget-sdk/src/vite-dev-config.ts`, `widget-sdk/src/vite-dev-config.test.ts`
 - Modify: `client/vite.config.ts` (use the factory for the `/api` proxy)
 
 **Interfaces:**
-- Produces: `widget-sdk/vite-dev-config` exporting `apiProxy()` returning the `/api` proxy config object used by both the board and (in Plan 2) every widget dev server.
+- Produces: `@widget-sdk/vite-dev-config` exporting `apiProxy()` returning the `/api` proxy config used by both the board and (in Plan 2) every widget dev server.
 
-- [ ] **Step 1: Write the failing test**
-
-Create `widget-sdk/src/vite-dev-config.test.ts`:
+- [ ] **Step 1: Write the failing test** — `widget-sdk/src/vite-dev-config.test.ts`
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -803,15 +716,11 @@ import { apiProxy } from './vite-dev-config'
 describe('apiProxy', () => {
   it('defaults to the local storage server and rewrites origin', () => {
     const proxy = apiProxy()
-    expect(proxy['/api']).toMatchObject({
-      target: 'http://localhost:8787',
-      changeOrigin: true,
-    })
+    expect(proxy['/api']).toMatchObject({ target: 'http://localhost:8787', changeOrigin: true })
   })
 
-  it('honours VITE_API_PROXY override', () => {
-    const proxy = apiProxy('http://example.test:9000')
-    expect(proxy['/api'].target).toBe('http://example.test:9000')
+  it('honours an explicit target override', () => {
+    expect(apiProxy('http://example.test:9000')['/api'].target).toBe('http://example.test:9000')
   })
 })
 ```
@@ -845,7 +754,7 @@ Expected: PASS (both cases).
 In `client/vite.config.ts`, import the factory and replace the two hand-written `/api` proxy objects (`server.proxy` and `preview.proxy`) with `apiProxy()`:
 
 ```ts
-import { apiProxy } from 'widget-sdk/vite-dev-config'
+import { apiProxy } from '@widget-sdk/vite-dev-config'
 // ...
   server: {
     watch:
@@ -860,7 +769,7 @@ import { apiProxy } from 'widget-sdk/vite-dev-config'
 - [ ] **Step 6: Verify dev/build still resolve and the suite is green**
 
 Run: `pnpm typecheck && pnpm test && pnpm build`
-Expected: typecheck + tests green; `pnpm build` (typecheck + client build) succeeds, proving the client still bundles widgets (via `@widgets`) with the shared proxy factory in place.
+Expected: typecheck + tests green; `pnpm build` succeeds, proving the client still bundles widgets (via `@widgets`) with the shared proxy factory in place.
 
 - [ ] **Step 7: Commit**
 
@@ -871,83 +780,33 @@ git commit -m "feat(widgets): add shared dev Vite config factory in widget-sdk"
 
 ---
 
-## Task 10: Repoint `widgets/*` imports to the new packages
+## Task 10: Full-stack verification, boundary check, dead-directory cleanup
 
 **Files:**
-- Modify: every file under `widgets/clock/**` and `widgets/ofelia-poop-duty/**` that imports `@/...` (source and tests)
-- Modify: `widgets/package.json` (declare the package deps)
-
-**Interfaces:**
-- Consumes: every `widget-runtime/*` and `widget-sdk/*` entrypoint produced in Tasks 2–9.
-- Produces: a `widgets/` tree with **no `@/...` imports** (only `@shared/...` and the two new packages).
-
-- [ ] **Step 1: Apply the import remap from the File Structure table**
-
-Replace each specifier across `widgets/`. Exact mapping:
-
-```text
-@/storage/model/storage                  -> widget-runtime/storage/storage
-@/storage/model/types                    -> widget-runtime/storage/types
-@/storage/model/reatom/reatom-storage    -> widget-runtime/storage/reatom/reatom-storage
-@/storage/model/test/fakes               -> widget-runtime/storage/test/fakes
-@/shared/timer/model/server-time         -> widget-runtime/timer/server-time
-@/shared/timer/model/fakes               -> widget-runtime/timer/fakes
-@/widget-host/model/tier                 -> widget-runtime/tier
-@/widget-host/model/types                -> widget-runtime/types
-@/shared/reatom/reatom-memo              -> widget-sdk/reatom/reatom-memo
-@/shared/reatom/use-atom-value           -> widget-sdk/reatom/use-atom-value
-@/widget-registry/model/widget-definition -> widget-sdk/define-widget-client
-@/components/ui/tabs                      -> widget-sdk/ui/tabs
-@/widget-host/ui/WidgetControls          -> widget-sdk/ui/WidgetControls
-```
-
-Leave `@shared/widgets/contracts` untouched.
-
-- [ ] **Step 2: Declare the package deps in `widgets/package.json`**
-
-Add to `dependencies` (so the workspace links them; versions resolve to the workspace copies):
-
-```json
-    "widget-runtime": "workspace:*",
-    "widget-sdk": "workspace:*",
-```
-
-- [ ] **Step 3: Confirm no `@/` imports remain under `widgets/`**
-
-Run: `git grep -n "from '@/" -- widgets/`
-Expected: no output (empty result).
-
-- [ ] **Step 4: Verify the full suite, typecheck, and build**
-
-Run: `pnpm install && pnpm typecheck && pnpm test && pnpm build`
-Expected: all green. Widget tests still execute under the client vitest (`../widgets/**` include) and resolve the new package names via the client's `widget-runtime`/`widget-sdk` base aliases; the client build still bundles widgets via `@widgets`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add -A
-git commit -m "refactor(widgets): import widget-runtime/widget-sdk packages instead of @/ board paths"
-```
-
----
-
-## Task 11: Full-stack verification and dead-directory cleanup
-
-**Files:**
-- Delete: any now-empty board directories left behind (`client/src/components/ui/` only if `tabs.tsx` was its last member — verify first; it is not, so it stays)
+- Delete: any now-empty board directories left behind
 - Verify only; no functional changes
 
 **Interfaces:**
-- Consumes: everything from Tasks 1–10.
+- Consumes: everything from Tasks 1–9.
 
-- [ ] **Step 1: Remove genuinely empty leftover directories**
+- [ ] **Step 1: Restore `@/` to "src only" — there must be no `@/` escaping into a package and no `@/` inside widgets**
 
-Run: `git status --porcelain` and `find client/src -type d -empty`
-Delete only directories that are now empty (e.g. `client/src/storage`, `client/src/widget-api`, `client/src/shared/timer`, `client/src/shared/reatom` were removed via `git rm -r` already; confirm none linger). Do **not** remove `client/src/components/ui/` — it still holds `button.tsx`, `dialog.tsx`, etc.
+Run: `git grep -n "from '@/" -- widgets`
+Expected: empty (widgets only use `@shared`, `@widget-runtime`, `@widget-sdk`).
+Run: `git grep -n "from '@/" -- widget-runtime widget-sdk`
+Expected: empty (the packages never import board `src`).
 
-- [ ] **Step 2: Run the complete verification matrix**
+- [ ] **Step 2: Confirm the one-way package dependency (no cycle)**
 
-Run each and confirm green:
+Run: `git grep -n "@widget-sdk" -- widget-runtime/src`
+Expected: empty — `widget-runtime` never imports `widget-sdk`.
+
+- [ ] **Step 3: Remove genuinely empty leftover directories**
+
+Run: `find client/src -type d -empty`
+Delete only directories now empty after the moves (e.g. confirm `client/src/storage`, `client/src/widget-api`, `client/src/shared/timer`, `client/src/shared/reatom`, `client/src/lib` if `utils.ts` was its only file). Do **not** remove `client/src/components/ui/` — it still holds `button.tsx`, `dialog.tsx`, etc.
+
+- [ ] **Step 4: Run the complete verification matrix**
 
 ```bash
 pnpm install
@@ -959,15 +818,9 @@ pnpm build
 pnpm test:e2e
 ```
 
-Expected: install clean; typecheck no errors; both package suites pass; full `pnpm -r test` passes; `pnpm build` succeeds; Playwright e2e passes (proves the running app — board + bundled widgets + storage/SSE — behaves exactly as before).
+Expected: all green — install clean; typecheck no errors; both package suites pass; full `pnpm -r test` passes; `pnpm build` succeeds; Playwright e2e passes (the running app — board + bundled widgets + storage/SSE — behaves exactly as before).
 
-- [ ] **Step 3: Sanity-check the boundary**
-
-Run: `git grep -n "from '@/" -- widgets/` (expect empty) and confirm `widget-runtime/src` has no import of `widget-sdk`:
-Run: `git grep -n "widget-sdk" -- widget-runtime/src/`
-Expected: both empty — confirms the one-way `widget-sdk → widget-runtime` dependency with no cycle.
-
-- [ ] **Step 4: Commit any cleanup**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -980,22 +833,23 @@ git commit -m "chore(widgets): remove empty board dirs after runtime/sdk extract
 
 **Spec coverage (Plan 1 scope = Phased Rollout step 2):**
 - "Extract `widget-runtime` (storage, widget-api, SSE/BroadcastChannel, server-time, runtime types)" → Tasks 2,3,4,5 (SSE/BroadcastChannel move inside the storage tree in Task 2).
-- "Extract `widget-sdk` (reatomMemo, useAtomValue, defineWidgetClient, tier, shared dev Vite config, WidgetControls/Tabs)" → Tasks 6,7,8,9 — **except `tier`**, which is intentionally in `widget-runtime` (architecture note) to avoid a package cycle. Documented deviation, not a gap.
-- "Rewrite the `@/` imports in `widgets/*` to point at these packages" → Task 10, verified empty in Tasks 10/11.
-- "Refactor with no behavior change" → enforced by the green-suite gate at the end of every task and the full matrix in Task 11.
+- "Extract `widget-sdk` (reatomMemo, useAtomValue, defineWidgetClient, tier, shared dev Vite config, WidgetControls/Tabs)" → Tasks 6,7,8,9 — **except `tier`**, intentionally in `widget-runtime` (architecture note) to avoid a package cycle. Documented deviation, not a gap.
+- "Rewrite the `@/` imports in `widgets/*` to point at these packages" → done per-module in Tasks 2–8, verified empty in Task 10.
+- "Refactor with no behavior change" → enforced by the green-suite gate ending every task and the full matrix in Task 10.
+- User constraint "`@/` only for `client/src`; use `@widget-runtime`/`@widget-sdk` for the packages" → satisfied: no redirect aliases; board and widgets both import via the package aliases; verified in Task 10 Steps 1–2.
 
-**Placeholder scan:** No "TBD"/"add error handling"/"similar to" — every move lists exact `git mv` commands, every config/shim/import-rewrite shows full content. The only intentional "fill from the source file" instructions are Step 8/10 of Task 1 (copy the polyfill blocks verbatim from `client/src/vitest.setup.ts`) and the version-pin lookups in Task 1 Steps 3–4 — both point at an exact existing file rather than leaving a value undefined.
+**Placeholder scan:** No "TBD"/"add error handling"/"similar to" — every move lists exact `git mv` commands, every config/import-rewrite shows full content. The only "fill from the source file" instructions are Task 1 Steps 8/10 (copy polyfill blocks verbatim from `client/src/vitest.setup.ts`) and the version-pin lookups in Task 1 Steps 3–4 — both point at an exact existing file.
 
-**Type consistency:** `WidgetTier`/`TierConfig` consumed in Task 8 are produced in Task 5; `WidgetComponentModule`/`WidgetLoader` consumed in Task 8 produced in Task 5; `WidgetStorage`/`WidgetApiError` consumed by `types.ts` in Task 5 produced in Tasks 2/3; `reatomMemo` consumed by tabs/WidgetControls in Task 7 produced in Task 6; `apiProxy` produced and consumed within Task 9. No cross-task name drift.
+**Type/specifier consistency:** `WidgetTier`/`TierConfig` (Task 5) consumed in Task 8; `WidgetComponentModule`/`WidgetLoader` (Task 5) consumed in Task 8; `WidgetStorage`/`WidgetApiError` (Tasks 2/3) consumed by `types.ts` in Task 5; `reatomMemo` (Task 6) consumed by tabs/WidgetControls in Task 7; `apiProxy` produced+consumed in Task 9. Every alias used in a consumer (`@widget-runtime/*`, `@widget-sdk/*`) is registered in Task 1. No name/alias drift.
 
 ---
 
 ## Follow-on Plans (to be written after Plan 1 lands)
 
-These are deferred so their concrete config is written against the real, extracted package boundary. Each is its own spec→plan deliverable.
+Deferred so their concrete config is written against the real, extracted package boundary. Each is its own spec→plan deliverable. Both reuse the `@widget-runtime/*` / `@widget-sdk/*` alias convention established here.
 
 **Plan 2 — Federation + per-widget packages + codegen (Phased Rollout steps 3–4):**
-split `widgets/package.json` into per-widget packages named `widgets-<dir>`; add `@module-federation/vite` to each widget (`exposes: { './ui': ... }`, `base: '/widgets/<id>/'`, `dev.remoteHmr`, shared singletons incl. `strictVersion`) and to the host; build each widget's `dev/` standalone harness from `widget-sdk/vite-dev-config`; write the single `codegen` script (client registry with inlined static metadata, `WidgetIconName` union, server registry, federation manifest) and wire it as a `pre*` step of `dev`/`build`/`dev:server`/`typecheck`/`test`; switch the client registry to a synchronous codegen'd catalog with `loadRemote()` component loaders; add `widgets/.ports.json` assignment; give each widget its own `vitest.config.ts` and remove the `../widgets/**` glob from `client/vite.config.ts`.
+split `widgets/package.json` into per-widget packages named `widgets-<dir>`; add `@module-federation/vite` to each widget (`exposes: { './ui': ... }`, `base: '/widgets/<id>/'`, `dev.remoteHmr`, shared singletons incl. `strictVersion`) and to the host; build each widget's `dev/` standalone harness from `@widget-sdk/vite-dev-config`; write the single `codegen` script (client registry with inlined static metadata, `WidgetIconName` union, server registry, federation manifest) and wire it as a `pre*` step of `dev`/`build`/`dev:server`/`typecheck`/`test`; switch the client registry to a synchronous codegen'd catalog with `loadRemote()` component loaders; add `widgets/.ports.json`; give each widget its own `vitest.config.ts` and remove the `../widgets/**` glob from `client/vite.config.ts`.
 
 **Plan 3 — Production build, deploy, PWA, docs (Phased Rollout steps 5–6):**
 update `pnpm build` to build widgets then client; copy widget `dist/` into the client output before the PWA service worker is generated and add `/widgets/**` to the Workbox precache; reconcile the manual `codeSplitting.groups` with federation `shared`; update Dockerfile + nginx to serve `/widgets/<id>/` and verify the board loads `remoteEntry.js` from the nginx image (not just `vite preview`); re-verify the Pi build timeout; run board e2e against the production-style build plus the standalone-harness smoke test; correct the stale widget-path references in `AGENTS.md`/`CLAUDE.md`.
