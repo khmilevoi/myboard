@@ -32,12 +32,13 @@ widget-runtime/                 # live connections + runtime contract types (Pla
   vitest.setup.ts               # BroadcastChannel/EventSource/Temporal polyfills (from client setup)
   src/
     storage/                    # ← client/src/storage/model/* (whole tree, incl. *.test.ts)
-      storage.ts types.ts scope.ts validate.ts subscribe-key.ts
+      index.ts                  # ← storage.ts renamed → imports as @widget-runtime/storage (no storage/storage)
+      types.ts scope.ts validate.ts subscribe-key.ts
       client/{db,dexie-storage,channel}.ts
       server/{http-storage,sse-client}.ts
       reatom/reatom-storage.ts
       test/fakes.ts
-    widget-api/widget-api.ts    # ← client/src/widget-api/widget-api.ts
+    widget-api.ts               # ← client/src/widget-api/widget-api.ts (flat → @widget-runtime/widget-api)
     timer/{server-time,http-time,fakes}.ts  # ← client/src/shared/timer/model/*
     tier.ts                     # ← client/src/widget-host/model/tier.ts
     types.ts                    # ← client/src/widget-host/model/types.ts (WidgetRuntimeProps, WidgetComponent[Module], WidgetLoader, WidgetMode)
@@ -64,8 +65,9 @@ widget-sdk/                     # stateless React glue + UI (Plan 2: shared, not
 
 | Old specifier (in `client/src` and/or `widgets/`) | New specifier |
 | --- | --- |
-| `@/storage/model/` (prefix) | `@widget-runtime/storage/` |
-| `@/widget-api/` (prefix) | `@widget-runtime/widget-api/` |
+| `@/storage/model/storage` (exact) | `@widget-runtime/storage` |
+| `@/storage/model/` (prefix, all other subpaths) | `@widget-runtime/storage/` |
+| `@/widget-api/widget-api` (exact) | `@widget-runtime/widget-api` |
 | `@/shared/timer/model/` (prefix) | `@widget-runtime/timer/` |
 | `@/widget-host/model/tier` (exact) | `@widget-runtime/tier` |
 | `@/widget-host/model/types` (exact) | `@widget-runtime/types` |
@@ -75,7 +77,7 @@ widget-sdk/                     # stateless React glue + UI (Plan 2: shared, not
 | `@/widget-host/ui/WidgetControls` (exact) | `@widget-sdk/ui/WidgetControls` |
 | `@/widget-registry/model/widget-definition` (exact) | `@widget-sdk/define-widget-client` |
 
-The `tier`/`types`/`WidgetControls` rows are **exact-module** replacements (not directory prefixes) so sibling board files that stay put — `@/widget-host/model/widget-frame-model`, `@/widget-host/ui/WidgetFrame`, etc. — are untouched.
+Rows marked **exact** are full-module-specifier replacements (not directory prefixes). This matters in two ways: (1) sibling board files that stay put — `@/widget-host/model/widget-frame-model`, `@/widget-host/ui/WidgetFrame`, etc. — are untouched; (2) the storage barrel and the single-file widget-api map to `@widget-runtime/storage` and `@widget-runtime/widget-api` with **no `storage/storage` or `widget-api/widget-api` duplication**. Apply the exact storage-barrel replacement *before* the `@/storage/model/` prefix rule so the barrel doesn't pick up a trailing `/storage`.
 
 **Aliases added once (Task 1):** `@widget-runtime/*` → `../widget-runtime/src/*` and `@widget-sdk/*` → `../widget-sdk/src/*`, in `client/vite.config.ts` (covers vite + vitest), `client/tsconfig.json`, and each new package's own `tsconfig.json` + `vitest.config.ts`. The `@` / `@shared` / `@widgets` aliases keep their current meaning.
 
@@ -369,22 +371,25 @@ git commit -m "feat(widgets): scaffold widget-runtime and widget-sdk packages"
 
 **Interfaces:**
 - Consumes: aliases from Task 1.
-- Produces: `@widget-runtime/storage/storage` (`makeWidgetStorage`, `WidgetStorage`), `@widget-runtime/storage/types` (`StorageApi`, `StorageListener`), `@widget-runtime/storage/reatom/reatom-storage`, `@widget-runtime/storage/test/fakes`. The storage tree's only external import is `@shared/storage/scope` (aliased in the package configs).
+- Produces: `@widget-runtime/storage` (`makeWidgetStorage`, `WidgetStorage` — the directory barrel), `@widget-runtime/storage/types` (`StorageApi`, `StorageListener`), `@widget-runtime/storage/reatom/reatom-storage`, `@widget-runtime/storage/test/fakes`. The storage tree's only external import is `@shared/storage/scope` (aliased in the package configs).
 
-- [ ] **Step 1: Move the whole tree (preserves git history and co-located tests)**
+- [ ] **Step 1: Move the whole tree (preserves git history and co-located tests) and rename the barrel**
 
 ```bash
 mkdir -p widget-runtime/src/storage
 git mv client/src/storage/model/* widget-runtime/src/storage/
 git rm -r client/src/storage
+# rename the barrel so it imports as @widget-runtime/storage, not @widget-runtime/storage/storage
+git mv widget-runtime/src/storage/storage.ts widget-runtime/src/storage/index.ts
 ```
 
-No edits to the moved files are needed: their cross-imports are all relative and their only alias import is `@shared/storage/scope`, which `widget-runtime` aliases.
+The only internal reference to the renamed barrel is its own test. Edit `widget-runtime/src/storage/storage.test.ts`: change `import { makeWidgetStorage } from './storage'` to `from './index'`. No other moved file imports the barrel relatively (the barrel's own imports of its siblings — `./client/dexie-storage`, `./scope`, etc. — are unaffected by the rename since it stays in the same directory); the tree's only alias import is `@shared/storage/scope`, which `widget-runtime` aliases.
 
-- [ ] **Step 2: Rewrite every consumer's import specifier**
+- [ ] **Step 2: Rewrite every consumer's import specifier (exact barrel first, then the prefix)**
 
-Find all sites: `git grep -l "@/storage/model" -- client/src widgets`
-Replace the prefix `@/storage/model/` with `@widget-runtime/storage/` in each. (Examples: `@/storage/model/storage` → `@widget-runtime/storage/storage`; `@/storage/model/reatom/reatom-storage` → `@widget-runtime/storage/reatom/reatom-storage`; `@/storage/model/test/fakes` → `@widget-runtime/storage/test/fakes`.)
+Find all sites: `git grep -l "@/storage/model" -- client/src widgets`. Apply, in order:
+1. exact: `@/storage/model/storage` → `@widget-runtime/storage`
+2. prefix (everything else): `@/storage/model/` → `@widget-runtime/storage/` (e.g. `@/storage/model/types` → `@widget-runtime/storage/types`; `@/storage/model/reatom/reatom-storage` → `@widget-runtime/storage/reatom/reatom-storage`; `@/storage/model/test/fakes` → `@widget-runtime/storage/test/fakes`)
 
 - [ ] **Step 3: Confirm no stale references remain**
 
@@ -412,23 +417,22 @@ git commit -m "refactor(widgets): move storage into widget-runtime"
 - Modify: every consumer importing `@/widget-api/...`
 
 **Interfaces:**
-- Produces: `@widget-runtime/widget-api/widget-api` (`makeWidgetApi`, `WidgetApiError`, `MakeWidgetApiOptions`). External imports: `@shared/widgets/contracts`, `errore`, `zod`.
+- Produces: `@widget-runtime/widget-api` (`makeWidgetApi`, `WidgetApiError`, `MakeWidgetApiOptions` — a single flat module, no `widget-api/widget-api`). External imports: `@shared/widgets/contracts`, `errore`, `zod`.
 
-- [ ] **Step 1: Move the files**
+- [ ] **Step 1: Move the file flat (it is a single module, so no `widget-api/` directory)**
 
 ```bash
-mkdir -p widget-runtime/src/widget-api
-git mv client/src/widget-api/widget-api.ts widget-runtime/src/widget-api/widget-api.ts
-git mv client/src/widget-api/widget-api.test.ts widget-runtime/src/widget-api/widget-api.test.ts
+git mv client/src/widget-api/widget-api.ts widget-runtime/src/widget-api.ts
+git mv client/src/widget-api/widget-api.test.ts widget-runtime/src/widget-api.test.ts
 git rm -r client/src/widget-api
 ```
 
 No edits to the moved file — it imports only `@shared/widgets/contracts`, `errore`, `zod`.
 
-- [ ] **Step 2: Rewrite consumers**
+- [ ] **Step 2: Rewrite consumers (exact module)**
 
 Find: `git grep -l "@/widget-api" -- client/src widgets`
-Replace prefix `@/widget-api/` with `@widget-runtime/widget-api/`. Then confirm empty: `git grep -n "@/widget-api" -- client/src widgets`.
+Replace exact `@/widget-api/widget-api` → `@widget-runtime/widget-api`. Then confirm empty: `git grep -n "@/widget-api" -- client/src widgets`.
 
 - [ ] **Step 3: Verify**
 
@@ -491,7 +495,7 @@ git commit -m "refactor(widgets): move server-time into widget-runtime"
 - Modify: `widget-runtime/src/types.ts` (import block); `client/src/shared/theme/types.ts`; every consumer of `@/widget-host/model/tier` and `@/widget-host/model/types`
 
 **Interfaces:**
-- Consumes: `@widget-runtime/storage/storage` (`WidgetStorage`), `@widget-runtime/widget-api/widget-api` (`WidgetApiError`) from Tasks 2–3.
+- Consumes: `@widget-runtime/storage` (`WidgetStorage`), `@widget-runtime/widget-api` (`WidgetApiError`) from Tasks 2–3.
 - Produces: `@widget-runtime/tier` (`WidgetTier`, `TierConfig`, tier helpers), `@widget-runtime/types` (`WidgetRuntimeProps`, `WidgetComponent`, `WidgetComponentModule`, `WidgetLoader`, `WidgetMode`), `@widget-runtime/theme` (`ResolvedTheme`).
 
 - [ ] **Step 1: Move tier and the contract types**
@@ -517,8 +521,8 @@ export type ResolvedTheme = 'light' | 'dark'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import type { ComponentType } from 'react'
 
-import { WidgetStorage } from './storage/storage'
-import type { WidgetApiError } from './widget-api/widget-api'
+import { WidgetStorage } from './storage'
+import type { WidgetApiError } from './widget-api'
 import type { ResolvedTheme } from './theme'
 import type { WidgetTier } from './tier'
 ```
