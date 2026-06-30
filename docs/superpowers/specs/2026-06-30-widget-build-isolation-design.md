@@ -186,9 +186,11 @@ whatever widget packages currently exist, so adding a widget folder makes
 `pnpm dev` pick it up automatically — the script itself never lists widgets
 by name and never needs editing.
 
-Each widget gets a fixed dev port (convention: `5180 + index`, assigned by
-the same codegen manifest that drives the host's federation `remotes`
-config, so port numbers stay stable across runs without manual tracking).
+Each widget reads its own dev port from `widgets/.ports.json` (see "Dev port
+assignment" below) in its `vite.config.ts`; the host reads the same file to
+populate its federation `remotes` config. Because that file persists
+assignments across runs instead of deriving them from list position, a
+widget's port never changes when other widgets are added or removed.
 `dev: { remoteHmr: true }` keeps cross-bundle edits hot-reloading instead of
 forcing a full page reload — this must be set on every widget's federation
 config as well as the host's; setting it on the host alone is not enough
@@ -223,14 +225,44 @@ contain `client.ts`, `server.ts`, and `package.json`, and generates:
   `client/src/widget-registry/model/registry.ts`);
 - the server widget registry (replaces the hand-written import list in
   `server/src/widgets/production-registry.ts`);
-- a manifest consumed by the host's federation config for dev ports and
-  production remote paths.
+- a manifest consumed by the host's federation config for production remote
+  paths (dev ports come from `widgets/.ports.json`, see below — the one
+  piece of this generated state that is committed, not gitignored).
 
-Generated files are gitignored and regenerated as a pre-step before `dev`,
+These three are gitignored and regenerated as a pre-step before `dev`,
 `build`, and `dev:server`, so they cannot drift from the actual contents of
 `widgets/`. Adding a widget means adding its package folder (with its own
 `package.json`, `vite.config.ts`, `client.ts`, and `server.ts`); no existing
 registry file needs hand-editing to make it appear on both client and server.
+
+### Dev port assignment
+
+Dev ports cannot follow the same from-scratch regeneration rule: deriving a
+widget's port from its position in an alphabetically (or filesystem-order)
+sorted list means adding a widget that sorts earlier shifts every later
+widget's port on the next regeneration — breaking saved browser tabs,
+Docker port mappings, and any cached `remoteEntry.js` reference. Ports need
+memory across runs, not just across the current `widgets/` contents.
+
+Port assignment therefore lives in one additional file, `widgets/.ports.json`,
+which is the one piece of generated state that is **committed**, not
+gitignored:
+
+```json
+{ "clock": 5180, "ofelia-poop-duty": 5181 }
+```
+
+The codegen script reads this file, keeps every existing entry unchanged,
+and appends the next free port (`max(existing ports) + 1`, starting at 5180
+if the file does not exist yet) for any widget folder it does not already
+list. Each `pnpm dev` or `pnpm build` run regenerates this file in place
+alongside the gitignored registries above; adding a widget is still just
+"add the folder, run `pnpm dev` once" — the only difference is that this one
+file's diff (a single new line) gets committed with the new widget, the same
+way a `pnpm install` diff to a lockfile gets committed. Removing a widget
+leaves its entry unused rather than renumbering everything else; pruning a
+stale entry is an optional manual cleanup, not something the codegen does
+automatically.
 
 The client widget catalog (used by the "add widget" panel for titles/icons)
 becomes asynchronous, since `client.ts` now loads through `loadRemote()`
@@ -301,6 +333,8 @@ renders, covering the harness itself.
   directly, using real storage and widget RPC against a running dev server.
 - Adding a new widget package under `widgets/` makes it appear in the client
   catalog and server dispatcher without hand-editing any registry file.
+- Adding or removing a widget package never changes another existing
+  widget's dev port (verified via `widgets/.ports.json`).
 - `pnpm dev` is the only command needed to start the board and every
   widget's dev server together; adding a widget package requires no change
   to this command or its underlying script.
