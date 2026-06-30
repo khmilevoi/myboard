@@ -2,6 +2,11 @@
 
 **Date:** 2026-06-30
 **Status:** Approved
+**Revised:** 2026-07-01 — folded in fixes for gaps found in design review: the
+full board surface widgets depend on (now split into `widget-runtime` +
+`widget-sdk`), a synchronous codegen'd catalog, PWA precaching of remotes,
+the standalone-harness dev proxy, production base paths / nginx verification,
+federation version strictness, codegen lifecycle in CI, and e2e topology.
 
 ## Goal
 
@@ -22,13 +27,16 @@ build-isolation requirement is exactly the need that was missing then.
 - Convert `widgets/<name>` into independent pnpm workspace packages.
 - Give each widget's client UI an independent production build artifact,
   composed into the board at runtime rather than bundled at board build time.
-- Extract the host-supplied client API (storage, widget RPC) into a new
-  `widget-runtime` package, shared by the board and by standalone widget
-  dev/preview entrypoints.
+- Extract the board surface widgets depend on into two new packages:
+  `widget-runtime` (storage, widget RPC, SSE/`BroadcastChannel`, server-time —
+  the live-connection singletons) and `widget-sdk` (reatom/React glue,
+  `defineWidgetClient`, tier, shared UI primitives), both shared by the board
+  and by standalone widget dev/preview entrypoints.
 - Add a standalone dev entrypoint per widget that mounts it directly against
   a real running server.
-- Replace the three hand-maintained widget lists (client registry, server
-  registry, host remote config) with a single build-time codegen step.
+- Replace the hand-maintained widget lists (client registry, server registry,
+  host remote config, and the `WidgetIconName` union) with a single
+  build-time codegen step.
 - Keep the server-side widget functions in one Node bundle; no server-side
   runtime isolation is introduced.
 
@@ -67,11 +75,18 @@ renderer never sets). This is a hard correctness constraint, not a tuning
 option.
 
 `@module-federation/vite` (peer range includes `vite: ^8.0.0`) is used to
-manage this: each widget is a federation **remote** exposing its `client.ts`;
-the board is the federation **host** that consumes widgets as remotes and
-declares `react`, `react-dom`, `@reatom/core`, `@reatom/react`, and
-`widget-runtime` as shared singletons. In production, the plugin resolves
-remotes from prebuilt assets.
+manage this: each widget is a federation **remote** exposing only its UI
+component (its `loadComponent` target), not its whole `client.ts` — the
+widget's static metadata is codegen'd into the board at build time (see
+"Widget Registries and Codegen"), so the board never loads a remote just to
+populate its catalog. The board is the federation **host** that consumes
+widgets as remotes and declares `react`, `react-dom`, `@reatom/core`,
+`@reatom/react`, and `widget-runtime` as shared **singletons** (with
+`strictVersion`, so a version mismatch fails the build instead of silently
+loading two copies — see "Error Handling"). `widget-sdk` is declared as a
+shared dependency but does not need to be a singleton: it is stateless React
+glue and presentational UI, not a live connection. In production, the plugin
+resolves remotes from prebuilt assets served under `/widgets/<id>/`.
 
 **Confirmed by spike (2026-06-30).** A throwaway host/remote pair was built
 with this project's exact dependency versions (`vite@8.0.16` with its
@@ -129,40 +144,86 @@ between them) that nothing in this design's goals calls for.
 ```text
 widgets/
   clock/
-    package.json          # new: own deps, own scripts
-    vite.config.ts         # federation({ name: 'clock', exposes: {...}, shared: [...] })
+    package.json          # new: name "widgets-clock", own deps, own scripts
+    vite.config.ts         # federation({ name: 'clock', exposes: { './ui': './ui/Clock' }, shared: [...] }), base: '/widgets/clock/'
     client.ts / server.ts / types.ts
     model/ ui/ server/
     dev/
       index.html
       main.tsx             # standalone harness, see below
   ofelia-poop-duty/
-    ... same shape
-widget-runtime/             # new package, sibling of client/server/shared/widgets
+    ... same shape (package name "widgets-ofelia-poop-duty")
+widget-runtime/             # new package: live connections, federation singleton
   package.json
   src/
-    storage.ts              # makeWidgetStorage (Dexie + HTTP backend)
+    storage.ts              # makeWidgetStorage (Dexie + HTTP backend) + reatom binding
     widget-api.ts           # makeWidgetApi (HTTP RPC client)
-    types.ts                # WidgetRuntimeProps and related contract types
+    sse.ts / channel.ts     # SSE client + BroadcastChannel glue (live connections)
+    server-time.ts          # getServerTime singleton (shared offset, sync, visibility listener)
+    types.ts                # WidgetRuntimeProps, StorageApi, WidgetStorage, ...
+widget-sdk/                 # new package: stateless React glue + UI, shared (not singleton)
+  package.json
+  src/
+    reatom-memo.ts          # reatomMemo (mandatory component wrapper)
+    use-atom-value.ts
+    define-widget-client.ts # defineWidgetClient + widget metadata types
+    tier.ts                 # widget tier types / thresholds
+    vite-dev-config.ts      # shared dev Vite config factory (/api proxy, SSE, remoteHmr)
+    ui/                     # WidgetControls, Tabs/TabsList/TabsTrigger, ...
 ```
 
 `pnpm-workspace.yaml` changes `widgets` to the glob `widgets/*`, and adds
-`widget-runtime`.
+`widget-runtime` and `widget-sdk`.
 
-## Widget Runtime Package
+## Widget Runtime and SDK Packages
 
-`client/src/storage` and `client/src/widget-api` currently implement the
-host-supplied API (`WidgetStorage`, `WidgetApi`) but live inside the board
-app, unreachable from a standalone widget entry. They move into
-`widget-runtime`, along with the `WidgetRuntimeProps` type currently in
-`client/src/widget-host/model/types.ts`. The board and every widget's
-standalone dev entry depend on this package and get the same bridge
-implementation — no duplicated storage/transport code, and no risk of the
-standalone harness drifting from what the board actually injects.
+Widgets today reach into the board through the `@/` alias (→ `client/src`) for
+far more than storage and widget RPC. A non-test grep of `widgets/*` finds
+imports of `@/shared/reatom/reatom-memo` (the mandatory `reatomMemo` wrapper,
+used by every widget component), `@/shared/reatom/use-atom-value`,
+`@/shared/timer/model/server-time`, `@/widget-host/ui/WidgetControls`,
+`@/widget-host/model/tier`, `@/components/ui/tabs`,
+`@/widget-registry/model/widget-definition` (`defineWidgetClient`, called by
+every `client.ts`), and `@/storage/...`. Once a widget is a standalone
+package, the `@/` alias no longer resolves, so all of these must move out of
+the board into shared packages. Extracting only `storage` + `widget-api` (as
+an earlier draft of this design assumed) is not enough.
 
-`widget-runtime` is marked as a federation-shared singleton: it holds live
-SSE and `BroadcastChannel` connections, and duplicate copies would open
-duplicate connections per widget bundle for no benefit.
+The extracted surface is split across two packages by one rule: **does it
+hold a live connection or shared mutable runtime state?**
+
+`widget-runtime` (federation-shared **singleton**) — anything that must exist
+once per page:
+
+- `storage` (Dexie + HTTP backend) and its reatom binding,
+- `widget-api` (HTTP RPC client),
+- the SSE client and `BroadcastChannel` glue — live connections; duplicate
+  copies would open duplicate connections per widget bundle for no benefit,
+- `server-time` — `getServerTime()` is a module-level singleton holding a
+  shared clock offset, a network sync, and a `visibilitychange` listener;
+  duplicate copies would each sync and listen independently, so it belongs
+  here rather than in `widget-sdk`,
+- runtime contract types (`WidgetRuntimeProps`, `StorageApi`, `WidgetStorage`).
+
+`widget-sdk` (federation-shared, but **not** required to be a singleton — it
+is stateless React glue and presentational UI):
+
+- `reatomMemo` and `useAtomValue` — the reatom/React integration; this is how
+  widgets get the shared `@reatom/react` layer (resolving the apparent
+  inconsistency of declaring `@reatom/react` a singleton while no widget
+  imports it directly),
+- `defineWidgetClient` and the widget metadata types,
+- `tier` types and thresholds,
+- the shared dev Vite config factory (see "Dev Workflow"),
+- shared UI primitives `WidgetControls` and `Tabs`/`TabsList`/`TabsTrigger`,
+  moved out of the board (`client/src/widget-host/ui`,
+  `client/src/components/ui`) so widgets stop importing board chrome through
+  `@/`.
+
+The board and every widget (including its standalone dev entry) depend on
+both packages and get the same implementation — no duplicated storage/transport
+code, and no risk of the standalone harness drifting from what the board
+injects.
 
 ## Standalone Dev Harness
 
@@ -174,6 +235,13 @@ the board would use. This `dev/` entry is also the widget's federation remote
 dev server: `pnpm --filter widgets-clock dev` starts it, and opening its port
 directly in a browser shows the widget alone with full functionality; the
 board's host dev server consumes the same running process as its remote.
+
+Because the widget dev server is a separate Vite server on its own port, it
+reaches the storage API and widget RPC through the same `/api` proxy the board
+uses, supplied by the shared dev Vite config factory in `widget-sdk`
+(`vite-dev-config.ts`: target `VITE_API_PROXY ?? http://localhost:8787`,
+`changeOrigin`, SSE-compatible). All calls stay same-origin, so no CORS
+handling is added to the server.
 
 ## Dev Workflow
 
@@ -194,7 +262,10 @@ widget's port never changes when other widgets are added or removed.
 `dev: { remoteHmr: true }` keeps cross-bundle edits hot-reloading instead of
 forcing a full page reload — this must be set on every widget's federation
 config as well as the host's; setting it on the host alone is not enough
-(confirmed by spike, see above).
+(confirmed by spike, see above). The board and every widget build their dev
+server config from the shared factory in `widget-sdk` (`vite-dev-config.ts`),
+so the `/api` proxy, SSE proxying, and `remoteHmr` setting are defined once
+and cannot drift between board and widgets.
 
 ## Production Build & Deploy
 
@@ -203,37 +274,75 @@ config as well as the host's; setting it on the host alone is not enough
 --filter client build`: every widget package builds first (in whatever order
 pnpm resolves the glob; widgets do not depend on each other), each producing
 its own `widgets/<id>/dist/` (`remoteEntry.js` plus chunks, with
-`react`/`react-dom`/`@reatom/*`/`widget-runtime` external), then the client
-build resolves federation remotes from those already-built `dist/`
-directories. Like the dev script, this never names a widget explicitly, so a
-new widget package is included automatically and `pnpm build` does not
-change when widgets are added.
+`react`/`react-dom`/`@reatom/*`/`widget-runtime`/`widget-sdk` external) built
+with `base: '/widgets/<id>/'` so its emitted asset URLs resolve from the
+subpath it is served under, then the client build resolves federation remotes
+from those already-built `dist/` directories. Like the dev script, this never
+names a widget explicitly, so a new widget package is included automatically
+and `pnpm build` does not change when widgets are added.
 
 Deployment topology does not change: one Docker image, one nginx, the same
 `pi.toml` target. Built widget `dist/` directories are copied into the
-client's served output and exposed under `/widgets/<id>/`. No new service, no
-CORS, no separate release cycle per widget. The existing 30-minute `pi.toml`
-build timeout should be re-checked once the multi-step build (N widget builds
-+ client build) is in place, since Pi hardware is already the slow case today.
+client's served output and exposed under `/widgets/<id>/` — and the copy
+happens **before the client's PWA service worker is generated**, so Workbox
+includes `/widgets/**` in its precache manifest with per-file revision hashes.
+That means widget remotes are precached (available offline) and update
+atomically with each deploy, with no stale `CacheFirst` `remoteEntry.js`;
+because deployment is single-image / single-release, treating widgets as part
+of the app shell matches how they actually ship. No new service, no CORS, no
+separate release cycle per widget.
+
+Because the spike validated only `vite build` + `vite preview` (flat-served),
+the production path — the board resolving `/widgets/<id>/remoteEntry.js` from
+the actual nginx image, with each widget's `base` applied — must be verified
+explicitly as part of this step (Phased Rollout step 5), not assumed from the
+preview result. The existing 30-minute `pi.toml` build timeout should also be
+re-checked once the multi-step build (N widget builds + client build) is in
+place, since Pi hardware is already the slow case today.
 
 ## Widget Registries and Codegen
 
-A build-time script globs `widgets/*/`, where each directory is expected to
-contain `client.ts`, `server.ts`, and `package.json`, and generates:
+A single build-time `codegen` script globs `widgets/*/`, where each directory
+is expected to contain `client.ts`, `server.ts`, and `package.json`, and
+generates:
 
 - the client widget registry (replaces the hand-written import list in
-  `client/src/widget-registry/model/registry.ts`);
+  `client/src/widget-registry/model/registry.ts`). It inlines each widget's
+  **static metadata** (`id`, `title`, `description`, `defaultSize`, `icon`)
+  read from `client.ts`, plus a `loadComponent` thunk that calls
+  `loadRemote()`. Because the metadata is inlined at build time, the "add
+  widget" catalog stays synchronous — only the UI component crosses the
+  federation boundary at mount time, exactly as today's lazy `import()` does;
+- the `WidgetIconName` union (today a hand-maintained
+  `'Clock' | 'CalendarDays' | 'Cat'` in `widget-definition.ts`), derived from
+  the same metadata so adding a widget with a new icon needs no hand-edit;
 - the server widget registry (replaces the hand-written import list in
   `server/src/widgets/production-registry.ts`);
 - a manifest consumed by the host's federation config for production remote
   paths (dev ports come from `widgets/.ports.json`, see below — the one
   piece of this generated state that is committed, not gitignored).
 
-These three are gitignored and regenerated as a pre-step before `dev`,
-`build`, and `dev:server`, so they cannot drift from the actual contents of
-`widgets/`. Adding a widget means adding its package folder (with its own
-`package.json`, `vite.config.ts`, `client.ts`, and `server.ts`); no existing
-registry file needs hand-editing to make it appear on both client and server.
+All generated files except `.ports.json` are gitignored. The `codegen` script
+is wired as an explicit `pre*` step of **every** script that imports them —
+not just `dev`, `build`, and `dev:server`, but also `typecheck` and `test`,
+since `registry.test.ts` and `production-registry.ts` import the generated
+registries and a fresh checkout or CI run that typechecks/tests before
+building would otherwise fail on missing files. `lint`/`format` ignore the
+`*.generated.*` files. This keeps the generated state from drifting from the
+actual contents of `widgets/`. Adding a widget means adding its package folder
+(with its own `package.json`, `vite.config.ts`, `client.ts`, and `server.ts`);
+no existing registry file needs hand-editing to make it appear on both client
+and server.
+
+The client widget catalog (used by the "add widget" panel for titles/icons)
+stays **synchronous**: its metadata is the codegen-inlined static data above,
+not a `loadRemote()` result, so the panel renders the full widget list
+immediately without fetching any remote. Only the UI component loads through
+`loadRemote()`, and only when a widget is actually mounted — a widget placed
+on a board lazy-loads through `WidgetFrame` exactly as it does today. (An
+earlier draft made the whole catalog asynchronous; that forced loading every
+widget's remote just to list titles, a needless regression that the static
+codegen avoids.)
 
 ### Dev port assignment
 
@@ -264,24 +373,23 @@ leaves its entry unused rather than renumbering everything else; pruning a
 stale entry is an optional manual cleanup, not something the codegen does
 automatically.
 
-The client widget catalog (used by the "add widget" panel for titles/icons)
-becomes asynchronous, since `client.ts` now loads through `loadRemote()`
-instead of a static import evaluated at board startup. The panel shows a
-loading state until remote metadata resolves; a widget already placed on a
-board continues to lazy-load through `WidgetFrame` exactly as it does today,
-unaffected by catalog loading state.
-
 ## Error Handling
 
 Unchanged in shape: `WidgetErrorBoundary` plus the existing lazy-load retry
 path in `widget-frame-model.ts` already handle a failed widget chunk load and
 already render the "Виджет не отвечает" card with retry. A failed federation
 remote load (network error, widget dev server down, missing production
-asset) surfaces through the same path. Shared-singleton version mismatches
-are a build/dev-time failure of the federation plugin, not something the
-runtime needs to recover from; the spike and CI are where this gets caught.
-A single remote's metadata failing to load degrades only that entry in the
-"add widget" panel, not the whole panel.
+asset) surfaces through the same path. A shared-singleton version mismatch is,
+by default, only a runtime warning in Module Federation; to make it the
+build/dev-time failure this design wants, the shared config declares `react`,
+`react-dom`, `@reatom/core`, `@reatom/react`, and `widget-runtime` with
+`singleton: true` **and** `strictVersion`/`requiredVersion`. Because these are
+workspace packages pinned through the pnpm `catalog`, every consumer resolves
+the same version anyway, so a mismatch can only come from a misconfigured
+`package.json` — caught by the spike and CI builds, not something the runtime
+needs to recover from. A widget that is mounted but whose remote fails to load
+degrades only that widget (via the error boundary above); the catalog itself
+no longer depends on remote loads, so it cannot be degraded by one.
 
 ## Testing
 
@@ -293,18 +401,43 @@ once widget tests run from their own packages. A lightweight smoke test
 (e2e or otherwise) opens a widget's standalone `dev/` page and asserts it
 renders, covering the harness itself.
 
+Existing board e2e (`client/e2e`) now depends on the widget remotes being
+available, so it runs against the production-style build rather than a single
+dev server: `codegen`, then build every widget and the client, then serve via
+Vite preview with the widget `dist/` copied under `/widgets/<id>/`, so remotes
+resolve through the same path they use in production. Each widget package is
+named `widgets-<dir>` (e.g. `widgets-clock`) so name-based filters like
+`pnpm --filter widgets-clock dev` work; the path-glob `--filter "./widgets/*"`
+works regardless of the package name.
+
 ## Phased Rollout
 
 1. ~~Spike `@module-federation/vite` against this project's Rolldown-based
    Vite 8 build~~ — done 2026-06-30, see "Confirmed by spike" above. Go.
-2. Extract `widget-runtime` from `client/src/storage` and
-   `client/src/widget-api`. Pure refactor, no behavior change.
-3. Convert `widgets/*` into individual pnpm packages with federation
-   `exposes` and a standalone `dev/` harness, starting with `clock`, then
-   `ofelia-poop-duty`. Wire the host to consume them as remotes.
-4. Add the codegen script; remove the hand-written registries it replaces.
+2. Extract two packages from the board: `widget-runtime` (storage,
+   widget-api, SSE/`BroadcastChannel`, `server-time`, runtime types) and
+   `widget-sdk` (`reatomMemo`, `useAtomValue`, `defineWidgetClient`, `tier`,
+   the shared dev Vite config, and the `WidgetControls`/`Tabs` UI primitives).
+   Rewrite the `@/` imports in `widgets/*` to point at these packages. A
+   refactor with no behavior change, but larger than two directories — it
+   covers the full board surface widgets depend on.
+3. Convert `widgets/*` into individual pnpm packages (each named
+   `widgets-<dir>`) with federation `exposes` for the UI component only, a
+   `base: '/widgets/<id>/'` build, and a standalone `dev/` harness built from
+   the shared dev Vite config, starting with `clock`, then `ofelia-poop-duty`.
+   Wire the host to consume them as remotes, with `remoteHmr` set on every
+   config.
+4. Add the single `codegen` script (client registry with inlined static
+   metadata, `WidgetIconName` union, server registry, federation manifest);
+   wire it as a `pre*` step of `dev`, `build`, `dev:server`, `typecheck`, and
+   `test`; remove the hand-written registries and icon union it replaces.
 5. Update the production build pipeline, Dockerfile, and nginx config to
-   build and serve widgets independently; re-verify the Pi build timeout.
+   build and serve widgets independently; copy widget `dist/` into the client
+   output before the PWA service worker is generated so `/widgets/**` is
+   precached; reconcile the existing manual `codeSplitting.groups` (react/
+   reatom vendors) with the federation `shared` config; verify the board loads
+   `/widgets/<id>/remoteEntry.js` from the actual nginx image (not just
+   `vite preview`); re-verify the Pi build timeout.
 6. Correct the stale widget-structure references in `AGENTS.md` /
    `CLAUDE.md` (they still describe the pre-move `client/widgets/<name>`
    path and the removed iframe-based standalone entries).
@@ -341,5 +474,13 @@ renders, covering the harness itself.
 - `pnpm build` is the only command needed to build every widget and the
   client for production, in the right order; adding a widget package
   requires no change to this command or its underlying script.
+- The "add widget" catalog renders its full list synchronously from
+  codegen-inlined metadata, fetching a widget's remote only when that widget
+  is mounted.
+- In production the board loads each widget's `remoteEntry.js` from the
+  nginx-served `/widgets/<id>/` path, and the service worker precaches widget
+  remotes so they work offline and update atomically on deploy.
+- `pnpm typecheck` and `pnpm test` pass on a fresh checkout with no prior
+  `dev`/`build`, because `codegen` runs as their `pre*` step.
 - `pnpm build`, `pnpm test`, `pnpm typecheck`, and the Docker production
   build all pass with widgets built and deployed from the same nginx image.
