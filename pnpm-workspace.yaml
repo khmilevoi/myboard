@@ -3,6 +3,7 @@ packages:
   - server
   - shared
   - widgets
+  - widgets/*
   - widget-runtime
   - widget-sdk
 catalog:
