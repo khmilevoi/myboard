@@ -7,6 +7,12 @@
 @import '@fontsource-variable/hanken-grotesk';
 @import '@fontsource-variable/jetbrains-mono';
 
+@source '../../../widget-sdk/src';
+@source '../../../widgets/*/ui';
+
+@source '../../../widget-sdk/src';
+@source '../../../widgets/*/ui';
+
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 * {

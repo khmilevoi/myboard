@@ -1,14 +1,32 @@
 import { resolve } from 'node:path'
 
+import { federation } from '@module-federation/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
+import { apiProxy, federationShared, stageWidgetBuilds, widgetRemotes } from 'widget-sdk/vite'
 
-export default defineConfig({
+const widgetsDir = resolve(__dirname, '../widgets')
+const portsFile = resolve(widgetsDir, '.ports.json')
+
+export default defineConfig(({ command }) => ({
   plugins: [
+    ...(process.env.VITEST
+      ? []
+      : [
+          federation({
+            name: 'board',
+            filename: 'remoteEntry.js',
+            remotes: widgetRemotes({ command, portsFile }),
+            shared: federationShared(),
+            dev: { remoteHmr: true },
+            manifest: false,
+          }),
+        ]),
     react(),
     tailwindcss(),
+    stageWidgetBuilds({ widgetsDir }),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: null,
@@ -70,7 +88,8 @@ export default defineConfig({
           },
           {
             urlPattern: ({ request, url }) => {
-              const origin = (globalThis as unknown as { location: { origin: string } }).location.origin
+              const origin = (globalThis as unknown as { location: { origin: string } }).location
+                .origin
               return (
                 url.origin === origin &&
                 url.pathname.startsWith('/api/') &&
@@ -93,7 +112,8 @@ export default defineConfig({
           },
           {
             urlPattern: ({ request, url }) => {
-              const origin = (globalThis as unknown as { location: { origin: string } }).location.origin
+              const origin = (globalThis as unknown as { location: { origin: string } }).location
+                .origin
               return (
                 url.origin === origin &&
                 ['script', 'style', 'font', 'worker'].includes(request.destination)
@@ -119,7 +139,6 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
-      '@widgets': resolve(__dirname, '../widgets'),
     },
   },
   define: {
@@ -134,19 +153,9 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             {
-              name: 'react-vendor',
-              test: /node_modules[\\/](react|react-dom)[\\/]/,
-              priority: 20,
-            },
-            {
               name: 'grid-vendor',
               test: /node_modules[\\/](react-grid-layout|react-resizable)[\\/]/,
               priority: 18,
-            },
-            {
-              name: 'reatom-vendor',
-              test: /node_modules[\\/]@reatom[\\/]/,
-              priority: 16,
             },
             {
               name: 'storage-vendor',
@@ -165,8 +174,10 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     environment: 'jsdom',
     setupFiles: ['./src/vitest.setup.ts'],
+    testTimeout: 30000,
     exclude: [...configDefaults.exclude, 'e2e/**'],
     execArgv: ['--harmony-temporal'],
   },
@@ -177,22 +188,12 @@ export default defineConfig({
     // Docker this is unset, so normal `pnpm dev` keeps native watching.
     watch:
       process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true, interval: 100 } : undefined,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',
-        changeOrigin: true,
-      },
-    },
+    proxy: apiProxy(),
   },
   preview: {
     // Vite preview is a static server and 404s `/api`; the e2e harness serves
     // the production build here while routing the API (incl. the
     // `/api/storage/events` SSE stream) to the test server.
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',
-        changeOrigin: true,
-      },
-    },
+    proxy: apiProxy(),
   },
-})
+}))

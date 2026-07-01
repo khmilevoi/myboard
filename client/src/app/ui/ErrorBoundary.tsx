@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 type Props = { children: ReactNode }
 type State = { error: Error | null }

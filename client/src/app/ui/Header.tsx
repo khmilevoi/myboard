@@ -5,7 +5,7 @@ import { addBoard, removeBoard, updateBoard } from '@/board/model/board-model'
 import { activeBoardId, boards, LOCAL_BOARD_ID } from '@/board/model/board-storage'
 import { AddWidgetMenu } from '@/board/ui/AddWidgetMenu'
 import { BoardSchemaSelect } from '@/board/ui/BoardSchemaSelect'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { ThemeToggle } from '@/theme/ui/ThemeToggle'
 
 import styles from './Header.module.css'

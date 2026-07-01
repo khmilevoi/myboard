@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { findWidgetType, UnknownWidgetTypeError } from '@/widget-registry/model/registry'
 
-import type { WidgetRuntimeProps } from '../model/types'
+import type { WidgetRuntimeProps } from 'widget-runtime'
 import { WidgetFrame } from './WidgetFrame'
+import { useWidgetFrameContext } from './WidgetFrame.context'
 
 const holder = vi.hoisted(() => ({
   actual:
@@ -123,5 +124,42 @@ describe('WidgetFrame', () => {
     render(<WidgetFrame instanceId="probe-3" typeId="probe" mode="small" />)
 
     expect(await screen.findByText('tier:tiny')).toBeInTheDocument()
+  })
+
+  it('passes one type- and instance-bound API through props and context', async () => {
+    const fetchRequest = vi.fn(
+      async () => new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchRequest)
+
+    const Probe = (props: WidgetRuntimeProps) => {
+      const context = useWidgetFrameContext()
+      return (
+        <button onClick={() => props.api.invoke('probe', { value: 1 })}>
+          {props.api === context.api ? 'same-api' : 'different-api'}
+        </button>
+      )
+    }
+    vi.mocked(findWidgetType).mockReturnValue({
+      id: 'probe/type',
+      title: 'Probe',
+      description: 'probe widget',
+      loadComponent: async () => ({ default: Probe }),
+      defaultSize: { w: 1, h: 1 },
+      icon: 'Clock',
+    })
+
+    render(<WidgetFrame instanceId="instance-7" typeId="probe/type" mode="small" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'same-api' }))
+
+    await vi.waitFor(() => {
+      expect(fetchRequest).toHaveBeenCalledWith(
+        '/api/widgets/probe%2Ftype/probe',
+        expect.objectContaining({
+          body: JSON.stringify({ instanceId: 'instance-7', payload: { value: 1 } }),
+        }),
+      )
+    })
+    vi.unstubAllGlobals()
   })
 })

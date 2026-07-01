@@ -1,5 +1,5 @@
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { Tabs, TabsList, TabsTrigger } from 'widget-sdk/ui/tabs'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import styles from './MobileTabs.module.css'
 

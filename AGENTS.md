@@ -6,20 +6,21 @@ Always load and follow `C:\Users\Khmil\.agents\skills\reatom` and `C:\Users\Khmi
 
 ## Project Structure & Module Organization
 
-This is a private pnpm workspace with two packages: `client` and `server`. The React/Vite app lives in `client/src`, with feature folders such as `app`, `board`, `storage`, `theme`, `widget-host`, and `widget-registry`. Each client feature or widget must be split into `ui/` and `model/`: React components, CSS Modules, and view-only tests go in `ui/`; Reatom atoms, actions, computeds, domain utilities, storage adapters, and model tests go in `model/`. Standalone widget entries live under `client/widgets/<widget-name>` and are auto-discovered by Vite when they include an `index.html`. Client e2e tests live in `client/e2e`; package-level and component tests are colocated as `*.test.ts` or `*.test.tsx`. The storage API lives in `server/*.ts`, builds to `server/dist`, and uses Valkey.
+This is a private pnpm workspace with `client`, `server`, `shared`, `widget-runtime`, `widget-sdk`, and one package per `widgets/*` directory. The React/Vite board lives in `client/src`; widget implementations live in `widgets/<widget-name>` and each owns `client.ts`, `server.ts`, `types.ts`, `model/`, `ui/`, a federation `vite.config.ts`, and a standalone harness under `dev/`. `widget-runtime` owns the singleton live runtime (storage, widget RPC, SSE/BroadcastChannel, server time, runtime contracts); `widget-sdk` owns stateless Reatom/React glue and shared widget UI. Client features and widgets split React/CSS/view tests into `ui/` and Reatom/domain/storage logic into `model/`. Client e2e tests live in `client/e2e`; package tests are colocated as `*.test.ts` or `*.test.tsx`. The storage API lives in `server/src`, builds to `server/dist`, uses Valkey, and keeps all widget server functions in one bundle.
 
 ## Build, Test, and Development Commands
 
 Use pnpm from the repository root.
 Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default sandbox with escalated permissions. In this environment the executables live under `C:\nvm4w\nodejs` and `C:\Users\Khmil\AppData\Local\pnpm`, and sandboxed runs can fail with `pnpm` not found or `Access is denied`.
 
-- `pnpm dev`: start the client Vite dev server.
-- `pnpm dev:server`: start the server in watch mode.
-- `pnpm build`: typecheck and build the client.
+- `pnpm dev`: run codegen, then start the board and every widget dev server in parallel.
+- `pnpm dev:server`: run codegen, then start the server in watch mode.
+- `pnpm build`: run codegen, build every widget remote, then typecheck/build the client host and PWA.
 - `pnpm --filter server build`: bundle server with Rspack.
 - `pnpm test`: run workspace Vitest tests.
 - `pnpm --filter client test -- src/board/model/board-storage.test.ts`: run a specific client Vitest file, using a path relative to `client`.
-- `pnpm test:e2e`: run client Playwright tests.
+- `pnpm test:e2e`: run board Playwright tests against the assembled production-style Vite output.
+- `pnpm --filter client test:e2e:nginx`: with `docker compose up --build -d` running, smoke-test the actual nginx image.
 - `pnpm typecheck`: run workspace TypeScript checks.
 - `pnpm docker:dev`: run Valkey, server, and client with hot reload.
 - `pnpm docker:up`: build and run the production-style Docker stack.
@@ -40,7 +41,7 @@ Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default s
 
 Use TypeScript and ESM imports. Follow the existing style: 2-space indentation, single quotes, no semicolons, named exports, and CSS Modules named `*.module.css`. React components use PascalCase filenames such as `Header.tsx`; utility modules use kebab-case or domain names such as `board-storage.ts`. Widget directories use kebab-case.
 
-All exported React function components in `client/src` and `client/widgets` must be defined with `reatomMemo` from `client/src/shared/reatom/reatom-memo.ts`. This is a hard rule: use `reatomMemo` even for simple presentational components so every component has the same Reatom integration and React memo wrapper. Keep business logic, derived state, timers, async flows, and cross-component UI state in `model/` Reatom atoms/actions/computeds; leave only refs, DOM interop, and truly tiny view glue in `ui/`. For React error boundaries, keep the class implementation internal and export a `reatomMemo` wrapper component.
+All exported React function components in `client/src` and `widgets/*` must be defined with `reatomMemo` from `widget-sdk` (normally `widget-sdk/reatom/reatom-memo`). This is a hard rule: use `reatomMemo` even for simple presentational components so every component has the same Reatom integration and React memo wrapper. Keep business logic, derived state, timers, async flows, and cross-component UI state in `model/` Reatom atoms/actions/computeds; leave only refs, DOM interop, and truly tiny view glue in `ui/`. For React error boundaries, keep the class implementation internal and export a `reatomMemo` wrapper component.
 
 ## Testing Guidelines
 

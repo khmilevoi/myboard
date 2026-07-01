@@ -1,3 +1,3 @@
-import { makeScopedStorage } from '@/storage/model/storage'
+import { makeScopedStorage } from 'widget-runtime'
 
 export const rootStorage = makeScopedStorage('root')

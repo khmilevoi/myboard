@@ -1,6 +1,6 @@
-import type { HistoryEntryView } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
+import type { HistoryEntryView } from '@/model/ofelia-duty'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { personInitial } from '../person'
 import { Avatar } from './Avatar'

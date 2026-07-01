@@ -1,6 +1,6 @@
 import { Maximize2, X } from 'lucide-react'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import styles from './OfeliaActionControls.module.css'
 

@@ -2,8 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { makeWidgetStorage } from '@/storage/model/storage'
-import type { WidgetRuntimeProps } from '@/widget-host/model/types'
+import { makeWidgetStorage, type WidgetRuntimeProps } from 'widget-runtime'
 
 import { Clock } from './Clock'
 
@@ -22,6 +21,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
       instanceId: 'inst-clock',
       typeId: 'clock',
     }),
+    api: { invoke: vi.fn() },
   }
 }
 

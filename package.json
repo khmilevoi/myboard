@@ -3,13 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter client dev",
-    "dev:server": "pnpm --filter server dev",
-    "build": "pnpm --filter client build",
+    "dev": "pnpm run codegen && pnpm -r --parallel --filter \"./widgets/*\" --filter client dev",
+    "dev:server": "pnpm run codegen && pnpm --filter server dev",
+    "build": "pnpm run codegen && pnpm --filter \"./widgets/*\" build && pnpm --filter client build",
+    "build:widgets": "pnpm run codegen && pnpm --filter \"./widgets/*\" build",
     "preview": "pnpm --filter client preview",
-    "test": "pnpm -r test",
+    "test": "pnpm run codegen && pnpm -r test",
     "test:e2e": "pnpm --filter client test:e2e",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm run codegen && pnpm -r typecheck",
+    "codegen": "tsx scripts/codegen.ts",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
@@ -24,7 +26,8 @@
   },
   "devDependencies": {
     "oxfmt": "^0.55.0",
-    "oxlint": "^1.70.0"
+    "oxlint": "^1.70.0",
+    "tsx": "^4.20.6"
   },
   "packageManager": "pnpm@10.28.2"
 }

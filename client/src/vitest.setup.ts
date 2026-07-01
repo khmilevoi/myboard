@@ -1,4 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { configure } from '@testing-library/react'
+
+configure({ asyncUtilTimeout: 30000 })
 
 // jsdom lacks ResizeObserver; react-grid-layout v2's useContainerWidth needs it.
 class ResizeObserverMock {

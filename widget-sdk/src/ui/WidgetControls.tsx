@@ -1,6 +1,6 @@
 import { Maximize2, X } from 'lucide-react'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '../reatom/reatom-memo'
 
 import styles from './WidgetControls.module.css'
 

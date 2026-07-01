@@ -1,0 +1,33 @@
+{
+  "name": "widgets-ofelia-poop-duty",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite-build-exit",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@reatom/core": "catalog:",
+    "@reatom/react": "^1001.0.0",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "widget-runtime": "workspace:*",
+    "widget-sdk": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "^1.16.12",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^6.0.2",
+    "vite": "^8.0.16",
+    "vitest": "catalog:"
+  }
+}

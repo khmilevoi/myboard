@@ -20,7 +20,8 @@ path = "/"
 expect = "200"
 timeout = "60s"
 
-# Building the SPA (pnpm install + vite build) plus the server image on a
-# Raspberry Pi is slow; give the build stage generous headroom.
+# The Pi builds every widget remote, assembles the client PWA/nginx image, and
+# builds the server image in one Compose release. Keep at least five minutes of
+# observed headroom when this pipeline changes.
 [timeouts]
 build = "30m"

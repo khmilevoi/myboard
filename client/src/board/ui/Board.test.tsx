@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { WidgetComponent, WidgetRuntimeProps } from '@/widget-host/model/types'
+import type { WidgetComponent, WidgetRuntimeProps } from 'widget-runtime'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
 import { addInstance } from '../model/board-model'

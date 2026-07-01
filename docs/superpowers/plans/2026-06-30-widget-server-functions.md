@@ -66,6 +66,7 @@
 ### Task 1: Shared event and server-definition contracts
 
 **Files:**
+
 - Create: `shared/widgets/contracts.ts`
 - Create: `server/src/widgets/contracts.test.ts`
 - Modify: `server/package.json`
@@ -258,6 +259,7 @@ git commit -m "feat: add widget event contracts"
 ### Task 2: Typed bound client transport
 
 **Files:**
+
 - Create: `client/src/widget-api/widget-api.ts`
 - Create: `client/src/widget-api/widget-api.test.ts`
 - Modify: `client/src/widget-host/model/types.ts`
@@ -283,11 +285,12 @@ type TestEvents = {
 
 describe('makeWidgetApi', () => {
   it('binds type and instance identity and returns typed data', async () => {
-    const fetchRequest = vi.fn(async () =>
-      new Response(JSON.stringify({ data: { id: 'entry-1' } }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchRequest = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ data: { id: 'entry-1' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     const api = makeWidgetApi<TestEvents>({
       typeId: 'notes/widget',
@@ -483,8 +486,8 @@ Add this test:
 
 ```tsx
 it('passes one type- and instance-bound API through props and context', async () => {
-  const fetchRequest = vi.fn(async () =>
-    new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }),
+  const fetchRequest = vi.fn(
+    async () => new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }),
   )
   vi.stubGlobal('fetch', fetchRequest)
 
@@ -575,6 +578,7 @@ git commit -m "feat: inject typed widget client api"
 ### Task 3: Explicit widget client/server entrypoints and client registry
 
 **Files:**
+
 - Create: `client/src/widget-registry/model/widget-definition.ts`
 - Create: `client/src/widget-registry/model/widget-definition.test.ts`
 - Create: `widgets/clock/types.ts`
@@ -866,10 +870,7 @@ In `client/src/widget-registry/model/registry.ts`:
 - define the catalog as:
 
 ```ts
-export const widgetTypes: WidgetType[] = [
-  toWidgetType(clockWidget),
-  toWidgetType(ofeliaWidget),
-]
+export const widgetTypes: WidgetType[] = [toWidgetType(clockWidget), toWidgetType(ofeliaWidget)]
 ```
 
 Keep `preloadWidgetChunks` and `findWidgetType` behavior unchanged.
@@ -896,6 +897,7 @@ git commit -m "refactor: isolate widget client and server entries"
 ### Task 4: Server-side scoped widget storage
 
 **Files:**
+
 - Create: `shared/storage/scope.ts`
 - Modify: `client/src/storage/model/scope.ts`
 - Create: `server/src/widgets/storage.ts`
@@ -997,12 +999,7 @@ export function toRelativeKey(namespace: string, fullKey: string): string {
 Replace `client/src/storage/model/scope.ts` with:
 
 ```ts
-export {
-  instanceNamespace,
-  typeNamespace,
-  toFullKey,
-  toRelativeKey,
-} from '@shared/storage/scope'
+export { instanceNamespace, typeNamespace, toFullKey, toRelativeKey } from '@shared/storage/scope'
 ```
 
 - [ ] **Step 4: Implement the server storage adapter**
@@ -1017,12 +1014,7 @@ import type { z } from 'zod'
 
 import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
 import { safeParse } from '@shared/json'
-import {
-  instanceNamespace,
-  typeNamespace,
-  toFullKey,
-  toRelativeKey,
-} from '@shared/storage/scope'
+import { instanceNamespace, typeNamespace, toFullKey, toRelativeKey } from '@shared/storage/scope'
 
 import { publishChange } from '../storage/handlers'
 import { runExclusive } from '../storage/key-lock'
@@ -1067,9 +1059,7 @@ export function createWidgetServerApi({
   const createScope = (namespace: string): WidgetServerStorage => ({
     async get<T>(key: string, schema?: z.ZodType<T>) {
       const fullKey = toFullKey(namespace, key)
-      const raw = await ops
-        .get(fullKey)
-        .catch((cause) => storageError('get', fullKey, cause))
+      const raw = await ops.get(fullKey).catch((cause) => storageError('get', fullKey, cause))
       if (raw instanceof Error) return raw
       if (raw === null) return null
 
@@ -1113,9 +1103,7 @@ export function createWidgetServerApi({
 
     async has(key: string) {
       const fullKey = toFullKey(namespace, key)
-      const raw = await ops
-        .get(fullKey)
-        .catch((cause) => storageError('has', fullKey, cause))
+      const raw = await ops.get(fullKey).catch((cause) => storageError('has', fullKey, cause))
       if (raw instanceof Error) return raw
       return raw !== null
     },
@@ -1205,6 +1193,7 @@ git commit -m "feat: add server widget storage api"
 ### Task 5: Server registry and dispatcher
 
 **Files:**
+
 - Create: `server/src/widgets/errors.ts`
 - Create: `server/src/widgets/registry.ts`
 - Create: `server/src/widgets/registry.test.ts`
@@ -1290,9 +1279,7 @@ const definition = defineWidgetServer({
   },
 })
 
-const createdRegistry = createWidgetServerRegistry([
-  toRuntimeWidgetServerDefinition(definition),
-])
+const createdRegistry = createWidgetServerRegistry([toRuntimeWidgetServerDefinition(definition)])
 if (createdRegistry instanceof Error) throw createdRegistry
 
 const invalidResultDefinition: RuntimeWidgetServerDefinition = {
@@ -1340,9 +1327,7 @@ describe('dispatchWidgetEvent', () => {
   })
 
   it('validates the event payload', async () => {
-    expect(await dispatch({ payload: { value: 1 } })).toBeInstanceOf(
-      InvalidWidgetPayloadError,
-    )
+    expect(await dispatch({ payload: { value: 1 } })).toBeInstanceOf(InvalidWidgetPayloadError)
   })
 
   it('returns a validated handler result', async () => {
@@ -1358,9 +1343,9 @@ describe('dispatchWidgetEvent', () => {
   })
 
   it('wraps errors returned by handlers', async () => {
-    expect(
-      await dispatch({ registry: failingRegistry, typeId: 'failing-widget' }),
-    ).toBeInstanceOf(WidgetHandlerError)
+    expect(await dispatch({ registry: failingRegistry, typeId: 'failing-widget' })).toBeInstanceOf(
+      WidgetHandlerError,
+    )
   })
 })
 ```
@@ -1597,6 +1582,7 @@ git commit -m "feat: dispatch widget server events"
 ### Task 6: HTTP route and production server registry
 
 **Files:**
+
 - Create: `server/src/widgets/production-registry.ts`
 - Modify: `server/src/app.ts`
 - Modify: `server/src/app.test.ts`
@@ -1617,10 +1603,7 @@ Add these imports and module-level fixtures:
 ```ts
 import { z } from 'zod'
 
-import {
-  defineWidgetServer,
-  toRuntimeWidgetServerDefinition,
-} from '@shared/widgets/contracts'
+import { defineWidgetServer, toRuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
 
 import { createWidgetServerRegistry } from './widgets/registry'
 
@@ -1639,9 +1622,7 @@ const testWidget = defineWidgetServer({
   },
 })
 
-const testWidgetRegistry = createWidgetServerRegistry([
-  toRuntimeWidgetServerDefinition(testWidget),
-])
+const testWidgetRegistry = createWidgetServerRegistry([toRuntimeWidgetServerDefinition(testWidget)])
 if (testWidgetRegistry instanceof Error) throw testWidgetRegistry
 ```
 
@@ -1808,12 +1789,9 @@ function sendWidgetError(res: ServerResponse, error: PublicWidgetDispatchError):
 
 ```ts
 router.on('POST', '/api/widgets/:typeId/:event', async (req, res, params) => {
-  const raw = await readJsonBody(req).catch(
-    (cause) => new WidgetRequestBodyError({ cause }),
-  )
+  const raw = await readJsonBody(req).catch((cause) => new WidgetRequestBodyError({ cause }))
   if (raw instanceof WidgetRequestBodyError) {
-    const tooLarge =
-      raw.cause instanceof Error && raw.cause.message === 'request body too large'
+    const tooLarge = raw.cause instanceof Error && raw.cause.message === 'request body too large'
     res.writeHead(tooLarge ? 413 : 400, { 'content-type': 'application/json' })
     res.end(
       JSON.stringify({
@@ -1895,6 +1873,7 @@ git commit -m "feat: expose widget server rpc route"
 ### Task 7: Full verification and scope audit
 
 **Files:**
+
 - Verify only; modify a task-owned file only if a verification command exposes a defect caused by this feature.
 
 - [ ] **Step 1: Verify formatting and static checks**

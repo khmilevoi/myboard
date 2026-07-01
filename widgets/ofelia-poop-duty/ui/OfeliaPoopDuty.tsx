@@ -2,15 +2,14 @@ import { wrap } from '@reatom/core'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
-import { useAtomValue } from '@/shared/reatom/use-atom-value'
-import { getServerTime } from '@/shared/timer/model/server-time'
-import type { WidgetTier } from '@/widget-host/model/tier'
-import type { WidgetRuntimeProps } from '@/widget-host/model/types'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
+import { getServerTime, type WidgetRuntimeProps, type WidgetTier } from 'widget-runtime'
 
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
 import type { Person } from '../model/ofelia-duty'
+import type { OfeliaEvents } from '../types'
 import { ofeliaContext } from './ofelia-context'
 import type { OfeliaContextValue } from './ofelia-context'
 import { CompactTier } from './tiers/CompactTier'
@@ -22,7 +21,7 @@ import { makeOfeliaViewModel } from './view-model'
 
 import styles from './ofelia-poop-duty.module.css'
 
-export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps>(
+export const OfeliaPoopDuty = reatomMemo<WidgetRuntimeProps<OfeliaEvents>>(
   ({ mode, tier, storage, requestFullscreen, requestClose, requestDelete }) => {
     const dutyModel = useMemo(() => ofeliaDutyModel({ storage, timer: getServerTime() }), [storage])
     const commentsModel = useMemo(

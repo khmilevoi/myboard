@@ -6,13 +6,17 @@ import { lazy, Suspense, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useElementSize } from '@/shared/element-size/model/use-element-size'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
-import { makeWidgetStorage } from '@/storage/model/storage'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import {
+  DEFAULT_TIERS,
+  makeWidgetApi,
+  makeWidgetStorage,
+  resolveTier,
+  type WidgetMode,
+  type WidgetTier,
+} from 'widget-runtime'
 import { resolvedTheme } from '@/theme/model/theme-model'
 import { findWidgetType } from '@/widget-registry/model/registry'
-
-import { DEFAULT_TIERS, resolveTier, type WidgetTier } from '../model/tier'
-import type { WidgetMode } from '../model/types'
 import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 import { WidgetFrameContext, widgetFrameContext } from './WidgetFrame.context'
@@ -56,6 +60,9 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
     const widgetStorage = useMemo(() => {
       return makeWidgetStorage({ instanceId, typeId })
     }, [instanceId, typeId])
+    const widgetApi = useMemo(() => {
+      return makeWidgetApi({ instanceId, typeId })
+    }, [instanceId, typeId])
 
     const context = useMemo<WidgetFrameContext>(() => {
       return {
@@ -69,6 +76,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         requestDelete: onDelete,
         reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
         storage: widgetStorage,
+        api: widgetApi,
       }
     }, [
       instanceId,
@@ -80,6 +88,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       onRequestClose,
       onDelete,
       widgetStorage,
+      widgetApi,
     ])
 
     if (type instanceof Error) {
@@ -130,6 +139,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
                   requestDelete={context.requestDelete}
                   reportError={context.reportError}
                   storage={context.storage}
+                  api={context.api}
                 />
               )}
             </Suspense>
