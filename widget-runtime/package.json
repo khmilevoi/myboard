@@ -16,6 +16,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
     "@types/react": "catalog:",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
