@@ -1,9 +1,11 @@
-import { clockWidget } from '@widgets/clock/client'
-import { ofeliaWidget } from '@widgets/ofelia-poop-duty/client'
 import * as errore from 'errore'
 
-export { type WidgetIconName, type WidgetType } from 'widget-sdk/define-widget-client'
-import { toWidgetType, type WidgetType } from 'widget-sdk/define-widget-client'
+import { widgetTypes } from './widget-catalog.generated'
+import { WIDGET_ICONS, type WidgetIconName } from './widget-icons.generated'
+import type { WidgetType } from 'widget-sdk/define-widget-client'
+
+export { widgetTypes, WIDGET_ICONS }
+export type { WidgetIconName, WidgetType }
 
 export class UnknownWidgetTypeError extends errore.createTaggedError({
   name: 'UnknownWidgetTypeError',
@@ -21,8 +23,6 @@ type WindowWithIdleCallback = Window & {
     options?: { timeout: number },
   ) => number
 }
-
-export const widgetTypes: WidgetType[] = [toWidgetType(clockWidget), toWidgetType(ofeliaWidget)]
 
 export function preloadWidgetChunks() {
   if (typeof window === 'undefined') return

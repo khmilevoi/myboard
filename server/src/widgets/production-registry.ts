@@ -1,13 +1,7 @@
-import { toRuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
-import { clockServer } from '@widgets/clock/server'
-import { ofeliaServer } from '@widgets/ofelia-poop-duty/server'
-
 import { createWidgetServerRegistry } from './registry'
+import { widgetServerList } from './widget-server-list.generated'
 
-const registry = createWidgetServerRegistry([
-  toRuntimeWidgetServerDefinition(clockServer),
-  toRuntimeWidgetServerDefinition(ofeliaServer),
-])
+const registry = createWidgetServerRegistry(widgetServerList)
 
 if (registry instanceof Error) throw registry
 

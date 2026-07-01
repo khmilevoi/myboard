@@ -1,12 +1,11 @@
 import { wrap } from '@reatom/core'
-import { CalendarDays, Clock, Lock, Plus, Cat, X } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Lock, Plus, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverArrow, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-import type { WidgetIconName } from '@/widget-registry/model/registry'
+import { WIDGET_ICONS, type WidgetIconName } from '@/widget-registry/model/registry'
 
 import {
   catalogQuery,
@@ -18,12 +17,6 @@ import {
 import { addInstance } from '../model/board-model'
 
 import styles from './AddWidgetMenu.module.css'
-
-const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = {
-  Clock,
-  CalendarDays,
-  Cat,
-}
 
 export const AddWidgetMenu = reatomMemo(() => {
   const open = isAddWidgetMenuOpen()
@@ -71,7 +64,7 @@ export const AddWidgetMenu = reatomMemo(() => {
 
         <ul className={styles.list}>
           {types.map((type) => {
-            const Icon = WIDGET_ICONS[type.icon]
+            const Icon = WIDGET_ICONS[type.icon as WidgetIconName] ?? Plus
             return (
               <li key={type.id} className={styles.row}>
                 <span className={styles.tile}>

@@ -37,3 +37,7 @@ test-results/
 
 # git worktrees (local development branches)
 .worktrees/
+
+# generated widget registries
+client/src/widget-registry/model/*.generated.ts
+server/src/widgets/widget-server-list.generated.ts
