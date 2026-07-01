@@ -263,6 +263,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      errore:
+        specifier: ^0.14.1
+        version: 0.14.1
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
