@@ -73,7 +73,6 @@ if (typeof globalThis.EventSource === 'undefined') {
   globalThis.EventSource = EventSourcePolyfill as unknown as typeof EventSource
 }
 
-// @ts-expect-error node:vm is a Node builtin not typed in browser context
 import vm from 'node:vm'
 try {
   const nodeGlobalTemporal = vm.runInThisContext('Temporal')
