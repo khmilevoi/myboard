@@ -2,7 +2,7 @@ import { atom, effect } from '@reatom/core'
 import { computed } from '@reatom/core'
 import z from 'zod'
 
-import { withStorageKey } from '@widget-runtime/storage/reatom/reatom-storage'
+import { withStorageKey } from '@widget-runtime/storage/reatom'
 
 import { rootStorage } from './storage'
 import { BoardSnapshot, BoardSnapshots, BoardSnapshotSchema, BoardSnapshotsShema } from './types'

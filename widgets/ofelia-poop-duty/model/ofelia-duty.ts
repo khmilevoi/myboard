@@ -10,7 +10,7 @@ import {
 import z from 'zod'
 
 import { ServerTime } from '@widget-runtime/timer/server-time'
-import { withStorageKeyReadonly } from '@widget-runtime/storage/reatom/reatom-storage'
+import { withStorageKeyReadonly } from '@widget-runtime/storage/reatom'
 import { WidgetStorage } from '@widget-runtime/storage'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
