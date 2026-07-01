@@ -39,5 +39,5 @@ test-results/
 .worktrees/
 
 # generated widget registries
-client/src/widget-registry/model/*.generated.ts
-server/src/widgets/widget-server-list.generated.ts
+packages/client/src/widget-registry/model/*.generated.ts
+packages/server/src/widgets/widget-server-list.generated.ts

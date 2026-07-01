@@ -7,7 +7,7 @@ services:
   server:
     build:
       context: .
-      dockerfile: server/Dockerfile
+      dockerfile: packages/server/Dockerfile
     environment:
       VALKEY_URL: redis://valkey:6379
       PORT: '8787'
@@ -19,7 +19,7 @@ services:
   client:
     build:
       context: .
-      dockerfile: client/Dockerfile
+      dockerfile: packages/client/Dockerfile
     depends_on:
       - server
     ports:

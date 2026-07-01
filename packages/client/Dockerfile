@@ -6,22 +6,22 @@ WORKDIR /app
 RUN corepack enable
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY client/package.json ./client/
-COPY server/package.json ./server/
-COPY shared/package.json ./shared/
-COPY widget-runtime/package.json ./widget-runtime/
-COPY widget-sdk/package.json ./widget-sdk/
+COPY packages/client/package.json ./packages/client/
+COPY packages/server/package.json ./packages/server/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/widget-runtime/package.json ./packages/widget-runtime/
+COPY packages/widget-sdk/package.json ./packages/widget-sdk/
 # Widget package discovery is directory-based. Copying the tree before install
 # keeps Docker correct when a new widgets/* package is added without editing
 # this Dockerfile.
-COPY widgets ./widgets
+COPY packages/widgets ./packages/widgets
 RUN pnpm install --frozen-lockfile
 
-COPY shared ./shared
-COPY widget-runtime ./widget-runtime
-COPY widget-sdk ./widget-sdk
+COPY packages/shared ./packages/shared
+COPY packages/widget-runtime ./packages/widget-runtime
+COPY packages/widget-sdk ./packages/widget-sdk
 COPY scripts ./scripts
-COPY client ./client
+COPY packages/client ./packages/client
 
 # widget-sdk exposes a `vite-build-exit` bin script (./bin/vite-build.mjs).
 # The first install only saw widget-sdk/package.json, so pnpm couldn't link
@@ -34,11 +34,11 @@ RUN pnpm install --offline --frozen-lockfile
 # order as the root build while invoking Vite directly for the host on slow Pi
 # hardware: codegen -> every remote -> host/PWA assembly.
 RUN pnpm run codegen \
-    && pnpm --filter "./widgets/*" build \
+    && pnpm --filter "./packages/widgets/*" build \
     && pnpm --filter client exec vite-build-exit
 
 # --- runtime stage: serve static files + reverse-proxy /api -> server ---
 FROM nginx:alpine AS runtime
-COPY client/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/client/dist /usr/share/nginx/html
+COPY packages/client/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/packages/client/dist /usr/share/nginx/html
 EXPOSE 80

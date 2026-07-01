@@ -4,6 +4,36 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@reatom/core':
+      specifier: ^1001.1.0
+      version: 1001.1.0
+    '@testing-library/react':
+      specifier: ^16.3.2
+      version: 16.3.2
+    '@types/react':
+      specifier: ^19.2.17
+      version: 19.2.17
+    '@types/react-dom':
+      specifier: ^19.2.3
+      version: 19.2.3
+    lucide-react:
+      specifier: 1.19.0
+      version: 1.19.0
+    react:
+      specifier: ^19.2.7
+      version: 19.2.7
+    react-dom:
+      specifier: ^19.2.7
+      version: 19.2.7
+    vitest:
+      specifier: ^4.1.9
+      version: 4.1.9
+    zod:
+      specifier: ^4.4.3
+      version: 4.4.3
+
 importers:
 
   .:
@@ -18,7 +48,7 @@ importers:
         specifier: ^4.20.6
         version: 4.22.4
 
-  client:
+  packages/client:
     dependencies:
       '@fontsource-variable/hanken-grotesk':
         specifier: ^5.2.8
@@ -145,7 +175,7 @@ importers:
         specifier: ^7.4.1
         version: 7.4.1
 
-  server:
+  packages/server:
     dependencies:
       errore:
         specifier: ^0.14.1
@@ -176,13 +206,13 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@25.9.3)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
 
-  shared:
+  packages/shared:
     dependencies:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
 
-  widget-runtime:
+  packages/widget-runtime:
     dependencies:
       '@reatom/core':
         specifier: 'catalog:'
@@ -222,7 +252,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@25.9.3)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
 
-  widget-sdk:
+  packages/widget-sdk:
     dependencies:
       '@reatom/core':
         specifier: 'catalog:'
@@ -283,7 +313,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@25.9.3)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
 
-  widgets/clock:
+  packages/widgets/clock:
     dependencies:
       '@reatom/core':
         specifier: 'catalog:'
@@ -335,7 +365,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@25.9.3)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
 
-  widgets/ofelia-poop-duty:
+  packages/widgets/ofelia-poop-duty:
     dependencies:
       '@reatom/core':
         specifier: 'catalog:'

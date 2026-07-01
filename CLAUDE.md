@@ -8,8 +8,8 @@ See [AGENTS.md](./AGENTS.md) for the canonical repository guidelines (project st
 
 Before editing this repo, load the `reatom` and `errore` skills (referenced in AGENTS.md):
 
-- **Reatom**: used for all atoms, actions, async flows, and React integration in `client/`.
-- **errore**: used for TypeScript errors-as-values (tagged errors, `instanceof` narrowing, no throwing) across both `client/` and `server/`.
+- **Reatom**: used for all atoms, actions, async flows, and React integration in `packages/client/`.
+- **errore**: used for TypeScript errors-as-values (tagged errors, `instanceof` narrowing, no throwing) across both `packages/client/` and `packages/server/`.
 
 ## Commands
 
@@ -39,7 +39,7 @@ pnpm --filter client exec vitest run src/widget-registry/model/registry.test.ts
 pnpm --filter client exec vitest run -t "test name substring"
 ```
 
-Playwright specs (`client/e2e`) can be filtered the same way:
+Playwright specs (`packages/client/e2e`) can be filtered the same way:
 
 ```bash
 pnpm --filter client exec playwright test e2e/<file>.spec.ts
@@ -47,22 +47,22 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 
 ## Architecture
 
-**Workspace layout**: pnpm workspace with the `client` Vite/React host, the `server` Node API, root-level `shared`, singleton `widget-runtime`, stateless `widget-sdk`, and independently built `widgets/*` packages. `@/*` aliases only to `client/src`; shared widget code is imported through the two workspace package names.
+**Workspace layout**: pnpm workspace with all packages under `packages/`: the `client` Vite/React host, the `server` Node API, `shared`, singleton `widget-runtime`, stateless `widget-sdk`, and independently built `packages/widgets/*` packages. `@/*` aliases only to `packages/client/src`; shared widget code is imported through the two workspace package names.
 
 ### Widget system
 
-- **`client/src/widget-registry`**: synchronous codegen-generated catalog metadata and icon map. Only `loadComponent` crosses the Module Federation boundary when a placed widget mounts.
-- **`widgets/<widget-name>`**: one pnpm package per widget, split into `model/` and `ui/`, exposing only `./ui` as a federation remote and providing a standalone `dev/` harness. Adding a widget package and running codegen updates the client catalog, server registry, and stable port map without editing a hand-written registry.
-- **`client/src/widget-host`**: mounts first-party widget components in the board React tree and provides frame/error-boundary/fullscreen behavior.
+- **`packages/client/src/widget-registry`**: synchronous codegen-generated catalog metadata and icon map. Only `loadComponent` crosses the Module Federation boundary when a placed widget mounts.
+- **`packages/widgets/<widget-name>`**: one pnpm package per widget, split into `model/` and `ui/`, exposing only `./ui` as a federation remote and providing a standalone `dev/` harness. Adding a widget package and running codegen updates the client catalog, server registry, and stable port map without editing a hand-written registry.
+- **`packages/client/src/widget-host`**: mounts first-party widget components in the board React tree and provides frame/error-boundary/fullscreen behavior.
 - **`widget-runtime` / `widget-sdk`**: shared runtime contracts/connections and stateless React/UI helpers respectively. React, React DOM, Reatom, and `widget-runtime` are strict federation singletons.
 
 ### Storage system (offline-first + sync)
 
-`widget-runtime/src/storage` owns per-widget instance/shared scopes, Dexie and HTTP backends, SSE/BroadcastChannel fanout, and Reatom bindings. Board and standalone harnesses construct the same `WidgetRuntimeProps`; widgets do not import storage through `client/src`.
+`packages/widget-runtime/src/storage` owns per-widget instance/shared scopes, Dexie and HTTP backends, SSE/BroadcastChannel fanout, and Reatom bindings. Board and standalone harnesses construct the same `WidgetRuntimeProps`; widgets do not import storage through `packages/client/src`.
 
 ### Server (storage API)
 
-`server/src/index.ts` is a plain `node:http` server routed with `find-my-way`, backed by Valkey (Redis-compatible):
+`packages/server/src/index.ts` is a plain `node:http` server routed with `find-my-way`, backed by Valkey (Redis-compatible):
 
 - REST-ish endpoints under `/api/storage` (`GET`/`PUT`/`DELETE` by key, prefix listing, atomic `append` via `runExclusive` per-key locking in `storage/key-lock.ts`).
 - `GET /api/storage/events` opens an SSE stream; clients `POST /api/storage/events/:connId` to subscribe/unsubscribe to key prefixes. Server-side fanout (`realtime/sse.ts`) is driven by a Valkey pub/sub subscriber on the `storage:events` channel, so writes from any server instance reach all connected SSE clients.
@@ -71,7 +71,7 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 
 ### Reatom + component convention
 
-Every exported React function component in `client/src` and `widgets/*` is wrapped with `reatomMemo` from `widget-sdk`. Business logic, derived state, timers, and async flows belong in `model/`; `ui/` keeps refs, DOM interop, and minimal view glue. Class error boundaries stay internal and expose a `reatomMemo` wrapper.
+Every exported React function component in `packages/client/src` and `packages/widgets/*` is wrapped with `reatomMemo` from `widget-sdk`. Business logic, derived state, timers, and async flows belong in `model/`; `ui/` keeps refs, DOM interop, and minimal view glue. Class error boundaries stay internal and expose a `reatomMemo` wrapper.
 
 ## Deployment
 
