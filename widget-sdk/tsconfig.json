@@ -14,8 +14,7 @@
     "noEmit": true,
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
-      "@shared/*": ["../shared/*"],
-      "@widget-sdk/*": ["./src/*"]
+      "@shared/*": ["../shared/*"]
     }
   },
   "include": ["src"]

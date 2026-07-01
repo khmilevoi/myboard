@@ -2,8 +2,8 @@ import { wrap } from '@reatom/core'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
-import { useAtomValue } from '@widget-sdk/reatom/use-atom-value'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 import { getServerTime, type WidgetRuntimeProps, type WidgetTier } from 'widget-runtime'
 
 import { ofeliaCommentsModel } from '../model/ofelia-comments'

@@ -2,7 +2,7 @@ import type { CommentView } from '@widgets/ofelia-poop-duty/model/ofelia-comment
 import { Send } from 'lucide-react'
 import { useRef, useState } from 'react'
 
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Avatar } from './Avatar'
 

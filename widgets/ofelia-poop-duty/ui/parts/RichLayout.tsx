@@ -1,7 +1,7 @@
 import { Cat, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'

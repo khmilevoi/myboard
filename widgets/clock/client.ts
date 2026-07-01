@@ -1,4 +1,4 @@
-import { defineWidgetClient } from '@widget-sdk/define-widget-client'
+import { defineWidgetClient } from 'widget-sdk/define-widget-client'
 
 import type { ClockEvents } from './types'
 

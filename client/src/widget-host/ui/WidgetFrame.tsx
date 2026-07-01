@@ -6,7 +6,7 @@ import { lazy, Suspense, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useElementSize } from '@/shared/element-size/model/use-element-size'
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import {
   DEFAULT_TIERS,
   makeWidgetApi,

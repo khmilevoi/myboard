@@ -1,4 +1,4 @@
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'

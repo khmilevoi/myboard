@@ -1,4 +1,4 @@
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { IconButtons } from './IconButtons'
 import { LabeledButtons } from './LabeledButtons'

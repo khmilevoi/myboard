@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { apiProxy } from '../widget-sdk/src/vite-dev-config'
+import { apiProxy } from 'widget-sdk/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
 
@@ -123,7 +123,6 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
       '@widgets': resolve(__dirname, '../widgets'),
-      '@widget-sdk': resolve(__dirname, '../widget-sdk/src'),
     },
   },
   define: {

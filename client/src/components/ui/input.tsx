@@ -1,7 +1,7 @@
 import * as React from 'react'
 
-import { cn } from '@widget-sdk/lib/utils'
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { cn } from 'widget-sdk/lib/utils'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 const Input = reatomMemo<React.ComponentProps<'input'>>(({ className, type, ...props }) => {
   return (
