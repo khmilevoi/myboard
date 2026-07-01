@@ -29,6 +29,10 @@ export default defineConfig({
         !request.startsWith('.') &&
         !request.startsWith('@shared') &&
         !request.startsWith('@widgets') &&
+        // errore ships ESM-only (no "require" export condition), so it can't
+        // be left as a plain `require('errore')` in the CommonJS output.
+        // Bundle it instead of externalizing it.
+        request !== 'errore' &&
         !path.isAbsolute(request)
       ) {
         return callback(undefined, `commonjs ${request}`)
