@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@reatom/core": "catalog:",
+    "@reatom/react": "^1001.0.0",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

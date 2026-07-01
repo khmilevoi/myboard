@@ -318,6 +318,9 @@ importers:
       '@reatom/core':
         specifier: 'catalog:'
         version: 1001.1.0
+      '@reatom/react':
+        specifier: ^1001.0.0
+        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
@@ -364,6 +367,9 @@ importers:
       '@reatom/core':
         specifier: 'catalog:'
         version: 1001.1.0
+      '@reatom/react':
+        specifier: ^1001.0.0
+        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
