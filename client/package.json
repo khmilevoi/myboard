@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:nginx": "playwright test --config playwright.nginx.config.ts",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.json && tsc --noEmit --incremental false -p tsconfig.node.json",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit"
   },

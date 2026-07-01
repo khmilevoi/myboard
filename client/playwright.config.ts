@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: 'e2e',
+  testIgnore: 'nginx-smoke.spec.ts',
   outputDir: 'test-results',
   use: {
     baseURL: 'http://localhost:4173',
