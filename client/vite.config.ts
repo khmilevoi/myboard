@@ -5,9 +5,10 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
-import { apiProxy, federationShared, previewWidgetsProxy, widgetRemotes } from 'widget-sdk/vite'
+import { apiProxy, federationShared, stageWidgetBuilds, widgetRemotes } from 'widget-sdk/vite'
 
-const portsFile = resolve(__dirname, '../widgets/.ports.json')
+const widgetsDir = resolve(__dirname, '../widgets')
+const portsFile = resolve(widgetsDir, '.ports.json')
 
 export default defineConfig(({ command }) => ({
   plugins: [
@@ -25,6 +26,7 @@ export default defineConfig(({ command }) => ({
         ]),
     react(),
     tailwindcss(),
+    stageWidgetBuilds({ widgetsDir }),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: null,
@@ -151,19 +153,9 @@ export default defineConfig(({ command }) => ({
         codeSplitting: {
           groups: [
             {
-              name: 'react-vendor',
-              test: /node_modules[\\/](react|react-dom)[\\/]/,
-              priority: 20,
-            },
-            {
               name: 'grid-vendor',
               test: /node_modules[\\/](react-grid-layout|react-resizable)[\\/]/,
               priority: 18,
-            },
-            {
-              name: 'reatom-vendor',
-              test: /node_modules[\\/]@reatom[\\/]/,
-              priority: 16,
             },
             {
               name: 'storage-vendor',
@@ -202,6 +194,6 @@ export default defineConfig(({ command }) => ({
     // Vite preview is a static server and 404s `/api`; the e2e harness serves
     // the production build here while routing the API (incl. the
     // `/api/storage/events` SSE stream) to the test server.
-    proxy: { ...apiProxy(), ...previewWidgetsProxy(portsFile) },
+    proxy: apiProxy(),
   },
 }))

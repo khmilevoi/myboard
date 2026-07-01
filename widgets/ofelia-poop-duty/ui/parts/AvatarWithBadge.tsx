@@ -1,4 +1,4 @@
-import type { Person } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
+import type { Person } from '@/model/ofelia-duty'
 import type { ReactNode } from 'react'
 
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'

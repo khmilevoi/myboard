@@ -1,4 +1,4 @@
-import type { HistoryEntryView } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
+import type { HistoryEntryView } from '@/model/ofelia-duty'
 
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 

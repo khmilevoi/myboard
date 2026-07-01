@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { previewWidgetsProxy, readWidgetPort, widgetRemotes } from './widget-remotes'
+import { readWidgetPort, widgetRemotes } from './widget-remotes'
 
 function portsFileWith(json: Record<string, number>) {
   const dir = mkdtempSync(join(tmpdir(), 'ports-'))
@@ -33,12 +33,5 @@ describe('widget-remotes', () => {
     expect(widgetRemotes({ command: 'build', portsFile: file }).clock.entry).toBe(
       '/widgets/clock/remoteEntry.js',
     )
-  })
-
-  it('maps each widget id to a preview proxy target', () => {
-    expect(previewWidgetsProxy(file)['/widgets/ofelia-poop-duty']).toEqual({
-      target: 'http://localhost:5181',
-      changeOrigin: false,
-    })
   })
 })

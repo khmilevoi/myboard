@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite-build-exit",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@reatom/core": "catalog:",
+    "@reatom/react": "^1001.0.0",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "^1.16.12",
+    "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

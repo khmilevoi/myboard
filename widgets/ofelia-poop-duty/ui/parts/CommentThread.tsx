@@ -1,4 +1,4 @@
-import type { CommentView } from '@widgets/ofelia-poop-duty/model/ofelia-comments'
+import type { CommentView } from '@/model/ofelia-comments'
 import { Send } from 'lucide-react'
 import { useRef, useState } from 'react'
 

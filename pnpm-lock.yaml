@@ -4,36 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-catalogs:
-  default:
-    '@reatom/core':
-      specifier: ^1001.1.0
-      version: 1001.1.0
-    '@testing-library/react':
-      specifier: ^16.3.2
-      version: 16.3.2
-    '@types/react':
-      specifier: ^19.2.17
-      version: 19.2.17
-    '@types/react-dom':
-      specifier: ^19.2.3
-      version: 19.2.3
-    lucide-react:
-      specifier: 1.19.0
-      version: 1.19.0
-    react:
-      specifier: ^19.2.7
-      version: 19.2.7
-    react-dom:
-      specifier: ^19.2.7
-      version: 19.2.7
-    vitest:
-      specifier: ^4.1.9
-      version: 4.1.9
-    zod:
-      specifier: ^4.4.3
-      version: 4.4.3
-
 importers:
 
   .:
@@ -263,6 +233,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      errore:
+        specifier: ^0.14.1
+        version: 0.14.1
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
@@ -315,6 +288,9 @@ importers:
       '@reatom/core':
         specifier: 'catalog:'
         version: 1001.1.0
+      '@reatom/react':
+        specifier: ^1001.0.0
+        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
@@ -337,6 +313,9 @@ importers:
       '@module-federation/vite':
         specifier: ^1.16.12
         version: 1.16.12(node-fetch@3.3.2)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
+      '@testing-library/jest-dom':
+        specifier: ^6.9.1
+        version: 6.9.1
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -361,6 +340,9 @@ importers:
       '@reatom/core':
         specifier: 'catalog:'
         version: 1001.1.0
+      '@reatom/react':
+        specifier: ^1001.0.0
+        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
@@ -383,6 +365,9 @@ importers:
       '@module-federation/vite':
         specifier: ^1.16.12
         version: 1.16.12(node-fetch@3.3.2)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
+      '@testing-library/jest-dom':
+        specifier: ^6.9.1
+        version: 6.9.1
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

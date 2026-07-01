@@ -35,17 +35,3 @@ export function widgetRemotes({ command, portsFile }: WidgetRemotesOptions) {
     ]),
   )
 }
-
-export function previewWidgetsProxy(portsFile: string) {
-  const ports = readWidgetPorts(portsFile)
-
-  return Object.fromEntries(
-    Object.entries(ports).map(([id, port]) => [
-      `/widgets/${id}`,
-      {
-        target: `http://localhost:${port}`,
-        changeOrigin: false,
-      },
-    ]),
-  )
-}

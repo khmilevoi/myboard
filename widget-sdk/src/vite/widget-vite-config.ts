@@ -5,9 +5,9 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { defineConfig as defineVitestConfig } from 'vitest/config'
 
-import { federationShared } from './federation-shared'
-import { apiProxy } from './vite-dev-config'
-import { readWidgetPort } from './widget-remotes'
+import { federationShared } from './federation-shared.ts'
+import { apiProxy } from './vite-dev-config.ts'
+import { readWidgetPort } from './widget-remotes.ts'
 
 /** Federation remote + standalone dev/preview server for one widget package. */
 export function defineWidgetViteConfig(widgetDir: string) {
@@ -24,11 +24,13 @@ export function defineWidgetViteConfig(widgetDir: string) {
         shared: federationShared(),
         dev: { remoteHmr: true },
         manifest: false,
+        dts: false,
       }),
       react(),
     ],
     resolve: {
       alias: {
+        '@': widgetDir,
         '@shared': resolve(widgetDir, '..', '..', 'shared'),
       },
     },
@@ -52,6 +54,7 @@ export function defineWidgetVitestConfig(widgetDir: string) {
   return defineVitestConfig({
     resolve: {
       alias: {
+        '@': widgetDir,
         '@shared': resolve(widgetDir, '..', '..', 'shared'),
       },
     },

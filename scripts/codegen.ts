@@ -86,6 +86,8 @@ export function emitCatalog(metas: WidgetMeta[]) {
 import { toWidgetType, type WidgetType } from 'widget-sdk/define-widget-client'
 import type { WidgetComponentModule } from 'widget-runtime'
 
+import type { WidgetIconName } from './widget-icons.generated'
+
 function loadRemoteModule(id: string) {
   return async () => {
     const module = await loadRemote<WidgetComponentModule | WidgetComponentModule['default']>(\`\${id}/ui\`)
@@ -96,9 +98,9 @@ function loadRemoteModule(id: string) {
   }
 }
 
-export const widgetTypes: WidgetType[] = [
+export const widgetTypes = [
 ${entries}
-]
+] as (WidgetType & { icon: WidgetIconName })[]
 `
 }
 

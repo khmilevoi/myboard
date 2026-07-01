@@ -16,14 +16,15 @@ Before editing this repo, load the `reatom` and `errore` skills (referenced in A
 Run from the repo root with pnpm unless noted.
 
 ```bash
-pnpm dev                      # client Vite dev server
-pnpm dev:server                # server in watch mode
-pnpm build                     # typecheck + build client
+pnpm dev                      # codegen, then board + every widget dev server in parallel
+pnpm dev:server                # codegen, then server in watch mode
+pnpm build                     # codegen, build every widget remote, then typecheck/build the client host and PWA
 pnpm --filter server build     # bundle server with Rspack
 pnpm test                      # all workspace Vitest tests
 pnpm --filter client test      # client tests only
 pnpm --filter server test      # server tests only
-pnpm test:e2e                  # Playwright e2e (client)
+pnpm test:e2e                  # board Playwright e2e against the assembled production-style Vite output
+pnpm --filter client test:e2e:nginx # with docker compose up --build -d running, smoke-test the actual nginx image
 pnpm typecheck                 # workspace-wide tsc --noEmit
 pnpm lint / pnpm lint:fix       # oxlint
 pnpm format / pnpm format:check # oxfmt
@@ -46,24 +47,18 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 
 ## Architecture
 
-**Workspace layout**: pnpm workspace with `client` (Vite/React SPA) and `server` (Node storage API), plus a root-level `shared` package (`shared/json.ts`) imported via the `@shared/*` path alias from both. `@/*` aliases to `client/src`.
+**Workspace layout**: pnpm workspace with the `client` Vite/React host, the `server` Node API, root-level `shared`, singleton `widget-runtime`, stateless `widget-sdk`, and independently built `widgets/*` packages. `@/*` aliases only to `client/src`; shared widget code is imported through the two workspace package names.
 
 ### Widget system
 
-Widgets are the core extensibility unit. There are two layers:
-
-- **`client/src/widget-registry`**: the static catalog (`registry.ts`) — each `WidgetType` declares an id, title, default grid size, an icon, optional tier config, and a lazy `loadComponent` loader pointing at a standalone widget module.
-- **`client/widgets/<widget-name>`**: the actual widget implementations (e.g. `clock`, `ofelia-poop-duty`), each split into `model/` and `ui/` like other features. New widgets are added by creating a folder here and registering a `WidgetType` entry in the registry.
-- **`client/src/widget-host`**: hosts a widget instance on the board — `WidgetFrame` (rendering, error boundary via `react-error-boundary`, fullscreen overlay) and `tier.ts` (resolves widget tier/size thresholds).
+- **`client/src/widget-registry`**: synchronous codegen-generated catalog metadata and icon map. Only `loadComponent` crosses the Module Federation boundary when a placed widget mounts.
+- **`widgets/<widget-name>`**: one pnpm package per widget, split into `model/` and `ui/`, exposing only `./ui` as a federation remote and providing a standalone `dev/` harness. Adding a widget package and running codegen updates the client catalog, server registry, and stable port map without editing a hand-written registry.
+- **`client/src/widget-host`**: mounts first-party widget components in the board React tree and provides frame/error-boundary/fullscreen behavior.
+- **`widget-runtime` / `widget-sdk`**: shared runtime contracts/connections and stateless React/UI helpers respectively. React, React DOM, Reatom, and `widget-runtime` are strict federation singletons.
 
 ### Storage system (offline-first + sync)
 
-`client/src/storage/model` implements per-widget storage with two scopes and two backends:
-
-- **Scopes**: `instance` (namespaced to one widget placement, `w:i:<instanceId>:`) and `shared` (namespaced to a widget type, `w:t:<typeId>:`), created together by `createWidgetStorage()`.
-- **Backends**: `client/dexie-storage.ts` (local IndexedDB via Dexie, the offline source of truth) and `server/http-storage.ts` (talks to the storage API server). `server/sse-client.ts` subscribes to server-sent events for live updates across clients; `client/channel.ts` is the cross-tab `BroadcastChannel` glue.
-- `reatom/reatom-storage.ts` wires a storage scope into Reatom atoms for reactive read/write in widget models.
-- Widgets choose which scope/backend combination to use depending on whether data is per-placement or shared across all instances of a widget type.
+`widget-runtime/src/storage` owns per-widget instance/shared scopes, Dexie and HTTP backends, SSE/BroadcastChannel fanout, and Reatom bindings. Board and standalone harnesses construct the same `WidgetRuntimeProps`; widgets do not import storage through `client/src`.
 
 ### Server (storage API)
 
@@ -76,8 +71,8 @@ Widgets are the core extensibility unit. There are two layers:
 
 ### Reatom + component convention
 
-Every exported React function component in `client/src` and `client/widgets` must be wrapped with `reatomMemo` (`client/src/shared/reatom/reatom-memo.ts`) — this is enforced as a hard rule, including for trivial presentational components, so all components share the same Reatom/memo integration. Business logic, derived state, timers, and async flows belong in `model/`; `ui/` keeps only refs, DOM interop, and minimal view glue. Class-based error boundaries are kept internal to a module and exported as a `reatomMemo`-wrapped component (see `widget-host/ui/WidgetErrorBoundary.tsx`).
+Every exported React function component in `client/src` and `widgets/*` is wrapped with `reatomMemo` from `widget-sdk`. Business logic, derived state, timers, and async flows belong in `model/`; `ui/` keeps refs, DOM interop, and minimal view glue. Class error boundaries stay internal and expose a `reatomMemo` wrapper.
 
 ## Deployment
 
-`pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware).
+`pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release.

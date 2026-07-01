@@ -12,8 +12,10 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "paths": {
+      "@/*": ["./*"],
       "@shared/*": ["../../shared/*"]
     }
   },
