@@ -17,3 +17,5 @@ export const ofeliaWidget = defineWidgetClient<OfeliaEvents>({
   loadComponent: () =>
     import('./ui/OfeliaPoopDuty').then(({ OfeliaPoopDuty }) => ({ default: OfeliaPoopDuty })),
 })
+
+export default ofeliaWidget

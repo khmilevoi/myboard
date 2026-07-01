@@ -7,3 +7,5 @@ export const ofeliaServer = defineWidgetServer({
   schemas: ofeliaEventSchemas,
   handlers: {},
 })
+
+export default ofeliaServer

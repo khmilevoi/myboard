@@ -2,7 +2,6 @@ packages:
   - client
   - server
   - shared
-  - widgets
   - widgets/*
   - widget-runtime
   - widget-sdk
