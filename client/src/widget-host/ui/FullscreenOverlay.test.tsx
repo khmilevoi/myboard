@@ -7,7 +7,7 @@ import { addInstance, expandedInstanceId } from '@/board/model/board-model'
 import { activeBoardId, LOCAL_BOARD_ID, localBoard } from '@/board/model/board-storage'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
-import type { WidgetRuntimeProps } from '@widget-runtime/types'
+import type { WidgetRuntimeProps } from 'widget-runtime'
 import { FullscreenOverlay } from './FullscreenOverlay'
 
 const registryHolder = vi.hoisted(() => ({

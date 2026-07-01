@@ -22,10 +22,23 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'npm run build && npm run preview',
-      url: 'http://localhost:4173',
+      command: 'pnpm --filter widgets-clock build && pnpm --filter widgets-clock preview',
+      url: 'http://localhost:5180/widgets/clock/remoteEntry.js',
       reuseExistingServer: !process.env['CI'],
       timeout: 120_000,
+    },
+    {
+      command:
+        'pnpm --filter widgets-ofelia-poop-duty build && pnpm --filter widgets-ofelia-poop-duty preview',
+      url: 'http://localhost:5181/widgets/ofelia-poop-duty/remoteEntry.js',
+      reuseExistingServer: !process.env['CI'],
+      timeout: 120_000,
+    },
+    {
+      command: 'pnpm -w run codegen && npm run build && npm run preview',
+      url: 'http://localhost:4173',
+      reuseExistingServer: !process.env['CI'],
+      timeout: 180_000,
     },
   ],
 })

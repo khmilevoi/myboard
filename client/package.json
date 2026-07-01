@@ -15,6 +15,7 @@
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit"
   },
   "dependencies": {
+    "@module-federation/runtime": "^0.22.0",
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@khmilevoi/use-event": "^1.1.6",
@@ -42,6 +43,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@module-federation/vite": "^1.16.12",
     "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "catalog:",

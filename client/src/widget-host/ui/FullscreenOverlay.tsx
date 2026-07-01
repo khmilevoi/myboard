@@ -4,7 +4,7 @@ import { VisuallyHidden } from 'radix-ui'
 import { expandedInstanceId, removeInstance } from '@/board/model/board-model'
 import { activeBoard } from '@/board/model/board-storage'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
 import { WidgetFrame } from './WidgetFrame'

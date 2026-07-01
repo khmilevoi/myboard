@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 
-import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { FullscreenOverlay } from '@/widget-host/ui/FullscreenOverlay'
 
 import { ErrorBoundary } from './ErrorBoundary'

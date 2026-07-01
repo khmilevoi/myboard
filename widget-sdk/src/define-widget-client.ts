@@ -1,9 +1,6 @@
 import type { WidgetEventMap } from '@shared/widgets/contracts'
 
-import type { TierConfig } from '@widget-runtime/tier'
-import type { WidgetComponentModule, WidgetLoader } from '@widget-runtime/types'
-
-export type WidgetIconName = 'Clock' | 'CalendarDays' | 'Cat'
+import type { TierConfig, WidgetComponentModule, WidgetLoader } from 'widget-runtime'
 
 export type WidgetMetadata = {
   id: string
@@ -11,7 +8,7 @@ export type WidgetMetadata = {
   description: string
   defaultSize: { w: number; h: number; minW?: number; minH?: number }
   tiers?: TierConfig
-  icon: WidgetIconName
+  icon: string
 }
 
 export type WidgetClientDefinition<Events extends WidgetEventMap> = WidgetMetadata & {

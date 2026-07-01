@@ -1,4 +1,4 @@
-import { defineWidgetClient } from '@widget-sdk/define-widget-client'
+import { defineWidgetClient } from 'widget-sdk/define-widget-client'
 
 import type { OfeliaEvents } from './types'
 
@@ -17,3 +17,5 @@ export const ofeliaWidget = defineWidgetClient<OfeliaEvents>({
   loadComponent: () =>
     import('./ui/OfeliaPoopDuty').then(({ OfeliaPoopDuty }) => ({ default: OfeliaPoopDuty })),
 })
+
+export default ofeliaWidget

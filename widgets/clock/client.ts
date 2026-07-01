@@ -1,4 +1,4 @@
-import { defineWidgetClient } from '@widget-sdk/define-widget-client'
+import { defineWidgetClient } from 'widget-sdk/define-widget-client'
 
 import type { ClockEvents } from './types'
 
@@ -10,3 +10,5 @@ export const clockWidget = defineWidgetClient<ClockEvents>({
   icon: 'Clock',
   loadComponent: () => import('./ui/Clock').then(({ Clock }) => ({ default: Clock })),
 })
+
+export default clockWidget

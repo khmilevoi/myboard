@@ -1,13 +1,28 @@
 import { resolve } from 'node:path'
 
+import { federation } from '@module-federation/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { apiProxy } from '../widget-sdk/src/vite-dev-config'
 import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
+import { apiProxy, federationShared, previewWidgetsProxy, widgetRemotes } from 'widget-sdk/vite'
 
-export default defineConfig({
+const portsFile = resolve(__dirname, '../widgets/.ports.json')
+
+export default defineConfig(({ command }) => ({
   plugins: [
+    ...(process.env.VITEST
+      ? []
+      : [
+          federation({
+            name: 'board',
+            filename: 'remoteEntry.js',
+            remotes: widgetRemotes({ command, portsFile }),
+            shared: federationShared(),
+            dev: { remoteHmr: true },
+            manifest: false,
+          }),
+        ]),
     react(),
     tailwindcss(),
     VitePWA({
@@ -122,9 +137,6 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
-      '@widgets': resolve(__dirname, '../widgets'),
-      '@widget-runtime': resolve(__dirname, '../widget-runtime/src'),
-      '@widget-sdk': resolve(__dirname, '../widget-sdk/src'),
     },
   },
   define: {
@@ -170,19 +182,11 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    include: [
-      'src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
-      '../widgets/**/*.{test,spec}.?(c|m)[jt]s?(x)',
-    ],
+    include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     environment: 'jsdom',
     setupFiles: ['./src/vitest.setup.ts'],
     testTimeout: 30000,
-    exclude: [
-      ...configDefaults.exclude,
-      'e2e/**',
-      '../widgets/node_modules/**',
-      '../widgets/**/node_modules/**',
-    ],
+    exclude: [...configDefaults.exclude, 'e2e/**'],
     execArgv: ['--harmony-temporal'],
   },
   server: {
@@ -198,6 +202,6 @@ export default defineConfig({
     // Vite preview is a static server and 404s `/api`; the e2e harness serves
     // the production build here while routing the API (incl. the
     // `/api/storage/events` SSE stream) to the test server.
-    proxy: apiProxy(),
+    proxy: { ...apiProxy(), ...previewWidgetsProxy(portsFile) },
   },
-})
+}))

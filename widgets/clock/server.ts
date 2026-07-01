@@ -7,3 +7,5 @@ export const clockServer = defineWidgetServer({
   schemas: clockEventSchemas,
   handlers: {},
 })
+
+export default clockServer

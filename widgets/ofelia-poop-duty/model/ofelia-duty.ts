@@ -9,9 +9,8 @@ import {
 } from '@reatom/core'
 import z from 'zod'
 
-import { ServerTime } from '@widget-runtime/timer/server-time'
-import { withStorageKeyReadonly } from '@widget-runtime/storage/reatom'
-import { WidgetStorage } from '@widget-runtime/storage'
+import { withStorageKeyReadonly } from 'widget-runtime'
+import type { ServerTime, WidgetStorage } from 'widget-runtime'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
 export const BASE_DUTY_DATE = Temporal.PlainDate.from({
