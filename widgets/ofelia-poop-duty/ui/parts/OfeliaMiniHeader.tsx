@@ -1,6 +1,6 @@
 import { Cat } from 'lucide-react'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 import { OfeliaActionControls } from './OfeliaActionControls'
 

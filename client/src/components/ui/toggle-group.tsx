@@ -1,8 +1,8 @@
 import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui'
 import * as React from 'react'
 
-import { cn } from '@/lib/utils'
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { cn } from '@widget-sdk/lib/utils'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 const ToggleGroup = reatomMemo<React.ComponentProps<typeof ToggleGroupPrimitive.Root>>(
   ({ className, children, ...props }) => {

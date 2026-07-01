@@ -16,7 +16,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "@shared/*": ["../shared/*"],
-      "@widgets/*": ["../widgets/*"]
+      "@widgets/*": ["../widgets/*"],
+      "@widget-runtime/*": ["../widget-runtime/src/*"],
+      "@widget-sdk/*": ["../widget-sdk/src/*"]
     }
   },
   "include": ["src", "../widgets", "tests"]

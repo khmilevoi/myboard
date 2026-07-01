@@ -1,0 +1,26 @@
+{
+  "name": "widget-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@reatom/core": "catalog:",
+    "@reatom/react": "^1001.0.0",
+    "dexie": "^4.4.4",
+    "errore": "^0.14.1",
+    "react": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@types/react": "catalog:",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.1.1",
+    "react-dom": "catalog:",
+    "vitest": "catalog:"
+  }
+}

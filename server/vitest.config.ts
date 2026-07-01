@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { configDefaults, defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   resolve: {
@@ -11,13 +11,5 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-
-    include: ['src/**/*.{test,spec}.{ts,tsx}', '../widgets/**/*.{test,spec}.{ts,tsx}'],
-
-    exclude: [
-      ...configDefaults.exclude,
-      '../widgets/node_modules/**',
-      '../widgets/**/node_modules/**',
-    ],
   },
 })

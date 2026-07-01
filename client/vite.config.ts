@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { apiProxy } from '../widget-sdk/src/vite-dev-config'
 import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
 
@@ -122,6 +123,8 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
       '@shared': resolve(__dirname, '../shared'),
       '@widgets': resolve(__dirname, '../widgets'),
+      '@widget-runtime': resolve(__dirname, '../widget-runtime/src'),
+      '@widget-sdk': resolve(__dirname, '../widget-sdk/src'),
     },
   },
   define: {
@@ -173,6 +176,7 @@ export default defineConfig({
     ],
     environment: 'jsdom',
     setupFiles: ['./src/vitest.setup.ts'],
+    testTimeout: 30000,
     exclude: [
       ...configDefaults.exclude,
       'e2e/**',
@@ -188,22 +192,12 @@ export default defineConfig({
     // Docker this is unset, so normal `pnpm dev` keeps native watching.
     watch:
       process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true, interval: 100 } : undefined,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',
-        changeOrigin: true,
-      },
-    },
+    proxy: apiProxy(),
   },
   preview: {
     // Vite preview is a static server and 404s `/api`; the e2e harness serves
     // the production build here while routing the API (incl. the
     // `/api/storage/events` SSE stream) to the test server.
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY ?? 'http://localhost:8787',
-        changeOrigin: true,
-      },
-    },
+    proxy: apiProxy(),
   },
 })

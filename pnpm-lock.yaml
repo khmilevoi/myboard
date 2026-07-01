@@ -113,6 +113,12 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      widget-runtime:
+        specifier: workspace:*
+        version: link:../widget-runtime
+      widget-sdk:
+        specifier: workspace:*
+        version: link:../widget-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -197,6 +203,92 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  widget-runtime:
+    dependencies:
+      '@reatom/core':
+        specifier: 'catalog:'
+        version: 1001.1.0
+      '@reatom/react':
+        specifier: ^1001.0.0
+        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      dexie:
+        specifier: ^4.4.4
+        version: 4.4.4
+      errore:
+        specifier: ^0.14.1
+        version: 0.14.1
+      react:
+        specifier: 'catalog:'
+        version: 19.2.7
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.9.1
+        version: 6.9.1
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.17
+      fake-indexeddb:
+        specifier: ^6.2.5
+        version: 6.2.5
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1(@noble/hashes@1.8.0)
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.7(react@19.2.7)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.9(@types/node@25.9.3)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
+
+  widget-sdk:
+    dependencies:
+      '@reatom/core':
+        specifier: 'catalog:'
+        version: 1001.1.0
+      '@reatom/react':
+        specifier: ^1001.0.0
+        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: 'catalog:'
+        version: 1.19.0(react@19.2.7)
+      radix-ui:
+        specifier: ^1.6.0
+        version: 1.6.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.7
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
+      widget-runtime:
+        specifier: workspace:*
+        version: link:../widget-runtime
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.9.1
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: 'catalog:'
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.17
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1(@noble/hashes@1.8.0)
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.7(react@19.2.7)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.9(@types/node@25.9.3)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
+
   widgets:
     dependencies:
       '@reatom/core':
@@ -208,6 +300,12 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.7
+      widget-runtime:
+        specifier: workspace:*
+        version: link:../widget-runtime
+      widget-sdk:
+        specifier: workspace:*
+        version: link:../widget-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3

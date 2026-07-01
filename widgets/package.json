@@ -7,6 +7,8 @@
     "@reatom/core": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
+    "widget-runtime": "workspace:*",
+    "widget-sdk": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { findWidgetType, UnknownWidgetTypeError } from '@/widget-registry/model/registry'
 
-import type { WidgetRuntimeProps } from '../model/types'
+import type { WidgetRuntimeProps } from '@widget-runtime/types'
 import { WidgetFrame } from './WidgetFrame'
 import { useWidgetFrameContext } from './WidgetFrame.context'
 

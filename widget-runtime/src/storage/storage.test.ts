@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from './client/db'
-import { makeWidgetStorage } from './storage'
+import { makeWidgetStorage } from './index'
 
 beforeEach(async () => {
   await db.entries.clear()

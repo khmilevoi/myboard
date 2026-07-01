@@ -1,7 +1,7 @@
 import type { Person } from '@widgets/ofelia-poop-duty/model/ofelia-duty'
 import type { ReactNode } from 'react'
 
-import { reatomMemo } from '@/shared/reatom/reatom-memo'
+import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
 
 import { personTone } from '../person'
 import { Avatar } from './Avatar'

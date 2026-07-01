@@ -2,8 +2,8 @@ import { clockWidget } from '@widgets/clock/client'
 import { ofeliaWidget } from '@widgets/ofelia-poop-duty/client'
 import * as errore from 'errore'
 
-export { type WidgetIconName, type WidgetType } from './widget-definition'
-import { toWidgetType, type WidgetType } from './widget-definition'
+export { type WidgetIconName, type WidgetType } from '@widget-sdk/define-widget-client'
+import { toWidgetType, type WidgetType } from '@widget-sdk/define-widget-client'
 
 export class UnknownWidgetTypeError extends errore.createTaggedError({
   name: 'UnknownWidgetTypeError',

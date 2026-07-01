@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { defineWidgetClient, toWidgetType } from './widget-definition'
+import { defineWidgetClient, toWidgetType } from './define-widget-client'
 
 describe('widget client definition', () => {
   it('caches a successful component load', async () => {
