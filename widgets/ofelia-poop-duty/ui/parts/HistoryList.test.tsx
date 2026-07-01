@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import type { HistoryEntryView } from '../../model/ofelia-duty'
+import type { HistoryEntryView } from '@/model/ofelia-duty'
 import { describe, expect, it } from 'vitest'
 
 import { HistoryList } from './HistoryList'

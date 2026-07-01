@@ -1,4 +1,4 @@
-import type { Person } from '../../model/ofelia-duty'
+import type { Person } from '@/model/ofelia-duty'
 
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 

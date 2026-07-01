@@ -30,6 +30,7 @@ export function defineWidgetViteConfig(widgetDir: string) {
     ],
     resolve: {
       alias: {
+        '@': widgetDir,
         '@shared': resolve(widgetDir, '..', '..', 'shared'),
       },
     },
@@ -53,6 +54,7 @@ export function defineWidgetVitestConfig(widgetDir: string) {
   return defineVitestConfig({
     resolve: {
       alias: {
+        '@': widgetDir,
         '@shared': resolve(widgetDir, '..', '..', 'shared'),
       },
     },
