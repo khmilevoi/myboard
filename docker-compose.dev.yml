@@ -3,14 +3,33 @@
 #   pnpm docker:dev:down   -> tear it down
 #
 # - client: Vite dev server with HMR at http://localhost:5173
+# - widgets: every packages/widgets/* dev server (federation remotes). Dev
+#   remotes resolve to http://localhost:<port>/remoteEntry.js (see
+#   packages/widgets/.ports.json), so the 5180-5199 range is published 1:1.
+#   Adding a widget needs no compose edit until the range is exhausted — but
+#   DOES need a node_modules volume below (scripts/infra.test.ts enforces both).
 # - server: storage-api rebuilt on change via rspack watch + node --watch
+# - install runs `pnpm install` + codegen once; everything else starts after it.
 # - source is bind-mounted; file watching uses polling (CHOKIDAR_USEPOLLING)
 #   so edits on a Windows/macOS host are detected through the Docker bind mount.
-# - node_modules for the root and both packages live in named volumes so the
-#   host's (Windows) install is not clobbered by the container's (Linux) install.
-# - `install` runs `pnpm install` once; server/client start only after it
-#   completes successfully, so the shared root .pnpm store is written by one
-#   process.
+# - node_modules of EVERY workspace package live in named volumes so the
+#   host's (Windows) install is not clobbered by the container's (Linux) one.
+#   After moving/renaming workspace packages run `pnpm docker:dev:clean`:
+#   pnpm's "Already up to date" check trusts the volume state and will not
+#   repair relative symlinks that the move broke.
+
+x-workspace-volumes: &workspace-volumes
+  - .:/app
+  - pnpm_store:/pnpm-store
+  - root_node_modules:/app/node_modules
+  - client_node_modules:/app/packages/client/node_modules
+  - server_node_modules:/app/packages/server/node_modules
+  - shared_node_modules:/app/packages/shared/node_modules
+  - widget_runtime_node_modules:/app/packages/widget-runtime/node_modules
+  - widget_sdk_node_modules:/app/packages/widget-sdk/node_modules
+  - widgets_clock_node_modules:/app/packages/widgets/clock/node_modules
+  - widgets_ofelia_poop_duty_node_modules:/app/packages/widgets/ofelia-poop-duty/node_modules
+
 services:
   valkey:
     image: valkey/valkey:8-alpine
@@ -29,12 +48,10 @@ services:
   install:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm install"
-    volumes:
-      - .:/app
-      - root_node_modules:/app/node_modules
-      - client_node_modules:/app/packages/client/node_modules
-      - server_node_modules:/app/packages/server/node_modules
+    command: sh -c "corepack enable && pnpm install && pnpm run codegen"
+    environment:
+      npm_config_store_dir: /pnpm-store
+    volumes: *workspace-volumes
 
   server:
     image: node:22-alpine
@@ -44,11 +61,7 @@ services:
       VALKEY_URL: redis://valkey:6379
       PORT: '8787'
       CHOKIDAR_USEPOLLING: 'true'
-    volumes:
-      - .:/app
-      - root_node_modules:/app/node_modules
-      - client_node_modules:/app/packages/client/node_modules
-      - server_node_modules:/app/packages/server/node_modules
+    volumes: *workspace-volumes
     ports:
       - '127.0.0.1:8787:8787'
     depends_on:
@@ -57,6 +70,20 @@ services:
       valkey:
         condition: service_started
 
+  widgets:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c 'corepack enable && pnpm -r --parallel --filter "./packages/widgets/*" dev --host'
+    environment:
+      VITE_API_PROXY: http://server:8787
+      CHOKIDAR_USEPOLLING: 'true'
+    volumes: *workspace-volumes
+    ports:
+      - '5180-5199:5180-5199'
+    depends_on:
+      install:
+        condition: service_completed_successfully
+
   client:
     image: node:22-alpine
     working_dir: /app
@@ -64,11 +91,7 @@ services:
     environment:
       VITE_API_PROXY: http://server:8787
       CHOKIDAR_USEPOLLING: 'true'
-    volumes:
-      - .:/app
-      - root_node_modules:/app/node_modules
-      - client_node_modules:/app/packages/client/node_modules
-      - server_node_modules:/app/packages/server/node_modules
+    volumes: *workspace-volumes
     ports:
       - '5173:5173'
     depends_on:
@@ -76,9 +99,17 @@ services:
         condition: service_completed_successfully
       server:
         condition: service_started
+      widgets:
+        condition: service_started
 
 volumes:
+  pnpm_store:
   root_node_modules:
   client_node_modules:
   server_node_modules:
+  shared_node_modules:
+  widget_runtime_node_modules:
+  widget_sdk_node_modules:
+  widgets_clock_node_modules:
+  widgets_ofelia_poop_duty_node_modules:
   redisinsight:

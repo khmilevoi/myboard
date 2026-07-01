@@ -14,6 +14,14 @@ const holder = vi.hoisted(() => ({
   measuredSize: { width: 0, height: 0 },
 }))
 
+const federation = vi.hoisted(() => ({
+  loadRemote: vi.fn(),
+}))
+
+vi.mock('@module-federation/runtime', () => ({
+  loadRemote: federation.loadRemote,
+}))
+
 vi.mock('../../widget-registry/model/registry', async (importActual) => {
   const actual = await importActual<typeof import('../../widget-registry/model/registry')>()
   holder.actual = actual.findWidgetType
@@ -53,10 +61,14 @@ describe('WidgetFrame', () => {
   })
 
   it('renders the loadable widget component content', async () => {
+    const RemoteClock = () => <div>12:34</div>
+    federation.loadRemote.mockResolvedValue({ default: RemoteClock })
+
     const { container } = render(
       <WidgetFrame instanceId="inst-1" typeId="clock" mode="small" tier="standard" />,
     )
     expect(await screen.findByText(/:/)).toBeInTheDocument()
+    expect(federation.loadRemote).toHaveBeenCalledWith('clock/ui')
     expect(container.querySelector('iframe')).toBeNull()
   })
 

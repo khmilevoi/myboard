@@ -1,8 +1,18 @@
 services:
   valkey:
     image: valkey/valkey:8-alpine
+    # AOF so board data survives an unclean stop, not just periodic snapshots.
+    command: valkey-server --appendonly yes
+    volumes:
+      - valkey_data:/data
     ports:
       - '127.0.0.1:6379:6379'
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   server:
     build:
@@ -12,15 +22,28 @@ services:
       VALKEY_URL: redis://valkey:6379
       PORT: '8787'
     depends_on:
-      - valkey
+      valkey:
+        condition: service_healthy
     expose:
       - '8787'
+    healthcheck:
+      # /api/time is the cheapest existing route; wget ships in busybox.
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8787/api/time']
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   client:
     build:
       context: .
       dockerfile: packages/client/Dockerfile
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     ports:
       - '127.0.0.1:8080:80'
+    restart: unless-stopped
+
+volumes:
+  valkey_data:

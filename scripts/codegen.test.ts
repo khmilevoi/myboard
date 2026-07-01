@@ -26,9 +26,9 @@ describe('codegen emitters', () => {
   it('inlines catalog metadata and a loadRemote loader per widget', () => {
     const out = emitCatalog(metas)
     expect(out).toContain("import { loadRemote } from '@module-federation/runtime'")
-    expect(out).toContain('"id": "clock"')
+    expect(out).toContain('id: "clock"')
     expect(out).toContain('Лоток Офелии')
-    expect(out).toContain("loadRemoteModule('ofelia-poop-duty')")
+    expect(out).toContain('loadRemoteModule("ofelia-poop-duty")')
     expect(out).not.toContain('./ui/Clock')
   })
 

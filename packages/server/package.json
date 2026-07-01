@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "errore": "^0.14.1",
+    "errore": "catalog:",
     "find-my-way": "^9.6.0",
     "iovalkey": "^0.3.3",
     "zod": "catalog:"

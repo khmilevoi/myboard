@@ -29,12 +29,14 @@
     "@reatom/core": "catalog:",
     "@reatom/react": "^1001.0.0",
     "clsx": "^2.1.1",
-    "errore": "^0.14.1",
+    "errore": "catalog:",
     "lucide-react": "catalog:",
     "radix-ui": "^1.6.0",
     "react": "catalog:",
     "tailwind-merge": "^3.6.0",
     "widget-runtime": "workspace:*"
+    ,
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@module-federation/vite": "^1.16.12",
@@ -45,7 +47,7 @@
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
     "react-dom": "catalog:",
-    "vite": "^8.0.16",
+    "vite": "^8.1.2",
     "vitest": "catalog:"
   }
 }

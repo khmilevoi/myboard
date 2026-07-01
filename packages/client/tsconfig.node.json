@@ -6,6 +6,8 @@
     "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": true,
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.node.tsbuildinfo",
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "types": ["node"]
