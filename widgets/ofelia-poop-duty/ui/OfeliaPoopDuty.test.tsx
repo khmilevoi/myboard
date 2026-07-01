@@ -3,20 +3,22 @@ import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createFakeTimer } from '@widget-runtime/timer/fakes'
-import type { ServerTime } from '@widget-runtime/timer/server-time'
-import type { WidgetStorage } from '@widget-runtime/storage'
-import { createFakeStorage } from '@widget-runtime/storage/test/fakes'
-import type { WidgetTier } from '@widget-runtime/tier'
-import type { WidgetRuntimeProps } from '@widget-runtime/types'
+import { createFakeTimer } from 'widget-runtime/timer/fakes'
+import type { ServerTime, WidgetRuntimeProps, WidgetStorage, WidgetTier } from 'widget-runtime'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 
 const timerHolder = vi.hoisted(() => ({ current: null as ServerTime | null }))
 
-vi.mock('@widget-runtime/timer/server-time', () => ({
-  getServerTime: () => timerHolder.current,
-}))
+vi.mock('widget-runtime', async () => {
+  const actual = await vi.importActual<typeof import('widget-runtime')>('widget-runtime')
+
+  return {
+    ...actual,
+    getServerTime: () => timerHolder.current,
+  }
+})
 
 function fakeWidgetStorage(): WidgetStorage {
   const instanceClient = createFakeStorage()

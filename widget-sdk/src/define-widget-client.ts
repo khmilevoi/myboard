@@ -1,7 +1,6 @@
 import type { WidgetEventMap } from '@shared/widgets/contracts'
 
-import type { TierConfig } from '@widget-runtime/tier'
-import type { WidgetComponentModule, WidgetLoader } from '@widget-runtime/types'
+import type { TierConfig, WidgetComponentModule, WidgetLoader } from 'widget-runtime'
 
 export type WidgetIconName = 'Clock' | 'CalendarDays' | 'Cat'
 

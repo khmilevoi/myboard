@@ -10,7 +10,7 @@ import {
 import type { Atom, AtomLike } from '@reatom/core'
 import z from 'zod'
 
-import type { WidgetStorage } from '@widget-runtime/storage'
+import type { WidgetStorage } from 'widget-runtime'
 
 import { formatDateShort } from '../ui/format'
 import { DUTY_ROTATION, IP_TAIL_LENGTH, weekStartISO } from './ofelia-duty'

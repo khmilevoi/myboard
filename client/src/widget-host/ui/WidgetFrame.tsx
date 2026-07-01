@@ -7,13 +7,16 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { reatomMemo } from '@widget-sdk/reatom/reatom-memo'
-import { makeWidgetStorage } from '@widget-runtime/storage'
+import {
+  DEFAULT_TIERS,
+  makeWidgetApi,
+  makeWidgetStorage,
+  resolveTier,
+  type WidgetMode,
+  type WidgetTier,
+} from 'widget-runtime'
 import { resolvedTheme } from '@/theme/model/theme-model'
-import { makeWidgetApi } from '@widget-runtime/widget-api'
 import { findWidgetType } from '@/widget-registry/model/registry'
-
-import { DEFAULT_TIERS, resolveTier, type WidgetTier } from '@widget-runtime/tier'
-import type { WidgetMode } from '@widget-runtime/types'
 import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 import { WidgetFrameContext, widgetFrameContext } from './WidgetFrame.context'

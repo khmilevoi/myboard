@@ -2,11 +2,11 @@ import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import { createContext, useContext } from 'react'
 
 import { ResolvedTheme } from '@/shared/theme/types'
-import { WidgetStorage } from '@widget-runtime/storage'
-import type { WidgetApiError } from '@widget-runtime/widget-api'
+import { WidgetStorage } from 'widget-runtime'
+import type { WidgetApiError } from 'widget-runtime'
 
-import type { WidgetTier } from '@widget-runtime/tier'
-import { WidgetMode } from '@widget-runtime/types'
+import type { WidgetTier } from 'widget-runtime'
+import { WidgetMode } from 'widget-runtime'
 
 export interface WidgetFrameContext {
   instanceId: string

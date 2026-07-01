@@ -6,7 +6,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.resolve(import.meta.dirname, '../shared'),
-      '@widget-runtime': path.resolve(import.meta.dirname, '../widget-runtime/src'),
       '@widget-sdk': path.resolve(import.meta.dirname, './src'),
     },
   },
