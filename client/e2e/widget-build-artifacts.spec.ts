@@ -38,6 +38,8 @@ test('Workbox precaches both remote entries with release revisions', async ({ pa
 
   for (const path of REMOTE_PATHS) {
     const relativePath = escapeRegex(path.slice(1))
+    // Workbox's generateSW emits precache entries as an unquoted minified
+    // object literal (url:"...", not "url":"..."), not JSON.
     const revisionedEntry = new RegExp(
       `\\{(?=[^{}]*url:"${relativePath}")(?=[^{}]*revision:"[^"]+")[^{}]*\\}`,
     )
