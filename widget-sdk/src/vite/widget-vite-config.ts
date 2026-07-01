@@ -24,6 +24,7 @@ export function defineWidgetViteConfig(widgetDir: string) {
         shared: federationShared(),
         dev: { remoteHmr: true },
         manifest: false,
+        dts: false,
       }),
       react(),
     ],

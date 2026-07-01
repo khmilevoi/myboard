@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite-build-exit",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "^1.16.12",
+    "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
