@@ -33,12 +33,15 @@
     "widget-runtime": "workspace:*"
   },
   "devDependencies": {
+    "@module-federation/vite": "^1.16.12",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
+    "@vitejs/plugin-react": "^6.0.2",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
     "react-dom": "catalog:",
+    "vite": "^8.0.16",
     "vitest": "catalog:"
   }
 }
