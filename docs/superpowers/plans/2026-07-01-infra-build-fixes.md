@@ -1000,6 +1000,40 @@ rtk git commit -m "test(client): mock @module-federation/runtime in WidgetFrame 
 
 ---
 
+### Task 8: Client test-suite health (slow tests / silent fork deaths)
+
+**Status: partially DONE (2026-07-02).** The suite went from 14m49s-with-crashes (or fully livelocked) to **1m15s, 82/86 passing, zero worker deaths**. Committed as `fix(client): stop silent vitest fork deaths…`.
+
+**Root causes found (with profiler evidence):**
+1. **Missing `fake-indexeddb` in the client vitest setup** (widget-sdk and widget-runtime setups had it; the client's didn't, though the dep was already in devDependencies). Without indexedDB, Dexie's failed open feeds `withStorageKey`'s error path as soon as a storage-backed atom connects; module-level effects (e.g. `selectInitialActiveBoard`) re-write on every revert → **infinite microtask cycle** that starves all timers (even `testTimeout`), so forks died silently ("Worker exited unexpectedly", no stderr, no exit hooks) and vitest hung. V8 tick profile of the repro: `dexie callListener → StorageError ctor (errore Tagged)` + `reatom withAbort/computedMiddleware` churn. FIXED: `import 'fake-indexeddb/auto'` first in `packages/client/src/vitest.setup.ts`.
+2. **Node fetch rejects the app's relative `/api` URLs**, so every server-scope storage call failed — same livelock fuel class. FIXED: an "empty backend" fetch stub in the setup (storage GET → 404 = no value, listing → `{keys: []}`, writes → ok); tests that need real fetch behavior still `vi.stubGlobal` their own.
+
+**RESOLVED 2026-07-02 — all 4 failures root-caused and fixed (client suite 86/86 in ~14s):**
+
+1. **Cross-test state leak (the "error-card delete" 14ms failure + a detached-node ingredient of the 30s timeouts).** The Dexie db behind client storage is a module singleton; fake-indexeddb rows AND in-flight write publishes leaked across tests — a fresh `withStorageKey` subscription received the *previous* test's board mid-test (proven with a transition-logging diagnostic: test B observed test A's clock instance arrive asynchronously). `removeInstance` was never buggy; the board-model is fine. FIX: `resetClientStorage()` test helper in `widget-runtime/storage/test/fakes` (macrotask hop → `db.entries.clear()` queued behind in-flight Dexie transactions → hop), called from a global `beforeEach` in `packages/client/src/vitest.setup.ts`.
+2. **Detached card nodes (the 30s `within(card)` timeouts).** `beforeEach`'s redundant `localBoard.set({empty})` (redundant because `context.reset()` already restores the initial snapshot) scheduled a write whose publish landed MID-test, flipping Board through EmptyState and back — the card node found by `findByTestId` was detached (`card.isConnected === false`) while a live delete button existed elsewhere. FIX: drop the redundant set in `Board.test.tsx` / `FullscreenOverlay.test.tsx`.
+3. **React 19 suspended-replay livelock (the worker-killing spin once the MF mock is applied).** `toWidgetType` (packages/widget-sdk/src/define-widget-client.ts) memoizes the loader PROMISE per widget type at module scope; React's `lazyInitializer` brands resolved thenables in place (`thenable.status = 'fulfilled'`). Any LATER `lazy()` around the same branded object (second mount of the same widget type — i.e. the next mounting test) throws a thenable that already reports fulfilled; react-dom replays the suspended unit synchronously (`SuspendedOnImmediate → SuspendedAndReadyToContinue → isThenableResolved → replaySuspendedUnitOfWork`) before the microtask that would settle the new lazy payload can run — infinite synchronous loop under `act()` (a real browser yields via the Scheduler, so prod only pays an extra hop). FIX: `loadComponent` returns a fresh derived promise (`pending.then((m) => m)`) instead of the cached branded object. MF mock recipe now applied to `Board.test.tsx` and `FullscreenOverlay.test.tsx`.
+4. **`withStorageKey` revert livelock (prod hardening, was "bonus finding").** Failed writes reverted `target` to `prevState`, resonating with default-refilling effects (`selectInitialActiveBoard` pattern): revert → effect re-writes → write fails → revert… FIX (TDD, failing test first in `reatom-storage.test.ts`): keep the optimistic local state on failed writes, only record `error`; additionally the `.then`/`.finally` continuations are now `wrap()`ed — unwrapped they silently lost the reactive frame under `context.start` (error reporting no-op'd in SSR/tests; proven by diagnostic: `error.set` had no effect, `updatePromise` never cleared).
+
+**Surfaced while verifying (pre-existing, NOT fixed here):** `ofelia-comments.test.ts` fails 3 subscription tests (`withStorageKeyReadonly` + computed week key driven through `context.start`) — fails identically on a clean tree at 86a65fa; previously masked because `pnpm -r test` aborted on the client failures first. Needs its own investigation (same `wrap`/context-frame bug class as item 4). Also fixed in passing: `scripts/infra.test.ts` port-range regex now accepts double-quoted YAML (compose was reformatted), and two unused imports in `ofelia-comments.ts` that failed `pnpm typecheck`.
+
+**Hardening follow-ups (still open):**
+- Consider dropping `testTimeout: 30000` / `asyncUtilTimeout: 30000` to ~5–10s so genuine failures stop costing 30s each.
+
+---
+
+### Task 9: Duplicate @reatom/core instances across federation boundaries — RESOLVED 2026-07-02
+
+**Symptom:** widget-runtime and widgets ran different reatom module copies; storage-backed widgets (ofelia) stuck on their loading skeleton with `connected: false` storage atoms and a console storm.
+
+**Root cause (verified in the running dev board):** `@module-federation/vite` dev mode never consumes the share scope — `__FEDERATION__.__SHARE__` had `@reatom/core@1001.1.0` registered with `loaded: false, useIn: []` while host and BOTH widget dev servers each imported their own prebundled copy (`@reatom_core.js` fetched from :5173, :5180 AND :5181 with different hashes). Reatom v1001 shares its context stack across same-version copies via `globalThis.__REATOM.stackFrames`, but every copy's import side effect unconditionally pushes ITS OWN fresh root frame (`STACK.push(context.start())` in @reatom/core), burying the root that owns all existing atom state — the page ran with **3 root frames** (3 distinct `context` atoms), splitting host board/storage state from widget state.
+
+**Fix:** `ensureSingleReatomRoot()` (packages/widget-sdk/src/reatom/ensure-single-reatom-root.ts) collapses trailing root frames on the shared stack down to the oldest root; it reads `globalThis.__REATOM` directly (no @reatom/core import — it must target the shared structure, not one copy's view). Called from `toWidgetType.loadComponent` right after the remote's module graph resolves: the duplicate copy's import-time push has already happened, and none of the widget's atoms have been read yet (React renders the lazy component only after that promise resolves). Same-version copies interoperate safely over one root: the stack array is shared, frames are plain objects, and each atom is always processed by the copy that created it (`isAtom` is duck-typed; `AtomInitState instanceof` stays within the creating copy's middleware).
+
+**Proof:** dev board before → `stackFrames.length === 3`, ofelia skeleton forever, `connected: false` storm; after → `stackFrames.length === 1`, single context atom, `connected: true`, clock ticking (ofelia skeleton in the serverless `pnpm dev` stand is expected — its `view.ready` needs the first `/api/time` sync). Unit-tested in `ensure-single-reatom-root.test.ts` (simulates the duplicate-copy root push via `STACK.push(context.start())`, asserts split-brain then recovery). If share negotiation ever starts working (or in prod where it may), the call is a no-op.
+
+---
+
 ## Verification Summary
 
 | Problem | Proof of fix |

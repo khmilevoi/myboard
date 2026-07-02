@@ -14,7 +14,7 @@ const ports = JSON.parse(
 
 describe('docker-compose.dev.yml widget coverage', () => {
   it('publishes a host port range covering every widget dev port', () => {
-    const match = compose.match(/'(\d+)-(\d+):\1-\2'/)
+    const match = compose.match(/['"](\d+)-(\d+):\1-\2['"]/)
     expect(match, 'a published port range like 5180-5199:5180-5199').not.toBeNull()
     const from = Number(match![1])
     const to = Number(match![2])
