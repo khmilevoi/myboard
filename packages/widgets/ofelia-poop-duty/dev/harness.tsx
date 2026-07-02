@@ -11,7 +11,7 @@ export function harnessProps(): WidgetRuntimeProps {
     instanceId: `dev:${DEV_ID}`,
     typeId: DEV_ID,
     mode: 'large',
-    tier: 'standard',
+    tier: 'fullscreen',
     theme: 'light',
     requestFullscreen: () => {},
     requestClose: () => {},
