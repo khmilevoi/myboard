@@ -1,5 +1,32 @@
+// jsdom lacks indexedDB; without it Dexie's failed open hard-kills the vitest
+// fork (silent worker exit) the moment a storage-backed atom connects.
+import 'fake-indexeddb/auto'
+
 import '@testing-library/jest-dom/vitest'
 import { configure } from '@testing-library/react'
+
+// Node's fetch rejects the app's relative `/api` URLs outright, so every
+// server-scope storage call fails. A persistently failing backend feeds the
+// reactive graph an endless error/revert re-run cycle (withStorageKey +
+// module-level effects) — a microtask storm that starves timers and livelocks
+// the vitest fork. Serve the storage contract's "empty backend" instead:
+// GET → 404 (no value), listing → empty, writes → ok. Tests that need real
+// fetch behavior stub their own via vi.stubGlobal.
+globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+  const method = (
+    init?.method ?? (input instanceof Request ? input.method : 'GET')
+  ).toUpperCase()
+  if (url.startsWith('/api/')) {
+    if (method === 'GET') {
+      return url.includes('?prefix=')
+        ? Response.json({ keys: [] })
+        : new Response(null, { status: 404 })
+    }
+    return Response.json({})
+  }
+  return new Response(null, { status: 404 })
+}) as typeof fetch
 
 configure({ asyncUtilTimeout: 30000 })
 
