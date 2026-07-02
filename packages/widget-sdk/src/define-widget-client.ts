@@ -1,6 +1,8 @@
 import type { WidgetEventMap } from '@shared/widgets/contracts'
 import type { TierConfig, WidgetComponentModule, WidgetLoader } from 'widget-runtime'
 
+import { ensureSingleReatomRoot } from './reatom/ensure-single-reatom-root'
+
 export type WidgetMetadata = {
   id: string
   title: string
@@ -40,7 +42,15 @@ export function toWidgetType<const Events extends WidgetEventMap>(
     // the same branded object replays its suspended render synchronously —
     // before the microtask that would settle the new lazy payload — looping
     // forever under act()/flushSync. A derived promise is unbranded.
-    return pending.then((module) => module)
+    return pending.then((module) => {
+      // The remote's module graph is fully imported here; if its share-scope
+      // negotiation fell back to a bundled @reatom/core copy, that copy's
+      // import side effect just buried the host's root context. Repair the
+      // shared stack before the widget's atoms are first read (React renders
+      // the lazy component only after this promise resolves).
+      ensureSingleReatomRoot()
+      return module
+    })
   }
 
   return {
