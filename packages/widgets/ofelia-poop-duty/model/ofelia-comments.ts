@@ -8,9 +8,8 @@ import {
   wrap,
 } from '@reatom/core'
 import type { Atom, AtomLike } from '@reatom/core'
+import { withStorageKeyReadonly, type WidgetStorage } from 'widget-runtime'
 import z from 'zod'
-
-import type { WidgetStorage } from 'widget-runtime'
 
 import { formatDateShort } from '../ui/format'
 import { DUTY_ROTATION, IP_TAIL_LENGTH, weekStartISO } from './ofelia-duty'
@@ -57,35 +56,14 @@ export const ofeliaCommentsModel = ({
   currentUser,
 }: OfeliaCommentsModelProps) => {
   const comments = atom<Comment[]>([], 'ofeliaComments.comments').extend(
-    withConnectHook(() => {
-      let off = () => {}
-
-      const sync = (week: Temporal.PlainDate | null = viewWeekStart()) => {
-        off()
-        off = () => {}
-
-        if (week == null) {
-          comments.set([])
-          return
-        }
-
-        off = storage.shared.server.subscribe<Comment[]>(
-          commentsKey(week),
-          (event) => {
-            if (event instanceof Error) return
-            comments.set(event.value ?? [])
-          },
-          CommentsSchema,
-        )
-      }
-
-      sync()
-      const offWeek = addChangeHook(viewWeekStart, (week) => sync(week))
-
-      return () => {
-        off()
-        offWeek()
-      }
+    withStorageKeyReadonly({
+      api: storage.shared.server,
+      key: computed(() => {
+        const weekStart = viewWeekStart()
+        return weekStart ? commentsKey(weekStart) : null
+      }),
+      fallback: [],
+      schema: CommentsSchema,
     }),
   )
 

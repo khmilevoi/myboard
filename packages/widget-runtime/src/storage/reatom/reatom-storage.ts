@@ -2,11 +2,13 @@ import {
   action,
   atom,
   AtomState,
+  Computed,
   Ext,
   withAsync,
   withChangeHook,
   withConnectHook,
   wrap,
+  isAtom,
 } from '@reatom/core'
 import { Atom } from '@reatom/core'
 import type { z } from 'zod'
@@ -119,7 +121,7 @@ export const withStorageKey =
 
 export type WithStorageKeyReadonlyOptions<T> = {
   api: StorageApi
-  key: string
+  key: string | Computed<string | null>
   schema?: z.ZodType<T>
   /** Applied when the key is absent/deleted (StorageChange.value === null). */
   fallback: T
@@ -148,9 +150,15 @@ export const withStorageKeyReadonly =
     const error = atom<StorageError | null>(null, 'storage.error')
 
     target.extend(
-      withConnectHook(() =>
-        api.subscribe<AtomState<Target>>(
-          key,
+      withConnectHook(() => {
+        const resolvedKey = isAtom(key) ? key() : key
+
+        if (resolvedKey == null) {
+          return
+        }
+
+        return api.subscribe<AtomState<Target>>(
+          resolvedKey,
           wrap((event) => {
             isLoading.set(false)
             if (event instanceof Error) return error.set(event)
@@ -158,8 +166,8 @@ export const withStorageKeyReadonly =
             target.set(event.value ?? fallback)
           }),
           schema,
-        ),
-      ),
+        )
+      }),
     )
     return { error, isLoading }
   }
