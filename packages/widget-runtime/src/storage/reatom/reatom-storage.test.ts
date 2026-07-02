@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { atom, context, effect, wrap } from '@reatom/core'
+import { atom, computed, context, effect, wrap } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { db } from '../client/db'
@@ -183,5 +183,56 @@ describe('withStorageKeyReadonly', () => {
     })
 
     expect(set).not.toHaveBeenCalled()
+  })
+
+  it('follows a computed key: subscribes late, re-subscribes on change, drops old subscriptions', async () => {
+    const calls: { key: string; unsubscribe: ReturnType<typeof vi.fn> }[] = []
+    const subscribe = vi.fn((key: string) => {
+      const unsubscribe = vi.fn()
+      calls.push({ key, unsubscribe })
+      return unsubscribe
+    })
+    const api = {
+      get: vi.fn(async () => null),
+      set: vi.fn(),
+      delete: vi.fn(),
+      has: vi.fn(),
+      keys: vi.fn(),
+      subscribe,
+    } as unknown as StorageApi
+
+    const week = atom<string | null>(null, 'test.week')
+    const followed = atom<number[]>([], 'test.followed').extend(
+      withStorageKeyReadonly({
+        api,
+        key: computed(() => (week() == null ? null : `w:${week()}`), 'test.followedKey'),
+        fallback: [],
+      }),
+    )
+
+    await context.start(async () => {
+      const off = followed.subscribe(() => {})
+      const setWeek = wrap((value: string) => week.set(value))
+
+      // Null key: connected but no api subscription yet.
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(subscribe).not.toHaveBeenCalled()
+
+      setWeek('a')
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith('w:a', expect.any(Function), undefined),
+      )
+
+      setWeek('b')
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith('w:b', expect.any(Function), undefined),
+      )
+      expect(calls[0]?.unsubscribe).toHaveBeenCalled()
+
+      off()
+    })
+
+    // Disconnect drops the live subscription too.
+    await vi.waitFor(() => expect(calls[1]?.unsubscribe).toHaveBeenCalled())
   })
 })

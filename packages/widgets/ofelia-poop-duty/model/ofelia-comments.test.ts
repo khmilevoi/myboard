@@ -1,4 +1,4 @@
-import { atom, context } from '@reatom/core'
+import { atom, context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { StorageApi, StorageListener, WidgetStorage } from 'widget-runtime'
@@ -96,6 +96,10 @@ describe('ofeliaCommentsModel.comments', () => {
 
     await context.start(async () => {
       const off = model.comments.subscribe(() => {})
+      // Continuations after `await` run outside the started frame; capture
+      // frame-bound closures now so later reads hit this context, not the
+      // global one.
+      const readComments = wrap(() => model.comments())
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
@@ -107,8 +111,8 @@ describe('ofeliaCommentsModel.comments', () => {
 
       emit('comments:2026-06-15', [cm({ id: 'c1', text: 'hi' })])
 
-      await vi.waitFor(() => expect(model.comments()).toHaveLength(1))
-      expect(model.comments()[0]?.text).toBe('hi')
+      await vi.waitFor(() => expect(readComments()).toHaveLength(1))
+      expect(readComments()[0]?.text).toBe('hi')
 
       off()
     })
@@ -121,6 +125,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
     await context.start(async () => {
       const off = model.comments.subscribe(() => {})
+      const setWeek = wrap((week: Temporal.PlainDate) => deps.viewWeekStart.set(week))
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
@@ -130,7 +135,7 @@ describe('ofeliaCommentsModel.comments', () => {
         ),
       )
 
-      deps.viewWeekStart.set(D('2026-06-22'))
+      setWeek(D('2026-06-22'))
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
@@ -152,11 +157,13 @@ describe('ofeliaCommentsModel.comments', () => {
 
     await context.start(async () => {
       const off = model.comments.subscribe(() => {})
+      const readComments = wrap(() => model.comments())
+      const setWeek = wrap((week: Temporal.PlainDate) => deps.viewWeekStart.set(week))
 
-      await vi.waitFor(() => expect(model.comments()).toEqual([]))
+      await vi.waitFor(() => expect(readComments()).toEqual([]))
       expect(subscribe).not.toHaveBeenCalled()
 
-      deps.viewWeekStart.set(D('2026-06-15'))
+      setWeek(D('2026-06-15'))
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(

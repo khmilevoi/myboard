@@ -1,8 +1,10 @@
 import {
+  abortVar,
   action,
   atom,
   AtomState,
   Computed,
+  effect,
   Ext,
   withAsync,
   withChangeHook,
@@ -14,7 +16,7 @@ import { Atom } from '@reatom/core'
 import type { z } from 'zod'
 
 import { clearExpired } from '../client/db'
-import type { StorageApi, StorageError, StorageOptions } from '../types'
+import type { StorageApi, StorageError, StorageListener, StorageOptions } from '../types'
 
 /**
  * Status-tracked mutations over a StorageApi. The underlying api returns errors
@@ -158,22 +160,29 @@ export const withStorageKeyReadonly =
 
     target.extend(
       withConnectHook(() => {
-        const resolvedKey = isAtom(key) ? key() : key
+        const listener: StorageListener<AtomState<Target>> = wrap((event) => {
+          isLoading.set(false)
+          if (event instanceof Error) return error.set(event)
+          error.set(null)
+          target.set(event.value ?? fallback)
+        })
 
-        if (resolvedKey == null) {
-          return
-        }
-
-        return api.subscribe<AtomState<Target>>(
-          resolvedKey,
-          wrap((event) => {
-            isLoading.set(false)
-            if (event instanceof Error) return error.set(event)
-            error.set(null)
-            target.set(event.value ?? fallback)
-          }),
-          schema,
-        )
+        // A Computed key (e.g. keyed by the viewed week) must move the api
+        // subscription when it changes. Resolving it here directly would pin
+        // the first value forever: connect hooks run as an action, without
+        // dependency tracking, and fire only on the disconnected → connected
+        // edge. The effect tracks the key and re-subscribes per value
+        // (including null → key: subscribe late; key → null: just unsubscribe).
+        // Each run's api subscription is tied to that run's abort context, so
+        // it is dropped automatically both when the key changes (withAbort
+        // cancels the previous run) and on disconnect (the connect hook's
+        // abort tears the effect down) — no manual cleanup to return.
+        effect(() => {
+          const resolvedKey = isAtom(key) ? key() : key
+          if (resolvedKey == null) return
+          const unsubscribe = api.subscribe<AtomState<Target>>(resolvedKey, listener, schema)
+          abortVar.subscribe(() => unsubscribe())
+        }, `${target.name}.followKey`)
       }),
     )
     return { error, isLoading }
