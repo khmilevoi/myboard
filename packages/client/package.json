@@ -16,12 +16,12 @@
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit"
   },
   "dependencies": {
-    "@module-federation/runtime": "^0.22.0",
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@khmilevoi/use-event": "^1.1.6",
+    "@module-federation/runtime": "^0.22.0",
     "@reatom/core": "catalog:",
-    "@reatom/react": "^1001.0.0",
+    "@reatom/react": "catalog:",
     "@tailwindcss/vite": "^4.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

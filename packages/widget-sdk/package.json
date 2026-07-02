@@ -2,9 +2,15 @@
   "name": "widget-sdk",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "bin": {
     "vite-build-exit": "./bin/vite-build.mjs"
+  },
+  "type": "module",
+  "imports": {
+    "#lib/utils": "./src/lib/utils.ts",
+    "#lib/*": "./src/lib/*.ts",
+    "#components/*": "./src/ui/*.tsx",
+    "#hooks/*": "./src/hooks/*.ts"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -15,27 +21,20 @@
     "./vite": "./src/vite/index.ts",
     "./test-setup": "./src/test/widget-setup.ts"
   },
-  "imports": {
-    "#lib/utils": "./src/lib/utils.ts",
-    "#lib/*": "./src/lib/*.ts",
-    "#components/*": "./src/ui/*.tsx",
-    "#hooks/*": "./src/hooks/*.ts"
-  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@reatom/core": "catalog:",
-    "@reatom/react": "^1001.0.0",
+    "@reatom/react": "catalog:",
     "clsx": "^2.1.1",
     "errore": "catalog:",
     "lucide-react": "catalog:",
     "radix-ui": "^1.6.0",
     "react": "catalog:",
     "tailwind-merge": "^3.6.0",
-    "widget-runtime": "workspace:*"
-    ,
+    "widget-runtime": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

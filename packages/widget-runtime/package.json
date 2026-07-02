@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@reatom/core": "catalog:",
-    "@reatom/react": "^1001.0.0",
+    "@reatom/react": "catalog:",
     "dexie": "^4.4.4",
     "errore": "catalog:",
     "react": "catalog:",

@@ -8,14 +8,15 @@ packages:
 catalog:
   react: ^19.2.7
   react-dom: ^19.2.7
-  '@reatom/core': ^1001.1.0
+  "@reatom/core": ^1001.1.0
+  "@reatom/react": ^1001.0.0
   errore: ^0.14.1
   zod: ^4.4.3
   lucide-react: 1.19.0
-  '@testing-library/react': ^16.3.2
+  "@testing-library/react": ^16.3.2
   vitest: ^4.1.9
-  '@types/react': ^19.2.17
-  '@types/react-dom': ^19.2.3
+  "@types/react": ^19.2.17
+  "@types/react-dom": ^19.2.3
 allowBuilds:
   esbuild: true
 onlyBuiltDependencies:
