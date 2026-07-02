@@ -1,5 +1,13 @@
 # syntax=docker/dockerfile:1
 
+# --- widget-manifests stage: reduce packages/widgets to its package.json
+# files (plus .ports.json) so install layers re-key only on manifest changes,
+# not on widget sources. Widget discovery stays directory-based: a new widget
+# adds a package.json, which changes this stage's output and re-installs.
+FROM node:22-alpine AS widget-manifests
+COPY packages/widgets /widgets
+RUN find /widgets -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
+
 # --- build stage: codegen (widget server registry is git-ignored and
 # dockerignored, it MUST be generated here) + rspack bundle ---
 FROM node:22-alpine AS build
@@ -12,15 +20,17 @@ COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
-# Widget package discovery is directory-based (same trick as the client image).
-COPY packages/widgets ./packages/widgets
+COPY --from=widget-manifests /widgets ./packages/widgets
 # codegen imports every widgets/*/client.ts through tsx + widget-sdk sources,
-# so the full workspace install is required in this stage.
-RUN pnpm install --frozen-lockfile
+# so the full workspace install is required in this stage. The store lives in
+# a BuildKit cache mount so cache-missed installs skip the network.
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm install --frozen-lockfile --store-dir /pnpm-store
 
 COPY packages/shared ./packages/shared
 COPY packages/widget-runtime ./packages/widget-runtime
 COPY packages/widget-sdk ./packages/widget-sdk
+COPY packages/widgets ./packages/widgets
 COPY scripts ./scripts
 COPY packages/server ./packages/server
 
@@ -36,8 +46,9 @@ COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
-COPY packages/widgets ./packages/widgets
-RUN pnpm install --frozen-lockfile --filter server --prod
+COPY --from=widget-manifests /widgets ./packages/widgets
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm install --frozen-lockfile --filter server --prod --store-dir /pnpm-store
 COPY --from=build /app/packages/server/dist ./packages/server/dist
 WORKDIR /app/packages/server
 EXPOSE 8787

@@ -145,6 +145,9 @@ export default defineConfig(({ command }) => ({
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
   },
   build: {
+    // gzip-size reporting walks every emitted asset (incl. staged widget
+    // remotes) and only affects console output — not worth the build time.
+    reportCompressedSize: false,
     rolldownOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),

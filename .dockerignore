@@ -10,3 +10,9 @@ playwright-report
 .env.local
 .env.*.local
 **/*.generated.ts
+# heavyweight junk that must never reach the build context: the stray
+# container pnpm store, git worktrees (each with its own node_modules),
+# and docs — the images need none of it
+.pnpm-store
+.worktrees
+docs
