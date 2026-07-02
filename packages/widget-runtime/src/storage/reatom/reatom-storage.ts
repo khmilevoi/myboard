@@ -88,7 +88,7 @@ export const withStorageKey =
           schema,
         )
       }),
-      withChangeHook((state, prevState) => {
+      withChangeHook((state) => {
         // Echo guard: the connect hook applies server-delivered values via
         // `target.set`, which re-enters this change hook (the change hook fires
         // asynchronously, so a flag set around `target.set` would already be
@@ -98,15 +98,22 @@ export const withStorageKey =
         // this change is that echo — skip it. Genuine local mutations always
         // produce a fresh object, so they are never skipped.
         if (Object.is(state, asyncValue())) return
+        // A failed write keeps the optimistic local state and only records the
+        // error. Reverting to the previous value resonates with effects that
+        // re-fill defaults (e.g. selectInitialActiveBoard): revert → effect
+        // writes again → write fails → revert… an unbounded write cycle that
+        // livelocks the tab whenever the backend is persistently down.
+        // The continuations are wrap()ed: they run after an await boundary and
+        // would otherwise lose the reactive frame (silently dropping the sets
+        // under context.start, i.e. in SSR/tests).
         const promise = api
           .set(key, state)
-          .then((err) => {
-            if (err instanceof Error) {
-              error.set(err)
-              target.set(prevState)
-            }
-          })
-          .finally(() => updatePromise.set(null))
+          .then(
+            wrap((err) => {
+              if (err instanceof Error) error.set(err)
+            }),
+          )
+          .finally(wrap(() => updatePromise.set(null)))
         updatePromise.set(promise)
       }),
     )

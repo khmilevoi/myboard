@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { atom, context, wrap } from '@reatom/core'
+import { atom, context, effect, wrap } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { db } from '../client/db'
@@ -83,6 +83,54 @@ describe('withStorageKey', () => {
       await vi.waitFor(() => check2())
       off()
     })
+  })
+
+  it('settles with the optimistic value and a bounded write count when the backend always fails', async () => {
+    // Regression: a persistently failing backend (server down, quota, ...)
+    // must NOT livelock the graph. The old revert-on-failed-write behavior
+    // resonated with effects that re-fill a default (selectInitialActiveBoard
+    // pattern): write fails → revert to null → effect writes default → write
+    // fails → ... an unbounded microtask cycle that starves timers.
+    const set = vi.fn(async () => {
+      // Yield a macrotask per attempt so a runaway cycle cannot starve the
+      // test's own timers — the call COUNT is the livelock evidence.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      return new StorageError({ reason: 'backend down' })
+    })
+    const api = {
+      get: vi.fn(async () => null),
+      set,
+      delete: vi.fn(),
+      has: vi.fn(),
+      keys: vi.fn(),
+      subscribe: vi.fn((_key: string, listener: (event: { value: null }) => void) => {
+        listener({ value: null }) // empty backend: no stored value
+        return () => {}
+      }),
+    } as unknown as StorageApi
+
+    const key = atom<string | null>(null, 'test.active').extend(
+      withStorageKey({ api, key: 'active' }),
+    )
+    const ensureDefault = effect(() => {
+      if (key.isLoading()) return
+      if (key() === null) key.set('default')
+    }, 'test.ensureDefault')
+
+    // Deliberately NOT inside context.start: the app runs in the global
+    // context, and the failing-write continuation must work there.
+    const offKey = key.subscribe(() => {})
+    const offEffect = ensureDefault.subscribe()
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(key()).toBe('default') // optimistic value survives the failure
+    expect(key.error()).toBeInstanceOf(StorageError)
+    offEffect()
+    offKey()
+
+    // One local change → one write attempt (the failure is reported, not retried).
+    expect(set).toHaveBeenCalledTimes(1)
   })
 
   it('unsubscribes from the api on disconnect', async () => {
