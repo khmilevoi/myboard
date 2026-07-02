@@ -2,8 +2,8 @@ import { context } from '@reatom/core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
 import type { WidgetComponent, WidgetRuntimeProps } from 'widget-runtime'
+
 import { findWidgetType } from '@/widget-registry/model/registry'
 
 import { addInstance } from '../model/board-model'
@@ -14,6 +14,24 @@ const registryHolder = vi.hoisted(() => ({
   actual:
     null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
+
+const federation = vi.hoisted(() => ({
+  loadRemote: vi.fn(),
+}))
+
+// The generated catalog loads first-party widgets over Module Federation;
+// no host instance exists under Vitest, so loadRemote must be mocked (same
+// recipe as WidgetFrame.test.tsx). The stub mirrors the piece the tests
+// exercise: the widget's own delete control wired to requestDelete.
+vi.mock('@module-federation/runtime', () => ({
+  loadRemote: federation.loadRemote,
+}))
+
+const StubClockWidget = (props: WidgetRuntimeProps) => (
+  <button aria-label="Удалить" onClick={props.requestDelete}>
+    Удалить
+  </button>
+)
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {
   const actual = await importActual<typeof import('../../widget-registry/model/registry')>()
@@ -28,14 +46,12 @@ const BrokenWidget = (() => {
 beforeEach(() => {
   context.reset()
   localStorage.clear()
-  localBoard.set({
-    id: LOCAL_BOARD_ID,
-    name: LOCAL_BOARD_ID,
-    instances: [],
-    layout: [],
-  })
+  // context.reset() restores localBoard to its initial empty snapshot; setting
+  // it again here would schedule a storage write whose publish lands MID-test,
+  // flipping Board through EmptyState and detaching every queried card node.
   activeBoardId.set(LOCAL_BOARD_ID)
   vi.mocked(findWidgetType).mockImplementation(registryHolder.actual)
+  federation.loadRemote.mockResolvedValue({ default: StubClockWidget })
 })
 
 describe('Board', () => {

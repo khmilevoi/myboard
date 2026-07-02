@@ -2,18 +2,31 @@ import { context } from '@reatom/core'
 import { fireEvent, render, screen } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { WidgetRuntimeProps } from 'widget-runtime'
 
 import { addInstance, expandedInstanceId } from '@/board/model/board-model'
 import { activeBoardId, LOCAL_BOARD_ID, localBoard } from '@/board/model/board-storage'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
-import type { WidgetRuntimeProps } from 'widget-runtime'
 import { FullscreenOverlay } from './FullscreenOverlay'
 
 const registryHolder = vi.hoisted(() => ({
   actual:
     null as unknown as (typeof import('../../widget-registry/model/registry'))['findWidgetType'],
 }))
+
+const federation = vi.hoisted(() => ({
+  loadRemote: vi.fn(),
+}))
+
+// The generated catalog loads first-party widgets over Module Federation; no
+// host instance exists under Vitest, so loadRemote must be mocked (same recipe
+// as WidgetFrame.test.tsx).
+vi.mock('@module-federation/runtime', () => ({
+  loadRemote: federation.loadRemote,
+}))
+
+const StubClockWidget = () => <div>12:34</div>
 
 vi.mock('../../widget-registry/model/registry', async (importActual) => {
   const actual = await importActual<typeof import('../../widget-registry/model/registry')>()
@@ -24,14 +37,12 @@ vi.mock('../../widget-registry/model/registry', async (importActual) => {
 beforeEach(() => {
   context.reset()
   localStorage.clear()
-  localBoard.set({
-    id: LOCAL_BOARD_ID,
-    name: LOCAL_BOARD_ID,
-    instances: [],
-    layout: [],
-  })
+  // context.reset() restores localBoard to its initial empty snapshot; setting
+  // it again here would schedule a storage write whose publish lands MID-test,
+  // remounting the overlay content and detaching queried nodes.
   activeBoardId.set(LOCAL_BOARD_ID)
   vi.mocked(findWidgetType).mockImplementation(registryHolder.actual)
+  federation.loadRemote.mockResolvedValue({ default: StubClockWidget })
 })
 
 describe('FullscreenOverlay', () => {

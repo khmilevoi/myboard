@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 
+import { db } from '../client/db'
 import type {
   StorageApi,
   StorageChange,
@@ -7,6 +8,23 @@ import type {
   StorageListener,
   StorageOptions,
 } from '../types'
+
+const macrotask = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+/**
+ * Test-only: wipe the shared client (Dexie) storage between tests. The db and
+ * its publish channel are module singletons, so without this every test file
+ * leaks persisted rows AND in-flight write publishes into later tests — a
+ * fresh subscription on the same key receives the previous test's board.
+ * The first hop flushes pending reatom change hooks so their writes enter the
+ * Dexie queue; clear() then queues behind them; the last hop lets their
+ * publishes fire while no subscriber is connected yet.
+ */
+export async function resetClientStorage(): Promise<void> {
+  await macrotask()
+  await db.entries.clear()
+  await macrotask()
+}
 
 /** In-memory BroadcastChannel: instances with the same name see each other's posts. */
 export class FakeBroadcastChannel {
