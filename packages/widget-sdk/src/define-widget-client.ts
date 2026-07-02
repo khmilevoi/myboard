@@ -1,5 +1,4 @@
 import type { WidgetEventMap } from '@shared/widgets/contracts'
-
 import type { TierConfig, WidgetComponentModule, WidgetLoader } from 'widget-runtime'
 
 export type WidgetMetadata = {
@@ -36,7 +35,12 @@ export function toWidgetType<const Events extends WidgetEventMap>(
       pending = null
       throw error
     })
-    return pending
+    // Never hand out the cached promise object itself: React's lazy() brands
+    // resolved thenables with status/value in place, and a LATER lazy() around
+    // the same branded object replays its suspended render synchronously —
+    // before the microtask that would settle the new lazy payload — looping
+    // forever under act()/flushSync. A derived promise is unbranded.
+    return pending.then((module) => module)
   }
 
   return {
