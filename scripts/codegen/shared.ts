@@ -82,26 +82,17 @@ export function assignPorts(widgetDirs: string[], current: Record<string, number
   return assigned
 }
 
-export function writeIfChanged(file: string, next: string): Error | void {
-  const previous = fs.existsSync(file) ? errore.try(() => fs.readFileSync(file, 'utf8')) : null
-  if (previous instanceof Error) {
-    return new CodegenIoError({ operation: 'read', path: file, cause: previous })
-  }
-  if (previous === next) return
-  const directory = path.dirname(file)
-  const created = errore.try(() => fs.mkdirSync(directory, { recursive: true }))
-  if (created instanceof Error) {
-    return new CodegenIoError({ operation: 'create', path: directory, cause: created })
-  }
-  const written = errore.try(() => fs.writeFileSync(file, next))
-  if (written instanceof Error) {
-    return new CodegenIoError({ operation: 'write', path: file, cause: written })
-  }
-}
-
 export function writeGeneratedOutputs(outputs: GeneratedOutput[]): Error | void {
   const pending: { file: string; temporary: string }[] = []
   for (const [index, output] of outputs.entries()) {
+    const previous = fs.existsSync(output.file)
+      ? errore.try(() => fs.readFileSync(output.file, 'utf8'))
+      : null
+    if (previous instanceof Error) {
+      cleanupTemporaryFiles(pending)
+      return new CodegenIoError({ operation: 'read', path: output.file, cause: previous })
+    }
+    if (previous === output.content) continue
     const directory = path.dirname(output.file)
     const created = errore.try(() => fs.mkdirSync(directory, { recursive: true }))
     if (created instanceof Error) {
@@ -149,6 +140,11 @@ export function writeGeneratedOutputs(outputs: GeneratedOutput[]): Error | void 
 }
 
 export function identifierFromDirectory(dir: string) {
+  if (isJavaScriptIdentifier(dir) && !dir.startsWith('$')) return dir
+  return `$${[...dir].map((character) => character.codePointAt(0)!.toString(16)).join('_')}`
+}
+
+export function isJavaScriptIdentifier(value: string) {
   const reserved = new Set([
     'await',
     'break',
@@ -197,8 +193,7 @@ export function identifierFromDirectory(dir: string) {
     'with',
     'yield',
   ])
-  if (/^[A-Za-z_][\w$]*$/.test(dir) && !reserved.has(dir)) return dir
-  return `$${[...dir].map((character) => character.codePointAt(0)!.toString(16)).join('_')}`
+  return /^[A-Za-z_$][\w$]*$/.test(value) && !reserved.has(value)
 }
 
 export function stableJson(value: unknown) {

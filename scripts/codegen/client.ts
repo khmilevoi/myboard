@@ -11,6 +11,7 @@ import {
   discoverWidgetDirs,
   MissingWidgetEntrypointError,
   InvalidPortsConfigError,
+  isJavaScriptIdentifier,
   stableJson,
   writeGeneratedOutputs,
   type ClientCodegenPaths,
@@ -113,18 +114,12 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
       (cause) => new WidgetClientImportError({ widgetId: dir, cause }),
     )
     if (imported instanceof Error) return imported
-    const definition: unknown = imported.default
-    if (!isWidgetClientLike(definition)) {
-      return new InvalidWidgetClientDefinitionError({ widgetId: dir })
+    const meta = errore.try(() => extractWidgetMeta(imported.default, dir))
+    if (meta instanceof InvalidWidgetClientDefinitionError) return meta
+    if (meta instanceof Error) {
+      return new InvalidWidgetClientDefinitionError({ widgetId: dir, cause: meta })
     }
-    metas.push({
-      dir,
-      title: definition.title,
-      description: definition.description,
-      defaultSize: definition.defaultSize,
-      tiers: definition.tiers,
-      icon: definition.icon,
-    })
+    metas.push(meta)
   }
   return [
     { file: paths.portsFile, content: `${stableJson(assignPorts(widgetDirs, currentPorts))}\n` },
@@ -135,8 +130,11 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
 
 function isPortsConfig(value: unknown): value is Record<string, number> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
-  return Object.values(value).every(
-    (port) => typeof port === 'number' && Number.isFinite(port) && Number.isInteger(port),
+  const ports = Object.values(value)
+  return (
+    ports.every(
+      (port) => typeof port === 'number' && Number.isInteger(port) && port >= 1 && port <= 65_535,
+    ) && new Set(ports).size === ports.length
   )
 }
 
@@ -150,12 +148,54 @@ function isWidgetClientLike(value: unknown): value is WidgetClientLike {
     typeof definition.title === 'string' &&
     typeof definition.description === 'string' &&
     typeof definition.icon === 'string' &&
+    isJavaScriptIdentifier(definition.icon) &&
     typeof definition.loadComponent === 'function' &&
     typeof dimensions.w === 'number' &&
     Number.isFinite(dimensions.w) &&
+    dimensions.w > 0 &&
     typeof dimensions.h === 'number' &&
-    Number.isFinite(dimensions.h)
+    Number.isFinite(dimensions.h) &&
+    dimensions.h > 0 &&
+    isOptionalPositiveFiniteNumber(dimensions.minW) &&
+    isOptionalPositiveFiniteNumber(dimensions.minH) &&
+    isJsonValue(definition.tiers)
   )
+}
+
+function extractWidgetMeta(
+  value: unknown,
+  dir: string,
+): InvalidWidgetClientDefinitionError | WidgetMeta {
+  if (!isWidgetClientLike(value)) return new InvalidWidgetClientDefinitionError({ widgetId: dir })
+  const meta = {
+    dir,
+    title: value.title,
+    description: value.description,
+    defaultSize: value.defaultSize,
+    tiers: value.tiers,
+    icon: value.icon,
+  }
+  const serialized = errore.try(() => stableJson(meta))
+  if (serialized instanceof Error) {
+    return new InvalidWidgetClientDefinitionError({ widgetId: dir, cause: serialized })
+  }
+  return meta
+}
+
+function isOptionalPositiveFiniteNumber(value: unknown) {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value > 0)
+}
+
+function isJsonValue(value: unknown, seen = new Set<object>()): boolean {
+  if (value === undefined) return true
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value !== 'object' || seen.has(value)) return false
+  seen.add(value)
+  const values = Array.isArray(value) ? value : Object.values(value)
+  const valid = values.every((item) => isJsonValue(item, seen))
+  seen.delete(value)
+  return valid
 }
 
 export async function generateClient(paths: ClientCodegenPaths): Promise<Error | void> {

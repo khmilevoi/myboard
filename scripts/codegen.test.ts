@@ -1,8 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import fs from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = fs
 
 import {
   emitCatalog,
@@ -122,9 +124,43 @@ describe('codegen generation', () => {
     },
   )
 
+  it.each(['{"probe":0}', '{"probe":65536}', '{"probe":5180,"other":5180}'])(
+    'rejects out-of-range or duplicate ports %s',
+    async (config) => {
+      const paths = createTempCodegenPaths('invalid-port-boundary')
+      writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), validClientDefinition())
+      writeFileSync(paths.portsFile, config)
+      expect(await generateClient(paths)).toBeInstanceOf(InvalidPortsConfigError)
+    },
+  )
+
   it('returns a tagged error for malformed client definitions', async () => {
     const paths = createTempCodegenPaths('invalid-client')
     writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), 'export default { title: 42 }')
+    expect(await generateClient(paths)).toBeInstanceOf(InvalidWidgetClientDefinitionError)
+  })
+
+  it.each([
+    "icon: 'bad-icon'",
+    "icon: 'Clock', defaultSize: { w: 1, h: 1, minW: 0 }",
+    "icon: 'Clock', defaultSize: { w: 1, h: 1, minH: Infinity }",
+  ])('rejects client metadata that cannot be emitted safely: %s', async (fields) => {
+    const paths = createTempCodegenPaths('invalid-client-fields')
+    writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), clientDefinition(fields))
+    expect(await generateClient(paths)).toBeInstanceOf(InvalidWidgetClientDefinitionError)
+  })
+
+  it.each([
+    'const tiers = {}; tiers.self = tiers; export default { tiers,',
+    'export default { tiers: { value: 1n },',
+  ])('returns a tagged error for nonserializable metadata', async (prefix) => {
+    const paths = createTempCodegenPaths('nonserializable-client')
+    writeFileSync(
+      join(paths.widgetsDir, 'probe', 'client.ts'),
+      `${prefix}
+      title: 'Probe', description: 'Probe', defaultSize: { w: 1, h: 1 },
+      icon: 'Clock', loadComponent: () => Promise.resolve({ default: () => null }) }`,
+    )
     expect(await generateClient(paths)).toBeInstanceOf(InvalidWidgetClientDefinitionError)
   })
 
@@ -140,6 +176,40 @@ describe('codegen generation', () => {
     ])
     expect(result).toBeInstanceOf(Error)
     expect(readFileSync(first, 'utf8')).toBe('before')
+  })
+
+  it('does not replace unchanged outputs', () => {
+    const root = mkdtempSync(join(tmpdir(), 'stable-codegen-'))
+    const file = join(root, 'stable.ts')
+    writeFileSync(file, 'stable')
+    const before = fs.statSync(file).mtimeMs
+    const rename = vi.spyOn(fs, 'renameSync')
+    expect(writeGeneratedOutputs([{ file, content: 'stable' }])).not.toBeInstanceOf(Error)
+    expect(rename).not.toHaveBeenCalled()
+    expect(fs.statSync(file).mtimeMs).toBe(before)
+    rename.mockRestore()
+  })
+
+  it('restores committed outputs when a later rename fails', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rename-rollback-'))
+    const first = join(root, 'first.ts')
+    const second = join(root, 'second.ts')
+    writeFileSync(first, 'first-before')
+    writeFileSync(second, 'second-before')
+    const original = fs.renameSync
+    const rename = vi.spyOn(fs, 'renameSync')
+    rename.mockImplementation((oldPath, newPath) => {
+      if (String(oldPath).includes('.tmp') && newPath === second) throw new Error('rename failed')
+      return original(oldPath, newPath)
+    })
+    const result = writeGeneratedOutputs([
+      { file: first, content: 'first-after' },
+      { file: second, content: 'second-after' },
+    ])
+    rename.mockRestore()
+    expect(result).toBeInstanceOf(Error)
+    expect(readFileSync(first, 'utf8')).toBe('first-before')
+    expect(readFileSync(second, 'utf8')).toBe('second-before')
   })
 })
 
@@ -162,5 +232,12 @@ function validClientDefinition() {
   return `export default {
     title: 'Probe', description: 'Probe', defaultSize: { w: 1, h: 1 },
     icon: 'Clock', loadComponent: () => Promise.resolve({ default: () => null })
+  }`
+}
+
+function clientDefinition(fields: string) {
+  return `export default {
+    title: 'Probe', description: 'Probe', defaultSize: { w: 1, h: 1 },
+    ${fields}, loadComponent: () => Promise.resolve({ default: () => null })
   }`
 }
