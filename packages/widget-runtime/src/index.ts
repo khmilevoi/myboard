@@ -1,4 +1,5 @@
 export * from './types'
+export * from './widget-context'
 export * from './theme'
 export * from './tier'
 export * from './widget-api'

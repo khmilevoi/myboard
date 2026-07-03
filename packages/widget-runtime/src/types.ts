@@ -22,9 +22,11 @@ export type WidgetRuntimeProps<Events extends WidgetEventMap = WidgetEventMap> =
   api: WidgetApi<Events, WidgetApiError>
 }
 
-export type WidgetComponent<Events extends WidgetEventMap = WidgetEventMap> = ComponentType<
-  WidgetRuntimeProps<Events>
->
+declare const widgetEvents: unique symbol
+
+export type WidgetComponent<Events extends WidgetEventMap = WidgetEventMap> = ComponentType & {
+  readonly [widgetEvents]?: Events
+}
 export type WidgetComponentModule<Events extends WidgetEventMap = WidgetEventMap> = {
   default: WidgetComponent<Events>
 }

@@ -2,7 +2,7 @@ import { context } from '@reatom/core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WidgetComponent, WidgetRuntimeProps } from 'widget-runtime'
+import { type WidgetComponent, useWidgetContext } from 'widget-runtime'
 
 import { findWidgetType } from '@/widget-registry/model/registry'
 
@@ -27,8 +27,8 @@ vi.mock('@module-federation/runtime', () => ({
   loadRemote: federation.loadRemote,
 }))
 
-const StubClockWidget = (props: WidgetRuntimeProps) => (
-  <button aria-label="Удалить" onClick={props.requestDelete}>
+const StubClockWidget = () => (
+  <button aria-label="Удалить" onClick={useWidgetContext().requestDelete}>
     Удалить
   </button>
 )
@@ -145,7 +145,7 @@ describe('Board', () => {
     // Grid columns resize with the viewport, so a fixed w/h in grid units maps to a
     // different pixel size on every screen. Board must leave tier resolution to
     // WidgetFrame's own size measurement instead of computing it from layout units.
-    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+    const Probe = () => <div>tier:{useWidgetContext().tier}</div>
     vi.mocked(findWidgetType).mockImplementation((typeId) => {
       if (typeId === 'probe') {
         return {

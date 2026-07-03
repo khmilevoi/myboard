@@ -12,14 +12,15 @@ import {
   makeWidgetApi,
   makeWidgetStorage,
   resolveTier,
+  WidgetRuntimeContext,
   type WidgetMode,
+  type WidgetRuntimeProps,
   type WidgetTier,
 } from 'widget-runtime'
 import { resolvedTheme } from '@/theme/model/theme-model'
 import { findWidgetType } from '@/widget-registry/model/registry'
 import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
-import { WidgetFrameContext, widgetFrameContext } from './WidgetFrame.context'
 
 import styles from './WidgetFrame.module.css'
 
@@ -64,7 +65,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       return makeWidgetApi({ instanceId, typeId })
     }, [instanceId, typeId])
 
-    const context = useMemo<WidgetFrameContext>(() => {
+    const context = useMemo<WidgetRuntimeProps>(() => {
       return {
         instanceId,
         typeId,
@@ -117,7 +118,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
 
     return (
       <div className={styles.frame} data-widget-surface ref={ref}>
-        <widgetFrameContext.Provider value={context}>
+        <WidgetRuntimeContext.Provider value={context}>
           <WidgetErrorBoundary
             resetKey={reloadKey}
             onError={(error) =>
@@ -127,24 +128,10 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
             onDelete={onDelete}
           >
             <Suspense fallback={<Skeleton className={styles.skeleton} />}>
-              {LazyWidget && (
-                <LazyWidget
-                  instanceId={instanceId}
-                  typeId={typeId}
-                  mode={mode}
-                  tier={tier}
-                  theme={theme}
-                  requestFullscreen={context.requestFullscreen}
-                  requestClose={context.requestClose}
-                  requestDelete={context.requestDelete}
-                  reportError={context.reportError}
-                  storage={context.storage}
-                  api={context.api}
-                />
-              )}
+              {LazyWidget && <LazyWidget />}
             </Suspense>
           </WidgetErrorBoundary>
-        </widgetFrameContext.Provider>
+        </WidgetRuntimeContext.Provider>
       </div>
     )
   },

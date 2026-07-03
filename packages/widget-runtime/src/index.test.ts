@@ -10,6 +10,8 @@ describe('widget-runtime package exports', () => {
     expect(runtime.makeWidgetStorage).toBeTypeOf('function')
     expect(runtime.makeWidgetApi).toBeTypeOf('function')
     expect(runtime.getServerTime).toBeTypeOf('function')
+    expect(runtime.useWidgetContext).toBeTypeOf('function')
+    expect(runtime.WidgetRuntimeContext.Provider).toBeDefined()
     expect(storageFakes.createFakeStorage).toBeTypeOf('function')
     expect(timerFakes.createFakeTimer).toBeTypeOf('function')
   })

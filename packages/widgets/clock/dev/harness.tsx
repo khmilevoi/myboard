@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { makeWidgetApi, makeWidgetStorage } from 'widget-runtime'
+import { makeWidgetApi, makeWidgetStorage, WidgetRuntimeContext } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk'
 
@@ -28,7 +28,9 @@ export function harnessProps(): WidgetRuntimeProps {
 export const HarnessApp = reatomMemo(
   () => (
     <Suspense fallback={null}>
-      <Widget {...harnessProps()} />
+      <WidgetRuntimeContext.Provider value={harnessProps()}>
+        <Widget />
+      </WidgetRuntimeContext.Provider>
     </Suspense>
   ),
   'ClockHarness',

@@ -2,7 +2,7 @@ import { context } from '@reatom/core'
 import { fireEvent, render, screen } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WidgetRuntimeProps } from 'widget-runtime'
+import { useWidgetContext } from 'widget-runtime'
 
 import { addInstance, expandedInstanceId } from '@/board/model/board-model'
 import { activeBoardId, LOCAL_BOARD_ID, localBoard } from '@/board/model/board-storage'
@@ -68,8 +68,8 @@ describe('FullscreenOverlay', () => {
   })
 
   it('closes when the widget itself calls requestClose (the dialog draws no close button of its own)', async () => {
-    const Probe = (props: WidgetRuntimeProps) => (
-      <button onClick={props.requestClose}>widget close</button>
+    const Probe = () => (
+      <button onClick={useWidgetContext().requestClose}>widget close</button>
     )
     vi.mocked(findWidgetType).mockImplementation((typeId) => {
       if (typeId === 'probe') {
@@ -109,7 +109,7 @@ describe('FullscreenOverlay', () => {
   })
 
   it('renders the expanded widget with the fullscreen tier', async () => {
-    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+    const Probe = () => <div>tier:{useWidgetContext().tier}</div>
     vi.mocked(findWidgetType).mockImplementation((typeId) => {
       if (typeId === 'probe') {
         return {

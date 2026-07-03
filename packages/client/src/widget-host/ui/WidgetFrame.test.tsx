@@ -4,9 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { findWidgetType, UnknownWidgetTypeError } from '@/widget-registry/model/registry'
 
-import type { WidgetRuntimeProps } from 'widget-runtime'
+import { useWidgetContext } from 'widget-runtime'
 import { WidgetFrame } from './WidgetFrame'
-import { useWidgetFrameContext } from './WidgetFrame.context'
 
 const holder = vi.hoisted(() => ({
   actual:
@@ -92,8 +91,8 @@ describe('WidgetFrame', () => {
     expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull()
   })
 
-  it('passes the resolved tier to the widget component', async () => {
-    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+  it('provides the resolved tier to the widget component through runtime context', async () => {
+    const Probe = () => <div>tier:{useWidgetContext().tier}</div>
     vi.mocked(findWidgetType).mockReturnValue({
       id: 'probe',
       title: 'Probe',
@@ -109,7 +108,7 @@ describe('WidgetFrame', () => {
   })
 
   it('resolves the tier from its measured size when no tier override is given', async () => {
-    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+    const Probe = () => <div>tier:{useWidgetContext().tier}</div>
     vi.mocked(findWidgetType).mockReturnValue({
       id: 'probe',
       title: 'Probe',
@@ -126,7 +125,7 @@ describe('WidgetFrame', () => {
   })
 
   it('falls back to tiny when the measured size clears no threshold', async () => {
-    const Probe = (props: WidgetRuntimeProps) => <div>tier:{props.tier}</div>
+    const Probe = () => <div>tier:{useWidgetContext().tier}</div>
     vi.mocked(findWidgetType).mockReturnValue({
       id: 'probe',
       title: 'Probe',
@@ -142,18 +141,16 @@ describe('WidgetFrame', () => {
     expect(await screen.findByText('tier:tiny')).toBeInTheDocument()
   })
 
-  it('passes one type- and instance-bound API through props and context', async () => {
+  it('provides one type- and instance-bound API through runtime context', async () => {
     const fetchRequest = vi.fn(
       async () => new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }),
     )
     vi.stubGlobal('fetch', fetchRequest)
 
-    const Probe = (props: WidgetRuntimeProps) => {
-      const context = useWidgetFrameContext()
+    const Probe = () => {
+      const context = useWidgetContext()
       return (
-        <button onClick={() => props.api.invoke('probe', { value: 1 })}>
-          {props.api === context.api ? 'same-api' : 'different-api'}
-        </button>
+        <button onClick={() => context.api.invoke('probe', { value: 1 })}>context-api</button>
       )
     }
     vi.mocked(findWidgetType).mockReturnValue({
@@ -166,7 +163,7 @@ describe('WidgetFrame', () => {
     })
 
     render(<WidgetFrame instanceId="instance-7" typeId="probe/type" mode="small" />)
-    fireEvent.click(await screen.findByRole('button', { name: 'same-api' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'context-api' }))
 
     await vi.waitFor(() => {
       expect(fetchRequest).toHaveBeenCalledWith(

@@ -1,5 +1,5 @@
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-import type { WidgetRuntimeProps } from 'widget-runtime'
+import { useWidgetContext } from 'widget-runtime'
 import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
 import { clockNow } from '../model/clock-model'
@@ -20,8 +20,9 @@ const dateFmt = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
 })
 
-export const Clock = reatomMemo<WidgetRuntimeProps<ClockEvents>>(
-  ({ mode, requestFullscreen, requestDelete }) => {
+export const Clock = reatomMemo(
+  () => {
+    const { mode, requestFullscreen, requestDelete } = useWidgetContext<ClockEvents>()
     const now = clockNow()
 
     if (mode === 'large') {
