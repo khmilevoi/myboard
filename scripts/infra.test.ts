@@ -8,6 +8,7 @@ import { discoverWidgetDirs } from './codegen/shared'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const compose = readFileSync(resolve(root, 'docker-compose.dev.yml'), 'utf8')
+const workspace = readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')
 const widgetViteConfig = readFileSync(
   resolve(root, 'packages/widget-sdk/src/vite/widget-vite-config.ts'),
   'utf8',
@@ -56,6 +57,22 @@ it('runs only server codegen in the server image', () => {
   expect(serverDockerfile).not.toMatch(/RUN pnpm run codegen(?:\s|\\)/)
   expect(serverDockerfile).not.toContain('RUN pnpm run codegen:client')
   expect(serverDockerfile).not.toContain('imports every widgets/*/client.ts')
+})
+
+it('registers the lightweight browser automation workspace package', () => {
+  expect(workspace).toContain('  - packages/browser-automation')
+  const manifest = JSON.parse(
+    readFileSync(resolve(root, 'packages/browser-automation/package.json'), 'utf8'),
+  ) as {
+    name: string
+    scripts: Record<string, string>
+  }
+
+  expect(manifest.name).toBe('browser-automation')
+  expect(manifest.scripts).toEqual({
+    test: 'vitest run',
+    typecheck: 'tsc --noEmit -p tsconfig.json',
+  })
 })
 
 describe('docker-compose.dev.yml widget coverage', () => {
