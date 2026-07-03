@@ -15,6 +15,7 @@
     "typecheck": "pnpm run codegen && pnpm -r typecheck",
     "codegen": "tsx scripts/codegen.ts all",
     "codegen:client": "tsx scripts/codegen.ts client",
+    "codegen:browser": "tsx scripts/codegen.ts browser",
     "codegen:server": "tsx scripts/codegen.ts server",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",

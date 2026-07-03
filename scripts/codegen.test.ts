@@ -119,6 +119,7 @@ describe('codegen emitters', () => {
   it('parses supported targets and rejects unknown targets', () => {
     expect(parseCodegenTarget('invalid')).toBeInstanceOf(InvalidCodegenTargetError)
     expect(parseCodegenTarget('server')).toBe('server')
+    expect(parseCodegenTarget('browser')).toBe('browser')
   })
 
   it('creates readable, legal, and reserved-safe bindings', () => {

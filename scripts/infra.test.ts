@@ -16,6 +16,8 @@ const widgetViteConfig = readFileSync(
 const rootPackage = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
 }
+const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8')
+const rootCodegen = readFileSync(resolve(root, 'scripts/codegen.ts'), 'utf8')
 const clientDockerfile = readFileSync(resolve(root, 'packages/client/Dockerfile'), 'utf8')
 const serverDockerfile = readFileSync(resolve(root, 'packages/server/Dockerfile'), 'utf8')
 const ports = JSON.parse(
@@ -73,6 +75,18 @@ it('registers the lightweight browser automation workspace package', () => {
     test: 'vitest run',
     typecheck: 'tsc --noEmit -p tsconfig.json',
   })
+})
+
+it('wires browser codegen as an isolated target and into combined codegen', () => {
+  expect(rootPackage.scripts['codegen:browser']).toBe('tsx scripts/codegen.ts browser')
+  expect(rootCodegen).toContain("if (target === 'browser') return generateBrowser")
+  expect(rootCodegen).toContain('const browserOutputs = prepareBrowser(defaultCodegenPaths)')
+  expect(rootCodegen).toContain(
+    'writeGeneratedOutputs([...clientOutputs, ...serverOutputs, ...browserOutputs])',
+  )
+  expect(gitignore).toContain(
+    'packages/browser-automation/src/tasks/widget-browser-list.generated.ts',
+  )
 })
 
 describe('docker-compose.dev.yml widget coverage', () => {
