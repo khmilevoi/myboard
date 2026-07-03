@@ -10,6 +10,7 @@ import {
   CodegenIoError,
   discoverWidgetDirs,
   MissingWidgetEntrypointError,
+  InvalidPortsConfigError,
   stableJson,
   writeGeneratedOutputs,
   type ClientCodegenPaths,
@@ -29,6 +30,10 @@ export type WidgetMeta = Omit<WidgetClientLike, 'loadComponent'> & { dir: string
 export class WidgetClientImportError extends errore.createTaggedError({
   name: 'WidgetClientImportError',
   message: 'Failed to import client definition for widget $widgetId',
+}) {}
+export class InvalidWidgetClientDefinitionError extends errore.createTaggedError({
+  name: 'InvalidWidgetClientDefinitionError',
+  message: 'Invalid client definition for widget $widgetId',
 }) {}
 
 export function emitCatalog(metas: WidgetMeta[]) {
@@ -67,6 +72,14 @@ ${entries}
 
 export function emitIcons(metas: WidgetMeta[]) {
   const icons = [...new Set(metas.map((meta) => meta.icon))].sort((a, b) => a.localeCompare(b))
+  if (icons.length === 0) {
+    return `${BANNER}import type { LucideIcon } from 'lucide-react'
+
+export type WidgetIconName = never
+
+export const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = {}
+`
+  }
   return `${BANNER}import type { LucideIcon } from 'lucide-react'
 import { ${icons.join(', ')} } from 'lucide-react'
 
@@ -89,6 +102,7 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
   if (currentPorts instanceof Error) {
     return new CodegenIoError({ operation: 'parse', path: paths.portsFile, cause: currentPorts })
   }
+  if (!isPortsConfig(currentPorts)) return new InvalidPortsConfigError({ path: paths.portsFile })
   const metas: WidgetMeta[] = []
   for (const dir of widgetDirs) {
     const entrypoint = path.resolve(paths.widgetsDir, dir, 'client.ts')
@@ -99,7 +113,10 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
       (cause) => new WidgetClientImportError({ widgetId: dir, cause }),
     )
     if (imported instanceof Error) return imported
-    const definition = imported.default as WidgetClientLike
+    const definition: unknown = imported.default
+    if (!isWidgetClientLike(definition)) {
+      return new InvalidWidgetClientDefinitionError({ widgetId: dir })
+    }
     metas.push({
       dir,
       title: definition.title,
@@ -114,6 +131,31 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
     { file: paths.clientCatalogFile, content: emitCatalog(metas) },
     { file: paths.clientIconsFile, content: emitIcons(metas) },
   ]
+}
+
+function isPortsConfig(value: unknown): value is Record<string, number> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  return Object.values(value).every(
+    (port) => typeof port === 'number' && Number.isFinite(port) && Number.isInteger(port),
+  )
+}
+
+function isWidgetClientLike(value: unknown): value is WidgetClientLike {
+  if (value === null || typeof value !== 'object') return false
+  const definition = value as Record<string, unknown>
+  const size = definition.defaultSize
+  if (size === null || typeof size !== 'object') return false
+  const dimensions = size as Record<string, unknown>
+  return (
+    typeof definition.title === 'string' &&
+    typeof definition.description === 'string' &&
+    typeof definition.icon === 'string' &&
+    typeof definition.loadComponent === 'function' &&
+    typeof dimensions.w === 'number' &&
+    Number.isFinite(dimensions.w) &&
+    typeof dimensions.h === 'number' &&
+    Number.isFinite(dimensions.h)
+  )
 }
 
 export async function generateClient(paths: ClientCodegenPaths): Promise<Error | void> {

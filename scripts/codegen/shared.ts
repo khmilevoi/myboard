@@ -37,6 +37,10 @@ export class InvalidCodegenTargetError extends errore.createTaggedError({
   name: 'InvalidCodegenTargetError',
   message: 'Unknown codegen target: $target',
 }) {}
+export class InvalidPortsConfigError extends errore.createTaggedError({
+  name: 'InvalidPortsConfigError',
+  message: 'Invalid widget ports config at $path',
+}) {}
 
 export function parseCodegenTarget(raw: string): InvalidCodegenTargetError | CodegenTarget {
   if (raw === 'client' || raw === 'server' || raw === 'all') return raw
@@ -96,16 +100,130 @@ export function writeIfChanged(file: string, next: string): Error | void {
 }
 
 export function writeGeneratedOutputs(outputs: GeneratedOutput[]): Error | void {
-  for (const output of outputs) {
-    const result = writeIfChanged(output.file, output.content)
-    if (result instanceof Error) return result
+  const pending: { file: string; temporary: string }[] = []
+  for (const [index, output] of outputs.entries()) {
+    const directory = path.dirname(output.file)
+    const created = errore.try(() => fs.mkdirSync(directory, { recursive: true }))
+    if (created instanceof Error) {
+      cleanupTemporaryFiles(pending)
+      return new CodegenIoError({ operation: 'create', path: directory, cause: created })
+    }
+    const temporary = `${output.file}.codegen-${process.pid}-${index}.tmp`
+    const written = errore.try(() => fs.writeFileSync(temporary, output.content))
+    if (written instanceof Error) {
+      cleanupTemporaryFiles(pending)
+      return new CodegenIoError({ operation: 'write', path: temporary, cause: written })
+    }
+    pending.push({ file: output.file, temporary })
+  }
+
+  const committed: { file: string; backup: string | null }[] = []
+  for (const [index, output] of pending.entries()) {
+    const backup = fs.existsSync(output.file)
+      ? `${output.file}.codegen-${process.pid}-${index}.bak`
+      : null
+    const backedUp =
+      backup === null ? undefined : errore.try(() => fs.renameSync(output.file, backup))
+    if (backedUp instanceof Error) {
+      rollbackGeneratedOutputs(committed, pending)
+      return new CodegenIoError({ operation: 'backup', path: output.file, cause: backedUp })
+    }
+    const renamed = errore.try(() => fs.renameSync(output.temporary, output.file))
+    if (renamed instanceof Error) {
+      const restored =
+        backup === null ? undefined : errore.try(() => fs.renameSync(backup, output.file))
+      if (restored instanceof Error)
+        console.warn('Failed to restore generated output backup', restored)
+      rollbackGeneratedOutputs(committed, pending)
+      return new CodegenIoError({ operation: 'replace', path: output.file, cause: renamed })
+    }
+    committed.push({ file: output.file, backup })
+  }
+  for (const output of committed) {
+    if (output.backup === null) continue
+    const removed = errore.try(() => fs.rmSync(output.backup, { recursive: true }))
+    if (removed instanceof Error) {
+      return new CodegenIoError({ operation: 'remove backup', path: output.backup, cause: removed })
+    }
   }
 }
 
 export function identifierFromDirectory(dir: string) {
-  return dir.replace(/-([a-z])/g, (_, char: string) => char.toUpperCase())
+  const reserved = new Set([
+    'await',
+    'break',
+    'case',
+    'catch',
+    'class',
+    'const',
+    'continue',
+    'debugger',
+    'default',
+    'delete',
+    'do',
+    'else',
+    'enum',
+    'export',
+    'extends',
+    'false',
+    'finally',
+    'for',
+    'function',
+    'if',
+    'implements',
+    'import',
+    'in',
+    'instanceof',
+    'interface',
+    'let',
+    'new',
+    'null',
+    'package',
+    'private',
+    'protected',
+    'public',
+    'return',
+    'static',
+    'super',
+    'switch',
+    'this',
+    'throw',
+    'true',
+    'try',
+    'typeof',
+    'var',
+    'void',
+    'while',
+    'with',
+    'yield',
+  ])
+  if (/^[A-Za-z_][\w$]*$/.test(dir) && !reserved.has(dir)) return dir
+  return `$${[...dir].map((character) => character.codePointAt(0)!.toString(16)).join('_')}`
 }
 
 export function stableJson(value: unknown) {
   return JSON.stringify(value, null, 2)
+}
+
+function cleanupTemporaryFiles(outputs: { temporary: string }[]) {
+  for (const output of outputs) {
+    const removed = errore.try(() => fs.rmSync(output.temporary, { force: true }))
+    if (removed instanceof Error) console.warn('Failed to remove codegen temporary file', removed)
+  }
+}
+
+function rollbackGeneratedOutputs(
+  committed: { file: string; backup: string | null }[],
+  pending: { temporary: string }[],
+) {
+  for (const output of [...committed].reverse()) {
+    const removed = errore.try(() => fs.rmSync(output.file, { force: true }))
+    if (removed instanceof Error)
+      console.warn('Failed to remove generated output during rollback', removed)
+    if (output.backup === null) continue
+    const restored = errore.try(() => fs.renameSync(output.backup!, output.file))
+    if (restored instanceof Error)
+      console.warn('Failed to restore generated output backup', restored)
+  }
+  cleanupTemporaryFiles(pending)
 }
