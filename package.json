@@ -2,6 +2,7 @@
   "name": "myboard",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "pnpm run codegen && pnpm -r --parallel --filter \"./packages/widgets/*\" --filter client dev",
     "dev:server": "pnpm run codegen && pnpm --filter server dev",
@@ -12,7 +13,9 @@
     "test:scripts": "vitest run",
     "test:e2e": "pnpm --filter client test:e2e",
     "typecheck": "pnpm run codegen && pnpm -r typecheck",
-    "codegen": "tsx scripts/codegen.ts",
+    "codegen": "tsx scripts/codegen.ts all",
+    "codegen:client": "tsx scripts/codegen.ts client",
+    "codegen:server": "tsx scripts/codegen.ts server",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
@@ -28,6 +31,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.0",
+    "errore": "catalog:",
     "oxfmt": "^0.55.0",
     "oxlint": "^1.70.0",
     "tsx": "^4.20.6",

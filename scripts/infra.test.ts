@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { discoverWidgetDirs } from './codegen'
+import { discoverWidgetDirs } from './codegen/shared'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const compose = readFileSync(resolve(root, 'docker-compose.dev.yml'), 'utf8')
@@ -25,7 +25,9 @@ describe('docker-compose.dev.yml widget coverage', () => {
   })
 
   it('mounts a named node_modules volume for every workspace package', () => {
-    const widgetDirs = discoverWidgetDirs(resolve(root, 'packages/widgets'))
+    const widgetDirsResult = discoverWidgetDirs(resolve(root, 'packages/widgets'))
+    if (widgetDirsResult instanceof Error) throw widgetDirsResult
+    const widgetDirs = widgetDirsResult
     const required = [
       'packages/client',
       'packages/server',

@@ -47,6 +47,9 @@ importers:
       concurrently:
         specifier: ^9.2.0
         version: 9.2.3
+      errore:
+        specifier: 'catalog:'
+        version: 0.14.1
       oxfmt:
         specifier: ^0.55.0
         version: 0.55.0
