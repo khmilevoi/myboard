@@ -26,8 +26,10 @@ This design includes two tightly coupled deliverables:
    Ukrainian passport booklet using the fixed checker fields `service=1` and
    `doc_1_select=1`.
 
-The infrastructure and widget are delivered together because the widget is the
+The infrastructure and widget form one final feature because the widget is the
 first production consumer and provides the acceptance path for the runtime.
+Implementation is still divided into the ordered, independently planned
+subprojects defined in Delivery Decomposition.
 
 ## Non-goals
 
@@ -335,6 +337,210 @@ Codegen gains a browser target and includes it in workspace-wide `codegen`,
 tests, and typechecks. Client codegen remains independent so frontend-only work
 does not launch or import browser code.
 
+## Delivery Decomposition
+
+Development is split into seven ordered subprojects. Each subproject is small
+enough to receive its own brainstorming pass, approved design spec,
+implementation plan, implementation branch or worktree, and verification cycle.
+The master design in this document fixes the cross-subproject architecture;
+subproject brainstorming resolves local details without reopening approved
+boundaries. If a subproject discovers that a master decision must change, this
+document is amended and reviewed before implementation continues.
+
+Suggested spec and plan slugs are listed below. The date prefix is added when a
+subproject document is created.
+
+### Subproject 1: Browser task contracts and codegen
+
+**Slug:** `widget-browser-contracts-and-codegen`
+
+**Objective:** Establish the lightweight, Playwright-free contract surface and
+deterministic discovery needed by every later subproject.
+
+**Includes:**
+
+- browser task schema and inferred event types;
+- `defineWidgetBrowser` and runtime-definition conversion;
+- optional widget-root `browser.ts` discovery;
+- browser registry code generation and generated-import isolation;
+- codegen commands, fixtures, and deterministic output tests.
+
+**Excludes:** HTTP transport, task execution, Playwright, Docker, server context
+changes, and the passport widget.
+
+**Done when:** browser codegen discovers only valid optional entry points,
+rejects duplicate definitions, does not import client/server modules, and leaves
+existing client/server codegen behavior green.
+
+**Dependencies:** none.
+
+### Subproject 2: Browser service core
+
+**Slug:** `browser-automation-service-core`
+
+**Objective:** Build the reusable internal service around generated task
+definitions without coupling its core tests to a real browser.
+
+**Includes:**
+
+- the `packages/browser-automation` service package;
+- validated internal HTTP request/response envelopes;
+- registry lookup and task dispatch;
+- FIFO scheduling, deadlines, cancellation, and graceful shutdown;
+- health and session-state separation;
+- tagged error mapping, redaction, and fake executor tests.
+
+**Excludes:** real Playwright launch, Xvfb/noVNC, Compose wiring, server gateway,
+and passport-specific code.
+
+**Done when:** the service executes fake registered tasks sequentially, validates
+both sides of every task, reports stable safe errors, and passes timeout,
+shutdown, health, and redaction tests.
+
+**Dependencies:** Subproject 1.
+
+### Subproject 3: Playwright host and Raspberry Pi deployment
+
+**Slug:** `browser-automation-playwright-deployment`
+
+**Objective:** Replace the fake executor boundary with a production persistent
+Chromium host and make it operable in the Raspberry Pi Compose deployment.
+
+**Includes:**
+
+- persistent-context lifecycle and recovery adapter;
+- headed Chromium under Xvfb;
+- x11vnc/noVNC bound to Raspberry Pi loopback;
+- pinned Playwright Ubuntu/ARM64 Docker image and non-root runtime;
+- profile volume, `init`, shared-memory configuration, and healthcheck;
+- Compose runtime-secret plumbing from `pi env send`;
+- development Compose support and operator documentation.
+
+**Excludes:** main-server browser API, passport request logic, and widget UI.
+
+**Done when:** a generic fixture task runs in the container, its profile survives
+a rebuild, noVNC is reachable only through an SSH tunnel, secrets appear only as
+`/run/secrets` files, and browser attention does not fail process health.
+
+**Dependencies:** Subproject 2.
+
+### Subproject 4: Widget server browser gateway
+
+**Slug:** `widget-server-browser-gateway`
+
+**Objective:** Give widget server handlers a typed, scoped, error-as-value client
+for invoking their own browser tasks.
+
+**Includes:**
+
+- internal automation HTTP client and configuration;
+- `WidgetServerContext.api.browser` capability;
+- automatic scoping to the current widget type;
+- result-schema validation, deadlines, safe error propagation, and fakes;
+- server integration tests proving browser unavailability does not affect board
+  health or non-browser widgets.
+
+**Excludes:** Playwright internals, passport task logic, secrets, and widget UI.
+
+**Done when:** a test widget invokes a fake browser task through normal widget
+RPC, all public error categories survive the gateway, and the server starts and
+remains healthy without the automation service.
+
+**Dependencies:** Subprojects 1 and 2. It may proceed in parallel with
+Subproject 3 after Subproject 2 stabilizes the transport envelope.
+
+### Subproject 5: Passport checker browser task
+
+**Slug:** `passport-checker-browser-task`
+
+**Objective:** Implement and validate the single allowlisted same-origin checker
+flow without adding user-interface concerns.
+
+**Includes:**
+
+- the `passport-checker` widget package skeleton, shared schemas, and
+  `browser.ts` entry point;
+- scoped series/number secret loading and validation;
+- checker-page navigation and Cloudflare state detection;
+- page-context `FormData` submission and response validation;
+- local fixture checker and browser-level success/failure tests;
+- strict secret and payload redaction assertions.
+
+**Excludes:** the widget RPC handler, Reatom model, React UI, and real checker
+calls in automated tests.
+
+**Done when:** fixture tests prove exact form field submission, success parsing,
+challenge detection, upstream/invalid-response errors, and absence of document
+data from logs and serialized errors.
+
+**Dependencies:** Subprojects 1, 2, and 3.
+
+### Subproject 6: Passport checker widget
+
+**Slug:** `passport-checker-widget`
+
+**Objective:** Deliver the user-facing widget and its normal widget RPC handler
+against the stable browser gateway and passport task contract.
+
+**Includes:**
+
+- widget client and server definitions;
+- the no-input `check` RPC event;
+- Reatom async model, timeout/cancellation state, and safe error mapping;
+- `reatomMemo` UI for idle, pending, success, unavailable, timeout, invalid
+  configuration, and browser-session-required states;
+- SSH-tunnel recovery instructions and explicit retry;
+- model, component, contract, and accessibility tests.
+
+**Excludes:** browser runtime behavior, Docker provisioning, automatic polling,
+saved results, and additional document types.
+
+**Done when:** the widget works end-to-end against a fake browser gateway, sends
+no document identity through client RPC, and all user-visible states are covered
+by focused tests.
+
+**Dependencies:** Subprojects 4 and 5.
+
+### Subproject 7: Full-stack integration and Raspberry Pi rollout
+
+**Slug:** `passport-checker-rpi-integration`
+
+**Objective:** Assemble the independently verified parts, close only integration
+defects, and prove the production operating procedure on ARM64 hardware.
+
+**Includes:**
+
+- assembled production/development stack verification and dependency wiring
+  audit;
+- root workspace scripts, package manifests, Docker build contexts, and infra
+  tests that span previous subprojects;
+- complete workspace verification and image builds;
+- `pi env send` provisioning rehearsal;
+- persistent-profile rebuild test;
+- SSH/noVNC Cloudflare recovery and real checker smoke test on the Raspberry Pi;
+- final log, environment, Valkey, and client-state secret audit.
+
+**Excludes:** new features, new document types, architectural refactors, and
+automated Cloudflare bypasses.
+
+**Done when:** every manual acceptance criterion in this master spec passes on
+the Raspberry Pi and the full repository verification gates are green.
+
+**Dependencies:** Subprojects 3, 4, 5, and 6.
+
+### Recommended execution order
+
+```text
+1 Contracts/codegen -> 2 Service core -> 3 Playwright -> 5 Passport task
+                                |                              |
+                                +-> 4 Server gateway ----------+-> 6 Widget -> 7 Pi rollout
+```
+
+Subprojects 3 and 4 are the only intended parallel branch after Subproject 2.
+All other work follows the dependency order. Each subproject should use a focused
+branch or a worktree under `./.worktrees`, merge only after its own verification
+passes, and treat the previous subproject's public contracts as stable inputs.
+
 ## Testing Strategy
 
 No automated test contacts the real checker.
@@ -421,4 +627,6 @@ headed Chromium session under Xvfb, recoverable through SSH-tunneled noVNC. A
 typed, allowlisted widget browser-task registry provides reusable infrastructure
 without exposing a general browser-control API. The passport identity is
 provisioned once as Compose runtime secrets through `pi env send`, and the widget
-itself sends no passport data.
+itself sends no passport data. Delivery proceeds through the seven subprojects
+defined above, with a separate brainstorm/spec/plan/implementation cycle for
+each boundary and a final Raspberry Pi integration gate.
