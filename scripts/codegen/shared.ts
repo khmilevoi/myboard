@@ -13,6 +13,7 @@ export type CodegenPaths = {
   clientCatalogFile: string
   clientIconsFile: string
   serverListFile: string
+  browserListFile: string
 }
 
 export type ClientCodegenPaths = Pick<
@@ -20,6 +21,7 @@ export type ClientCodegenPaths = Pick<
   'widgetsDir' | 'portsFile' | 'clientCatalogFile' | 'clientIconsFile'
 >
 export type ServerCodegenPaths = Pick<CodegenPaths, 'widgetsDir' | 'serverListFile'>
+export type BrowserCodegenPaths = Pick<CodegenPaths, 'widgetsDir' | 'browserListFile'>
 export type CodegenTarget = 'client' | 'server' | 'all'
 export type GeneratedOutput = { file: string; content: string }
 
@@ -63,6 +65,10 @@ export const defaultCodegenPaths: CodegenPaths = {
     'client/src/widget-registry/model/widget-icons.generated.ts',
   ),
   serverListFile: path.resolve(packagesDir, 'server/src/widgets/widget-server-list.generated.ts'),
+  browserListFile: path.resolve(
+    packagesDir,
+    'browser-automation/src/tasks/widget-browser-list.generated.ts',
+  ),
 }
 
 export function discoverWidgetDirs(dir: string): CodegenIoError | string[] {
@@ -152,6 +158,16 @@ export function identifierFromDirectory(dir: string) {
     if (isJavaScriptIdentifier(camelCase)) return camelCase
   }
   return `$${[...dir].map((character) => character.codePointAt(0)!.toString(16)).join('_')}`
+}
+
+export function uniqueBindings(directories: string[]) {
+  const counts = new Map<string, number>()
+  return directories.map((dir) => {
+    const base = identifierFromDirectory(dir)
+    const count = (counts.get(base) ?? 0) + 1
+    counts.set(base, count)
+    return { dir, identifier: count === 1 ? base : `${base}$${count}` }
+  })
 }
 
 export function isJavaScriptIdentifier(value: string) {
