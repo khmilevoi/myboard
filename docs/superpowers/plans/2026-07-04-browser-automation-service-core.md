@@ -238,7 +238,7 @@ rtk git commit -m "feat(browser-automation): add task error taxonomy and envelop
 - Test: `packages/browser-automation/src/config.test.ts`
 
 **Interfaces:**
-- Consumes: `errore`.
+- Consumes: `errore`, `zod`.
 - Produces:
   - `type BrowserServiceConfig = { port: number; queueWaitMs: number; executionMs: number }`.
   - `class BrowserServiceConfigError` (tagged, payload `{ reason }`).
@@ -295,6 +295,7 @@ Create `packages/browser-automation/src/config.ts`:
 
 ```ts
 import * as errore from 'errore'
+import { z } from 'zod'
 
 export type BrowserServiceConfig = {
   port: number
@@ -307,35 +308,33 @@ export class BrowserServiceConfigError extends errore.createTaggedError({
   message: 'Invalid browser service configuration: $reason',
 }) {}
 
-const DEFAULTS = { port: 8788, queueWaitMs: 30_000, executionMs: 60_000 }
+// Preprocess intercepts unset/empty env vars before coercion (Number('') === 0
+// would otherwise fail .positive()), preserving the "unset -> default" behaviour.
+const positiveIntEnv = (fallback: number) =>
+  z.preprocess(
+    (value) => (value === undefined || value === '' ? fallback : value),
+    z.coerce.number().int().positive(),
+  )
 
-function parsePositiveInt(raw: string | undefined, fallback: number): number | null {
-  if (raw === undefined || raw === '') return fallback
-  const value = Number(raw)
-  if (!Number.isInteger(value) || value <= 0) return null
-  return value
-}
+const ConfigSchema = z.object({
+  PORT: positiveIntEnv(8788),
+  BROWSER_QUEUE_WAIT_MS: positiveIntEnv(30_000),
+  BROWSER_TASK_TIMEOUT_MS: positiveIntEnv(60_000),
+})
 
 export function loadBrowserServiceConfig(
   env: NodeJS.ProcessEnv,
 ): BrowserServiceConfigError | BrowserServiceConfig {
-  const port = parsePositiveInt(env.PORT, DEFAULTS.port)
-  if (port === null) {
-    return new BrowserServiceConfigError({ reason: 'PORT must be a positive integer' })
+  const parsed = ConfigSchema.safeParse(env)
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path.join('.') ?? 'configuration'
+    return new BrowserServiceConfigError({ reason: `${field} must be a positive integer` })
   }
-  const queueWaitMs = parsePositiveInt(env.BROWSER_QUEUE_WAIT_MS, DEFAULTS.queueWaitMs)
-  if (queueWaitMs === null) {
-    return new BrowserServiceConfigError({
-      reason: 'BROWSER_QUEUE_WAIT_MS must be a positive integer',
-    })
+  return {
+    port: parsed.data.PORT,
+    queueWaitMs: parsed.data.BROWSER_QUEUE_WAIT_MS,
+    executionMs: parsed.data.BROWSER_TASK_TIMEOUT_MS,
   }
-  const executionMs = parsePositiveInt(env.BROWSER_TASK_TIMEOUT_MS, DEFAULTS.executionMs)
-  if (executionMs === null) {
-    return new BrowserServiceConfigError({
-      reason: 'BROWSER_TASK_TIMEOUT_MS must be a positive integer',
-    })
-  }
-  return { port, queueWaitMs, executionMs }
 }
 ```
 
