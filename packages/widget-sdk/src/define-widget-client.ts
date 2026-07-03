@@ -12,7 +12,15 @@ export type WidgetMetadata = {
   icon: string
 }
 
-export type WidgetClientDefinition<Events extends WidgetEventMap> = WidgetMetadata & {
+export type WidgetClientMetadata = Omit<WidgetMetadata, 'id'>
+
+export type WidgetClientDefinition<
+  Events extends WidgetEventMap = WidgetEventMap,
+> = WidgetClientMetadata & {
+  loadComponent: WidgetLoader<Events>
+}
+
+type WidgetTypeDefinition<Events extends WidgetEventMap> = WidgetMetadata & {
   loadComponent: WidgetLoader<Events>
 }
 
@@ -28,7 +36,7 @@ export function defineWidgetClient<const Events extends WidgetEventMap>(
 }
 
 export function toWidgetType<const Events extends WidgetEventMap>(
-  definition: WidgetClientDefinition<Events>,
+  definition: WidgetTypeDefinition<Events>,
 ): WidgetType {
   let pending: Promise<WidgetComponentModule> | null = null
   const loader = definition.loadComponent as unknown as WidgetLoader

@@ -3,7 +3,6 @@ import { defineWidgetClient } from 'widget-sdk/define-widget-client'
 import type { OfeliaEvents } from './types'
 
 export const ofeliaWidget = defineWidgetClient<OfeliaEvents>({
-  id: 'ofelia-poop-duty',
   title: 'Лоток Офелии',
   description: 'Чья сегодня очередь убирать',
   defaultSize: { w: 3, h: 5, minW: 2, minH: 3 },
