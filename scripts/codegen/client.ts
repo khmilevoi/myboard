@@ -46,7 +46,7 @@ export function emitCatalog(metas: WidgetMeta[]) {
     description: ${JSON.stringify(meta.description)},
     defaultSize: ${stableJson(meta.defaultSize).replace(/\n/g, '\n    ')},
     icon: ${JSON.stringify(meta.icon)},${meta.tiers ? `\n    tiers: ${stableJson(meta.tiers).replace(/\n/g, '\n    ')},` : ''}
-    loadComponent: loadRemoteModule(${JSON.stringify(meta.dir)}),
+    loadComponent: () => loadRemoteModule(${JSON.stringify(meta.dir)}),
   })`,
     )
     .join(',\n')

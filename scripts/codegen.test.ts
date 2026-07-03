@@ -46,6 +46,12 @@ describe('codegen emitters', () => {
     expect(out).not.toContain('/ui')
   })
 
+  it('defers loading remote client definitions until the component loader runs', () => {
+    const out = emitCatalog(metas)
+    expect(out).toContain('loadComponent: () => loadRemoteModule("clock")')
+    expect(out).not.toContain('loadComponent: loadRemoteModule("clock")')
+  })
+
   it('derives a closed icon union + map from the icons actually used', () => {
     const out = emitIcons(metas)
     expect(out).toContain("import { Clock } from 'lucide-react'")
