@@ -30,11 +30,13 @@
     "docker:dev:logs": "docker compose -f docker-compose.dev.yml logs -f"
   },
   "devDependencies": {
+    "@types/node": "^25.9.3",
     "concurrently": "^9.2.0",
     "errore": "catalog:",
     "oxfmt": "^0.55.0",
     "oxlint": "^1.70.0",
     "tsx": "^4.20.6",
+    "typescript": "^6.0.3",
     "vitest": "catalog:"
   },
   "packageManager": "pnpm@10.28.2"

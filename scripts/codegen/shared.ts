@@ -71,9 +71,9 @@ export function discoverWidgetDirs(dir: string): CodegenIoError | string[] {
     return new CodegenIoError({ operation: 'read', path: dir, cause: entries })
   }
   return entries
-    .filter((name) => !name.startsWith('.'))
-    .filter((name) => fs.existsSync(path.resolve(dir, name, 'package.json')))
-    .sort((a, b) => a.localeCompare(b))
+    .filter((name: string) => !name.startsWith('.'))
+    .filter((name: string) => fs.existsSync(path.resolve(dir, name, 'package.json')))
+    .sort((a: string, b: string) => a.localeCompare(b))
 }
 
 export function assignPorts(widgetDirs: string[], current: Record<string, number>) {
@@ -137,9 +137,10 @@ export function writeGeneratedOutputs(outputs: GeneratedOutput[]): Error | void 
   }
   for (const output of committed) {
     if (output.backup === null) continue
-    const removed = errore.try(() => fs.rmSync(output.backup, { recursive: true }))
+    const backupPath = output.backup
+    const removed = errore.try(() => fs.rmSync(backupPath, { recursive: true }))
     if (removed instanceof Error) {
-      return new CodegenIoError({ operation: 'remove backup', path: output.backup, cause: removed })
+      return new CodegenIoError({ operation: 'remove backup', path: backupPath, cause: removed })
     }
   }
 }
@@ -147,9 +148,7 @@ export function writeGeneratedOutputs(outputs: GeneratedOutput[]): Error | void 
 export function identifierFromDirectory(dir: string) {
   if (isJavaScriptIdentifier(dir) && !dir.startsWith('$')) return dir
   if (/^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/.test(dir)) {
-    const camelCase = dir.replace(/-([a-z0-9])/g, (_, character: string) =>
-      character.toUpperCase(),
-    )
+    const camelCase = dir.replace(/-([a-z0-9])/g, (_, character: string) => character.toUpperCase())
     if (isJavaScriptIdentifier(camelCase)) return camelCase
   }
   return `$${[...dir].map((character) => character.codePointAt(0)!.toString(16)).join('_')}`
