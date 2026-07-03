@@ -131,10 +131,13 @@ describe('codegen generation', () => {
     expect(await generateClient(paths)).toBeInstanceOf(MissingWidgetEntrypointError)
   })
 
-  it('fails server codegen when server.ts is missing', () => {
+  it('omits widgets without server.ts from server codegen', () => {
     const paths = createTempCodegenPaths('missing-server')
     writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), 'export default {}')
-    expect(generateServer(paths)).toBeInstanceOf(MissingWidgetEntrypointError)
+    expect(generateServer(paths)).not.toBeInstanceOf(Error)
+    const output = readFileSync(paths.serverListFile, 'utf8')
+    expect(output).toBe(emitServerList([]))
+    expect(output).not.toContain('@widgets/probe/server')
   })
 
   it.each(['{"probe":"5180"}', '{"probe":null}', '{"probe":1e999}', '[]'])(
