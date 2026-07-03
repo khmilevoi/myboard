@@ -40,7 +40,7 @@ packages/browser-automation/
     executor.test.ts     create
     dispatch.ts          create: dispatchBrowserTask (lookup → validate → handler → validate)
     dispatch.test.ts     create
-    queue.ts             create: makeSingleLaneQueue (FIFO, deadlines, cancellation, drain)
+    queue.ts             create: makeSingleLaneQueue on @shared makeSerialLane (deadlines, cancellation, drain)
     queue.test.ts        create
     service.ts           create: makeBrowserService (compose + lifecycle + invoke/health/shutdown)
     service.test.ts      create
@@ -854,8 +854,10 @@ rtk git commit -m "feat(browser-automation): add single-task dispatch"
 - Create: `packages/browser-automation/src/queue.ts`
 - Test: `packages/browser-automation/src/queue.test.ts`
 
+**Prerequisite:** the shared serial-lane primitive — see [Shared Serial-Lane Primitive Implementation Plan](./2026-07-04-shared-serial-lane.md), Task 1. Create it (or run that plan) first so `@shared/async/serial-lane` resolves.
+
 **Interfaces:**
-- Consumes: `errore` (`AbortError`); `AutomationTimeoutError` from `./errors`.
+- Consumes: `makeSerialLane` from `@shared/async/serial-lane`; `errore` (`AbortError`); `AutomationTimeoutError` from `./errors`.
 - Produces:
   - `class ExecutionAbortError extends errore.AbortError` (internal; used as the abort reason).
   - `type QueueConfig = { queueWaitMs: number; executionMs: number }`.
@@ -983,6 +985,7 @@ Expected: FAIL — module `./queue` not found.
 Create `packages/browser-automation/src/queue.ts`:
 
 ```ts
+import { makeSerialLane } from '@shared/async/serial-lane'
 import * as errore from 'errore'
 
 import { AutomationTimeoutError } from './errors'
@@ -1002,7 +1005,7 @@ export type SingleLaneQueue = {
 }
 
 export function makeSingleLaneQueue(config: QueueConfig): SingleLaneQueue {
-  let tail: Promise<void> = Promise.resolve()
+  const lane = makeSerialLane()
   let closed = false
   let makeCloseError: (() => Error) | null = null
 
@@ -1020,24 +1023,26 @@ export function makeSingleLaneQueue(config: QueueConfig): SingleLaneQueue {
         config.queueWaitMs,
       )
 
-      tail = tail
-        .then(async () => {
-          clearTimeout(waitTimer)
-          if (settled) return
-          if (closed && makeCloseError) {
-            settle(makeCloseError())
-            return
-          }
-          const controller = new AbortController()
-          const execTimer = setTimeout(() => {
-            controller.abort(new ExecutionAbortError())
-            settle(new AutomationTimeoutError({ phase: 'execution' }))
-          }, config.executionMs)
-          const outcome = await run(controller.signal)
-          clearTimeout(execTimer)
-          settle(outcome)
-        })
-        .catch(() => {})
+      // makeSerialLane guarantees one-at-a-time FIFO and waits for each task to
+      // settle before the next; the deadline/abort/close logic stays here.
+      void lane.run(async () => {
+        clearTimeout(waitTimer)
+        if (settled) return
+        if (closed && makeCloseError) {
+          settle(makeCloseError())
+          return
+        }
+        const controller = new AbortController()
+        const execTimer = setTimeout(() => {
+          controller.abort(new ExecutionAbortError())
+          settle(new AutomationTimeoutError({ phase: 'execution' }))
+        }, config.executionMs)
+        const outcome = await run(controller.signal).catch((cause) =>
+          cause instanceof Error ? cause : new Error('browser task rejected', { cause }),
+        )
+        clearTimeout(execTimer)
+        settle(outcome)
+      })
     })
   }
 
@@ -1047,7 +1052,7 @@ export function makeSingleLaneQueue(config: QueueConfig): SingleLaneQueue {
   }
 
   function whenSettled() {
-    return tail.catch(() => {})
+    return lane.whenIdle()
   }
 
   return { enqueue, close, whenSettled }
@@ -1676,4 +1681,4 @@ rtk git commit -m "chore(browser-automation): formatting and verification pass"
 
 **2. Placeholder scan** — no `TBD`/`TODO`/"handle edge cases"; every code step contains complete source.
 
-**3. Type consistency** — names are stable across tasks: `BrowserExecutor<Context>` (`acquire`/`release`/`shutdown`), `dispatchBrowserTask`, `makeSingleLaneQueue` (`enqueue`/`close`/`whenSettled`), `makeBrowserService` (`invoke`/`health`/`markReady`/`shutdown`), `makeBrowserHttpApp`, `toEnvelopeError`, `loadBrowserServiceConfig`, generated export `widgetBrowserList`, registry accessor `registry.get(widgetId)?.get(taskId)` with `payloadSchema`/`resultSchema`/`handler` (from SP1 `RuntimeWidgetBrowserTask`). Error codes (`unknown_task`, `payload_invalid`, `result_invalid`, `automation_timeout`, `internal`) are consistent between `errors.ts`, dispatch, service, and the HTTP tests.
+**3. Type consistency** — names are stable across tasks: `BrowserExecutor<Context>` (`acquire`/`release`/`shutdown`), `dispatchBrowserTask`, `makeSingleLaneQueue` (`enqueue`/`close`/`whenSettled`, built on `@shared` `makeSerialLane`), `makeBrowserService` (`invoke`/`health`/`markReady`/`shutdown`), `makeBrowserHttpApp`, `toEnvelopeError`, `loadBrowserServiceConfig`, generated export `widgetBrowserList`, registry accessor `registry.get(widgetId)?.get(taskId)` with `payloadSchema`/`resultSchema`/`handler` (from SP1 `RuntimeWidgetBrowserTask`). Error codes (`unknown_task`, `payload_invalid`, `result_invalid`, `automation_timeout`, `internal`) are consistent between `errors.ts`, dispatch, service, and the HTTP tests.
