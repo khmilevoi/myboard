@@ -94,19 +94,11 @@ import { describe, expect, it } from 'vitest'
 
 import { makeKeyedSerialLane, makeSerialLane } from './serial-lane'
 
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((r) => {
-    resolve = r
-  })
-  return { promise, resolve }
-}
-
 describe('makeSerialLane', () => {
   it('runs tasks one at a time in FIFO order', async () => {
     const lane = makeSerialLane()
     const order: string[] = []
-    const first = deferred<void>()
+    const first = Promise.withResolvers<void>()
 
     const a = lane.run(async () => {
       order.push('a-start')
@@ -138,7 +130,7 @@ describe('makeSerialLane', () => {
 
   it('resolves whenIdle after queued tasks settle', async () => {
     const lane = makeSerialLane()
-    const gate = deferred<void>()
+    const gate = Promise.withResolvers<void>()
     let done = false
     void lane.run(async () => {
       await gate.promise
@@ -154,7 +146,7 @@ describe('makeKeyedSerialLane', () => {
   it('serializes tasks for the same key', async () => {
     const lane = makeKeyedSerialLane()
     const order: string[] = []
-    const first = deferred<void>()
+    const first = Promise.withResolvers<void>()
 
     const a = lane.run('k', async () => {
       order.push('a-start')
@@ -175,7 +167,7 @@ describe('makeKeyedSerialLane', () => {
   it('runs different keys concurrently', async () => {
     const lane = makeKeyedSerialLane()
     const order: string[] = []
-    const blocker = deferred<void>()
+    const blocker = Promise.withResolvers<void>()
 
     const a = lane.run('a', async () => {
       order.push('a-start')

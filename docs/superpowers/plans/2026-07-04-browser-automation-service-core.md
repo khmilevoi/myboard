@@ -853,6 +853,7 @@ rtk git commit -m "feat(browser-automation): add single-task dispatch"
 **Files:**
 - Create: `packages/browser-automation/src/queue.ts`
 - Test: `packages/browser-automation/src/queue.test.ts`
+- Modify: `packages/browser-automation/tsconfig.json` (widen `lib` to `ES2024` for `Promise.withResolvers`)
 
 **Prerequisite:** the shared serial-lane primitive — see [Shared Serial-Lane Primitive Implementation Plan](./2026-07-04-shared-serial-lane.md), Task 1. Create it (or run that plan) first so `@shared/async/serial-lane` resolves.
 
@@ -865,7 +866,9 @@ rtk git commit -m "feat(browser-automation): add single-task dispatch"
   - `function makeSingleLaneQueue(config: QueueConfig): SingleLaneQueue`.
 - Behavior: concurrency is exactly one; a job's `run` receives an `AbortSignal`; the queue-wait deadline settles as `AutomationTimeoutError{ phase: 'queue' }`; the execution deadline aborts the signal (reason `ExecutionAbortError`) and settles as `AutomationTimeoutError{ phase: 'execution' }`; the lane always waits for `run` to settle before the next job; after `close`, not-yet-started jobs and new `enqueue` calls settle with `makeError()`.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Widen the lib, then write the failing test**
+
+First widen the package's TypeScript lib so `Promise.withResolvers` is typed — in `packages/browser-automation/tsconfig.json`, change `"lib": ["ES2022"]` to `"lib": ["ES2024"]`.
 
 Create `packages/browser-automation/src/queue.test.ts`:
 
@@ -876,19 +879,11 @@ import { describe, expect, it } from 'vitest'
 import { AutomationTimeoutError } from './errors'
 import { makeSingleLaneQueue } from './queue'
 
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((r) => {
-    resolve = r
-  })
-  return { promise, resolve }
-}
-
 describe('makeSingleLaneQueue', () => {
   it('runs jobs one at a time in FIFO order', async () => {
     const queue = makeSingleLaneQueue({ queueWaitMs: 1000, executionMs: 1000 })
     const order: string[] = []
-    const first = deferred<void>()
+    const first = Promise.withResolvers<void>()
 
     const p1 = queue.enqueue(async () => {
       order.push('start-1')
@@ -911,7 +906,7 @@ describe('makeSingleLaneQueue', () => {
 
   it('times out a job that waits too long in the queue', async () => {
     const queue = makeSingleLaneQueue({ queueWaitMs: 20, executionMs: 1000 })
-    const blocker = deferred<void>()
+    const blocker = Promise.withResolvers<void>()
     const p1 = queue.enqueue(async () => {
       await blocker.promise
       return 1
@@ -956,7 +951,7 @@ describe('makeSingleLaneQueue', () => {
 
   it('rejects queued and new jobs after close', async () => {
     const queue = makeSingleLaneQueue({ queueWaitMs: 1000, executionMs: 1000 })
-    const blocker = deferred<void>()
+    const blocker = Promise.withResolvers<void>()
     const p1 = queue.enqueue(async () => {
       await blocker.promise
       return 1
