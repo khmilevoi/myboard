@@ -71,12 +71,12 @@ describe('RichLayout', () => {
     expect(onDelete).toHaveBeenCalledOnce()
   })
 
-  it('uses the rich action copy, real mobile tabs, and 62px main avatar', () => {
+  it('uses the rich action copy, real mobile tabs, and 62px badged main avatar', () => {
     const { container } = renderRich(makeOfeliaValue(), <RichLayout />)
     const split = container.querySelector('[data-tab]')
     const mobileTabs = container.querySelector(`.${styles.mobileTabsVisible}`)
 
-    expect(screen.getAllByRole('button', { name: 'Подтвердить уборку' })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeInTheDocument()
     expect(split).toHaveAttribute('data-tab', 'history')
     expect(mobileTabs).toBeInTheDocument()
 
@@ -96,9 +96,47 @@ describe('RichLayout', () => {
     )
     expect(split).toHaveAttribute('data-tab', 'comments')
 
-    const mainAvatar = container.querySelector('[style*="width: 62px"][style*="height: 62px"]')
+    const mainAvatar = container.querySelector<HTMLElement>(
+      '[style*="width: 62px"][style*="height: 62px"]',
+    )
     expect(mainAvatar).toBeInTheDocument()
     expect(mainAvatar).toHaveTextContent('К')
+    expect(container.querySelector(`.${styles.todayAvatarLarge}`)).toContainElement(mainAvatar)
+  })
+
+  it('reuses the calendar debt badge in the selected-day avatar', () => {
+    const view = makeOfeliaView({
+      days: [
+        {
+          iso: '2026-06-19',
+          weekday: 'ПТ',
+          dayOfMonth: 19,
+          person: 'Леша',
+          debtOwner: 'Карина',
+          isToday: true,
+          isDebtDay: true,
+          isClosed: false,
+          isSelected: true,
+        },
+      ],
+      selected: {
+        iso: '2026-06-19',
+        person: 'Леша',
+        isDebtDay: true,
+        status: 'pending',
+        canUndo: false,
+        debtRemaining: 1,
+        isFuture: false,
+      },
+    })
+    const { container } = renderRich(makeOfeliaValue({ view }), <RichLayout />)
+
+    const selectedAvatar = container.querySelector(`.${styles.todayAvatarLarge}`)
+    expect(selectedAvatar).toHaveTextContent('ЛК')
+    expect(selectedAvatar?.querySelector('[style*="width: 62px"]')).toBeInTheDocument()
+    expect(selectedAvatar?.querySelector('[data-testid="week-day-small-badge"]')).toHaveTextContent(
+      'К',
+    )
   })
 
   it('disables future-day action controls instead of hiding them', () => {

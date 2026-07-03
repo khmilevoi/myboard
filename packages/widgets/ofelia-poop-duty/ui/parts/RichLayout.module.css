@@ -110,6 +110,10 @@
   gap: 0.375rem;
 }
 
+.todayAvatarLarge {
+  display: inline-flex;
+}
+
 .todayName {
   font-weight: 600;
   font-size: 1.375rem;
@@ -126,10 +130,6 @@
 
 .actionsDesktop {
   display: block;
-}
-
-.actionsMobile {
-  display: none;
 }
 
 .balance {
@@ -285,7 +285,7 @@
   .panel {
     inline-size: auto;
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(12rem, 0.9fr);
+    grid-template-columns: minmax(0, 0.8fr) minmax(15rem, 1.2fr);
     grid-template-areas:
       'today actions'
       'balance balance';
@@ -319,10 +319,6 @@
   .actionsDesktop {
     grid-area: actions;
     display: block;
-  }
-
-  .actionsMobile {
-    display: none;
   }
 
   .balance {
@@ -372,18 +368,24 @@
 
 @container rich-layout (max-width: 36rem) {
   .panel {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'today'
+      'actions'
+      'balance';
   }
 
-  .actionsDesktop {
-    display: none;
+  .today {
+    justify-content: flex-start;
+    padding: 0.875rem 1rem;
   }
 
-  .actionsMobile {
-    grid-area: actions;
+  .todayAvatarLarge {
+    display: inline-flex;
+  }
+
+  .todayMeta {
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
   }
 }
 

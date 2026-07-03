@@ -5,8 +5,10 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
+import { personInitial } from '../person'
 import { ActionButtons } from './ActionButtons'
 import { Avatar } from './Avatar'
+import { AvatarWithBadge } from './AvatarWithBadge'
 import { CommentThread } from './CommentThread'
 import { HistoryList } from './HistoryList'
 import { MobileTabs } from './MobileTabs'
@@ -44,6 +46,7 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
   const canForgive = view.canForgive()
   const days = view.days()
   const range = formatWeekRange(days)
+  const selectedDay = days.find((day) => day.iso === selected.iso)
 
   return (
     <div className={styles.root}>
@@ -74,7 +77,16 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
       <div className={styles.body}>
         <section className={styles.panel}>
           <div className={styles.today}>
-            <Avatar person={selected.person} size="lg" px={62} />
+            <span className={styles.todayAvatarLarge}>
+              <AvatarWithBadge
+                person={selected.person}
+                px={62}
+                badge={
+                  selectedDay?.debtOwner ? personInitial(selectedDay.debtOwner) : undefined
+                }
+                badgeTone={selectedDay?.debtOwner ?? undefined}
+              />
+            </span>
             <div className={styles.todayMeta}>
               <div className={styles.todayName}>{selected.person}</div>
               <span className={styles.statusChip}>{selectedDaySubtitle(selected, balance)}</span>
@@ -87,20 +99,6 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
               canUndo={selected.canUndo}
               canForgive={canForgive}
               primaryLabel="Подтвердить уборку"
-              inactive={selected.isFuture}
-              onConfirm={actions.onConfirm}
-              onUndo={actions.onUndo}
-              onDebt={actions.onDebt}
-              onForgive={actions.onForgive}
-            />
-          </div>
-
-          <div className={styles.actionsMobile}>
-            <ActionButtons
-              compact
-              status={selected.status}
-              canUndo={selected.canUndo}
-              canForgive={canForgive}
               inactive={selected.isFuture}
               onConfirm={actions.onConfirm}
               onUndo={actions.onUndo}

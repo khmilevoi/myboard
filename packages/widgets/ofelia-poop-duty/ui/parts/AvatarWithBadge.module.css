@@ -8,16 +8,15 @@
   position: absolute;
   inset-inline-end: -0.1875rem;
   inset-block-end: -0.125rem;
-  min-inline-size: 0.9375rem;
-  block-size: 0.9375rem;
-  padding-inline: 0.125rem;
+  inline-size: clamp(0.9375rem, 32%, 1.25rem);
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
   border: 2px solid var(--avatar-badge-ring, var(--surface));
   border-radius: 999px;
   background: var(--muted);
   color: var(--muted-foreground);
-  font-size: 0.5625rem;
+  font-size: 0.625rem;
   font-weight: 700;
   line-height: 1;
 }

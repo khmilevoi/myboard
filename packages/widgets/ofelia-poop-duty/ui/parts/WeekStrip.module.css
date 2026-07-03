@@ -86,3 +86,19 @@
 .legend .dot {
   position: static;
 }
+
+@container rich-layout (max-width: 36rem) {
+  .day[data-closed='true'] {
+    padding-block-start: 0;
+    border-color: var(--closed-bg);
+    border-width: 1.5px;
+  }
+
+  .day[data-closed='true'] .check {
+    display: none;
+  }
+
+  .day[data-selected='true'] {
+    border-color: var(--primary);
+  }
+}
