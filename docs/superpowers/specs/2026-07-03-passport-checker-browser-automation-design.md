@@ -354,6 +354,8 @@ subproject document is created.
 
 **Slug:** `widget-browser-contracts-and-codegen`
 
+**Design:** [Widget Browser Contracts and Codegen Design](./2026-07-03-widget-browser-contracts-and-codegen-design.md)
+
 **Objective:** Establish the lightweight, Playwright-free contract surface and
 deterministic discovery needed by every later subproject.
 
