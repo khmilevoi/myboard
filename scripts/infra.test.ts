@@ -27,19 +27,38 @@ it('exposes each root client definition as the remote client entrypoint', () => 
 })
 
 it('routes local commands to the narrowest codegen target', () => {
-  expect(rootPackage.scripts.dev).toContain('codegen:client')
-  expect(rootPackage.scripts['dev:server']).toContain('codegen:server')
-  expect(rootPackage.scripts.build).toContain('codegen:client')
-  expect(rootPackage.scripts.test).toContain('pnpm run codegen')
-  expect(rootPackage.scripts.typecheck).toContain('pnpm run codegen')
+  expect(rootPackage.scripts.dev).toBe(
+    'pnpm run codegen:client && pnpm -r --parallel --filter "./packages/widgets/*" --filter client dev',
+  )
+  expect(rootPackage.scripts['dev:server']).toBe(
+    'pnpm run codegen:server && pnpm --filter server dev',
+  )
+  expect(rootPackage.scripts.build).toBe(
+    'pnpm run codegen:client && concurrently -g --kill-others-on-fail "pnpm --filter ./packages/widgets/* build" "pnpm --filter client typecheck" && pnpm --filter client build',
+  )
+  expect(rootPackage.scripts['build:widgets']).toBe(
+    'pnpm run codegen:client && pnpm --filter "./packages/widgets/*" build',
+  )
+  expect(rootPackage.scripts.test).toBe(
+    'pnpm run codegen && pnpm run test:scripts && pnpm -r test',
+  )
+  expect(rootPackage.scripts.typecheck).toBe('pnpm run codegen && pnpm -r typecheck')
 })
 
 it('runs only client codegen in the client image', () => {
-  expect(clientDockerfile).toContain('pnpm run codegen:client')
+  expect(clientDockerfile).toContain(
+    'RUN pnpm run codegen:client \\\n    && pnpm --filter "./packages/widgets/*" build \\\n    && pnpm --filter client exec vite-build-exit',
+  )
+  expect(clientDockerfile).not.toMatch(/RUN pnpm run codegen(?:\s|\\)/)
+  expect(clientDockerfile).not.toContain('RUN pnpm run codegen:server')
 })
 
 it('runs only server codegen in the server image', () => {
-  expect(serverDockerfile).toContain('pnpm run codegen:server')
+  expect(serverDockerfile).toContain(
+    'RUN pnpm run codegen:server && pnpm --filter server build',
+  )
+  expect(serverDockerfile).not.toMatch(/RUN pnpm run codegen(?:\s|\\)/)
+  expect(serverDockerfile).not.toContain('RUN pnpm run codegen:client')
   expect(serverDockerfile).not.toContain('imports every widgets/*/client.ts')
 })
 
