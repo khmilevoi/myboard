@@ -47,8 +47,7 @@ export default defineWidgetClient({
   description: 'Текущее время и дата',
   icon: 'Clock',
   defaultSize: { w: 3, h: 4, minW: 2, minH: 2 },
-  loadComponent: () =>
-    import('./ui/Clock').then(({ Clock }) => ({ default: Clock })),
+  loadComponent: () => import('./ui/Clock').then(({ Clock }) => ({ default: Clock })),
 })
 ```
 

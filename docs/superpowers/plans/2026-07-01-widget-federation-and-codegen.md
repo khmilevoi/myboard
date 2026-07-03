@@ -14,7 +14,7 @@
 - **`widget-runtime` is a bare-package barrel** (`import … from 'widget-runtime'`), resolved via its `exports` map to `src/index.ts` — this is what lets Module Federation share it as one instance. Test-only entrypoints stay explicit subpaths (`widget-runtime/timer/fakes`, `widget-runtime/storage/test/fakes`).
 - **`widget-sdk` is a bare-package with stable subpaths**, not a single barrel: `widget-sdk/lib/utils`, `widget-sdk/ui/<name>`, `widget-sdk/reatom/<name>`, `widget-sdk/define-widget-client`, `widget-sdk/vite`, `widget-sdk/test-setup`. The subpaths (not aliases) are what shadcn's `components.json` and generated imports resolve against, so they must stay stable.
 - **shadcn keeps working in `widget-sdk`.** `widget-sdk` carries its own `components.json` (shared-UI-package flavor: `#components`/`#lib/utils` aliases resolved by `package.json#imports`), so `shadcn add` run there places components in `src/ui` importing `cn` from `#lib/utils`. `client/components.json` points `utils` at `widget-sdk/lib/utils` (its real home since Plan 1). Because widget UIs become separate remote builds, the board's Tailwind must still emit the utility classes shadcn components use — the board CSS `@source`s `widget-sdk/src` and `widgets/*/ui`.
-- **`dev: { remoteHmr: true }` on every federation config** — host *and* every remote. Setting it only on the host is not enough (confirmed by the design's 2026-07-01 spike).
+- **`dev: { remoteHmr: true }` on every federation config** — host _and_ every remote. Setting it only on the host is not enough (confirmed by the design's 2026-07-01 spike).
 - **Package names are `widgets-<dir>`** (e.g. `widgets-clock`); the federation **remote name = widget id = directory name** (`clock`, `ofelia-poop-duty`). Remotes expose exactly `{ './ui': './ui/expose.ts' }`.
 - **Production build base is `/widgets/<id>/`** for each remote (`base` applied only in `command === 'build'`; dev/preview keep `base: '/'`… except e2e preview, see Task 8).
 - **All generated files are gitignored except `widgets/.ports.json`**, which is committed. Dev ports never change for an existing widget when others are added/removed (`max(existing)+1`, starting 5180).
@@ -89,31 +89,31 @@ server/
 
 **Import-rewrite tables** (applied by `sed`/editor across the listed roots; longer specifiers first so a prefix rule never eats a more specific one):
 
-*Table R — `@widget-runtime/*` → bare barrel* (roots: `client/src`, `widgets`, `widget-sdk`):
+_Table R — `@widget-runtime/_`→ bare barrel* (roots:`client/src`, `widgets`, `widget-sdk`):
 
-| Old specifier | New specifier |
-| --- | --- |
+| Old specifier                        | New specifier                       |
+| ------------------------------------ | ----------------------------------- |
 | `@widget-runtime/storage/test/fakes` | `widget-runtime/storage/test/fakes` |
-| `@widget-runtime/timer/fakes` | `widget-runtime/timer/fakes` |
-| `@widget-runtime/storage/reatom` | `widget-runtime` |
-| `@widget-runtime/storage/types` | `widget-runtime` |
-| `@widget-runtime/storage` | `widget-runtime` |
-| `@widget-runtime/widget-api` | `widget-runtime` |
-| `@widget-runtime/timer/server-time` | `widget-runtime` |
-| `@widget-runtime/tier` | `widget-runtime` |
-| `@widget-runtime/theme` | `widget-runtime` |
-| `@widget-runtime/types` | `widget-runtime` |
+| `@widget-runtime/timer/fakes`        | `widget-runtime/timer/fakes`        |
+| `@widget-runtime/storage/reatom`     | `widget-runtime`                    |
+| `@widget-runtime/storage/types`      | `widget-runtime`                    |
+| `@widget-runtime/storage`            | `widget-runtime`                    |
+| `@widget-runtime/widget-api`         | `widget-runtime`                    |
+| `@widget-runtime/timer/server-time`  | `widget-runtime`                    |
+| `@widget-runtime/tier`               | `widget-runtime`                    |
+| `@widget-runtime/theme`              | `widget-runtime`                    |
+| `@widget-runtime/types`              | `widget-runtime`                    |
 
-*Table S — `@widget-sdk/*` → bare-package subpaths (drop the `@`, keep the path)* (roots: `client/src`, `widgets`):
+_Table S — `@widget-sdk/_`→ bare-package subpaths (drop the`@`, keep the path)* (roots: `client/src`, `widgets`):
 
-| Old specifier | New specifier |
-| --- | --- |
-| `@widget-sdk/define-widget-client` | `widget-sdk/define-widget-client` |
-| `@widget-sdk/reatom/reatom-memo` | `widget-sdk/reatom/reatom-memo` |
+| Old specifier                       | New specifier                      |
+| ----------------------------------- | ---------------------------------- |
+| `@widget-sdk/define-widget-client`  | `widget-sdk/define-widget-client`  |
+| `@widget-sdk/reatom/reatom-memo`    | `widget-sdk/reatom/reatom-memo`    |
 | `@widget-sdk/reatom/use-atom-value` | `widget-sdk/reatom/use-atom-value` |
-| `@widget-sdk/ui/WidgetControls` | `widget-sdk/ui/WidgetControls` |
-| `@widget-sdk/ui/tabs` | `widget-sdk/ui/tabs` |
-| `@widget-sdk/lib/utils` | `widget-sdk/lib/utils` |
+| `@widget-sdk/ui/WidgetControls`     | `widget-sdk/ui/WidgetControls`     |
+| `@widget-sdk/ui/tabs`               | `widget-sdk/ui/tabs`               |
+| `@widget-sdk/lib/utils`             | `widget-sdk/lib/utils`             |
 
 Notes: `widget-runtime` collapses to a **single bare barrel** (Table R) because it must be a federation singleton. `widget-sdk` keeps its **subpaths** (Table S just drops the `@`) because those subpaths are shadcn's resolution targets and stay stable across `shadcn add`. Since Table R can turn several `@widget-runtime/*` lines in one file into repeated `from 'widget-runtime'` imports, and `oxlint`'s `import/no-duplicates` is not in the `correctness` category, those repeats are legal — merge by hand only where trivial (Table S produces no duplicates). `widget-runtime`'s and `widget-sdk`'s **internal** imports are relative and are not touched. Type-only imports (`client/src/shared/theme/types.ts` → `@widget-runtime/theme`; `widget-sdk/src/define-widget-client.ts` → `@widget-runtime/{tier,types}`) still map per the tables (erased at runtime).
 
@@ -122,12 +122,14 @@ Notes: `widget-runtime` collapses to a **single bare barrel** (Table R) because 
 ## Task 1: Barrel-ize `widget-runtime` into a bare-package singleton
 
 **Files:**
+
 - Create: `widget-runtime/src/index.ts`
 - Modify: `widget-runtime/package.json` (`exports`), `widget-runtime/tsconfig.json`, `widget-runtime/vitest.config.ts`
 - Modify (Table R, runtime rows only): every `@widget-runtime/*` import under `client/src`, `widgets`, `widget-sdk`
 - Modify: `client/vite.config.ts`, `client/tsconfig.json`, `widget-sdk/tsconfig.json`, `widget-sdk/vitest.config.ts` (drop the `@widget-runtime` alias; add nothing — resolution is now via the package `exports`)
 
 **Interfaces:**
+
 - Produces: bare package `widget-runtime` resolving to `src/index.ts`, exporting the full runtime surface (`makeWidgetStorage`, `WidgetStorage`, `ScopedStorage`, `MakeWidgetStorageOptions`, `makeScopedStorage`, `StorageApi`, `StorageListener`, the reatom storage bindings, `makeWidgetApi`, `WidgetApiError`, `MakeWidgetApiOptions`, `WidgetTier`, `TierConfig`, `DEFAULT_TIERS`, `resolveTier`, `ResolvedTheme`, `getServerTime`, `createServerTime`, `ServerTime`, `WidgetRuntimeProps`, `WidgetComponent`, `WidgetComponentModule`, `WidgetLoader`, `WidgetMode`); test subpaths `widget-runtime/storage/test/fakes`, `widget-runtime/timer/fakes`.
 
 - [ ] **Step 1: Baseline green**
@@ -196,6 +198,7 @@ git commit -m "refactor(widgets): make widget-runtime a bare-package barrel"
 ## Task 2: Make `widget-sdk` a bare package with shadcn-compatible subpaths
 
 **Files:**
+
 - Create: `widget-sdk/src/index.ts`, `widget-sdk/src/vite/index.ts`, `widget-sdk/src/test/widget-setup.ts`, `widget-sdk/components.json`
 - Move: `widget-sdk/src/vite-dev-config.ts` → `widget-sdk/src/vite/vite-dev-config.ts`; `widget-sdk/src/vite-dev-config.test.ts` → `widget-sdk/src/vite/vite-dev-config.test.ts`
 - Modify: `widget-sdk/package.json` (`exports` + `imports` + devDep), `client/components.json`, `client/src/app/global.css`
@@ -203,6 +206,7 @@ git commit -m "refactor(widgets): make widget-runtime a bare-package barrel"
 - Modify: `client/vite.config.ts` (its `apiProxy` import), `client/tsconfig.json`, `widget-sdk/vitest.config.ts`
 
 **Interfaces:**
+
 - Consumes: `widget-runtime` from Task 1.
 - Produces: bare package `widget-sdk` with stable subpaths `widget-sdk/lib/utils` (`cn`), `widget-sdk/ui/tabs`, `widget-sdk/ui/WidgetControls`, `widget-sdk/reatom/reatom-memo`, `widget-sdk/reatom/use-atom-value`, `widget-sdk/define-widget-client`, `widget-sdk/vite`, `widget-sdk/test-setup`, plus a light `.` barrel; a `components.json` that makes `widget-sdk` a shadcn shared-UI package, and a fixed `client/components.json` (`utils` → `widget-sdk/lib/utils`).
 
@@ -218,7 +222,7 @@ The moved `vite-dev-config.ts` needs no edits (it imports nothing relative). The
 
 - [ ] **Step 2: Write the light `.` barrel** — `widget-sdk/src/index.ts`
 
-Convenience only — app code imports subpaths (Table S). Keep the CSS-module UI *out* of the barrel so importing bare `widget-sdk` never drags a `.module.css` into a Node context:
+Convenience only — app code imports subpaths (Table S). Keep the CSS-module UI _out_ of the barrel so importing bare `widget-sdk` never drags a `.module.css` into a Node context:
 
 ```ts
 export * from './reatom/reatom-memo'
@@ -279,7 +283,7 @@ Add after `"type": "module"`:
   },
 ```
 
-`exports` are the **outward** subpaths the board/widgets/shadcn import (`widget-sdk/lib/utils`, `widget-sdk/ui/tabs`, `widget-sdk/reatom/reatom-memo`, …). `imports` are the **inward** `#`-specifiers shadcn generates for components that live *inside* widget-sdk (`#lib/utils`, `#components/*`). Add to `devDependencies` (version from `client/package.json`): `"fake-indexeddb": "^6.2.5"`. (`@testing-library/jest-dom` and `jsdom` are already present.)
+`exports` are the **outward** subpaths the board/widgets/shadcn import (`widget-sdk/lib/utils`, `widget-sdk/ui/tabs`, `widget-sdk/reatom/reatom-memo`, …). `imports` are the **inward** `#`-specifiers shadcn generates for components that live _inside_ widget-sdk (`#lib/utils`, `#components/*`). Add to `devDependencies` (version from `client/package.json`): `"fake-indexeddb": "^6.2.5"`. (`@testing-library/jest-dom` and `jsdom` are already present.)
 
 - [ ] **Step 6: Add widget-sdk's shadcn config** — `widget-sdk/components.json`
 
@@ -365,6 +369,7 @@ git commit -m "refactor(widgets): make widget-sdk a bare-package with shadcn sub
 ## Task 3: Federation config factories in `widget-sdk/vite`
 
 **Files:**
+
 - Create: `widget-sdk/src/vite/federation-shared.ts` + `federation-shared.test.ts`
 - Create: `widget-sdk/src/vite/widget-remotes.ts` + `widget-remotes.test.ts`
 - Create: `widget-sdk/src/vite/widget-vite-config.ts`
@@ -372,14 +377,17 @@ git commit -m "refactor(widgets): make widget-sdk a bare-package with shadcn sub
 - Modify: `widget-sdk/package.json` (add federation/vite build deps)
 
 **Interfaces:**
+
 - Produces (all via `widget-sdk/vite`): `federationShared()`; `readWidgetPorts(file)`, `readWidgetPort(id, file)`, `widgetRemotes({ command, portsFile })`, `previewWidgetsProxy(portsFile)`; `defineWidgetViteConfig(widgetDir)`, `defineWidgetVitestConfig(widgetDir)`.
 
 - [ ] **Step 1: Add build deps to `widget-sdk`**
 
 Run:
+
 ```bash
 pnpm --filter widget-sdk add -D @module-federation/vite@^1.16.12 @vitejs/plugin-react@^6.0.2 vite@^8.0.16
 ```
+
 Expected: the three appear in `widget-sdk/devDependencies`.
 
 - [ ] **Step 2: Write the failing shared-config test** — `widget-sdk/src/vite/federation-shared.test.ts`
@@ -620,11 +628,13 @@ git commit -m "feat(widgets): add federation shared + widget vite config factori
 ## Task 4: Convert `clock` into the `widgets-clock` federation remote
 
 **Files:**
+
 - Create: `widgets/clock/package.json`, `widgets/clock/vite.config.ts`, `widgets/clock/vitest.config.ts`, `widgets/clock/tsconfig.json`, `widgets/clock/ui/expose.ts`, `widgets/clock/index.html`, `widgets/clock/dev/main.tsx`, `widgets/clock/dev/harness.tsx`, `widgets/clock/dev/harness.test.tsx`
 - Modify: `widgets/clock/client.ts`, `widgets/clock/server.ts` (add `export default`)
 - Modify: `pnpm-workspace.yaml` (add `widgets/*`; keep `widgets` until Task 5)
 
 **Interfaces:**
+
 - Consumes: `defineWidgetViteConfig`/`defineWidgetVitestConfig` (Task 3).
 - Produces: workspace package `widgets-clock`; a built remote `widgets/clock/dist/remoteEntry.js` exposing `./ui`; a standalone harness; `widgets/clock/client.ts` default export = the client definition, `widgets/clock/server.ts` default export = the server definition.
 
@@ -680,6 +690,7 @@ packages:
 - [ ] **Step 3: Write `widgets/clock/vite.config.ts` and `widgets/clock/vitest.config.ts`**
 
 `vite.config.ts`:
+
 ```ts
 import { defineWidgetViteConfig } from 'widget-sdk/vite'
 
@@ -687,6 +698,7 @@ export default defineWidgetViteConfig(import.meta.dirname)
 ```
 
 `vitest.config.ts`:
+
 ```ts
 import { defineWidgetVitestConfig } from 'widget-sdk/vite'
 
@@ -702,7 +714,6 @@ export default defineWidgetVitestConfig(import.meta.dirname)
     "lib": ["ES2023", "ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "jsx": "react-jsx",
     "strict": true,
@@ -722,11 +733,13 @@ export default defineWidgetVitestConfig(import.meta.dirname)
 - [ ] **Step 5: Add the `export default` for codegen + harness**
 
 `widgets/clock/client.ts` — append after the existing `export const clockWidget = …`:
+
 ```ts
 export default clockWidget
 ```
 
 `widgets/clock/server.ts` — append after the existing `export const clockServer = …`:
+
 ```ts
 export default clockServer
 ```
@@ -744,6 +757,7 @@ export { Clock as default } from './Clock'
 - [ ] **Step 7: Write the standalone harness**
 
 `widgets/clock/dev/harness.tsx`:
+
 ```tsx
 import { makeWidgetApi, makeWidgetStorage } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
@@ -773,6 +787,7 @@ export const HarnessApp = reatomMemo(() => <Widget {...harnessProps()} />, 'Cloc
 ```
 
 `widgets/clock/dev/main.tsx`:
+
 ```tsx
 import { createRoot } from 'react-dom/client'
 
@@ -783,6 +798,7 @@ if (root) createRoot(root).render(<HarnessApp />)
 ```
 
 `widgets/clock/index.html`:
+
 ```html
 <!doctype html>
 <html lang="ru">
@@ -824,11 +840,13 @@ describe('clock harness', () => {
 - [ ] **Step 9: Install and run the widget's own suite + isolated build**
 
 Run:
+
 ```bash
 pnpm install
 pnpm --filter widgets-clock test
 pnpm --filter widgets-clock build
 ```
+
 Expected: install links `widgets-clock`; its vitest runs `ui/Clock.test.tsx` + `dev/harness.test.tsx` (and any model tests) green via `widget-sdk/test-setup`; `build` emits `widgets/clock/dist/remoteEntry.js` plus hashed chunks with asset URLs under `/widgets/clock/` (Success criterion: a widget builds without the client build).
 
 - [ ] **Step 10: Confirm the isolated artifact**
@@ -848,12 +866,14 @@ git commit -m "feat(widgets): package clock as a federation remote with a dev ha
 ## Task 5: Convert `ofelia-poop-duty` into a remote and remove the umbrella package
 
 **Files:**
+
 - Create: `widgets/ofelia-poop-duty/{package.json,vite.config.ts,vitest.config.ts,tsconfig.json,index.html}`, `widgets/ofelia-poop-duty/ui/expose.ts`, `widgets/ofelia-poop-duty/dev/{main.tsx,harness.tsx}`
 - Modify: `widgets/ofelia-poop-duty/client.ts`, `widgets/ofelia-poop-duty/server.ts` (add `export default`)
 - Delete: `widgets/package.json` (umbrella)
 - Modify: `pnpm-workspace.yaml` (drop the `widgets` entry), `client/vite.config.ts` + `client/tsconfig.json` are handled in Task 7
 
 **Interfaces:**
+
 - Produces: workspace package `widgets-ofelia-poop-duty`; remote `widgets/ofelia-poop-duty/dist/remoteEntry.js` exposing `./ui`; default exports on its `client.ts`/`server.ts`.
 
 - [ ] **Step 1: Write `widgets/ofelia-poop-duty/package.json`**
@@ -897,14 +917,17 @@ Identical to clock's except `"name": "widgets-ofelia-poop-duty"`. Ofelia's model
 - [ ] **Step 2: Write `vite.config.ts`, `vitest.config.ts`, `tsconfig.json`**
 
 `vite.config.ts` and `vitest.config.ts` are byte-identical to clock's (Task 4 Step 3) — they read the directory name at runtime:
+
 ```ts
 import { defineWidgetViteConfig } from 'widget-sdk/vite'
 export default defineWidgetViteConfig(import.meta.dirname)
 ```
+
 ```ts
 import { defineWidgetVitestConfig } from 'widget-sdk/vite'
 export default defineWidgetVitestConfig(import.meta.dirname)
 ```
+
 `tsconfig.json` is identical to clock's (Task 4 Step 4).
 
 - [ ] **Step 3: Default exports**
@@ -915,11 +938,13 @@ export default defineWidgetVitestConfig(import.meta.dirname)
 - [ ] **Step 4: Exposed UI + harness**
 
 `widgets/ofelia-poop-duty/ui/expose.ts`:
+
 ```ts
 export { OfeliaPoopDuty as default } from './OfeliaPoopDuty'
 ```
 
 `widgets/ofelia-poop-duty/dev/harness.tsx` (same shape as clock's; `DEV_ID = 'ofelia-poop-duty'`):
+
 ```tsx
 import { makeWidgetApi, makeWidgetStorage } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
@@ -957,17 +982,20 @@ export const HarnessApp = reatomMemo(() => <Widget {...harnessProps()} />, 'Ofel
 ```bash
 git rm widgets/package.json
 ```
+
 In `pnpm-workspace.yaml`, delete the `- widgets` line (keep `- widgets/*`).
 
 - [ ] **Step 6: Install and verify both remotes**
 
 Run:
+
 ```bash
 pnpm install
 pnpm --filter widgets-ofelia-poop-duty test
 pnpm --filter widgets-ofelia-poop-duty build
 pnpm --filter widgets-clock build
 ```
+
 Expected: install drops the `widgets` importer and links both `widgets-*` packages; ofelia's suite green; both remotes build a `dist/remoteEntry.js`.
 
 Because the umbrella `widgets/package.json` is gone, the board no longer has a `widgets` workspace importer — but the board still imports widget `client.ts`/`server.ts` through the `@widgets/*` **path alias**, which resolves file paths independent of packages, so `pnpm typecheck`/`pnpm test`/`pnpm build` still pass. Confirm:
@@ -986,25 +1014,30 @@ git commit -m "feat(widgets): package ofelia as a remote; drop the umbrella widg
 ## Task 6: The `codegen` script (catalog, icons, server list, ports)
 
 **Files:**
+
 - Create: `scripts/codegen.ts`, `scripts/codegen.test.ts`
 - Modify: root `package.json` (add `"codegen"` script + `jiti`/`tsx` devDeps)
 - Create: `widgets/.ports.json` (committed) — generated on first run
 - Modify: `.gitignore`
 
 **Interfaces:**
+
 - Produces: `pnpm codegen` writing `client/src/widget-registry/model/widget-catalog.generated.ts`, `client/src/widget-registry/model/widget-icons.generated.ts`, `server/src/widgets/widget-server-list.generated.ts`, and (idempotently) `widgets/.ports.json`. Pure emitters exported for tests: `emitCatalog`, `emitIcons`, `emitServerList`, `assignPorts`, `discoverWidgetDirs`.
 - Consumes: each widget's default-exported client definition (Tasks 4–5), read via `jiti`.
 
 - [ ] **Step 1: Add tooling deps + the runtime loader + script**
 
 Run:
+
 ```bash
 pnpm add -w -D jiti@^2.6.1 tsx@^4.20.6
 pnpm --filter client add @module-federation/runtime
 ```
+
 Add `@module-federation/runtime` here (not in Task 7) so the generated catalog — which lands on disk in Step 7 and is typechecked by the client from then on — resolves its `loadRemote` import immediately. If pnpm emits a peer warning, align the version to what `@module-federation/vite@1.16.12` resolves: `pnpm why @module-federation/runtime` and pin that.
 
 In root `package.json` `scripts`, add:
+
 ```json
     "codegen": "tsx scripts/codegen.ts",
 ```
@@ -1050,7 +1083,9 @@ describe('codegen emitters', () => {
     const out = emitIcons(metas)
     expect(out).toContain("import { Cat, Clock } from 'lucide-react'")
     expect(out).toContain("export type WidgetIconName = 'Cat' | 'Clock'")
-    expect(out).toContain('export const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { Cat, Clock }')
+    expect(out).toContain(
+      'export const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { Cat, Clock }',
+    )
   })
 
   it('imports each widget server default export into the server list', () => {
@@ -1111,7 +1146,10 @@ export function discoverWidgetDirs(dir: string): string[] {
     .sort()
 }
 
-export function assignPorts(dirs: string[], existing: Record<string, number>): Record<string, number> {
+export function assignPorts(
+  dirs: string[],
+  existing: Record<string, number>,
+): Record<string, number> {
   const ports = { ...existing }
   let next = Math.max(5179, ...Object.values(ports)) + 1
   for (const dir of dirs) if (ports[dir] == null) ports[dir] = next++
@@ -1121,7 +1159,14 @@ export function assignPorts(dirs: string[], existing: Record<string, number>): R
 export function emitCatalog(metas: WidgetMeta[]): string {
   const entries = metas
     .map((m) => {
-      const meta = { id: m.id, title: m.title, description: m.description, defaultSize: m.defaultSize, ...(m.tiers ? { tiers: m.tiers } : {}), icon: m.icon }
+      const meta = {
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        defaultSize: m.defaultSize,
+        ...(m.tiers ? { tiers: m.tiers } : {}),
+        icon: m.icon,
+      }
       const literal = JSON.stringify(meta, null, 2).replace(/\n/g, '\n    ')
       return `  toWidgetType({\n    ...(${literal} as WidgetMetadata),\n    loadComponent: () => loadRemoteModule('${m.id}'),\n  })`
     })
@@ -1156,7 +1201,9 @@ export const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { ${icons.join('
 }
 
 export function emitServerList(metas: WidgetMeta[]): string {
-  const imports = metas.map((m) => `import ${ident(m.dir)} from '@widgets/${m.dir}/server'`).join('\n')
+  const imports = metas
+    .map((m) => `import ${ident(m.dir)} from '@widgets/${m.dir}/server'`)
+    .join('\n')
   const list = metas.map((m) => `  toRuntimeWidgetServerDefinition(${ident(m.dir)})`).join(',\n')
   return `${BANNER}import { toRuntimeWidgetServerDefinition, type RuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
 ${imports}
@@ -1172,20 +1219,41 @@ async function readMeta(dir: string): Promise<WidgetMeta> {
     alias: { '@shared': resolve(root, 'shared') },
     moduleCache: false,
   })
-  const mod = await jiti.import<{ default: Omit<WidgetMeta, 'dir'> }>(resolve(widgetsDir, dir, 'client.ts'))
+  const mod = await jiti.import<{ default: Omit<WidgetMeta, 'dir'> }>(
+    resolve(widgetsDir, dir, 'client.ts'),
+  )
   const d = mod.default
-  return { dir, id: d.id, title: d.title, description: d.description, defaultSize: d.defaultSize, tiers: d.tiers, icon: d.icon }
+  return {
+    dir,
+    id: d.id,
+    title: d.title,
+    description: d.description,
+    defaultSize: d.defaultSize,
+    tiers: d.tiers,
+    icon: d.icon,
+  }
 }
 
 async function main() {
   const dirs = discoverWidgetDirs(widgetsDir)
   const metas = await Promise.all(dirs.map(readMeta))
-  const existing = existsSync(portsFile) ? (JSON.parse(readFileSync(portsFile, 'utf8')) as Record<string, number>) : {}
+  const existing = existsSync(portsFile)
+    ? (JSON.parse(readFileSync(portsFile, 'utf8')) as Record<string, number>)
+    : {}
   const ports = assignPorts(dirs, existing)
 
-  writeFileSync(resolve(root, 'client/src/widget-registry/model/widget-catalog.generated.ts'), emitCatalog(metas))
-  writeFileSync(resolve(root, 'client/src/widget-registry/model/widget-icons.generated.ts'), emitIcons(metas))
-  writeFileSync(resolve(root, 'server/src/widgets/widget-server-list.generated.ts'), emitServerList(metas))
+  writeFileSync(
+    resolve(root, 'client/src/widget-registry/model/widget-catalog.generated.ts'),
+    emitCatalog(metas),
+  )
+  writeFileSync(
+    resolve(root, 'client/src/widget-registry/model/widget-icons.generated.ts'),
+    emitIcons(metas),
+  )
+  writeFileSync(
+    resolve(root, 'server/src/widgets/widget-server-list.generated.ts'),
+    emitServerList(metas),
+  )
   writeFileSync(portsFile, `${JSON.stringify(ports, null, 2)}\n`)
   console.log(`codegen: ${dirs.length} widget(s) — ${dirs.join(', ')}`)
 }
@@ -1235,6 +1303,7 @@ git commit -m "feat(widgets): add codegen for catalog, icons, server list, and p
 ## Task 7: Wire host federation + generated catalog/registry + scripts
 
 **Files:**
+
 - Modify: `client/vite.config.ts` (functional config + federation host; drop `@widgets` alias + `../widgets/**` test glob)
 - Modify: `client/src/widget-registry/model/registry.ts` (consume generated catalog + icons)
 - Modify: `client/src/board/ui/AddWidgetMenu.tsx` (use generated `WIDGET_ICONS`)
@@ -1245,6 +1314,7 @@ git commit -m "feat(widgets): add codegen for catalog, icons, server list, and p
 - Add: `client` devDep `@module-federation/vite` (the host config imports `federation` directly)
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 3–6 (`@module-federation/runtime` was already added to `client` in Task 6 Step 1).
 - Produces: a board that resolves widgets as federation remotes (dev → widget dev servers; build → `/widgets/<id>/`), a synchronous codegen'd catalog, and a codegen `pre`-step on every consuming script.
 
@@ -1431,10 +1501,12 @@ export const productionWidgetServerRegistry = registry
 - [ ] **Step 9: Verify dev-mode federation + the runtime singleton**
 
 Run codegen and boot the stack (needs the storage server; use a second terminal or `pnpm docker:server`):
+
 ```bash
 pnpm run codegen
 pnpm dev
 ```
+
 In a browser at the board URL: the "Добавить виджет" catalog lists both widgets **immediately** (synchronous). Add each widget — it mounts (its remote loads via `loadRemote`). Edit `widgets/clock/ui/Clock.tsx` (change a style) — the board view updates via HMR **without** a full reload. In the console run `import('@module-federation/runtime').then(m => m.getInstance?.())` is not required; instead confirm **one** `widget-runtime` instance by evaluating that the board's server-time and a mounted widget's `getServerTime()` share state (add a temporary `console.log((window as any).__mfShared)` only if debugging). The acceptance signal is: no "Invalid hook call" / duplicate-dispatcher errors, and clock/ofelia render live.
 
 - [ ] **Step 10: Verify build + unit + typecheck**
@@ -1454,10 +1526,12 @@ git commit -m "feat(widgets): consume widgets as federation remotes via codegen'
 ## Task 8: Keep board e2e green against a production-style build (preview proxy)
 
 **Files:**
+
 - Modify: `client/playwright.config.ts` (build+preview each widget; build+preview the board)
 - Verify only (the `previewWidgetsProxy` wiring landed in Task 7 Step 2)
 
 **Interfaces:**
+
 - Consumes: per-widget `build`/`preview` scripts (Tasks 4–5), `previewWidgetsProxy` (Task 3), host build-mode remotes = `/widgets/<id>/remoteEntry.js` (Task 3/7).
 
 Rationale: the board's built host references `/widgets/<id>/remoteEntry.js` **same-origin**. Each widget's `vite preview` serves its `dist` under `base: '/widgets/<id>/'` on its `.ports.json` port; the board preview proxies `/widgets/<id>/**` to that port (`previewWidgetsProxy`). This proves federation in a real production build using only Vite — nginx/dist-copy/PWA are Plan 3.
@@ -1516,9 +1590,11 @@ git commit -m "test(widgets): run board e2e against federated remotes via previe
 ## Task 9: Full verification, boundary checks, cleanup
 
 **Files:**
+
 - Verify only; delete any now-empty leftover dirs
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1–8.
 
 - [ ] **Step 1: No stale aliases remain**
@@ -1543,6 +1619,7 @@ rm server/src/widgets/widget-server-list.generated.ts
 pnpm typecheck
 pnpm test
 ```
+
 Expected: both pass — each runs `pnpm run codegen` first (Task 7 Step 8), regenerating the deleted files. This simulates a clean checkout/CI.
 
 - [ ] **Step 4: Add-a-widget dry check (ports stability)**
@@ -1566,6 +1643,7 @@ pnpm --filter client build
 pnpm --filter widgets-clock build
 pnpm test:e2e
 ```
+
 Expected: all green — install clean; typecheck no errors; every package suite passes; the client (host) and one widget both build; e2e passes against federated remotes.
 
 - [ ] **Step 7: Commit**
@@ -1585,14 +1663,15 @@ git commit -m "chore(widgets): boundary checks and cleanup after federation roll
 ## Deviations from the design (documented, intentional)
 
 1. **`widget-runtime` is a bare-package barrel; `widget-sdk` is a bare-package with subpaths — neither uses the `@widget-runtime/*`/`@widget-sdk/*` aliases anymore.** The spec assumed `widget-runtime` could be a federation singleton while Plan 1 shipped subpath aliases; MF shares by bare module request, so honoring the singleton requirement (your chosen option) required collapsing `widget-runtime` into a single `exports`-mapped bare barrel. `widget-sdk` is **not** collapsed to one barrel and is **not** in the shared scope: it keeps granular subpaths (`widget-sdk/lib/utils`, `widget-sdk/ui/*`, `widget-sdk/reatom/*`) because those are shadcn's resolution targets, and it is stateless so per-remote duplication is harmless (the design already marked it non-singleton). Test-only (`widget-runtime/timer/fakes`, `.../storage/test/fakes`) and config-only (`widget-sdk/vite`) entrypoints stay explicit subpaths.
-5. **shadcn keeps working in `widget-sdk`.** `widget-sdk` becomes a shadcn "shared UI package" (`components.json` with `#components`/`#lib/utils` aliases backed by `package.json#imports`); `client/components.json`'s `utils` alias is repointed to `widget-sdk/lib/utils` (fixing a break Plan 1 introduced when it moved `cn` out of the client). Because federated widget UIs leave the board's module graph, the board CSS `@source`s `widget-sdk/src` + `widgets/*/ui` so Tailwind still emits their shadcn utility classes.
-2. **`WidgetMetadata.icon` is `string` (widget-sdk), with the closed `WidgetIconName` union generated on the board side.** This avoids a `widget-sdk → generated-icons` back-dependency while still giving the board an exhaustive, codegen-derived icon map. Widget authors may use any lucide icon name; an invalid name fails the generated icon import at build.
-3. **The federation "manifest" is `widgets/.ports.json`.** Its keys are the widget id list and its values the dev ports, so the host derives both dev remotes and prod paths from it — no separate manifest file is generated.
-4. **The runtime-singleton "spike" is a real verification gate, not a throwaway** (Task 7 Step 9 in dev + Task 8 e2e against a production build), validating MF sharing of a workspace **source** package in the actual system.
+2. **shadcn keeps working in `widget-sdk`.** `widget-sdk` becomes a shadcn "shared UI package" (`components.json` with `#components`/`#lib/utils` aliases backed by `package.json#imports`); `client/components.json`'s `utils` alias is repointed to `widget-sdk/lib/utils` (fixing a break Plan 1 introduced when it moved `cn` out of the client). Because federated widget UIs leave the board's module graph, the board CSS `@source`s `widget-sdk/src` + `widgets/*/ui` so Tailwind still emits their shadcn utility classes.
+3. **`WidgetMetadata.icon` is `string` (widget-sdk), with the closed `WidgetIconName` union generated on the board side.** This avoids a `widget-sdk → generated-icons` back-dependency while still giving the board an exhaustive, codegen-derived icon map. Widget authors may use any lucide icon name; an invalid name fails the generated icon import at build.
+4. **The federation "manifest" is `widgets/.ports.json`.** Its keys are the widget id list and its values the dev ports, so the host derives both dev remotes and prod paths from it — no separate manifest file is generated.
+5. **The runtime-singleton "spike" is a real verification gate, not a throwaway** (Task 7 Step 9 in dev + Task 8 e2e against a production build), validating MF sharing of a workspace **source** package in the actual system.
 
 ## Self-Review
 
 **Spec coverage (Plan 2 = Phased Rollout steps 3–4):**
+
 - "Convert `widgets/*` into individual pnpm packages (`widgets-<dir>`)" → Tasks 4–5.
 - "federation `exposes` for the UI component only, `base: '/widgets/<id>/'`, `dev.remoteHmr`, shared singletons incl. `strictVersion`" → Task 3 (factory) + Tasks 4–5 (per widget); singletons + strictVersion in `federationShared()`; `widget-runtime` made a true singleton via Tasks 1–2 (your chosen option).
 - "standalone `dev/` harness built from the shared dev Vite config" → Tasks 4–5 (`dev/main.tsx` + harness), server via `apiProxy()`; smoke test Task 4 Step 8.

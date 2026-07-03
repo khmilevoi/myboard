@@ -4,7 +4,7 @@
 
 **Goal:** Extract the board-internal code that widgets depend on into two new source-only workspace packages — `widget-runtime` (live-connection singletons) and `widget-sdk` (stateless React glue + UI) — with zero behavior change and all existing tests, typecheck, build, and e2e staying green.
 
-**Architecture:** Both packages are *source-only* (no build step), consumed through path aliases exactly like the existing `shared` package. Package names stay unscoped (`widget-runtime`, `widget-sdk`); their import aliases are `@widget-runtime/*` and `@widget-sdk/*` — mirroring how the `shared` package is imported via `@shared/*`. **Every** consumer — the board (`client/src`) and the widgets (`widgets/*`) — imports the moved code through those aliases. The `@/` alias is restored to its true meaning: `client/src` and nothing else. There are no redirect aliases pointing `@/...` outside `src`.
+**Architecture:** Both packages are _source-only_ (no build step), consumed through path aliases exactly like the existing `shared` package. Package names stay unscoped (`widget-runtime`, `widget-sdk`); their import aliases are `@widget-runtime/*` and `@widget-sdk/*` — mirroring how the `shared` package is imported via `@shared/*`. **Every** consumer — the board (`client/src`) and the widgets (`widgets/*`) — imports the moved code through those aliases. The `@/` alias is restored to its true meaning: `client/src` and nothing else. There are no redirect aliases pointing `@/...` outside `src`.
 
 **Tech Stack:** pnpm workspaces + catalog, Vite 8 (Rolldown) / Vitest 4, TypeScript (`moduleResolution: bundler`), React 19, `@reatom/core` + `@reatom/react`, Dexie, Zod, errore.
 
@@ -63,21 +63,21 @@ widget-sdk/                     # stateless React glue + UI (Plan 2: shared, not
 
 **Import rewrite — applied to BOTH `client/src` and `widgets/`** (each move task does its row, for every consumer, in one substitution):
 
-| Old specifier (in `client/src` and/or `widgets/`) | New specifier |
-| --- | --- |
-| `@/storage/model/storage` (exact) | `@widget-runtime/storage` |
-| `@/storage/model/` (prefix, all other subpaths) | `@widget-runtime/storage/` |
-| `@/widget-api/widget-api` (exact) | `@widget-runtime/widget-api` |
-| `@/shared/timer/model/` (prefix) | `@widget-runtime/timer/` |
-| `@/widget-host/model/tier` (exact) | `@widget-runtime/tier` |
-| `@/widget-host/model/types` (exact) | `@widget-runtime/types` |
-| `@/shared/reatom/` (prefix) | `@widget-sdk/reatom/` |
-| `@/lib/utils` (exact) | `@widget-sdk/lib/utils` |
-| `@/components/ui/tabs` (exact) | `@widget-sdk/ui/tabs` |
-| `@/widget-host/ui/WidgetControls` (exact) | `@widget-sdk/ui/WidgetControls` |
+| Old specifier (in `client/src` and/or `widgets/`)   | New specifier                      |
+| --------------------------------------------------- | ---------------------------------- |
+| `@/storage/model/storage` (exact)                   | `@widget-runtime/storage`          |
+| `@/storage/model/` (prefix, all other subpaths)     | `@widget-runtime/storage/`         |
+| `@/widget-api/widget-api` (exact)                   | `@widget-runtime/widget-api`       |
+| `@/shared/timer/model/` (prefix)                    | `@widget-runtime/timer/`           |
+| `@/widget-host/model/tier` (exact)                  | `@widget-runtime/tier`             |
+| `@/widget-host/model/types` (exact)                 | `@widget-runtime/types`            |
+| `@/shared/reatom/` (prefix)                         | `@widget-sdk/reatom/`              |
+| `@/lib/utils` (exact)                               | `@widget-sdk/lib/utils`            |
+| `@/components/ui/tabs` (exact)                      | `@widget-sdk/ui/tabs`              |
+| `@/widget-host/ui/WidgetControls` (exact)           | `@widget-sdk/ui/WidgetControls`    |
 | `@/widget-registry/model/widget-definition` (exact) | `@widget-sdk/define-widget-client` |
 
-Rows marked **exact** are full-module-specifier replacements (not directory prefixes). This matters in two ways: (1) sibling board files that stay put — `@/widget-host/model/widget-frame-model`, `@/widget-host/ui/WidgetFrame`, etc. — are untouched; (2) the storage barrel and the single-file widget-api map to `@widget-runtime/storage` and `@widget-runtime/widget-api` with **no `storage/storage` or `widget-api/widget-api` duplication**. Apply the exact storage-barrel replacement *before* the `@/storage/model/` prefix rule so the barrel doesn't pick up a trailing `/storage`.
+Rows marked **exact** are full-module-specifier replacements (not directory prefixes). This matters in two ways: (1) sibling board files that stay put — `@/widget-host/model/widget-frame-model`, `@/widget-host/ui/WidgetFrame`, etc. — are untouched; (2) the storage barrel and the single-file widget-api map to `@widget-runtime/storage` and `@widget-runtime/widget-api` with **no `storage/storage` or `widget-api/widget-api` duplication**. Apply the exact storage-barrel replacement _before_ the `@/storage/model/` prefix rule so the barrel doesn't pick up a trailing `/storage`.
 
 **Aliases added once (Task 1):** `@widget-runtime/*` → `../widget-runtime/src/*` and `@widget-sdk/*` → `../widget-sdk/src/*`, in `client/vite.config.ts` (covers vite + vitest), `client/tsconfig.json`, and each new package's own `tsconfig.json` + `vitest.config.ts`. The `@` / `@shared` / `@widgets` aliases keep their current meaning.
 
@@ -86,11 +86,13 @@ Rows marked **exact** are full-module-specifier replacements (not directory pref
 ## Task 1: Scaffold both packages and the two package aliases
 
 **Files:**
+
 - Create: `widget-runtime/package.json`, `widget-runtime/tsconfig.json`, `widget-runtime/vitest.config.ts`, `widget-runtime/vitest.setup.ts`, `widget-runtime/src/.gitkeep`
 - Create: `widget-sdk/package.json`, `widget-sdk/tsconfig.json`, `widget-sdk/vitest.config.ts`, `widget-sdk/vitest.setup.ts`, `widget-sdk/src/.gitkeep`
 - Modify: `pnpm-workspace.yaml`, `client/vite.config.ts`, `client/tsconfig.json`, `client/package.json`, `widgets/package.json`
 
 **Interfaces:**
+
 - Produces: workspace packages `widget-runtime` and `widget-sdk`; aliases `@widget-runtime/*` → `../widget-runtime/src/*`, `@widget-sdk/*` → `../widget-sdk/src/*` resolvable from the client (vite + tsc + vitest) and from the packages themselves.
 
 - [ ] **Step 1: Baseline — confirm the suite is green before touching anything**
@@ -188,7 +190,6 @@ Set `clsx`, `tailwind-merge`, `@testing-library/jest-dom`, and `jsdom` to the ex
     "lib": ["ES2023", "ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "jsx": "react-jsx",
     "strict": true,
@@ -215,7 +216,6 @@ Set `clsx`, `tailwind-merge`, `@testing-library/jest-dom`, and `jsdom` to the ex
     "lib": ["ES2023", "ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "jsx": "react-jsx",
     "strict": true,
@@ -366,10 +366,12 @@ git commit -m "feat(widgets): scaffold widget-runtime and widget-sdk packages"
 ## Task 2: Move the storage tree into `widget-runtime`
 
 **Files:**
+
 - Move: `client/src/storage/model/**` → `widget-runtime/src/storage/**` (every file, including `*.test.ts`)
 - Modify: every file under `client/src/**` and `widgets/**` importing `@/storage/model/...`
 
 **Interfaces:**
+
 - Consumes: aliases from Task 1.
 - Produces: `@widget-runtime/storage` (`makeWidgetStorage`, `WidgetStorage` — the directory barrel), `@widget-runtime/storage/types` (`StorageApi`, `StorageListener`), `@widget-runtime/storage/reatom/reatom-storage`, `@widget-runtime/storage/test/fakes`. The storage tree's only external import is `@shared/storage/scope` (aliased in the package configs).
 
@@ -388,6 +390,7 @@ The only internal reference to the renamed barrel is its own test. Edit `widget-
 - [ ] **Step 2: Rewrite every consumer's import specifier (exact barrel first, then the prefix)**
 
 Find all sites: `git grep -l "@/storage/model" -- client/src widgets`. Apply, in order:
+
 1. exact: `@/storage/model/storage` → `@widget-runtime/storage`
 2. prefix (everything else): `@/storage/model/` → `@widget-runtime/storage/` (e.g. `@/storage/model/types` → `@widget-runtime/storage/types`; `@/storage/model/reatom/reatom-storage` → `@widget-runtime/storage/reatom/reatom-storage`; `@/storage/model/test/fakes` → `@widget-runtime/storage/test/fakes`)
 
@@ -413,10 +416,12 @@ git commit -m "refactor(widgets): move storage into widget-runtime"
 ## Task 3: Move `widget-api` into `widget-runtime`
 
 **Files:**
+
 - Move: `client/src/widget-api/{widget-api.ts,widget-api.test.ts}` → `widget-runtime/src/widget-api/`
 - Modify: every consumer importing `@/widget-api/...`
 
 **Interfaces:**
+
 - Produces: `@widget-runtime/widget-api` (`makeWidgetApi`, `WidgetApiError`, `MakeWidgetApiOptions` — a single flat module, no `widget-api/widget-api`). External imports: `@shared/widgets/contracts`, `errore`, `zod`.
 
 - [ ] **Step 1: Move the file flat (it is a single module, so no `widget-api/` directory)**
@@ -451,10 +456,12 @@ git commit -m "refactor(widgets): move widget-api into widget-runtime"
 ## Task 4: Move the timer (server-time) into `widget-runtime`
 
 **Files:**
+
 - Move: `client/src/shared/timer/model/*` → `widget-runtime/src/timer/`
 - Modify: every consumer importing `@/shared/timer/model/...`
 
 **Interfaces:**
+
 - Produces: `@widget-runtime/timer/server-time` (`getServerTime`, `createServerTime`, `ServerTime`), `@widget-runtime/timer/http-time`, `@widget-runtime/timer/fakes` (`createFakeTimer`). External imports: `@reatom/core`, `errore`, `zod`.
 
 - [ ] **Step 1: Move the files**
@@ -489,12 +496,14 @@ git commit -m "refactor(widgets): move server-time into widget-runtime"
 ## Task 5: Move tier + the runtime contract types into `widget-runtime`
 
 **Files:**
+
 - Move: `client/src/widget-host/model/{tier.ts,tier.test.ts}` → `widget-runtime/src/{tier.ts,tier.test.ts}`
 - Move: `client/src/widget-host/model/types.ts` → `widget-runtime/src/types.ts`
 - Create: `widget-runtime/src/theme.ts`
 - Modify: `widget-runtime/src/types.ts` (import block); `client/src/shared/theme/types.ts`; every consumer of `@/widget-host/model/tier` and `@/widget-host/model/types`
 
 **Interfaces:**
+
 - Consumes: `@widget-runtime/storage` (`WidgetStorage`), `@widget-runtime/widget-api` (`WidgetApiError`) from Tasks 2–3.
 - Produces: `@widget-runtime/tier` (`WidgetTier`, `TierConfig`, tier helpers), `@widget-runtime/types` (`WidgetRuntimeProps`, `WidgetComponent`, `WidgetComponentModule`, `WidgetLoader`, `WidgetMode`), `@widget-runtime/theme` (`ResolvedTheme`).
 
@@ -560,10 +569,12 @@ git commit -m "refactor(widgets): move tier and runtime contract types into widg
 ## Task 6: Move the reatom React glue into `widget-sdk`
 
 **Files:**
+
 - Move: `client/src/shared/reatom/{reatom-memo.ts,reatom-memo.test.tsx,use-atom-value.ts}` → `widget-sdk/src/reatom/`
 - Modify: every consumer importing `@/shared/reatom/...`
 
 **Interfaces:**
+
 - Produces: `@widget-sdk/reatom/reatom-memo` (`reatomMemo`), `@widget-sdk/reatom/use-atom-value` (`useAtomValue`). External imports: `@reatom/core`, `@reatom/react`, `react`.
 
 - [ ] **Step 1: Move the files**
@@ -598,10 +609,12 @@ git commit -m "refactor(widgets): move reatomMemo/useAtomValue into widget-sdk"
 ## Task 7: Move `cn`, `tabs`, and `WidgetControls` into `widget-sdk`
 
 **Files:**
+
 - Move: `client/src/lib/utils.ts` → `widget-sdk/src/lib/utils.ts`; `client/src/components/ui/tabs.tsx` → `widget-sdk/src/ui/tabs.tsx`; `client/src/widget-host/ui/WidgetControls.{tsx,module.css,test.tsx}` → `widget-sdk/src/ui/`
 - Modify: the moved files' import lines; consumers of `@/lib/utils`, `@/components/ui/tabs`, `@/widget-host/ui/WidgetControls`
 
 **Interfaces:**
+
 - Consumes: `@widget-sdk/reatom/reatom-memo` from Task 6.
 - Produces: `@widget-sdk/lib/utils` (`cn`), `@widget-sdk/ui/tabs` (`Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`), `@widget-sdk/ui/WidgetControls` (`WidgetControls`).
 
@@ -655,10 +668,12 @@ git commit -m "refactor(widgets): move cn, tabs, and WidgetControls into widget-
 ## Task 8: Move `defineWidgetClient` into `widget-sdk`
 
 **Files:**
+
 - Move: `client/src/widget-registry/model/widget-definition.ts` → `widget-sdk/src/define-widget-client.ts`; `client/src/widget-registry/model/widget-definition.test.ts` → `widget-sdk/src/define-widget-client.test.ts`
 - Modify: the moved files' imports; consumers of `@/widget-registry/model/widget-definition`
 
 **Interfaces:**
+
 - Consumes: `@widget-runtime/tier` (`TierConfig`), `@widget-runtime/types` (`WidgetComponentModule`, `WidgetLoader`) from Task 5.
 - Produces: `@widget-sdk/define-widget-client` (`defineWidgetClient`, `toWidgetType`, `WidgetType`, `WidgetMetadata`, `WidgetClientDefinition`, `WidgetIconName`).
 
@@ -704,10 +719,12 @@ git commit -m "refactor(widgets): move defineWidgetClient into widget-sdk"
 ## Task 9: Add the shared dev Vite config factory to `widget-sdk`
 
 **Files:**
+
 - Create: `widget-sdk/src/vite-dev-config.ts`, `widget-sdk/src/vite-dev-config.test.ts`
 - Modify: `client/vite.config.ts` (use the factory for the `/api` proxy)
 
 **Interfaces:**
+
 - Produces: `@widget-sdk/vite-dev-config` exporting `apiProxy()` returning the `/api` proxy config used by both the board and (in Plan 2) every widget dev server.
 
 - [ ] **Step 1: Write the failing test** — `widget-sdk/src/vite-dev-config.test.ts`
@@ -787,10 +804,12 @@ git commit -m "feat(widgets): add shared dev Vite config factory in widget-sdk"
 ## Task 10: Full-stack verification, boundary check, dead-directory cleanup
 
 **Files:**
+
 - Delete: any now-empty board directories left behind
 - Verify only; no functional changes
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1–9.
 
 - [ ] **Step 1: Restore `@/` to "src only" — there must be no `@/` escaping into a package and no `@/` inside widgets**
@@ -836,6 +855,7 @@ git commit -m "chore(widgets): remove empty board dirs after runtime/sdk extract
 ## Self-Review
 
 **Spec coverage (Plan 1 scope = Phased Rollout step 2):**
+
 - "Extract `widget-runtime` (storage, widget-api, SSE/BroadcastChannel, server-time, runtime types)" → Tasks 2,3,4,5 (SSE/BroadcastChannel move inside the storage tree in Task 2).
 - "Extract `widget-sdk` (reatomMemo, useAtomValue, defineWidgetClient, tier, shared dev Vite config, WidgetControls/Tabs)" → Tasks 6,7,8,9 — **except `tier`**, intentionally in `widget-runtime` (architecture note) to avoid a package cycle. Documented deviation, not a gap.
 - "Rewrite the `@/` imports in `widgets/*` to point at these packages" → done per-module in Tasks 2–8, verified empty in Task 10.
@@ -857,4 +877,7 @@ split `widgets/package.json` into per-widget packages named `widgets-<dir>`; add
 
 **Plan 3 — Production build, deploy, PWA, docs (Phased Rollout steps 5–6):**
 update `pnpm build` to build widgets then client; copy widget `dist/` into the client output before the PWA service worker is generated and add `/widgets/**` to the Workbox precache; reconcile the manual `codeSplitting.groups` with federation `shared`; update Dockerfile + nginx to serve `/widgets/<id>/` and verify the board loads `remoteEntry.js` from the nginx image (not just `vite preview`); re-verify the Pi build timeout; run board e2e against the production-style build plus the standalone-harness smoke test; correct the stale widget-path references in `AGENTS.md`/`CLAUDE.md`.
+
+```
+
 ```

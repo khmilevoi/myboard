@@ -20,11 +20,12 @@
 
 ## Execution Status (as of 2026-07-02)
 
-Tasks 1–4 code changes are **implemented in the working tree, nothing committed yet**. Verified so far: `pnpm run test:scripts` PASS, `federation-shared.test.ts` PASS, `pnpm build` PASS (completes *and exits*).
+Tasks 1–4 code changes are **implemented in the working tree, nothing committed yet**. Verified so far: `pnpm run test:scripts` PASS, `federation-shared.test.ts` PASS, `pnpm build` PASS (completes _and exits_).
 
 **Task 2 outcome — branch 3b (hang persists on Vite 8.1.2 / Rolldown 1.1.3):** direct bisect showed a widget CLI build prints `✓ built` and then hangs with `@module-federation/vite` enabled, and exits normally with the federation plugin removed; the PWA plugin could not be isolated (removing it breaks the `virtual:pwa-register` import before exit behavior can be measured). The `vite-build-exit` wrapper is KEPT and its comment updated with this evidence. Upstream issue target: `@module-federation/vite` (federation plugin implicated, possibly its Rolldown interplay). The client Dockerfile correctly still uses `vite-build-exit`.
 
 **Workspace-wide gates are red for two PRE-EXISTING defects (not caused by these changes) — see Task 6:**
+
 1. `pnpm typecheck` fails in `widgets-clock`: TS2307 for `*.module.css` (both `ui/Clock.tsx` and widget-sdk's `WidgetControls.tsx` compiled inside clock's program). Not upgrade-related: both vite 8.0.16 and 8.1.2 `client.d.ts` declare `*.module.css` (verified side-by-side in the pnpm store); the widget tsc programs simply never include any ambient CSS-module declaration.
 2. `pnpm test` fails in `WidgetFrame.test.tsx` ("renders the loadable widget component content", 30s timeout): the real generated catalog calls `loadRemote('clock/ui')`, which throws MF `RUNTIME-009 Please call createInstance first` because the federation plugin is disabled under Vitest and no host instance exists. Pre-existing since `5c31f22` (the commit that switched the catalog to `loadRemote`); MF runtime version is unchanged by the upgrade.
 
@@ -36,9 +37,10 @@ Tasks 1–4 code changes are **implemented in the working tree, nothing committe
 
 **Root cause being fixed:** In dev, `widgetRemotes()` ([widget-remotes.ts:20](packages/widget-sdk/src/vite/widget-remotes.ts)) points each remote at `http://localhost:<port>/remoteEntry.js` using `packages/widgets/.ports.json` (`clock: 5180`, `ofelia-poop-duty: 5181`). `docker-compose.dev.yml` starts only valkey/redisinsight/install/server/client — no widget dev servers, no 518x ports published — so the browser's fetch of `localhost:5181/remoteEntry.js` is refused. Two latent defects fixed in passing: the container `pnpm install` writes `node_modules` for `shared`/`widget-runtime`/`widget-sdk`/`widgets/*` through the bind mount (clobbering the host's Windows install — exactly what the compose comment says the volumes exist to prevent), and nothing in the compose stack runs codegen (the generated catalog files are untracked, so a fresh clone fails).
 
-**Additional confirmed failure (stale volumes):** the current stack also crashes at startup — client can't resolve `@module-federation/vite`/`@tailwindcss/vite`/`@vitejs/plugin-react`, server can't resolve `@rspack/cli`, while `install` reports "Already up to date". Verified cause: the named `node_modules` volumes were created 2026-06-17/18, *before* commit `c61d5aa` (2026-07-01) moved packages under `packages/`. The volumes still contain pnpm symlinks with the old relative depth (`@module-federation/vite -> ../../../node_modules/.pnpm/…`, three levels up — correct for `/app/client/`, wrong for `/app/packages/client/`, where four levels are needed), so they resolve to the nonexistent `/app/packages/node_modules/.pnpm/…`. pnpm skips relinking because the root volume's `.pnpm/lock.yaml` matches the lockfile ("Already up to date"). Any future package move will recreate this failure mode, hence the `docker:dev:clean` script below.
+**Additional confirmed failure (stale volumes):** the current stack also crashes at startup — client can't resolve `@module-federation/vite`/`@tailwindcss/vite`/`@vitejs/plugin-react`, server can't resolve `@rspack/cli`, while `install` reports "Already up to date". Verified cause: the named `node_modules` volumes were created 2026-06-17/18, _before_ commit `c61d5aa` (2026-07-01) moved packages under `packages/`. The volumes still contain pnpm symlinks with the old relative depth (`@module-federation/vite -> ../../../node_modules/.pnpm/…`, three levels up — correct for `/app/client/`, wrong for `/app/packages/client/`, where four levels are needed), so they resolve to the nonexistent `/app/packages/node_modules/.pnpm/…`. pnpm skips relinking because the root volume's `.pnpm/lock.yaml` matches the lockfile ("Already up to date"). Any future package move will recreate this failure mode, hence the `docker:dev:clean` script below.
 
 **Files:**
+
 - Modify: `docker-compose.dev.yml`
 - Create: `scripts/infra.test.ts`
 - Create: `vitest.config.ts` (repo root)
@@ -46,6 +48,7 @@ Tasks 1–4 code changes are **implemented in the working tree, nothing committe
 - Modify: `scripts/codegen.test.ts` (fix stale assertions once it actually runs)
 
 **Interfaces:**
+
 - Consumes: `discoverWidgetDirs(dir: string): string[]` from `scripts/codegen.ts` (exists).
 - Produces: compose service `widgets` publishing host ports `5180-5199`; root script `test:scripts` running `vitest run` over `scripts/`.
 
@@ -271,6 +274,7 @@ volumes:
 ```
 
 Notes locked in by this file:
+
 - `--host` after the `dev` script name is forwarded by pnpm to each Vite dev server (same pattern the existing `client` service already uses) so Vite binds `0.0.0.0` inside the container.
 - The `5180-5199` range covers the codegen port map (starts at 5180, +1 per widget); the regression test fails the moment codegen assigns a port outside it.
 
@@ -358,11 +362,13 @@ rtk git commit -m "fix(docker): run widget dev servers in docker:dev and publish
 **Root cause being fixed:** `vite build` never returns control on Vite 8.0.16 because Rolldown 1.0.3's native thread pool keeps the process alive after the build finishes (verified in commit `39378a1` with `why-is-node-running`: zero JS handles remain). The workaround is [vite-build.mjs](packages/widget-sdk/bin/vite-build.mjs) (`build()` API + `process.exit(0)`), wired as the `vite-build-exit` bin into the client, both widgets, and the production Dockerfile. Vite ^8.1.2 pulls Rolldown ~1.1.3 — test whether the CLI now exits; upstream has no documented fix note, so this is an experiment with two prepared outcomes.
 
 **Files:**
+
 - Modify: `packages/client/package.json`, `packages/widget-sdk/package.json`, `packages/widgets/clock/package.json`, `packages/widgets/ofelia-poop-duty/package.json` (vite version; on success also `build` scripts / `bin` removal)
 - Modify: `packages/client/Dockerfile` (on success)
 - Delete: `packages/widget-sdk/bin/vite-build.mjs` (on success)
 
 **Interfaces:**
+
 - Consumes: nothing from other tasks.
 - Produces: on success, `build` scripts are plain `vite build` and the `vite-build-exit` bin no longer exists — Tasks 3/4 build-script edits assume whatever this task leaves in place, so record the outcome in the commit message.
 
@@ -433,7 +439,7 @@ timeout 1200 pnpm build; echo "build exit=$?"
 timeout 900 pnpm test; echo "test exit=$?"
 ```
 
-Expected: both `exit=0`, and the commands actually *return* (that's the whole point). If e2e infra is available: `timeout 1200 pnpm test:e2e`.
+Expected: both `exit=0`, and the commands actually _return_ (that's the whole point). If e2e infra is available: `timeout 1200 pnpm test:e2e`.
 
 - [ ] **Step 5: Commit**
 
@@ -451,11 +457,13 @@ rtk git commit -m "fix(build): upgrade vite to 8.1.x so vite build exits; drop v
 **Root cause being fixed:** Root `pnpm build` is fully serial: codegen → widget builds → client (two full non-incremental tsc passes, then Vite). The client tsc passes are independent of the widget builds, so they can overlap; and with `--incremental false` plus no `tsBuildInfo`, every rebuild pays full typecheck cost. `pnpm typecheck` then re-runs the identical tsc invocations a second time.
 
 **Files:**
+
 - Modify: `package.json` (root — build orchestration, `concurrently` devDep)
 - Modify: `packages/client/package.json` (build script, typecheck flags)
 - Modify: `packages/client/tsconfig.json`, `packages/client/tsconfig.node.json` (incremental)
 
 **Interfaces:**
+
 - Consumes: Task 2's outcome — `vite build` if the wrapper was removed, `vite-build-exit` otherwise. Steps below use `vite build`; substitute `vite-build-exit` if Task 2 ended in 3b.
 - Produces: root `build` = codegen → (widgets build ∥ client typecheck) → client vite build. Client `build` script no longer typechecks; `pnpm --filter client typecheck` is the only tsc entry point.
 
@@ -537,11 +545,13 @@ rtk git commit -m "perf(build): overlap client typecheck with widget builds, inc
 **Root cause being fixed:** `federationShared()` ([federation-shared.ts:28](packages/widget-sdk/src/vite/federation-shared.ts)) shares only `react`, `react-dom`, `@reatom/core`, `@reatom/react`, `widget-runtime` — every widget remote additionally bundles its own full copy of `zod` and `errore` (and the host bundles them again). Worse, `dependencyVersion()` returns the literal string `"catalog:"` for catalog deps as `requiredVersion`, which is not a semver range. Two deliberate non-goals: `lucide-react` stays unshared (remotes tree-shake individual icons; sharing would ship the whole icon set), and `widget-sdk` stays unshared (its many subpath exports make MF sharing fragile; it is stateless so duplication is only a size cost).
 
 **Files:**
+
 - Modify: `packages/widget-sdk/src/vite/federation-shared.ts`
 - Modify: `packages/widget-sdk/src/vite/federation-shared.test.ts`
 - Modify: `packages/widget-sdk/package.json` (add `zod` dep)
 
 **Interfaces:**
+
 - Consumes: `pnpm-workspace.yaml` `catalog:` block (source of real version ranges).
 - Produces: `federationShared(): Record<string, { singleton: true; strictVersion: true; requiredVersion: string }>` now including `zod` and `errore`, with `requiredVersion` always a real semver range (never `"catalog:"`). Consumed unchanged by `packages/client/vite.config.ts` and `widget-vite-config.ts`.
 
@@ -565,7 +575,15 @@ In `packages/widget-sdk/src/vite/federation-shared.test.ts`, add (keeping existi
 it('shares zod and errore as strict singletons', () => {
   const shared = federationShared()
   expect(Object.keys(shared)).toEqual(
-    expect.arrayContaining(['react', 'react-dom', '@reatom/core', '@reatom/react', 'widget-runtime', 'zod', 'errore']),
+    expect.arrayContaining([
+      'react',
+      'react-dom',
+      '@reatom/core',
+      '@reatom/react',
+      'widget-runtime',
+      'zod',
+      'errore',
+    ]),
   )
 })
 
@@ -676,7 +694,7 @@ time timeout 1200 pnpm build
 du -sh packages/client/dist packages/widgets/*/dist
 ```
 
-Expected: no MF `shared` version warnings in the build log (the `catalog:` fix should *remove* any pre-existing invalid-range warnings); per-remote loaded JS shrinks at runtime (fallback copies still exist on disk by MF design — the win is single runtime load + smaller host chunks). Then run the e2e suite as the runtime proof (remotes still load, shared scope satisfied):
+Expected: no MF `shared` version warnings in the build log (the `catalog:` fix should _remove_ any pre-existing invalid-range warnings); per-remote loaded JS shrinks at runtime (fallback copies still exist on disk by MF design — the win is single runtime load + smaller host chunks). Then run the e2e suite as the runtime proof (remotes still load, shared scope satisfied):
 
 ```bash
 timeout 1200 pnpm test:e2e
@@ -696,18 +714,21 @@ rtk git commit -m "perf(federation): share zod/errore singletons, resolve catalo
 ### Task 5: Production compose stack — reproducible server image, persistence, healthchecks
 
 **Root causes being fixed:**
+
 1. **Server image only builds by accident.** [production-registry.ts:2](packages/server/src/widgets/production-registry.ts) imports `widget-server-list.generated.ts`, which is git-ignored (`.gitignore:43`), and `packages/server/Dockerfile` never runs codegen (and doesn't copy `scripts/`). Local `docker:up` works only because the Docker build context includes the untracked generated file from the host working tree; a clean clone — exactly what `pi.toml` produces on the Pi (`[source] repo/branch`) — fails the server image build. The fix mirrors what the client Dockerfile already does (codegen in-image) and dockerignores generated files so local builds equal clean-clone builds.
 2. **`docker-compose.yml` loses data and doesn't self-heal.** valkey has no volume (all board storage is destroyed by `docker compose down`/container recreation), no service has a healthcheck or restart policy (after a Pi reboot or a crash the stack stays down), and `depends_on` uses bare `service_started`.
 
 No widget services are needed here — in prod, remotes resolve to same-origin `/widgets/<id>/remoteEntry.js` (`widgetRemotes` with `command === 'build'`), baked into the client image and served by nginx.
 
 **Files:**
+
 - Modify: `.dockerignore`
 - Modify: `packages/server/Dockerfile`
 - Modify: `docker-compose.yml`
 - Modify: `scripts/infra.test.ts` (extend with prod-compose assertions)
 
 **Interfaces:**
+
 - Consumes: `scripts/infra.test.ts` and root `test:scripts` from Task 1; the server's existing `GET /api/time` route ([app.ts:147](packages/server/src/app.ts)) as the healthcheck endpoint (no new route needed); Task 2's client Dockerfile build line.
 - Produces: `docker-compose.yml` with `valkey_data` volume, healthchecks, `restart: unless-stopped` on all three services; a two-stage `packages/server/Dockerfile` (`build` stage with full install + codegen + rspack, `runtime` stage with `--filter server --prod` deps + `dist`).
 
@@ -899,15 +920,18 @@ rtk git commit -m "fix(docker): reproducible server image (in-image codegen), va
 ### Task 6: Fix the two pre-existing defects blocking workspace gates
 
 **Root causes being fixed (both predate this plan's changes — verified 2026-07-02):**
-1. **CSS modules invisible to widget tsc programs.** `tsc --noEmit` for `widgets-clock` errors with TS2307 on `./clock.module.css` and on `../../widget-sdk/src/ui/WidgetControls.module.css` (widget-sdk sources are compiled *inside the widget's program* via the `./ui/*` source exports). The ambient `declare module '*.module.css'` lives in two places, and neither is in the widget program: `vite/client` is not listed in the widgets' tsconfig `types` (which suppresses automatic type inclusion), and `packages/widget-sdk/src/vite-env.d.ts` is a root file only of widget-sdk's own tsconfig. Not upgrade-related: vite 8.0.16 and 8.1.2 `client.d.ts` both declare `*.module.css` (compared side-by-side in the pnpm store).
+
+1. **CSS modules invisible to widget tsc programs.** `tsc --noEmit` for `widgets-clock` errors with TS2307 on `./clock.module.css` and on `../../widget-sdk/src/ui/WidgetControls.module.css` (widget-sdk sources are compiled _inside the widget's program_ via the `./ui/*` source exports). The ambient `declare module '*.module.css'` lives in two places, and neither is in the widget program: `vite/client` is not listed in the widgets' tsconfig `types` (which suppresses automatic type inclusion), and `packages/widget-sdk/src/vite-env.d.ts` is a root file only of widget-sdk's own tsconfig. Not upgrade-related: vite 8.0.16 and 8.1.2 `client.d.ts` both declare `*.module.css` (compared side-by-side in the pnpm store).
 2. **WidgetFrame test depends on a live federation host.** `renders the loadable widget component content` uses the real generated catalog, whose `loadComponent` calls `loadRemote('clock/ui')` from `@module-federation/runtime`. Under Vitest the federation plugin is excluded (`process.env.VITEST` guard in [vite.config.ts:15](packages/client/vite.config.ts)) and nothing ever calls `init`/`createInstance`, so `loadRemote` throws `RUNTIME-009 Please call createInstance first`; the error boundary renders and `findByText(/:/)` times out after 30s. Pre-existing since `5c31f22` switched the catalog to `loadRemote`. Fix: mock the MF runtime module in this test file so the test still exercises the real catalog entry and the generated `loadRemoteModule` unwrap logic, but hermetically.
 
 **Files:**
+
 - Modify: `packages/widgets/clock/tsconfig.json`
 - Modify: `packages/widgets/ofelia-poop-duty/tsconfig.json`
 - Modify: `packages/client/src/widget-host/ui/WidgetFrame.test.tsx`
 
 **Interfaces:**
+
 - Consumes: the generated catalog's loader contract — `loadRemote` is called with `` `${id}/ui` `` and its result may be a module with or without a `default` key (see `loadRemoteModule` in [codegen.ts:92](scripts/codegen.ts)).
 - Produces: nothing new — green `pnpm typecheck` and `pnpm test` gates.
 
@@ -1005,12 +1029,13 @@ rtk git commit -m "test(client): mock @module-federation/runtime in WidgetFrame 
 **Status: partially DONE (2026-07-02).** The suite went from 14m49s-with-crashes (or fully livelocked) to **1m15s, 82/86 passing, zero worker deaths**. Committed as `fix(client): stop silent vitest fork deaths…`.
 
 **Root causes found (with profiler evidence):**
+
 1. **Missing `fake-indexeddb` in the client vitest setup** (widget-sdk and widget-runtime setups had it; the client's didn't, though the dep was already in devDependencies). Without indexedDB, Dexie's failed open feeds `withStorageKey`'s error path as soon as a storage-backed atom connects; module-level effects (e.g. `selectInitialActiveBoard`) re-write on every revert → **infinite microtask cycle** that starves all timers (even `testTimeout`), so forks died silently ("Worker exited unexpectedly", no stderr, no exit hooks) and vitest hung. V8 tick profile of the repro: `dexie callListener → StorageError ctor (errore Tagged)` + `reatom withAbort/computedMiddleware` churn. FIXED: `import 'fake-indexeddb/auto'` first in `packages/client/src/vitest.setup.ts`.
 2. **Node fetch rejects the app's relative `/api` URLs**, so every server-scope storage call failed — same livelock fuel class. FIXED: an "empty backend" fetch stub in the setup (storage GET → 404 = no value, listing → `{keys: []}`, writes → ok); tests that need real fetch behavior still `vi.stubGlobal` their own.
 
 **RESOLVED 2026-07-02 — all 4 failures root-caused and fixed (client suite 86/86 in ~14s):**
 
-1. **Cross-test state leak (the "error-card delete" 14ms failure + a detached-node ingredient of the 30s timeouts).** The Dexie db behind client storage is a module singleton; fake-indexeddb rows AND in-flight write publishes leaked across tests — a fresh `withStorageKey` subscription received the *previous* test's board mid-test (proven with a transition-logging diagnostic: test B observed test A's clock instance arrive asynchronously). `removeInstance` was never buggy; the board-model is fine. FIX: `resetClientStorage()` test helper in `widget-runtime/storage/test/fakes` (macrotask hop → `db.entries.clear()` queued behind in-flight Dexie transactions → hop), called from a global `beforeEach` in `packages/client/src/vitest.setup.ts`.
+1. **Cross-test state leak (the "error-card delete" 14ms failure + a detached-node ingredient of the 30s timeouts).** The Dexie db behind client storage is a module singleton; fake-indexeddb rows AND in-flight write publishes leaked across tests — a fresh `withStorageKey` subscription received the _previous_ test's board mid-test (proven with a transition-logging diagnostic: test B observed test A's clock instance arrive asynchronously). `removeInstance` was never buggy; the board-model is fine. FIX: `resetClientStorage()` test helper in `widget-runtime/storage/test/fakes` (macrotask hop → `db.entries.clear()` queued behind in-flight Dexie transactions → hop), called from a global `beforeEach` in `packages/client/src/vitest.setup.ts`.
 2. **Detached card nodes (the 30s `within(card)` timeouts).** `beforeEach`'s redundant `localBoard.set({empty})` (redundant because `context.reset()` already restores the initial snapshot) scheduled a write whose publish landed MID-test, flipping Board through EmptyState and back — the card node found by `findByTestId` was detached (`card.isConnected === false`) while a live delete button existed elsewhere. FIX: drop the redundant set in `Board.test.tsx` / `FullscreenOverlay.test.tsx`.
 3. **React 19 suspended-replay livelock (the worker-killing spin once the MF mock is applied).** `toWidgetType` (packages/widget-sdk/src/define-widget-client.ts) memoizes the loader PROMISE per widget type at module scope; React's `lazyInitializer` brands resolved thenables in place (`thenable.status = 'fulfilled'`). Any LATER `lazy()` around the same branded object (second mount of the same widget type — i.e. the next mounting test) throws a thenable that already reports fulfilled; react-dom replays the suspended unit synchronously (`SuspendedOnImmediate → SuspendedAndReadyToContinue → isThenableResolved → replaySuspendedUnitOfWork`) before the microtask that would settle the new lazy payload can run — infinite synchronous loop under `act()` (a real browser yields via the Scheduler, so prod only pays an extra hop). FIX: `loadComponent` returns a fresh derived promise (`pending.then((m) => m)`) instead of the cached branded object. MF mock recipe now applied to `Board.test.tsx` and `FullscreenOverlay.test.tsx`.
 4. **`withStorageKey` revert livelock (prod hardening, was "bonus finding").** Failed writes reverted `target` to `prevState`, resonating with default-refilling effects (`selectInitialActiveBoard` pattern): revert → effect re-writes → write fails → revert… FIX (TDD, failing test first in `reatom-storage.test.ts`): keep the optimistic local state on failed writes, only record `error`; additionally the `.then`/`.finally` continuations are now `wrap()`ed — unwrapped they silently lost the reactive frame under `context.start` (error reporting no-op'd in SSR/tests; proven by diagnostic: `error.set` had no effect, `updatePromise` never cleared).
@@ -1018,6 +1043,7 @@ rtk git commit -m "test(client): mock @module-federation/runtime in WidgetFrame 
 **Surfaced while verifying (pre-existing, NOT fixed here):** `ofelia-comments.test.ts` fails 3 subscription tests (`withStorageKeyReadonly` + computed week key driven through `context.start`) — fails identically on a clean tree at 86a65fa; previously masked because `pnpm -r test` aborted on the client failures first. Needs its own investigation (same `wrap`/context-frame bug class as item 4). Also fixed in passing: `scripts/infra.test.ts` port-range regex now accepts double-quoted YAML (compose was reformatted), and two unused imports in `ofelia-comments.ts` that failed `pnpm typecheck`.
 
 **Hardening follow-ups (still open):**
+
 - Consider dropping `testTimeout: 30000` / `asyncUtilTimeout: 30000` to ~5–10s so genuine failures stop costing 30s each.
 
 ---
@@ -1036,12 +1062,12 @@ rtk git commit -m "test(client): mock @module-federation/runtime in WidgetFrame 
 
 ## Verification Summary
 
-| Problem | Proof of fix |
-|---|---|
-| docker:dev remotes | `curl localhost:5180/5181/remoteEntry.js` → 200 from the compose stack; board renders without the WidgetFrame error boundary; `scripts/infra.test.ts` guards regressions |
-| docker:dev install hang | `install` completes in minutes on first run (visible `downloaded N` progress into the `pnpm_store` volume), seconds on re-runs; no `.pnpm-store` reappears in the repo root |
-| vite build hang | `timeout`-guarded `pnpm build` exits 0 without the wrapper (or documented bisect + kept wrapper) |
-| build speed / chunks | timed cold/warm `pnpm build` before/after; `du` of dists; MF warnings gone; e2e green |
-| prod stack | server image builds with generated files dockerignored (clean-clone equivalent); `curl :8080/`, `/widgets/clock/remoteEntry.js`, `/api/time` → 200; storage key survives `down`/`up`; `docker compose ps` healthy |
-| widget CSS-module typecheck (pre-existing) | `pnpm typecheck` exit 0 workspace-wide with `vite/client` in widget tsconfig `types` |
-| WidgetFrame MF test (pre-existing) | `pnpm test` exit 0; WidgetFrame suite 8/8 with `@module-federation/runtime` mocked, no 30s stalls |
+| Problem                                    | Proof of fix                                                                                                                                                                                                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| docker:dev remotes                         | `curl localhost:5180/5181/remoteEntry.js` → 200 from the compose stack; board renders without the WidgetFrame error boundary; `scripts/infra.test.ts` guards regressions                                          |
+| docker:dev install hang                    | `install` completes in minutes on first run (visible `downloaded N` progress into the `pnpm_store` volume), seconds on re-runs; no `.pnpm-store` reappears in the repo root                                       |
+| vite build hang                            | `timeout`-guarded `pnpm build` exits 0 without the wrapper (or documented bisect + kept wrapper)                                                                                                                  |
+| build speed / chunks                       | timed cold/warm `pnpm build` before/after; `du` of dists; MF warnings gone; e2e green                                                                                                                             |
+| prod stack                                 | server image builds with generated files dockerignored (clean-clone equivalent); `curl :8080/`, `/widgets/clock/remoteEntry.js`, `/api/time` → 200; storage key survives `down`/`up`; `docker compose ps` healthy |
+| widget CSS-module typecheck (pre-existing) | `pnpm typecheck` exit 0 workspace-wide with `vite/client` in widget tsconfig `types`                                                                                                                              |
+| WidgetFrame MF test (pre-existing)         | `pnpm test` exit 0; WidgetFrame suite 8/8 with `@module-federation/runtime` mocked, no 30s stalls                                                                                                                 |

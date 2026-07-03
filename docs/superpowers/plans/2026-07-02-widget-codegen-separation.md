@@ -57,6 +57,7 @@ Generated registry files remain git-ignored and must not be committed.
 ### Task 1: Derive server runtime IDs at the registry boundary
 
 **Files:**
+
 - Modify: `packages/shared/widgets/contracts.ts`
 - Modify: `packages/server/src/widgets/contracts.test.ts`
 - Modify: `packages/server/src/widgets/dispatch.test.ts`
@@ -185,6 +186,7 @@ git commit -m "refactor: derive widget server ids at registry boundary"
 ### Task 2: Separate client definitions from directory identity
 
 **Files:**
+
 - Modify: `packages/widget-sdk/src/define-widget-client.ts`
 - Modify: `packages/widget-sdk/src/define-widget-client.test.ts`
 - Modify: `packages/widgets/clock/client.ts`
@@ -234,11 +236,10 @@ export type WidgetMetadata = {
 
 export type WidgetClientMetadata = Omit<WidgetMetadata, 'id'>
 
-export type WidgetClientDefinition<
-  Events extends WidgetEventMap = WidgetEventMap,
-> = WidgetClientMetadata & {
-  loadComponent: WidgetLoader<Events>
-}
+export type WidgetClientDefinition<Events extends WidgetEventMap = WidgetEventMap> =
+  WidgetClientMetadata & {
+    loadComponent: WidgetLoader<Events>
+  }
 
 type WidgetTypeDefinition<Events extends WidgetEventMap> = WidgetMetadata & {
   loadComponent: WidgetLoader<Events>
@@ -311,6 +312,7 @@ git commit -m "refactor: derive widget client ids from directories"
 ### Task 3: Split client and server codegen flows
 
 **Files:**
+
 - Create: `scripts/codegen/shared.ts`
 - Create: `scripts/codegen/client.ts`
 - Create: `scripts/codegen/server.ts`
@@ -369,7 +371,7 @@ it('generates a server registry without importing client entrypoints', () => {
   const result = generateServer({ widgetsDir, serverListFile })
 
   expect(result).not.toBeInstanceOf(Error)
-  expect(readFileSync(serverListFile, 'utf8')).toContain("@widgets/probe/server")
+  expect(readFileSync(serverListFile, 'utf8')).toContain('@widgets/probe/server')
 })
 ```
 
@@ -438,10 +440,7 @@ export type ClientCodegenPaths = Pick<
   'widgetsDir' | 'portsFile' | 'clientCatalogFile' | 'clientIconsFile'
 >
 
-export type ServerCodegenPaths = Pick<
-  CodegenPaths,
-  'widgetsDir' | 'serverListFile'
->
+export type ServerCodegenPaths = Pick<CodegenPaths, 'widgetsDir' | 'serverListFile'>
 
 export type CodegenTarget = 'client' | 'server' | 'all'
 
@@ -533,9 +532,7 @@ export class WidgetClientImportError extends errore.createTaggedError({
 
 export function emitCatalog(metas: WidgetMeta[]): string
 export function emitIcons(metas: WidgetMeta[]): string
-export async function prepareClient(
-  paths: ClientCodegenPaths,
-): Promise<Error | GeneratedOutput[]>
+export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | GeneratedOutput[]>
 export async function generateClient(paths: ClientCodegenPaths): Promise<Error | void>
 ```
 
@@ -558,13 +555,11 @@ Generate a remote loader with this behavior:
 
 ```ts
 async function loadRemoteModule(id: string) {
-  const module = await loadRemote<
-    WidgetClientDefinition | { default: WidgetClientDefinition }
-  >(`${id}/client`)
+  const module = await loadRemote<WidgetClientDefinition | { default: WidgetClientDefinition }>(
+    `${id}/client`,
+  )
   const definition =
-    module && typeof module === 'object' && 'default' in module
-      ? module.default
-      : module
+    module && typeof module === 'object' && 'default' in module ? module.default : module
   if (!definition) throw new Error(`Remote widget ${id}/client returned no definition`)
   return definition.loadComponent()
 }
@@ -697,6 +692,7 @@ Do not stage git-ignored generated registries.
 ### Task 4: Publish root client definitions through Module Federation
 
 **Files:**
+
 - Modify: `scripts/infra.test.ts`
 - Modify: `packages/widget-sdk/src/vite/widget-vite-config.ts`
 - Modify: `packages/widgets/clock/dev/harness.tsx`
@@ -833,6 +829,7 @@ git commit -m "build: expose widget client definitions as remotes"
 ### Task 5: Route commands and Docker builds to scoped codegen
 
 **Files:**
+
 - Modify: `scripts/infra.test.ts`
 - Modify: `package.json`
 - Modify: `packages/client/Dockerfile`
@@ -945,6 +942,7 @@ git commit -m "build: scope widget codegen by target"
 ### Task 6: Run full verification
 
 **Files:**
+
 - Verify only; modify files only to fix failures caused by this plan.
 
 - [ ] **Step 1: Confirm generated output stability**
