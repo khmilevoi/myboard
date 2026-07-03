@@ -21,9 +21,9 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
 COPY --from=widget-manifests /widgets ./packages/widgets
-# codegen imports every widgets/*/client.ts through tsx + widget-sdk sources,
-# so the full workspace install is required in this stage. The store lives in
-# a BuildKit cache mount so cache-missed installs skip the network.
+# Server codegen only emits directory-derived server imports. The full workspace
+# install remains required in this stage. The store lives in a BuildKit cache
+# mount so cache-missed installs skip the network.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir /pnpm-store
 
@@ -34,7 +34,7 @@ COPY packages/widgets ./packages/widgets
 COPY scripts ./scripts
 COPY packages/server ./packages/server
 
-RUN pnpm run codegen && pnpm --filter server build
+RUN pnpm run codegen:server && pnpm --filter server build
 
 # --- runtime stage: dist + server's production deps only ---
 FROM node:22-alpine AS runtime

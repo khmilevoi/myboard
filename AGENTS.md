@@ -16,6 +16,9 @@ Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default s
 - `pnpm dev`: run codegen, then start the board and every widget dev server in parallel.
 - `pnpm dev:server`: run codegen, then start the server in watch mode.
 - `pnpm build`: run codegen, build every widget remote, then typecheck/build the client host and PWA.
+- `pnpm codegen:client`: generate widget ports, the client catalog, and the icon map by loading root `client.ts` definitions.
+- `pnpm codegen:server`: generate the server registry from widget directory names and root `server.ts` entrypoints without loading client code.
+- `pnpm codegen`: run both generators for workspace-wide gates.
 - `pnpm --filter server build`: bundle server with Rspack.
 - `pnpm test`: run workspace Vitest tests.
 - `pnpm --filter client test -- src/board/model/board-storage.test.ts`: run a specific client Vitest file, using a path relative to `client`.
@@ -24,6 +27,8 @@ Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default s
 - `pnpm typecheck`: run workspace TypeScript checks.
 - `pnpm docker:dev`: run Valkey, server, and client with hot reload.
 - `pnpm docker:up`: build and run the production-style Docker stack.
+
+The widget directory basename is the canonical widget ID. Each root `client.ts` exports the client definition and lazy loader without an `id`; each root `server.ts` exports schemas and handlers without a `typeId`.
 
 ### Windows Test Runner Notes
 

@@ -12,6 +12,11 @@ const widgetViteConfig = readFileSync(
   resolve(root, 'packages/widget-sdk/src/vite/widget-vite-config.ts'),
   'utf8',
 )
+const rootPackage = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+  scripts: Record<string, string>
+}
+const clientDockerfile = readFileSync(resolve(root, 'packages/client/Dockerfile'), 'utf8')
+const serverDockerfile = readFileSync(resolve(root, 'packages/server/Dockerfile'), 'utf8')
 const ports = JSON.parse(
   readFileSync(resolve(root, 'packages/widgets/.ports.json'), 'utf8'),
 ) as Record<string, number>
@@ -19,6 +24,23 @@ const ports = JSON.parse(
 it('exposes each root client definition as the remote client entrypoint', () => {
   expect(widgetViteConfig).toContain("exposes: { './client': './client.ts' }")
   expect(widgetViteConfig).not.toContain("'./ui': './ui/expose.ts'")
+})
+
+it('routes local commands to the narrowest codegen target', () => {
+  expect(rootPackage.scripts.dev).toContain('codegen:client')
+  expect(rootPackage.scripts['dev:server']).toContain('codegen:server')
+  expect(rootPackage.scripts.build).toContain('codegen:client')
+  expect(rootPackage.scripts.test).toContain('pnpm run codegen')
+  expect(rootPackage.scripts.typecheck).toContain('pnpm run codegen')
+})
+
+it('runs only client codegen in the client image', () => {
+  expect(clientDockerfile).toContain('pnpm run codegen:client')
+})
+
+it('runs only server codegen in the server image', () => {
+  expect(serverDockerfile).toContain('pnpm run codegen:server')
+  expect(serverDockerfile).not.toContain('imports every widgets/*/client.ts')
 })
 
 describe('docker-compose.dev.yml widget coverage', () => {
@@ -75,10 +97,5 @@ describe('docker-compose.yml production hardening', () => {
   it('keeps generated files out of the docker build context', () => {
     const dockerignore = readFileSync(resolve(root, '.dockerignore'), 'utf8')
     expect(dockerignore).toContain('*.generated.ts')
-  })
-
-  it('runs codegen inside the server image build', () => {
-    const dockerfile = readFileSync(resolve(root, 'packages/server/Dockerfile'), 'utf8')
-    expect(dockerfile).toContain('pnpm run codegen')
   })
 })

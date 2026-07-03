@@ -45,7 +45,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
 # Typechecking runs in CI. The image build keeps the same production artifact
 # order as the root build while invoking Vite directly for the host on slow Pi
 # hardware: codegen -> every remote -> host/PWA assembly.
-RUN pnpm run codegen \
+RUN pnpm run codegen:client \
     && pnpm --filter "./packages/widgets/*" build \
     && pnpm --filter client exec vite-build-exit
 
