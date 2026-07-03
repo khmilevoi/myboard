@@ -380,6 +380,10 @@ existing client/server codegen behavior green.
 
 **Slug:** `browser-automation-service-core`
 
+**Design:** [Browser Automation Service Core Design](./2026-07-04-browser-automation-service-core-design.md)
+
+**Plan:** [Browser Automation Service Core Implementation Plan](../plans/2026-07-04-browser-automation-service-core.md)
+
 **Objective:** Build the reusable internal service around generated task
 definitions without coupling its core tests to a real browser.
 
