@@ -6,7 +6,7 @@ Always load and follow `C:\Users\Khmil\.agents\skills\reatom` and `C:\Users\Khmi
 
 ## Project Structure & Module Organization
 
-This is a private pnpm workspace with all packages under `packages/`: `client`, `server`, `shared`, `widget-runtime`, `widget-sdk`, and one package per `packages/widgets/*` directory. The React/Vite board lives in `packages/client/src`; widget implementations live in `packages/widgets/<widget-name>` and each owns `client.ts`, `server.ts`, `types.ts`, `model/`, `ui/`, a federation `vite.config.ts`, and a standalone harness under `dev/`. `widget-runtime` owns the singleton live runtime (storage, widget RPC, SSE/BroadcastChannel, server time, runtime contracts); `widget-sdk` owns stateless Reatom/React glue and shared widget UI. Client features and widgets split React/CSS/view tests into `ui/` and Reatom/domain/storage logic into `model/`. Client e2e tests live in `packages/client/e2e`; package tests are colocated as `*.test.ts` or `*.test.tsx`. The storage API lives in `packages/server/src`, builds to `packages/server/dist`, uses Valkey, and keeps all widget server functions in one bundle.
+This is a private pnpm workspace with all packages under `packages/`: `browser-automation`, `client`, `server`, `shared`, `widget-runtime`, `widget-sdk`, and one package per `packages/widgets/*` directory. The React/Vite board lives in `packages/client/src`; widget implementations live in `packages/widgets/<widget-name>` and each owns `client.ts`, `server.ts`, `types.ts`, `model/`, `ui/`, a federation `vite.config.ts`, and a standalone harness under `dev/`. `widget-runtime` owns the singleton live runtime (storage, widget RPC, SSE/BroadcastChannel, server time, runtime contracts); `widget-sdk` owns stateless Reatom/React glue and shared widget UI. Client features and widgets split React/CSS/view tests into `ui/` and Reatom/domain/storage logic into `model/`. Client e2e tests live in `packages/client/e2e`; package tests are colocated as `*.test.ts` or `*.test.tsx`. The storage API lives in `packages/server/src`, builds to `packages/server/dist`, uses Valkey, and keeps all widget server functions in one bundle. `browser-automation` is the future browser service and generated task registry owner.
 
 ## Build, Test, and Development Commands
 
@@ -17,8 +17,9 @@ Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default s
 - `pnpm dev:server`: run codegen, then start the server in watch mode.
 - `pnpm build`: run codegen, build every widget remote, then typecheck/build the client host and PWA.
 - `pnpm codegen:client`: generate widget ports, the client catalog, and the icon map by loading root `client.ts` definitions.
+- `pnpm codegen:browser`: generate the browser task registry from optional widget-root `browser.ts` entrypoints without loading widget modules.
 - `pnpm codegen:server`: generate the server registry from widget directory names and root `server.ts` entrypoints without loading client code.
-- `pnpm codegen`: run both generators for workspace-wide gates.
+- `pnpm codegen`: run client, server, and browser generators for workspace-wide gates.
 - `pnpm --filter server build`: bundle server with Rspack.
 - `pnpm test`: run workspace Vitest tests.
 - `pnpm --filter client test -- src/board/model/board-storage.test.ts`: run a specific client Vitest file, using a path relative to `client`.
@@ -28,7 +29,7 @@ Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default s
 - `pnpm docker:dev`: run Valkey, server, and client with hot reload.
 - `pnpm docker:up`: build and run the production-style Docker stack.
 
-The widget directory basename is the canonical widget ID. Each root `client.ts` exports the client definition and lazy loader without an `id`; each root `server.ts` exports schemas and handlers without a `typeId`.
+The widget directory basename is the canonical widget ID. Each root `client.ts` exports the client definition and lazy loader without an `id`; each root `server.ts` exports schemas and handlers without a `typeId`. A widget may optionally add a root `browser.ts` that default-exports its browser definition without a `widgetId`; browser codegen injects the directory basename.
 
 ### Windows Test Runner Notes
 

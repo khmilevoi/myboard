@@ -4,7 +4,7 @@ import path from 'node:path'
 import {
   BANNER,
   discoverWidgetDirs,
-  identifierFromDirectory,
+  uniqueBindings,
   writeGeneratedOutputs,
   type ServerCodegenPaths,
 } from './shared'
@@ -29,16 +29,6 @@ export const widgetServerList = [
 ${list}
 ]
 `
-}
-
-function uniqueBindings(widgetDirs: string[]) {
-  const counts = new Map<string, number>()
-  return widgetDirs.map((dir) => {
-    const base = identifierFromDirectory(dir)
-    const count = (counts.get(base) ?? 0) + 1
-    counts.set(base, count)
-    return { dir, identifier: count === 1 ? base : `${base}$${count}` }
-  })
 }
 
 export function prepareServer({ widgetsDir, serverListFile }: ServerCodegenPaths) {

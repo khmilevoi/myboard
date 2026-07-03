@@ -1,4 +1,5 @@
 packages:
+  - packages/browser-automation
   - packages/client
   - packages/server
   - packages/shared

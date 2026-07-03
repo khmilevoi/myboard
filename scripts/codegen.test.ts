@@ -13,6 +13,7 @@ import {
   InvalidWidgetClientDefinitionError,
   type WidgetMeta,
 } from './codegen/client'
+import { emitBrowserList, generateBrowser } from './codegen/browser'
 import { emitServerList, generateServer } from './codegen/server'
 import {
   assignPorts,
@@ -80,6 +81,26 @@ describe('codegen emitters', () => {
     expect(out).toContain("import fooBar$2 from '@widgets/fooBar/server'")
   })
 
+  it('emits browser definitions with directory-derived widget IDs', () => {
+    const out = emitBrowserList(['clock', 'ofelia-poop-duty'])
+    expect(out).toContain("import clock from '@widgets/clock/browser'")
+    expect(out).toContain("import ofeliaPoopDuty from '@widgets/ofelia-poop-duty/browser'")
+    expect(out).toContain('widgetId: "clock"')
+    expect(out).toContain('definition: ofeliaPoopDuty')
+  })
+
+  it('emits a valid empty browser list', () => {
+    const out = emitBrowserList([])
+    expect(out).toContain('export const widgetBrowserList = [')
+    expect(out).not.toContain('@widgets/')
+  })
+
+  it('disambiguates browser bindings with the same camel-case identifier', () => {
+    const out = emitBrowserList(['foo-bar', 'fooBar'])
+    expect(out).toContain("import fooBar from '@widgets/foo-bar/browser'")
+    expect(out).toContain("import fooBar$2 from '@widgets/fooBar/browser'")
+  })
+
   it('keeps existing ports and appends max+1 for new widgets', () => {
     const assigned = assignPorts(['clock', 'ofelia-poop-duty'], {})
     expect(assigned).toEqual({
@@ -98,6 +119,7 @@ describe('codegen emitters', () => {
   it('parses supported targets and rejects unknown targets', () => {
     expect(parseCodegenTarget('invalid')).toBeInstanceOf(InvalidCodegenTargetError)
     expect(parseCodegenTarget('server')).toBe('server')
+    expect(parseCodegenTarget('browser')).toBe('browser')
   })
 
   it('creates readable, legal, and reserved-safe bindings', () => {
@@ -131,10 +153,49 @@ describe('codegen generation', () => {
     expect(await generateClient(paths)).toBeInstanceOf(MissingWidgetEntrypointError)
   })
 
-  it('fails server codegen when server.ts is missing', () => {
+  it('omits widgets without server.ts from server codegen', () => {
     const paths = createTempCodegenPaths('missing-server')
     writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), 'export default {}')
-    expect(generateServer(paths)).toBeInstanceOf(MissingWidgetEntrypointError)
+    expect(generateServer(paths)).not.toBeInstanceOf(Error)
+    const output = readFileSync(paths.serverListFile, 'utf8')
+    expect(output).toBe(emitServerList([]))
+    expect(output).not.toContain('@widgets/probe/server')
+  })
+
+  it('discovers browser.ts without executing any widget entrypoint', () => {
+    const paths = createTempCodegenPaths('browser-isolation')
+    const widgetDir = join(paths.widgetsDir, 'probe')
+    writeFileSync(join(widgetDir, 'browser.ts'), "throw new Error('must not import browser')")
+    writeFileSync(join(widgetDir, 'client.ts'), "throw new Error('must not import client')")
+    writeFileSync(join(widgetDir, 'server.ts'), "throw new Error('must not import server')")
+
+    expect(generateBrowser(paths)).not.toBeInstanceOf(Error)
+    const output = readFileSync(paths.browserListFile, 'utf8')
+    expect(output).toContain('@widgets/probe/browser')
+    expect(output).not.toContain('@widgets/probe/client')
+    expect(output).not.toContain('@widgets/probe/server')
+  })
+
+  it('omits widgets without an optional browser.ts entrypoint', () => {
+    const paths = createTempCodegenPaths('browser-optional')
+    expect(generateBrowser(paths)).not.toBeInstanceOf(Error)
+    expect(readFileSync(paths.browserListFile, 'utf8')).not.toContain('@widgets/probe/browser')
+  })
+
+  it('orders discovered browser entrypoints deterministically', () => {
+    const paths = createTempCodegenPaths('browser-order')
+    for (const widgetId of ['zeta', 'alpha']) {
+      const widgetDir = join(paths.widgetsDir, widgetId)
+      mkdirSync(widgetDir, { recursive: true })
+      writeFileSync(join(widgetDir, 'package.json'), JSON.stringify({ name: `widgets-${widgetId}` }))
+      writeFileSync(join(widgetDir, 'browser.ts'), 'export default {}')
+    }
+
+    expect(generateBrowser(paths)).not.toBeInstanceOf(Error)
+    const output = readFileSync(paths.browserListFile, 'utf8')
+    expect(output.indexOf('@widgets/alpha/browser')).toBeLessThan(
+      output.indexOf('@widgets/zeta/browser'),
+    )
   })
 
   it.each(['{"probe":"5180"}', '{"probe":null}', '{"probe":1e999}', '[]'])(
@@ -281,6 +342,7 @@ function createTempCodegenPaths(name: string): CodegenPaths {
     clientCatalogFile: join(root, 'widget-catalog.generated.ts'),
     clientIconsFile: join(root, 'widget-icons.generated.ts'),
     serverListFile: join(root, 'widget-server-list.generated.ts'),
+    browserListFile: join(root, 'widget-browser-list.generated.ts'),
   }
 }
 

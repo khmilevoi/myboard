@@ -8,6 +8,7 @@ import { discoverWidgetDirs } from './codegen/shared'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const compose = readFileSync(resolve(root, 'docker-compose.dev.yml'), 'utf8')
+const workspace = readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')
 const widgetViteConfig = readFileSync(
   resolve(root, 'packages/widget-sdk/src/vite/widget-vite-config.ts'),
   'utf8',
@@ -15,6 +16,8 @@ const widgetViteConfig = readFileSync(
 const rootPackage = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
 }
+const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8')
+const rootCodegen = readFileSync(resolve(root, 'scripts/codegen.ts'), 'utf8')
 const clientDockerfile = readFileSync(resolve(root, 'packages/client/Dockerfile'), 'utf8')
 const serverDockerfile = readFileSync(resolve(root, 'packages/server/Dockerfile'), 'utf8')
 const ports = JSON.parse(
@@ -56,6 +59,34 @@ it('runs only server codegen in the server image', () => {
   expect(serverDockerfile).not.toMatch(/RUN pnpm run codegen(?:\s|\\)/)
   expect(serverDockerfile).not.toContain('RUN pnpm run codegen:client')
   expect(serverDockerfile).not.toContain('imports every widgets/*/client.ts')
+})
+
+it('registers the lightweight browser automation workspace package', () => {
+  expect(workspace).toContain('  - packages/browser-automation')
+  const manifest = JSON.parse(
+    readFileSync(resolve(root, 'packages/browser-automation/package.json'), 'utf8'),
+  ) as {
+    name: string
+    scripts: Record<string, string>
+  }
+
+  expect(manifest.name).toBe('browser-automation')
+  expect(manifest.scripts).toEqual({
+    test: 'vitest run',
+    typecheck: 'tsc --noEmit -p tsconfig.json',
+  })
+})
+
+it('wires browser codegen as an isolated target and into combined codegen', () => {
+  expect(rootPackage.scripts['codegen:browser']).toBe('tsx scripts/codegen.ts browser')
+  expect(rootCodegen).toContain("if (target === 'browser') return generateBrowser")
+  expect(rootCodegen).toContain('const browserOutputs = prepareBrowser(defaultCodegenPaths)')
+  expect(rootCodegen).toContain(
+    'writeGeneratedOutputs([...clientOutputs, ...serverOutputs, ...browserOutputs])',
+  )
+  expect(gitignore).toContain(
+    'packages/browser-automation/src/tasks/widget-browser-list.generated.ts',
+  )
 })
 
 describe('docker-compose.dev.yml widget coverage', () => {
