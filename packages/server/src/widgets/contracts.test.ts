@@ -1,5 +1,6 @@
 import {
   defineWidgetServer,
+  toRuntimeWidgetServerDefinition,
   type InferWidgetEvents,
   type WidgetServerContext,
 } from '@shared/widgets/contracts'
@@ -21,9 +22,8 @@ describe('widget contracts', () => {
     expectTypeOf<Events['echo']['result']>().toEqualTypeOf<{ echoed: string }>()
   })
 
-  it('keeps server handlers aligned with the schemas', async () => {
+  it('keeps server handlers aligned and injects identity at the runtime boundary', async () => {
     const definition = defineWidgetServer({
-      typeId: 'test-widget',
       schemas,
       handlers: {
         echo(payload, context: WidgetServerContext) {
@@ -32,8 +32,13 @@ describe('widget contracts', () => {
         },
       },
     })
+    const runtime = toRuntimeWidgetServerDefinition({
+      typeId: 'test-widget',
+      definition,
+    })
 
-    expect(definition.typeId).toBe('test-widget')
-    expect(Object.keys(definition.handlers)).toEqual(['echo'])
+    expect('typeId' in definition).toBe(false)
+    expect(runtime.typeId).toBe('test-widget')
+    expect(Object.keys(runtime.handlers)).toEqual(['echo'])
   })
 })

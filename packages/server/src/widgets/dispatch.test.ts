@@ -25,7 +25,6 @@ const schemas = {
 } as const
 
 const definition = defineWidgetServer({
-  typeId: 'test-widget',
   schemas,
   handlers: {
     echo(payload, context) {
@@ -40,7 +39,9 @@ function createRegistry(definitions: RuntimeWidgetServerDefinition[]) {
   return registry
 }
 
-const createdRegistry = createRegistry([toRuntimeWidgetServerDefinition(definition)])
+const createdRegistry = createRegistry([
+  toRuntimeWidgetServerDefinition({ typeId: 'test-widget', definition }),
+])
 
 const invalidResultDefinition: RuntimeWidgetServerDefinition = {
   typeId: 'invalid-result',

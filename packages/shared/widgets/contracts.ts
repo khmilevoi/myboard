@@ -59,7 +59,6 @@ export type WidgetServerContext = {
 type Awaitable<T> = T | Promise<T>
 
 export type WidgetServerDefinition<Schemas extends WidgetEventSchemas> = {
-  typeId: string
   schemas: Schemas
   handlers: {
     [Event in keyof Schemas]: (
@@ -85,7 +84,13 @@ export function defineWidgetServer<const Schemas extends WidgetEventSchemas>(
 }
 
 export function toRuntimeWidgetServerDefinition<const Schemas extends WidgetEventSchemas>(
-  definition: WidgetServerDefinition<Schemas>,
+  {
+    typeId,
+    definition,
+  }: {
+    typeId: string
+    definition: WidgetServerDefinition<Schemas>
+  },
 ): RuntimeWidgetServerDefinition {
-  return definition as unknown as RuntimeWidgetServerDefinition
+  return { typeId, ...definition } as unknown as RuntimeWidgetServerDefinition
 }

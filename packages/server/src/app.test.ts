@@ -11,7 +11,6 @@ import { createWidgetServerRegistry } from './widgets/registry'
 const DEBTS_KEY = encodeURIComponent('w:t:ofelia-poop-duty:debts')
 
 const testWidget = defineWidgetServer({
-  typeId: 'test-widget',
   schemas: {
     echo: {
       payload: z.object({ value: z.string() }),
@@ -25,7 +24,9 @@ const testWidget = defineWidgetServer({
   },
 })
 
-const testWidgetRegistry = createWidgetServerRegistry([toRuntimeWidgetServerDefinition(testWidget)])
+const testWidgetRegistry = createWidgetServerRegistry([
+  toRuntimeWidgetServerDefinition({ typeId: 'test-widget', definition: testWidget }),
+])
 if (testWidgetRegistry instanceof Error) throw testWidgetRegistry
 
 describe('createApp', () => {
