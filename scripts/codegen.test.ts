@@ -68,8 +68,18 @@ describe('codegen emitters', () => {
   it('emits the server list from directory names alone', () => {
     const out = emitServerList(['clock', 'ofelia-poop-duty'])
     expect(out).toContain("import clock from '@widgets/clock/server'")
+    expect(out).toContain(
+      "import ofeliaPoopDuty from '@widgets/ofelia-poop-duty/server'",
+    )
     expect(out).toContain('typeId: "clock"')
     expect(out).toContain('definition: clock')
+    expect(out).toContain('definition: ofeliaPoopDuty')
+  })
+
+  it('disambiguates directory names with the same camel-case binding', () => {
+    const out = emitServerList(['foo-bar', 'fooBar'])
+    expect(out).toContain("import fooBar from '@widgets/foo-bar/server'")
+    expect(out).toContain("import fooBar$2 from '@widgets/fooBar/server'")
   })
 
   it('keeps existing ports and appends max+1 for new widgets', () => {
@@ -92,12 +102,13 @@ describe('codegen emitters', () => {
     expect(parseCodegenTarget('server')).toBe('server')
   })
 
-  it('creates legal, reserved-safe, collision-safe bindings', () => {
+  it('creates readable, legal, and reserved-safe bindings', () => {
     const directories = ['1-clock', 'with.dot', 'class', 'widget$31']
     const identifiers = directories.map(identifierFromDirectory)
     expect(identifiers.every((identifier) => /^[A-Za-z_$][\w$]*$/.test(identifier))).toBe(true)
     expect(identifiers).toHaveLength(new Set(identifiers).size)
     expect(identifiers).not.toContain('class')
+    expect(identifierFromDirectory('ofelia-poop-duty')).toBe('ofeliaPoopDuty')
   })
 })
 

@@ -11,14 +11,15 @@ import {
 } from './shared'
 
 export function emitServerList(widgetDirs: string[]) {
-  const imports = widgetDirs
-    .map((dir) => `import ${identifierFromDirectory(dir)} from '@widgets/${dir}/server'`)
+  const bindings = uniqueBindings(widgetDirs)
+  const imports = bindings
+    .map(({ dir, identifier }) => `import ${identifier} from '@widgets/${dir}/server'`)
     .join('\n')
-  const list = widgetDirs
+  const list = bindings
     .map(
-      (dir) => `  toRuntimeWidgetServerDefinition({
+      ({ dir, identifier }) => `  toRuntimeWidgetServerDefinition({
     typeId: ${JSON.stringify(dir)},
-    definition: ${identifierFromDirectory(dir)},
+    definition: ${identifier},
   })`,
     )
     .join(',\n')
@@ -29,6 +30,16 @@ export const widgetServerList = [
 ${list}
 ]
 `
+}
+
+function uniqueBindings(widgetDirs: string[]) {
+  const counts = new Map<string, number>()
+  return widgetDirs.map((dir) => {
+    const base = identifierFromDirectory(dir)
+    const count = (counts.get(base) ?? 0) + 1
+    counts.set(base, count)
+    return { dir, identifier: count === 1 ? base : `${base}$${count}` }
+  })
 }
 
 export function prepareServer({ widgetsDir, serverListFile }: ServerCodegenPaths) {

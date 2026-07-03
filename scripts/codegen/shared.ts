@@ -146,6 +146,12 @@ export function writeGeneratedOutputs(outputs: GeneratedOutput[]): Error | void 
 
 export function identifierFromDirectory(dir: string) {
   if (isJavaScriptIdentifier(dir) && !dir.startsWith('$')) return dir
+  if (/^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/.test(dir)) {
+    const camelCase = dir.replace(/-([a-z0-9])/g, (_, character: string) =>
+      character.toUpperCase(),
+    )
+    if (isJavaScriptIdentifier(camelCase)) return camelCase
+  }
   return `$${[...dir].map((character) => character.codePointAt(0)!.toString(16)).join('_')}`
 }
 
