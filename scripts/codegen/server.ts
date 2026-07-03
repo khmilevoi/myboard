@@ -5,7 +5,6 @@ import {
   BANNER,
   discoverWidgetDirs,
   identifierFromDirectory,
-  MissingWidgetEntrypointError,
   writeGeneratedOutputs,
   type ServerCodegenPaths,
 } from './shared'
@@ -45,13 +44,10 @@ function uniqueBindings(widgetDirs: string[]) {
 export function prepareServer({ widgetsDir, serverListFile }: ServerCodegenPaths) {
   const widgetDirs = discoverWidgetDirs(widgetsDir)
   if (widgetDirs instanceof Error) return widgetDirs
-  for (const dir of widgetDirs) {
-    const entrypoint = path.resolve(widgetsDir, dir, 'server.ts')
-    if (!fs.existsSync(entrypoint)) {
-      return new MissingWidgetEntrypointError({ side: 'server', widgetId: dir, path: entrypoint })
-    }
-  }
-  return [{ file: serverListFile, content: emitServerList(widgetDirs) }]
+  const existedWidgetDirs = widgetDirs.filter((dir) =>
+    fs.existsSync(path.resolve(widgetsDir, dir, 'server.ts')),
+  )
+  return [{ file: serverListFile, content: emitServerList(existedWidgetDirs) }]
 }
 
 export function generateServer(paths: ServerCodegenPaths) {
