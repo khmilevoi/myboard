@@ -21,6 +21,7 @@ import {
   InvalidPortsConfigError,
   MissingWidgetEntrypointError,
   parseCodegenTarget,
+  PortAllocationError,
   writeGeneratedOutputs,
   type CodegenPaths,
 } from './codegen/shared'
@@ -66,11 +67,18 @@ describe('codegen emitters', () => {
   })
 
   it('keeps existing ports and appends max+1 for new widgets', () => {
-    expect(assignPorts(['clock', 'ofelia-poop-duty'], {})).toEqual({
+    const assigned = assignPorts(['clock', 'ofelia-poop-duty'], {})
+    expect(assigned).toEqual({
       clock: 5180,
       'ofelia-poop-duty': 5181,
     })
     expect(assignPorts(['aa', 'clock'], { clock: 5180 })).toEqual({ clock: 5180, aa: 5181 })
+  })
+
+  it('returns a typed error when allocating beyond the TCP port range', () => {
+    expect(assignPorts(['existing', 'new-widget'], { existing: 65_535 })).toBeInstanceOf(
+      PortAllocationError,
+    )
   })
 
   it('parses supported targets and rejects unknown targets', () => {
@@ -164,6 +172,39 @@ describe('codegen generation', () => {
     expect(await generateClient(paths)).toBeInstanceOf(InvalidWidgetClientDefinitionError)
   })
 
+  it.each([
+    'tiers: 1',
+    'tiers: []',
+    'tiers: { tiny: { minWidthPx: 0, minHeightPx: 0 }, arbitrary: {} }',
+    `tiers: {
+      tiny: { minWidthPx: 0, minHeightPx: 0 }, compact: { minWidthPx: 1, minHeightPx: 1 },
+      standard: { minWidthPx: 2, minHeightPx: 2 }, large: { minWidthPx: Infinity, minHeightPx: 3 }
+    }`,
+  ])('rejects invalid TierConfig metadata: %s', async (tiers) => {
+    const paths = createTempCodegenPaths('invalid-tiers')
+    writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), clientDefinition(tiers))
+    expect(await generateClient(paths)).toBeInstanceOf(InvalidWidgetClientDefinitionError)
+  })
+
+  it('accepts the authoritative TierConfig structure', async () => {
+    const paths = createTempCodegenPaths('valid-tiers')
+    writeFileSync(
+      join(paths.widgetsDir, 'probe', 'client.ts'),
+      clientDefinition(`tiers: {
+      tiny: { minWidthPx: 0, minHeightPx: 0 }, compact: { minWidthPx: 1, minHeightPx: 1 },
+      standard: { minWidthPx: 2, minHeightPx: 2 }, large: { minWidthPx: 3, minHeightPx: 3 }
+    }`),
+    )
+    expect(await generateClient(paths)).not.toBeInstanceOf(Error)
+  })
+
+  it('propagates port allocation exhaustion from client generation', async () => {
+    const paths = createTempCodegenPaths('ports-exhausted')
+    writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), validClientDefinition())
+    writeFileSync(paths.portsFile, '{"existing":65535}')
+    expect(await generateClient(paths)).toBeInstanceOf(PortAllocationError)
+  })
+
   it('rolls back prior outputs when a later output cannot be committed', () => {
     const root = mkdtempSync(join(tmpdir(), 'atomic-codegen-'))
     const first = join(root, 'first.ts')
@@ -237,7 +278,7 @@ function validClientDefinition() {
 
 function clientDefinition(fields: string) {
   return `export default {
-    title: 'Probe', description: 'Probe', defaultSize: { w: 1, h: 1 },
+    title: 'Probe', description: 'Probe', defaultSize: { w: 1, h: 1 }, icon: 'Clock',
     ${fields}, loadComponent: () => Promise.resolve({ default: () => null })
   }`
 }

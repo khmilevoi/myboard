@@ -121,8 +121,10 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
     }
     metas.push(meta)
   }
+  const ports = assignPorts(widgetDirs, currentPorts)
+  if (ports instanceof Error) return ports
   return [
-    { file: paths.portsFile, content: `${stableJson(assignPorts(widgetDirs, currentPorts))}\n` },
+    { file: paths.portsFile, content: `${stableJson(ports)}\n` },
     { file: paths.clientCatalogFile, content: emitCatalog(metas) },
     { file: paths.clientIconsFile, content: emitIcons(metas) },
   ]
@@ -158,7 +160,7 @@ function isWidgetClientLike(value: unknown): value is WidgetClientLike {
     dimensions.h > 0 &&
     isOptionalPositiveFiniteNumber(dimensions.minW) &&
     isOptionalPositiveFiniteNumber(dimensions.minH) &&
-    isJsonValue(definition.tiers)
+    isTierConfig(definition.tiers)
   )
 }
 
@@ -186,16 +188,27 @@ function isOptionalPositiveFiniteNumber(value: unknown) {
   return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value > 0)
 }
 
-function isJsonValue(value: unknown, seen = new Set<object>()): boolean {
+function isTierConfig(value: unknown) {
   if (value === undefined) return true
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true
-  if (typeof value === 'number') return Number.isFinite(value)
-  if (typeof value !== 'object' || seen.has(value)) return false
-  seen.add(value)
-  const values = Array.isArray(value) ? value : Object.values(value)
-  const valid = values.every((item) => isJsonValue(item, seen))
-  seen.delete(value)
-  return valid
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const tiers = value as Record<string, unknown>
+  const names = ['compact', 'large', 'standard', 'tiny']
+  if (Object.keys(tiers).sort().join(',') !== names.join(',')) return false
+  return names.every((name) => isTierThreshold(tiers[name]))
+}
+
+function isTierThreshold(value: unknown) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const threshold = value as Record<string, unknown>
+  if (Object.keys(threshold).sort().join(',') !== 'minHeightPx,minWidthPx') return false
+  return (
+    isNonnegativeFiniteNumber(threshold.minWidthPx) &&
+    isNonnegativeFiniteNumber(threshold.minHeightPx)
+  )
+}
+
+function isNonnegativeFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
 export async function generateClient(paths: ClientCodegenPaths): Promise<Error | void> {

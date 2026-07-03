@@ -41,6 +41,10 @@ export class InvalidPortsConfigError extends errore.createTaggedError({
   name: 'InvalidPortsConfigError',
   message: 'Invalid widget ports config at $path',
 }) {}
+export class PortAllocationError extends errore.createTaggedError({
+  name: 'PortAllocationError',
+  message: 'No TCP port is available for widget $widgetId',
+}) {}
 
 export function parseCodegenTarget(raw: string): InvalidCodegenTargetError | CodegenTarget {
   if (raw === 'client' || raw === 'server' || raw === 'all') return raw
@@ -77,6 +81,7 @@ export function assignPorts(widgetDirs: string[], current: Record<string, number
   let nextPort = Math.max(5179, ...Object.values(current)) + 1
   for (const dir of widgetDirs) {
     if (assigned[dir] != null) continue
+    if (nextPort > 65_535) return new PortAllocationError({ widgetId: dir })
     assigned[dir] = nextPort++
   }
   return assigned
