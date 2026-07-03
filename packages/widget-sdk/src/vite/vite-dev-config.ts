@@ -6,7 +6,8 @@ type GlobalWithProcess = typeof globalThis & {
 }
 
 export function apiProxy(
-  target = (globalThis as GlobalWithProcess).process?.env?.VITE_API_PROXY ?? 'http://localhost:8787',
+  target = (globalThis as GlobalWithProcess).process?.env?.VITE_API_PROXY ??
+    'http://localhost:8787',
 ) {
   return {
     '/api': {

@@ -7,10 +7,9 @@ import {
   withConnectHook,
   wrap,
 } from '@reatom/core'
-import z from 'zod'
-
 import { withStorageKeyReadonly } from 'widget-runtime'
 import type { ServerTime, WidgetStorage } from 'widget-runtime'
+import z from 'zod'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
 export const BASE_DUTY_DATE = Temporal.PlainDate.from({

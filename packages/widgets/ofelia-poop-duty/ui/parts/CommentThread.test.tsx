@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { CommentView } from '@/model/ofelia-comments'
 import { describe, expect, it, vi } from 'vitest'
+
+import type { CommentView } from '@/model/ofelia-comments'
 
 import { CommentThread } from './CommentThread'
 

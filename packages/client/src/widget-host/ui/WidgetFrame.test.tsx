@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useWidgetContext } from 'widget-runtime'
 
 import { findWidgetType, UnknownWidgetTypeError } from '@/widget-registry/model/registry'
 
-import { useWidgetContext } from 'widget-runtime'
 import { WidgetFrame } from './WidgetFrame'
 
 const holder = vi.hoisted(() => ({
@@ -149,9 +149,7 @@ describe('WidgetFrame', () => {
 
     const Probe = () => {
       const context = useWidgetContext()
-      return (
-        <button onClick={() => context.api.invoke('probe', { value: 1 })}>context-api</button>
-      )
+      return <button onClick={() => context.api.invoke('probe', { value: 1 })}>context-api</button>
     }
     vi.mocked(findWidgetType).mockReturnValue({
       id: 'probe/type',

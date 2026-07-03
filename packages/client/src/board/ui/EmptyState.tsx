@@ -1,6 +1,5 @@
 import { wrap } from '@reatom/core'
 import { Plus } from 'lucide-react'
-
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { openAddWidgetMenu } from '../model/add-widget-menu-model'

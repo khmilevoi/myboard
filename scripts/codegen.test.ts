@@ -68,9 +68,7 @@ describe('codegen emitters', () => {
   it('emits the server list from directory names alone', () => {
     const out = emitServerList(['clock', 'ofelia-poop-duty'])
     expect(out).toContain("import clock from '@widgets/clock/server'")
-    expect(out).toContain(
-      "import ofeliaPoopDuty from '@widgets/ofelia-poop-duty/server'",
-    )
+    expect(out).toContain("import ofeliaPoopDuty from '@widgets/ofelia-poop-duty/server'")
     expect(out).toContain('typeId: "clock"')
     expect(out).toContain('definition: clock')
     expect(out).toContain('definition: ofeliaPoopDuty')

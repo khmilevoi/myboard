@@ -21,10 +21,7 @@ function fixture() {
   writeFileSync(join(widgetsDir, 'ofelia-poop-duty', 'package.json'), '{}')
   writeFileSync(join(widgetsDir, 'clock', 'dist', 'remoteEntry.js'), 'clock-entry')
   writeFileSync(join(widgetsDir, 'clock', 'dist', 'assets', 'clock.js'), 'clock-chunk')
-  writeFileSync(
-    join(widgetsDir, 'ofelia-poop-duty', 'dist', 'remoteEntry.js'),
-    'ofelia-entry',
-  )
+  writeFileSync(join(widgetsDir, 'ofelia-poop-duty', 'dist', 'remoteEntry.js'), 'ofelia-entry')
 
   return { root, widgetsDir, outDir }
 }
@@ -52,9 +49,9 @@ describe('copyWidgetBuilds', () => {
   it('returns a tagged error when the widgets directory cannot be read', () => {
     const { root, outDir } = fixture()
 
-    expect(
-      copyWidgetBuilds({ widgetsDir: join(root, 'missing-widgets'), outDir }),
-    ).toBeInstanceOf(WidgetAssetsIoError)
+    expect(copyWidgetBuilds({ widgetsDir: join(root, 'missing-widgets'), outDir })).toBeInstanceOf(
+      WidgetAssetsIoError,
+    )
   })
 
   it('returns a tagged error when a discovered widget has not been built', () => {

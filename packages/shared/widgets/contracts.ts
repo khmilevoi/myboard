@@ -83,14 +83,12 @@ export function defineWidgetServer<const Schemas extends WidgetEventSchemas>(
   return definition
 }
 
-export function toRuntimeWidgetServerDefinition<const Schemas extends WidgetEventSchemas>(
-  {
-    typeId,
-    definition,
-  }: {
-    typeId: string
-    definition: WidgetServerDefinition<Schemas>
-  },
-): RuntimeWidgetServerDefinition {
+export function toRuntimeWidgetServerDefinition<const Schemas extends WidgetEventSchemas>({
+  typeId,
+  definition,
+}: {
+  typeId: string
+  definition: WidgetServerDefinition<Schemas>
+}): RuntimeWidgetServerDefinition {
   return { typeId, ...definition } as unknown as RuntimeWidgetServerDefinition
 }

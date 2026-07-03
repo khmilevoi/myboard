@@ -2,8 +2,6 @@
 import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { createFakeTimer } from 'widget-runtime/timer/fakes'
 import {
   type ServerTime,
   type WidgetRuntimeProps,
@@ -12,6 +10,7 @@ import {
   type WidgetTier,
 } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 

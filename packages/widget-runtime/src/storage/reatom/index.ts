@@ -1,4 +1,9 @@
-export { reatomClearExpired, reatomStorageMutations, withStorageKey, withStorageKeyReadonly } from './reatom-storage'
+export {
+  reatomClearExpired,
+  reatomStorageMutations,
+  withStorageKey,
+  withStorageKeyReadonly,
+} from './reatom-storage'
 export type {
   StorageKeyExt,
   StorageKeyReadonlyExt,

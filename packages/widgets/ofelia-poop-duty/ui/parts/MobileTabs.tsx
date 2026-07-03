@@ -1,5 +1,5 @@
-import { Tabs, TabsList, TabsTrigger } from 'widget-sdk/ui/tabs'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { Tabs, TabsList, TabsTrigger } from 'widget-sdk/ui/tabs'
 
 import styles from './MobileTabs.module.css'
 

@@ -1,8 +1,8 @@
-import type { CommentView } from '@/model/ofelia-comments'
 import { Send } from 'lucide-react'
 import { useRef, useState } from 'react'
-
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+
+import type { CommentView } from '@/model/ofelia-comments'
 
 import { Avatar } from './Avatar'
 

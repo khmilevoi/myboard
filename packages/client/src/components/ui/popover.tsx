@@ -1,6 +1,5 @@
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import * as React from 'react'
-
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 

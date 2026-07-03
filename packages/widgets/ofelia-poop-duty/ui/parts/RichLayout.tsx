@@ -1,6 +1,5 @@
 import { Cat, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
@@ -81,9 +80,7 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
               <AvatarWithBadge
                 person={selected.person}
                 px={62}
-                badge={
-                  selectedDay?.debtOwner ? personInitial(selectedDay.debtOwner) : undefined
-                }
+                badge={selectedDay?.debtOwner ? personInitial(selectedDay.debtOwner) : undefined}
                 badgeTone={selectedDay?.debtOwner ?? undefined}
               />
             </span>

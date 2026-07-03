@@ -2,9 +2,9 @@ import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import type { ComponentType } from 'react'
 
 import { WidgetStorage } from './storage'
-import type { WidgetApiError } from './widget-api'
 import type { ResolvedTheme } from './theme'
 import type { WidgetTier } from './tier'
+import type { WidgetApiError } from './widget-api'
 
 export type WidgetMode = 'small' | 'large'
 

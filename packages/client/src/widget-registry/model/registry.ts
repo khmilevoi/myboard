@@ -1,8 +1,8 @@
 import * as errore from 'errore'
+import type { WidgetType } from 'widget-sdk/define-widget-client'
 
 import { widgetTypes } from './widget-catalog.generated'
 import { WIDGET_ICONS, type WidgetIconName } from './widget-icons.generated'
-import type { WidgetType } from 'widget-sdk/define-widget-client'
 
 export { widgetTypes, WIDGET_ICONS }
 export type { WidgetIconName, WidgetType }

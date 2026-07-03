@@ -1,6 +1,5 @@
 import { atom, context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-
 import type { StorageApi, StorageListener, WidgetStorage } from 'widget-runtime'
 
 import { formatDateShort } from '../ui/format'

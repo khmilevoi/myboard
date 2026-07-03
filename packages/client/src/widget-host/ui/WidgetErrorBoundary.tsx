@@ -1,9 +1,9 @@
 import { AlertTriangle, RotateCw } from 'lucide-react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Badge } from '@/components/ui/badge'
-import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import styles from './WidgetFrame.module.css'
 

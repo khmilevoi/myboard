@@ -1,6 +1,6 @@
+import type { WidgetEventMap } from '@shared/widgets/contracts'
 import { createContext, useContext } from 'react'
 
-import type { WidgetEventMap } from '@shared/widgets/contracts'
 import type { WidgetRuntimeProps } from './types'
 
 export const WidgetRuntimeContext = createContext<WidgetRuntimeProps | null>(null)

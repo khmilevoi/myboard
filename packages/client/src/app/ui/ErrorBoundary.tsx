@@ -1,5 +1,4 @@
 import { Component, type ReactNode } from 'react'
-
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 type Props = { children: ReactNode }

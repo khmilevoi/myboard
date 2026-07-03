@@ -39,9 +39,7 @@ it('routes local commands to the narrowest codegen target', () => {
   expect(rootPackage.scripts['build:widgets']).toBe(
     'pnpm run codegen:client && pnpm --filter "./packages/widgets/*" build',
   )
-  expect(rootPackage.scripts.test).toBe(
-    'pnpm run codegen && pnpm run test:scripts && pnpm -r test',
-  )
+  expect(rootPackage.scripts.test).toBe('pnpm run codegen && pnpm run test:scripts && pnpm -r test')
   expect(rootPackage.scripts.typecheck).toBe('pnpm run codegen && pnpm -r typecheck')
 })
 
@@ -54,9 +52,7 @@ it('runs only client codegen in the client image', () => {
 })
 
 it('runs only server codegen in the server image', () => {
-  expect(serverDockerfile).toContain(
-    'RUN pnpm run codegen:server && pnpm --filter server build',
-  )
+  expect(serverDockerfile).toContain('RUN pnpm run codegen:server && pnpm --filter server build')
   expect(serverDockerfile).not.toMatch(/RUN pnpm run codegen(?:\s|\\)/)
   expect(serverDockerfile).not.toContain('RUN pnpm run codegen:client')
   expect(serverDockerfile).not.toContain('imports every widgets/*/client.ts')

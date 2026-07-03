@@ -14,11 +14,10 @@ export type WidgetMetadata = {
 
 export type WidgetClientMetadata = Omit<WidgetMetadata, 'id'>
 
-export type WidgetClientDefinition<
-  Events extends WidgetEventMap = WidgetEventMap,
-> = WidgetClientMetadata & {
-  loadComponent: WidgetLoader<Events>
-}
+export type WidgetClientDefinition<Events extends WidgetEventMap = WidgetEventMap> =
+  WidgetClientMetadata & {
+    loadComponent: WidgetLoader<Events>
+  }
 
 type WidgetTypeDefinition<Events extends WidgetEventMap> = WidgetMetadata & {
   loadComponent: WidgetLoader<Events>

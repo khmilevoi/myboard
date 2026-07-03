@@ -2,11 +2,6 @@ import { useEvent } from '@khmilevoi/use-event'
 import { wrap } from '@reatom/core'
 import { AlertTriangle } from 'lucide-react'
 import { lazy, Suspense, useMemo } from 'react'
-
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useElementSize } from '@/shared/element-size/model/use-element-size'
-import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import {
   DEFAULT_TIERS,
   makeWidgetApi,
@@ -17,8 +12,14 @@ import {
   type WidgetRuntimeProps,
   type WidgetTier,
 } from 'widget-runtime'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { resolvedTheme } from '@/theme/model/theme-model'
 import { findWidgetType } from '@/widget-registry/model/registry'
+
 import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 

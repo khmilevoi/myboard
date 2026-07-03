@@ -68,9 +68,7 @@ describe('FullscreenOverlay', () => {
   })
 
   it('closes when the widget itself calls requestClose (the dialog draws no close button of its own)', async () => {
-    const Probe = () => (
-      <button onClick={useWidgetContext().requestClose}>widget close</button>
-    )
+    const Probe = () => <button onClick={useWidgetContext().requestClose}>widget close</button>
     vi.mocked(findWidgetType).mockImplementation((typeId) => {
       if (typeId === 'probe') {
         return {

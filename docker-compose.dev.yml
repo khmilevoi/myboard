@@ -34,18 +34,18 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     ports:
-      - "127.0.0.1:6379:6379"
+      - '127.0.0.1:6379:6379'
 
   redisinsight:
     image: redis/redisinsight:latest
     ports:
-      - "127.0.0.1:5540:5540"
+      - '127.0.0.1:5540:5540'
     environment:
       RI_REDIS_HOST: valkey
-      RI_REDIS_PORT: "6379"
+      RI_REDIS_PORT: '6379'
       RI_REDIS_ALIAS: valkey-dev
-      RI_REDIS_TLS: "false"
-      RI_ACCEPT_TERMS_AND_CONDITIONS: "true"
+      RI_REDIS_TLS: 'false'
+      RI_ACCEPT_TERMS_AND_CONDITIONS: 'true'
     volumes:
       - redisinsight:/data
     depends_on:
@@ -65,11 +65,11 @@ services:
     command: sh -c "corepack enable && pnpm --filter server dev"
     environment:
       VALKEY_URL: redis://valkey:6379
-      PORT: "8787"
-      CHOKIDAR_USEPOLLING: "true"
+      PORT: '8787'
+      CHOKIDAR_USEPOLLING: 'true'
     volumes: *workspace-volumes
     ports:
-      - "127.0.0.1:8787:8787"
+      - '127.0.0.1:8787:8787'
     depends_on:
       install:
         condition: service_completed_successfully
@@ -82,10 +82,10 @@ services:
     command: sh -c 'corepack enable && pnpm -r --parallel --filter "./packages/widgets/*" dev --host'
     environment:
       VITE_API_PROXY: http://server:8787
-      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_USEPOLLING: 'true'
     volumes: *workspace-volumes
     ports:
-      - "5180-5199:5180-5199"
+      - '5180-5199:5180-5199'
     depends_on:
       install:
         condition: service_completed_successfully
@@ -96,10 +96,10 @@ services:
     command: sh -c "corepack enable && pnpm --filter client dev --host"
     environment:
       VITE_API_PROXY: http://server:8787
-      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_USEPOLLING: 'true'
     volumes: *workspace-volumes
     ports:
-      - "5173:5173"
+      - '5173:5173'
     depends_on:
       install:
         condition: service_completed_successfully

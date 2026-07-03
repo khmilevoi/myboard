@@ -1,10 +1,10 @@
 import { wrap } from '@reatom/core'
 import { Lock, Plus, X } from 'lucide-react'
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverArrow, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { WIDGET_ICONS, type WidgetIconName } from '@/widget-registry/model/registry'
 
 import {

@@ -1,7 +1,7 @@
+import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+
 import { DUTY_ROTATION } from '@/model/ofelia-duty'
 import type { Person } from '@/model/ofelia-duty'
-
-import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { personInitial } from '../person'
 
