@@ -8,9 +8,18 @@ import { discoverWidgetDirs } from './codegen/shared'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const compose = readFileSync(resolve(root, 'docker-compose.dev.yml'), 'utf8')
+const widgetViteConfig = readFileSync(
+  resolve(root, 'packages/widget-sdk/src/vite/widget-vite-config.ts'),
+  'utf8',
+)
 const ports = JSON.parse(
   readFileSync(resolve(root, 'packages/widgets/.ports.json'), 'utf8'),
 ) as Record<string, number>
+
+it('exposes each root client definition as the remote client entrypoint', () => {
+  expect(widgetViteConfig).toContain("exposes: { './client': './client.ts' }")
+  expect(widgetViteConfig).not.toContain("'./ui': './ui/expose.ts'")
+})
 
 describe('docker-compose.dev.yml widget coverage', () => {
   it('publishes a host port range covering every widget dev port', () => {

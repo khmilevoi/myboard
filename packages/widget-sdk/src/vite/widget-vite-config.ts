@@ -20,7 +20,7 @@ export function defineWidgetViteConfig(widgetDir: string) {
       federation({
         name: id,
         filename: 'remoteEntry.js',
-        exposes: { './ui': './ui/expose.ts' },
+        exposes: { './client': './client.ts' },
         shared: federationShared(),
         dev: { remoteHmr: true },
         manifest: false,

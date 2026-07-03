@@ -42,7 +42,11 @@ beforeEach(() => {
   // remounting the overlay content and detaching queried nodes.
   activeBoardId.set(LOCAL_BOARD_ID)
   vi.mocked(findWidgetType).mockImplementation(registryHolder.actual)
-  federation.loadRemote.mockResolvedValue({ default: StubClockWidget })
+  federation.loadRemote.mockResolvedValue({
+    default: {
+      loadComponent: async () => ({ default: StubClockWidget }),
+    },
+  })
 })
 
 describe('FullscreenOverlay', () => {

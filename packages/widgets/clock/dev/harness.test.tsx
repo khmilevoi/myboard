@@ -12,8 +12,8 @@ describe('clock harness', () => {
     expect(typeof props.api.invoke).toBe('function')
   })
 
-  it('renders the widget standalone', () => {
+  it('renders the widget standalone', async () => {
     render(<HarnessApp />)
-    expect(screen.getByText(/:/)).toBeInTheDocument()
+    expect(await screen.findByText(/:/)).toBeInTheDocument()
   })
 })

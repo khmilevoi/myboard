@@ -62,13 +62,17 @@ describe('WidgetFrame', () => {
 
   it('renders the loadable widget component content', async () => {
     const RemoteClock = () => <div>12:34</div>
-    federation.loadRemote.mockResolvedValue({ default: RemoteClock })
+    federation.loadRemote.mockResolvedValue({
+      default: {
+        loadComponent: async () => ({ default: RemoteClock }),
+      },
+    })
 
     const { container } = render(
       <WidgetFrame instanceId="inst-1" typeId="clock" mode="small" tier="standard" />,
     )
     expect(await screen.findByText(/:/)).toBeInTheDocument()
-    expect(federation.loadRemote).toHaveBeenCalledWith('clock/ui')
+    expect(federation.loadRemote).toHaveBeenCalledWith('clock/client')
     expect(container.querySelector('iframe')).toBeNull()
   })
 

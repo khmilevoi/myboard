@@ -51,7 +51,11 @@ beforeEach(() => {
   // flipping Board through EmptyState and detaching every queried card node.
   activeBoardId.set(LOCAL_BOARD_ID)
   vi.mocked(findWidgetType).mockImplementation(registryHolder.actual)
-  federation.loadRemote.mockResolvedValue({ default: StubClockWidget })
+  federation.loadRemote.mockResolvedValue({
+    default: {
+      loadComponent: async () => ({ default: StubClockWidget }),
+    },
+  })
 })
 
 describe('Board', () => {
