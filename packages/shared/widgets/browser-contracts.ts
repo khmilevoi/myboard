@@ -22,13 +22,18 @@ export type WidgetBrowserDefinition<
   }
 }
 
-export type RuntimeWidgetBrowserDefinition<Context> = {
+export type RuntimeWidgetBrowserDefinition<
+  Context,
+  Schemas extends WidgetBrowserTaskSchemas = WidgetBrowserTaskSchemas,
+> = {
   widgetId: string
-  schemas: WidgetBrowserTaskSchemas
-  handlers: Record<
-    string,
-    (payload: unknown, context: Context) => Awaitable<Error | unknown>
-  >
+  schemas: Schemas
+  handlers: {
+    [Task in keyof Schemas]: (
+      payload: unknown,
+      context: Context,
+    ) => Awaitable<Error | unknown>
+  }
 }
 
 export function defineWidgetBrowser<Context>() {
@@ -46,6 +51,9 @@ export function toRuntimeWidgetBrowserDefinition<
 }: {
   widgetId: string
   definition: WidgetBrowserDefinition<Schemas, Context>
-}): RuntimeWidgetBrowserDefinition<Context> {
-  return { widgetId, ...definition } as unknown as RuntimeWidgetBrowserDefinition<Context>
+}): RuntimeWidgetBrowserDefinition<Context, Schemas> {
+  return { widgetId, ...definition } as unknown as RuntimeWidgetBrowserDefinition<
+    Context,
+    Schemas
+  >
 }

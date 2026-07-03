@@ -2,6 +2,7 @@ import {
   defineWidgetBrowser,
   toRuntimeWidgetBrowserDefinition,
   type InferWidgetBrowserTasks,
+  type RuntimeWidgetBrowserDefinition,
 } from '@shared/widgets/browser-contracts'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
@@ -15,6 +16,15 @@ const schemas = {
 
 type Tasks = InferWidgetBrowserTasks<typeof schemas>
 type BrowserContext = { runId: string }
+
+const invalidRuntimeDefinition = {
+  widgetId: 'broken',
+  schemas,
+  // @ts-expect-error runtime definitions must keep handler keys aligned with schemas
+  handlers: {},
+} satisfies RuntimeWidgetBrowserDefinition<BrowserContext, typeof schemas>
+
+void invalidRuntimeDefinition
 
 describe('widget browser contracts', () => {
   it('infers public input and validated output types from Zod schemas', () => {
