@@ -1,4 +1,3 @@
-import type { BrowserExecutor } from './executor'
 import {
   BrowserExecutorError,
   BrowserTaskError,
@@ -7,6 +6,7 @@ import {
   InvalidBrowserResultError,
   UnknownBrowserTaskError,
 } from './errors'
+import type { BrowserExecutor } from './executor'
 import type { WidgetBrowserRegistry } from './tasks/registry'
 
 export type DispatchArgs<Context> = {
@@ -47,7 +47,11 @@ export async function dispatchBrowserTask<Context>(args: DispatchArgs<Context>) 
   try {
     handlerResult = await task.handler(payload.data, context)
   } catch (cause) {
-    handlerResult = new BrowserTaskHandlerError({ widgetId: args.widgetId, taskId: args.taskId, cause })
+    handlerResult = new BrowserTaskHandlerError({
+      widgetId: args.widgetId,
+      taskId: args.taskId,
+      cause,
+    })
   }
 
   const released = await args.executor
