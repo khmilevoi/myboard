@@ -417,6 +417,10 @@ shutdown, health, and redaction tests.
 
 **Slug:** `browser-automation-playwright-deployment`
 
+**Design:** [Browser Automation Playwright Host and Raspberry Pi Deployment Design](./2026-07-04-browser-automation-playwright-deployment-design.md)
+
+**Plan:** [Browser Automation Playwright Host and Raspberry Pi Deployment Implementation Plan](../plans/2026-07-04-browser-automation-playwright-deployment.md)
+
 **Objective:** Replace the fake executor boundary with a production persistent
 Chromium host and make it operable in the Raspberry Pi Compose deployment.
 
@@ -425,7 +429,7 @@ Chromium host and make it operable in the Raspberry Pi Compose deployment.
 - persistent-context lifecycle and recovery adapter;
 - headed Chromium under Xvfb;
 - x11vnc/noVNC bound to Raspberry Pi loopback;
-- pinned Playwright Ubuntu/ARM64 Docker image and non-root runtime;
+- slim Node/Debian ARM64 image with only Chromium installed, and non-root runtime;
 - profile volume, `init`, shared-memory configuration, and healthcheck;
 - Compose runtime-secret plumbing from `pi env send`;
 - development Compose support and operator documentation.
