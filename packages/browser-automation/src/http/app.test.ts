@@ -89,7 +89,7 @@ describe('makeBrowserHttpApp', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ payload: { value: 123 } }),
     })
-    const body = await res.json()
+    const body = (await res.json()) as { ok: boolean; error: { code: string } }
     expect(res.status).toBe(200)
     expect(body.ok).toBe(false)
     expect(body.error.code).toBe('payload_invalid')

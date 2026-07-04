@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -14,6 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
+    "tsx": "^4.20.6",
     "typescript": "^6.0.3",
     "vitest": "catalog:"
   }
