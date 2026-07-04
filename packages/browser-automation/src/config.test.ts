@@ -8,6 +8,8 @@ describe('loadBrowserServiceConfig', () => {
       port: 8788,
       queueWaitMs: 30_000,
       executionMs: 60_000,
+      profileDir: '/profile',
+      secretsDir: '/run/secrets',
     })
   })
 
@@ -17,7 +19,21 @@ describe('loadBrowserServiceConfig', () => {
       BROWSER_QUEUE_WAIT_MS: '5000',
       BROWSER_TASK_TIMEOUT_MS: '15000',
     })
-    expect(config).toEqual({ port: 9000, queueWaitMs: 5000, executionMs: 15000 })
+    expect(config).toEqual({
+      port: 9000,
+      queueWaitMs: 5000,
+      executionMs: 15000,
+      profileDir: '/profile',
+      secretsDir: '/run/secrets',
+    })
+  })
+
+  it('reads profile and secrets directory overrides', () => {
+    const config = loadBrowserServiceConfig({
+      BROWSER_PROFILE_DIR: '/data/profile',
+      BROWSER_SECRETS_DIR: '/tmp/secrets',
+    })
+    expect(config).toMatchObject({ profileDir: '/data/profile', secretsDir: '/tmp/secrets' })
   })
 
   it('returns a tagged error for a non-positive-integer value', () => {
