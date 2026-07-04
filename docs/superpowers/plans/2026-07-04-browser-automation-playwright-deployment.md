@@ -421,6 +421,7 @@ rtk git commit -m "feat(browser-automation): scope acquire to widgetId and add B
 - Produces:
   - `type LaunchPersistentContext = (profileDir: string) => Promise<import('playwright').BrowserContext>`
   - `function makeChromiumExecutor(deps: { profileDir: string; secretsDir: string; launch?: LaunchPersistentContext }): BrowserExecutor<BrowserTaskContext>`
+  - `class BrowserLaunchError` (errore tagged error) — returned by `acquire` when launching the persistent context fails; dispatch wraps it in `BrowserExecutorError`.
 
 - [ ] **Step 1: Add the pinned Playwright dependency**
 
@@ -445,7 +446,7 @@ import path from 'node:path'
 import type { BrowserContext } from 'playwright'
 import { describe, expect, it } from 'vitest'
 
-import { makeChromiumExecutor, type LaunchPersistentContext } from './chromium-executor'
+import { BrowserLaunchError, makeChromiumExecutor, type LaunchPersistentContext } from './chromium-executor'
 
 type FakePage = { closed: boolean; close: () => Promise<void> }
 type FakeContext = {
@@ -556,6 +557,18 @@ describe('makeChromiumExecutor', () => {
     await executor.shutdown()
     expect(created[0].closed).toBe(true)
   })
+
+  it('returns a BrowserLaunchError when launch fails', async () => {
+    const executor = makeChromiumExecutor({
+      profileDir: mkdtempSync(path.join(tmpdir(), 'profile-')),
+      secretsDir: mkdtempSync(path.join(tmpdir(), 'secrets-')),
+      launch: async () => {
+        throw new Error('no display')
+      },
+    })
+    const result = await executor.acquire(new AbortController().signal, 'demo')
+    expect(result).toBeInstanceOf(BrowserLaunchError)
+  })
 })
 ```
 
@@ -569,11 +582,19 @@ Expected: FAIL with "Cannot find module './chromium-executor'".
 Create `packages/browser-automation/src/browser/chromium-executor.ts`:
 
 ```ts
+import * as errore from 'errore'
 import { chromium, type BrowserContext } from 'playwright'
 
 import type { BrowserExecutor } from '../executor'
 import type { BrowserTaskContext } from './context'
 import { makeWidgetSecrets } from './secrets'
+
+// Returned by acquire when the persistent context cannot launch (e.g. no display
+// or a corrupt profile). Dispatch re-wraps it as BrowserExecutorError.
+export class BrowserLaunchError extends errore.createTaggedError({
+  name: 'BrowserLaunchError',
+  message: 'Failed to launch the persistent browser context',
+}) {}
 
 export type LaunchPersistentContext = (profileDir: string) => Promise<BrowserContext>
 
@@ -596,8 +617,8 @@ export function makeChromiumExecutor(deps: ChromiumExecutorDeps): BrowserExecuto
 
   async function ensureContext(): Promise<Error | BrowserContext> {
     if (context && !contextClosed) return context
-    const launched = await launch(deps.profileDir).catch((cause: unknown) =>
-      cause instanceof Error ? cause : new Error('launch failed', { cause }),
+    const launched = await launch(deps.profileDir).catch(
+      (cause: unknown) => new BrowserLaunchError({ cause }),
     )
     if (launched instanceof Error) return launched
     context = launched
