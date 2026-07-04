@@ -18,7 +18,7 @@ function readWidgetSecret(widgetId: string, dir: string, key: string) {
   const file = path.join(dir, `${widgetId}_${key}`)
   const result = errore.try(() => fs.readFileSync(file, 'utf8'))
   if (result instanceof Error) return undefined
-  return result
+  return result.trim()
 }
 
 export function makeWidgetSecrets(widgetId: string, dir: string): WidgetSecrets {

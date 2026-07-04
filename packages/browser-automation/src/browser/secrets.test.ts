@@ -12,7 +12,7 @@ describe('makeWidgetSecrets', () => {
 
   it('reads a scoped secret file by widget prefix', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-secrets-'))
-    fs.writeFileSync(path.join(dir, 'widget_a_apiKey'), 'secret-value')
+    fs.writeFileSync(path.join(dir, 'widget_a_apiKey'), '  secret-value  \n')
 
     const secrets = makeWidgetSecrets('widget_a', dir)
 
