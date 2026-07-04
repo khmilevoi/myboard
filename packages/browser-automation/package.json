@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "errore": "catalog:",
+    "find-my-way": "^9.6.0",
     "zod": "catalog:"
   },
   "devDependencies": {
