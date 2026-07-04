@@ -358,6 +358,12 @@ document is amended and reviewed before implementation continues.
 Suggested spec and plan slugs are listed below. The date prefix is added when a
 subproject document is created.
 
+**Back-linking is required.** Whenever a subproject's design spec or
+implementation plan is created, add its `**Design:**` and `**Plan:**` links to
+that subproject's section below (as done for Subprojects 1–3). This keeps the
+master a navigable index of the whole delivery; a subproject section without its
+document links is treated as incomplete.
+
 ### Subproject 1: Browser task contracts and codegen
 
 **Slug:** `widget-browser-contracts-and-codegen`
