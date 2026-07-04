@@ -36,6 +36,14 @@ describe('loadBrowserServiceConfig', () => {
     expect(config).toMatchObject({ profileDir: '/data/profile', secretsDir: '/tmp/secrets' })
   })
 
+  it('falls back to defaults when profile and secrets directories are empty', () => {
+    const config = loadBrowserServiceConfig({
+      BROWSER_PROFILE_DIR: '',
+      BROWSER_SECRETS_DIR: '',
+    })
+    expect(config).toMatchObject({ profileDir: '/profile', secretsDir: '/run/secrets' })
+  })
+
   it('returns a tagged error for a non-positive-integer value', () => {
     const result = loadBrowserServiceConfig({ BROWSER_TASK_TIMEOUT_MS: '-1' })
     expect(result).toBeInstanceOf(BrowserServiceConfigError)
