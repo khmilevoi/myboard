@@ -275,14 +275,18 @@ volumes:
 
 ### Development (`docker-compose.dev.yml`)
 
-The same service with non-production inputs: fake secret values
-(`PASSPORT_SERIES` / `PASSPORT_NUMBER` set to obviously-fake constants), a fake
-`__diagnostics___probe` secret so the diagnostics probe reports
-`secretPresent: true`, a separate development profile volume, and
-`BROWSER_SECRETS_DIR=/run/secrets`. A `browser_automation_node_modules` entry is
-added to `x-workspace-volumes`, as `scripts/infra.test.ts` enforces a
-node_modules volume for every workspace package. The main server may still run
-without the automation service.
+The development service builds the **same Dockerfile** as production (it needs
+Xvfb and a real browser, which the bind-mounted `node:22-alpine` dev services do
+not have), with non-production inputs: fake secret values (`PASSPORT_SERIES` /
+`PASSPORT_NUMBER` set to obviously-fake constants), a fake `__diagnostics___probe`
+secret so the diagnostics probe reports `secretPresent: true`, a separate
+development profile volume, and `BROWSER_SECRETS_DIR=/run/secrets`. It runs under
+a `browser` Compose profile so the default `pnpm docker:dev` board stack is not
+slowed by the heavy Playwright image build; `docker compose --profile browser`
+starts it. Because it runs the built image (not a workspace bind-mount), it needs
+no `node_modules` volume. Fast iteration on browser code uses the local
+non-Docker `pnpm --filter browser-automation dev` entrypoint instead. The main
+server may still run without the automation service.
 
 ## Configuration
 
@@ -361,10 +365,12 @@ These tests are skipped where a real browser is unavailable.
 
 ### Compose validation
 
-In `scripts/infra.test.ts`: `docker compose config` with fake secret values
-resolves; secrets map to `/run/secrets/passport-checker_*`; noVNC binds to
-`127.0.0.1:6080`; and the browser service exposes `8788` only to the internal
-network.
+`scripts/infra.test.ts` gains string assertions (matching the file's existing
+style, no Docker required): the browser secrets map to
+`/run/secrets/passport-checker_*`, noVNC binds to `127.0.0.1:6080`, and the
+browser service exposes `8788` only to the internal network. Actually resolving
+`docker compose config` with fake secret values is a manual/CI verification gate,
+since it requires a Docker daemon that unit tests do not assume.
 
 ### Verification gates
 
