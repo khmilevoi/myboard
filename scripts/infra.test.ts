@@ -74,6 +74,7 @@ it('registers the lightweight browser automation workspace package', () => {
   expect(manifest.scripts).toEqual({
     dev: 'tsx watch src/index.ts',
     start: 'tsx src/index.ts',
+    build: 'rspack build',
     test: 'vitest run',
     typecheck: 'tsc --noEmit -p tsconfig.json',
   })
