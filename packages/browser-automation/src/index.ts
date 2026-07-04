@@ -1,8 +1,8 @@
+import { makeChromiumExecutor } from './browser/chromium-executor'
 import { loadBrowserServiceConfig } from './config'
-import { makeStubExecutor } from './executor'
 import { makeBrowserHttpApp } from './http/app'
 import { makeBrowserService } from './service'
-import { makeWidgetBrowserRegistry } from './tasks/registry'
+import { composeBrowserRegistry } from './tasks/compose'
 import { widgetBrowserList } from './tasks/widget-browser-list.generated'
 
 const config = loadBrowserServiceConfig(process.env)
@@ -11,14 +11,16 @@ if (config instanceof Error) {
   process.exit(1)
 }
 
-const registry = makeWidgetBrowserRegistry(widgetBrowserList)
+const registry = composeBrowserRegistry(widgetBrowserList)
 if (registry instanceof Error) {
   console.error(registry.message)
   process.exit(1)
 }
 
-// Subproject 3 replaces makeStubExecutor() with the persistent Chromium host.
-const executor = makeStubExecutor()
+const executor = makeChromiumExecutor({
+  profileDir: config.profileDir,
+  secretsDir: config.secretsDir,
+})
 const service = makeBrowserService({ registry, executor, config })
 const app = makeBrowserHttpApp(service)
 

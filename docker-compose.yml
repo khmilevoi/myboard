@@ -33,6 +33,10 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      # default: reach valkey; browser_internal: reach browser-automation.
+      - default
+      - browser_internal
 
   client:
     build:
@@ -45,5 +49,57 @@ services:
       - '127.0.0.1:8080:80'
     restart: unless-stopped
 
+  browser-automation:
+    build:
+      context: .
+      dockerfile: packages/browser-automation/Dockerfile
+    init: true
+    environment:
+      PORT: '8788'
+      # Non-secret operational config; Subproject 5 includes it in safe error meta.
+      AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET:-}
+    secrets:
+      - source: passport_series
+        target: passport-checker_series
+      - source: passport_number
+        target: passport-checker_number
+    expose:
+      - '8788'
+    ports:
+      # noVNC only on the Raspberry Pi loopback; SSH is the access boundary.
+      - '127.0.0.1:6080:6080'
+    volumes:
+      - browser_profile:/profile
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    # Only server needs to reach this service (see README diagnostics example);
+    # client and valkey have no legitimate reason to, so browser-automation is
+    # isolated on its own network instead of the shared default network.
+    networks:
+      - browser_internal
+    # Chromium may still be mid-task (BROWSER_TASK_TIMEOUT_MS, default 60s) when
+    # Compose stops the stack; give it enough time beyond that deadline plus
+    # browser-context close/profile-flush overhead before SIGKILL lands.
+    stop_grace_period: 75s
+
 volumes:
   valkey_data:
+  browser_profile:
+
+networks:
+  default:
+  browser_internal:
+
+secrets:
+  passport_series:
+    environment: PASSPORT_SERIES
+  passport_number:
+    environment: PASSPORT_NUMBER

@@ -3,18 +3,25 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./task-context": "./src/browser/context.ts"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "build": "rspack build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "errore": "catalog:",
     "find-my-way": "^9.6.0",
+    "playwright": "1.61.0",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@rspack/cli": "^1.3.14",
+    "@rspack/core": "^1.3.14",
     "@types/node": "^25.9.3",
     "tsx": "^4.20.6",
     "typescript": "^6.0.3",

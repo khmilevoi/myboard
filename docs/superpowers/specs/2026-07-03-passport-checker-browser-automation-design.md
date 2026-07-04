@@ -302,11 +302,19 @@ are logged only after redaction. Request and response bodies are not logged.
 
 ## Docker and Raspberry Pi Deployment
 
-`browser-automation` uses a Dockerfile based on the exact Playwright Ubuntu
-image corresponding to the workspace Playwright version. The service uses
-`init: true` and Chromium-compatible shared-memory configuration. It runs as the
-image's non-root browser user after image setup, and the profile volume is
-writable only by that runtime user.
+`browser-automation` uses a Dockerfile that installs **only Chromium**, pinned to
+the exact workspace Playwright version. The service uses `init: true` and
+Chromium-compatible shared-memory configuration. It runs as a non-root user after
+image setup, and the profile volume is writable only by that runtime user.
+
+> **Amendment (2026-07-04, Subproject 3):** the original text mandated a Dockerfile
+> based on the official Playwright Ubuntu image. That image bundles Chromium,
+> Firefox, and WebKit (~2.5 GB), but this feature launches only Chromium. To keep
+> the Raspberry Pi image small, Subproject 3 instead bases the image on
+> `node:22-bookworm-slim` and installs only Chromium via
+> `playwright@<version> install --with-deps chromium`, which still pins the browser
+> to the workspace Playwright version. The official Playwright base image is no
+> longer required.
 
 Compose adds:
 
@@ -349,6 +357,12 @@ document is amended and reviewed before implementation continues.
 
 Suggested spec and plan slugs are listed below. The date prefix is added when a
 subproject document is created.
+
+**Back-linking is required.** Whenever a subproject's design spec or
+implementation plan is created, add its `**Design:**` and `**Plan:**` links to
+that subproject's section below (as done for Subprojects 1–3). This keeps the
+master a navigable index of the whole delivery; a subproject section without its
+document links is treated as incomplete.
 
 ### Subproject 1: Browser task contracts and codegen
 
@@ -409,6 +423,10 @@ shutdown, health, and redaction tests.
 
 **Slug:** `browser-automation-playwright-deployment`
 
+**Design:** [Browser Automation Playwright Host and Raspberry Pi Deployment Design](./2026-07-04-browser-automation-playwright-deployment-design.md)
+
+**Plan:** [Browser Automation Playwright Host and Raspberry Pi Deployment Implementation Plan](../plans/2026-07-04-browser-automation-playwright-deployment.md)
+
 **Objective:** Replace the fake executor boundary with a production persistent
 Chromium host and make it operable in the Raspberry Pi Compose deployment.
 
@@ -417,7 +435,7 @@ Chromium host and make it operable in the Raspberry Pi Compose deployment.
 - persistent-context lifecycle and recovery adapter;
 - headed Chromium under Xvfb;
 - x11vnc/noVNC bound to Raspberry Pi loopback;
-- pinned Playwright Ubuntu/ARM64 Docker image and non-root runtime;
+- slim Node/Debian ARM64 image with only Chromium installed, and non-root runtime;
 - profile volume, `init`, shared-memory configuration, and healthcheck;
 - Compose runtime-secret plumbing from `pi env send`;
 - development Compose support and operator documentation.

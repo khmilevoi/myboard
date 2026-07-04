@@ -127,4 +127,15 @@ describe('dispatchBrowserTask', () => {
     expect(state.lastSignal).toBe(controller.signal)
     expect(state.released).toBe(1)
   })
+
+  it('passes the widgetId to the executor acquire', async () => {
+    const { executor, state } = makeFakeExecutor()
+    await dispatchBrowserTask({
+      ...base,
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      payload: { value: 'hi' },
+    })
+    expect(state.lastWidgetId).toBe('demo')
+  })
 })
