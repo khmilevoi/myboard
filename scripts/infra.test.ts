@@ -170,7 +170,7 @@ describe('browser-automation service wiring', () => {
   const prod = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
 
   it('binds novnc to the pi loopback only', () => {
-    expect(prod).toContain("127.0.0.1:6080:6080")
+    expect(prod).toContain('127.0.0.1:6080:6080')
   })
 
   it('exposes the internal api port without publishing it', () => {

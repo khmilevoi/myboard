@@ -1,16 +1,12 @@
+import * as errore from 'errore'
 import { chromium, type BrowserContext, type Page } from 'playwright'
 
-import * as errore from 'errore'
-
-import type { BrowserExecutor } from '../executor'
 import { BrowserTaskError } from '../errors'
-
+import type { BrowserExecutor } from '../executor'
 import { type BrowserTaskContext } from './context'
 import { makeWidgetSecrets } from './secrets'
 
-export type LaunchPersistentContext = (
-  profileDir: string,
-) => Promise<BrowserContext>
+export type LaunchPersistentContext = (profileDir: string) => Promise<BrowserContext>
 
 export class BrowserLaunchError extends errore.createTaggedError({
   name: 'BrowserLaunchError',
@@ -124,9 +120,11 @@ export function makeChromiumExecutor(deps: {
           return toAbortError(signal)
         }
 
-        const page = await context.newPage().catch((cause) =>
-          signal.aborted ? toAbortError(signal) : new BrowserLaunchError({ cause }),
-        )
+        const page = await context
+          .newPage()
+          .catch((cause) =>
+            signal.aborted ? toAbortError(signal) : new BrowserLaunchError({ cause }),
+          )
         if (page instanceof Error) return page
 
         const managedContext: ManagedBrowserTaskContext = {

@@ -25,10 +25,12 @@
 ### Task 1: Config — profile and secrets directories
 
 **Files:**
+
 - Modify: `packages/browser-automation/src/config.ts`
 - Test: `packages/browser-automation/src/config.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: `BrowserServiceConfig` gains `profileDir: string` (default `/profile`) and `secretsDir: string` (default `/run/secrets`); `loadBrowserServiceConfig(env)` returns them.
 
@@ -37,38 +39,38 @@
 In `config.test.ts`, update the two `toEqual` expectations to include the new fields and add an override case:
 
 ```ts
-  it('applies defaults when nothing is set', () => {
-    expect(loadBrowserServiceConfig({})).toEqual({
-      port: 8788,
-      queueWaitMs: 30_000,
-      executionMs: 60_000,
-      profileDir: '/profile',
-      secretsDir: '/run/secrets',
-    })
+it('applies defaults when nothing is set', () => {
+  expect(loadBrowserServiceConfig({})).toEqual({
+    port: 8788,
+    queueWaitMs: 30_000,
+    executionMs: 60_000,
+    profileDir: '/profile',
+    secretsDir: '/run/secrets',
   })
+})
 
-  it('parses positive integer overrides', () => {
-    const config = loadBrowserServiceConfig({
-      PORT: '9000',
-      BROWSER_QUEUE_WAIT_MS: '5000',
-      BROWSER_TASK_TIMEOUT_MS: '15000',
-    })
-    expect(config).toEqual({
-      port: 9000,
-      queueWaitMs: 5000,
-      executionMs: 15000,
-      profileDir: '/profile',
-      secretsDir: '/run/secrets',
-    })
+it('parses positive integer overrides', () => {
+  const config = loadBrowserServiceConfig({
+    PORT: '9000',
+    BROWSER_QUEUE_WAIT_MS: '5000',
+    BROWSER_TASK_TIMEOUT_MS: '15000',
   })
+  expect(config).toEqual({
+    port: 9000,
+    queueWaitMs: 5000,
+    executionMs: 15000,
+    profileDir: '/profile',
+    secretsDir: '/run/secrets',
+  })
+})
 
-  it('reads profile and secrets directory overrides', () => {
-    const config = loadBrowserServiceConfig({
-      BROWSER_PROFILE_DIR: '/data/profile',
-      BROWSER_SECRETS_DIR: '/tmp/secrets',
-    })
-    expect(config).toMatchObject({ profileDir: '/data/profile', secretsDir: '/tmp/secrets' })
+it('reads profile and secrets directory overrides', () => {
+  const config = loadBrowserServiceConfig({
+    BROWSER_PROFILE_DIR: '/data/profile',
+    BROWSER_SECRETS_DIR: '/tmp/secrets',
   })
+  expect(config).toMatchObject({ profileDir: '/data/profile', secretsDir: '/tmp/secrets' })
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -106,13 +108,13 @@ const ConfigSchema = z.object({
 In the success return:
 
 ```ts
-  return {
-    port: parsed.data.PORT,
-    queueWaitMs: parsed.data.BROWSER_QUEUE_WAIT_MS,
-    executionMs: parsed.data.BROWSER_TASK_TIMEOUT_MS,
-    profileDir: parsed.data.BROWSER_PROFILE_DIR,
-    secretsDir: parsed.data.BROWSER_SECRETS_DIR,
-  }
+return {
+  port: parsed.data.PORT,
+  queueWaitMs: parsed.data.BROWSER_QUEUE_WAIT_MS,
+  executionMs: parsed.data.BROWSER_TASK_TIMEOUT_MS,
+  profileDir: parsed.data.BROWSER_PROFILE_DIR,
+  secretsDir: parsed.data.BROWSER_SECRETS_DIR,
+}
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -132,10 +134,12 @@ rtk git commit -m "feat(browser-automation): add profile and secrets dir config"
 ### Task 2: Scoped secret reader
 
 **Files:**
+
 - Create: `packages/browser-automation/src/browser/secrets.ts`
 - Test: `packages/browser-automation/src/browser/secrets.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
   - `type WidgetSecrets = { read(key: string): string | undefined; has(key: string): boolean }`
@@ -271,6 +275,7 @@ rtk git commit -m "feat(browser-automation): add per-widget scoped secret reader
 ### Task 3: Refine the executor seam and add the concrete context type
 
 **Files:**
+
 - Create: `packages/browser-automation/src/browser/context.ts`
 - Modify: `packages/browser-automation/src/executor.ts`
 - Modify: `packages/browser-automation/src/dispatch.ts:34-36`
@@ -279,6 +284,7 @@ rtk git commit -m "feat(browser-automation): add per-widget scoped secret reader
 - Test: `packages/browser-automation/src/dispatch.test.ts` (add one case)
 
 **Interfaces:**
+
 - Consumes: `WidgetSecrets` from Task 2, Playwright `Page` type.
 - Produces:
   - `type BrowserTaskContext = { page: import('playwright').Page; secrets: WidgetSecrets }`
@@ -290,16 +296,16 @@ rtk git commit -m "feat(browser-automation): add per-widget scoped secret reader
 In `dispatch.test.ts`, add a case asserting the widgetId reaches `acquire` (append inside the `describe`):
 
 ```ts
-  it('passes the widgetId to the executor acquire', async () => {
-    const { executor, state } = makeFakeExecutor()
-    await dispatchBrowserTask({
-      ...base,
-      registry: registryWith((p) => ({ echoed: p.value })),
-      executor,
-      payload: { value: 'hi' },
-    })
-    expect(state.lastWidgetId).toBe('demo')
+it('passes the widgetId to the executor acquire', async () => {
+  const { executor, state } = makeFakeExecutor()
+  await dispatchBrowserTask({
+    ...base,
+    registry: registryWith((p) => ({ echoed: p.value })),
+    executor,
+    payload: { value: 'hi' },
   })
+  expect(state.lastWidgetId).toBe('demo')
+})
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -337,9 +343,9 @@ export type BrowserExecutor<Context> = {
 In `dispatch.ts`, pass the widgetId:
 
 ```ts
-  const acquired = await args.executor
-    .acquire(args.signal, args.widgetId)
-    .catch((cause: unknown) => (cause instanceof Error ? cause : new Error(String(cause))))
+const acquired = await args.executor
+  .acquire(args.signal, args.widgetId)
+  .catch((cause: unknown) => (cause instanceof Error ? cause : new Error(String(cause))))
 ```
 
 In `testing/fake-executor.ts`, add `lastWidgetId` and capture it:
@@ -356,38 +362,39 @@ export type FakeExecutorState = {
 ```
 
 ```ts
-  const state: FakeExecutorState = {
-    acquired: 0,
-    released: 0,
-    shutdowns: 0,
-    lastSignal: null,
-    lastWidgetId: null,
-    acquireError: null,
-  }
-  const executor: BrowserExecutor<FakeContext> = {
-    async acquire(signal, widgetId) {
-      if (state.acquireError) return state.acquireError
-      state.acquired += 1
-      state.lastSignal = signal
-      state.lastWidgetId = widgetId
-      return { id: `ctx-${state.acquired}`, signal }
-    },
-    async release() {
-      state.released += 1
-    },
-    async shutdown() {
-      state.shutdowns += 1
-    },
-  }
+const state: FakeExecutorState = {
+  acquired: 0,
+  released: 0,
+  shutdowns: 0,
+  lastSignal: null,
+  lastWidgetId: null,
+  acquireError: null,
+}
+const executor: BrowserExecutor<FakeContext> = {
+  async acquire(signal, widgetId) {
+    if (state.acquireError) return state.acquireError
+    state.acquired += 1
+    state.lastSignal = signal
+    state.lastWidgetId = widgetId
+    return { id: `ctx-${state.acquired}`, signal }
+  },
+  async release() {
+    state.released += 1
+  },
+  async shutdown() {
+    state.shutdowns += 1
+  },
+}
 ```
 
 In `executor.test.ts`, update every direct `acquire(...)` call to pass a widgetId (both the fake-executor and stub-executor blocks), e.g.:
 
 ```ts
-    const context = await executor.acquire(controller.signal, 'demo')
+const context = await executor.acquire(controller.signal, 'demo')
 ```
+
 ```ts
-    const context = await executor.acquire(new AbortController().signal, 'demo')
+const context = await executor.acquire(new AbortController().signal, 'demo')
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -412,11 +419,13 @@ rtk git commit -m "feat(browser-automation): scope acquire to widgetId and add B
 ### Task 4: Chromium persistent-context executor
 
 **Files:**
+
 - Modify: `packages/browser-automation/package.json` (add `playwright` dependency)
 - Create: `packages/browser-automation/src/browser/chromium-executor.ts`
 - Test: `packages/browser-automation/src/browser/chromium-executor.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BrowserExecutor`, `BrowserTaskContext`, `makeWidgetSecrets`.
 - Produces:
   - `type LaunchPersistentContext = (profileDir: string) => Promise<import('playwright').BrowserContext>`
@@ -446,7 +455,11 @@ import path from 'node:path'
 import type { BrowserContext } from 'playwright'
 import { describe, expect, it } from 'vitest'
 
-import { BrowserLaunchError, makeChromiumExecutor, type LaunchPersistentContext } from './chromium-executor'
+import {
+  BrowserLaunchError,
+  makeChromiumExecutor,
+  type LaunchPersistentContext,
+} from './chromium-executor'
 
 type FakePage = { closed: boolean; close: () => Promise<void> }
 type FakeContext = {
@@ -610,7 +623,9 @@ export type ChromiumExecutorDeps = {
   launch?: LaunchPersistentContext
 }
 
-export function makeChromiumExecutor(deps: ChromiumExecutorDeps): BrowserExecutor<BrowserTaskContext> {
+export function makeChromiumExecutor(
+  deps: ChromiumExecutorDeps,
+): BrowserExecutor<BrowserTaskContext> {
   const launch = deps.launch ?? defaultLaunch
   let context: BrowserContext | null = null
   let contextClosed = false
@@ -673,10 +688,12 @@ rtk git commit -m "feat(browser-automation): add persistent Chromium executor wi
 ### Task 5: Diagnostics self-test task
 
 **Files:**
+
 - Create: `packages/browser-automation/src/diagnostics.ts`
 - Test: `packages/browser-automation/src/diagnostics.test.ts`
 
 **Interfaces:**
+
 - Consumes: `defineWidgetBrowser`, `toRuntimeWidgetBrowserDefinition`, `BrowserTaskContext`.
 - Produces:
   - `const DIAGNOSTICS_WIDGET_ID = '__diagnostics__'`
@@ -702,7 +719,10 @@ function fakePage(userAgent: string): Page {
 }
 
 function fakeSecrets(value: string | undefined): WidgetSecrets {
-  return { read: (key) => (key === 'probe' ? value : undefined), has: (key) => key === 'probe' && value !== undefined }
+  return {
+    read: (key) => (key === 'probe' ? value : undefined),
+    has: (key) => key === 'probe' && value !== undefined,
+  }
 }
 
 const handler = diagnosticsDefinition.handlers['browser-check']
@@ -714,19 +734,28 @@ describe('diagnostics browser-check', () => {
   })
 
   it('reports ok, the user agent, and secret presence', async () => {
-    const context: BrowserTaskContext = { page: fakePage('FakeUA/1.0'), secrets: fakeSecrets('present') }
+    const context: BrowserTaskContext = {
+      page: fakePage('FakeUA/1.0'),
+      secrets: fakeSecrets('present'),
+    }
     const result = await handler({}, context)
     expect(result).toEqual({ ok: true, secretPresent: true, userAgent: 'FakeUA/1.0' })
   })
 
   it('reports secretPresent false when the probe is absent', async () => {
-    const context: BrowserTaskContext = { page: fakePage('FakeUA/1.0'), secrets: fakeSecrets(undefined) }
+    const context: BrowserTaskContext = {
+      page: fakePage('FakeUA/1.0'),
+      secrets: fakeSecrets(undefined),
+    }
     const result = await handler({}, context)
     expect(result).toMatchObject({ ok: true, secretPresent: false })
   })
 
   it('never echoes the secret value', async () => {
-    const context: BrowserTaskContext = { page: fakePage('FakeUA/1.0'), secrets: fakeSecrets('TOP-SECRET') }
+    const context: BrowserTaskContext = {
+      page: fakePage('FakeUA/1.0'),
+      secrets: fakeSecrets('TOP-SECRET'),
+    }
     const result = await handler({}, context)
     expect(JSON.stringify(result)).not.toContain('TOP-SECRET')
   })
@@ -797,6 +826,7 @@ rtk git commit -m "feat(browser-automation): add diagnostics browser-check self-
 ### Task 6: Compose the registry, wire the real executor, remove the stub
 
 **Files:**
+
 - Create: `packages/browser-automation/src/tasks/compose.ts`
 - Test: `packages/browser-automation/src/tasks/compose.test.ts`
 - Modify: `packages/browser-automation/src/index.ts`
@@ -804,6 +834,7 @@ rtk git commit -m "feat(browser-automation): add diagnostics browser-check self-
 - Modify: `packages/browser-automation/src/executor.test.ts` (remove the stub-executor block)
 
 **Interfaces:**
+
 - Consumes: `makeWidgetBrowserRegistry`, `diagnosticsDefinition`, `widgetBrowserList`, `makeChromiumExecutor`.
 - Produces: `function composeBrowserRegistry(widgetBrowserList: readonly RuntimeWidgetBrowserDefinition<BrowserTaskContext>[]): DuplicateWidgetBrowserTaskError | WidgetBrowserRegistry<BrowserTaskContext>`.
 
@@ -849,7 +880,9 @@ describe('composeBrowserRegistry', () => {
     const collision = toRuntimeWidgetBrowserDefinition({
       widgetId: '__diagnostics__',
       definition: defineWidgetBrowser<BrowserTaskContext>()({
-        schemas: { 'browser-check': { payload: z.object({}), result: z.object({ ok: z.boolean() }) } },
+        schemas: {
+          'browser-check': { payload: z.object({}), result: z.object({ ok: z.boolean() }) },
+        },
         handlers: { 'browser-check': async () => ({ ok: true }) },
       }),
     })
@@ -877,7 +910,10 @@ import { makeWidgetBrowserRegistry } from './registry'
 export function composeBrowserRegistry(
   widgetBrowserList: readonly RuntimeWidgetBrowserDefinition<BrowserTaskContext>[],
 ) {
-  return makeWidgetBrowserRegistry<BrowserTaskContext>([diagnosticsDefinition, ...widgetBrowserList])
+  return makeWidgetBrowserRegistry<BrowserTaskContext>([
+    diagnosticsDefinition,
+    ...widgetBrowserList,
+  ])
 }
 ```
 
@@ -953,9 +989,11 @@ rtk git commit -m "feat(browser-automation): wire chromium executor and diagnost
 ### Task 7: Real-browser integration and profile persistence (env-gated)
 
 **Files:**
+
 - Create: `packages/browser-automation/src/browser/chromium-executor.integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: `makeChromiumExecutor`, `diagnosticsDefinition`.
 - Produces: nothing (verification only).
 
@@ -1062,11 +1100,13 @@ rtk git commit -m "test(browser-automation): add env-gated real-browser and prof
 ### Task 8: rspack production bundle and package build script
 
 **Files:**
+
 - Create: `packages/browser-automation/rspack.config.ts`
 - Modify: `packages/browser-automation/package.json`
 - Modify: `scripts/infra.test.ts:74-79` (the scripts `toEqual`)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `pnpm --filter browser-automation build` emits `packages/browser-automation/dist/index.cjs`; `package.json` exports `./task-context` for Subproject 5.
 
@@ -1075,13 +1115,13 @@ rtk git commit -m "test(browser-automation): add env-gated real-browser and prof
 In `scripts/infra.test.ts`, update the `expect(manifest.scripts).toEqual(...)` to include the build script:
 
 ```ts
-  expect(manifest.scripts).toEqual({
-    dev: 'tsx watch src/index.ts',
-    start: 'tsx src/index.ts',
-    build: 'rspack build',
-    test: 'vitest run',
-    typecheck: 'tsc --noEmit -p tsconfig.json',
-  })
+expect(manifest.scripts).toEqual({
+  dev: 'tsx watch src/index.ts',
+  start: 'tsx src/index.ts',
+  build: 'rspack build',
+  test: 'vitest run',
+  typecheck: 'tsc --noEmit -p tsconfig.json',
+})
 ```
 
 - [ ] **Step 2: Run the infra test to verify it fails**
@@ -1209,11 +1249,13 @@ rtk git commit -m "build(browser-automation): add rspack bundle and task-context
 ### Task 9: Dockerfile and process entrypoint
 
 **Files:**
+
 - Create: `packages/browser-automation/Dockerfile`
 - Create: `packages/browser-automation/docker-entrypoint.sh`
 - Modify: `scripts/infra.test.ts` (add a browser-image assertion block)
 
 **Interfaces:**
+
 - Consumes: the rspack `build` script and `codegen:browser` from Task 8.
 - Produces: a runnable browser image whose registry is generated in-image.
 
@@ -1369,12 +1411,14 @@ rtk git commit -m "build(browser-automation): add Playwright arm64 Dockerfile an
 ### Task 10: Compose wiring (production + development)
 
 **Files:**
+
 - Modify: `docker-compose.yml`
 - Modify: `docker-compose.dev.yml`
 - Modify: `.gitignore`
 - Modify: `scripts/infra.test.ts` (add a compose assertion block)
 
 **Interfaces:**
+
 - Consumes: the Dockerfile from Task 9.
 - Produces: a `browser-automation` production service with scoped secrets, a loopback noVNC port, and a profile volume; a `browser`-profiled dev service.
 
@@ -1387,7 +1431,7 @@ describe('browser-automation service wiring', () => {
   const prod = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
 
   it('binds novnc to the pi loopback only', () => {
-    expect(prod).toContain("127.0.0.1:6080:6080")
+    expect(prod).toContain('127.0.0.1:6080:6080')
   })
 
   it('exposes the internal api port without publishing it', () => {
@@ -1426,37 +1470,37 @@ Expected: FAIL — the compose files have no browser service yet.
 In `docker-compose.yml`, add the service (after `client`), and the top-level `secrets:` and a `browser_profile` volume:
 
 ```yaml
-  browser-automation:
-    build:
-      context: .
-      dockerfile: packages/browser-automation/Dockerfile
-    init: true
-    environment:
-      PORT: '8788'
-      # Non-secret operational config; Subproject 5 includes it in safe error meta.
-      AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET:-}
-    secrets:
-      - source: passport_series
-        target: passport-checker_series
-      - source: passport_number
-        target: passport-checker_number
-    expose:
-      - '8788'
-    ports:
-      # noVNC only on the Raspberry Pi loopback; SSH is the access boundary.
-      - '127.0.0.1:6080:6080'
-    volumes:
-      - browser_profile:/profile
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
+browser-automation:
+  build:
+    context: .
+    dockerfile: packages/browser-automation/Dockerfile
+  init: true
+  environment:
+    PORT: '8788'
+    # Non-secret operational config; Subproject 5 includes it in safe error meta.
+    AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET:-}
+  secrets:
+    - source: passport_series
+      target: passport-checker_series
+    - source: passport_number
+      target: passport-checker_number
+  expose:
+    - '8788'
+  ports:
+    # noVNC only on the Raspberry Pi loopback; SSH is the access boundary.
+    - '127.0.0.1:6080:6080'
+  volumes:
+    - browser_profile:/profile
+  healthcheck:
+    test:
+      - CMD
+      - node
+      - -e
+      - "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    interval: 30s
+    timeout: 5s
+    retries: 3
+  restart: unless-stopped
 ```
 
 Update the bottom of the file to add secrets and the profile volume:
@@ -1478,35 +1522,35 @@ secrets:
 In `docker-compose.dev.yml`, add a `browser` -profiled service (built image, fake secrets, dev profile) and its volume + secrets. Add at the end of `services:`:
 
 ```yaml
-  browser-automation:
-    profiles: ['browser']
-    build:
-      context: .
-      dockerfile: packages/browser-automation/Dockerfile
-    init: true
-    environment:
-      PORT: '8788'
-    secrets:
-      - source: dev_passport_series
-        target: passport-checker_series
-      - source: dev_passport_number
-        target: passport-checker_number
-      - source: dev_diagnostics_probe
-        target: __diagnostics___probe
-    ports:
-      - '127.0.0.1:8788:8788'
-      - '127.0.0.1:6080:6080'
-    volumes:
-      - browser_profile_dev:/profile
-    depends_on:
-      install:
-        condition: service_completed_successfully
+browser-automation:
+  profiles: ['browser']
+  build:
+    context: .
+    dockerfile: packages/browser-automation/Dockerfile
+  init: true
+  environment:
+    PORT: '8788'
+  secrets:
+    - source: dev_passport_series
+      target: passport-checker_series
+    - source: dev_passport_number
+      target: passport-checker_number
+    - source: dev_diagnostics_probe
+      target: __diagnostics___probe
+  ports:
+    - '127.0.0.1:8788:8788'
+    - '127.0.0.1:6080:6080'
+  volumes:
+    - browser_profile_dev:/profile
+  depends_on:
+    install:
+      condition: service_completed_successfully
 ```
 
 Add to the `volumes:` list:
 
 ```yaml
-  browser_profile_dev:
+browser_profile_dev:
 ```
 
 Add a top-level `secrets:` block (fake, non-production values):
@@ -1555,9 +1599,11 @@ rtk git commit -m "build(browser-automation): wire production and dev Compose se
 ### Task 11: Operator documentation
 
 **Files:**
+
 - Create: `packages/browser-automation/README.md`
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: operator runbook (provisioning, recovery, diagnostics).
 

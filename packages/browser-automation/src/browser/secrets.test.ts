@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { makeWidgetSecrets } from './secrets'
@@ -92,7 +93,13 @@ describe('makeWidgetSecrets', () => {
 
     expect(secrets.read('apiKey')).toBe('top-secret')
 
-    const calls = [...warn.mock.calls, ...error.mock.calls, ...log.mock.calls, ...info.mock.calls, ...debug.mock.calls]
+    const calls = [
+      ...warn.mock.calls,
+      ...error.mock.calls,
+      ...log.mock.calls,
+      ...info.mock.calls,
+      ...debug.mock.calls,
+    ]
     expect(JSON.stringify(calls)).not.toContain('top-secret')
   })
 

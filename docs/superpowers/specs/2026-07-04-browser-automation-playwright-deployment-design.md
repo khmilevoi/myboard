@@ -94,8 +94,8 @@ reopening any master-design or Subproject 2 boundary.
 ```ts
 // packages/browser-automation/src/browser/context.ts
 export type BrowserTaskContext = {
-  page: import('playwright').Page   // a fresh tab, one per task
-  secrets: WidgetSecrets            // scoped to the current widgetId
+  page: import('playwright').Page // a fresh tab, one per task
+  secrets: WidgetSecrets // scoped to the current widgetId
 }
 
 export type WidgetSecrets = {
@@ -256,24 +256,30 @@ browser-automation:
   init: true
   environment:
     PORT: '8788'
-    AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET}   # non-secret; consumed by SP5 error meta
+    AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET} # non-secret; consumed by SP5 error meta
   secrets:
     - source: passport_series
-      target: passport-checker_series      # -> /run/secrets/passport-checker_series
+      target: passport-checker_series # -> /run/secrets/passport-checker_series
     - source: passport_number
       target: passport-checker_number
-  expose: ['8788']                          # internal network only, no public route
-  ports: ['127.0.0.1:6080:6080']            # noVNC on the Pi loopback only
+  expose: ['8788'] # internal network only, no public route
+  ports: ['127.0.0.1:6080:6080'] # noVNC on the Pi loopback only
   volumes: [browser_profile:/profile]
   healthcheck:
-    test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    test:
+      [
+        'CMD',
+        'node',
+        '-e',
+        "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+      ]
     interval: 30s
     timeout: 5s
     retries: 3
   restart: unless-stopped
 
 secrets:
-  passport_series: { environment: PASSPORT_SERIES }   # source: deployment env (.env via pi env send)
+  passport_series: { environment: PASSPORT_SERIES } # source: deployment env (.env via pi env send)
   passport_number: { environment: PASSPORT_NUMBER }
 
 volumes:

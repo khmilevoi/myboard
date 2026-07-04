@@ -23,10 +23,7 @@ const positiveIntEnv = (fallback: number) =>
   )
 
 const stringEnv = (fallback: string) =>
-  z.preprocess(
-    (value) => (value === undefined || value === '' ? fallback : value),
-    z.string(),
-  )
+  z.preprocess((value) => (value === undefined || value === '' ? fallback : value), z.string())
 
 const ConfigSchema = z.object({
   PORT: positiveIntEnv(8788),

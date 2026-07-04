@@ -13,7 +13,10 @@ function fakePage(userAgent: string): Page {
 }
 
 function fakeSecrets(value: string | undefined): WidgetSecrets {
-  return { read: (key) => (key === 'probe' ? value : undefined), has: (key) => key === 'probe' && value !== undefined }
+  return {
+    read: (key) => (key === 'probe' ? value : undefined),
+    has: (key) => key === 'probe' && value !== undefined,
+  }
 }
 
 const handler = diagnosticsDefinition.handlers['browser-check']
@@ -25,19 +28,28 @@ describe('diagnostics browser-check', () => {
   })
 
   it('reports ok, the user agent, and secret presence', async () => {
-    const context: BrowserTaskContext = { page: fakePage('FakeUA/1.0'), secrets: fakeSecrets('present') }
+    const context: BrowserTaskContext = {
+      page: fakePage('FakeUA/1.0'),
+      secrets: fakeSecrets('present'),
+    }
     const result = await handler({}, context)
     expect(result).toEqual({ ok: true, secretPresent: true, userAgent: 'FakeUA/1.0' })
   })
 
   it('reports secretPresent false when the probe is absent', async () => {
-    const context: BrowserTaskContext = { page: fakePage('FakeUA/1.0'), secrets: fakeSecrets(undefined) }
+    const context: BrowserTaskContext = {
+      page: fakePage('FakeUA/1.0'),
+      secrets: fakeSecrets(undefined),
+    }
     const result = await handler({}, context)
     expect(result).toMatchObject({ ok: true, secretPresent: false })
   })
 
   it('never echoes the secret value', async () => {
-    const context: BrowserTaskContext = { page: fakePage('FakeUA/1.0'), secrets: fakeSecrets('TOP-SECRET') }
+    const context: BrowserTaskContext = {
+      page: fakePage('FakeUA/1.0'),
+      secrets: fakeSecrets('TOP-SECRET'),
+    }
     const result = await handler({}, context)
     expect(JSON.stringify(result)).not.toContain('TOP-SECRET')
   })

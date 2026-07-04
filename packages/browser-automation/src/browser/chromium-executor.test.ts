@@ -37,9 +37,7 @@ function makeDeferred<T>() {
   return { promise, resolve, reject }
 }
 
-function makeFakeContext(options?: {
-  newPage?: () => Promise<FakePage>
-}): FakeContext {
+function makeFakeContext(options?: { newPage?: () => Promise<FakePage> }): FakeContext {
   const closeListeners: Array<() => void> = []
 
   const context: FakeContext = {

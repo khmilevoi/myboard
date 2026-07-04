@@ -7,5 +7,8 @@ import { makeWidgetBrowserRegistry } from './registry'
 export function composeBrowserRegistry(
   widgetBrowserList: readonly RuntimeWidgetBrowserDefinition<BrowserTaskContext>[],
 ) {
-  return makeWidgetBrowserRegistry<BrowserTaskContext>([diagnosticsDefinition, ...widgetBrowserList])
+  return makeWidgetBrowserRegistry<BrowserTaskContext>([
+    diagnosticsDefinition,
+    ...widgetBrowserList,
+  ])
 }

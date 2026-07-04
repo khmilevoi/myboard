@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import type { BrowserTaskContext } from '../browser/context'
-import { DuplicateWidgetBrowserTaskError } from './registry'
 import { composeBrowserRegistry } from './compose'
+import { DuplicateWidgetBrowserTaskError } from './registry'
 
 const widgetDefinition = toRuntimeWidgetBrowserDefinition({
   widgetId: 'demo',
@@ -35,7 +35,9 @@ describe('composeBrowserRegistry', () => {
     const collision = toRuntimeWidgetBrowserDefinition({
       widgetId: '__diagnostics__',
       definition: defineWidgetBrowser<BrowserTaskContext>()({
-        schemas: { 'browser-check': { payload: z.object({}), result: z.object({ ok: z.boolean() }) } },
+        schemas: {
+          'browser-check': { payload: z.object({}), result: z.object({ ok: z.boolean() }) },
+        },
         handlers: { 'browser-check': async () => ({ ok: true }) },
       }),
     })

@@ -81,11 +81,11 @@ Every exported React function component in `packages/client/src` and `packages/w
 
 Three roles, three models. Opus orchestrates, Sonnet implements, Codex GPT-5.5 reviews.
 
-| Role | Model | How it is invoked |
-| --- | --- | --- |
-| Orchestrator | Opus | the main session (`model: opus`) |
-| Implementer | Sonnet | `Agent` tool → `sonnet-superpowers-implementer` subagent |
-| Reviewer | Codex GPT-5.5 | `codex exec review` via `Bash` (external CLI, not a Claude subagent) |
+| Role         | Model         | How it is invoked                                                    |
+| ------------ | ------------- | -------------------------------------------------------------------- |
+| Orchestrator | Opus          | the main session (`model: opus`)                                     |
+| Implementer  | Sonnet        | `Agent` tool → `sonnet-superpowers-implementer` subagent             |
+| Reviewer     | Codex GPT-5.5 | `codex exec review` via `Bash` (external CLI, not a Claude subagent) |
 
 ### Rules
 
