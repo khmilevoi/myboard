@@ -32,7 +32,7 @@ export async function dispatchBrowserTask<Context>(args: DispatchArgs<Context>) 
   }
 
   const acquired = await args.executor
-    .acquire(args.signal)
+    .acquire(args.signal, args.widgetId)
     .catch((cause: unknown) => (cause instanceof Error ? cause : new Error(String(cause))))
   if (acquired instanceof Error) {
     return new BrowserExecutorError({
