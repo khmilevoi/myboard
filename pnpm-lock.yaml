@@ -77,6 +77,9 @@ importers:
       find-my-way:
         specifier: ^9.6.0
         version: 9.6.0
+      playwright:
+        specifier: 1.61.0
+        version: 1.61.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3
