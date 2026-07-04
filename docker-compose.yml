@@ -45,5 +45,44 @@ services:
       - '127.0.0.1:8080:80'
     restart: unless-stopped
 
+  browser-automation:
+    build:
+      context: .
+      dockerfile: packages/browser-automation/Dockerfile
+    init: true
+    environment:
+      PORT: '8788'
+      # Non-secret operational config; Subproject 5 includes it in safe error meta.
+      AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET:-}
+    secrets:
+      - source: passport_series
+        target: passport-checker_series
+      - source: passport_number
+        target: passport-checker_number
+    expose:
+      - '8788'
+    ports:
+      # noVNC only on the Raspberry Pi loopback; SSH is the access boundary.
+      - '127.0.0.1:6080:6080'
+    volumes:
+      - browser_profile:/profile
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
 volumes:
   valkey_data:
+  browser_profile:
+
+secrets:
+  passport_series:
+    environment: PASSPORT_SERIES
+  passport_number:
+    environment: PASSPORT_NUMBER

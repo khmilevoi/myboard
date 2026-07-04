@@ -42,3 +42,7 @@ test-results/
 packages/client/src/widget-registry/model/*.generated.ts
 packages/server/src/widgets/widget-server-list.generated.ts
 packages/browser-automation/src/tasks/widget-browser-list.generated.ts
+
+# browser-automation local (non-Docker) dev
+packages/browser-automation/.dev-profile/
+packages/browser-automation/.dev-secrets/

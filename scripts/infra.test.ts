@@ -165,3 +165,35 @@ describe('docker-compose.yml production hardening', () => {
     expect(dockerignore).toContain('*.generated.ts')
   })
 })
+
+describe('browser-automation service wiring', () => {
+  const prod = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
+
+  it('binds novnc to the pi loopback only', () => {
+    expect(prod).toContain("127.0.0.1:6080:6080")
+  })
+
+  it('exposes the internal api port without publishing it', () => {
+    expect(prod).toContain("- '8788'")
+    expect(prod).not.toContain('8788:8788')
+  })
+
+  it('mounts passport secrets as scoped /run/secrets targets', () => {
+    expect(prod).toContain('target: passport-checker_series')
+    expect(prod).toContain('target: passport-checker_number')
+  })
+
+  it('sources runtime secrets from the deployment environment', () => {
+    expect(prod).toContain('environment: PASSPORT_SERIES')
+    expect(prod).toContain('environment: PASSPORT_NUMBER')
+  })
+
+  it('keeps the browser profile in a named volume', () => {
+    expect(prod).toContain('browser_profile:/profile')
+  })
+
+  it('provisions a fake diagnostics probe secret in the dev stack only', () => {
+    expect(compose).toContain('__diagnostics___probe')
+    expect(prod).not.toContain('__diagnostics___probe')
+  })
+})
