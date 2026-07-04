@@ -9,7 +9,10 @@ import { productionWidgetServerRegistry } from './widgets/production-registry'
 // test-only control routes and clock stay app-only. Requires VALKEY_URL to be
 // reachable (docker-compose.e2e.yml provides a disposable instance). The
 // production entry (index.ts) never imports this file, so test routes can't
-// leak to prod.
+// leak to prod. /api/test/reset also requires ALLOW_TEST_DB_RESET=1 as an
+// explicit opt-in confirming VALKEY_URL points at a disposable instance,
+// so the destructive FLUSHDB can't fire against a shared dev/prod Valkey
+// by accident.
 const ops = createValkeyTestOps()
 let currentNow = Date.now()
 
@@ -23,6 +26,11 @@ const { server } = createApp({
       currentNow = ms
     },
     reset: async () => {
+      if (process.env['ALLOW_TEST_DB_RESET'] !== '1') {
+        throw new Error(
+          'Refusing to flush Valkey: set ALLOW_TEST_DB_RESET=1 to confirm this VALKEY_URL points at a disposable instance',
+        )
+      }
       await ops.clear()
       currentNow = Date.now()
     },
