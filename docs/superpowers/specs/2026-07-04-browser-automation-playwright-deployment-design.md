@@ -29,9 +29,10 @@ This subproject includes:
 - `makeChromiumExecutor`: a persistent-context lifecycle with crash recovery,
   abort-driven page teardown, and graceful profile flush;
 - an always-registered `__diagnostics__/browser-check` self-test task;
-- a pinned Playwright Ubuntu/ARM64 Docker image running as the non-root browser
-  user, with Xvfb, x11vnc, noVNC/websockify, `init`, shared-memory configuration,
-  a profile volume, and a liveness healthcheck;
+- a slim Node/Debian ARM64 Docker image with **only Chromium** installed (pinned
+  to the workspace Playwright version), running as the non-root `node` user, with
+  Xvfb, x11vnc, noVNC/websockify, `init`, shared-memory configuration, a profile
+  volume, and a liveness healthcheck;
 - production and development Compose wiring, including runtime secrets sourced
   from the deployment environment (`pi env send`);
 - an rspack production bundle and an in-image browser-registry codegen step;
@@ -77,6 +78,14 @@ reopening any master-design or Subproject 2 boundary.
    and manual Cloudflare recovery. In the container `DISPLAY=:99` is provided by
    Xvfb; on a developer host the native display is used with the same code path.
    No `HEADLESS` escape hatch is added.
+6. **Chromium-only slim base (amends the master image decision).** The master
+   design specified a Dockerfile based on the official Playwright Ubuntu image,
+   which bundles Chromium, Firefox, and WebKit (~2.5 GB). This feature launches
+   only Chromium, so Subproject 3 instead bases the image on `node:22-bookworm-slim`
+   and installs only Chromium via `playwright@1.61.0 install --with-deps chromium`,
+   pinned to the workspace Playwright version. The master design's Docker section
+   is amended accordingly. Everything else about the runtime (headed under Xvfb,
+   persistent profile, noVNC recovery, `init`, non-root user) is unchanged.
 
 ## Executor Seam, Context, and Secrets
 
@@ -189,18 +198,22 @@ error; the diagnostics probe never depends on a real passport secret.
   empty) and `pnpm --filter browser-automation build` (rspack → `dist/index.cjs`,
   externalizing `playwright` and `find-my-way`, bundling `errore` like the server
   rspack config).
-- **runtime stage** (`mcr.microsoft.com/playwright:v1.61.0-noble`, published for
-  arm64, Xvfb and browsers preinstalled):
-  - as root: `apt-get install -y x11vnc novnc websockify`;
-    `mkdir -p /profile && chown pwuser:pwuser /profile` (an empty named volume
-    inherits the `pwuser` ownership at first creation);
+- **runtime stage** (`node:22-bookworm-slim`, Debian 12, arm64):
+  - as root: `apt-get install -y xvfb x11vnc novnc websockify fonts-liberation`;
+    `npx playwright@1.61.0 install --with-deps chromium` (installs **only** Chromium
+    plus its OS libraries into `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`, pinned to
+    the workspace Playwright version); `chmod -R 755 /ms-playwright`;
+    `mkdir -p /profile && chown node:node /profile` (an empty named volume inherits
+    the `node` ownership at first creation);
   - `pnpm install --prod --filter browser-automation` with
-    `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` (browsers already in the image), then copy
-    `dist`;
-  - `USER pwuser`; `ENTRYPOINT ["/docker-entrypoint.sh"]`.
+    `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` (the browser is installed explicitly above,
+    not via the npm postinstall), then copy `dist`;
+  - `USER node`; `ENTRYPOINT ["/docker-entrypoint.sh"]`.
 
-Playwright is pinned to the exact `1.61.0` (matching the lockfile and the image
-tag); the npm package version and the Docker image version must remain identical.
+Chromium is pinned to the exact Playwright `1.61.0`: the `playwright` npm package
+and the `playwright@1.61.0 install` command resolve the same browser build. Only
+Chromium is installed — Firefox and WebKit (which the official Playwright image
+would bundle) are never present, keeping the Raspberry Pi image small.
 
 ### Entrypoint and process supervision
 

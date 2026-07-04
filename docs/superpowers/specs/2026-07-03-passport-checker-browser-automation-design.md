@@ -302,11 +302,19 @@ are logged only after redaction. Request and response bodies are not logged.
 
 ## Docker and Raspberry Pi Deployment
 
-`browser-automation` uses a Dockerfile based on the exact Playwright Ubuntu
-image corresponding to the workspace Playwright version. The service uses
-`init: true` and Chromium-compatible shared-memory configuration. It runs as the
-image's non-root browser user after image setup, and the profile volume is
-writable only by that runtime user.
+`browser-automation` uses a Dockerfile that installs **only Chromium**, pinned to
+the exact workspace Playwright version. The service uses `init: true` and
+Chromium-compatible shared-memory configuration. It runs as a non-root user after
+image setup, and the profile volume is writable only by that runtime user.
+
+> **Amendment (2026-07-04, Subproject 3):** the original text mandated a Dockerfile
+> based on the official Playwright Ubuntu image. That image bundles Chromium,
+> Firefox, and WebKit (~2.5 GB), but this feature launches only Chromium. To keep
+> the Raspberry Pi image small, Subproject 3 instead bases the image on
+> `node:22-bookworm-slim` and installs only Chromium via
+> `playwright@<version> install --with-deps chromium`, which still pins the browser
+> to the workspace Playwright version. The official Playwright base image is no
+> longer required.
 
 Compose adds:
 

@@ -6,12 +6,12 @@
 
 **Architecture:** A per-widget scoped secret reader and a Playwright persistent-context executor fill the `BrowserExecutor<BrowserTaskContext>` seam. `index.ts` composes an always-registered `__diagnostics__/browser-check` self-test task with the generated widget list and wires the real executor. A pinned Playwright ARM64 image runs Chromium headed under Xvfb with an x11vnc/noVNC recovery surface bound to the Pi loopback; Compose supplies runtime secrets as `/run/secrets` files.
 
-**Tech Stack:** TypeScript (ESM, `moduleResolution: bundler`), Playwright `1.61.0`, Zod, errore (errors-as-values), find-my-way, rspack (Node bundle), Vitest, Docker Compose, `mcr.microsoft.com/playwright:v1.61.0-noble`.
+**Tech Stack:** TypeScript (ESM, `moduleResolution: bundler`), Playwright `1.61.0` (Chromium only), Zod, errore (errors-as-values), find-my-way, rspack (Node bundle), Vitest, Docker Compose, `node:22-bookworm-slim` runtime base.
 
 ## Global Constraints
 
 - **Playwright pinned exactly** to `1.61.0` (dependency `"playwright": "1.61.0"`, no `^`); the npm version and Docker image version MUST stay identical.
-- **Runtime image:** `mcr.microsoft.com/playwright:v1.61.0-noble`, published for `linux/arm64`, run as the non-root `pwuser`.
+- **Runtime base:** `node:22-bookworm-slim` (Debian 12, arm64) with **only Chromium** installed via `playwright@1.61.0 install --with-deps chromium` (browser pinned to the workspace Playwright version); run as the non-root `node` user. Firefox/WebKit are never installed.
 - **Headed always:** Chromium launches `headless: false` everywhere; no `HEADLESS` override. Launch arg `--disable-dev-shm-usage`.
 - **noVNC:** bound to `127.0.0.1:6080` only, no VNC password; the access boundary is SSH + loopback.
 - **Secrets:** appear only as `/run/secrets/*` files, sourced from the deployment environment; never in the container `environment`, image layers, logs, or serialized errors. The scoped reader reads `<secretsDir>/<widgetId>_<key>` fresh on each call and never logs the value.
@@ -1232,8 +1232,11 @@ it('runs only browser codegen in the browser image', () => {
   )
   expect(browserDockerfile).not.toContain('RUN pnpm run codegen:client')
   expect(browserDockerfile).not.toContain('RUN pnpm run codegen:server')
-  expect(browserDockerfile).toContain('mcr.microsoft.com/playwright:v1.61.0-noble')
-  expect(browserDockerfile).toContain('USER pwuser')
+  expect(browserDockerfile).toContain('FROM node:22-bookworm-slim')
+  expect(browserDockerfile).toContain('playwright@1.61.0 install --with-deps chromium')
+  expect(browserDockerfile).not.toContain('firefox')
+  expect(browserDockerfile).not.toContain('webkit')
+  expect(browserDockerfile).toContain('USER node')
 })
 ```
 
@@ -1298,19 +1301,29 @@ COPY packages/browser-automation ./packages/browser-automation
 
 RUN pnpm run codegen:browser && pnpm --filter browser-automation build
 
-# --- runtime stage: pinned Playwright image (arm64-published, Xvfb + browsers) ---
-FROM mcr.microsoft.com/playwright:v1.61.0-noble AS runtime
+# --- runtime stage: slim Node/Debian base with ONLY Chromium, pinned to the
+# workspace Playwright version, plus the Xvfb + noVNC recovery surface. Firefox
+# and WebKit are never installed (unlike the official Playwright image). ---
+FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
-# noVNC recovery surface + a writable X socket dir + a profile dir owned by the
-# non-root runtime user (an empty named volume inherits this ownership).
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends x11vnc novnc websockify \
-    && rm -rf /var/lib/apt/lists/* \
-    && corepack enable \
+# Chromium (+ its OS deps) pinned to 1.61.0; the noVNC recovery surface; a
+# writable X socket dir; a profile dir owned by the non-root `node` user (an empty
+# named volume inherits this ownership). `--with-deps chromium` installs only
+# Chromium's libraries; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD affects only the npm
+# postinstall, never this explicit install.
+RUN corepack enable \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+       xvfb x11vnc novnc websockify fonts-liberation \
+    && npx -y playwright@1.61.0 install --with-deps chromium \
+    && chmod -R 755 /ms-playwright \
     && mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix \
-    && mkdir -p /profile && chown pwuser:pwuser /profile
+    && mkdir -p /profile && chown node:node /profile \
+    && npm cache clean --force \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/browser-automation/package.json ./packages/browser-automation/
@@ -1327,7 +1340,7 @@ COPY --from=build /app/packages/browser-automation/dist ./packages/browser-autom
 COPY packages/browser-automation/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-USER pwuser
+USER node
 WORKDIR /app/packages/browser-automation
 ENV BROWSER_PROFILE_DIR=/profile
 EXPOSE 8788 6080
