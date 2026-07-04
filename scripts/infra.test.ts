@@ -196,4 +196,26 @@ describe('browser-automation service wiring', () => {
     expect(compose).toContain('__diagnostics___probe')
     expect(prod).not.toContain('__diagnostics___probe')
   })
+
+  it('isolates browser-automation on a network reachable only from server', () => {
+    expect(prod).toContain('browser_internal')
+    const browserAutomationBlock = prod.slice(
+      prod.indexOf('  browser-automation:'),
+      prod.indexOf('\nvolumes:'),
+    )
+    expect(browserAutomationBlock).toContain('networks:')
+    expect(browserAutomationBlock).toContain('browser_internal')
+    expect(browserAutomationBlock).not.toMatch(/networks:\s*\n\s*-\s*default/)
+
+    const serverBlock = prod.slice(prod.indexOf('  server:'), prod.indexOf('  client:'))
+    expect(serverBlock).toContain('browser_internal')
+  })
+
+  it('grants a stop grace period longer than the browser task timeout', () => {
+    const browserAutomationBlock = prod.slice(
+      prod.indexOf('  browser-automation:'),
+      prod.indexOf('\nvolumes:'),
+    )
+    expect(browserAutomationBlock).toMatch(/stop_grace_period:\s*75s/)
+  })
 })

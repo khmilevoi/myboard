@@ -33,6 +33,10 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      # default: reach valkey; browser_internal: reach browser-automation.
+      - default
+      - browser_internal
 
   client:
     build:
@@ -76,10 +80,23 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    # Only server needs to reach this service (see README diagnostics example);
+    # client and valkey have no legitimate reason to, so browser-automation is
+    # isolated on its own network instead of the shared default network.
+    networks:
+      - browser_internal
+    # Chromium may still be mid-task (BROWSER_TASK_TIMEOUT_MS, default 60s) when
+    # Compose stops the stack; give it enough time beyond that deadline plus
+    # browser-context close/profile-flush overhead before SIGKILL lands.
+    stop_grace_period: 75s
 
 volumes:
   valkey_data:
   browser_profile:
+
+networks:
+  default:
+  browser_internal:
 
 secrets:
   passport_series:
