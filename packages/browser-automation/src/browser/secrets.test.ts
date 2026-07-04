@@ -96,7 +96,7 @@ describe('makeWidgetSecrets', () => {
     expect(JSON.stringify(calls)).not.toContain('top-secret')
   })
 
-  it('logs non-ENOENT read failures without leaking the secret value', () => {
+  it('surfaces non-ENOENT read failures without leaking the secret value', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-secrets-'))
     const secretValue = 'sensitive-value'
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
@@ -114,7 +114,7 @@ describe('makeWidgetSecrets', () => {
 
     const secrets = makeWidgetSecrets('widget_a', dir)
 
-    expect(secrets.read('apiKey')).toBeUndefined()
+    expect(() => secrets.read('apiKey')).toThrow('permission denied')
     expect(warn).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(warn.mock.calls)).toContain('apiKey')
     expect(JSON.stringify(warn.mock.calls)).not.toContain(secretValue)

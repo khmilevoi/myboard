@@ -35,7 +35,7 @@ function readWidgetSecret(widgetId: string, dir: string, key: string) {
       key,
       error: result,
     })
-    return undefined
+    throw result
   }
 
   return result.trim()
