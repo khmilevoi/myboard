@@ -14,7 +14,7 @@ FIFO lane with deadlines, cancellation, health reporting, and graceful shutdown,
 while keeping its core tests decoupled from a real browser through a fake
 executor seam.
 
-This subproject builds everything around the generated task definitions *except*
+This subproject builds everything around the generated task definitions _except_
 the real browser. Subproject 3 replaces the fake executor with a persistent
 Chromium host.
 
@@ -188,14 +188,14 @@ The base `BrowserTaskError` lives in `packages/browser-automation` and carries a
 stable machine `code`, a safe `publicMessage`, and optional safe `publicMeta`.
 The service-core `BrowserTaskError` subclasses (all returned as values) are:
 
-| Class | Code | Meaning |
-|-------|------|---------|
-| `UnknownBrowserTaskError` | `unknown_task` | no such `(widgetId, taskId)` |
-| `InvalidBrowserPayloadError` | `payload_invalid` | payload failed Zod |
-| `InvalidBrowserResultError` | `result_invalid` | handler result failed Zod |
-| `AutomationTimeoutError` | `automation_timeout` | queue-wait or execution deadline; `phase` in `publicMeta` |
-| `BrowserTaskHandlerError` | `internal` | handler threw rather than returned |
-| `BrowserExecutorError` | `internal` | `executor.acquire` failed (refined in SP3) |
+| Class                        | Code                 | Meaning                                                   |
+| ---------------------------- | -------------------- | --------------------------------------------------------- |
+| `UnknownBrowserTaskError`    | `unknown_task`       | no such `(widgetId, taskId)`                              |
+| `InvalidBrowserPayloadError` | `payload_invalid`    | payload failed Zod                                        |
+| `InvalidBrowserResultError`  | `result_invalid`     | handler result failed Zod                                 |
+| `AutomationTimeoutError`     | `automation_timeout` | queue-wait or execution deadline; `phase` in `publicMeta` |
+| `BrowserTaskHandlerError`    | `internal`           | handler threw rather than returned                        |
+| `BrowserExecutorError`       | `internal`           | `executor.acquire` failed (refined in SP3)                |
 
 Envelope serialization mirrors the existing server: an error value that is a
 `BrowserTaskError` is serialized with its own `code`, `publicMessage`, and

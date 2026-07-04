@@ -49,6 +49,7 @@
 Commit `1f046b3f` made widget `server.ts` entrypoints optional but left one test asserting the old required-entrypoint behavior. Correct that test before adding browser coverage so the targeted suite represents the current production behavior.
 
 **Files:**
+
 - Modify: `scripts/codegen.test.ts`
 
 - [ ] **Step 1: Run the current codegen test and record the existing failure**
@@ -97,6 +98,7 @@ git commit -m "test: cover optional widget server entrypoints"
 ### Task 2: Scaffold the lightweight browser-automation package
 
 **Files:**
+
 - Create: `packages/browser-automation/package.json`
 - Create: `packages/browser-automation/tsconfig.json`
 - Create: `packages/browser-automation/vitest.config.ts`
@@ -145,7 +147,7 @@ Expected: FAIL because the workspace entry and package do not exist.
 Add this entry under `packages:` in `pnpm-workspace.yaml`:
 
 ```yaml
-  - packages/browser-automation
+- packages/browser-automation
 ```
 
 - [ ] **Step 4: Create the package manifest**
@@ -251,6 +253,7 @@ git commit -m "build: scaffold browser automation package"
 ### Task 3: Add widget browser task contracts
 
 **Files:**
+
 - Create: `packages/shared/widgets/browser-contracts.ts`
 - Create: `packages/browser-automation/src/tasks/contracts.test.ts`
 
@@ -344,10 +347,7 @@ export type InferWidgetBrowserTasks<Schemas extends WidgetBrowserTaskSchemas> =
 
 type Awaitable<T> = T | Promise<T>
 
-export type WidgetBrowserDefinition<
-  Schemas extends WidgetBrowserTaskSchemas,
-  Context,
-> = {
+export type WidgetBrowserDefinition<Schemas extends WidgetBrowserTaskSchemas, Context> = {
   schemas: Schemas
   handlers: {
     [Task in keyof Schemas]: (
@@ -360,10 +360,7 @@ export type WidgetBrowserDefinition<
 export type RuntimeWidgetBrowserDefinition<Context> = {
   widgetId: string
   schemas: WidgetBrowserTaskSchemas
-  handlers: Record<
-    string,
-    (payload: unknown, context: Context) => Awaitable<Error | unknown>
-  >
+  handlers: Record<string, (payload: unknown, context: Context) => Awaitable<Error | unknown>>
 }
 
 export function defineWidgetBrowser<Context>() {
@@ -407,6 +404,7 @@ git commit -m "feat: add widget browser task contracts"
 ### Task 4: Build the duplicate-safe browser registry
 
 **Files:**
+
 - Create: `packages/browser-automation/src/tasks/registry.ts`
 - Create: `packages/browser-automation/src/tasks/registry.test.ts`
 
@@ -461,10 +459,7 @@ describe('widget browser registry', () => {
   })
 
   it('allows the same task ID under different widgets', () => {
-    const result = makeWidgetBrowserRegistry([
-      makeDefinition('first'),
-      makeDefinition('second'),
-    ])
+    const result = makeWidgetBrowserRegistry([makeDefinition('first'), makeDefinition('second')])
 
     expect(result).not.toBeInstanceOf(Error)
   })
@@ -513,8 +508,7 @@ export function makeWidgetBrowserRegistry<Context>(
 
   for (const definition of definitions) {
     const tasks =
-      registry.get(definition.widgetId) ??
-      new Map<string, RuntimeWidgetBrowserTask<Context>>()
+      registry.get(definition.widgetId) ?? new Map<string, RuntimeWidgetBrowserTask<Context>>()
     registry.set(definition.widgetId, tasks)
 
     for (const [taskId, schemas] of Object.entries(definition.schemas)) {
@@ -559,6 +553,7 @@ git commit -m "feat: add widget browser task registry"
 ### Task 5: Add isolated browser entrypoint codegen
 
 **Files:**
+
 - Create: `scripts/codegen/browser.ts`
 - Modify: `scripts/codegen/shared.ts`
 - Modify: `scripts/codegen/server.ts`
@@ -785,6 +780,7 @@ git commit -m "build: generate widget browser entrypoints"
 ### Task 6: Wire browser codegen into commands and repository documentation
 
 **Files:**
+
 - Modify: `scripts/codegen.ts`
 - Modify: `scripts/codegen/shared.ts`
 - Modify: `scripts/codegen.test.ts`
@@ -949,6 +945,7 @@ git commit -m "build: wire browser task codegen"
 ### Task 7: Run full verification
 
 **Files:**
+
 - Verify only; modify files only for failures introduced by Tasks 2–6.
 
 - [ ] **Step 1: Confirm generated output stability**

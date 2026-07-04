@@ -55,10 +55,12 @@ packages/browser-automation/
 ### Task 1: Error taxonomy and envelope serializer
 
 **Files:**
+
 - Create: `packages/browser-automation/src/errors.ts`
 - Test: `packages/browser-automation/src/errors.test.ts`
 
 **Interfaces:**
+
 - Consumes: `errore` (`createTaggedError`, `AbortError`).
 - Produces:
   - `class BrowserTaskError extends Error` with instance fields `code: string` (default `'internal'`), `publicMessage: string` (default `'Browser task failed'`), and getter `publicMeta(): Record<string, unknown> | undefined` (default `undefined`).
@@ -234,10 +236,12 @@ rtk git commit -m "feat(browser-automation): add task error taxonomy and envelop
 ### Task 2: Service configuration
 
 **Files:**
+
 - Create: `packages/browser-automation/src/config.ts`
 - Test: `packages/browser-automation/src/config.test.ts`
 
 **Interfaces:**
+
 - Consumes: `errore`, `zod`.
 - Produces:
   - `type BrowserServiceConfig = { port: number; queueWaitMs: number; executionMs: number }`.
@@ -355,10 +359,12 @@ rtk git commit -m "feat(browser-automation): add env-based service configuration
 ### Task 3: Wire envelope schemas
 
 **Files:**
+
 - Create: `packages/browser-automation/src/schemas.ts`
 - Test: `packages/browser-automation/src/schemas.test.ts`
 
 **Interfaces:**
+
 - Consumes: `zod`.
 - Produces:
   - `TaskRequestSchema` = `z.object({ payload: z.unknown() })`; `type TaskRequest`.
@@ -372,11 +378,7 @@ Create `packages/browser-automation/src/schemas.test.ts`:
 ```ts
 import { describe, expect, it } from 'vitest'
 
-import {
-  HealthResponseSchema,
-  TaskRequestSchema,
-  TaskResponseSchema,
-} from './schemas'
+import { HealthResponseSchema, TaskRequestSchema, TaskResponseSchema } from './schemas'
 
 describe('wire schemas', () => {
   it('accepts a request with a payload and a request with none', () => {
@@ -398,9 +400,9 @@ describe('wire schemas', () => {
   })
 
   it('rejects a mixed envelope', () => {
-    expect(TaskResponseSchema.safeParse({ ok: true, error: { code: 'x', message: 'y' } }).success).toBe(
-      false,
-    )
+    expect(
+      TaskResponseSchema.safeParse({ ok: true, error: { code: 'x', message: 'y' } }).success,
+    ).toBe(false)
   })
 
   it('parses a health response', () => {
@@ -460,11 +462,13 @@ rtk git commit -m "feat(browser-automation): add wire envelope schemas"
 ### Task 4: Executor seam, stub, and fake
 
 **Files:**
+
 - Create: `packages/browser-automation/src/executor.ts`
 - Create: `packages/browser-automation/src/testing/fake-executor.ts`
 - Test: `packages/browser-automation/src/executor.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type BrowserExecutor<Context> = { acquire(signal: AbortSignal): Promise<Error | Context>; release(context: Context): Promise<void>; shutdown(): Promise<void> }`.
   - `function makeStubExecutor(): BrowserExecutor<unknown>` (SP2 placeholder; SP3 replaces at the call site in `index.ts`).
@@ -613,10 +617,12 @@ rtk git commit -m "feat(browser-automation): add executor seam with stub and fak
 ### Task 5: Single-task dispatch
 
 **Files:**
+
 - Create: `packages/browser-automation/src/dispatch.ts`
 - Test: `packages/browser-automation/src/dispatch.test.ts`
 
 **Interfaces:**
+
 - Consumes: `WidgetBrowserRegistry<Context>` from `./tasks/registry`; `BrowserExecutor<Context>` from `./executor`; error classes from `./errors`.
 - Produces:
   - `type DispatchArgs<Context> = { registry: WidgetBrowserRegistry<Context>; executor: BrowserExecutor<Context>; widgetId: string; taskId: string; payload: unknown; signal: AbortSignal }`.
@@ -627,7 +633,10 @@ rtk git commit -m "feat(browser-automation): add executor seam with stub and fak
 Create `packages/browser-automation/src/dispatch.test.ts`:
 
 ```ts
-import { defineWidgetBrowser, toRuntimeWidgetBrowserDefinition } from '@shared/widgets/browser-contracts'
+import {
+  defineWidgetBrowser,
+  toRuntimeWidgetBrowserDefinition,
+} from '@shared/widgets/browser-contracts'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -801,7 +810,9 @@ export async function dispatchBrowserTask<Context>(args: DispatchArgs<Context>) 
 
   const context = await args.executor
     .acquire(args.signal)
-    .catch((cause) => new BrowserExecutorError({ widgetId: args.widgetId, taskId: args.taskId, cause }))
+    .catch(
+      (cause) => new BrowserExecutorError({ widgetId: args.widgetId, taskId: args.taskId, cause }),
+    )
   if (context instanceof Error) return context
 
   const handlerResult = await Promise.resolve(task.handler(payload.data, context)).catch(
@@ -851,6 +862,7 @@ rtk git commit -m "feat(browser-automation): add single-task dispatch"
 ### Task 6: Single-lane FIFO queue
 
 **Files:**
+
 - Create: `packages/browser-automation/src/queue.ts`
 - Test: `packages/browser-automation/src/queue.test.ts`
 - Modify: `packages/browser-automation/tsconfig.json` (widen `lib` to `ES2024` for `Promise.withResolvers`)
@@ -858,6 +870,7 @@ rtk git commit -m "feat(browser-automation): add single-task dispatch"
 **Prerequisite:** the shared serial-lane primitive — see [Shared Serial-Lane Primitive Implementation Plan](./2026-07-04-shared-serial-lane.md), Task 1. Create it (or run that plan) first so `@shared/async/serial-lane` resolves.
 
 **Interfaces:**
+
 - Consumes: `makeSerialLane` from `@shared/async/serial-lane`; `errore` (`AbortError`); `AutomationTimeoutError` from `./errors`.
 - Produces:
   - `class ExecutionAbortError extends errore.AbortError` (internal; used as the abort reason).
@@ -1071,10 +1084,12 @@ rtk git commit -m "feat(browser-automation): add single-lane FIFO queue with dea
 ### Task 7: Service core
 
 **Files:**
+
 - Create: `packages/browser-automation/src/service.ts`
 - Test: `packages/browser-automation/src/service.test.ts`
 
 **Interfaces:**
+
 - Consumes: `WidgetBrowserRegistry<Context>`, `BrowserExecutor<Context>`, `dispatchBrowserTask`, `makeSingleLaneQueue`, `BrowserServiceUnavailableError`, `BrowserTaskError`.
 - Produces:
   - `type ServiceState = 'starting' | 'ready' | 'draining'`.
@@ -1088,7 +1103,10 @@ rtk git commit -m "feat(browser-automation): add single-lane FIFO queue with dea
 Create `packages/browser-automation/src/service.test.ts`:
 
 ```ts
-import { defineWidgetBrowser, toRuntimeWidgetBrowserDefinition } from '@shared/widgets/browser-contracts'
+import {
+  defineWidgetBrowser,
+  toRuntimeWidgetBrowserDefinition,
+} from '@shared/widgets/browser-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
@@ -1102,7 +1120,9 @@ class SessionRequiredError extends BrowserTaskError {
   publicMessage = 'Session required'
 }
 
-function registryWith(handler: (payload: { value: string }) => unknown): WidgetBrowserRegistry<FakeContext> {
+function registryWith(
+  handler: (payload: { value: string }) => unknown,
+): WidgetBrowserRegistry<FakeContext> {
   const definition = defineWidgetBrowser<FakeContext>()({
     schemas: {
       check: { payload: z.object({ value: z.string() }), result: z.object({ echoed: z.string() }) },
@@ -1121,22 +1141,42 @@ const config = { queueWaitMs: 1000, executionMs: 1000 }
 describe('makeBrowserService', () => {
   it('rejects invocations before markReady', async () => {
     const { executor } = makeFakeExecutor()
-    const service = makeBrowserService({ registry: registryWith((p) => ({ echoed: p.value })), executor, config })
-    const result = await service.invoke({ widgetId: 'demo', taskId: 'check', payload: { value: 'x' } })
+    const service = makeBrowserService({
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      config,
+    })
+    const result = await service.invoke({
+      widgetId: 'demo',
+      taskId: 'check',
+      payload: { value: 'x' },
+    })
     expect(result).toBeInstanceOf(BrowserServiceUnavailableError)
   })
 
   it('runs a task after markReady', async () => {
     const { executor } = makeFakeExecutor()
-    const service = makeBrowserService({ registry: registryWith((p) => ({ echoed: p.value })), executor, config })
+    const service = makeBrowserService({
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      config,
+    })
     service.markReady()
-    const result = await service.invoke({ widgetId: 'demo', taskId: 'check', payload: { value: 'hi' } })
+    const result = await service.invoke({
+      widgetId: 'demo',
+      taskId: 'check',
+      payload: { value: 'hi' },
+    })
     expect(result).toEqual({ echoed: 'hi' })
   })
 
   it('returns a public error for an unknown task', async () => {
     const { executor } = makeFakeExecutor()
-    const service = makeBrowserService({ registry: registryWith((p) => ({ echoed: p.value })), executor, config })
+    const service = makeBrowserService({
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      config,
+    })
     service.markReady()
     const result = await service.invoke({ widgetId: 'demo', taskId: 'nope', payload: {} })
     expect(result).toBeInstanceOf(UnknownBrowserTaskError)
@@ -1144,7 +1184,11 @@ describe('makeBrowserService', () => {
 
   it('reports liveness transitions', async () => {
     const { executor } = makeFakeExecutor()
-    const service = makeBrowserService({ registry: registryWith((p) => ({ echoed: p.value })), executor, config })
+    const service = makeBrowserService({
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      config,
+    })
     expect(service.health()).toEqual({ status: 'starting', healthy: false })
     service.markReady()
     expect(service.health()).toEqual({ status: 'ready', healthy: true })
@@ -1160,14 +1204,22 @@ describe('makeBrowserService', () => {
       config,
     })
     service.markReady()
-    const result = await service.invoke({ widgetId: 'demo', taskId: 'check', payload: { value: 'x' } })
+    const result = await service.invoke({
+      widgetId: 'demo',
+      taskId: 'check',
+      payload: { value: 'x' },
+    })
     expect(result).toBeInstanceOf(SessionRequiredError)
     expect(service.health()).toEqual({ status: 'ready', healthy: true })
   })
 
   it('shuts the executor down exactly once and is idempotent', async () => {
     const { executor, state } = makeFakeExecutor()
-    const service = makeBrowserService({ registry: registryWith((p) => ({ echoed: p.value })), executor, config })
+    const service = makeBrowserService({
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      config,
+    })
     service.markReady()
     await service.shutdown()
     await service.shutdown()
@@ -1297,12 +1349,14 @@ rtk git commit -m "feat(browser-automation): add service core with lifecycle and
 ### Task 8: HTTP layer
 
 **Files:**
+
 - Create: `packages/browser-automation/src/http/body.ts`
 - Create: `packages/browser-automation/src/http/app.ts`
 - Test: `packages/browser-automation/src/http/app.test.ts`
 - Modify: `packages/browser-automation/package.json` (add `find-my-way` dependency)
 
 **Interfaces:**
+
 - Consumes: `BrowserService` from `../service`; `TaskRequestSchema` from `../schemas`; `BrowserServiceUnavailableError`, `toEnvelopeError` from `../errors`; `find-my-way`; `node:http`.
 - Produces:
   - `readJsonBody(req: IncomingMessage): Promise<unknown>` (1 MB cap; `undefined` on empty body).
@@ -1324,7 +1378,10 @@ Create `packages/browser-automation/src/http/app.test.ts`:
 ```ts
 import type { AddressInfo } from 'node:net'
 
-import { defineWidgetBrowser, toRuntimeWidgetBrowserDefinition } from '@shared/widgets/browser-contracts'
+import {
+  defineWidgetBrowser,
+  toRuntimeWidgetBrowserDefinition,
+} from '@shared/widgets/browser-contracts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -1345,7 +1402,11 @@ function buildService(): BrowserService {
     toRuntimeWidgetBrowserDefinition({ widgetId: 'demo', definition }),
   ])
   if (registry instanceof Error) throw registry
-  return makeBrowserService({ registry, executor, config: { queueWaitMs: 1000, executionMs: 1000 } })
+  return makeBrowserService({
+    registry,
+    executor,
+    config: { queueWaitMs: 1000, executionMs: 1000 },
+  })
 }
 
 describe('makeBrowserHttpApp', () => {
@@ -1393,7 +1454,10 @@ describe('makeBrowserHttpApp', () => {
       body: JSON.stringify({ payload: {} }),
     })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: false, error: { code: 'unknown_task', message: 'Unknown browser task' } })
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: { code: 'unknown_task', message: 'Unknown browser task' },
+    })
   })
 
   it('returns a payload_invalid envelope for a bad payload', async () => {
@@ -1545,16 +1609,19 @@ rtk git commit -m "feat(browser-automation): add http layer for tasks and health
 ### Task 9: Process entrypoint and scripts
 
 **Files:**
+
 - Create: `packages/browser-automation/src/index.ts`
 - Modify: `packages/browser-automation/package.json` (add `tsx` devDependency and `dev`/`start` scripts)
 
 **Interfaces:**
+
 - Consumes: `loadBrowserServiceConfig`, `makeWidgetBrowserRegistry`, `widgetBrowserList` (generated), `makeStubExecutor`, `makeBrowserService`, `makeBrowserHttpApp`.
 - Produces: a runnable process that starts the HTTP server and calls `service.markReady()` after `listen`. The stub-executor line is the single site Subproject 3 replaces with the Playwright host.
 
 - [ ] **Step 1: Add scripts and dev dependency**
 
 In `packages/browser-automation/package.json`:
+
 - add to `scripts`: `"dev": "tsx watch src/index.ts"` and `"start": "tsx src/index.ts"`;
 - add to `devDependencies`: `"tsx": "^4.20.6"`.
 

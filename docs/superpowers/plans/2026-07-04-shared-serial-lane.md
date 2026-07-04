@@ -36,12 +36,14 @@ packages/widget-runtime/
 ### Task 1: Shared serial-lane primitive
 
 **Files:**
+
 - Create: `packages/shared/async/serial-lane.ts`
 - Create: `packages/shared/async/serial-lane.test.ts`
 - Create: `packages/shared/vitest.config.ts`
 - Modify: `packages/shared/package.json`
 
 **Interfaces:**
+
 - Produces:
   - `type SerialLane = { run<T>(task: () => Promise<T>): Promise<T>; whenIdle(): Promise<void> }`.
   - `function makeSerialLane(): SerialLane` — one FIFO lane; a rejecting task does not block the next; `whenIdle` resolves after the currently-queued tail settles.
@@ -273,10 +275,12 @@ rtk git commit -m "feat(shared): add serial-lane serialization primitive"
 ### Task 2: Adopt the primitive in the server key lock
 
 **Files:**
+
 - Modify: `packages/server/src/storage/key-lock.ts`
 - Test (existing, unchanged): `packages/server/src/storage/key-lock.test.ts`
 
 **Interfaces:**
+
 - Consumes: `makeKeyedSerialLane` from `@shared/async/serial-lane`.
 - Produces: unchanged `runExclusive<T>(key: string, task: () => Promise<T>): Promise<T>` (now a thin delegate).
 
@@ -320,10 +324,12 @@ rtk git commit -m "refactor(server): delegate runExclusive to shared serial-lane
 ### Task 3: Adopt the primitive in the widget-runtime append path
 
 **Files:**
+
 - Modify: `packages/widget-runtime/src/storage/client/dexie-storage.ts`
 - Test (existing, unchanged): the widget-runtime dexie storage suite.
 
 **Interfaces:**
+
 - Consumes: `makeKeyedSerialLane` from `@shared/async/serial-lane`.
 - Produces: no exported API change; the local `appendTails`/`runAppendExclusive` are replaced by a module-level `appendLane`.
 
