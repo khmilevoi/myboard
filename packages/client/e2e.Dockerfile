@@ -12,7 +12,7 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 RUN corepack enable \
     && apt-get update \
-    && apt-get install -y --no-install-recommends fonts-liberation \
+    && apt-get install -y --no-install-recommends fonts-liberation procps \
     && npx -y playwright@1.61.0 install --with-deps chromium \
     && chmod -R 755 /ms-playwright \
     && npm cache clean --force \
