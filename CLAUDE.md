@@ -76,3 +76,41 @@ Every exported React function component in `packages/client/src` and `packages/w
 ## Deployment
 
 `pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release.
+
+## Agent routing with Superpowers
+
+Three roles, three models. Opus orchestrates, Sonnet implements, Codex GPT-5.5 reviews.
+
+| Role         | Model         | How it is invoked                                                    |
+| ------------ | ------------- | -------------------------------------------------------------------- |
+| Orchestrator | Opus          | the main session (`model: opus`)                                     |
+| Implementer  | Sonnet        | `Agent` tool → `sonnet-superpowers-implementer` subagent             |
+| Reviewer     | Codex GPT-5.5 | `codex exec review` via `Bash` (external CLI, not a Claude subagent) |
+
+### Rules
+
+- The main Claude Code session is the orchestrator and must stay on Opus.
+- Do not use the main Opus session for routine implementation. Dispatch every implementation task to the `sonnet-superpowers-implementer` subagent.
+- Use Superpowers workflows normally and do not skip their review loops: brainstorming → writing-plans → executing-plans / subagent-driven-development → verification-before-completion → finishing-a-development-branch.
+
+### Automated feature-by-plan loop
+
+Run this loop for each independent task in the plan; the orchestrator drives it end to end without manual steps:
+
+1. **Dispatch** the task to `sonnet-superpowers-implementer` via the `Agent` tool. Sonnet writes tests first (TDD) and makes minimal local changes.
+2. **Verify locally** (verification-before-completion): run the relevant `pnpm test` / `pnpm typecheck` / `pnpm lint` for the touched packages. Do not proceed until they pass.
+3. **Codex review — automatic.** The orchestrator runs the review itself via `Bash` (do **not** rely on `/codex:review`; that slash command has `disable-model-invocation: true`, so Opus cannot invoke it — only the human can). Use the real GPT-5.5 slug `gpt-5.5`:
+   ```bash
+   # branch-scoped review against main (default for a completed plan task)
+   codex exec review --base main -m gpt-5.5
+   # or working-tree review while iterating
+   codex exec review --uncommitted -m gpt-5.5
+   ```
+   `codex exec review` is read-only by nature — it only reads the diff and returns findings, it never patches.
+4. **Triage.** The orchestrator parses Codex's findings. If Codex reports blocking issues, dispatch the fixes back to `sonnet-superpowers-implementer` with the finding text, then return to step 2. Repeat until Codex is clean.
+5. **Finish** with finishing-a-development-branch once the whole plan is implemented, locally green, and Codex-clean.
+
+### Manual / backstop options (optional)
+
+- `/codex:review --model gpt-5.5` — the `codex@openai-codex` plugin command for an interactive, nicely-formatted review (supports `--background` + `/codex:status`). Human-triggered only.
+- `/codex:setup --enable-review-gate` — enables the plugin's `Stop` review gate as a safety net that forces a Codex pass before the session can finish, independent of the loop above.

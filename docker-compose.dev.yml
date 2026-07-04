@@ -108,6 +108,30 @@ services:
       widgets:
         condition: service_started
 
+  browser-automation:
+    profiles: ['browser']
+    build:
+      context: .
+      dockerfile: packages/browser-automation/Dockerfile
+    init: true
+    environment:
+      PORT: '8788'
+    secrets:
+      - source: dev_passport_series
+        target: passport-checker_series
+      - source: dev_passport_number
+        target: passport-checker_number
+      - source: dev_diagnostics_probe
+        target: __diagnostics___probe
+    ports:
+      - '127.0.0.1:8788:8788'
+      - '127.0.0.1:6080:6080'
+    volumes:
+      - browser_profile_dev:/profile
+    depends_on:
+      install:
+        condition: service_completed_successfully
+
 volumes:
   pnpm_store:
   root_node_modules:
@@ -119,3 +143,12 @@ volumes:
   widgets_clock_node_modules:
   widgets_ofelia_poop_duty_node_modules:
   redisinsight:
+  browser_profile_dev:
+
+secrets:
+  dev_passport_series:
+    environment: PASSPORT_SERIES
+  dev_passport_number:
+    environment: PASSPORT_NUMBER
+  dev_diagnostics_probe:
+    environment: DIAGNOSTICS_PROBE

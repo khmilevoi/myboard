@@ -7,6 +7,7 @@ export type FakeExecutorState = {
   released: number
   shutdowns: number
   lastSignal: AbortSignal | null
+  lastWidgetId: string | null
   acquireError: Error | null
 }
 
@@ -19,13 +20,15 @@ export function makeFakeExecutor(): {
     released: 0,
     shutdowns: 0,
     lastSignal: null,
+    lastWidgetId: null,
     acquireError: null,
   }
   const executor: BrowserExecutor<FakeContext> = {
-    async acquire(signal) {
+    async acquire(signal, widgetId) {
       if (state.acquireError) return state.acquireError
       state.acquired += 1
       state.lastSignal = signal
+      state.lastWidgetId = widgetId
       return { id: `ctx-${state.acquired}`, signal }
     },
     async release() {
