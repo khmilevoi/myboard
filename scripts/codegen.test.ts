@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = fs
 
+import { emitBrowserList, generateBrowser } from './codegen/browser'
 import {
   emitCatalog,
   emitIcons,
@@ -13,7 +14,6 @@ import {
   InvalidWidgetClientDefinitionError,
   type WidgetMeta,
 } from './codegen/client'
-import { emitBrowserList, generateBrowser } from './codegen/browser'
 import { emitServerList, generateServer } from './codegen/server'
 import {
   assignPorts,
@@ -187,7 +187,10 @@ describe('codegen generation', () => {
     for (const widgetId of ['zeta', 'alpha']) {
       const widgetDir = join(paths.widgetsDir, widgetId)
       mkdirSync(widgetDir, { recursive: true })
-      writeFileSync(join(widgetDir, 'package.json'), JSON.stringify({ name: `widgets-${widgetId}` }))
+      writeFileSync(
+        join(widgetDir, 'package.json'),
+        JSON.stringify({ name: `widgets-${widgetId}` }),
+      )
       writeFileSync(join(widgetDir, 'browser.ts'), 'export default {}')
     }
 

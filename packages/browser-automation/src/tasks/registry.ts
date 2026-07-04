@@ -30,8 +30,7 @@ export function makeWidgetBrowserRegistry<Context>(
 
   for (const definition of definitions) {
     const tasks =
-      registry.get(definition.widgetId) ??
-      new Map<string, RuntimeWidgetBrowserTask<Context>>()
+      registry.get(definition.widgetId) ?? new Map<string, RuntimeWidgetBrowserTask<Context>>()
     registry.set(definition.widgetId, tasks)
 
     for (const [taskId, schemas] of Object.entries(definition.schemas)) {

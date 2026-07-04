@@ -44,10 +44,7 @@ describe('widget browser registry', () => {
   })
 
   it('allows the same task ID under different widgets', () => {
-    const result = makeWidgetBrowserRegistry([
-      makeDefinition('first'),
-      makeDefinition('second'),
-    ])
+    const result = makeWidgetBrowserRegistry([makeDefinition('first'), makeDefinition('second')])
 
     expect(result).not.toBeInstanceOf(Error)
   })

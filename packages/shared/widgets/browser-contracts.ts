@@ -9,10 +9,7 @@ export type InferWidgetBrowserTasks<Schemas extends WidgetBrowserTaskSchemas> =
 
 type Awaitable<T> = T | Promise<T>
 
-export type WidgetBrowserDefinition<
-  Schemas extends WidgetBrowserTaskSchemas,
-  Context,
-> = {
+export type WidgetBrowserDefinition<Schemas extends WidgetBrowserTaskSchemas, Context> = {
   schemas: Schemas
   handlers: {
     [Task in keyof Schemas]: (
@@ -29,10 +26,7 @@ export type RuntimeWidgetBrowserDefinition<
   widgetId: string
   schemas: Schemas
   handlers: {
-    [Task in keyof Schemas]: (
-      payload: unknown,
-      context: Context,
-    ) => Awaitable<Error | unknown>
+    [Task in keyof Schemas]: (payload: unknown, context: Context) => Awaitable<Error | unknown>
   }
 }
 
@@ -52,8 +46,5 @@ export function toRuntimeWidgetBrowserDefinition<
   widgetId: string
   definition: WidgetBrowserDefinition<Schemas, Context>
 }): RuntimeWidgetBrowserDefinition<Context, Schemas> {
-  return { widgetId, ...definition } as unknown as RuntimeWidgetBrowserDefinition<
-    Context,
-    Schemas
-  >
+  return { widgetId, ...definition } as unknown as RuntimeWidgetBrowserDefinition<Context, Schemas>
 }
