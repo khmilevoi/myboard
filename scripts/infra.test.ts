@@ -61,6 +61,23 @@ it('runs only server codegen in the server image', () => {
   expect(serverDockerfile).not.toContain('imports every widgets/*/client.ts')
 })
 
+it('runs only browser codegen in the browser image', () => {
+  const browserDockerfile = readFileSync(
+    resolve(root, 'packages/browser-automation/Dockerfile'),
+    'utf8',
+  )
+  expect(browserDockerfile).toContain(
+    'RUN pnpm run codegen:browser && pnpm --filter browser-automation build',
+  )
+  expect(browserDockerfile).not.toContain('RUN pnpm run codegen:client')
+  expect(browserDockerfile).not.toContain('RUN pnpm run codegen:server')
+  expect(browserDockerfile).toContain('FROM node:22-bookworm-slim')
+  expect(browserDockerfile).toContain('playwright@1.61.0 install --with-deps chromium')
+  expect(browserDockerfile).not.toContain('firefox')
+  expect(browserDockerfile).not.toContain('webkit')
+  expect(browserDockerfile).toContain('USER node')
+})
+
 it('registers the lightweight browser automation workspace package', () => {
   expect(workspace).toContain('  - packages/browser-automation')
   const manifest = JSON.parse(
