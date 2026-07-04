@@ -1,3 +1,4 @@
+import { makeKeyedSerialLane } from '@shared/async/serial-lane'
 import type { z } from 'zod'
 
 import { toFullKey, toRelativeKey } from '../scope'
@@ -13,23 +14,7 @@ import { parseValue } from '../validate'
 import { registerLocal, publishChange } from './channel'
 import { db as defaultDb, type StorageDb } from './db'
 
-const appendTails = new Map<string, Promise<unknown>>()
-
-function runAppendExclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
-  const previous = appendTails.get(key) ?? Promise.resolve()
-  const result = previous.then(() => task())
-  const tail = result.then(
-    () => undefined,
-    () => undefined,
-  )
-
-  appendTails.set(key, tail)
-  void tail.then(() => {
-    if (appendTails.get(key) === tail) appendTails.delete(key)
-  })
-
-  return result
-}
+const appendLane = makeKeyedSerialLane()
 
 export function makeDexieStorage(namespace: string, database: StorageDb = defaultDb): StorageApi {
   const table = database.entries
@@ -108,7 +93,7 @@ export function makeDexieStorage(namespace: string, database: StorageDb = defaul
       options?: { cap?: number },
     ): Promise<StorageError | void> {
       const fullKey = toFullKey(namespace, key)
-      return runAppendExclusive(fullKey, async () => {
+      return appendLane.run(fullKey, async () => {
         const row = await readValid(fullKey)
         if (row instanceof Error) return row
         const current: unknown[] = Array.isArray(row?.value) ? [...row.value] : []
