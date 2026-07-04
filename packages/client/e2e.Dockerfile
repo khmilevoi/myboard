@@ -22,4 +22,4 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir /pnpm-store
 
-CMD ["pnpm", "--filter", "client", "test:e2e"]
+CMD ["sh", "-c", "pnpm run codegen && pnpm --filter client test:e2e"]
