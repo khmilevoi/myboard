@@ -74,6 +74,9 @@ importers:
       errore:
         specifier: 'catalog:'
         version: 0.14.1
+      find-my-way:
+        specifier: ^9.6.0
+        version: 9.6.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -81,6 +84,9 @@ importers:
       '@types/node':
         specifier: ^25.9.3
         version: 25.9.3
+      tsx:
+        specifier: ^4.20.6
+        version: 4.22.4
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
