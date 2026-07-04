@@ -22,11 +22,15 @@ describe('makeWidgetSecrets', () => {
 
   it('returns undefined for a missing secret', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-secrets-'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     const secrets = makeWidgetSecrets('widget_a', dir)
 
     expect(secrets.has('missing')).toBe(false)
     expect(secrets.read('missing')).toBeUndefined()
+    expect(warn).not.toHaveBeenCalled()
+    expect(error).not.toHaveBeenCalled()
   })
 
   it('does not read another widget scope', () => {
@@ -48,6 +52,17 @@ describe('makeWidgetSecrets', () => {
     expect(secrets.read('../apiKey')).toBeUndefined()
     expect(secrets.read('..')).toBeUndefined()
     expect(secrets.read(`nested${path.sep}apiKey`)).toBeUndefined()
+  })
+
+  it('rejects an empty key without reading the filesystem', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-secrets-'))
+    const readFileSync = vi.spyOn(fs, 'readFileSync')
+
+    const secrets = makeWidgetSecrets('widget_a', dir)
+
+    expect(secrets.read('')).toBeUndefined()
+    expect(secrets.has('')).toBe(false)
+    expect(readFileSync).not.toHaveBeenCalled()
   })
 
   it('reads fresh on every call', () => {
@@ -79,5 +94,29 @@ describe('makeWidgetSecrets', () => {
 
     const calls = [...warn.mock.calls, ...error.mock.calls, ...log.mock.calls, ...info.mock.calls, ...debug.mock.calls]
     expect(JSON.stringify(calls)).not.toContain('top-secret')
+  })
+
+  it('logs non-ENOENT read failures without leaking the secret value', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-secrets-'))
+    const secretValue = 'sensitive-value'
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const originalReadFileSync = fs.readFileSync
+
+    vi.spyOn(fs, 'readFileSync').mockImplementation((file, options) => {
+      if (file === path.join(dir, 'widget_a_apiKey') && options === 'utf8') {
+        const error = new Error('permission denied')
+        Object.assign(error, { code: 'EACCES' })
+        throw error
+      }
+
+      return originalReadFileSync(file, options as never)
+    })
+
+    const secrets = makeWidgetSecrets('widget_a', dir)
+
+    expect(secrets.read('apiKey')).toBeUndefined()
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(warn.mock.calls)).toContain('apiKey')
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(secretValue)
   })
 })
