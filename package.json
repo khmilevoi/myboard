@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm run codegen:client && pnpm -r --parallel --filter \"./packages/widgets/*\" --filter client dev",
     "dev:server": "pnpm run codegen:server && pnpm --filter server dev",
-    "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter './packages/widgets/*' build\" \"pnpm --filter client typecheck\" && pnpm --filter client build",
+    "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter \\\"./packages/widgets/*\\\" build\" \"pnpm --filter client typecheck\" && pnpm --filter client build",
     "build:widgets": "pnpm run codegen:client && pnpm --filter \"./packages/widgets/*\" build",
     "preview": "pnpm --filter client preview",
     "test": "pnpm run codegen && pnpm run test:scripts && pnpm -r test",
