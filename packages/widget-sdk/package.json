@@ -28,25 +28,25 @@
   "dependencies": {
     "@reatom/core": "catalog:",
     "@reatom/react": "catalog:",
-    "clsx": "^2.1.1",
+    "clsx": "catalog:",
     "errore": "catalog:",
     "lucide-react": "catalog:",
-    "radix-ui": "^1.6.0",
+    "radix-ui": "catalog:",
     "react": "catalog:",
-    "tailwind-merge": "^3.6.0",
+    "tailwind-merge": "catalog:",
     "widget-runtime": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@module-federation/vite": "^1.16.12",
-    "@testing-library/jest-dom": "^6.9.1",
+    "@module-federation/vite": "catalog:",
+    "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
-    "@vitejs/plugin-react": "^6.0.2",
-    "fake-indexeddb": "^6.2.5",
-    "jsdom": "^29.1.1",
+    "@vitejs/plugin-react": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "jsdom": "catalog:",
     "react-dom": "catalog:",
-    "vite": "^8.1.2",
+    "vite": "catalog:",
     "vitest": "catalog:"
   }
 }

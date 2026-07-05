@@ -1,0 +1,31 @@
+{
+  "versionGroups": [
+    {
+      "label": "Duplicated deps that should live in the pnpm catalog",
+      "dependencies": [
+        "typescript",
+        "@types/node",
+        "vite",
+        "@vitejs/plugin-react",
+        "@module-federation/vite",
+        "@testing-library/jest-dom",
+        "@rspack/cli",
+        "@rspack/core",
+        "find-my-way",
+        "fake-indexeddb",
+        "jsdom",
+        "clsx",
+        "radix-ui",
+        "tailwind-merge",
+        "dexie",
+        "tsx"
+      ],
+      "dependencyTypes": ["prod", "dev"],
+      "policy": "catalog"
+    },
+    {
+      "label": "Everything else stays as-is",
+      "isIgnored": true
+    }
+  ]
+}

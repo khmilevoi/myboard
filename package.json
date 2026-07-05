@@ -33,16 +33,18 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "check": "pnpm run codegen && concurrently -g --kill-others-on-fail \"pnpm run lint\" \"pnpm run format:check\" \"pnpm -r typecheck\" \"pnpm run test:unit && pnpm -r test\""
+    "deps:check": "syncpack lint",
+    "check": "pnpm run codegen && concurrently -g --kill-others-on-fail \"pnpm run lint\" \"pnpm run format:check\" \"pnpm run deps:check\" \"pnpm -r typecheck\" \"pnpm run test:unit && pnpm -r test\""
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
+    "@types/node": "catalog:",
     "concurrently": "^9.2.0",
     "errore": "catalog:",
     "oxfmt": "^0.55.0",
     "oxlint": "^1.70.0",
-    "tsx": "^4.20.6",
-    "typescript": "^6.0.3",
+    "syncpack": "^15.3.2",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "packageManager": "pnpm@10.28.2"
