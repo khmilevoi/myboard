@@ -509,6 +509,8 @@ Subproject 3 after Subproject 2 stabilizes the transport envelope.
 
 **Design:** [Passport Checker Browser Task Design](./2026-07-05-passport-checker-browser-task-design.md)
 
+**Plan:** [Passport Checker Browser Task Implementation Plan](../plans/2026-07-05-passport-checker-browser-task.md)
+
 **Objective:** Implement and validate the single allowlisted same-origin checker
 flow without adding user-interface concerns.
 
