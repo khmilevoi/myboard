@@ -1,5 +1,5 @@
-import { resolveTier } from 'widget-runtime'
 import { describe, expect, it } from 'vitest'
+import { resolveTier } from 'widget-runtime'
 
 import { ofeliaWidget } from './client'
 
