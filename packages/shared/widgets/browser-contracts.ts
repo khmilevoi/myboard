@@ -1,7 +1,7 @@
 import type { z } from 'zod'
 
-import type { InferWidgetEvents, WidgetEventSchemas } from './contracts'
 import type { BrowserGatewayError } from './browser-errors'
+import type { InferWidgetEvents, WidgetEventSchemas } from './contracts'
 
 export type WidgetBrowserTaskSchemas = WidgetEventSchemas
 

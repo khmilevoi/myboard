@@ -18,14 +18,13 @@ describe('defineWidgetBrowserTasks', () => {
   })
 
   it('preserves input and output inference for server invocation', () => {
-    const api = null as unknown as WidgetServerBrowserApi
-
-    if (false) {
+    function typeOnlyAssertions(api: WidgetServerBrowserApi) {
       const result = api.invoke(tasks.check, { value: '7' })
       expectTypeOf(result).toEqualTypeOf<Promise<BrowserGatewayError | { echoed: string }>>()
 
       // @ts-expect-error transformed payload input requires a string
       void api.invoke(tasks.check, { value: 7 })
     }
+    void typeOnlyAssertions
   })
 })

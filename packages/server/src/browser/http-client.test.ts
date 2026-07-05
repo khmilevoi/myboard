@@ -79,9 +79,9 @@ describe('createHttpBrowserAutomationClient', () => {
       timeoutMs: 1000,
       fetchImpl: fetchReturning(response({ status: 'draining' }, 503)),
     })
-    expect(await draining.invoke({ widgetId: 'demo', taskId: 'check', payload: {} })).toBeInstanceOf(
-      BrowserAutomationUnavailableError,
-    )
+    expect(
+      await draining.invoke({ widgetId: 'demo', taskId: 'check', payload: {} }),
+    ).toBeInstanceOf(BrowserAutomationUnavailableError)
 
     const rejectedFetch = vi.fn(async () => {
       throw new Error('connection refused')

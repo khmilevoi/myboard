@@ -232,7 +232,10 @@ describe('browser-automation service wiring', () => {
     )
     expect(dependsOnBlock).not.toContain('browser-automation:')
 
-    const devServerBlock = compose.slice(compose.indexOf('  server:'), compose.indexOf('  widgets:'))
+    const devServerBlock = compose.slice(
+      compose.indexOf('  server:'),
+      compose.indexOf('  widgets:'),
+    )
     expect(devServerBlock).toContain('BROWSER_AUTOMATION_URL: http://browser-automation:8788')
     expect(devServerBlock).toContain("BROWSER_AUTOMATION_TIMEOUT_MS: '100000'")
     const devDependsOnBlock = devServerBlock.slice(devServerBlock.indexOf('    depends_on:'))
