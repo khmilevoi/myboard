@@ -29,7 +29,7 @@ export function makeWidgetStorage(options: MakeWidgetStorageOptions): WidgetStor
 }
 
 export function makeScopedStorage(scope: string, serverBaseUrl?: string): ScopedStorage {
-  const scopeWithColon = `${scope}:`
+  const scopeWithColon = scope.endsWith(':') ? scope : `${scope}:`
   return {
     client: makeDexieStorage(scopeWithColon),
     server: makeHttpStorage(scopeWithColon, serverBaseUrl),

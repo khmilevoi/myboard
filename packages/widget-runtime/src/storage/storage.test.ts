@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from './client/db'
 import { makeWidgetStorage } from './index'
+import { instanceNamespace, typeNamespace, toFullKey } from './scope'
 
 beforeEach(async () => {
   await db.entries.clear()
@@ -32,5 +33,20 @@ describe('createWidgetStorage', () => {
     const storage = makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
     expect(typeof storage.instance.server.get).toBe('function')
     expect(typeof storage.shared.server.get).toBe('function')
+  })
+
+  it('stores instance and shared client entries under single-colon keys matching the server helper format', async () => {
+    const storage = makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+    await storage.instance.client.set('draft', 'per-instance')
+    await storage.shared.client.set('draft', 'per-type')
+
+    const expectedInstanceKey = toFullKey(instanceNamespace('inst-1'), 'draft')
+    const expectedSharedKey = toFullKey(typeNamespace('clock'), 'draft')
+
+    expect(expectedInstanceKey).toBe('w:i:inst-1:draft')
+    expect(expectedSharedKey).toBe('w:t:clock:draft')
+
+    expect(await db.entries.get(expectedInstanceKey)).toBeDefined()
+    expect(await db.entries.get(expectedSharedKey)).toBeDefined()
   })
 })
