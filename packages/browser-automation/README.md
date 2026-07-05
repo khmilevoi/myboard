@@ -94,3 +94,16 @@ slow the default board dev stack:
 PASSPORT_SERIES=АА PASSPORT_NUMBER=123456 DIAGNOSTICS_PROBE=ok \
   docker compose -f docker-compose.dev.yml --profile browser up --build browser-automation
 ```
+
+## Main-server widget gateway
+
+Widget server handlers invoke their own allowlisted browser tasks through
+`context.api.browser`. The server uses `BROWSER_AUTOMATION_URL` (default
+`http://browser-automation:8788`) and `BROWSER_AUTOMATION_TIMEOUT_MS` (default
+`100000`). The deadline is intentionally longer than the browser service's
+default queue plus execution limits.
+
+The main server does not depend on browser-automation health or startup. When
+the service is absent, only browser task invocations return
+`BrowserAutomationUnavailableError`; storage, time, and non-browser widgets
+remain available. Calls are never retried automatically.

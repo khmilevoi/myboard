@@ -21,6 +21,8 @@ services:
     environment:
       VALKEY_URL: redis://valkey:6379
       PORT: '8787'
+      BROWSER_AUTOMATION_URL: http://browser-automation:8788
+      BROWSER_AUTOMATION_TIMEOUT_MS: '100000'
     depends_on:
       valkey:
         condition: service_healthy

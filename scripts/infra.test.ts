@@ -221,6 +221,23 @@ describe('browser-automation service wiring', () => {
     )
     expect(browserAutomationBlock).toMatch(/stop_grace_period:\s*75s/)
   })
+
+  it('configures the server gateway without depending on browser startup', () => {
+    const serverBlock = prod.slice(prod.indexOf('  server:'), prod.indexOf('  client:'))
+    expect(serverBlock).toContain('BROWSER_AUTOMATION_URL: http://browser-automation:8788')
+    expect(serverBlock).toContain("BROWSER_AUTOMATION_TIMEOUT_MS: '100000'")
+    const dependsOnBlock = serverBlock.slice(
+      serverBlock.indexOf('    depends_on:'),
+      serverBlock.indexOf('    expose:'),
+    )
+    expect(dependsOnBlock).not.toContain('browser-automation:')
+
+    const devServerBlock = compose.slice(compose.indexOf('  server:'), compose.indexOf('  widgets:'))
+    expect(devServerBlock).toContain('BROWSER_AUTOMATION_URL: http://browser-automation:8788')
+    expect(devServerBlock).toContain("BROWSER_AUTOMATION_TIMEOUT_MS: '100000'")
+    const devDependsOnBlock = devServerBlock.slice(devServerBlock.indexOf('    depends_on:'))
+    expect(devDependsOnBlock).not.toContain('browser-automation:')
+  })
 })
 
 describe('docker-compose.e2e.yml headed-run support', () => {
