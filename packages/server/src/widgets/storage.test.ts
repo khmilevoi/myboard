@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
-import { createWidgetServerApi } from './storage'
+import { createWidgetServerStorageApi } from './storage'
 
-describe('createWidgetServerApi', () => {
+describe('createWidgetServerStorageApi', () => {
   it('isolates instance and shared namespaces', async () => {
     const pubsub = createMemoryPubSub()
     const ops = createMemoryOps(pubsub)
-    const api = createWidgetServerApi({
+    const storage = createWidgetServerStorageApi({
       ops,
       typeId: 'clock',
       instanceId: 'placement-1',
@@ -17,8 +17,8 @@ describe('createWidgetServerApi', () => {
       createId: () => 'entry-1',
     })
 
-    expect(await api.storage.instance.set('settings', { zone: 'UTC' })).toBeUndefined()
-    expect(await api.storage.shared.set('settings', { format: '24h' })).toBeUndefined()
+    expect(await storage.instance.set('settings', { zone: 'UTC' })).toBeUndefined()
+    expect(await storage.shared.set('settings', { format: '24h' })).toBeUndefined()
     expect(await ops.get('w:i:placement-1:settings')).toBe('{"zone":"UTC"}')
     expect(await ops.get('w:t:clock:settings')).toBe('{"format":"24h"}')
   })
@@ -28,7 +28,7 @@ describe('createWidgetServerApi', () => {
     const ops = createMemoryOps(pubsub)
     const messages: string[] = []
     pubsub.subscribe('storage:events', (message) => messages.push(message))
-    const api = createWidgetServerApi({
+    const storage = createWidgetServerStorageApi({
       ops,
       typeId: 'notes',
       instanceId: 'placement-1',
@@ -37,9 +37,9 @@ describe('createWidgetServerApi', () => {
       createId: () => 'entry-7',
     })
 
-    expect(await api.storage.shared.append('items', { text: 'hello' })).toBeUndefined()
+    expect(await storage.shared.append('items', { text: 'hello' })).toBeUndefined()
     expect(
-      await api.storage.shared.get(
+      await storage.shared.get(
         'items',
         z.array(z.object({ id: z.string(), ts: z.number(), ip: z.string(), text: z.string() })),
       ),

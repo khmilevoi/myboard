@@ -9,7 +9,7 @@ import {
   type PublicWidgetDispatchError,
 } from './errors'
 import { findWidgetServer, type WidgetServerRegistry } from './registry'
-import { createWidgetServerApi } from './storage'
+import { createWidgetServerStorageApi } from './storage'
 
 export type DispatchWidgetEventOptions = {
   registry: WidgetServerRegistry
@@ -53,13 +53,15 @@ export async function dispatchWidgetEvent(
     instanceId: options.instanceId,
     ip: options.ip,
     now: options.now,
-    api: createWidgetServerApi({
-      ops: options.ops,
-      typeId: options.typeId,
-      instanceId: options.instanceId,
-      ip: options.ip,
-      now: options.now,
-    }),
+    api: {
+      storage: createWidgetServerStorageApi({
+        ops: options.ops,
+        typeId: options.typeId,
+        instanceId: options.instanceId,
+        ip: options.ip,
+        now: options.now,
+      }),
+    },
   }
 
   const handlerResult = await Promise.resolve(handler(payload.data, context)).catch(
