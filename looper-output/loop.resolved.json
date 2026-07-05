@@ -1,0 +1,255 @@
+{
+  "$schema": "https://github.com/ksimback/looper/schema/loop.resolved.v1.json",
+  "compiled_at": "2026-07-05T20:55:26+00:00",
+  "council": [
+    {
+      "cli": "codex",
+      "id": "codex-review",
+      "invoke": [
+        "codex",
+        "exec",
+        "--model",
+        "gpt-5.5"
+      ],
+      "local": false,
+      "model": "gpt-5.5",
+      "role": "judge",
+      "scope": [
+        "plan",
+        "delivery"
+      ],
+      "timeout_sec": 900
+    }
+  ],
+  "council_by_id": {
+    "codex-review": {
+      "cli": "codex",
+      "id": "codex-review",
+      "invoke": [
+        "codex",
+        "exec",
+        "--model",
+        "gpt-5.5"
+      ],
+      "local": false,
+      "model": "gpt-5.5",
+      "role": "judge",
+      "scope": [
+        "plan",
+        "delivery"
+      ],
+      "timeout_sec": 900
+    }
+  },
+  "criteria_by_id": {
+    "codex-correctness": {
+      "id": "codex-correctness",
+      "rubric": "Review the branch diff for this delivery. Blocking issues only: correctness/logic bugs; error handling that does not follow errore (no throwing; Error | T unions; instanceof narrowing); a race in invite consumption; incorrect WebAuthn verification (challenge, expected origin, RP ID, or sign-counter regression); or session/cookie handling bugs. Ignore style. Return the fenced JSON verdict.\n",
+      "type": "judge"
+    },
+    "e2e-auth": {
+      "check": [
+        "pnpm",
+        "test:e2e:docker"
+      ],
+      "expect": "exit_zero",
+      "id": "e2e-auth",
+      "type": "programmatic"
+    },
+    "plan-covers-spec": {
+      "id": "plan-covers-spec",
+      "rubric": "Judge loop-workspace/plan.md against docs/superpowers/specs/2026-07-05-device-invite-webauthn-gate-design.md. Blocking issues only: any spec section (data model, endpoints, WebAuthn params, invite/ops scripts, hardening, testing) with no corresponding task; task ordering that would enable the nginx auth_request gate before the activation page and /api/auth endpoints are implemented and tested (lockout risk); missing tests-first (TDD) steps; or any unresolved TBD. Return the fenced JSON verdict.\n",
+      "type": "judge"
+    },
+    "publish-signoff": {
+      "id": "publish-signoff",
+      "prompt": "Review the /security-review findings and the auth e2e evidence, then confirm the security posture is acceptable to enable the nginx auth_request gate and publish the board publicly.\n",
+      "type": "human"
+    },
+    "repo-gate": {
+      "check": [
+        "pnpm",
+        "check"
+      ],
+      "expect": "exit_zero",
+      "id": "repo-gate",
+      "type": "programmatic"
+    },
+    "security-clean": {
+      "id": "security-clean",
+      "rubric": "Judge against the /security-review skill output for the current branch plus the spec's Hardening section. Blocking issues: any High or Critical finding; or a missing hardening control - HttpOnly+Secure+SameSite cookies, a CSRF custom-header check on state-changing routes, rate limiting on /api/auth/*, single-use invites (atomic consume, hashed token only), single-use short-TTL WebAuthn challenges, sign-counter regression rejection, and no secrets committed. Return the fenced JSON verdict.\n",
+      "type": "judge"
+    }
+  },
+  "execution": {
+    "isolation": "branch",
+    "mode": "in_session",
+    "side_effects": {
+      "duplicate_action_check": true,
+      "requires_approval": true
+    }
+  },
+  "gates": {
+    "delivery_gate": {
+      "criteria": [
+        "repo-gate",
+        "codex-correctness",
+        "security-clean"
+      ],
+      "max_revisions": 3,
+      "members": [
+        "codex-review"
+      ],
+      "verdict_policy": "revise_until_clean",
+      "verdict_source": "codex-review",
+      "when": "after_each_delivery"
+    },
+    "plan_gate": {
+      "criteria": [
+        "plan-covers-spec"
+      ],
+      "max_revisions": 3,
+      "members": [
+        "codex-review"
+      ],
+      "verdict_policy": "revise_until_clean",
+      "verdict_source": "codex-review",
+      "when": "after_plan"
+    }
+  },
+  "goal": {
+    "context_sources": [
+      {
+        "file": "./docs/superpowers/specs/2026-07-05-device-invite-webauthn-gate-design.md"
+      },
+      {
+        "file": "./AGENTS.md"
+      },
+      {
+        "file": "./CLAUDE.md"
+      }
+    ],
+    "definition_of_done": "Every plan task is implemented; `pnpm check` is green; the auth end-to-end suite (`pnpm test:e2e:docker`) is green; Codex review finds no blocking correctness issue; `/security-review` reports no High or Critical finding and every control in the spec's Hardening section is present; the branch is finished as a PR; and there are no unresolved TBDs.\n",
+    "statement": "Implement the device-invite + WebAuthn access-gate spec end-to-end using the Superpowers flow. The spec is already written, so the loop starts at writing-plans: produce an implementation plan organized as two phases (Phase 1 dormant auth backend + activation page with the gate OFF; Phase 2 enable the nginx auth_request gate + hardening), then implement each plan task via the sonnet-superpowers-implementer subagent while the Opus host orchestrates. Finish as a pull request.\n",
+    "verification": [
+      {
+        "id": "plan-covers-spec",
+        "rubric": "Judge loop-workspace/plan.md against docs/superpowers/specs/2026-07-05-device-invite-webauthn-gate-design.md. Blocking issues only: any spec section (data model, endpoints, WebAuthn params, invite/ops scripts, hardening, testing) with no corresponding task; task ordering that would enable the nginx auth_request gate before the activation page and /api/auth endpoints are implemented and tested (lockout risk); missing tests-first (TDD) steps; or any unresolved TBD. Return the fenced JSON verdict.\n",
+        "type": "judge"
+      },
+      {
+        "check": [
+          "pnpm",
+          "check"
+        ],
+        "expect": "exit_zero",
+        "id": "repo-gate",
+        "type": "programmatic"
+      },
+      {
+        "id": "codex-correctness",
+        "rubric": "Review the branch diff for this delivery. Blocking issues only: correctness/logic bugs; error handling that does not follow errore (no throwing; Error | T unions; instanceof narrowing); a race in invite consumption; incorrect WebAuthn verification (challenge, expected origin, RP ID, or sign-counter regression); or session/cookie handling bugs. Ignore style. Return the fenced JSON verdict.\n",
+        "type": "judge"
+      },
+      {
+        "id": "security-clean",
+        "rubric": "Judge against the /security-review skill output for the current branch plus the spec's Hardening section. Blocking issues: any High or Critical finding; or a missing hardening control - HttpOnly+Secure+SameSite cookies, a CSRF custom-header check on state-changing routes, rate limiting on /api/auth/*, single-use invites (atomic consume, hashed token only), single-use short-TTL WebAuthn challenges, sign-counter regression rejection, and no secrets committed. Return the fenced JSON verdict.\n",
+        "type": "judge"
+      },
+      {
+        "check": [
+          "pnpm",
+          "test:e2e:docker"
+        ],
+        "expect": "exit_zero",
+        "id": "e2e-auth",
+        "type": "programmatic"
+      },
+      {
+        "id": "publish-signoff",
+        "prompt": "Review the /security-review findings and the auth e2e evidence, then confirm the security posture is acceptable to enable the nginx auth_request gate and publish the board publicly.\n",
+        "type": "human"
+      }
+    ]
+  },
+  "host": {
+    "cli": "claude",
+    "invoke": [
+      "claude",
+      "-p"
+    ],
+    "model": "opus",
+    "timeout_sec": 900
+  },
+  "loop_control": {
+    "budget": {
+      "tokens": 4000000,
+      "usd": 25.0,
+      "wall_clock_min": 600
+    },
+    "human_checkpoints": [
+      "Approve loop-workspace/plan.md before any implementation begins",
+      "publish-signoff: confirm security posture before enabling the nginx gate and going public"
+    ],
+    "max_iterations": 16,
+    "no_progress": {
+      "action": "human_checkpoint",
+      "max_stalled_iterations": 2,
+      "signals": [
+        "same blocking issue repeats across iterations",
+        "delivery artifact has no material change",
+        "the same check output is unchanged after a revision"
+      ]
+    },
+    "stop_conditions": [
+      "all deliveries pass the delivery gate clean and publish-signoff is granted",
+      "max_iterations reached",
+      "the same blocker repeats for 2 iterations",
+      "any budget cap exceeded"
+    ]
+  },
+  "meta": {
+    "author": "khmilevoi",
+    "created": "2026-07-05",
+    "description": "Drive the Superpowers workflow (writing-plans -> subagent-driven implementation -> verification -> finishing-a-development-branch) to implement the approved device-invite + WebAuthn access-gate spec, with a Codex correctness gate and a Claude /security-review security gate.\n",
+    "name": "device-invite-webauthn-gate"
+  },
+  "observability": {
+    "checkpoint_granularity": "gate",
+    "run_log": "run-log.md",
+    "state_file": "state.json"
+  },
+  "privacy": {
+    "egress": [
+      {
+        "consent": "required",
+        "redact": [
+          ".env",
+          ".env.*",
+          "secrets/**",
+          "**/*.key",
+          "**/.env*"
+        ],
+        "sends": [
+          "plan",
+          "deliveries",
+          "branch_diff"
+        ],
+        "to": "codex-review"
+      }
+    ]
+  },
+  "source": "C:\\Users\\Khmil\\JsProjects\\myboard\\looper-output\\loop.yaml",
+  "version": 1,
+  "workspace": {
+    "dir": "./loop-workspace",
+    "layout": [
+      "plan.md",
+      "delivery-{n}.md",
+      "review-{n}.md",
+      "security-{n}.md",
+      "state.json",
+      "run-log.md"
+    ]
+  }
+}

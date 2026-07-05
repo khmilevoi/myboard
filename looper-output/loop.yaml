@@ -1,0 +1,159 @@
+version: 1
+meta:
+  name: device-invite-webauthn-gate
+  description: >
+    Drive the Superpowers workflow (writing-plans -> subagent-driven
+    implementation -> verification -> finishing-a-development-branch) to
+    implement the approved device-invite + WebAuthn access-gate spec, with a
+    Codex correctness gate and a Claude /security-review security gate.
+  author: khmilevoi
+  created: 2026-07-05
+  # Orchestration conventions (from repo CLAUDE.md), honored in-session:
+  #  - The host is the Opus orchestrator; it stays on Opus.
+  #  - Each delivery is dispatched to the `sonnet-superpowers-implementer`
+  #    subagent (TDD, minimal local changes), not implemented by the host.
+  #  - Correctness review uses `codex exec review --base <base> -m gpt-5.5`.
+  #  - Security review uses the Claude `/security-review` skill on the branch.
+
+goal:
+  statement: >
+    Implement the device-invite + WebAuthn access-gate spec end-to-end using the
+    Superpowers flow. The spec is already written, so the loop starts at
+    writing-plans: produce an implementation plan organized as two phases
+    (Phase 1 dormant auth backend + activation page with the gate OFF; Phase 2
+    enable the nginx auth_request gate + hardening), then implement each plan
+    task via the sonnet-superpowers-implementer subagent while the Opus host
+    orchestrates. Finish as a pull request.
+  context_sources:
+    - file: ./docs/superpowers/specs/2026-07-05-device-invite-webauthn-gate-design.md
+    - file: ./AGENTS.md
+    - file: ./CLAUDE.md
+  definition_of_done: >
+    Every plan task is implemented; `pnpm check` is green; the auth end-to-end
+    suite (`pnpm test:e2e:docker`) is green; Codex review finds no blocking
+    correctness issue; `/security-review` reports no High or Critical finding
+    and every control in the spec's Hardening section is present; the branch is
+    finished as a PR; and there are no unresolved TBDs.
+  verification:
+    - id: plan-covers-spec
+      type: judge
+      rubric: >
+        Judge loop-workspace/plan.md against
+        docs/superpowers/specs/2026-07-05-device-invite-webauthn-gate-design.md.
+        Blocking issues only: any spec section (data model, endpoints, WebAuthn
+        params, invite/ops scripts, hardening, testing) with no corresponding
+        task; task ordering that would enable the nginx auth_request gate before
+        the activation page and /api/auth endpoints are implemented and tested
+        (lockout risk); missing tests-first (TDD) steps; or any unresolved TBD.
+        Return the fenced JSON verdict.
+    - id: repo-gate
+      type: programmatic
+      check: ["pnpm", "check"]
+      expect: exit_zero
+    - id: codex-correctness
+      type: judge
+      rubric: >
+        Review the branch diff for this delivery. Blocking issues only:
+        correctness/logic bugs; error handling that does not follow errore
+        (no throwing; Error | T unions; instanceof narrowing); a race in invite
+        consumption; incorrect WebAuthn verification (challenge, expected
+        origin, RP ID, or sign-counter regression); or session/cookie handling
+        bugs. Ignore style. Return the fenced JSON verdict.
+    - id: security-clean
+      type: judge
+      rubric: >
+        Judge against the /security-review skill output for the current branch
+        plus the spec's Hardening section. Blocking issues: any High or Critical
+        finding; or a missing hardening control - HttpOnly+Secure+SameSite
+        cookies, a CSRF custom-header check on state-changing routes, rate
+        limiting on /api/auth/*, single-use invites (atomic consume, hashed
+        token only), single-use short-TTL WebAuthn challenges, sign-counter
+        regression rejection, and no secrets committed. Return the fenced JSON
+        verdict.
+    - id: e2e-auth
+      type: programmatic
+      check: ["pnpm", "test:e2e:docker"]
+      expect: exit_zero
+    - id: publish-signoff
+      type: human
+      prompt: >
+        Review the /security-review findings and the auth e2e evidence, then
+        confirm the security posture is acceptable to enable the nginx
+        auth_request gate and publish the board publicly.
+
+host:
+  cli: claude
+  model: opus
+  invoke: ["claude", "-p"]
+  timeout_sec: 900
+
+council:
+  - id: codex-review
+    role: judge
+    cli: codex
+    model: gpt-5.5
+    invoke: ["codex", "exec", "--model", "gpt-5.5"]
+    timeout_sec: 900
+    scope: [plan, delivery]
+    local: false
+
+gates:
+  plan_gate:
+    when: after_plan
+    members: [codex-review]
+    verdict_policy: revise_until_clean
+    verdict_source: codex-review
+    criteria: [plan-covers-spec]
+    max_revisions: 3
+  delivery_gate:
+    when: after_each_delivery
+    members: [codex-review]
+    verdict_policy: revise_until_clean
+    verdict_source: codex-review
+    criteria: [repo-gate, codex-correctness, security-clean]
+    max_revisions: 3
+
+loop_control:
+  max_iterations: 16
+  budget:
+    usd: 25.0
+    tokens: 4000000
+    wall_clock_min: 600
+  no_progress:
+    max_stalled_iterations: 2
+    signals:
+      - same blocking issue repeats across iterations
+      - delivery artifact has no material change
+      - the same check output is unchanged after a revision
+    action: human_checkpoint
+  human_checkpoints:
+    - Approve loop-workspace/plan.md before any implementation begins
+    - "publish-signoff: confirm security posture before enabling the nginx gate and going public"
+  stop_conditions:
+    - all deliveries pass the delivery gate clean and publish-signoff is granted
+    - max_iterations reached
+    - the same blocker repeats for 2 iterations
+    - any budget cap exceeded
+
+execution:
+  mode: in_session
+  isolation: branch  # already on feat/device-invite-webauthn-gate
+  side_effects:
+    requires_approval: true      # pushes, PR, dockerized e2e, Codex sends
+    duplicate_action_check: true
+
+observability:
+  state_file: state.json
+  run_log: run-log.md
+  checkpoint_granularity: gate
+
+privacy:
+  egress:
+    - to: codex-review
+      sends: [plan, deliveries, branch_diff]
+      redact: [".env", ".env.*", "secrets/**", "**/*.key", "**/.env*"]
+      consent: required   # granted by user on 2026-07-05 (codex -> OpenAI account)
+
+workspace:
+  dir: ./loop-workspace
+  layout: [plan.md, "delivery-{n}.md", "review-{n}.md", "security-{n}.md", state.json, run-log.md]
