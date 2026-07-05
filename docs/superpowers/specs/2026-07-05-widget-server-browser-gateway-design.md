@@ -220,9 +220,13 @@ type BrowserAutomationClient = {
     widgetId: string
     taskId: string
     payload: unknown
-  }): Promise<BrowserGatewayError | unknown>
+  }): Promise<BrowserGatewayError | { result: unknown }>
 }
 ```
+
+The explicit success wrapper is required because `Error | unknown` collapses to
+`unknown` and prevents `instanceof Error` narrowing. It also mirrors the wire
+success envelope without exposing transport details to the scoped API.
 
 The scoped widget API closes over `typeId` and exposes only descriptor-oriented
 invocation:
@@ -270,10 +274,11 @@ to shared code is a protocol extraction, not a wire-format change.
 3. The HTTP client sends `POST /tasks/:widgetId/:taskId` with `{ payload }`.
 4. A typed abort reason enforces the main-server deadline.
 5. The client validates HTTP state, JSON, and the shared response envelope.
-6. A valid remote error becomes `BrowserTaskRejectedError` without changing
-   its public `code`, `message`, or `meta`.
-7. A successful result is validated against `descriptor.result` by the scoped
-   API and returned as the inferred output type.
+6. A valid remote error becomes `BrowserTaskRejectedError`, preserving its
+   public `code`, mapping `message` to `publicMessage`, and retaining `meta`.
+7. A successful low-level response is `{ result: unknown }`; the scoped API
+   validates its `result` against `descriptor.result` and returns the inferred
+   output type.
 8. The widget handler maps any gateway error to its own safe RPC result. If it
    returns an error directly, the existing dispatcher wraps it in
    `WidgetHandlerError`.
@@ -304,8 +309,9 @@ the raw response, payload, result, or validation input.
 ### `BrowserTaskRejectedError`
 
 Represents a valid `{ ok: false }` envelope. It preserves the browser service's
-already-redacted public `code`, `message`, and optional `meta`, including future
-task-specific codes such as `browser_session_required`.
+already-redacted public `code`, maps `message` to `publicMessage`, and retains
+optional `meta`, including future task-specific codes such as
+`browser_session_required`.
 
 The gateway does not reconstruct browser-process error classes. Class identity
 does not cross HTTP, and an open remote error code is required for future
