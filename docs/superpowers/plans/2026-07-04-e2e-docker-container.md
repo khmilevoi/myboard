@@ -24,10 +24,12 @@
 ### Task 1: Add `createValkeyTestOps` to `storage/valkey.ts`
 
 **Files:**
+
 - Modify: `packages/server/src/storage/valkey.ts`
 - Test: `packages/server/src/storage/valkey.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `iovalkey`'s default export `Valkey` (already imported in this file).
 - Produces: `export type ValkeyTestOps = ValkeyOps & { clear(): Promise<void> }` and `export function createValkeyTestOps(url?: string): ValkeyTestOps` — Task 2 imports both from `./storage/valkey`.
 
@@ -176,9 +178,11 @@ git commit -m "feat(server): add createValkeyTestOps for e2e-only storage resets
 ### Task 2: Wire `test-server.ts` to the Valkey-backed ops
 
 **Files:**
+
 - Modify: `packages/server/src/test-server.ts`
 
 **Interfaces:**
+
 - Consumes: `createValkeyTestOps`, `createValkeySubscriber` from `./storage/valkey` (Task 1). `AppDeps`/`TestControls` from `./app` (unchanged: `testControls.reset: () => Promise<void> | void`).
 - Produces: no new exports — this is an entry-point script, imported by nothing.
 
@@ -252,11 +256,13 @@ git commit -m "feat(server): back the e2e test-server with real Valkey storage"
 ### Task 3: Containerize the e2e runner
 
 **Files:**
+
 - Create: `packages/client/e2e.Dockerfile`
 - Create: `docker-compose.e2e.yml`
 - Modify: `package.json` (root)
 
 **Interfaces:**
+
 - Consumes: `pnpm --filter client test:e2e` (existing script, unchanged), `VALKEY_URL` env var (Task 1/2).
 - Produces: `docker compose -f docker-compose.e2e.yml` service names `valkey` and `e2e`; root scripts `test:e2e:docker` and `test:e2e:docker:down`.
 
@@ -355,9 +361,11 @@ git commit -m "build(e2e): containerize the main Playwright e2e suite"
 ### Task 4: Document the new workflow
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 
 **Interfaces:**
+
 - Consumes: nothing (documentation only).
 - Produces: nothing (documentation only).
 
@@ -390,9 +398,11 @@ git commit -m "docs: document the containerized e2e workflow"
 ### Task 5: End-to-end verification
 
 **Files:**
+
 - None (verification only).
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1-4.
 - Produces: nothing.
 

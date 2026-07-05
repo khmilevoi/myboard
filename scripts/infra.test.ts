@@ -8,6 +8,7 @@ import { discoverWidgetDirs } from './codegen/shared'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const compose = readFileSync(resolve(root, 'docker-compose.dev.yml'), 'utf8')
+const e2eCompose = readFileSync(resolve(root, 'docker-compose.e2e.yml'), 'utf8')
 const workspace = readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')
 const widgetViteConfig = readFileSync(
   resolve(root, 'packages/widget-sdk/src/vite/widget-vite-config.ts'),
@@ -37,7 +38,7 @@ it('routes local commands to the narrowest codegen target', () => {
     'pnpm run codegen:server && pnpm --filter server dev',
   )
   expect(rootPackage.scripts.build).toBe(
-    'pnpm run codegen:client && concurrently -g --kill-others-on-fail "pnpm --filter ./packages/widgets/* build" "pnpm --filter client typecheck" && pnpm --filter client build',
+    'pnpm run codegen:client && concurrently -g --kill-others-on-fail "pnpm --filter \\"./packages/widgets/*\\" build" "pnpm --filter client typecheck" && pnpm --filter client build',
   )
   expect(rootPackage.scripts['build:widgets']).toBe(
     'pnpm run codegen:client && pnpm --filter "./packages/widgets/*" build',
@@ -217,5 +218,21 @@ describe('browser-automation service wiring', () => {
       prod.indexOf('\nvolumes:'),
     )
     expect(browserAutomationBlock).toMatch(/stop_grace_period:\s*75s/)
+  })
+})
+
+describe('docker-compose.e2e.yml headed-run support', () => {
+  it('publishes valkey to localhost so a host-run Playwright can reach it', () => {
+    const valkeyBlock = e2eCompose.slice(
+      e2eCompose.indexOf('  valkey:'),
+      e2eCompose.indexOf('  e2e:'),
+    )
+    expect(valkeyBlock).toContain("- '127.0.0.1:6379:6379'")
+  })
+
+  it('wires the headed e2e command to the orchestrator script', () => {
+    expect(rootPackage.scripts['test:e2e:docker:headed']).toBe(
+      'tsx scripts/test-e2e-docker-headed.ts',
+    )
   })
 })

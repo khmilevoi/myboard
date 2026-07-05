@@ -46,10 +46,14 @@ test('widget can be expanded without duplicate fullscreen or close controls', as
   const overlay = new OverlayPage(page)
   await overlay.waitForOpen()
   await expect(overlay.dialog).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'Закрыть' })).toHaveCount(1)
+  // Clock deliberately renders no close button of its own in fullscreen mode
+  // (FullscreenOverlay.tsx: "the widget itself decides what chrome ... to
+  // draw ... see Clock's deliberate lack of one") — Escape always closes the
+  // dialog regardless, via the Dialog's onOpenChange handler.
+  await expect(page.getByRole('button', { name: 'Закрыть' })).toHaveCount(0)
   await expect(overlay.dialog.locator('iframe')).toHaveCount(0)
 
-  await overlay.close()
+  await overlay.pressEscape()
   await expect(overlay.dialog).toHaveCount(0)
 })
 

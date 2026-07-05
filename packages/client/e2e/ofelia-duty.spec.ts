@@ -49,7 +49,10 @@ test('В долг — increments the on-duty person’s debt chip and closes the
   const ofelia = new OfeliaPage(page)
   await ofelia.seedOfeliaWidget()
 
-  await expect(ofelia.debtChip(ON_DUTY)).toContainText('0')
+  // All balances are 0 before any action, so DebtChips renders the plain-text
+  // "even" summary rather than per-person chips (see DebtChips.tsx's allZero
+  // branch) — assert on that summary instead of a chip that doesn't exist yet.
+  await expect(ofelia.card.getByText('баланс ровный')).toBeVisible()
 
   await ofelia.debtButton.click()
 
@@ -58,9 +61,16 @@ test('В долг — increments the on-duty person’s debt chip and closes the
 })
 
 test('Простить — decrements an existing debt', async ({ page, request }) => {
-  // Seed a past debt (Леша went into debt on 2026-06-14, a Леша-duty day) so the
-  // global balance shows Леша:1 while today (2026-06-16) stays pending — the
-  // secondary row, and thus "Простить", only renders while status is pending.
+  const DEBTOR = 'Карина' as const
+
+  // Seed a past debt for Карина (not on duty on the pinned date, 2026-06-16 is
+  // a Леша-duty day) so getDebtDays can assign today as her forgive-day —
+  // getDebtDays never assigns a person's own duty day as their forgive-day, so
+  // the debt must belong to whoever is NOT on duty today. 2026-06-15 is a
+  // genuine Карина duty day, so this reads as "Леша covered for Карина who
+  // owed 2026-06-15". The global balance shows Карина:1 while today
+  // (2026-06-16) stays pending — the secondary row, and thus "Простить", only
+  // renders while status is pending.
   await request.put(LEDGER_URL, {
     data: {
       value: [
@@ -68,11 +78,11 @@ test('Простить — decrements an existing debt', async ({ page, request 
           id: 'seed-1',
           ts: 1,
           ip: '127.0.0.1',
-          date: '2026-06-14',
+          date: '2026-06-15',
           type: 'went_into_debt',
-          actor: 'Карина',
-          onBehalfOf: 'Леша',
-          by: 'Карина',
+          actor: 'Леша',
+          onBehalfOf: 'Карина',
+          by: 'Леша',
         },
       ],
     },
@@ -81,12 +91,16 @@ test('Простить — decrements an existing debt', async ({ page, request 
   const ofelia = new OfeliaPage(page)
   await ofelia.seedOfeliaWidget()
 
-  await expect(ofelia.debtChip(ON_DUTY)).toContainText('1')
+  await expect(ofelia.debtChip(DEBTOR)).toContainText('1')
   await expect(ofelia.forgiveButton).toBeVisible()
 
   await ofelia.forgiveButton.click()
 
-  await expect(ofelia.debtChip(ON_DUTY)).toContainText('0')
+  // Forgiving Карина's only debt brings the global balance back to 0:0, so
+  // DebtChips renders the plain-text "even" summary (see DebtChips.tsx's
+  // allZero branch) instead of a per-person chip — assert on that summary
+  // rather than a chip that no longer exists.
+  await expect(ofelia.card.getByText('баланс ровный')).toBeVisible()
 })
 
 test('persistence — a confirmed day survives a reload', async ({ page }) => {

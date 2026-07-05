@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm run codegen:client && pnpm -r --parallel --filter \"./packages/widgets/*\" --filter client dev",
     "dev:server": "pnpm run codegen:server && pnpm --filter server dev",
-    "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter ./packages/widgets/* build\" \"pnpm --filter client typecheck\" && pnpm --filter client build",
+    "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter \\\"./packages/widgets/*\\\" build\" \"pnpm --filter client typecheck\" && pnpm --filter client build",
     "build:widgets": "pnpm run codegen:client && pnpm --filter \"./packages/widgets/*\" build",
     "preview": "pnpm --filter client preview",
     "test": "pnpm run codegen && pnpm run test:scripts && pnpm -r test",
@@ -28,7 +28,10 @@
     "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
     "docker:dev:clean": "docker compose -f docker-compose.dev.yml down -v",
     "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
-    "docker:dev:logs": "docker compose -f docker-compose.dev.yml logs -f"
+    "docker:dev:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "test:e2e:docker": "docker compose -f docker-compose.e2e.yml up --build --exit-code-from e2e --abort-on-container-exit",
+    "test:e2e:docker:down": "docker compose -f docker-compose.e2e.yml down -v",
+    "test:e2e:docker:headed": "tsx scripts/test-e2e-docker-headed.ts"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

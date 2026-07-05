@@ -8,10 +8,7 @@ export type ValkeyOps = {
   publish(channel: string, message: string): Promise<void>
 }
 
-export function createValkeyOps(
-  url = process.env.VALKEY_URL ?? 'redis://localhost:6379',
-): ValkeyOps {
-  const client = new Valkey(url)
+function buildOps(client: Valkey): ValkeyOps {
   return {
     async get(key) {
       return client.get(key)
@@ -36,6 +33,28 @@ export function createValkeyOps(
     },
     async publish(channel, message) {
       await client.publish(channel, message)
+    },
+  }
+}
+
+export function createValkeyOps(
+  url = process.env.VALKEY_URL ?? 'redis://localhost:6379',
+): ValkeyOps {
+  return buildOps(new Valkey(url))
+}
+
+export type ValkeyTestOps = ValkeyOps & { clear(): Promise<void> }
+
+/** Same as createValkeyOps plus a destructive clear() for e2e test resets.
+ *  Only test-server.ts may use this — the production entry never does. */
+export function createValkeyTestOps(
+  url = process.env.VALKEY_URL ?? 'redis://localhost:6379',
+): ValkeyTestOps {
+  const client = new Valkey(url)
+  return {
+    ...buildOps(client),
+    async clear() {
+      await client.flushdb()
     },
   }
 }

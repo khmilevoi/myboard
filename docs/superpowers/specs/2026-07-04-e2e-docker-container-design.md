@@ -75,7 +75,7 @@ Services:
     nothing to reuse regardless).
   - `depends_on: valkey (condition: service_healthy)`.
   - Playwright's existing `webServer` entries in `playwright.config.ts` start
-    `test-server` (port 8787) and the Vite preview (port 4173) *inside* this
+    `test-server` (port 8787) and the Vite preview (port 4173) _inside_ this
     container — no new process-orchestration script needed.
   - Volumes: bind-mount `packages/client/test-results` and
     `packages/client/playwright-report` out to the host so failure artifacts
