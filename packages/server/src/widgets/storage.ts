@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { safeParse } from '@shared/json'
 import { instanceNamespace, typeNamespace, toFullKey, toRelativeKey } from '@shared/storage/scope'
-import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
+import type { WidgetServerStorage } from '@shared/widgets/contracts'
 import * as errore from 'errore'
 import type { z } from 'zod'
 
@@ -15,7 +15,7 @@ export class WidgetServerStorageError extends errore.createTaggedError({
   message: 'Widget storage $operation failed for $key',
 }) {}
 
-export type CreateWidgetServerApiOptions = {
+export type CreateWidgetServerStorageApiOptions = {
   ops: ValkeyOps
   typeId: string
   instanceId: string
@@ -35,14 +35,17 @@ function serialize(operation: string, key: string, value: unknown) {
   return serialized
 }
 
-export function createWidgetServerApi({
+export function createWidgetServerStorageApi({
   ops,
   typeId,
   instanceId,
   ip,
   now,
   createId = randomUUID,
-}: CreateWidgetServerApiOptions): WidgetServerContext['api'] {
+}: CreateWidgetServerStorageApiOptions): {
+  instance: WidgetServerStorage
+  shared: WidgetServerStorage
+} {
   const createScope = (namespace: string): WidgetServerStorage => ({
     async get<T>(key: string, schema?: z.ZodType<T>) {
       const fullKey = toFullKey(namespace, key)
@@ -146,9 +149,7 @@ export function createWidgetServerApi({
   })
 
   return {
-    storage: {
-      instance: createScope(instanceNamespace(instanceId)),
-      shared: createScope(typeNamespace(typeId)),
-    },
+    instance: createScope(instanceNamespace(instanceId)),
+    shared: createScope(typeNamespace(typeId)),
   }
 }

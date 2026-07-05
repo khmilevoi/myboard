@@ -67,6 +67,8 @@ services:
       VALKEY_URL: redis://valkey:6379
       PORT: '8787'
       CHOKIDAR_USEPOLLING: 'true'
+      BROWSER_AUTOMATION_URL: http://browser-automation:8788
+      BROWSER_AUTOMATION_TIMEOUT_MS: '100000'
     volumes: *workspace-volumes
     ports:
       - '127.0.0.1:8787:8787'
