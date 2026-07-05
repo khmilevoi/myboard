@@ -1,5 +1,6 @@
 import {
   defineWidgetBrowser,
+  defineWidgetBrowserTasks,
   toRuntimeWidgetBrowserDefinition,
   type InferWidgetBrowserTasks,
   type RuntimeWidgetBrowserDefinition,
@@ -7,12 +8,12 @@ import {
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 
-const schemas = {
+const schemas = defineWidgetBrowserTasks({
   check: {
     payload: z.object({ value: z.string().transform(Number) }),
     result: z.object({ echoed: z.number().transform(String) }),
   },
-} as const
+})
 
 type Tasks = InferWidgetBrowserTasks<typeof schemas>
 type BrowserContext = { runId: string }
@@ -30,6 +31,8 @@ describe('widget browser contracts', () => {
   it('infers public input and validated output types from Zod schemas', () => {
     expectTypeOf<Tasks['check']['payload']>().toEqualTypeOf<{ value: string }>()
     expectTypeOf<Tasks['check']['result']>().toEqualTypeOf<{ echoed: string }>()
+    expect(schemas.check.id).toBe('check')
+    expectTypeOf(schemas.check.id).toEqualTypeOf<'check'>()
   })
 
   it('types handlers with validated payloads and caller-selected context', async () => {

@@ -7,6 +7,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "errore": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
