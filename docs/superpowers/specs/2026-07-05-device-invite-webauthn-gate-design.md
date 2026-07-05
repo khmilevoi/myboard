@@ -471,3 +471,32 @@ board or widgets.
 - E2e (two virtual authenticators / two browser contexts): A mints → B
   registers → pending → A approves → B logs in; negatives: expired add-token,
   denied approval.
+
+### Pre-launch clarifications (2026-07-06)
+- **Immediate revocation (security requirement):** revoking a device deletes the
+  device record and all of its sessions at once; the `GET /session`
+  `auth_request` verifier also rejects when the backing device is missing,
+  `disabled`, or not `active`. Revocation takes effect on the next request.
+- **Gate allowlist for the new device endpoints (Plan 3):** public (no session)
+  — the `/add-device` page, `POST /devices/register/options|verify` (add-device,
+  token-scoped), and `GET /devices/pending-status` (pending-ticket). Gated
+  (session required) — `POST /devices/add-token`, `GET /devices`,
+  `POST /devices/:id/approve`, `POST /devices/:id/revoke`.
+- **Pending-device notifications:** a dedicated lightweight auth channel under
+  `/api/auth/devices/*` — SSE for device A's approval prompt and polling for
+  device B — separate from the board-storage SSE (device B is unauthenticated,
+  and this is auth-domain, not board data).
+- **Unapproved pending devices:** a pending device has a 15-minute TTL and
+  auto-expires; `Deny` deletes it immediately. Device B polls ~every 2s and
+  gives up after 10 minutes.
+- **Polling vs rate limit:** `GET /devices/pending-status` gets its own limit
+  (~60/min) so polling does not trip the 30/min `/api/auth/*` limit.
+- **Account name:** required, 1–40 chars, non-unique; rename is future.
+- **Stranded-user recovery (identity-preserving):** an admin ops script
+  `mint-add-device-token --account <id>` mints an add-device token for an
+  existing account so the user re-enrolls a device into their **same** account
+  (identity and future private data preserved). `revoke-account` remains for
+  full account removal.
+- **Ops scripts (updated, supersedes the list in section F):** `create-invite`,
+  `revoke-invite`, `list-devices`, `revoke-device`, `revoke-account`,
+  `mint-add-device-token`.

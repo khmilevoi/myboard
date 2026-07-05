@@ -30,7 +30,7 @@ Every plan task is implemented; `pnpm check` is green; the auth end-to-end suite
 
 ## Loop Control
 
-- Max iterations: 16
+- Max iterations: 24
 - Budget: `{"tokens": 4000000, "usd": 25.0, "wall_clock_min": 600}`
 - No-progress: `{"action": "human_checkpoint", "max_stalled_iterations": 2, "signals": ["same blocking issue repeats across iterations", "delivery artifact has no material change", "the same check output is unchanged after a revision"]}`
 
@@ -86,5 +86,5 @@ Every plan task is implemented; `pnpm check` is green; the auth end-to-end suite
 | all gates clean                |
 +--------------------------------+
 
-Stops: pass gates | max 16 iterations | no progress x2 | budget 600m, $25.0, 4000000 tokens
+Stops: pass gates | max 24 iterations | no progress x2 | budget 600m, $25.0, 4000000 tokens
 ```

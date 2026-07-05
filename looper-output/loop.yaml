@@ -121,7 +121,7 @@ gates:
     max_revisions: 3
 
 loop_control:
-  max_iterations: 16
+  max_iterations: 24
   budget:
     usd: 25.0
     tokens: 4000000

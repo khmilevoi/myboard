@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/ksimback/looper/schema/loop.resolved.v1.json",
-  "compiled_at": "2026-07-05T22:10:27+00:00",
+  "compiled_at": "2026-07-05T22:18:30+00:00",
   "council": [
     {
       "cli": "codex",
@@ -193,7 +193,7 @@
       "Approve loop-workspace/plan.md before any implementation begins",
       "publish-signoff: confirm security posture before enabling the nginx gate and going public"
     ],
-    "max_iterations": 16,
+    "max_iterations": 24,
     "no_progress": {
       "action": "human_checkpoint",
       "max_stalled_iterations": 2,
