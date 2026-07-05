@@ -24,10 +24,12 @@ Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default s
 - `pnpm test`: run workspace Vitest tests.
 - `pnpm --filter client test -- src/board/model/board-storage.test.ts`: run a specific client Vitest file, using a path relative to `client`.
 - `pnpm test:e2e`: run board Playwright tests against the assembled production-style Vite output.
-- `pnpm --filter client test:e2e:nginx`: with `docker compose up --build -d` running, smoke-test the actual nginx image.
+- `pnpm test:e2e:docker`: run the full Playwright e2e suite fully isolated (ephemeral Valkey + browsers in one container).
+- `pnpm test:e2e:nginx`: with `pnpm start:docker` running, smoke-test the actual nginx image.
 - `pnpm typecheck`: run workspace TypeScript checks.
-- `pnpm docker:dev`: run Valkey, server, and client with hot reload.
-- `pnpm docker:up`: build and run the production-style Docker stack.
+- `pnpm check`: run lint, format:check, typecheck, and test together (the full local gate).
+- `pnpm dev:docker`: run Valkey, server, and client with hot reload.
+- `pnpm start:docker`: build and run the production-style Docker stack.
 
 The widget directory basename is the canonical widget ID. Each root `client.ts` exports the client definition and lazy loader without an `id`; each root `server.ts` exports schemas and handlers without a `typeId`. A widget may optionally add a root `browser.ts` that default-exports its browser definition without a `widgetId`; browser codegen injects the directory basename.
 
@@ -51,7 +53,7 @@ All exported React function components in `packages/client/src` and `packages/wi
 
 ## Testing Guidelines
 
-Vitest is the unit/component test runner; React tests use Testing Library and jsdom. Keep tests near the code they verify as `*.test.ts` or `*.test.tsx`. Playwright specs belong in `packages/client/e2e`, with page helpers in `packages/client/e2e/pages`. Run `pnpm test` and `pnpm typecheck` before opening a PR; run `pnpm test:e2e` for browser-facing behavior.
+Vitest is the unit/component test runner; React tests use Testing Library and jsdom. Keep tests near the code they verify as `*.test.ts` or `*.test.tsx`. Playwright specs belong in `packages/client/e2e`, with page helpers in `packages/client/e2e/pages`. Run `pnpm check` (or `pnpm test` and `pnpm typecheck`) before opening a PR; run `pnpm test:e2e` for browser-facing behavior.
 
 ## Commit & Pull Request Guidelines
 

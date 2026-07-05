@@ -4,7 +4,7 @@ import { createValkeyTestOps } from './valkey'
 
 // Real Valkey tests are opt-in: they need a reachable Valkey instance. Run
 // with VALKEY_IT=1 (and VALKEY_URL if not the default) once one is up, e.g.
-// via `pnpm docker:up` or `docker run --rm -p 6379:6379 valkey/valkey:8-alpine`.
+// via `pnpm start:docker` or `docker run --rm -p 6379:6379 valkey/valkey:8-alpine`.
 const run = process.env['VALKEY_IT'] === '1'
 
 describe.skipIf(!run)('createValkeyTestOps (real Valkey)', () => {

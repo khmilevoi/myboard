@@ -23,14 +23,17 @@ pnpm --filter server build     # bundle server with Rspack
 pnpm test                      # all workspace Vitest tests
 pnpm --filter client test      # client tests only
 pnpm --filter server test      # server tests only
-pnpm test:e2e                  # board Playwright e2e against the assembled production-style Vite output; needs a reachable Valkey at VALKEY_URL (e.g. `pnpm docker:up`) and ALLOW_TEST_DB_RESET=1 set
-pnpm test:e2e:docker            # same suite, fully isolated: ephemeral Valkey + browsers in one container, torn down after
-pnpm --filter client test:e2e:nginx # with docker compose up --build -d running, smoke-test the actual nginx image
+pnpm test:e2e                  # board Playwright e2e against the assembled production-style Vite output; needs a reachable Valkey at VALKEY_URL (e.g. `pnpm start:docker`) and ALLOW_TEST_DB_RESET=1 set
+pnpm test:e2e:docker           # same suite, fully isolated: ephemeral Valkey + browsers in one container, torn down after
+pnpm test:e2e:docker:down      # tear down the containerized e2e stack
+pnpm test:e2e:docker:headed    # dockerized Valkey + host Playwright in headed mode
+pnpm test:e2e:nginx            # with pnpm start:docker running, smoke-test the actual nginx image
 pnpm typecheck                 # workspace-wide tsc --noEmit
 pnpm lint / pnpm lint:fix       # oxlint
 pnpm format / pnpm format:check # oxfmt
-pnpm docker:dev                 # Valkey + server + client with hot reload
-pnpm docker:up                  # production-style Docker stack
+pnpm check                      # lint + format:check + typecheck + test, run together (full local gate)
+pnpm dev:docker                 # Valkey + server + client with hot reload
+pnpm start:docker               # production-style Docker stack
 ```
 
 Run a single test file or test name with Vitest directly, e.g.:

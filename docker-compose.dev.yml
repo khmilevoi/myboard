@@ -1,6 +1,6 @@
 # Development stack with hot reload. Run with:
-#   pnpm docker:dev        -> docker compose -f docker-compose.dev.yml up --build
-#   pnpm docker:dev:down   -> tear it down
+#   pnpm dev:docker        -> docker compose -f docker-compose.dev.yml up --build
+#   pnpm dev:docker:down   -> tear it down
 #
 # - client: Vite dev server with HMR at http://localhost:5173
 # - widgets: every packages/widgets/* dev server (federation remotes). Dev
@@ -14,7 +14,7 @@
 #   so edits on a Windows/macOS host are detected through the Docker bind mount.
 # - node_modules of EVERY workspace package live in named volumes so the
 #   host's (Windows) install is not clobbered by the container's (Linux) one.
-#   After moving/renaming workspace packages run `pnpm docker:dev:clean`:
+#   After moving/renaming workspace packages run `pnpm dev:docker:clean`:
 #   pnpm's "Already up to date" check trusts the volume state and will not
 #   repair relative symlinks that the move broke.
 
