@@ -452,6 +452,8 @@ a rebuild, noVNC is reachable only through an SSH tunnel, secrets appear only as
 
 **Slug:** `widget-server-browser-gateway`
 
+**Design:** [Widget Server Browser Gateway Design](./2026-07-05-widget-server-browser-gateway-design.md)
+
 **Objective:** Give widget server handlers a typed, scoped, error-as-value client
 for invoking their own browser tasks.
 
