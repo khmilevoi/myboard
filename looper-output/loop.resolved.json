@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/ksimback/looper/schema/loop.resolved.v1.json",
-  "compiled_at": "2026-07-05T20:55:26+00:00",
+  "compiled_at": "2026-07-05T21:35:13+00:00",
   "council": [
     {
       "cli": "codex",
@@ -176,7 +176,9 @@
     "cli": "claude",
     "invoke": [
       "claude",
-      "-p"
+      "-p",
+      "--model",
+      "opus"
     ],
     "model": "opus",
     "timeout_sec": 900
@@ -212,6 +214,12 @@
     "author": "khmilevoi",
     "created": "2026-07-05",
     "description": "Drive the Superpowers workflow (writing-plans -> subagent-driven implementation -> verification -> finishing-a-development-branch) to implement the approved device-invite + WebAuthn access-gate spec, with a Codex correctness gate and a Claude /security-review security gate.\n",
+    "model_routing": {
+      "correctness_review": "gpt-5.5",
+      "host": "opus",
+      "implementer": "sonnet",
+      "security_review": "opus"
+    },
     "name": "device-invite-webauthn-gate"
   },
   "observability": {
@@ -239,7 +247,7 @@
       }
     ]
   },
-  "source": "C:\\Users\\Khmil\\JsProjects\\myboard\\looper-output\\loop.yaml",
+  "source": "C:\\Users\\Khmil\\JsProjects\\myboard\\.worktrees\\webauthn-gate\\looper-output\\loop.yaml",
   "version": 1,
   "workspace": {
     "dir": "./loop-workspace",

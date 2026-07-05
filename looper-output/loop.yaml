@@ -8,6 +8,11 @@ meta:
     Codex correctness gate and a Claude /security-review security gate.
   author: khmilevoi
   created: 2026-07-05
+  model_routing:
+    host: opus                   # orchestrator: writing-plans, triage, finishing-a-development-branch
+    implementer: sonnet          # ALL implementation tasks via sonnet-superpowers-implementer (no Opus escalation)
+    correctness_review: gpt-5.5  # codex exec review --base <base> -m gpt-5.5
+    security_review: opus        # /security-review skill, run in-session by the host
   # Orchestration conventions (from repo CLAUDE.md), honored in-session:
   #  - The host is the Opus orchestrator; it stays on Opus.
   #  - Each delivery is dispatched to the `sonnet-superpowers-implementer`
@@ -84,7 +89,7 @@ goal:
 host:
   cli: claude
   model: opus
-  invoke: ["claude", "-p"]
+  invoke: ["claude", "-p", "--model", "opus"]
   timeout_sec: 900
 
 council:

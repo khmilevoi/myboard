@@ -250,3 +250,101 @@ docker-compose.yml             # env: RP_ID, RP_NAME, PUBLIC_APP_URL, SESSION_*
 
 This order guarantees the door only closes (step 3) once activation already
 works, so we cannot lock ourselves out.
+
+## Operational & integration decisions (2026-07-05)
+
+These decisions were locked in a focused follow-up brainstorm. They refine and,
+where noted, supersede the defaults above.
+
+### A. Production origin & TLS
+- Public URL: `https://board.iiskelo.com`. TLS terminates at the Cloudflare
+  edge; `cloudflared` on the Pi tunnels to the client nginx over HTTP. The
+  browser always sees HTTPS, so `Secure` / `__Host-` cookies and the WebAuthn
+  secure-context requirement are satisfied.
+- `RP_ID = board.iiskelo.com`; `EXPECTED_ORIGIN = PUBLIC_APP_URL =
+  https://board.iiskelo.com`. The WebAuthn origin is verified against the
+  hardcoded `EXPECTED_ORIGIN` env, never a request header.
+- The real client IP is taken from `CF-Connecting-IP` (Cloudflare Tunnel), not
+  `X-Forwarded-For`, for rate limiting and audit. SSE (`/api/storage/events`)
+  must be confirmed to pass through the tunnel unbuffered (`x-accel-buffering:
+  no` is already set).
+
+### B. Expired-session / 401 behavior (offline-first preserved)
+- On an API `401`, the board client attempts a **silent WebAuthn re-login**
+  (`login/options` → `navigator.credentials.get()` → `login/verify`). Success
+  resumes seamlessly; failure or cancel redirects to the activation page. This
+  lives as a `401` interceptor in the `widget-runtime` HTTP storage backend.
+- SSE: auth is checked at stream open; a `401` at open triggers re-login;
+  mid-stream expiry is tolerated until the next reconnect (which re-auths).
+- Explicit logout purges the service-worker caches and Dexie board data and
+  unregisters the service worker.
+- The service worker caches the app shell/assets only for already-authorized
+  devices, so offline-first is preserved. Data confidentiality is always
+  enforced by the API gate; a never-authorized device cannot download board
+  code (nginx gate). A previously-authorized device reusing its cached shell
+  after expiry is acceptable — it shows no data until re-auth.
+
+### C. Dev/test strategy (the gate is nginx-only)
+- Server auth logic (invites/devices/sessions/webauthn/challenge) is covered by
+  Vitest unit tests; no nginx needed.
+- The activation flow, WebAuthn, and gate behavior are covered by Playwright
+  with a CDP virtual authenticator against the **dockerized nginx** stack
+  (extend `test:e2e:nginx` / `test:e2e:docker`), because the `auth_request`
+  gate exists only there.
+- `pnpm dev` (Vite, no nginx) serves `/api/auth/*` and the activation page for
+  flow iteration, but gate behavior (`401` → activation, asset blocking) is
+  verified only via the Docker path.
+- E2e seeds invites through a test-only endpoint guarded by
+  `ALLOW_TEST_DB_RESET` (mirrors the existing `/api/test/*`).
+- **Activation page form (supersedes the base spec's file layout):** a
+  self-contained **inline TS page** (`activate.html` with inlined JS + CSS,
+  `@simplewebauthn/browser`, shared theme CSS variables), produced by an
+  isolated mini-build outside the board's Vite graph. It emits nothing under
+  `/assets/`, so it is served publicly with no gating chicken/egg. The board
+  build is untouched.
+
+### D. Session & cookies
+- Session cookie `__Host-mb_session`: `Secure` + `HttpOnly` + `Path=/` +
+  `SameSite=Lax` + no `Domain`.
+- Challenge cookie `__Host-mb_chal`: `SameSite=Strict`, 5-minute TTL,
+  single-use.
+- Session lifetime: sliding **30 days**, absolute cap **90 days**. TTL refresh
+  is throttled (rewritten at most ~every 5 minutes to avoid a Valkey write per
+  request).
+- `auth_request` is uncached in nginx initially (a Valkey `GET` is cheap);
+  revisit under load.
+
+### E. WebAuthn parameters (strict profile)
+- `userVerification: 'required'` and `residentKey: 'required'` (discoverable
+  credentials).
+- Identity: a random 16-byte `user.id` per device; `user.name` / `displayName`
+  from the invite label (fallback "Board device").
+- Return-login uses an empty `allowCredentials` + discoverable credentials,
+  plus a credential-ID hint in `localStorage` as a fast path.
+- On the activation page, a spent invite with an existing credential offers
+  login instead of an error.
+- Unchanged from the base spec: `attestation: 'none'`, ES256 + EdDSA,
+  `excludeCredentials` on registration, the `@simplewebauthn/*` libraries.
+
+### F. Env, rate limiting, ops scripts, delivery split
+- Env (`.env.example` + `docker-compose.yml`): `RP_ID`, `RP_NAME`,
+  `PUBLIC_APP_URL`, `EXPECTED_ORIGIN`, `SESSION_TTL_SLIDING`,
+  `SESSION_TTL_ABSOLUTE`, `SESSION_COOKIE_NAME`, and a flag to trust
+  `CF-Connecting-IP`.
+- Rate limiting: `/api/auth/*` at 30 req/min/IP via nginx `limit_req` (real IP
+  from `CF-Connecting-IP`); per-invite 10 failed attempts locks the invite.
+- Ops scripts: `create-invite`, `revoke-invite`, `list-devices`,
+  `revoke-device`.
+- **Delivery split (supersedes the single "Delivery order" above): two plans.**
+  Plan 1 — dormant: the auth backend + activation page with the gate OFF
+  (base-spec steps 1–2). Plan 2 — enforced: enable the nginx gate + hardening
+  (base-spec steps 3–4). The gate is only enabled in Plan 2, after activation
+  is proven, so we cannot lock ourselves out.
+
+### Implementation loop (model routing)
+Captured in `looper-output/loop.yaml`, not implemented as product code: Opus
+4.8 orchestrates (writing-plans, triage, finishing-a-development-branch);
+Sonnet 5 implements **all** tasks via the `sonnet-superpowers-implementer`
+subagent (no Opus escalation); Codex GPT-5.5 reviews correctness
+(`codex exec review --base <base> -m gpt-5.5`); the `/security-review` skill
+runs in-session on Opus.
