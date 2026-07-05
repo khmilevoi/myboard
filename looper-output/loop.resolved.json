@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/ksimback/looper/schema/loop.resolved.v1.json",
-  "compiled_at": "2026-07-05T21:35:13+00:00",
+  "compiled_at": "2026-07-05T22:10:27+00:00",
   "council": [
     {
       "cli": "codex",
@@ -130,7 +130,7 @@
       }
     ],
     "definition_of_done": "Every plan task is implemented; `pnpm check` is green; the auth end-to-end suite (`pnpm test:e2e:docker`) is green; Codex review finds no blocking correctness issue; `/security-review` reports no High or Critical finding and every control in the spec's Hardening section is present; the branch is finished as a PR; and there are no unresolved TBDs.\n",
-    "statement": "Implement the device-invite + WebAuthn access-gate spec end-to-end using the Superpowers flow. The spec is already written, so the loop starts at writing-plans: produce an implementation plan organized as two phases (Phase 1 dormant auth backend + activation page with the gate OFF; Phase 2 enable the nginx auth_request gate + hardening), then implement each plan task via the sonnet-superpowers-implementer subagent while the Opus host orchestrates. Finish as a pull request.\n",
+    "statement": "Implement the device-invite + WebAuthn access-gate spec end-to-end using the Superpowers flow. The spec is already written, so the loop starts at writing-plans: produce an implementation plan organized as three plans (Plan 1 dormant auth backend + activation + account creation, gate OFF; Plan 2 accounts & multi-device: add-device QR/scan + pending-approval + the My-devices panel, gate OFF; Plan 3 enable the nginx auth_request gate + hardening), then implement each plan task via the sonnet-superpowers-implementer subagent while the Opus host orchestrates. Finish as a pull request.\n",
     "verification": [
       {
         "id": "plan-covers-spec",

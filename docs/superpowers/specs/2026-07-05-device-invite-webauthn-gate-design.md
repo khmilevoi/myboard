@@ -348,3 +348,126 @@ Sonnet 5 implements **all** tasks via the `sonnet-superpowers-implementer`
 subagent (no Opus escalation); Codex GPT-5.5 reviews correctness
 (`codex exec review --base <base> -m gpt-5.5`); the `/security-review` skill
 runs in-session on Opus.
+
+## Accounts & multi-device (2026-07-06)
+
+This extends the design to introduce **user accounts** that own multiple
+devices. It supersedes the base spec's "one shared board, device = access"
+framing: a device now belongs to an account, and `accountId` becomes the future
+scope key for per-user private data (private board schemas and private widget
+data). Those private-data features are **not** built now (YAGNI); the board
+stays shared for this iteration, but the identity/session model carries
+`accountId` so per-user scoping can be layered later without rework.
+
+### Account & device data model (Valkey)
+- `account:{accountId}` → `{ id, name, createdAt, inviteId, deviceLimit }`
+  (`deviceLimit` default 10).
+- `device:{credentialId}` gains `accountId`, `status: 'active' | 'pending'`,
+  `label` (auto-derived from the user agent; rename is future), and
+  `addedVia: 'invite' | 'add-token'`. It retains publicKey, signCount,
+  transports, createdAt, lastSeenAt, and disabled from the base spec.
+- `account:{accountId}:devices` → a set of credential IDs, for listing a
+  user's devices.
+- `deviceadd:{sha256(token)}` → `{ accountId, expiresAt }`, TTL 5 min,
+  single-use.
+- The session carries `accountId` + `credentialId`.
+
+### Enrollment flow (a): new account via admin invite
+Extends the base flow. `/activate?token=…` now shows a **name** field; on
+`register/verify` the server creates the `account` (with the entered name) plus
+the first device (`status: 'active'` — an admin invite is trusted) and issues a
+session.
+
+### Enrollment flow (b): add a device to an existing account
+Self-served QR/link with owner confirmation:
+```
+Device A (signed in): "My devices" → "Add device"
+  → POST /api/auth/devices/add-token   (session + fresh UV)
+  → deviceadd token (5 min) → render QR (qr-code-styling) + link
+     https://board.iiskelo.com/add-device?token=…
+Device B: open link (or scan A's QR in-app) → activation "add-device" mode
+  → register options/verify (excludeCredentials = the account's devices)
+  → device created status='pending', NO session → "waiting for approval"
+Device A: SSE notification "device X wants to join" → Approve
+  → device status='active'
+Device B: polls pending-status → approved → normal WebAuthn login → session
+```
+Guards: the add-token is single-use, 5-min TTL, and minted only with a fresh
+user verification on device A; a pending device holds no session until approved.
+
+### Endpoint changes (`/api/auth/*`)
+- `register/verify` (invite): also accepts `name`, creates the account.
+- `POST /devices/add-token` (session + fresh UV): mint an add-device token.
+- `POST /devices/register/options` + `/register/verify` (add-device mode,
+  token-scoped): create a pending device; no session; set a short-lived
+  pending-ticket cookie for polling.
+- `GET /devices` (session): list the account's devices (active + pending).
+- `POST /devices/:credentialId/approve` (session): activate a pending device.
+- `POST /devices/:credentialId/revoke` (session): revoke one of the account's
+  devices.
+- `GET /devices/pending-status` (pending-ticket, no session): device B polls
+  for approval.
+
+### "My devices" in-board panel
+A gated, signed-in board surface (Reatom `reatomMemo` component, logic in
+`model/`): lists the account's devices (label, added date, "this device"
+marker, status); shows pending join requests with **Approve / Deny**; an **Add
+device** button that mints a token and opens a QR modal; and **Revoke** per
+device. Rename is future. Guard: a user cannot revoke their only remaining
+active device from itself (that would strand the account — an admin
+`revoke-account` / re-invite is the recovery path).
+
+### Activation page changes
+The standalone activation app gains a **name** field (new-account mode) and an
+**add-device mode** (`/add-device?token=…`) whose screen registers the device,
+then shows "waiting for approval" and polls until approved before completing a
+normal login. It may take the token from the opened link or from scanning
+device A's QR in-app (react-zxing). Still standalone — it never imports the
+board or widgets.
+
+### Client tech stack
+- **Components — shadcn/ui**: already present in
+  `packages/client/src/components/ui/`; add missing components (e.g. `form`,
+  `card`, toast) as needed. Used on both the "My devices" panel and the
+  activation app.
+- **Forms — `reatomForm`** (Reatom v1001): field state and validation live in
+  `model/`; the view only binds shadcn `Input` / `Button`. First use: the
+  account-name field; later: device rename (future).
+- **QR generation — `qr-code-styling`** (device A, "My devices" panel): uses the
+  brand accent token `--primary` (with `--accent-soft` behind it), **not** the
+  shadcn `--accent` token (a neutral surface that would be invisible). Accent
+  modules sit on a light chip for scanner contrast; the QR regenerates on theme
+  change. URL assembly and styling options (derived from `resolvedTheme`) live
+  in `model/`; the view holds only the container ref and `.append` / `.update`.
+- **QR scanning — `react-zxing`** (device B, activation add-device mode): the
+  `useZxing` hook and the video ref stay in the view, but all logic (decoded
+  text, validating it is an add-device URL, extracting the token, starting
+  registration, camera/error state) lives in Reatom `model/`; the view only
+  forwards the hook callbacks into actions.
+- **Dark theme:** everything uses the `data-theme` tokens from
+  `packages/client/src/shared/theme/tokens.css`, resolved by the existing
+  `theme/model/theme-model.ts`. The activation app loads `tokens.css` and
+  respects the theme.
+- **New client dependencies:** `react-zxing`, `qr-code-styling`.
+- **Activation app form (supersedes decision C above):** no longer a "vanilla
+  inline single file". It is a small **Reatom + shadcn** app (`reatomForm` +
+  `react-zxing` + `@simplewebauthn/browser` + shared `tokens.css`), built
+  separately from the board's Vite graph and served on a **public, non-gated**
+  path (not the board's `/assets/`). It never imports the board or widgets, so
+  it emits nothing gated and the gating rule is unchanged.
+
+### Delivery split (revised to three plans, supersedes section F)
+- **Plan 1 — dormant core:** auth backend + activation, **account creation**,
+  one active device per account. Gate OFF.
+- **Plan 2 — accounts & multi-device:** add-device token + QR
+  (`qr-code-styling`) + in-app scan (`react-zxing`) + pending/approval + SSE
+  notifications + the "My devices" panel. Gate OFF.
+- **Plan 3 — enforced:** enable the nginx `auth_request` gate + hardening.
+
+### Testing additions
+- Unit: account creation from an invite; add-token mint/TTL/single-use/UV;
+  register → pending; approve → active; revoke; the last-active-device guard;
+  Reatom models for QR generation options and for scan-result validation.
+- E2e (two virtual authenticators / two browser contexts): A mints → B
+  registers → pending → A approves → B logs in; negatives: expired add-token,
+  denied approval.

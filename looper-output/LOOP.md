@@ -4,7 +4,7 @@ Drive the Superpowers workflow (writing-plans -> subagent-driven implementation 
 
 ## Goal
 
-Implement the device-invite + WebAuthn access-gate spec end-to-end using the Superpowers flow. The spec is already written, so the loop starts at writing-plans: produce an implementation plan organized as two phases (Phase 1 dormant auth backend + activation page with the gate OFF; Phase 2 enable the nginx auth_request gate + hardening), then implement each plan task via the sonnet-superpowers-implementer subagent while the Opus host orchestrates. Finish as a pull request.
+Implement the device-invite + WebAuthn access-gate spec end-to-end using the Superpowers flow. The spec is already written, so the loop starts at writing-plans: produce an implementation plan organized as three plans (Plan 1 dormant auth backend + activation + account creation, gate OFF; Plan 2 accounts & multi-device: add-device QR/scan + pending-approval + the My-devices panel, gate OFF; Plan 3 enable the nginx auth_request gate + hardening), then implement each plan task via the sonnet-superpowers-implementer subagent while the Opus host orchestrates. Finish as a pull request.
 
 ## Definition of Done
 
