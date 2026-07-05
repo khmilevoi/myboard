@@ -1,14 +1,23 @@
 import type { AddressInfo } from 'node:net'
 
+import { defineWidgetBrowserTasks } from '@shared/widgets/browser-contracts'
 import { defineWidgetServer, toRuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { createApp, type App } from './app'
+import { makeFakeBrowserAutomationClient } from './browser/testing/fake-client'
 import { createMemoryOps, createMemoryPubSub } from './test/memory-ops'
 import { createWidgetServerRegistry } from './widgets/registry'
 
 const DEBTS_KEY = encodeURIComponent('w:t:ofelia-poop-duty:debts')
+
+const browserTasks = defineWidgetBrowserTasks({
+  check: {
+    payload: z.object({ value: z.string() }),
+    result: z.object({ echoed: z.string() }),
+  },
+})
 
 const testWidget = defineWidgetServer({
   schemas: {
@@ -16,10 +25,17 @@ const testWidget = defineWidgetServer({
       payload: z.object({ value: z.string() }),
       result: z.object({ echoed: z.string(), instanceId: z.string() }),
     },
+    browserEcho: {
+      payload: z.object({ value: z.string() }),
+      result: z.object({ echoed: z.string() }),
+    },
   },
   handlers: {
     echo(payload, context) {
       return { echoed: payload.value, instanceId: context.instanceId }
+    },
+    async browserEcho(payload, context) {
+      return context.api.browser.invoke(browserTasks.check, payload)
     },
   },
 })
@@ -33,16 +49,19 @@ describe('createApp', () => {
   let app: App
   let base: string
   let now: number
+  let browserFake: ReturnType<typeof makeFakeBrowserAutomationClient>
 
   beforeEach(async () => {
     const pubsub = createMemoryPubSub()
     const ops = createMemoryOps(pubsub)
     now = Date.parse('2026-06-16T10:00:00.000Z')
+    browserFake = makeFakeBrowserAutomationClient()
     app = createApp({
       ops,
       subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
       now: () => now,
       widgetRegistry: testWidgetRegistry,
+      browserClient: browserFake.client,
       testControls: {
         setNow: (ms) => {
           now = ms
@@ -160,5 +179,40 @@ describe('createApp', () => {
     })
     expect(res.status).toBe(422)
     expect(await res.json()).toMatchObject({ error: { code: 'payload_invalid' } })
+  })
+
+  it('invokes a widget-scoped browser task through normal widget RPC', async () => {
+    browserFake.setResult({ result: { echoed: 'from-browser' } })
+    const res = await fetch(`${base}/api/widgets/test-widget/browserEcho`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ instanceId: 'placement-1', payload: { value: 'hello' } }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ data: { echoed: 'from-browser' } })
+    expect(browserFake.calls).toEqual([
+      {
+        widgetId: 'test-widget',
+        taskId: 'check',
+        payload: { value: 'hello' },
+      },
+    ])
+  })
+
+  it('keeps non-browser routes healthy while browser automation is unavailable', async () => {
+    const time = await fetch(`${base}/api/time`)
+    expect(time.status).toBe(200)
+    expect(await time.json()).toEqual({ now })
+
+    const echo = await fetch(`${base}/api/widgets/test-widget/echo`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ instanceId: 'placement-1', payload: { value: 'hello' } }),
+    })
+    expect(echo.status).toBe(200)
+    expect(await echo.json()).toEqual({
+      data: { echoed: 'hello', instanceId: 'placement-1' },
+    })
   })
 })

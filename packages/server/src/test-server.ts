@@ -1,4 +1,6 @@
 import { createApp } from './app'
+import { loadBrowserGatewayConfig } from './browser/config'
+import { createHttpBrowserAutomationClient } from './browser/http-client'
 import { createValkeySubscriber, createValkeyTestOps } from './storage/valkey'
 import { productionWidgetServerRegistry } from './widgets/production-registry'
 
@@ -16,11 +18,20 @@ import { productionWidgetServerRegistry } from './widgets/production-registry'
 const ops = createValkeyTestOps()
 let currentNow = Date.now()
 
+const browserConfig = loadBrowserGatewayConfig(process.env)
+if (browserConfig instanceof Error) {
+  console.error(browserConfig.message)
+  process.exit(1)
+}
+
+const browserClient = createHttpBrowserAutomationClient(browserConfig)
+
 const { server } = createApp({
   ops,
   subscribe: (onMessage) => createValkeySubscriber('storage:events', onMessage),
   now: () => currentNow,
   widgetRegistry: productionWidgetServerRegistry,
+  browserClient,
   testControls: {
     setNow: (ms) => {
       currentNow = ms

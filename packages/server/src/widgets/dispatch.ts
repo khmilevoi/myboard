@@ -1,6 +1,8 @@
 import type { WidgetServerContext } from '@shared/widgets/contracts'
 
+import type { BrowserAutomationClient } from '../browser/client'
 import type { ValkeyOps } from '../storage/valkey'
+import { createWidgetServerApi } from './api'
 import {
   InvalidWidgetPayloadError,
   InvalidWidgetResultError,
@@ -9,11 +11,11 @@ import {
   type PublicWidgetDispatchError,
 } from './errors'
 import { findWidgetServer, type WidgetServerRegistry } from './registry'
-import { createWidgetServerStorageApi } from './storage'
 
 export type DispatchWidgetEventOptions = {
   registry: WidgetServerRegistry
   ops: ValkeyOps
+  browserClient: BrowserAutomationClient
   typeId: string
   event: string
   instanceId: string
@@ -53,15 +55,14 @@ export async function dispatchWidgetEvent(
     instanceId: options.instanceId,
     ip: options.ip,
     now: options.now,
-    api: {
-      storage: createWidgetServerStorageApi({
-        ops: options.ops,
-        typeId: options.typeId,
-        instanceId: options.instanceId,
-        ip: options.ip,
-        now: options.now,
-      }),
-    },
+    api: createWidgetServerApi({
+      ops: options.ops,
+      typeId: options.typeId,
+      instanceId: options.instanceId,
+      ip: options.ip,
+      now: options.now,
+      browserClient: options.browserClient,
+    }),
   }
 
   const handlerResult = await Promise.resolve(handler(payload.data, context)).catch(

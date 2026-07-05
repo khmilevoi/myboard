@@ -1,5 +1,7 @@
 import type { z } from 'zod'
 
+import type { WidgetServerBrowserApi } from './browser-contracts'
+
 export type WidgetEventSchemas = Record<
   string,
   {
@@ -53,6 +55,7 @@ export type WidgetServerContext = {
       instance: WidgetServerStorage
       shared: WidgetServerStorage
     }
+    browser: WidgetServerBrowserApi
   }
 }
 

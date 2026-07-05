@@ -4,6 +4,7 @@ import { createServer, type Server, type ServerResponse } from 'node:http'
 import Router from 'find-my-way'
 import { z } from 'zod'
 
+import type { BrowserAutomationClient } from './browser/client'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
@@ -49,6 +50,7 @@ export type AppDeps = {
   subscribe: (onMessage: (message: string) => void) => () => void
   now: () => number
   widgetRegistry: WidgetServerRegistry
+  browserClient: BrowserAutomationClient
   testControls?: TestControls
 }
 
@@ -249,6 +251,7 @@ export function createApp(deps: AppDeps): App {
     const result = await dispatchWidgetEvent({
       registry: deps.widgetRegistry,
       ops,
+      browserClient: deps.browserClient,
       typeId: decodeURIComponent(params.typeId as string),
       event: decodeURIComponent(params.event as string),
       instanceId: body.data.instanceId,
