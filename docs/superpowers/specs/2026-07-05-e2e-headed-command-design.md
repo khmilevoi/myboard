@@ -7,9 +7,10 @@ Add `pnpm test:e2e:docker:headed`: run the board's Playwright e2e suite (`packag
 ## Why not full containerization (rejected)
 
 `packages/browser-automation` already carries an Xvfb + x11vnc + noVNC stack for a genuine production reason (remote CAPTCHA recovery on a headless Pi). Reusing that pattern for local e2e debugging would mean:
+
 - 3 extra daemons (Xvfb, x11vnc, websockify) baked into `packages/client/e2e.Dockerfile`.
 - A new entrypoint script replacing the current one-line `CMD`.
-- Only a *stream* of the browser (via noVNC), not real interaction — you can watch, not click.
+- Only a _stream_ of the browser (via noVNC), not real interaction — you can watch, not click.
 
 Since `packages/server/src/test-server.ts` only needs `VALKEY_URL` to reach Valkey, and Playwright's `webServer` blocks in `playwright.config.ts` already build/start the server and client on the host, the only piece that needs Docker is Valkey. Running Playwright itself on the host gives a real native browser window with none of the above complexity.
 
@@ -24,9 +25,11 @@ Since `packages/server/src/test-server.ts` only needs `VALKEY_URL` to reach Valk
 5. In a `finally` (and on `SIGINT`/`SIGTERM`), tears the Valkey container down: `docker compose -f docker-compose.e2e.yml down -v`.
 
 **Compose changes: `docker-compose.e2e.yml`**
+
 - Add a `ports: ['127.0.0.1:6379:6379']` entry to the `valkey` service. This is a static, always-present mapping (compose has no clean way to make it conditional), but it's loopback-only and only bound while this script (or `test:e2e:docker`, which doesn't need the port but is unaffected by it being present) is running.
 
 **Root `package.json`**
+
 - New script: `"test:e2e:docker:headed": "tsx scripts/test-e2e-docker-headed.ts"`.
 
 **No changes** to `packages/client/e2e.Dockerfile`, `playwright.config.ts`, or the existing `test:e2e:docker` / `test:e2e:docker:down` flow.

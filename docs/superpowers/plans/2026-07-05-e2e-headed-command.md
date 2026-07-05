@@ -19,10 +19,12 @@
 ### Task 1: Publish the Valkey port in `docker-compose.e2e.yml`
 
 **Files:**
+
 - Modify: `docker-compose.e2e.yml:16-24` (the `valkey` service block)
 - Test: `scripts/infra.test.ts`
 
 **Interfaces:**
+
 - Produces: `docker-compose.e2e.yml`'s `valkey` service exposes `127.0.0.1:6379:6379`, so a host process can reach it at `redis://localhost:6379`.
 
 - [ ] **Step 1: Write the failing test**
@@ -57,31 +59,31 @@ Expected: FAIL — `valkeyBlock` does not contain `'127.0.0.1:6379:6379'`.
 In `docker-compose.e2e.yml`, change the `valkey` service from:
 
 ```yaml
-  valkey:
-    image: valkey/valkey:8-alpine
-    tmpfs:
-      - /data
-    healthcheck:
-      test: ['CMD', 'valkey-cli', 'ping']
-      interval: 5s
-      timeout: 3s
-      retries: 5
+valkey:
+  image: valkey/valkey:8-alpine
+  tmpfs:
+    - /data
+  healthcheck:
+    test: ['CMD', 'valkey-cli', 'ping']
+    interval: 5s
+    timeout: 3s
+    retries: 5
 ```
 
 to:
 
 ```yaml
-  valkey:
-    image: valkey/valkey:8-alpine
-    tmpfs:
-      - /data
-    ports:
-      - '127.0.0.1:6379:6379'
-    healthcheck:
-      test: ['CMD', 'valkey-cli', 'ping']
-      interval: 5s
-      timeout: 3s
-      retries: 5
+valkey:
+  image: valkey/valkey:8-alpine
+  tmpfs:
+    - /data
+  ports:
+    - '127.0.0.1:6379:6379'
+  healthcheck:
+    test: ['CMD', 'valkey-cli', 'ping']
+    interval: 5s
+    timeout: 3s
+    retries: 5
 ```
 
 Also update the file's header comment (lines 1-13) to mention the new command, so the comment stays accurate. Change:
@@ -128,11 +130,13 @@ git commit -m "feat(e2e): publish valkey port in docker-compose.e2e.yml for head
 ### Task 2: Add the headed-run orchestrator script
 
 **Files:**
+
 - Create: `scripts/test-e2e-docker-headed.ts`
 - Modify: `package.json` (add `test:e2e:docker:headed` script)
 - Test: `scripts/infra.test.ts`
 
 **Interfaces:**
+
 - Consumes: the `valkey` service name and `docker-compose.e2e.yml` path from Task 1; `packages/client`'s `test:e2e` → `playwright test` wiring (unmodified, from `packages/client/package.json:12`).
 - Produces: root script `test:e2e:docker:headed` → `tsx scripts/test-e2e-docker-headed.ts`, exiting with Playwright's own exit code.
 
