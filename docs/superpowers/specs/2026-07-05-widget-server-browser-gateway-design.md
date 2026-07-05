@@ -189,10 +189,7 @@ export default defineWidgetBrowser<BrowserTaskContext>()({
 The widget server handler uses the same descriptor:
 
 ```ts
-const result = await context.api.browser.invoke(
-  passportBrowserTasks.check,
-  {},
-)
+const result = await context.api.browser.invoke(passportBrowserTasks.check, {})
 if (result instanceof Error) return result
 
 return result

@@ -59,6 +59,7 @@
 ### Task 1: Extract the Shared Browser Automation Protocol
 
 **Files:**
+
 - Create: `packages/shared/browser-automation/protocol.ts`
 - Create: `packages/shared/browser-automation/protocol.test.ts`
 - Modify: `packages/browser-automation/src/schemas.ts`
@@ -181,6 +182,7 @@ git commit -m "refactor(browser-automation): share wire protocol"
 ### Task 2: Add Widget-Owned Task Descriptors and Gateway Errors
 
 **Files:**
+
 - Modify: `packages/shared/widgets/browser-contracts.ts`
 - Create: `packages/shared/widgets/browser-contracts.test.ts`
 - Create: `packages/shared/widgets/browser-errors.ts`
@@ -391,11 +393,7 @@ export function defineWidgetBrowserTasks<const Schemas extends WidgetBrowserTask
 }
 
 export type WidgetServerBrowserApi = {
-  invoke<
-    Id extends string,
-    PayloadSchema extends z.ZodType,
-    ResultSchema extends z.ZodType,
-  >(
+  invoke<Id extends string, PayloadSchema extends z.ZodType, ResultSchema extends z.ZodType>(
     task: WidgetBrowserTaskDescriptor<Id, PayloadSchema, ResultSchema>,
     payload: z.input<PayloadSchema>,
   ): Promise<BrowserGatewayError | z.output<ResultSchema>>
@@ -443,6 +441,7 @@ git commit -m "feat(shared): define widget browser task descriptors"
 ### Task 3: Add Server Gateway Configuration and Client Seam
 
 **Files:**
+
 - Create: `packages/server/src/browser/client.ts`
 - Create: `packages/server/src/browser/config.ts`
 - Create: `packages/server/src/browser/config.test.ts`
@@ -503,9 +502,7 @@ describe('makeFakeBrowserAutomationClient', () => {
     expect(
       await fake.client.invoke({ widgetId: 'demo', taskId: 'check', payload: { value: 'ok' } }),
     ).toEqual({ result: { echoed: 'ok' } })
-    expect(fake.calls).toEqual([
-      { widgetId: 'demo', taskId: 'check', payload: { value: 'ok' } },
-    ])
+    expect(fake.calls).toEqual([{ widgetId: 'demo', taskId: 'check', payload: { value: 'ok' } }])
   })
 
   it('can return a gateway error as a value', async () => {
@@ -584,8 +581,7 @@ const positiveIntEnv = (fallback: number) =>
 
 const ConfigSchema = z.object({
   BROWSER_AUTOMATION_URL: z.preprocess(
-    (value) =>
-      value === undefined || value === '' ? 'http://browser-automation:8788' : value,
+    (value) => (value === undefined || value === '' ? 'http://browser-automation:8788' : value),
     urlSchema,
   ),
   BROWSER_AUTOMATION_TIMEOUT_MS: positiveIntEnv(100_000),
@@ -621,8 +617,9 @@ import type {
 
 export function makeFakeBrowserAutomationClient() {
   const calls: BrowserAutomationInvokeArgs[] = []
-  let result: BrowserAutomationClientResult =
-    new BrowserAutomationUnavailableError({ operation: 'fake' })
+  let result: BrowserAutomationClientResult = new BrowserAutomationUnavailableError({
+    operation: 'fake',
+  })
 
   const client: BrowserAutomationClient = {
     async invoke(args) {
@@ -660,6 +657,7 @@ git commit -m "feat(server): add browser gateway client seam"
 ### Task 4: Implement the Browser Automation HTTP Client
 
 **Files:**
+
 - Create: `packages/server/src/browser/http-client.ts`
 - Create: `packages/server/src/browser/http-client.test.ts`
 
@@ -703,7 +701,11 @@ describe('createHttpBrowserAutomationClient', () => {
     })
 
     expect(
-      await client.invoke({ widgetId: 'demo widget', taskId: 'check/value', payload: { value: 'ok' } }),
+      await client.invoke({
+        widgetId: 'demo widget',
+        taskId: 'check/value',
+        payload: { value: 'ok' },
+      }),
     ).toEqual({ result: { echoed: 'ok' } })
     expect(fetchImpl).toHaveBeenCalledWith(
       'http://browser:8788/tasks/demo%20widget/check%2Fvalue',
@@ -887,9 +889,7 @@ export function createHttpBrowserAutomationClient({
         headers: { 'content-type': 'application/json' },
         body,
         signal: controller.signal,
-      }).catch(
-        (cause) => new BrowserAutomationUnavailableError({ operation: 'fetch', cause }),
-      )
+      }).catch((cause) => new BrowserAutomationUnavailableError({ operation: 'fetch', cause }))
       if (errore.isAbortError(response)) {
         clearDeadline()
         return deadline
@@ -962,6 +962,7 @@ git commit -m "feat(server): add browser automation http client"
 ### Task 5: Add the Widget-Scoped Browser API
 
 **Files:**
+
 - Create: `packages/server/src/browser/widget-api.ts`
 - Create: `packages/server/src/browser/widget-api.test.ts`
 
@@ -1096,6 +1097,7 @@ git commit -m "feat(server): add scoped widget browser api"
 ### Task 6: Separate Storage API Construction from Context Composition
 
 **Files:**
+
 - Modify: `packages/server/src/widgets/storage.ts`
 - Modify: `packages/server/src/widgets/storage.test.ts`
 - Modify: `packages/server/src/widgets/dispatch.ts`
@@ -1186,6 +1188,7 @@ git commit -m "refactor(server): isolate widget storage api factory"
 ### Task 7: Wire the Browser Capability Through Widget RPC
 
 **Files:**
+
 - Create: `packages/server/src/widgets/api.ts`
 - Create: `packages/server/src/widgets/api.test.ts`
 - Modify: `packages/shared/widgets/contracts.ts`
@@ -1367,10 +1370,7 @@ import type { WidgetServerContext } from '@shared/widgets/contracts'
 
 import type { BrowserAutomationClient } from '../browser/client'
 import { createWidgetBrowserApi } from '../browser/widget-api'
-import {
-  createWidgetServerStorageApi,
-  type CreateWidgetServerStorageApiOptions,
-} from './storage'
+import { createWidgetServerStorageApi, type CreateWidgetServerStorageApiOptions } from './storage'
 
 export type CreateWidgetServerApiOptions = CreateWidgetServerStorageApiOptions & {
   browserClient: BrowserAutomationClient
@@ -1522,6 +1522,7 @@ git commit -m "feat(server): expose browser tasks to widget handlers"
 ### Task 8: Wire Compose Configuration and Operator Documentation
 
 **Files:**
+
 - Modify: `scripts/infra.test.ts`
 - Modify: `docker-compose.yml`
 - Modify: `docker-compose.dev.yml`
@@ -1608,6 +1609,7 @@ git commit -m "build(browser-automation): wire widget server gateway"
 ### Task 9: Run the Full Repository Gate
 
 **Files:**
+
 - Verify only; no planned source changes.
 
 - [ ] **Step 1: Run the repository's canonical verification command**

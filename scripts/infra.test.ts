@@ -43,8 +43,10 @@ it('routes local commands to the narrowest codegen target', () => {
   expect(rootPackage.scripts['build:widgets']).toBe(
     'pnpm run codegen:client && pnpm --filter "./packages/widgets/*" build',
   )
-  expect(rootPackage.scripts.test).toBe('pnpm run codegen && pnpm run test:unit && pnpm -r test')
-  expect(rootPackage.scripts.typecheck).toBe('pnpm run codegen && pnpm -r typecheck')
+  expect(rootPackage.scripts.test).toBe('pnpm run codegen && pnpm run test:workspace')
+  expect(rootPackage.scripts['test:workspace']).toBe('pnpm run test:unit && pnpm -r test')
+  expect(rootPackage.scripts.typecheck).toBe('pnpm run codegen && pnpm run typecheck:workspace')
+  expect(rootPackage.scripts['typecheck:workspace']).toBe('pnpm -r typecheck')
 })
 
 it('runs only client codegen in the client image', () => {
