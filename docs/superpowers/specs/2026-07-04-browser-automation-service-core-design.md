@@ -57,10 +57,13 @@ architecture without reopening any master-design boundary.
    service's own environment configuration with sane defaults. Callers do not
    pass timing. Per-task tuning is deferred until a later subproject proves a
    need (which would amend the Subproject 1 contract).
-4. **Service-owned error taxonomy.** The base `BrowserTaskError` class and the
-   service-core error classes live in `packages/browser-automation`. The wire
-   contract is the Zod-validated `{ code, message, meta? }` envelope. Subproject 5
-   domain errors extend the same base class; the gateway re-maps codes.
+4. **Extensible task-error taxonomy.** The service-core error classes live in
+   `packages/browser-automation`. The wire contract is the Zod-validated
+   `{ code, message, meta? }` envelope. Subproject 5 domain errors extend the
+   same base class; the gateway re-maps codes. **Amendment (2026-07-05,
+   Subproject 5):** the Playwright-free `BrowserTaskError` base moves to shared
+   code so generated widget handlers can extend it without a package cycle;
+   browser-automation imports and re-exports it.
 5. **Liveness-only `/health`, no session endpoint.** `/health` reports dispatcher
    liveness and readiness only. A session-required task outcome never changes it.
    Manual recovery travels purely in-band through the envelope error's code and
@@ -76,7 +79,7 @@ mirroring `packages/server/src/app.ts`.
 src/
   tasks/registry.ts                       (exists) nested registry + DuplicateWidgetBrowserTaskError
   tasks/widget-browser-list.generated.ts  (exists, empty) generated runtime definitions
-  errors.ts        base BrowserTaskError + service-core error classes
+  errors.ts        shared BrowserTaskError re-export + service-core error classes
   executor.ts      BrowserExecutor<Context> seam (acquire / release / shutdown)
   dispatch.ts      pure single-task dispatch (lookup -> validate -> handler -> validate)
   queue.ts         single FIFO lane, deadlines, cancellation, concurrency=1 invariant
@@ -184,8 +187,10 @@ automatic retry; the caller retries explicitly.
 
 ## Error Model and Redaction
 
-The base `BrowserTaskError` lives in `packages/browser-automation` and carries a
-stable machine `code`, a safe `publicMessage`, and optional safe `publicMeta`.
+The base `BrowserTaskError` carries a stable machine `code`, a safe
+`publicMessage`, and optional safe `publicMeta`. **Amendment (2026-07-05,
+Subproject 5):** its canonical definition lives in the Playwright-free shared
+browser-automation boundary; the service package re-exports it for compatibility.
 The service-core `BrowserTaskError` subclasses (all returned as values) are:
 
 | Class                        | Code                 | Meaning                                                   |

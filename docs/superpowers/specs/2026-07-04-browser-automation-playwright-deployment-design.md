@@ -43,7 +43,8 @@ This subproject includes:
 
 It excludes the main-server browser gateway and `BROWSER_AUTOMATION_URL` server
 wiring (Subproject 4), all passport request logic, secret validation, and domain
-error codes (Subproject 5), and the widget UI (Subproject 6).
+error codes (Subproject 5), and the widget UI (now Subproject 7 after the
+tokenized-recovery amendment).
 
 ## Design Decisions
 
@@ -73,6 +74,11 @@ reopening any master-design or Subproject 2 boundary.
    `cf_clearance`) lives in the on-disk profile and survives per-task page
    recycling. Timeout aborts close only the aborted tab, never the browser, so the
    session is preserved for the caller's explicit retry.
+   **Amendment (2026-07-05, Subproject 5):** a task may mark its page with
+   `retainPageForRecovery()` before returning a session-required error. Normal
+   release keeps that page visible, the next same-widget acquire replaces it,
+   and abort/timeout or shutdown still closes it. This is the stable handoff to
+   the later tokenized noVNC/WebSocket recovery subproject.
 5. **Headed always, no headless override.** Chromium runs `headless: false`
    everywhere for a consistent browser-visible fingerprint between unattended runs
    and manual Cloudflare recovery. In the container `DISPLAY=:99` is provided by
@@ -96,6 +102,7 @@ reopening any master-design or Subproject 2 boundary.
 export type BrowserTaskContext = {
   page: import('playwright').Page // a fresh tab, one per task
   secrets: WidgetSecrets // scoped to the current widgetId
+  retainPageForRecovery(): void // retain until same-widget retry or shutdown
 }
 
 export type WidgetSecrets = {
@@ -398,14 +405,16 @@ since it requires a Docker daemon that unit tests do not assume.
 - the browser Docker image builds;
 - `docker compose config` succeeds with non-production secret values;
 - a manual ARM64 Raspberry Pi smoke run of the diagnostics probe (assembled into
-  the full stack in Subproject 7).
+  the full stack in Subproject 8).
 
 ## Done When
 
 - The diagnostics fixture task runs in the container through the real HTTP →
   queue → executor → Playwright path.
 - The browser profile survives a browser-image rebuild.
-- noVNC is reachable only through an SSH tunnel (loopback binding + SSH).
+- At this subproject boundary, noVNC is reachable only through an SSH tunnel
+  (loopback binding + SSH). The later recovery subproject adds a token-gated
+  same-origin proxy without publishing the direct VNC port.
 - Secrets appear only as `/run/secrets/*` files, never in environment, image
   layers, or logs.
 - Browser attention (a Cloudflare challenge or session-required outcome) never
@@ -418,6 +427,7 @@ Subproject 4 adds the main-server `WidgetServerContext.api.browser` gateway,
 the passport `browser.ts` task, its scoped series/number secrets, Cloudflare-state
 detection, and its domain error codes; it reads the non-secret
 `AUTOMATION_SSH_TARGET` from the service process environment (not from `Context`)
-when building its session-required error meta. Subproject 6 adds the widget UI and
-RPC handler. Subproject 7 assembles the full stack and runs the Raspberry Pi
-acceptance.
+when building its session-required error meta. Subproject 6 adds the tokenized
+noVNC/WebSocket recovery transport, Subproject 7 adds the widget UI and RPC
+handler, and Subproject 8 assembles the full stack and runs the Raspberry Pi
+acceptance. The latter numbering was amended on 2026-07-05.

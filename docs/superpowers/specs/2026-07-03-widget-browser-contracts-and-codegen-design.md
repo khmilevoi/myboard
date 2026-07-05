@@ -144,6 +144,14 @@ The generator never imports or evaluates `client.ts`, `server.ts`, or `browser.t
 A syntactically invalid entrypoint or wrong export therefore fails the generated
 import during typecheck/build rather than during codegen.
 
+> **Amendment (2026-07-05, Subproject 5):** widget packages may now be
+> browser-only while their client is delivered later. Client codegen filters
+> discovered packages to those with a root `client.ts` before importing metadata
+> or assigning development ports. A missing client entrypoint is no longer an
+> error; a present but invalid client definition still fails. Server and browser
+> optional-entrypoint behavior is unchanged. See
+> [Passport Checker Browser Task Design](./2026-07-05-passport-checker-browser-task-design.md).
+
 ## Commands and Atomic Writes
 
 The codegen target union adds `browser`. Root scripts expose:
@@ -238,13 +246,15 @@ No payloads, results, or task inputs are included in duplicate or codegen errors
 - Shared browser contracts and codegen have no Playwright dependency.
 - Browser codegen includes exactly discovered root `browser.ts` entrypoints and
   does not execute any widget entrypoint.
+- Client codegen includes and allocates ports only for packages with a root
+  `client.ts`, allowing browser-only packages to remain invisible to the client.
 - Widget identity is injected exclusively from the directory basename.
 - `makeWidgetBrowserRegistry` returns a tagged error for duplicate
   `(widgetId, taskId)` pairs.
 - `codegen:browser` changes only browser output, while combined codegen retains
   atomic writes across all targets.
-- Existing client/server codegen behavior and repository verification remain
-  green.
+- Existing present-client validation, server codegen behavior, and repository
+  verification remain green.
 
 ## Deferred Work
 

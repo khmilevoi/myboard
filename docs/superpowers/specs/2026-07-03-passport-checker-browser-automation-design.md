@@ -174,6 +174,12 @@ The service closes pages and the persistent context during graceful shutdown.
 Unexpected Chromium exits fail the active task, recreate the context from the
 same persistent volume, and leave retry control to the caller.
 
+> **Amendment (2026-07-05, Subproject 5):** a task that positively identifies a
+> browser-session challenge may retain its current page for manual recovery.
+> Normal pages still close at release; abort/timeout and shutdown always close
+> retained pages; the next acquire for the same widget replaces its retained
+> page before explicit retry.
+
 ## Passport Checker Task
 
 The task ID is `passport-checker/check`. It accepts an empty object because the
@@ -196,9 +202,12 @@ The task performs these steps:
 6. Execute `fetch('/solutions/checker', { method: 'POST', body: formData })`.
    The browser supplies cookies, referrer metadata, user-agent metadata, and the
    multipart boundary.
-7. Check the HTTP status, parse JSON, and validate a result containing an
+7. Classify a challenge returned specifically to the POST without returning its
+   body from the page context. Retain a visible checker recovery page and return
+   `BrowserSessionRequiredError` without repeating the POST.
+8. Check the HTTP status, parse JSON, and validate a result containing an
    integer `status` and string `send_status_msg`.
-8. Return only the validated checker result.
+9. Return only the validated checker result.
 
 The task does not fill visible DOM inputs because the same-origin request is the
 smaller and less selector-sensitive integration. Navigation still initializes
@@ -235,7 +244,7 @@ operator documentation. Passport values must not appear in image layers,
 build arguments, Compose command lines, logs, test fixtures, screenshots, traces,
 or error serialization.
 
-## Cloudflare Recovery Through SSH
+## Cloudflare Recovery
 
 The browser container includes Xvfb plus an x11vnc/noVNC bridge. Compose publishes
 noVNC only on the Raspberry Pi loopback interface:
@@ -244,8 +253,23 @@ noVNC only on the Raspberry Pi loopback interface:
 127.0.0.1:6080:6080
 ```
 
-When a task returns `BrowserSessionRequiredError`, the widget displays a short
-recovery sequence using the configured `AUTOMATION_SSH_TARGET`:
+> **Amendment (2026-07-05, Subproject 5 brainstorming):** manual recovery will
+> primarily use a dedicated tokenized recovery subproject between the passport
+> task and widget subprojects. A detected challenge page remains open in the
+> persistent Chromium context. The trusted-LAN widget embeds noVNC through a
+> temporary same-origin WebSocket authorized by a short-lived, single-use token.
+> The existing SSE channel carries only low-frequency recovery state, not RFB
+> frames or keyboard/pointer input. The VNC port remains unavailable directly on
+> the LAN, and SSH forwarding remains the operational fallback.
+
+For the primary flow, `BrowserSessionRequiredError` tells the widget that a
+retained challenge page is available. The later recovery transport issues a
+short-lived single-use capability, proxies one noVNC WebSocket to the internal
+VNC bridge, and invalidates the capability on use, expiry, disconnect, or retry.
+The board is intentionally LAN-only; the capability limits accidental exposure
+and replay but does not replace user authentication.
+
+The SSH fallback uses the configured `AUTOMATION_SSH_TARGET`:
 
 1. Open an SSH local-forward from the operator machine:
    `ssh -L 6080:127.0.0.1:6080 $AUTOMATION_SSH_TARGET`.
@@ -253,9 +277,10 @@ recovery sequence using the configured `AUTOMATION_SSH_TARGET`:
 3. Complete the challenge in the already-running persistent Chromium session.
 4. Close the tunnel and press `Retry` in the widget.
 
-The noVNC port is not exposed on the LAN or public ingress. SSH authentication is
-the access boundary. The same browser process and profile remain active during
-manual recovery.
+The noVNC port is not exposed directly on the LAN or public ingress. Embedded
+recovery reaches it only through the token-gated same-origin proxy; SSH reaches
+the loopback binding. The same browser process and profile remain active during
+manual recovery, and Chromium itself persists any Cloudflare session cookies.
 
 ## Widget Model and UI
 
@@ -265,7 +290,8 @@ The widget has no passport input fields in normal operation. It renders:
 - a primary `Check` button;
 - pending state while the task is active;
 - the checker's validated `send_status_msg` and numeric status after success;
-- a session-recovery panel for `browser_session_required`;
+- a session-recovery panel with embedded noVNC for
+  `browser_session_required`, plus SSH fallback instructions;
 - safe retryable messages for timeout and temporary unavailability.
 
 The model uses a named Reatom async action extended with `withAsync`. Request
@@ -347,7 +373,7 @@ does not launch or import browser code.
 
 ## Delivery Decomposition
 
-Development is split into seven ordered subprojects. Each subproject is small
+Development is split into eight ordered subprojects. Each subproject is small
 enough to receive its own brainstorming pass, approved design spec,
 implementation plan, implementation branch or worktree, and verification cycle.
 The master design in this document fixes the cross-subproject architecture;
@@ -360,7 +386,7 @@ subproject document is created.
 
 **Back-linking is required.** Whenever a subproject's design spec or
 implementation plan is created, add its `**Design:**` and `**Plan:**` links to
-that subproject's section below (as done for Subprojects 1–3). This keeps the
+that subproject's section below (as done for Subprojects 1–5). This keeps the
 master a navigable index of the whole delivery; a subproject section without its
 document links is treated as incomplete.
 
@@ -481,6 +507,8 @@ Subproject 3 after Subproject 2 stabilizes the transport envelope.
 
 **Slug:** `passport-checker-browser-task`
 
+**Design:** [Passport Checker Browser Task Design](./2026-07-05-passport-checker-browser-task-design.md)
+
 **Objective:** Implement and validate the single allowlisted same-origin checker
 flow without adding user-interface concerns.
 
@@ -491,6 +519,8 @@ flow without adding user-interface concerns.
 - scoped series/number secret loading and validation;
 - checker-page navigation and Cloudflare state detection;
 - page-context `FormData` submission and response validation;
+- optional client entrypoint discovery for browser-only widget packages;
+- a shared task-error base and retained challenge-page lifecycle;
 - local fixture checker and browser-level success/failure tests;
 - strict secret and payload redaction assertions.
 
@@ -498,12 +528,38 @@ flow without adding user-interface concerns.
 calls in automated tests.
 
 **Done when:** fixture tests prove exact form field submission, success parsing,
-challenge detection, upstream/invalid-response errors, and absence of document
-data from logs and serialized errors.
+challenge detection with a retained recovery page, upstream/invalid-response
+errors, and absence of document data from logs and serialized errors.
 
 **Dependencies:** Subprojects 1, 2, and 3.
 
-### Subproject 6: Passport checker widget
+### Subproject 6: Tokenized browser recovery transport
+
+**Slug:** `browser-recovery-websocket`
+
+**Objective:** Expose a retained challenge page inside the trusted-LAN board
+without publishing the VNC port or requiring an SSH tunnel for the normal flow.
+
+**Includes:**
+
+- short-lived, single-use in-memory recovery capabilities;
+- a same-origin WebSocket proxy from the board ingress to internal websockify;
+- noVNC/RFB binary transport for frames, keyboard, and pointer input;
+- recovery availability/state events over the existing SSE channel;
+- connection expiry, disconnect, retry, and shutdown cleanup;
+- direct-port, replay, and invalid-token rejection tests;
+- continued SSH/noVNC fallback through the loopback binding.
+
+**Excludes:** passport task logic, general browser-control APIs, user accounts,
+internet exposure, and the final passport widget UI.
+
+**Done when:** a retained local fixture page can be controlled through one
+token-authorized same-origin WebSocket, reused/expired tokens fail, the VNC port
+is not reachable directly from the LAN, and SSH fallback remains operational.
+
+**Dependencies:** Subprojects 3 and 5.
+
+### Subproject 7: Passport checker widget
 
 **Slug:** `passport-checker-widget`
 
@@ -517,7 +573,8 @@ against the stable browser gateway and passport task contract.
 - Reatom async model, timeout/cancellation state, and safe error mapping;
 - `reatomMemo` UI for idle, pending, success, unavailable, timeout, invalid
   configuration, and browser-session-required states;
-- SSH-tunnel recovery instructions and explicit retry;
+- embedded tokenized noVNC recovery, SSH fallback instructions, and explicit
+  retry;
 - model, component, contract, and accessibility tests.
 
 **Excludes:** browser runtime behavior, Docker provisioning, automatic polling,
@@ -527,9 +584,9 @@ saved results, and additional document types.
 no document identity through client RPC, and all user-visible states are covered
 by focused tests.
 
-**Dependencies:** Subprojects 4 and 5.
+**Dependencies:** Subprojects 4, 5, and 6.
 
-### Subproject 7: Full-stack integration and Raspberry Pi rollout
+### Subproject 8: Full-stack integration and Raspberry Pi rollout
 
 **Slug:** `passport-checker-rpi-integration`
 
@@ -545,7 +602,8 @@ defects, and prove the production operating procedure on ARM64 hardware.
 - complete workspace verification and image builds;
 - `pi env send` provisioning rehearsal;
 - persistent-profile rebuild test;
-- SSH/noVNC Cloudflare recovery and real checker smoke test on the Raspberry Pi;
+- embedded noVNC Cloudflare recovery, SSH fallback, and real checker smoke test
+  on the Raspberry Pi;
 - final log, environment, Valkey, and client-state secret audit.
 
 **Excludes:** new features, new document types, architectural refactors, and
@@ -554,14 +612,14 @@ automated Cloudflare bypasses.
 **Done when:** every manual acceptance criterion in this master spec passes on
 the Raspberry Pi and the full repository verification gates are green.
 
-**Dependencies:** Subprojects 3, 4, 5, and 6.
+**Dependencies:** Subprojects 3, 4, 5, 6, and 7.
 
 ### Recommended execution order
 
 ```text
-1 Contracts/codegen -> 2 Service core -> 3 Playwright -> 5 Passport task
-                                |                              |
-                                +-> 4 Server gateway ----------+-> 6 Widget -> 7 Pi rollout
+1 Contracts/codegen -> 2 Service core -> 3 Playwright -> 5 Passport task -> 6 Recovery WS
+                                |                                      |
+                                +-> 4 Server gateway ------------------+-> 7 Widget -> 8 Pi rollout
 ```
 
 Subprojects 3 and 4 are the only intended parallel branch after Subproject 2.
@@ -606,7 +664,9 @@ Tests cover:
 - the internal automation client maps connection, timeout, and response errors;
 - widget RPC exposes safe codes without raw causes;
 - the Reatom model handles pending, success, retry, and every public error;
-- component tests cover the success and SSH-recovery views;
+- recovery transport tests cover token use, expiry, replay, disconnect, and
+  WebSocket cleanup;
+- component tests cover success, embedded recovery, and SSH fallback views;
 - no test snapshot or assertion output includes real document data.
 
 ### Verification gates
@@ -626,10 +686,12 @@ The feature is accepted when all of the following are demonstrated:
 2. The browser profile survives a browser-image rebuild.
 3. With an expired session, the widget reports that browser attention is
    required while the main board remains healthy.
-4. The operator reaches noVNC only through the SSH tunnel and completes the
-   challenge in the persistent browser.
-5. Retrying the widget returns the checker's validated status and message.
-6. Container inspection, normal logs, Valkey, and browser-visible widget state
+4. The operator completes the challenge through an embedded tokenized noVNC
+   session while the VNC port remains unreachable directly from the LAN.
+5. An expired or reused recovery token is rejected, and the SSH loopback tunnel
+   remains a working fallback.
+6. Retrying the widget returns the checker's validated status and message.
+7. Container inspection, normal logs, Valkey, and browser-visible widget state
    do not reveal the passport series or number.
 
 ## Risks and Mitigations
@@ -642,7 +704,10 @@ The feature is accepted when all of the following are demonstrated:
   tasks, close unused pages, and isolate Chromium from the main server.
 - **Profile corruption:** preserve the volume, shut down gracefully, and surface
   a configuration/recovery error rather than silently deleting the profile.
-- **noVNC exposure:** bind to host loopback only and require SSH forwarding.
+- **noVNC exposure:** keep the VNC port off the LAN, require a short-lived
+  single-use capability for the same-origin WebSocket proxy, and retain SSH over
+  loopback as fallback. The trusted LAN remains the access boundary until the
+  board gains user authentication.
 - **Secret leakage:** use Compose runtime secrets, empty task payloads, redacted
   logs, fake test secrets, and no persistence of results or identifiers.
 - **Infrastructure coupling:** the main server remains healthy without browser
@@ -651,10 +716,12 @@ The feature is accepted when all of the following are demonstrated:
 ## Decision Summary
 
 The implementation will use a dedicated Playwright sidecar with a persistent
-headed Chromium session under Xvfb, recoverable through SSH-tunneled noVNC. A
-typed, allowlisted widget browser-task registry provides reusable infrastructure
+headed Chromium session under Xvfb. Normal recovery uses tokenized embedded
+noVNC over a temporary same-origin WebSocket on the trusted LAN; SSH-tunneled
+noVNC remains the fallback. A typed, allowlisted widget browser-task registry
+provides reusable infrastructure
 without exposing a general browser-control API. The passport identity is
 provisioned once as Compose runtime secrets through `pi env send`, and the widget
-itself sends no passport data. Delivery proceeds through the seven subprojects
+itself sends no passport data. Delivery proceeds through the eight subprojects
 defined above, with a separate brainstorm/spec/plan/implementation cycle for
 each boundary and a final Raspberry Pi integration gate.
