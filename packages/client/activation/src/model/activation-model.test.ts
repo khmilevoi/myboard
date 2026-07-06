@@ -157,18 +157,11 @@ describe('startLogin', () => {
     expect(navigate).toHaveBeenCalledWith('/')
   })
 
-  it('clears a stale credential hint and retries discoverable when the hinted ceremony fails', async () => {
+  it('clears a stale credential hint without auto-retrying when the hinted ceremony fails, then runs hintless on a subsequent user retry', async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'auth-challenge-hinted' } }))
-      .mockResolvedValueOnce(
-        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-789' }))
-    const startAuthenticationCeremony = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('NotAllowedError'))
-      .mockResolvedValueOnce({ id: 'cred-789' })
+    const startAuthenticationCeremony = vi.fn().mockRejectedValueOnce(new Error('NotAllowedError'))
     const navigate = vi.fn()
     const storage = createStorage('stale-cred-hint')
 
@@ -188,6 +181,25 @@ describe('startLogin', () => {
       expect.objectContaining({ body: JSON.stringify({ credentialIdHint: 'stale-cred-hint' }) }),
     )
     expect(storage.clear).toHaveBeenCalled()
+    // No automatic second ceremony/options call, and no navigation -- the
+    // failure (which could be a genuine user cancel) surfaces as an error
+    // instead of silently re-prompting.
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(startAuthenticationCeremony).toHaveBeenCalledTimes(1)
+    expect(navigate).not.toHaveBeenCalled()
+    expect(model.status()).toBe('error')
+
+    // A subsequent user-initiated retry sees the hint already cleared and
+    // runs hintless (discoverable).
+    fetchImpl
+      .mockResolvedValueOnce(
+        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-789' }))
+    startAuthenticationCeremony.mockResolvedValueOnce({ id: 'cred-789' })
+
+    await model.startLogin()
+
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
       '/api/auth/login/options',
@@ -201,19 +213,12 @@ describe('startLogin', () => {
     expect(model.status()).toBe('idle')
   })
 
-  it('clears a stale credential hint and retries discoverable when the hinted verify is rejected', async () => {
+  it('clears a stale credential hint without auto-retrying when the hinted verify is rejected, then runs hintless on a subsequent user retry', async () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'auth-challenge-hinted' } }))
       .mockResolvedValueOnce(jsonResponse({ code: 'device_not_found' }, 404))
-      .mockResolvedValueOnce(
-        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-999' }))
-    const startAuthenticationCeremony = vi
-      .fn()
-      .mockResolvedValueOnce({ id: 'stale-cred-hint' })
-      .mockResolvedValueOnce({ id: 'cred-999' })
+    const startAuthenticationCeremony = vi.fn().mockResolvedValueOnce({ id: 'stale-cred-hint' })
     const navigate = vi.fn()
     const storage = createStorage('stale-cred-hint')
 
@@ -228,6 +233,19 @@ describe('startLogin', () => {
     await model.startLogin()
 
     expect(storage.clear).toHaveBeenCalled()
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(navigate).not.toHaveBeenCalled()
+    expect(model.status()).toBe('error')
+
+    fetchImpl
+      .mockResolvedValueOnce(
+        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-999' }))
+    startAuthenticationCeremony.mockResolvedValueOnce({ id: 'cred-999' })
+
+    await model.startLogin()
+
     expect(fetchImpl).toHaveBeenNthCalledWith(
       3,
       '/api/auth/login/options',

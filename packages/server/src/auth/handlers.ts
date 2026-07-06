@@ -18,8 +18,8 @@ import { clearCookie, parseCookies, serializeCookie } from './cookies'
 import { getDevice, listAllDeviceCredentialIds, storeDevice, updateSignCount } from './devices'
 import { ChallengeInvalidError, DeviceDisabledError, InviteConsumedError } from './errors'
 import type { PublicAuthError } from './errors'
-import { consumeInvite, lookupInvite, recordInviteFailure } from './invites'
-import { deviceKey } from './records'
+import { consumeInvite, lookupInvite, recordInviteFailure, releaseInvite } from './invites'
+import { accountDevicesKey, accountKey, deviceKey } from './records'
 import {
   LoginOptionsBodySchema,
   LoginVerifyBodySchema,
@@ -196,7 +196,22 @@ export async function postRegisterVerify(
   const invite = await consumeInvite(deps.ops, deps.now, token)
   if (invite instanceof Error) return fail(invite)
 
+  // The invite is now spent (consumeInvite above). From here on, any failure
+  // must roll the invite back (releaseInvite) so the invitee isn't permanently
+  // locked out with a burned invite and no usable account/device (see H2).
   const account = await createAccount(deps.ops, deps.now, { name, inviteId: invite.id })
+
+  // Runs before storeDevice so a device-limit failure leaves no orphaned device
+  // record behind -- only the (empty, about-to-be-deleted) fresh account.
+  const addResult = await addDeviceToAccount(deps.ops, account.id, verified.credentialId, {
+    countsAgainstLimit: true,
+  })
+  if (addResult instanceof Error) {
+    await deps.ops.del(accountKey(account.id))
+    await deps.ops.del(accountDevicesKey(account.id))
+    await releaseInvite(deps.ops, deps.now, token)
+    return toAuthResult(addResult)
+  }
 
   const label = deviceLabelFromUa(req.headers['user-agent'])
   const createdAt = deps.now()
@@ -214,11 +229,6 @@ export async function postRegisterVerify(
     addedVia: 'invite',
     inviteId: invite.id,
   })
-
-  const addResult = await addDeviceToAccount(deps.ops, account.id, verified.credentialId, {
-    countsAgainstLimit: true,
-  })
-  if (addResult instanceof Error) return toAuthResult(addResult)
 
   const session = await issueSession(deps.ops, deps.config, deps.now, {
     accountId: account.id,

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import type { IncomingMessage } from 'node:http'
-import { resolve } from 'node:path'
+import { extname, resolve } from 'node:path'
 
 import { federation } from '@module-federation/vite'
 import tailwindcss from '@tailwindcss/vite'
@@ -14,6 +14,20 @@ const widgetsDir = resolve(__dirname, '../widgets')
 const portsFile = resolve(widgetsDir, '.ports.json')
 
 const ACTIVATION_PATHS = new Set(['/activate', '/add-device'])
+// The activation build's `base: '/activate/'` means its emitted HTML always
+// references its own assets under this prefix, regardless of which
+// ACTIVATION_PATHS route (`/activate` or `/add-device`) served that HTML.
+const ACTIVATION_ASSET_PREFIX = '/activate/'
+
+// A trailing slash (`/activate/`, `/add-device/`) is a distinct pathname from
+// the bare route and must still match -- normalize before the membership check.
+function stripTrailingSlash(pathname: string): string {
+  return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+}
+
+function isActivationRoute(pathname: string): boolean {
+  return ACTIVATION_PATHS.has(stripTrailingSlash(pathname))
+}
 
 // The standalone activation app (vite.activation.config.ts) builds into
 // dist/activate/ alongside the board's own dist/. Extensionless requests for
@@ -23,10 +37,26 @@ const ACTIVATION_PATHS = new Set(['/activate', '/add-device'])
 function rewriteActivationRequest(req: IncomingMessage) {
   if (!req.url) return
   const pathname = req.url.split('?')[0]
-  if (ACTIVATION_PATHS.has(pathname)) req.url = '/activate/index.html'
+  if (isActivationRoute(pathname)) req.url = '/activate/index.html'
 }
 
-const activationDistIndex = resolve(__dirname, 'dist/activate/index.html')
+const activationDistDir = resolve(__dirname, 'dist/activate')
+const activationDistIndex = resolve(activationDistDir, 'index.html')
+
+const ACTIVATION_MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+}
+
+function contentTypeFor(filePath: string): string {
+  return ACTIVATION_MIME_TYPES[extname(filePath)] ?? 'application/octet-stream'
+}
 
 function activationRoutePlugin(): Plugin {
   return {
@@ -36,25 +66,39 @@ function activationRoutePlugin(): Plugin {
       // used by configurePreviewServer/production (-> /activate/index.html)
       // doesn't resolve to anything real here: there's no such source file,
       // and the standalone activation app isn't part of this dev server's
-      // module graph. Serve the already-built activation app from dist/ if
-      // present; otherwise fail loudly instead of silently falling through
-      // to the board's SPA shell.
+      // module graph. Serve the already-built activation app's whole dist/
+      // directory as static -- both its HTML *and* the `/activate/assets/*`
+      // it references -- if present; otherwise fail loudly instead of
+      // silently falling through to the board's SPA shell.
       server.middlewares.use((req, res, next) => {
         if (!req.url) return next()
         const pathname = req.url.split('?')[0]
-        if (!ACTIVATION_PATHS.has(pathname)) return next()
+        const isRoot = isActivationRoute(pathname)
+        const isAsset = pathname.startsWith(ACTIVATION_ASSET_PREFIX)
+        if (!isRoot && !isAsset) return next()
 
-        if (fs.existsSync(activationDistIndex)) {
+        if (!fs.existsSync(activationDistIndex)) {
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'text/plain')
+          res.end(
+            'Activation app not built. Run `pnpm --filter client build:activation`, then reload.',
+          )
+          return
+        }
+
+        const relPath = isRoot ? 'index.html' : pathname.slice(ACTIVATION_ASSET_PREFIX.length)
+        const filePath = resolve(activationDistDir, relPath)
+        if (!filePath.startsWith(activationDistDir) || !fs.existsSync(filePath)) {
+          // Unknown sub-path under /activate/ (e.g. a client-side route) --
+          // fall back to the activation app's own index.html, same as a real
+          // static-file server configured with SPA history fallback would.
           res.setHeader('Content-Type', 'text/html')
           res.end(fs.readFileSync(activationDistIndex, 'utf-8'))
           return
         }
 
-        res.statusCode = 404
-        res.setHeader('Content-Type', 'text/plain')
-        res.end(
-          'Activation app not built. Run `pnpm --filter client build:activation`, then reload.',
-        )
+        res.setHeader('Content-Type', contentTypeFor(filePath))
+        res.end(fs.readFileSync(filePath))
       })
     },
     configurePreviewServer(server) {

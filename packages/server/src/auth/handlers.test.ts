@@ -7,7 +7,7 @@ import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import { createAccount } from './accounts'
 import type { AuthConfig } from './config'
 import { getDevice, storeDevice } from './devices'
-import { InviteLockedError, WebAuthnVerificationError } from './errors'
+import { DeviceLimitError, InviteLockedError, WebAuthnVerificationError } from './errors'
 import {
   deviceLabelFromUa,
   getSession,
@@ -30,6 +30,15 @@ vi.mock('./webauthn', () => ({
   verifyAuthentication: vi.fn(),
 }))
 
+vi.mock('./accounts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accounts')>()
+  return {
+    ...actual,
+    addDeviceToAccount: vi.fn(actual.addDeviceToAccount),
+  }
+})
+
+import { addDeviceToAccount } from './accounts'
 import {
   buildAuthenticationOptions,
   buildRegistrationOptions,
@@ -387,6 +396,45 @@ describe('postRegisterVerify', () => {
     expect(result.status).toBe(409)
     const device = await getDevice(ops, 'cred-x')
     expect(device).toBeInstanceOf(Error)
+  })
+
+  it('releases the invite and leaves no account/device behind when a post-consume step fails', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 10 * MINUTE })
+    const challengeCookie = await beginRegistration(ops, config, clock.now, token)
+
+    vi.mocked(verifyRegistration).mockResolvedValue({
+      credentialId: 'cred-fail',
+      publicKey: 'pk',
+      signCount: 0,
+    })
+    vi.mocked(addDeviceToAccount).mockResolvedValueOnce(new DeviceLimitError())
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const req = fakeReq(
+      { token, name: 'X', attestationResponse: { id: 'cred-fail' } },
+      { cookie: challengeCookie },
+    )
+
+    const result = await postRegisterVerify(deps, req)
+
+    expect(result.status).toBe(409)
+    expect(result.body).toEqual({ code: 'device_limit' })
+
+    // The invite is usable again -- not permanently burned by the failed attempt.
+    const invite = await lookupInvite(ops, clock.now, token)
+    expect(invite).not.toBeInstanceOf(Error)
+    if (invite instanceof Error) throw invite
+    expect(invite.uses).toBe(0)
+    expect(invite.usedAt).toBeUndefined()
+
+    // Neither the device nor the account created for this failed attempt survive.
+    const device = await getDevice(ops, 'cred-fail')
+    expect(device).toBeInstanceOf(Error)
+    const accounts = await ops.scanKeys('account:')
+    expect(accounts).toHaveLength(0)
   })
 
   it('rejects a null attestationResponse with 422 and does not consume the challenge', async () => {

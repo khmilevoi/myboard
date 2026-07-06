@@ -244,15 +244,16 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
     error.set(null)
 
     const hint = deps.storage.get()
-    const first = await attemptLogin(hint)
+    const result = await attemptLogin(hint)
 
-    const result =
-      hint !== null && !first.ok && first.hintFailure
-        ? await (() => {
-            deps.storage.clear()
-            return attemptLogin(null)
-          })()
-        : first
+    // `NotAllowedError` covers both a stale/unavailable hinted credential AND a
+    // deliberate user cancel -- we can't tell them apart. Silently firing a
+    // second, unsolicited ceremony would surprise a user who just cancelled.
+    // Instead: drop the (now-suspect) hint so it's not tried again, and let the
+    // user decide whether to retry (which will then run hintless).
+    if (hint !== null && !result.ok && result.hintFailure) {
+      deps.storage.clear()
+    }
 
     if (!result.ok) {
       status.set('error')

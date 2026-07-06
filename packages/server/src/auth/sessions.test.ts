@@ -325,6 +325,31 @@ describe('revokeAllSessionsForDevice', () => {
     expect(await ops.get(sessionKey(sessionB.sessionId))).toBeNull()
     expect(await ops.get(sessionKey(sessionC.sessionId))).not.toBeNull()
   })
+
+  it('a concurrent refresh does not resurrect a session deleted by a device-wide cascade', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    await storeDevice(ops, makeDevice({ credentialId: 'cred-1' }))
+    const issued = await issueSession(ops, config, clock.now, {
+      accountId: 'acc-1',
+      credentialId: 'cred-1',
+    })
+
+    // Past the refresh throttle window, so verifySession will attempt to slide expiresAt.
+    clock.set(6 * MINUTE)
+
+    const [verifyResult] = await Promise.all([
+      verifySession(ops, config, clock.now, issued.sessionId),
+      revokeAllSessionsForDevice(ops, 'cred-1'),
+    ])
+
+    // Whichever order the lock serializes the two operations in, the session must
+    // end up deleted -- never resurrected by the refresh write.
+    void verifyResult
+    const stored = await ops.get(sessionKey(issued.sessionId))
+    expect(stored).toBeNull()
+  })
 })
 
 describe('revokeDevice session cascade', () => {

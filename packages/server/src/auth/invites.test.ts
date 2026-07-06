@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import { InviteConsumedError, InviteExpiredError, InviteLockedError } from './errors'
-import { consumeInvite, createInvite, lookupInvite, recordInviteFailure } from './invites'
+import {
+  consumeInvite,
+  createInvite,
+  lookupInvite,
+  recordInviteFailure,
+  releaseInvite,
+} from './invites'
 
 function makeOps() {
   return createMemoryOps(createMemoryPubSub())
@@ -190,5 +196,54 @@ describe('recordInviteFailure', () => {
 
     const lastCall = setSpy.mock.calls.at(-1)
     expect(lastCall?.[2]).toBe(51_000)
+  })
+
+  it('does not re-persist (SET ... PX 0) an already-expired-but-present invite record', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 1_000 })
+
+    // The fake backing store never purges on its own TTL, so the record stays
+    // present past its application-level expiresAt (2_000) -- exercising exactly
+    // the clock-skew / TTL-fire-lag race this guard protects against.
+    clock.set(5_000)
+    const setSpy = vi.spyOn(ops, 'set')
+
+    await expect(recordInviteFailure(ops, clock.now, token)).resolves.toBeUndefined()
+
+    expect(setSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('releaseInvite', () => {
+  it('decrements uses and clears usedAt, so a spent invite becomes live again', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 60_000 })
+
+    const consumed = await consumeInvite(ops, clock.now, token)
+    expect(consumed).not.toBeInstanceOf(Error)
+    expect(await lookupInvite(ops, clock.now, token)).toBeInstanceOf(InviteConsumedError)
+
+    await releaseInvite(ops, clock.now, token)
+
+    const result = await lookupInvite(ops, clock.now, token)
+    expect(result).not.toBeInstanceOf(Error)
+    if (result instanceof Error) throw result
+    expect(result.uses).toBe(0)
+    expect(result.usedAt).toBeUndefined()
+  })
+
+  it('is a no-op for an already-expired invite', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 1_000 })
+    await consumeInvite(ops, clock.now, token)
+
+    clock.set(5_000)
+    const setSpy = vi.spyOn(ops, 'set')
+    await releaseInvite(ops, clock.now, token)
+
+    expect(setSpy).not.toHaveBeenCalled()
   })
 })

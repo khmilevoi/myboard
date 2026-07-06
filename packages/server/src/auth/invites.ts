@@ -114,10 +114,39 @@ export async function recordInviteFailure(
   await runExclusive(inviteKey(hash), async () => {
     const record = await getJson(ops, inviteKey(hash), InviteRecordSchema)
     if (record instanceof Error || record === null) return
+    // Already expired (clock skew or TTL-fire lag): re-persisting would compute a
+    // <= 0 ttl and issue `SET key val PX 0`, which Valkey rejects. Nothing useful
+    // to record on an invite that's already dead -- skip the write.
+    if (record.expiresAt - now() <= 0) return
 
     const updated: InviteRecord = {
       ...record,
       failedAttempts: record.failedAttempts + 1,
+    }
+    await setJson(ops, inviteKey(hash), updated, Math.max(0, updated.expiresAt - now()))
+  })
+}
+
+export async function releaseInvite(
+  ops: ValkeyOps,
+  now: () => number,
+  token: string,
+): Promise<void> {
+  const hash = sha256hex(token)
+  await runExclusive(inviteKey(hash), async () => {
+    const record = await getJson(ops, inviteKey(hash), InviteRecordSchema)
+    if (record instanceof Error || record === null) return
+    if (record.expiresAt - now() <= 0) return
+
+    const updated: InviteRecord = {
+      id: record.id,
+      createdAt: record.createdAt,
+      expiresAt: record.expiresAt,
+      maxUses: record.maxUses,
+      uses: Math.max(0, record.uses - 1),
+      failedAttempts: record.failedAttempts,
+      ...(record.label !== undefined ? { label: record.label } : {}),
+      ...(record.createdBy !== undefined ? { createdBy: record.createdBy } : {}),
     }
     await setJson(ops, inviteKey(hash), updated, Math.max(0, updated.expiresAt - now()))
   })

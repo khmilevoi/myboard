@@ -110,6 +110,13 @@ export async function revokeAllSessionsForDevice(
   for (const key of keys) {
     const record = await getJson(ops, key, SessionRecordSchema)
     if (record instanceof Error || record === null) continue
-    if (record.credentialId === credentialId) await ops.del(key)
+    if (record.credentialId !== credentialId) continue
+
+    // Serialize with verifySession's locked refresh (see revokeSession above): a
+    // concurrent refresh could otherwise re-write this session key with
+    // setJson between our read above and the delete, resurrecting it.
+    await runExclusive(key, async () => {
+      await ops.del(key)
+    })
   }
 }
