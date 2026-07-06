@@ -2,7 +2,13 @@ import type { ValkeyOps } from '../storage/valkey'
 import type { AuthConfig } from './config'
 import { parseCookies, serializeCookie } from './cookies'
 import { PendingTicketInvalidError } from './errors'
-import { type PendingTicketRecord, PendingTicketRecordSchema, getJson, pendingKey, setJson } from './records'
+import {
+  type PendingTicketRecord,
+  PendingTicketRecordSchema,
+  getJson,
+  pendingKey,
+  setJson,
+} from './records'
 import { randomId } from './tokens'
 
 export const PENDING_TTL_MS = 15 * 60_000
