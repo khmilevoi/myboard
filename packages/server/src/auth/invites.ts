@@ -1,0 +1,124 @@
+import { runExclusive } from '../storage/key-lock'
+import type { ValkeyOps } from '../storage/valkey'
+import {
+  InviteConsumedError,
+  InviteExpiredError,
+  InviteLockedError,
+  InviteNotFoundError,
+} from './errors'
+import { type InviteRecord, InviteRecordSchema, getJson, inviteKey, setJson } from './records'
+import { randomId, randomToken, sha256hex } from './tokens'
+
+const FAILED_ATTEMPTS_LIMIT = 10
+
+export type CreateInviteOptions = {
+  ttlMs: number
+  maxUses?: number
+  label?: string
+  createdBy?: string
+}
+
+export async function createInvite(
+  ops: ValkeyOps,
+  now: () => number,
+  { ttlMs, maxUses = 1, label, createdBy }: CreateInviteOptions,
+): Promise<{ token: string; record: InviteRecord }> {
+  const token = randomToken()
+  const createdAt = now()
+  const record: InviteRecord = {
+    id: randomId(),
+    createdAt,
+    expiresAt: createdAt + ttlMs,
+    maxUses,
+    uses: 0,
+    failedAttempts: 0,
+    ...(label !== undefined ? { label } : {}),
+    ...(createdBy !== undefined ? { createdBy } : {}),
+  }
+
+  await setJson(ops, inviteKey(sha256hex(token)), record, ttlMs)
+
+  return { token, record }
+}
+
+function checkLive(
+  record: InviteRecord,
+  now: () => number,
+): InviteExpiredError | InviteConsumedError | InviteLockedError | undefined {
+  if (record.expiresAt <= now()) return new InviteExpiredError()
+  if (record.uses >= record.maxUses) return new InviteConsumedError()
+  if (record.failedAttempts >= FAILED_ATTEMPTS_LIMIT) return new InviteLockedError()
+  return undefined
+}
+
+export async function lookupInvite(
+  ops: ValkeyOps,
+  now: () => number,
+  token: string,
+): Promise<
+  | InviteRecord
+  | InviteNotFoundError
+  | InviteExpiredError
+  | InviteConsumedError
+  | InviteLockedError
+  | Error
+> {
+  const record = await getJson(ops, inviteKey(sha256hex(token)), InviteRecordSchema)
+  if (record instanceof Error) return record
+  if (record === null) return new InviteNotFoundError()
+
+  const liveError = checkLive(record, now)
+  if (liveError) return liveError
+
+  return record
+}
+
+export async function consumeInvite(
+  ops: ValkeyOps,
+  now: () => number,
+  token: string,
+): Promise<
+  | InviteRecord
+  | InviteNotFoundError
+  | InviteExpiredError
+  | InviteConsumedError
+  | InviteLockedError
+  | Error
+> {
+  const hash = sha256hex(token)
+  return runExclusive(inviteKey(hash), async () => {
+    const record = await getJson(ops, inviteKey(hash), InviteRecordSchema)
+    if (record instanceof Error) return record
+    if (record === null) return new InviteNotFoundError()
+
+    const liveError = checkLive(record, now)
+    if (liveError) return liveError
+
+    const updated: InviteRecord = {
+      ...record,
+      uses: record.uses + 1,
+      usedAt: now(),
+    }
+    await setJson(ops, inviteKey(hash), updated)
+
+    return updated
+  })
+}
+
+export async function recordInviteFailure(
+  ops: ValkeyOps,
+  now: () => number,
+  token: string,
+): Promise<void> {
+  const hash = sha256hex(token)
+  await runExclusive(inviteKey(hash), async () => {
+    const record = await getJson(ops, inviteKey(hash), InviteRecordSchema)
+    if (record instanceof Error || record === null) return
+
+    const updated: InviteRecord = {
+      ...record,
+      failedAttempts: record.failedAttempts + 1,
+    }
+    await setJson(ops, inviteKey(hash), updated)
+  })
+}
