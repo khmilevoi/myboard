@@ -1,10 +1,9 @@
 import { bindField } from '@reatom/react'
-import { Lock } from 'lucide-react'
+import { AlertCircle, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ThemeToggle } from '@/theme/ui/ThemeToggle'
 
 import { createActivationModel } from '../model/activation-model'
@@ -53,9 +52,19 @@ export const ActivateScreen = reatomMemo(() => {
               }}
               className="flex flex-col gap-4"
             >
-              <Input placeholder="Your name" aria-label="Your name" {...bindField(nameField)} />
+              <input
+                type="text"
+                placeholder="Your name"
+                aria-label="Your name"
+                disabled={status === 'pending'}
+                className={styles.input}
+                {...bindField(nameField)}
+              />
               {nameField.validation().error ? (
-                <p className="text-sm text-destructive">{nameField.validation().error}</p>
+                <p role="alert" className={`${styles.fieldError} text-destructive`}>
+                  <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+                  {nameField.validation().error}
+                </p>
               ) : null}
               <Button type="submit" disabled={status === 'pending'}>
                 {status === 'pending' ? 'Creating passkey…' : 'Create passkey'}

@@ -84,6 +84,40 @@
   text-wrap: pretty;
 }
 
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 15px;
+  background: var(--input-fill);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  font-size: 15px;
+  outline: none;
+  transition:
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.input::placeholder {
+  color: var(--muted-foreground);
+}
+.input:disabled {
+  opacity: 0.6;
+}
+.input:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px oklch(from var(--ring) l c h / 0.35);
+}
+
+.fieldError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
 .footerNote {
   display: flex;
   align-items: center;
