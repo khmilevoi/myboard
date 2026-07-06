@@ -519,3 +519,85 @@ board or widgets.
 - **Ops scripts (updated, supersedes the list in section F):** `create-invite`,
   `revoke-invite`, `list-devices`, `revoke-device`, `revoke-account`,
   `mint-add-device-token`.
+
+## Plan 2 build decisions (2026-07-06 brainstorm)
+
+These refine the "Accounts & multi-device" and "Pre-launch clarifications"
+sections above into concrete build decisions for **Plan 2 (accounts &
+multi-device)**. Plan 1's dormant core (invites/accounts/devices/sessions/
+webauthn/challenge + `register`/`login`/`session`/`logout` + the activation
+account-name screen) is already implemented on this branch, including the full
+Plan 2 **data model** in `auth/records.ts` (`AddTokenRecord`,
+`PendingTicketRecord`, challenge type `'add-device'`, `device.status`,
+`addedVia`, `deviceLimit`, `addTokenKey`/`pendingKey`). Plan 2 wires behaviors,
+endpoints, SSE, and UI onto that schema. The gate stays **OFF** (that is Plan 3).
+
+1. **One short add-device code for all paths.** Crockford base32, 8 chars,
+   grouped `K7QP-3M9X` (~40 bits). Stored `deviceadd:{sha256(code)}` →
+   `{ accountId, expiresAt }`, 5-min TTL, single-use. The **QR encodes the full
+   URL** `${PUBLIC_APP_URL}/add-device?token=<code>`, so native-camera scan,
+   in-app scan, and a shared link all resolve to the same page. Security: the
+   code alone never grants access — registration with a valid code creates a
+   `pending` device with **no session**; the owner must Approve. Guarded by
+   single-use + 5-min TTL + per-code failed-attempt lock (reuse the
+   invite-failure pattern) + the nginx IP limit.
+2. **Fresh user-verification to mint (two-step).** `POST /devices/add-token/
+   options` (returns WebAuthn auth options/challenge) → `navigator.credentials.
+   get()` on device A → `POST /devices/add-token` (assertion verified) → mint
+   the code. Stops a walk-up attacker on A's unlocked session from silently
+   adding a device.
+3. **Device B entry (react-zxing kept).** `/add-device?token=<code>` reached via
+   (a) a shared link, (b) native-camera QR scan (opens the URL), (c) the in-app
+   scanner (`react-zxing`) — which decodes the scanned text **as a URL**,
+   validates origin + `/add-device` path, and extracts `token` (clear error on
+   an unrelated QR) — or (d) manual entry of the `____-____` code.
+4. **Approval surface (in-place flip + persistent fallback).** Device A's board
+   holds an SSE stream `GET /api/auth/devices/events` (session) on a dedicated
+   **auth-domain** channel keyed by `accountId`, reusing the `realtime/sse.ts`
+   Valkey pub/sub fanout; events `device-pending` / `device-approved` /
+   `device-denied` / `device-revoked` (also drive live list updates). On
+   `device-pending`, the open **QR modal flips in-place** to an approval card
+   (Approve / Deny); the My-devices dialog's **pending section** is the
+   persistent fallback if A closed the modal. Device B (unauthenticated) polls
+   `GET /devices/pending-status` (pending-ticket cookie, own ~60/min limit),
+   ~2 s interval, gives up after 10 min; pending device TTL 15 min; **Deny**
+   deletes it immediately; approved → normal WebAuthn login → session.
+5. **Board integration.** Header top-right **account avatar circle with
+   initials** (from the account name; avatar image is future) → shadcn
+   `DropdownMenu` (**Мои устройства**, **Выйти**; optional pending badge dot).
+   "My devices" is a shadcn `Dialog` (`reatomMemo`, logic in `model/`). The
+   **"This device"** marker uses the `mb_cred_hint` credentialId already in
+   `localStorage` (`CRED_HINT_STORAGE_KEY`). The **last-active-device guard** is
+   enforced server-side (reject revoking an account's only active device) and
+   the client disables the control. New endpoint `GET /api/auth/account`
+   (session) → `{ id, name, deviceLimit }` for the initials + dialog header,
+   keeping `GET /session` minimal for the `auth_request` path.
+6. **Activation app add-device mode** at `/add-device`: chooser (Scan QR / Enter
+   code) → scanner (+ camera-permission-denied) / manual entry (+ invalid /
+   expired code) → register (ready / loading) → waiting-for-approval → done /
+   rejected. Still standalone; never imports the board or widgets. New deps:
+   `react-zxing`, `qr-code-styling` (QR styled with `--primary` on
+   `--accent-soft`, on a light chip for scanner contrast, regenerated on theme
+   change; URL/style logic in `model/`, view holds only the container ref).
+7. **UI copy language: all Russian** for the new surfaces (the existing English
+   activation copy is migrated separately, later).
+
+### Design reference (visual source of truth)
+
+The four surfaces and all their states are designed in Claude Design project
+`1d140473-1ef3-46e2-b23d-f909fb3c2a02`, file `Мультиустройства.dc.html`, mirrored
+at `docs/superpowers/specs/designs/Мультиустройства.dc.html`. It is a light/dark
+(`data-theme`) gallery using the shared tokens (22px cards, 13px controls, the
+2×2 brand mark, the passkey button) with Hanken Grotesk + JetBrains Mono:
+
+- **1 · Хедер** — (a) menu closed, (b) menu open, (c) badge + pending request.
+- **2 · Диалог устройств** — (a) only this device, (b) three devices no pending,
+  (c) pending request, (d) inline revoke confirm, (e) limit reached.
+- **3 · Модалка добавления (устройство A)** — (a) confirm identity, (b) QR +
+  code, (c) flips to approval, (d) expired, (e) added success.
+- **4 · Активация (устройство Б)** — (a) choose method, (b) scanner, (b2) camera
+  permission denied, (c1) invalid code, (c2) expired code, (d1) register ready,
+  (d2) register loading, (e) waiting, (f) done, (g) rejected.
+
+Implementations must match its spacing and measurements exactly (the convention
+already used for `Activate.dc.html`).

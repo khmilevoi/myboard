@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; }
+  a:hover { color: oklch(0.49 0.17 281); }
+  @keyframes mb-spin { to { transform: rotate(360deg); } }
+</style>
+</helmet>
+
+<div style="{{ rootStyle }}">
+
+  <!-- ============ THEME TOGGLE ============ -->
+  <div role="group" aria-label="Тема" style="position:fixed;top:20px;right:20px;z-index:50;display:flex;gap:3px;padding:4px;background:var(--card);border:1px solid var(--border);border-radius:999px;box-shadow:var(--shadow-elevated);">
+    <button onClick="{{ setLight }}" title="Светлая" style="{{ segLightStyle }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+    <button onClick="{{ setDark }}" title="Тёмная" style="{{ segDarkStyle }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6.5 6.5 0 0 0 9 9 9 9 0 1 1-9-9z"></path></svg></button>
+  </div>
+
+  <div style="max-width:1440px;margin:0 auto;padding:56px 56px 120px;">
+
+    <!-- ============ PAGE HEADER ============ -->
+    <div style="margin:0 0 56px 2px;max-width:800px;">
+      <div style="font:600 12px/1 'JetBrains Mono',monospace;letter-spacing:.16em;color:var(--text-3);text-transform:uppercase;">myboard · design board</div>
+      <h1 style="margin:14px 0 12px;font:700 34px/1.05 'Hanken Grotesk',sans-serif;letter-spacing:-.02em;color:var(--foreground);">Мультиустройства и аккаунт</h1>
+      <p style="margin:0;font:400 16px/1.6 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);max-width:660px;text-wrap:pretty;">Хедер с меню аккаунта, управление устройствами, добавление нового устройства по QR-коду или коду, и активация нового устройства — все поверхности и состояния нового флоу мультиустройств.</p>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- 1 · ХЕДЕР -->
+    <!-- ======================================================= -->
+    <div data-screen-label="1 · Хедер + меню" style="margin-bottom:76px;">
+      <div style="margin:0 0 22px 2px;display:flex;align-items:baseline;gap:14px;">
+        <span style="font:600 13px 'JetBrains Mono',monospace;color:var(--text-3);">1</span>
+        <h2 style="margin:0;font:600 20px 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Хедер: аватар аккаунта + выпадающее меню</h2>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+
+        <!-- (a) menu closed -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(a) Меню закрыто</div>
+          <div style="width:440px;padding:36px 28px;background:var(--muted);border-radius:16px;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;">
+              <span style="font:700 17px 'Hanken Grotesk';color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 14px 'Hanken Grotesk';cursor:pointer;">АК</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (b) menu open -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(b) Меню открыто</div>
+          <div style="width:440px;padding:36px 28px 120px;background:var(--muted);border-radius:16px;position:relative;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:relative;">
+              <span style="font:700 17px 'Hanken Grotesk';color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 14px 'Hanken Grotesk';cursor:pointer;">АК</div>
+              <div style="position:absolute;top:70px;right:18px;width:252px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-elevated);overflow:hidden;">
+                <div style="padding:14px 16px 12px;">
+                  <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Анна Ковалёва</div>
+                  <div style="margin-top:3px;font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);">3 устройства</div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="padding:6px;">
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;color:var(--foreground);" style-hover="background:var(--secondary);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk';">Мои устройства</span>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;color:var(--destructive);" style-hover="background:var(--destructive-soft);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk';">Выйти</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (c) badge + pending request -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(c) Бейдж + запрос на подключение</div>
+          <div style="width:440px;padding:36px 28px 150px;background:var(--muted);border-radius:16px;position:relative;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:relative;">
+              <span style="font:700 17px 'Hanken Grotesk';color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <div style="position:relative;">
+                <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 14px 'Hanken Grotesk';cursor:pointer;">АК</div>
+                <span style="position:absolute;top:-1px;right:-1px;width:11px;height:11px;border-radius:50%;background:var(--destructive);border:2px solid var(--card);"></span>
+              </div>
+              <div style="position:absolute;top:70px;right:18px;width:264px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-elevated);overflow:hidden;">
+                <div style="padding:14px 16px 12px;">
+                  <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Анна Ковалёва</div>
+                  <div style="margin-top:3px;font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);">3 устройства</div>
+                </div>
+                <div style="padding:0 6px 6px;">
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;background:var(--accent-soft);cursor:pointer;">
+                    <span style="width:26px;height:26px;border-radius:8px;background:var(--primary);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span>
+                    <span style="font:600 13.5px 'Hanken Grotesk';color:var(--primary);">1 запрос на подключение</span>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="padding:6px;">
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;color:var(--foreground);" style-hover="background:var(--secondary);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk';">Мои устройства</span>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;color:var(--destructive);" style-hover="background:var(--destructive-soft);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk';">Выйти</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- 2 · ДИАЛОГ УСТРОЙСТВ -->
+    <!-- ======================================================= -->
+    <div data-screen-label="2 · Диалог устройств" style="margin-bottom:76px;">
+      <div style="margin:0 0 22px 2px;display:flex;align-items:baseline;gap:14px;">
+        <span style="font:600 13px 'JetBrains Mono',monospace;color:var(--text-3);">2</span>
+        <h2 style="margin:0;font:600 20px 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Диалог «Мои устройства»</h2>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+
+        <!-- (a) only this device -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(a) Только это устройство</div>
+          <div style="width:480px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:26px 26px 24px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                <div>
+                  <h3 style="margin:0;font:700 25px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Мои устройства</h3>
+                  <div style="margin-top:6px;font:400 15px 'Hanken Grotesk';color:var(--muted-foreground);">Анна Ковалёва</div>
+                </div>
+                <button aria-label="Закрыть" style="width:32px;height:32px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              </div>
+              <div style="margin:22px 0 10px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);">Ваши устройства</div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:8px;"><span style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Chrome на Windows</span><span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-foreground);background:var(--secondary);border-radius:6px;padding:3px 8px;">Это устройство</span></div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено сегодня</div>
+                </div>
+              </div>
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:20px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Добавить устройство</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (b) three devices no pending -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(b) Три устройства, без запросов</div>
+          <div style="width:480px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:26px 26px 24px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                <div>
+                  <h3 style="margin:0;font:700 25px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Мои устройства</h3>
+                  <div style="margin-top:6px;font:400 15px 'Hanken Grotesk';color:var(--muted-foreground);">Анна Ковалёва</div>
+                </div>
+                <button aria-label="Закрыть" style="width:32px;height:32px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              </div>
+              <div style="margin:22px 0 10px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);">Ваши устройства</div>
+
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:8px;"><span style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Chrome на Windows</span><span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-foreground);background:var(--secondary);border-radius:6px;padding:3px 8px;">Это устройство</span></div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено сегодня</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"></rect><line x1="11" y1="18" x2="13" y2="18"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Safari на iPhone</div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено 3 дня назад</div>
+                </div>
+                <button style="height:34px;padding:0 13px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--destructive);font:600 12.5px 'Hanken Grotesk';cursor:pointer;flex:none;" style-hover="background:var(--destructive-soft);border-color:var(--destructive);">Отозвать</button>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Firefox на Linux</div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено 2 недели назад</div>
+                </div>
+                <button style="height:34px;padding:0 13px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--destructive);font:600 12.5px 'Hanken Grotesk';cursor:pointer;flex:none;" style-hover="background:var(--destructive-soft);border-color:var(--destructive);">Отозвать</button>
+              </div>
+
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:20px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Добавить устройство</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (c) pending request -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(c) С запросом на подключение</div>
+          <div style="width:480px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:26px 26px 24px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                <div>
+                  <h3 style="margin:0;font:700 25px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Мои устройства</h3>
+                  <div style="margin-top:6px;font:400 15px 'Hanken Grotesk';color:var(--muted-foreground);">Анна Ковалёва</div>
+                </div>
+                <button aria-label="Закрыть" style="width:32px;height:32px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              </div>
+
+              <div style="margin:22px 0 10px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);">Ожидают подтверждения</div>
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--accent-soft);border:1px solid var(--border-strong);border-radius:13px;">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--card);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:var(--shadow-card);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"></rect><line x1="11" y1="18" x2="13" y2="18"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Chrome на Android</div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">хочет присоединиться · только что</div>
+                </div>
+                <div style="display:flex;gap:8px;flex:none;">
+                  <button style="height:36px;padding:0 13px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--destructive);font:600 12.5px 'Hanken Grotesk';cursor:pointer;" style-hover="background:var(--destructive-soft);border-color:var(--destructive);">Отклонить</button>
+                  <button style="height:36px;padding:0 15px;border:none;border-radius:9px;background:var(--primary);color:var(--primary-foreground);font:600 12.5px 'Hanken Grotesk';cursor:pointer;" style-hover="background:var(--primary-hover);">Подтвердить</button>
+                </div>
+              </div>
+
+              <div style="margin:20px 0 10px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);">Ваши устройства</div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:8px;"><span style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Chrome на Windows</span><span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-foreground);background:var(--secondary);border-radius:6px;padding:3px 8px;">Это устройство</span></div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено сегодня</div>
+                </div>
+              </div>
+
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:20px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Добавить устройство</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (d) inline revoke confirm -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(d) Подтверждение отзыва</div>
+          <div style="width:480px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:26px 26px 24px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                <div>
+                  <h3 style="margin:0;font:700 25px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Мои устройства</h3>
+                  <div style="margin-top:6px;font:400 15px 'Hanken Grotesk';color:var(--muted-foreground);">Анна Ковалёва</div>
+                </div>
+                <button aria-label="Закрыть" style="width:32px;height:32px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              </div>
+              <div style="margin:22px 0 10px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);">Ваши устройства</div>
+
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:8px;"><span style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Chrome на Windows</span><span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-foreground);background:var(--secondary);border-radius:6px;padding:3px 8px;">Это устройство</span></div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено сегодня</div>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:11px;padding:13px 14px;margin-top:12px;background:var(--destructive-soft);border:1px solid var(--destructive);border-radius:13px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:var(--card);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"></rect><line x1="11" y1="18" x2="13" y2="18"></line></svg></div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Safari на iPhone</div>
+                    <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено 3 дня назад</div>
+                  </div>
+                </div>
+                <div style="font:500 13px/1.4 'Hanken Grotesk';color:var(--destructive);">Отозвать это устройство? Оно потеряет доступ.</div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                  <button style="height:36px;padding:0 14px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--foreground);font:600 12.5px 'Hanken Grotesk';cursor:pointer;">Отмена</button>
+                  <button style="height:36px;padding:0 14px;border:none;border-radius:9px;background:var(--destructive);color:#fff;font:600 12.5px 'Hanken Grotesk';cursor:pointer;">Отозвать</button>
+                </div>
+              </div>
+
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:20px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);opacity:.5;" ><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Добавить устройство</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (e) limit reached -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(e) Достигнут лимит устройств</div>
+          <div style="width:480px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:26px 26px 24px;">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                <div>
+                  <h3 style="margin:0;font:700 25px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Мои устройства</h3>
+                  <div style="margin-top:6px;font:400 15px 'Hanken Grotesk';color:var(--muted-foreground);">Анна Ковалёва</div>
+                </div>
+                <button aria-label="Закрыть" style="width:32px;height:32px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              </div>
+              <div style="margin:22px 0 10px;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);">Ваши устройства</div>
+
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:8px;"><span style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Chrome на Windows</span><span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-foreground);background:var(--secondary);border-radius:6px;padding:3px 8px;">Это устройство</span></div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено сегодня</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"></rect><line x1="11" y1="18" x2="13" y2="18"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Safari на iPhone</div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено 3 дня назад</div>
+                </div>
+                <button style="height:34px;padding:0 13px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--destructive);font:600 12.5px 'Hanken Grotesk';cursor:pointer;flex:none;" style-hover="background:var(--destructive-soft);border-color:var(--destructive);">Отозвать</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--secondary);color:var(--muted-foreground);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Firefox на Linux</div>
+                  <div style="font:400 12.5px 'Hanken Grotesk';color:var(--muted-foreground);margin-top:2px;">Добавлено 2 недели назад</div>
+                </div>
+                <button style="height:34px;padding:0 13px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--destructive);font:600 12.5px 'Hanken Grotesk';cursor:pointer;flex:none;" style-hover="background:var(--destructive-soft);border-color:var(--destructive);">Отозвать</button>
+              </div>
+
+              <div style="margin-top:16px;display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--secondary);border-radius:11px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg>
+                <span style="font:500 12.5px 'Hanken Grotesk';color:var(--muted-foreground);">Достигнут лимит устройств</span>
+              </div>
+              <button disabled style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:12px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';opacity:.4;cursor:not-allowed;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Добавить устройство</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- 3 · МОДАЛКА ДОБАВЛЕНИЯ (УСТРОЙСТВО А) -->
+    <!-- ======================================================= -->
+    <div data-screen-label="3 · Добавление устройства (А)" style="margin-bottom:76px;">
+      <div style="margin:0 0 22px 2px;display:flex;align-items:baseline;gap:14px;">
+        <span style="font:600 13px 'JetBrains Mono',monospace;color:var(--text-3);">3</span>
+        <h2 style="margin:0;font:600 20px 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Модалка «Добавить устройство» · устройство А</h2>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+
+        <!-- (a) confirm identity -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(a) Подтверждение личности</div>
+          <div style="width:420px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:30px 28px 26px;text-align:center;position:relative;">
+              <button aria-label="Закрыть" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              <h3 style="margin:8px 0 0;font:700 22px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Подтвердите личность, чтобы создать код</h3>
+              <p style="margin:10px 0 0;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-wrap:pretty;">Это нужно, чтобы никто другой не мог добавить устройство от вашего имени.</p>
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:24px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Подтвердить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (b) QR + code -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(b) QR-код и код подключения</div>
+          <div style="width:420px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:30px 28px 26px;text-align:center;position:relative;">
+              <button aria-label="Закрыть" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              <h3 style="margin:8px 0 0;font:700 22px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Добавить устройство</h3>
+              <p style="margin:10px 0 0;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-wrap:pretty;">Отсканируйте код на новом устройстве или отправьте ссылку</p>
+
+              <div style="margin:20px auto 0;width:167px;height:167px;background:#ffffff;border:1px solid var(--border);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+                <div style="position:relative;width:135px;height:135px;"><div style="position:absolute;left:0px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:9px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:45px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:81px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:90px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:99px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:108px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:117px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:0px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:9px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:9px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:9px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:9px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:90px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:99px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:108px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:18px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:90px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:99px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:108px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:27px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:90px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:99px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:108px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:36px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:45px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:45px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:45px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:45px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:9px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:45px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:81px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:90px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:99px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:108px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:117px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:54px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:72px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:9px;top:72px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:72px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:72px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:72px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:45px;top:72px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:72px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:81px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:81px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:81px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:81px;top:81px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:117px;top:81px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:81px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:90px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:117px;top:90px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:81px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:99px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:99px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:108px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:108px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:108px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:108px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:108px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:90px;top:108px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:99px;top:108px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:117px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:117px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:0px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:9px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:18px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:27px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:36px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:45px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:54px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:72px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:81px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:117px;top:126px;width:9px;height:9px;background:var(--primary);"></div><div style="position:absolute;left:126px;top:126px;width:9px;height:9px;background:var(--primary);"></div></div>
+              </div>
+
+              <div style="margin-top:18px;font:700 27px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--foreground);">K7QP-3M9X</div>
+              <button style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:46px;margin-top:16px;border:1px solid var(--border);border-radius:13px;background:transparent;color:var(--foreground);font:600 14px 'Hanken Grotesk';cursor:pointer;" style-hover="background:var(--secondary);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Скопировать ссылку</button>
+              <div style="margin-top:14px;font:500 12.5px 'Hanken Grotesk';color:var(--muted-foreground);">Код активен ещё 4:52</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (c) flips to approval -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(c) Флип к одобрению</div>
+          <div style="width:420px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:30px 28px 26px;text-align:center;position:relative;">
+              <button aria-label="Закрыть" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              <h3 style="margin:8px 0 0;font:700 22px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Устройство хочет присоединиться</h3>
+              <div style="margin-top:22px;display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--accent-soft);border:1px solid var(--border-strong);border-radius:13px;text-align:left;">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--card);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:var(--shadow-card);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"></rect><line x1="11" y1="18" x2="13" y2="18"></line></svg></div>
+                <div style="font:600 14px 'Hanken Grotesk';color:var(--foreground);">Chrome на Android</div>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:18px;">
+                <button style="flex:1;height:46px;border:1px solid var(--border);border-radius:13px;background:transparent;color:var(--destructive);font:600 14px 'Hanken Grotesk';cursor:pointer;" style-hover="background:var(--destructive-soft);border-color:var(--destructive);">Отклонить</button>
+                <button style="flex:1;height:46px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 14px 'Hanken Grotesk';cursor:pointer;" style-hover="background:var(--primary-hover);">Подтвердить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (d) expired -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(d) Срок кода истёк</div>
+          <div style="width:420px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:30px 28px 26px;text-align:center;position:relative;">
+              <button aria-label="Закрыть" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              <div style="width:52px;height:52px;margin:8px auto 0;border-radius:50%;background:var(--destructive-soft);color:var(--destructive);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></div>
+              <h3 style="margin:16px 0 0;font:700 22px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Срок действия кода истёк</h3>
+              <p style="margin:10px 0 0;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);">Создайте новый код, чтобы продолжить подключение</p>
+              <button style="width:100%;height:48px;margin-top:22px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);">Создать новый код</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (e) added success -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(e) Устройство добавлено</div>
+          <div style="width:420px;padding:40px 32px;background:var(--scrim);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:30px 28px 26px;text-align:center;position:relative;">
+              <button aria-label="Закрыть" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border:none;background:transparent;color:var(--muted-foreground);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              <div style="width:52px;height:52px;margin:8px auto 0;border-radius:50%;background:oklch(0.95 0.05 155);color:var(--success);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></div>
+              <h3 style="margin:16px 0 0;font:700 22px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Устройство добавлено</h3>
+              <p style="margin:10px 0 0;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);">Chrome на Android теперь может входить в аккаунт</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- 4 · АКТИВАЦИЯ (УСТРОЙСТВО Б) -->
+    <!-- ======================================================= -->
+    <div data-screen-label="4 · Активация устройства (Б)" style="margin-bottom:40px;">
+      <div style="margin:0 0 22px 2px;display:flex;align-items:baseline;gap:14px;">
+        <span style="font:600 13px 'JetBrains Mono',monospace;color:var(--text-3);">4</span>
+        <h2 style="margin:0;font:600 20px 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Активация · режим добавления устройства (Б)</h2>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+
+        <!-- (a) choose method -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(a) Выбор способа</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <h1 style="margin:20px 0 0;width:100%;font:700 24px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);text-align:center;">Добавить это устройство</h1>
+              <p style="margin:9px 0 0;max-width:290px;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-align:center;text-wrap:pretty;">Отсканируйте QR-код или введите код с другого устройства</p>
+
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:24px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>Сканировать QR-код</button>
+
+              <div style="display:flex;align-items:center;gap:12px;width:100%;margin:20px 0;">
+                <div style="flex:1;height:1px;background:var(--border);"></div>
+                <span style="font:500 12px 'Hanken Grotesk';color:var(--muted-foreground);">или</span>
+                <div style="flex:1;height:1px;background:var(--border);"></div>
+              </div>
+
+              <div style="width:100%;height:48px;border:1px solid var(--input);border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--card);">
+                <span style="font:600 16px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--text-3);">____ &ndash; ____</span>
+              </div>
+              <button style="width:100%;height:48px;margin-top:12px;border:1px solid var(--border);border-radius:13px;background:transparent;color:var(--foreground);font:600 14px 'Hanken Grotesk';cursor:pointer;" style-hover="background:var(--secondary);">Продолжить</button>
+
+              <div style="margin-top:22px;display:flex;align-items:center;gap:6px;font:400 12px 'Hanken Grotesk';color:var(--muted-foreground);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"></rect><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"></path></svg>Защищено passkey на этом устройстве</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (b) scanner -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(b) Сканер QR-кода</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;">
+              <h1 style="margin:0;width:100%;font:700 22px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);text-align:center;">Сканирование</h1>
+
+              <div style="width:100%;height:230px;margin-top:20px;border-radius:16px;background:#1b1b20;position:relative;overflow:hidden;">
+                <div style="position:absolute;top:24px;left:24px;width:26px;height:26px;border-top:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:6px 0 0 0;"></div>
+                <div style="position:absolute;top:24px;right:24px;width:26px;height:26px;border-top:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 6px 0 0;"></div>
+                <div style="position:absolute;bottom:24px;left:24px;width:26px;height:26px;border-bottom:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:0 0 0 6px;"></div>
+                <div style="position:absolute;bottom:24px;right:24px;width:26px;height:26px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 6px 0;"></div>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);">камера · превью</div>
+              </div>
+              <p style="margin:16px 0 0;font:400 14px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-align:center;">Наведите камеру на QR-код</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- (b2) camera permission denied -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(b) Нет доступа к камере</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+              <div style="width:52px;height:52px;border-radius:50%;background:var(--destructive-soft);color:var(--destructive);display:flex;align-items:center;justify-content:center;position:relative;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                <svg width="52" height="52" viewBox="0 0 24 24" style="position:absolute;top:0;left:0;"><path d="M4 4l16 16" stroke="var(--destructive)" stroke-width="2" stroke-linecap="round"></path></svg>
+              </div>
+              <h1 style="margin:16px 0 0;font:700 20px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Нет доступа к камере</h1>
+              <p style="margin:9px 0 0;max-width:270px;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-wrap:pretty;">Разрешите доступ к камере в настройках браузера или введите код вручную</p>
+              <a href="#" style="margin-top:16px;font:600 14px 'Hanken Grotesk';color:var(--primary);">Ввести код вручную</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- (c1) invalid code -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(c) Неверный код</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <h1 style="margin:20px 0 0;width:100%;font:700 22px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);text-align:center;">Введите код с другого устройства</h1>
+
+              <div style="width:100%;height:48px;margin-top:20px;border:1px solid var(--destructive);border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--card);box-shadow:0 0 0 3px var(--destructive-soft);">
+                <span style="font:600 18px 'JetBrains Mono',monospace;letter-spacing:.08em;color:var(--foreground);">K7QP-3M9X</span>
+              </div>
+              <div style="width:100%;margin-top:8px;display:flex;align-items:center;gap:6px;font:500 12.5px 'Hanken Grotesk';color:var(--destructive);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg>Неверный код</div>
+              <button style="width:100%;height:48px;margin-top:14px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);">Продолжить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (c2) expired code -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(c) Срок действия кода истёк</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <h1 style="margin:20px 0 0;width:100%;font:700 22px/1.2 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);text-align:center;">Введите код с другого устройства</h1>
+
+              <div style="width:100%;height:48px;margin-top:20px;border:1px solid var(--border);border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--secondary);">
+                <span style="font:600 16px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--muted-foreground);">____ &ndash; ____</span>
+              </div>
+              <div style="width:100%;margin-top:8px;display:flex;align-items:center;gap:6px;font:500 12.5px 'Hanken Grotesk';color:var(--destructive);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg>Срок действия кода истёк</div>
+              <button disabled style="width:100%;height:48px;margin-top:14px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';opacity:.4;cursor:not-allowed;">Продолжить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- (d1) register ready -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(d) Регистрация passkey</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <h1 style="margin:20px 0 0;width:100%;font:700 22px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);text-align:center;">Добавить устройство в аккаунт «Анна Ковалёва»?</h1>
+              <p style="margin:9px 0 0;max-width:290px;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-align:center;text-wrap:pretty;">Создайте passkey, чтобы завершить</p>
+
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:24px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:pointer;box-shadow:var(--shadow-btn);" style-hover="background:var(--primary-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Создать passkey</button>
+
+              <div style="margin-top:22px;display:flex;align-items:center;gap:6px;font:400 12px 'Hanken Grotesk';color:var(--muted-foreground);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"></rect><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"></path></svg>Защищено passkey на этом устройстве</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (d2) register loading -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(d) Создаём passkey…</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <h1 style="margin:20px 0 0;width:100%;font:700 22px/1.25 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);text-align:center;">Добавить устройство в аккаунт «Анна Ковалёва»?</h1>
+              <p style="margin:9px 0 0;max-width:290px;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-align:center;text-wrap:pretty;">Создайте passkey, чтобы завершить</p>
+
+              <button disabled aria-busy="true" style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;margin-top:24px;border:none;border-radius:13px;background:var(--primary);color:var(--primary-foreground);font:600 15px 'Hanken Grotesk';cursor:default;opacity:.85;"><span style="width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:mb-spin .7s linear infinite;"></span>Создаём passkey…</button>
+
+              <div style="margin-top:22px;display:flex;align-items:center;gap:6px;font:400 12px 'Hanken Grotesk';color:var(--muted-foreground);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"></rect><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"></path></svg>Защищено passkey на этом устройстве</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (e) waiting -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(e) Ожидаем подтверждения</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <span style="display:inline-block;width:34px;height:34px;margin-top:22px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:mb-spin .8s linear infinite;"></span>
+              <h1 style="margin:16px 0 0;font:700 20px/1.3 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Ожидаем подтверждения</h1>
+              <p style="margin:9px 0 0;max-width:270px;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-wrap:pretty;">Подтвердите это устройство на основном устройстве</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- (f) done -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(f) Готово</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <div style="width:52px;height:52px;margin-top:22px;border-radius:50%;background:oklch(0.95 0.05 155);color:var(--success);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></div>
+              <h1 style="margin:16px 0 0;font:700 20px/1.3 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Готово. Перенаправляем…</h1>
+            </div>
+          </div>
+        </div>
+
+        <!-- (g) rejected -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(g) Запрос отклонён</div>
+          <div style="width:392px;padding:36px 30px;background:var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-elevated);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+              <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+                <div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);opacity:.5;"></div><div style="border-radius:4px;background:var(--primary);"></div><div style="border-radius:4px;background:var(--primary);"></div>
+              </div>
+              <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);">myboard</div>
+
+              <div style="width:52px;height:52px;margin-top:22px;border-radius:50%;background:var(--destructive-soft);color:var(--destructive);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div>
+              <h1 style="margin:16px 0 0;font:700 20px/1.3 'Hanken Grotesk';letter-spacing:-.01em;color:var(--foreground);">Запрос отклонён</h1>
+              <p style="margin:9px 0 0;max-width:260px;font:400 15px/1.5 'Hanken Grotesk';color:var(--muted-foreground);text-wrap:pretty;">Основное устройство отклонило подключение</p>
+              <button style="width:100%;height:46px;margin-top:18px;border:1px solid var(--border);border-radius:13px;background:transparent;color:var(--foreground);font:600 14px 'Hanken Grotesk';cursor:pointer;" style-hover="background:var(--secondary);">Попробовать снова</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="margin-top:48px;padding-top:24px;border-top:1px solid var(--border);font:400 12.5px/1.6 'Hanken Grotesk';color:var(--text-3);max-width:800px;">Токены и компоненты соответствуют существующей системе myboard: скругление карточек 22px, тень --shadow-elevated, 2×2 бренд-марка и passkey-кнопка на экранах активации.</div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  static LIGHT = {
+    background: 'oklch(0.975 0.003 255)', foreground: 'oklch(0.27 0.02 262)',
+    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.27 0.02 262)',
+    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.27 0.02 262)',
+    primary: 'oklch(0.55 0.17 281)', 'primary-foreground': '#ffffff',
+    secondary: 'oklch(0.972 0.004 255)', 'secondary-foreground': 'oklch(0.5 0.018 262)',
+    muted: 'oklch(0.972 0.004 255)', 'muted-foreground': 'oklch(0.5 0.018 262)',
+    accent: 'oklch(0.972 0.004 255)', 'accent-foreground': 'oklch(0.27 0.02 262)',
+    destructive: 'oklch(0.55 0.21 27)', 'destructive-soft': 'oklch(0.968 0.028 27)',
+    border: 'oklch(0.91 0.005 255)', input: 'oklch(0.91 0.005 255)', ring: 'oklch(0.55 0.17 281)',
+    'border-strong': 'oklch(0.84 0.006 255)', 'text-3': 'oklch(0.66 0.012 262)',
+    'accent-soft': 'oklch(0.955 0.032 285)', scrim: 'oklch(0.45 0.02 262 / 0.34)',
+    success: 'oklch(0.55 0.13 155)', 'primary-hover': 'oklch(0.49 0.17 281)',
+    'shadow-card': '0 1px 2px rgba(20,22,40,.05), 0 2px 8px rgba(20,22,40,.05)',
+    'shadow-btn': '0 1px 2px rgba(20,22,40,.06)',
+    'shadow-elevated': '0 1px 2px rgba(20,22,40,.05), 0 24px 50px -18px rgba(30,32,55,.22)',
+    'focus-ring': '0 0 0 3px oklch(from var(--ring) l c h / .35)',
+    radius: '0.625rem', ease: 'cubic-bezier(0.22,1,0.36,1)',
+  };
+  static DARK = {
+    background: 'oklch(0.19 0.008 262)', foreground: 'oklch(0.95 0.005 262)',
+    card: 'oklch(0.225 0.01 262)', 'card-foreground': 'oklch(0.95 0.005 262)',
+    popover: 'oklch(0.225 0.01 262)', 'popover-foreground': 'oklch(0.95 0.005 262)',
+    primary: 'oklch(0.68 0.15 285)', 'primary-foreground': 'oklch(0.18 0.03 285)',
+    secondary: 'oklch(0.26 0.012 262)', 'secondary-foreground': 'oklch(0.72 0.012 262)',
+    muted: 'oklch(0.26 0.012 262)', 'muted-foreground': 'oklch(0.72 0.012 262)',
+    accent: 'oklch(0.26 0.012 262)', 'accent-foreground': 'oklch(0.95 0.005 262)',
+    destructive: 'oklch(0.72 0.17 25)', 'destructive-soft': 'oklch(0.3 0.07 25)',
+    border: 'oklch(0.3 0.012 262)', input: 'oklch(0.3 0.012 262)', ring: 'oklch(0.68 0.15 285)',
+    'border-strong': 'oklch(0.36 0.014 262)', 'text-3': 'oklch(0.55 0.012 262)',
+    'accent-soft': 'oklch(0.32 0.07 285)', scrim: 'oklch(0.1 0.01 262 / 0.62)',
+    success: 'oklch(0.34 0.07 155)', 'primary-hover': 'oklch(0.73 0.15 285)',
+    'shadow-card': 'oklch(0.19 0.008 262 / 0.35) 0px 1px 2px, oklch(0.19 0.008 262 / 0.3) 0px 2px 8px',
+    'shadow-btn': '0 1px 2px rgba(0,0,0,.35)',
+    'shadow-elevated': '0 1px 2px rgba(10,12,25,.2), 0 24px 50px -18px rgba(10,12,25,.5)',
+    'focus-ring': '0 0 0 3px oklch(from var(--ring) l c h / .45)',
+    radius: '0.625rem', ease: 'cubic-bezier(0.22,1,0.36,1)',
+  };
+
+  state = {
+    theme: (() => { try { return localStorage.getItem('myboard.devices.theme') || 'light'; } catch (e) { return 'light'; } })(),
+  };
+
+  setTheme(t) {
+    try { localStorage.setItem('myboard.devices.theme', t); } catch (e) {}
+    this.setState({ theme: t });
+  }
+
+  segStyle(active) {
+    return {
+      width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      border: 'none', borderRadius: '999px', cursor: 'pointer', padding: 0,
+      background: active ? 'var(--secondary)' : 'transparent',
+      color: active ? 'var(--foreground)' : 'var(--muted-foreground)',
+      transition: 'background .15s, color .15s',
+    };
+  }
+
+  renderVals() {
+    const theme = this.state.theme;
+    const tokens = theme === 'dark' ? Component.DARK : Component.LIGHT;
+    const vars = {};
+    Object.keys(tokens).forEach((k) => { vars['--' + k] = tokens[k]; });
+
+    const rootStyle = {
+      ...vars,
+      colorScheme: theme,
+      background: 'var(--background)',
+      color: 'var(--foreground)',
+      minHeight: '100vh',
+      width: '100%',
+      fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+      transition: 'background .2s, color .2s',
+      position: 'relative',
+    };
+
+    return {
+      rootStyle,
+      setLight: () => this.setTheme('light'),
+      setDark: () => this.setTheme('dark'),
+      segLightStyle: this.segStyle(theme === 'light'),
+      segDarkStyle: this.segStyle(theme === 'dark'),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
