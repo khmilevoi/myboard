@@ -58,6 +58,7 @@ export const ChallengeRecordSchema = z.object({
   challengeId: z.string(),
   challenge: z.string(),
   type: z.enum(['reg', 'auth', 'add-device']),
+  expiresAt: z.number(),
   inviteHash: z.string().optional(),
   accountId: z.string().optional(),
 })
