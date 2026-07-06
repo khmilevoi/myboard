@@ -1,14 +1,30 @@
 import { bindField } from '@reatom/react'
-import { AlertCircle, Lock } from 'lucide-react'
+import { AlertCircle, Fingerprint, Loader2, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/theme/ui/ThemeToggle'
 
 import { createActivationModel } from '../model/activation-model'
 
 import styles from './ActivateScreen.module.css'
+
+function passkeyButtonContent(loading: boolean, idleLabel: string, loadingLabel: string) {
+  if (loading) {
+    return (
+      <>
+        <Loader2 size={16} strokeWidth={2.2} className="animate-spin" aria-hidden />
+        {loadingLabel}
+      </>
+    )
+  }
+  return (
+    <>
+      <Fingerprint size={18} strokeWidth={2} aria-hidden />
+      {idleLabel}
+    </>
+  )
+}
 
 export const ActivateScreen = reatomMemo(() => {
   // One model instance per mounted screen; the activation app has a single
@@ -66,18 +82,23 @@ export const ActivateScreen = reatomMemo(() => {
                   {nameField.validation().error}
                 </p>
               ) : null}
-              <Button type="submit" disabled={status === 'pending'}>
-                {status === 'pending' ? 'Creating passkey…' : 'Create passkey'}
-              </Button>
+              <button
+                type="submit"
+                disabled={status === 'pending'}
+                className={styles.primaryButton}
+              >
+                {passkeyButtonContent(status === 'pending', 'Create passkey', 'Creating passkey…')}
+              </button>
             </form>
           ) : (
-            <Button
+            <button
               type="button"
               disabled={status === 'pending'}
               onClick={() => model.startLogin()}
+              className={styles.primaryButton}
             >
-              {status === 'pending' ? 'Signing in…' : 'Sign in with passkey'}
-            </Button>
+              {passkeyButtonContent(status === 'pending', 'Sign in with passkey', 'Signing in…')}
+            </button>
           )}
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
