@@ -54,7 +54,9 @@ const DEVICE_ERROR_MESSAGES: Record<string, string> = {
   not_authorized: 'Недостаточно прав для этого действия',
   device_not_found: 'Устройство не найдено',
   device_disabled: 'Это устройство отключено',
-  not_authenticated: 'Необходимо войти в систему',
+  // packages/server/src/auth/session-guard.ts returns this (401) whenever the
+  // session cookie is missing/expired/invalid on any session-gated endpoint.
+  session_missing: 'Сессия истекла, войдите снова',
   account_not_found: 'Аккаунт не найден',
 }
 
@@ -133,6 +135,11 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
 
     account.set(accountResult)
     devices.set(devicesResult.devices)
+    // The server derives thisCredentialId from the live session
+    // (session.credentialId in getDevices) -- authoritative over the
+    // localStorage hint, which only seeds the atom before the first refresh
+    // and is a fallback if the server ever omits the field.
+    thisCredentialId.set(devicesResult.thisCredentialId ?? deps.storage.get())
   }, 'account.refresh').extend(withAsync())
 
   const approve = action(async (credentialId: string) => {

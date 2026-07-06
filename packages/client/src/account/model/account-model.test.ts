@@ -93,6 +93,46 @@ describe('thisCredentialId', () => {
       true,
     )
   })
+
+  it('prefers the server-authoritative thisCredentialId from refresh over a stale localStorage hint', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(accountBody))
+      .mockResolvedValueOnce(jsonResponse(devicesBody))
+    const model = createAccountModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      // localStorage still has a stale/different hint; the server's session
+      // credential (devicesBody.thisCredentialId === 'cred-this') must win.
+      storage: createStorage('stale-hint'),
+    })
+
+    await model.refresh()
+
+    expect(model.thisCredentialId()).toBe('cred-this')
+  })
+
+  it('falls back to the localStorage hint when the server response omits thisCredentialId', async () => {
+    const { thisCredentialId: _omit, ...devicesWithoutHint } = devicesBody
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(accountBody))
+      .mockResolvedValueOnce(jsonResponse(devicesBody))
+      .mockResolvedValueOnce(jsonResponse(accountBody))
+      .mockResolvedValueOnce(jsonResponse(devicesWithoutHint))
+    const model = createAccountModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      storage: createStorage('fallback-hint'),
+    })
+
+    // First establish a server-provided value different from the storage hint...
+    await model.refresh()
+    expect(model.thisCredentialId()).toBe('cred-this')
+
+    // ...then a refresh whose response omits thisCredentialId must fall back
+    // to re-reading localStorage, not keep the previous atom value.
+    await model.refresh()
+    expect(model.thisCredentialId()).toBe('fallback-hint')
+  })
 })
 
 describe('revoke', () => {
@@ -113,6 +153,19 @@ describe('revoke', () => {
     )
     expect(model.error()).not.toBeNull()
     expect(model.error()).toContain('последнее активное устройство')
+  })
+
+  it('maps a session_missing error into a Russian "sign in again" message', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const model = createAccountModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      storage: createStorage(null),
+    })
+
+    await model.revoke('cred-this')
+
+    expect(model.error()).not.toBeNull()
+    expect(model.error()).toContain('войдите')
   })
 
   it('clears the error and refreshes devices on a successful revoke', async () => {
