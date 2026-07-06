@@ -50,22 +50,22 @@ export const ActivateScreen = reatomMemo(() => {
         <div className={styles.brandLabel}>myboard</div>
 
         <h1 className={styles.heading}>
-          {mode === 'login' ? 'Welcome back' : 'Activate your device'}
+          {mode === 'login' ? 'С возвращением' : 'Активируйте устройство'}
         </h1>
         <p
           className={`${styles.description} ${mode === 'login' ? styles.descriptionLogin : styles.descriptionNew}`}
         >
           {mode === 'login'
-            ? 'This invite was already used. Sign in with your existing passkey.'
-            : 'Create a passkey to finish setting up this device.'}
+            ? 'Это приглашение уже использовано. Войдите с помощью существующего ключа доступа.'
+            : 'Создайте ключ доступа, чтобы завершить настройку этого устройства.'}
         </p>
 
         {mode === 'new-account' ? (
           <div className={styles.fieldGroup}>
             <input
               type="text"
-              placeholder="Your name"
-              aria-label="Your name"
+              placeholder="Ваше имя"
+              aria-label="Ваше имя"
               aria-invalid={hasNameError}
               aria-describedby="activate-name-error"
               disabled={loading}
@@ -94,8 +94,8 @@ export const ActivateScreen = reatomMemo(() => {
           className={`${styles.primaryButton} ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
         >
           {mode === 'new-account'
-            ? passkeyButtonContent(loading, 'Create passkey', 'Creating passkey…')
-            : passkeyButtonContent(loading, 'Sign in with passkey', 'Signing in…')}
+            ? passkeyButtonContent(loading, 'Создать ключ доступа', 'Создание ключа доступа…')
+            : passkeyButtonContent(loading, 'Войти с ключом доступа', 'Вход…')}
         </button>
 
         {error ? (
@@ -112,7 +112,7 @@ export const ActivateScreen = reatomMemo(() => {
 
         <div className={styles.footerNote}>
           <Lock size={12} strokeWidth={2} aria-hidden />
-          Secured with a passkey on this device
+          Устройство защищено ключом доступа
         </div>
       </div>
     </div>

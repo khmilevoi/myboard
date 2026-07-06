@@ -7,9 +7,9 @@ export class ActivatePage {
   readonly errorText: Locator
 
   constructor(readonly page: Page) {
-    this.nameInput = page.getByLabel('Your name')
-    this.createPasskeyButton = page.getByRole('button', { name: /Create passkey/ })
-    this.signInButton = page.getByRole('button', { name: /Sign in with passkey/ })
+    this.nameInput = page.getByLabel('Ваше имя')
+    this.createPasskeyButton = page.getByRole('button', { name: /Создать ключ доступа/ })
+    this.signInButton = page.getByRole('button', { name: /Войти с ключом доступа/ })
     this.errorText = page.locator('.text-destructive')
   }
 

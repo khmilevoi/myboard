@@ -21,7 +21,7 @@ test('invite activation registers a passkey, reaches the board, and survives rel
   expect(new URL(page.url()).pathname).toBe('/')
   const boardRoot = await page.request.get('/')
   expect(boardRoot.status()).toBe(200)
-  expect(await boardRoot.text()).not.toContain('myboard — activate')
+  expect(await boardRoot.text()).not.toContain('myboard — активация')
 
   const sessionBeforeReload = await page.request.get('/api/auth/session')
   expect(sessionBeforeReload.status()).toBe(200)

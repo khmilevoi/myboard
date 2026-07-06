@@ -26,7 +26,7 @@ export type ActivationMode = 'new-account' | 'login'
 
 export class ActivationError extends errore.createTaggedError({
   name: 'ActivationError',
-  message: 'Activation request failed: $reason',
+  message: 'Ошибка активации: $reason',
 }) {}
 
 export interface ActivationStorage {
@@ -88,12 +88,12 @@ async function postJson(
       'X-Requested-With': 'MyBoard',
     },
     body: JSON.stringify(payload),
-  }).catch((cause) => new ActivationError({ reason: 'network request failed', cause }))
+  }).catch((cause) => new ActivationError({ reason: 'сбой сетевого запроса', cause }))
   if (res instanceof Error) return res
 
   const body = await res
     .json()
-    .catch((cause) => new ActivationError({ reason: 'invalid JSON response', cause }))
+    .catch((cause) => new ActivationError({ reason: 'некорректный ответ сервера', cause }))
   if (body instanceof Error) return body as ActivationError
 
   return { status: res.status, body: body as Record<string, unknown> }
@@ -127,8 +127,8 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
       name: reatomField('', {
         name: 'activation.registrationForm.name',
         validate: ({ state }: { state: string }) => {
-          if (!state.trim()) return 'Name is required'
-          if (state.length > 40) return 'Name must be 40 characters or fewer'
+          if (!state.trim()) return 'Введите имя'
+          if (state.length > 40) return 'Имя должно быть не длиннее 40 символов'
           return undefined
         },
       }),
@@ -143,7 +143,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
         error.set(null)
 
         if (!deps.token) {
-          error.set('Missing invitation token')
+          error.set('Отсутствует токен приглашения')
           return
         }
 
@@ -159,7 +159,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
           return
         }
         if (optionsResult.status !== 200) {
-          error.set(`register/options failed with status ${optionsResult.status}`)
+          error.set(`Не удалось получить параметры регистрации (код ${optionsResult.status})`)
           return
         }
 
@@ -169,7 +169,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
 
         const attestationResponse = await wrap(
           deps.startRegistrationCeremony({ optionsJSON: options }),
-        ).catch((cause) => new ActivationError({ reason: 'registration ceremony failed', cause }))
+        ).catch((cause) => new ActivationError({ reason: 'сбой процедуры регистрации', cause }))
         if (attestationResponse instanceof Error) {
           error.set(attestationResponse.message)
           return
@@ -187,7 +187,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
           return
         }
         if (verifyResult.status !== 200) {
-          error.set(`register/verify failed with status ${verifyResult.status}`)
+          error.set(`Не удалось подтвердить регистрацию (код ${verifyResult.status})`)
           return
         }
 
@@ -219,7 +219,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
       return {
         ok: false,
         hintFailure: false,
-        message: `login/options failed with status ${optionsResult.status}`,
+        message: `Не удалось получить параметры входа (код ${optionsResult.status})`,
       }
     }
 
@@ -227,7 +227,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
 
     const authenticationResponse = await wrap(
       deps.startAuthenticationCeremony({ optionsJSON: options }),
-    ).catch((cause) => new ActivationError({ reason: 'authentication ceremony failed', cause }))
+    ).catch((cause) => new ActivationError({ reason: 'сбой процедуры аутентификации', cause }))
     if (authenticationResponse instanceof Error) {
       return { ok: false, hintFailure: true, message: authenticationResponse.message }
     }
@@ -242,7 +242,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
       return {
         ok: false,
         hintFailure: true,
-        message: `login/verify failed with status ${verifyResult.status}`,
+        message: `Не удалось подтвердить вход (код ${verifyResult.status})`,
       }
     }
 

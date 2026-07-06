@@ -12,9 +12,9 @@ import styles from './ActivateScreen.module.css'
 // Activate.dc.html and differ from the board host's own ThemeToggle, so this
 // stays a page-scoped component rather than reusing that shared one.
 const OPTIONS: { mode: ThemeMode; label: string; title: string; Icon: LucideIcon }[] = [
-  { mode: 'light', label: 'Light theme', title: 'Light', Icon: Sun },
-  { mode: 'dark', label: 'Dark theme', title: 'Dark', Icon: Moon },
-  { mode: 'system', label: 'Follow system theme', title: 'System', Icon: Monitor },
+  { mode: 'light', label: 'Светлая тема', title: 'Светлая', Icon: Sun },
+  { mode: 'dark', label: 'Тёмная тема', title: 'Тёмная', Icon: Moon },
+  { mode: 'system', label: 'Как в системе', title: 'Системная', Icon: Monitor },
 ]
 
 function setMode(mode: ThemeMode) {
@@ -24,7 +24,7 @@ function setMode(mode: ThemeMode) {
 export const ThemeTogglePill = reatomMemo(() => {
   const current = themeMode()
   return (
-    <div role="group" aria-label="Theme" className={styles.themeToggle}>
+    <div role="group" aria-label="Тема" className={styles.themeToggle}>
       {OPTIONS.map(({ mode, label, title, Icon }) => (
         <button
           key={mode}
