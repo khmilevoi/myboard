@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite-build-exit",
+    "build:activation": "vite build --config vite.activation.config.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,6 +23,7 @@
     "@module-federation/runtime": "^0.22.0",
     "@reatom/core": "catalog:",
     "@reatom/react": "catalog:",
+    "@simplewebauthn/browser": "^13.3.0",
     "@tailwindcss/vite": "^4.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "catalog:",

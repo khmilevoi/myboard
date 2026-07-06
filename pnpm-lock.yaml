@@ -174,6 +174,9 @@ importers:
       '@reatom/react':
         specifier: 'catalog:'
         version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@simplewebauthn/browser':
+        specifier: ^13.3.0
+        version: 13.3.0
       '@tailwindcss/vite':
         specifier: ^4.3.1
         version: 4.3.1(vite@8.1.2(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
@@ -2969,6 +2972,9 @@ packages:
 
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
+
+  '@simplewebauthn/browser@13.3.0':
+    resolution: {integrity: sha512-BE/UWv6FOToAdVk0EokzkqQQDOWtNydYlY6+OrmiZ5SCNmb41VehttboTetUM3T/fr6EAFYVXjz4My2wg230rQ==}
 
   '@simplewebauthn/server@13.3.2':
     resolution: {integrity: sha512-KEDhfcGP1PAKRVSDjA3npTQFqS2b/srm+ipoNBNHdkzrHAlaRQUTE+a5f4ywsx6thxAw1NU2rYcLEY1949RGbQ==}
@@ -8752,6 +8758,8 @@ snapshots:
   '@rspack/lite-tapable@1.1.0': {}
 
   '@sec-ant/readable-stream@0.4.1': {}
+
+  '@simplewebauthn/browser@13.3.0': {}
 
   '@simplewebauthn/server@13.3.2':
     dependencies:

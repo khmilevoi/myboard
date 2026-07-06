@@ -18,7 +18,7 @@
     "start:docker:server": "docker compose up --build -d valkey server",
     "stop:docker": "docker compose down",
     "logs:docker": "docker compose logs -f",
-    "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter \\\"./packages/widgets/*\\\" build\" \"pnpm --filter client typecheck\" && pnpm --filter client build",
+    "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter \\\"./packages/widgets/*\\\" build\" \"pnpm --filter client typecheck\" && pnpm --filter client build && pnpm --filter client build:activation",
     "build:widgets": "pnpm run codegen:client && pnpm --filter \"./packages/widgets/*\" build",
     "preview": "pnpm --filter client preview",
     "test": "pnpm run codegen && pnpm run test:workspace",

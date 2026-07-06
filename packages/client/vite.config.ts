@@ -1,14 +1,47 @@
+import type { IncomingMessage } from 'node:http'
 import { resolve } from 'node:path'
 
 import { federation } from '@module-federation/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
 import { apiProxy, federationShared, stageWidgetBuilds, widgetRemotes } from 'widget-sdk/vite'
 
 const widgetsDir = resolve(__dirname, '../widgets')
 const portsFile = resolve(widgetsDir, '.ports.json')
+
+const ACTIVATION_PATHS = new Set(['/activate', '/add-device'])
+
+// The standalone activation app (vite.activation.config.ts) builds into
+// dist/activate/ alongside the board's own dist/. Extensionless requests for
+// /activate or /add-device would otherwise be swallowed by the board's SPA
+// fallback (serving the board's index.html); rewrite them to the
+// activation app's index.html instead, in both dev and preview/production.
+function rewriteActivationRequest(req: IncomingMessage) {
+  if (!req.url) return
+  const pathname = req.url.split('?')[0]
+  if (ACTIVATION_PATHS.has(pathname)) req.url = '/activate/index.html'
+}
+
+function activationRoutePlugin(): Plugin {
+  return {
+    name: 'activation-route',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewriteActivationRequest(req)
+        next()
+      })
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewriteActivationRequest(req)
+        next()
+      })
+    },
+  }
+}
 
 export default defineConfig(({ command }) => ({
   plugins: [
@@ -26,6 +59,7 @@ export default defineConfig(({ command }) => ({
         ]),
     react(),
     tailwindcss(),
+    activationRoutePlugin(),
     stageWidgetBuilds({ widgetsDir }),
     VitePWA({
       registerType: 'autoUpdate',
@@ -177,7 +211,10 @@ export default defineConfig(({ command }) => ({
   },
   test: {
     globals: true,
-    include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    include: [
+      'src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+      'activation/src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+    ],
     environment: 'jsdom',
     setupFiles: ['./src/vitest.setup.ts'],
     testTimeout: 30000,
