@@ -13,6 +13,35 @@
   top: 20px;
   right: 20px;
   z-index: 10;
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.themeToggleItem {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.themeToggleItem[data-state='on'] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--shadow-seg);
 }
 
 .card {
@@ -65,6 +94,7 @@
 }
 
 .heading {
+  width: 100%;
   margin: 20px 0 0;
   font-size: 25px;
   font-weight: 700;
@@ -76,19 +106,32 @@
 
 .description {
   margin: 9px 0 0;
-  max-width: 300px;
   font-size: 15px;
   line-height: 1.5;
   color: var(--muted-foreground);
   text-align: center;
   text-wrap: pretty;
 }
+.descriptionNew {
+  max-width: 290px;
+}
+.descriptionLogin {
+  max-width: 300px;
+}
+
+/* Wraps the name input + its reserved-height error line. Deliberately a plain
+   block (not flex) so the 26px gap from the description sits above it without
+   adding a second gap above the input. */
+.fieldGroup {
+  width: 100%;
+  margin-top: 26px;
+}
 
 .input {
   width: 100%;
   height: 48px;
   padding: 0 15px;
-  background: var(--input-fill);
+  background: var(--card);
   color: var(--foreground);
   border: 1px solid var(--border);
   border-radius: 13px;
@@ -106,7 +149,7 @@
 }
 .input:focus-visible {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px oklch(from var(--ring) l c h / 0.35);
+  box-shadow: var(--focus-ring);
 }
 .input.inputError {
   border-color: var(--destructive);
@@ -123,7 +166,6 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  margin-top: 16px;
   background: var(--primary);
   color: var(--primary-foreground);
   border: none;
@@ -140,6 +182,15 @@
 .primaryButton:disabled {
   cursor: default;
   opacity: 0.85;
+}
+/* Follows the field group (new-account): only the 16px gap below the error
+   line is needed. */
+.primaryButtonAfterField {
+  margin-top: 16px;
+}
+/* Follows the description directly (login): the full 26px gap. */
+.primaryButtonStandalone {
+  margin-top: 26px;
 }
 
 /* Always mounted with a reserved min-height so a validation error appearing or
@@ -165,6 +216,7 @@
   align-items: flex-start;
   gap: 9px;
   width: 100%;
+  margin-top: 16px;
   padding: 11px 13px;
   background: var(--destructive-soft);
   border: 1px solid var(--destructive);

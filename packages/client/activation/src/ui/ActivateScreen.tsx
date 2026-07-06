@@ -3,9 +3,8 @@ import { AlertCircle, AlertTriangle, Fingerprint, Loader2, Lock } from 'lucide-r
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { ThemeToggle } from '@/theme/ui/ThemeToggle'
-
 import { createActivationModel } from '../model/activation-model'
+import { ThemeTogglePill } from './ThemeTogglePill'
 
 import styles from './ActivateScreen.module.css'
 
@@ -37,12 +36,11 @@ export const ActivateScreen = reatomMemo(() => {
   const nameField = model.registrationForm.fields.name
   const nameError = nameField.validation().error
   const hasNameError = Boolean(nameError)
+  const loading = status === 'pending'
 
   return (
     <div className={styles.page}>
-      <div className={styles.themeToggle}>
-        <ThemeToggle />
-      </div>
+      <ThemeTogglePill />
       <div className={styles.card}>
         <div aria-hidden className={styles.brandMark}>
           <div className={styles.brandCell} />
@@ -55,70 +53,63 @@ export const ActivateScreen = reatomMemo(() => {
         <h1 className={styles.heading}>
           {mode === 'login' ? 'Welcome back' : 'Activate your device'}
         </h1>
-        <p className={styles.description}>
+        <p
+          className={`${styles.description} ${mode === 'login' ? styles.descriptionLogin : styles.descriptionNew}`}
+        >
           {mode === 'login'
             ? 'This invite was already used. Sign in with your existing passkey.'
             : 'Create a passkey to finish setting up this device.'}
         </p>
 
-        <div className="mt-6 flex w-full flex-col gap-4">
-          {mode === 'new-account' ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                model.startRegistration()
+        {mode === 'new-account' ? (
+          <div className={styles.fieldGroup}>
+            <input
+              type="text"
+              placeholder="Your name"
+              aria-label="Your name"
+              aria-invalid={hasNameError}
+              aria-describedby="activate-name-error"
+              disabled={loading}
+              className={`${styles.input} ${hasNameError ? styles.inputError : ''}`}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') model.startRegistration()
               }}
-              className="flex flex-col gap-4"
+              {...bindField(nameField)}
+            />
+            <p
+              role="alert"
+              id="activate-name-error"
+              aria-hidden={!hasNameError}
+              className={`${styles.fieldError} ${hasNameError ? '' : styles.fieldErrorHidden} text-destructive`}
             >
-              <input
-                type="text"
-                placeholder="Your name"
-                aria-label="Your name"
-                aria-invalid={hasNameError}
-                aria-describedby="activate-name-error"
-                disabled={status === 'pending'}
-                className={`${styles.input} ${hasNameError ? styles.inputError : ''}`}
-                {...bindField(nameField)}
-              />
-              <p
-                role="alert"
-                id="activate-name-error"
-                aria-hidden={!hasNameError}
-                className={`${styles.fieldError} ${hasNameError ? '' : styles.fieldErrorHidden} text-destructive`}
-              >
-                <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                {nameError || ' '}
-              </p>
-              <button
-                type="submit"
-                disabled={status === 'pending'}
-                className={styles.primaryButton}
-              >
-                {passkeyButtonContent(status === 'pending', 'Create passkey', 'Creating passkey…')}
-              </button>
-            </form>
-          ) : (
-            <button
-              type="button"
-              disabled={status === 'pending'}
-              onClick={() => model.startLogin()}
-              className={styles.primaryButton}
-            >
-              {passkeyButtonContent(status === 'pending', 'Sign in with passkey', 'Signing in…')}
-            </button>
-          )}
-          {error ? (
-            <div role="alert" className={styles.serverError}>
-              <AlertTriangle
-                size={15}
-                strokeWidth={2.2}
-                className={styles.serverErrorIcon}
-                aria-hidden
-              />
-              <p className={`${styles.serverErrorText} text-destructive`}>{error}</p>
-            </div>
-          ) : null}
-        </div>
+              <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+              {nameError || ' '}
+            </p>
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => (mode === 'new-account' ? model.startRegistration() : model.startLogin())}
+          className={`${styles.primaryButton} ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
+        >
+          {mode === 'new-account'
+            ? passkeyButtonContent(loading, 'Create passkey', 'Creating passkey…')
+            : passkeyButtonContent(loading, 'Sign in with passkey', 'Signing in…')}
+        </button>
+
+        {error ? (
+          <div role="alert" className={styles.serverError}>
+            <AlertTriangle
+              size={15}
+              strokeWidth={2.2}
+              className={styles.serverErrorIcon}
+              aria-hidden
+            />
+            <p className={`${styles.serverErrorText} text-destructive`}>{error}</p>
+          </div>
+        ) : null}
 
         <div className={styles.footerNote}>
           <Lock size={12} strokeWidth={2} aria-hidden />
