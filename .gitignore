@@ -46,3 +46,6 @@ packages/browser-automation/src/tasks/widget-browser-list.generated.ts
 # browser-automation local (non-Docker) dev
 packages/browser-automation/.dev-profile/
 packages/browser-automation/.dev-secrets/
+
+# Looper loop scratch/observability (local only, not part of the deliverable)
+looper-output/
