@@ -1,3 +1,7 @@
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser'
 import * as errore from 'errore'
 
 export type AccountDto = {
@@ -109,4 +113,39 @@ export function revokeDevice(fetchImpl: typeof fetch, credentialId: string): Pro
 
 export function logout(fetchImpl: typeof fetch): Promise<Error | void> {
   return request<void>(fetchImpl, '/api/auth/logout', { method: 'POST' })
+}
+
+export type AddTokenOptionsResult = {
+  options: PublicKeyCredentialRequestOptionsJSON
+}
+
+// Mirrors packages/server/src/auth/device-handlers.ts's postAddTokenOptions:
+// a fresh-UV re-authentication challenge for the already-signed-in device
+// ("device A") that is about to mint an add-device code. No request body --
+// the account is derived from the live session.
+export function fetchAddTokenOptions(
+  fetchImpl: typeof fetch,
+): Promise<Error | AddTokenOptionsResult> {
+  return request<AddTokenOptionsResult>(fetchImpl, '/api/auth/devices/add-token/options', {
+    method: 'POST',
+  })
+}
+
+export type AddTokenResult = {
+  code: string
+  formatted: string
+  url: string
+  expiresAt: number
+}
+
+// Mirrors postAddToken: verifies the fresh-UV assertion and mints a
+// short-lived add-device code/URL for "device B" to consume.
+export function mintAddToken(
+  fetchImpl: typeof fetch,
+  authenticationResponse: AuthenticationResponseJSON,
+): Promise<Error | AddTokenResult> {
+  return request<AddTokenResult>(fetchImpl, '/api/auth/devices/add-token', {
+    method: 'POST',
+    body: { authenticationResponse },
+  })
 }

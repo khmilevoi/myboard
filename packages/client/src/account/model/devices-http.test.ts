@@ -1,3 +1,4 @@
+import type { AuthenticationResponseJSON } from '@simplewebauthn/browser'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -6,8 +7,10 @@ import {
   DeviceHttpError,
   denyDevice,
   fetchAccount,
+  fetchAddTokenOptions,
   fetchDevices,
   logout,
+  mintAddToken,
   revokeDevice,
 } from './devices-http'
 
@@ -116,6 +119,44 @@ describe('revokeDevice', () => {
     expect(result).toBeInstanceOf(DeviceApiError)
     expect((result as DeviceApiError).code).toBe('last_active_device')
     expect((result as DeviceApiError).status).toBe(409)
+  })
+})
+
+describe('fetchAddTokenOptions', () => {
+  it('posts to the add-token options endpoint and returns the parsed options', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ options: { challenge: 'c' } }))
+
+    const result = await fetchAddTokenOptions(fetchImpl as unknown as typeof fetch)
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      '/api/auth/devices/add-token/options',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(result).toEqual({ options: { challenge: 'c' } })
+  })
+})
+
+describe('mintAddToken', () => {
+  it('posts the authenticationResponse and returns the minted code/formatted/url/expiresAt', async () => {
+    const mintBody = {
+      code: 'ABC123',
+      formatted: 'ABC-123',
+      url: 'http://localhost:5173/add-device?token=ABC123',
+      expiresAt: 1_700_000_300_000,
+    }
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse(mintBody))
+    const authenticationResponse = { id: 'cred-1' } as unknown as AuthenticationResponseJSON
+
+    const result = await mintAddToken(fetchImpl as unknown as typeof fetch, authenticationResponse)
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      '/api/auth/devices/add-token',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ authenticationResponse }),
+      }),
+    )
+    expect(result).toEqual(mintBody)
   })
 })
 
