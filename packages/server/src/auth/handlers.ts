@@ -90,7 +90,7 @@ function isPublicAuthError(err: unknown): err is PublicAuthError {
   )
 }
 
-function toAuthResult(err: Error): AuthResult {
+export function toAuthResult(err: Error): AuthResult {
   if (isPublicAuthError(err)) return { status: err.status, body: { code: err.code } }
   return { status: 500, body: { code: 'internal_error' } }
 }
@@ -114,7 +114,7 @@ function clearedSessionCookie(config: AuthConfig): string {
   })
 }
 
-function clearedChallengeCookie(config: AuthConfig): string {
+export function clearedChallengeCookie(config: AuthConfig): string {
   return clearCookie(config.challengeCookieName, {
     httpOnly: true,
     secure: config.secureCookies,
