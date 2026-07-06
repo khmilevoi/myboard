@@ -7,7 +7,7 @@ export default defineConfig({
   entry: {
     index: './src/index.ts',
     'test-server': './src/test-server.ts',
-    'scripts/create-invite': './scripts/create-invite.ts',
+    'scripts/create-invite': './scripts/create-invite.cli.ts',
   },
   output: {
     path: path.resolve(import.meta.dirname, 'dist'),

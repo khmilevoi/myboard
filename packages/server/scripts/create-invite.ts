@@ -70,7 +70,7 @@ export async function runCreateInvite(
   return `${publicAppUrl}/activate?token=${token}`
 }
 
-async function main(): Promise<void> {
+export async function runCli(): Promise<void> {
   const config = loadAuthConfig(process.env)
   if (config instanceof Error) {
     console.error(`Invalid auth configuration: ${config.message}`)
@@ -93,8 +93,4 @@ async function main(): Promise<void> {
   const url = await runCreateInvite(ops, Date.now, publicAppUrl, args)
   console.log(url)
   process.exit(0)
-}
-
-if (require.main === module) {
-  void main()
 }
