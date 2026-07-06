@@ -7,6 +7,8 @@ import { z } from 'zod'
 import { registerAuthRoutes } from './auth'
 import type { AuthConfig } from './auth/config'
 import { createInvite } from './auth/invites'
+import { authAccountKey } from './auth/records'
+import { isAuthResult, requireSession } from './auth/session-guard'
 import type { BrowserAutomationClient } from './browser/client'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
@@ -73,6 +75,7 @@ export function createApp(deps: AppDeps): App {
   const { ops, now } = deps
   const router = Router({ ignoreTrailingSlash: true })
   const registry = new SseRegistry()
+  const authDeps = { ops, config: deps.authConfig, now }
 
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
@@ -110,7 +113,7 @@ export function createApp(deps: AppDeps): App {
     )
   }
 
-  registerAuthRoutes({ router, ops, config: deps.authConfig, now })
+  registerAuthRoutes({ router, ...authDeps })
 
   router.on('GET', '/api/storage/events', (req, res) => {
     res.writeHead(200, {
@@ -156,6 +159,32 @@ export function createApp(deps: AppDeps): App {
     if (parsed.data.unsubscribe) registry.unsubscribe(connId, parsed.data.unsubscribe)
     res.writeHead(204)
     res.end()
+  })
+
+  router.on('GET', '/api/auth/devices/events', async (req, res) => {
+    const session = await requireSession(authDeps, req)
+    if (isAuthResult(session)) {
+      res.writeHead(session.status, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(session.body))
+      return
+    }
+
+    res.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    })
+    const connId = randomUUID()
+    registry.add(connId, res)
+    // Server-scoped: this account only ever sees its own device events.
+    registry.subscribe(connId, [authAccountKey(session.accountId)])
+    writeSseEvent(res, 'ready', { connId })
+    const heartbeat = setInterval(() => res.write(': ping\n\n'), HEARTBEAT_MS)
+    req.on('close', () => {
+      clearInterval(heartbeat)
+      registry.remove(connId)
+    })
   })
 
   router.on('GET', '/api/time', (_req, res) => {

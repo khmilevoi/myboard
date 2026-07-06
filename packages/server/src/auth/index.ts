@@ -2,8 +2,21 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type Router from 'find-my-way'
 
+import { formatZodError } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
 import type { AuthConfig } from './config'
+import {
+  getAccountInfo,
+  getDevices,
+  getPendingStatus,
+  postAddToken,
+  postAddTokenOptions,
+  postApproveDevice,
+  postDenyDevice,
+  postDeviceRegisterOptions,
+  postDeviceRegisterVerify,
+  postRevokeDevice,
+} from './device-handlers'
 import type { AuthResult } from './handlers'
 import {
   getSession,
@@ -13,6 +26,7 @@ import {
   postRegisterOptions,
   postRegisterVerify,
 } from './handlers'
+import { DeviceIdParamsSchema } from './schemas'
 
 export type RegisterAuthRoutesDeps = {
   router: Router.Instance<Router.HTTPVersion.V1>
@@ -74,5 +88,92 @@ export function registerAuthRoutes(deps: RegisterAuthRoutesDeps): void {
 
   router.on('POST', '/api/auth/logout', async (req: IncomingMessage, res: ServerResponse) => {
     sendAuth(res, await postLogout(authDeps, req))
+  })
+
+  router.on(
+    'POST',
+    '/api/auth/devices/add-token/options',
+    async (req: IncomingMessage, res: ServerResponse) => {
+      sendAuth(res, await postAddTokenOptions(authDeps, req))
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/auth/devices/add-token',
+    async (req: IncomingMessage, res: ServerResponse) => {
+      sendAuth(res, await postAddToken(authDeps, req))
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/auth/devices/register/options',
+    async (req: IncomingMessage, res: ServerResponse) => {
+      sendAuth(res, await postDeviceRegisterOptions(authDeps, req))
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/auth/devices/register/verify',
+    async (req: IncomingMessage, res: ServerResponse) => {
+      sendAuth(res, await postDeviceRegisterVerify(authDeps, req))
+    },
+  )
+
+  router.on('GET', '/api/auth/devices', async (req: IncomingMessage, res: ServerResponse) => {
+    sendAuth(res, await getDevices(authDeps, req))
+  })
+
+  router.on(
+    'GET',
+    '/api/auth/devices/pending-status',
+    async (req: IncomingMessage, res: ServerResponse) => {
+      sendAuth(res, await getPendingStatus(authDeps, req))
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/auth/devices/:credentialId/approve',
+    async (req: IncomingMessage, res: ServerResponse, params) => {
+      const parsedParams = DeviceIdParamsSchema.safeParse(params)
+      if (!parsedParams.success) {
+        sendAuth(res, { status: 422, body: formatZodError(parsedParams.error) })
+        return
+      }
+      sendAuth(res, await postApproveDevice(authDeps, req, parsedParams.data))
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/auth/devices/:credentialId/deny',
+    async (req: IncomingMessage, res: ServerResponse, params) => {
+      const parsedParams = DeviceIdParamsSchema.safeParse(params)
+      if (!parsedParams.success) {
+        sendAuth(res, { status: 422, body: formatZodError(parsedParams.error) })
+        return
+      }
+      sendAuth(res, await postDenyDevice(authDeps, req, parsedParams.data))
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/auth/devices/:credentialId/revoke',
+    async (req: IncomingMessage, res: ServerResponse, params) => {
+      const parsedParams = DeviceIdParamsSchema.safeParse(params)
+      if (!parsedParams.success) {
+        sendAuth(res, { status: 422, body: formatZodError(parsedParams.error) })
+        return
+      }
+      sendAuth(res, await postRevokeDevice(authDeps, req, parsedParams.data))
+    },
+  )
+
+  router.on('GET', '/api/auth/account', async (req: IncomingMessage, res: ServerResponse) => {
+    sendAuth(res, await getAccountInfo(authDeps, req))
   })
 }

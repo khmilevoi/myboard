@@ -6,8 +6,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { createApp, type App } from './app'
+import { addDeviceToAccount, createAccount } from './auth/accounts'
 import type { AuthConfig } from './auth/config'
+import { storeDevice } from './auth/devices'
 import { lookupInvite } from './auth/invites'
+import { issueSession } from './auth/sessions'
 import { makeFakeBrowserAutomationClient } from './browser/testing/fake-client'
 import { createMemoryOps, createMemoryPubSub } from './test/memory-ops'
 import { createWidgetServerRegistry } from './widgets/registry'
@@ -26,6 +29,32 @@ const testAuthConfig: AuthConfig = {
 }
 
 const DEBTS_KEY = encodeURIComponent('w:t:ofelia-poop-duty:debts')
+
+async function seedAccountWithSession(
+  opsArg: ReturnType<typeof createMemoryOps>,
+  nowMs: number,
+  credentialId: string,
+) {
+  const account = await createAccount(opsArg, () => nowMs, { name: 'Acc', inviteId: 'inv-1' })
+  await storeDevice(opsArg, {
+    credentialId,
+    publicKey: 'pk',
+    signCount: 0,
+    label: 'Board device',
+    createdAt: nowMs,
+    lastSeenAt: nowMs,
+    disabled: false,
+    accountId: account.id,
+    status: 'active',
+    addedVia: 'invite',
+  })
+  await addDeviceToAccount(opsArg, account.id, credentialId, { countsAgainstLimit: false })
+  const session = await issueSession(opsArg, testAuthConfig, () => nowMs, {
+    accountId: account.id,
+    credentialId,
+  })
+  return { account, session }
+}
 
 const browserTasks = defineWidgetBrowserTasks({
   check: {
@@ -241,6 +270,59 @@ describe('createApp', () => {
     })
     expect(res.status).toBe(404)
     expect(await res.json()).toMatchObject({ code: 'invite_not_found' })
+  })
+
+  it('GET /api/auth/account returns account info for a signed-in device', async () => {
+    const { session } = await seedAccountWithSession(ops, now, 'cred-a8-account')
+    const res = await fetch(`${base}/api/auth/account`, {
+      headers: { cookie: `session=${session.sessionId}` },
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ name: 'Acc' })
+  })
+
+  it("GET /api/auth/devices lists the caller's devices", async () => {
+    const { session } = await seedAccountWithSession(ops, now, 'cred-a8-devices')
+    const res = await fetch(`${base}/api/auth/devices`, {
+      headers: { cookie: `session=${session.sessionId}` },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { devices: Array<{ credentialId: string }> }
+    expect(body.devices.map((device) => device.credentialId)).toContain('cred-a8-devices')
+  })
+
+  it('GET /api/auth/devices without a session is rejected by the router-level guard', async () => {
+    const res = await fetch(`${base}/api/auth/devices`)
+    expect(res.status).toBe(401)
+  })
+
+  it('POST /api/auth/devices/:credentialId/approve reaches the handler through the real param route', async () => {
+    const { account, session } = await seedAccountWithSession(ops, now, 'cred-a8-owner')
+    await storeDevice(ops, {
+      credentialId: 'cred-a8-pending',
+      publicKey: 'pk',
+      signCount: 0,
+      label: 'New phone',
+      createdAt: now,
+      lastSeenAt: now,
+      disabled: false,
+      accountId: account.id,
+      status: 'pending',
+      addedVia: 'add-token',
+    })
+    await addDeviceToAccount(ops, account.id, 'cred-a8-pending', { countsAgainstLimit: false })
+
+    const res = await fetch(`${base}/api/auth/devices/cred-a8-pending/approve`, {
+      method: 'POST',
+      headers: { cookie: `session=${session.sessionId}` },
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+
+  it('GET /api/auth/devices/events without a session returns 401', async () => {
+    const res = await fetch(`${base}/api/auth/devices/events`)
+    expect(res.status).toBe(401)
   })
 
   it('POST /api/test/seed-invite returns a token lookupInvite accepts', async () => {
