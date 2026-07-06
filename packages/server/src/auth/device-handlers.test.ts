@@ -4,19 +4,35 @@ import { Readable } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
-import { addDeviceToAccount, createAccount } from './accounts'
+import { addDeviceToAccount, createAccount, listAccountDeviceIds } from './accounts'
+import { lookupAddToken, mintAddToken } from './add-tokens'
 import type { AuthConfig } from './config'
 import { getDevice, storeDevice } from './devices'
+import { AddTokenInvalidError, WebAuthnVerificationError } from './errors'
 import type { AuthDeps } from './handlers'
+import { AddTokenRecordSchema, addTokenKey, getJson } from './records'
 import { issueSession } from './sessions'
+import { sha256hex } from './tokens'
 
 vi.mock('./webauthn', () => ({
   buildAuthenticationOptions: vi.fn(),
   verifyAuthentication: vi.fn(),
+  buildRegistrationOptions: vi.fn(),
+  verifyRegistration: vi.fn(),
 }))
 
-import { postAddToken, postAddTokenOptions } from './device-handlers'
-import { buildAuthenticationOptions, verifyAuthentication } from './webauthn'
+import {
+  postAddToken,
+  postAddTokenOptions,
+  postDeviceRegisterOptions,
+  postDeviceRegisterVerify,
+} from './device-handlers'
+import {
+  buildAuthenticationOptions,
+  buildRegistrationOptions,
+  verifyAuthentication,
+  verifyRegistration,
+} from './webauthn'
 
 const MINUTE = 60_000
 const ADD_TOKEN_TTL_MS = 5 * MINUTE
@@ -92,6 +108,12 @@ async function seedAccountWithDevice(
   })
   await addDeviceToAccount(ops, account.id, credentialId, { countsAgainstLimit: false })
   return account
+}
+
+async function readAddTokenFailedAttempts(ops: Ops, code: string): Promise<number> {
+  const record = await getJson(ops, addTokenKey(sha256hex(code)), AddTokenRecordSchema)
+  if (record instanceof Error || record === null) throw new Error('add-token record missing')
+  return record.failedAttempts
 }
 
 describe('postAddTokenOptions', () => {
@@ -300,5 +322,242 @@ describe('postAddToken', () => {
     expect(result.status).toBe(403)
     expect(result.body).toEqual({ code: 'device_disabled' })
     expect(verifyAuthentication).not.toHaveBeenCalled()
+  })
+})
+
+describe('postDeviceRegisterOptions', () => {
+  beforeEach(() => {
+    vi.mocked(buildRegistrationOptions).mockReset()
+  })
+
+  it('returns add_token_invalid for an unknown code', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postDeviceRegisterOptions(deps, fakeReq({ token: 'NOPE1234' }))
+
+    expect(result).toEqual({ status: 400, body: { code: 'add_token_invalid' } })
+    expect(buildRegistrationOptions).not.toHaveBeenCalled()
+  })
+
+  it('returns add_token_invalid for an expired code', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 1000 })
+    clock.set(2000)
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const result = await postDeviceRegisterOptions(deps, fakeReq({ token: code }))
+
+    expect(result).toEqual({ status: 400, body: { code: 'add_token_invalid' } })
+  })
+
+  it('returns options excluding the account existing devices, named from the account, with a challenge cookie', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
+
+    vi.mocked(buildRegistrationOptions).mockResolvedValue({
+      challenge: 'add-device-challenge',
+    } as never)
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const result = await postDeviceRegisterOptions(deps, fakeReq({ token: code }))
+
+    expect(result.status).toBe(200)
+    expect(buildRegistrationOptions).toHaveBeenCalledWith(
+      config,
+      expect.objectContaining({
+        userName: 'Acc',
+        userDisplayName: 'Acc',
+        excludeCredentials: [{ id: 'cred-active' }],
+      }),
+    )
+    const body = result.body as { options: unknown }
+    expect(body.options).toEqual({ challenge: 'add-device-challenge' })
+
+    const cookies = getSetCookies(result.headers)
+    expect(cookies).toHaveLength(1)
+    expect(cookies[0]).toContain('HttpOnly')
+    expect(cookies[0]).toContain('SameSite=Strict')
+  })
+})
+
+describe('postDeviceRegisterVerify', () => {
+  beforeEach(() => {
+    vi.mocked(buildRegistrationOptions).mockReset()
+    vi.mocked(verifyRegistration).mockReset()
+  })
+
+  async function beginDeviceRegister(deps: AuthDeps, token: string) {
+    vi.mocked(buildRegistrationOptions).mockResolvedValue({
+      challenge: 'add-device-challenge',
+    } as never)
+    const optionsResult = await postDeviceRegisterOptions(deps, fakeReq({ token }))
+    const cookie = getSetCookies(optionsResult.headers)[0]
+    return cookieHeaderFor(cookie)
+  }
+
+  it('happy path: creates a pending device, spends the add-token, sets a pending cookie, and publishes device-pending', async () => {
+    const pubsub = createMemoryPubSub()
+    const ops = createMemoryOps(pubsub)
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
+
+    const received: Array<{ key: string; value: unknown }> = []
+    pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const challengeCookie = await beginDeviceRegister(deps, code)
+
+    vi.mocked(verifyRegistration).mockResolvedValue({
+      credentialId: 'cred-new',
+      publicKey: 'pk-new',
+      signCount: 0,
+    })
+
+    const req = fakeReq(
+      { token: code, attestationResponse: { id: 'cred-new' } },
+      {
+        cookie: challengeCookie,
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36',
+      },
+    )
+
+    const result = await postDeviceRegisterVerify(deps, req)
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ credentialId: 'cred-new' })
+
+    const cookies = getSetCookies(result.headers)
+    const pendingCookie = cookies.find((c) => c.startsWith(`${config.pendingCookieName}=`))
+    expect(pendingCookie).toBeDefined()
+    expect(pendingCookie).toContain('HttpOnly')
+    expect(pendingCookie).toContain('SameSite=Strict')
+
+    const clearedChal = cookies.find((c) => c.startsWith(`${config.challengeCookieName}=`))
+    expect(clearedChal).toContain('Max-Age=0')
+
+    const device = await getDevice(ops, 'cred-new')
+    if (device instanceof Error) throw device
+    expect(device.status).toBe('pending')
+    expect(device.addedVia).toBe('add-token')
+    expect(device.accountId).toBe(account.id)
+    expect(device.label).toBe('Chrome on Windows')
+
+    const deviceIds = await listAccountDeviceIds(ops, account.id)
+    expect(deviceIds).toContain('cred-new')
+
+    const spent = await lookupAddToken(ops, clock.now, code)
+    expect(spent).toBeInstanceOf(AddTokenInvalidError)
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toEqual({
+      key: `auth:account:${account.id}`,
+      value: { type: 'device-pending', credentialId: 'cred-new', label: 'Chrome on Windows' },
+    })
+  })
+
+  it('rejects with challenge_invalid and records an add-token failure when the challenge is missing', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const req = fakeReq({ token: code, attestationResponse: { id: 'cred-x' } })
+
+    const result = await postDeviceRegisterVerify(deps, req)
+
+    expect(result).toEqual({ status: 400, body: { code: 'challenge_invalid' } })
+    expect(await readAddTokenFailedAttempts(ops, code)).toBe(1)
+  })
+
+  it('rejects and records an add-token failure when verifyRegistration fails', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const challengeCookie = await beginDeviceRegister(deps, code)
+
+    vi.mocked(verifyRegistration).mockResolvedValue(new WebAuthnVerificationError())
+
+    const req = fakeReq(
+      { token: code, attestationResponse: { id: 'cred-fail' } },
+      { cookie: challengeCookie },
+    )
+
+    const result = await postDeviceRegisterVerify(deps, req)
+
+    expect(result.status).toBe(400)
+    expect(result.body).toEqual({ code: 'webauthn_verification_failed' })
+    expect(await readAddTokenFailedAttempts(ops, code)).toBe(1)
+
+    const device = await getDevice(ops, 'cred-fail')
+    expect(device).toBeInstanceOf(Error)
+  })
+
+  it('rejects with add_token_invalid (and records a failure) when the submitted add-token belongs to a different account than the challenge', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const accountA = await createAccount(ops, clock.now, { name: 'A', inviteId: 'inv-a' })
+    const accountB = await createAccount(ops, clock.now, { name: 'B', inviteId: 'inv-b' })
+    const tokenA = await mintAddToken(ops, clock.now, { accountId: accountA.id, ttlMs: 60_000 })
+    const tokenB = await mintAddToken(ops, clock.now, { accountId: accountB.id, ttlMs: 60_000 })
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    // Challenge is bound to account A (the options step used token A)...
+    const challengeCookie = await beginDeviceRegister(deps, tokenA.code)
+
+    vi.mocked(verifyRegistration).mockResolvedValue({
+      credentialId: 'cred-swap',
+      publicKey: 'pk',
+      signCount: 0,
+    })
+
+    // ...but the verify body swaps in token B, from a different account.
+    const req = fakeReq(
+      { token: tokenB.code, attestationResponse: { id: 'cred-swap' } },
+      { cookie: challengeCookie },
+    )
+
+    const result = await postDeviceRegisterVerify(deps, req)
+
+    expect(result).toEqual({ status: 400, body: { code: 'add_token_invalid' } })
+    expect(await readAddTokenFailedAttempts(ops, tokenB.code)).toBe(1)
+
+    const device = await getDevice(ops, 'cred-swap')
+    expect(device).toBeInstanceOf(Error)
+  })
+
+  it('rejects a null attestationResponse with 422 and does not consume the challenge', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const challengeCookie = await beginDeviceRegister(deps, code)
+
+    const req = fakeReq({ token: code, attestationResponse: null }, { cookie: challengeCookie })
+
+    const result = await postDeviceRegisterVerify(deps, req)
+
+    expect(result.status).toBe(422)
+    expect(verifyRegistration).not.toHaveBeenCalled()
   })
 })

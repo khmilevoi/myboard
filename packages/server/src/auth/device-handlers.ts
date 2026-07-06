@@ -3,21 +3,41 @@ import type { IncomingMessage } from 'node:http'
 import type {
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
+  RegistrationResponseJSON,
 } from '@simplewebauthn/server'
 
 import { readJsonBody } from '../http/body'
 import { runExclusive } from '../storage/key-lock'
 import { formatZodError } from '../storage/schemas'
-import { formatAddCode, mintAddToken } from './add-tokens'
+import { addDeviceToAccount, getAccount } from './accounts'
+import {
+  consumeAddToken,
+  formatAddCode,
+  lookupAddToken,
+  mintAddToken,
+  recordAddTokenFailure,
+} from './add-tokens'
 import { consumeChallenge, saveChallenge } from './challenge-store'
-import { getDevice, listDevices, updateSignCount } from './devices'
-import { DeviceDisabledError, NotAuthorizedError } from './errors'
-import { clearedChallengeCookie, toAuthResult } from './handlers'
+import { publishAuthDeviceEvent } from './device-events'
+import { getDevice, listDevices, storeDevice, updateSignCount } from './devices'
+import { AddTokenInvalidError, DeviceDisabledError, NotAuthorizedError } from './errors'
+import { clearedChallengeCookie, deviceLabelFromUa, toAuthResult } from './handlers'
 import type { AuthDeps, AuthResult } from './handlers'
+import { issuePendingTicket } from './pending-tickets'
 import { deviceKey } from './records'
-import { AddTokenVerifyBodySchema } from './schemas'
+import {
+  AddDeviceRegisterOptionsBodySchema,
+  AddDeviceRegisterVerifyBodySchema,
+  AddTokenVerifyBodySchema,
+} from './schemas'
 import { isAuthResult, requireSession } from './session-guard'
-import { buildAuthenticationOptions, verifyAuthentication } from './webauthn'
+import { randomId } from './tokens'
+import {
+  buildAuthenticationOptions,
+  buildRegistrationOptions,
+  verifyAuthentication,
+  verifyRegistration,
+} from './webauthn'
 
 const PUBLIC_APP_URL = () => process.env.PUBLIC_APP_URL ?? 'http://localhost:5173'
 const ADD_TOKEN_TTL_MS = 5 * 60_000
@@ -110,5 +130,118 @@ export async function postAddToken(deps: AuthDeps, req: IncomingMessage): Promis
       expiresAt: deps.now() + ADD_TOKEN_TTL_MS,
     },
     headers: { 'Set-Cookie': clearedChallengeCookie(deps.config) },
+  }
+}
+
+export async function postDeviceRegisterOptions(
+  deps: AuthDeps,
+  req: IncomingMessage,
+): Promise<AuthResult> {
+  const parsed = AddDeviceRegisterOptionsBodySchema.safeParse(await readBody(req))
+  if (!parsed.success) return { status: 422, body: formatZodError(parsed.error) }
+  const { token } = parsed.data
+
+  const addToken = await lookupAddToken(deps.ops, deps.now, token)
+  if (addToken instanceof Error) return toAuthResult(addToken)
+
+  const account = await getAccount(deps.ops, addToken.accountId)
+  if (account instanceof Error) return toAuthResult(account)
+
+  const devices = await listDevices(deps.ops, addToken.accountId)
+  const excludeCredentials = devices.map((device) => ({ id: device.credentialId }))
+
+  const options = await buildRegistrationOptions(deps.config, {
+    userId: randomId(16),
+    userName: account.name,
+    userDisplayName: account.name,
+    excludeCredentials,
+  })
+
+  const { cookie } = await saveChallenge(deps.ops, deps.config, deps.now, {
+    type: 'add-device',
+    challenge: options.challenge,
+    accountId: addToken.accountId,
+  })
+
+  return { status: 200, body: { options }, headers: { 'Set-Cookie': cookie } }
+}
+
+export async function postDeviceRegisterVerify(
+  deps: AuthDeps,
+  req: IncomingMessage,
+): Promise<AuthResult> {
+  const parsed = AddDeviceRegisterVerifyBodySchema.safeParse(await readBody(req))
+  if (!parsed.success) return { status: 422, body: formatZodError(parsed.error) }
+  const { token, attestationResponse } = parsed.data
+
+  const fail = async (err: Error): Promise<AuthResult> => {
+    await recordAddTokenFailure(deps.ops, deps.now, token)
+    return toAuthResult(err)
+  }
+
+  const challenge = await consumeChallenge(deps.ops, deps.config, deps.now, {
+    cookieHeader: req.headers.cookie,
+    expectedType: 'add-device',
+  })
+  if (challenge instanceof Error) return fail(challenge)
+
+  const verified = await verifyRegistration(deps.config, {
+    response: attestationResponse as unknown as RegistrationResponseJSON,
+    expectedChallenge: challenge.challenge,
+  })
+  if (verified instanceof Error) return fail(verified)
+
+  // The challenge's accountId was bound at the options step from a live
+  // add-token lookup; re-check it against a fresh live lookup of the token
+  // submitted here so a challenge can't be replayed with a different (or
+  // since-reassigned) add-token to attach a device to the wrong account.
+  const addToken = await lookupAddToken(deps.ops, deps.now, token)
+  if (addToken instanceof Error) return fail(addToken)
+  if (addToken.accountId !== challenge.accountId) return fail(new AddTokenInvalidError())
+
+  // Runs before storeDevice so a device-limit failure (defensive; unreachable
+  // while countsAgainstLimit is false here) leaves no orphaned device record
+  // behind, mirroring postRegisterVerify.
+  const addResult = await addDeviceToAccount(deps.ops, addToken.accountId, verified.credentialId, {
+    countsAgainstLimit: false,
+  })
+  if (addResult instanceof Error) return fail(addResult)
+
+  const label = deviceLabelFromUa(req.headers['user-agent'])
+  const createdAt = deps.now()
+  await storeDevice(deps.ops, {
+    credentialId: verified.credentialId,
+    publicKey: verified.publicKey,
+    signCount: verified.signCount,
+    ...(verified.transports ? { transports: verified.transports } : {}),
+    label,
+    createdAt,
+    lastSeenAt: createdAt,
+    disabled: false,
+    accountId: addToken.accountId,
+    status: 'pending',
+    addedVia: 'add-token',
+  })
+
+  const consumed = await consumeAddToken(deps.ops, deps.now, token)
+  if (consumed instanceof Error) return fail(consumed)
+
+  const { cookie } = await issuePendingTicket(deps.ops, deps.config, deps.now, {
+    credentialId: verified.credentialId,
+    accountId: addToken.accountId,
+  })
+
+  await publishAuthDeviceEvent(deps.ops, addToken.accountId, {
+    type: 'device-pending',
+    credentialId: verified.credentialId,
+    label,
+  })
+
+  return {
+    status: 200,
+    body: { credentialId: verified.credentialId },
+    headers: {
+      'Set-Cookie': [cookie, clearedChallengeCookie(deps.config)],
+    },
   }
 }
