@@ -23,6 +23,15 @@ services:
       PORT: '8787'
       BROWSER_AUTOMATION_URL: http://browser-automation:8788
       BROWSER_AUTOMATION_TIMEOUT_MS: '100000'
+      # WebAuthn / device-invite auth gate (Task 1.1). No secrets here;
+      # credentials/sessions live in Valkey.
+      RP_ID: board.iiskelo.com
+      RP_NAME: MyBoard
+      PUBLIC_APP_URL: https://board.iiskelo.com
+      EXPECTED_ORIGIN: https://board.iiskelo.com
+      SESSION_TTL_SLIDING: 30d
+      SESSION_TTL_ABSOLUTE: 90d
+      TRUST_CF_CONNECTING_IP: '1'
     depends_on:
       valkey:
         condition: service_healthy
