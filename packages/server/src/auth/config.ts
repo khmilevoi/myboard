@@ -52,14 +52,17 @@ function withDefault(fallback: string) {
 const durationSchema = z.string().transform((value, ctx) => {
   const result = parseDuration(value)
   if (result instanceof Error) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.message })
+    ctx.addIssue({ code: 'custom', message: result.message })
     return z.NEVER
   }
   return result
 })
 
+// `z.url()` is the non-deprecated top-level replacement for the removed
+// `z.string().url()` method. It accepts localhost (unlike `z.httpUrl()`, which
+// requires a public domain), so the dev origin still validates; the refine
+// keeps the http/https-only restriction.
 const originSchema = z
-  .string()
   .url()
   .refine((value) => ['http:', 'https:'].includes(new URL(value).protocol))
 

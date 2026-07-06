@@ -31,12 +31,11 @@ export const ActivateScreen = reatomMemo(() => {
   // (which create their own instances) fully isolated from the live UI.
   const [model] = useState(() => createActivationModel())
   const mode = model.mode()
-  const status = model.status()
   const error = model.error()
   const nameField = model.registrationForm.fields.name
   const nameError = nameField.validation().error
   const hasNameError = Boolean(nameError)
-  const loading = status === 'pending'
+  const loading = model.loading()
 
   return (
     <div className={styles.page}>

@@ -187,7 +187,7 @@ describe('startLogin', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     expect(startAuthenticationCeremony).toHaveBeenCalledTimes(1)
     expect(navigate).not.toHaveBeenCalled()
-    expect(model.status()).toBe('error')
+    expect(model.error()).not.toBeNull()
 
     // A subsequent user-initiated retry sees the hint already cleared and
     // runs hintless (discoverable).
@@ -210,7 +210,7 @@ describe('startLogin', () => {
     })
     expect(storage.set).toHaveBeenCalledWith('cred-789')
     expect(navigate).toHaveBeenCalledWith('/')
-    expect(model.status()).toBe('idle')
+    expect(model.error()).toBeNull()
   })
 
   it('clears a stale credential hint without auto-retrying when the hinted verify is rejected, then runs hintless on a subsequent user retry', async () => {
@@ -235,7 +235,7 @@ describe('startLogin', () => {
     expect(storage.clear).toHaveBeenCalled()
     expect(fetchImpl).toHaveBeenCalledTimes(2)
     expect(navigate).not.toHaveBeenCalled()
-    expect(model.status()).toBe('error')
+    expect(model.error()).not.toBeNull()
 
     fetchImpl
       .mockResolvedValueOnce(
@@ -253,6 +253,6 @@ describe('startLogin', () => {
     )
     expect(storage.set).toHaveBeenCalledWith('cred-999')
     expect(navigate).toHaveBeenCalledWith('/')
-    expect(model.status()).toBe('idle')
+    expect(model.error()).toBeNull()
   })
 })

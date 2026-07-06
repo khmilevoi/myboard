@@ -53,14 +53,10 @@ export async function getAccount(
   return record
 }
 
-async function readDeviceIds(ops: ValkeyOps, accountId: string): Promise<string[]> {
+export async function listAccountDeviceIds(ops: ValkeyOps, accountId: string): Promise<string[]> {
   const ids = await getJson(ops, accountDevicesKey(accountId), IdListSchema)
   if (ids instanceof Error || ids === null) return []
   return ids
-}
-
-export async function listAccountDeviceIds(ops: ValkeyOps, accountId: string): Promise<string[]> {
-  return readDeviceIds(ops, accountId)
 }
 
 export type AddDeviceOptions = {
@@ -74,7 +70,7 @@ export async function addDeviceToAccount(
   { countsAgainstLimit }: AddDeviceOptions,
 ): Promise<void | DeviceLimitError | Error> {
   return runExclusive(accountDevicesKey(accountId), async () => {
-    const ids = await readDeviceIds(ops, accountId)
+    const ids = await listAccountDeviceIds(ops, accountId)
 
     if (countsAgainstLimit) {
       const account = await getAccount(ops, accountId)
@@ -102,7 +98,7 @@ export async function removeDeviceFromAccount(
   credentialId: string,
 ): Promise<void> {
   await runExclusive(accountDevicesKey(accountId), async () => {
-    const ids = await readDeviceIds(ops, accountId)
+    const ids = await listAccountDeviceIds(ops, accountId)
     await setJson(
       ops,
       accountDevicesKey(accountId),

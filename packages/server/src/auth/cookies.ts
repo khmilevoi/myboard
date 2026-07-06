@@ -1,3 +1,5 @@
+import { parseCookie, stringifySetCookie } from 'cookie'
+
 export type SerializeCookieOptions = {
   maxAgeMs?: number
   httpOnly?: boolean
@@ -10,12 +12,8 @@ export function parseCookies(header: string | undefined): Record<string, string>
   if (!header) return {}
 
   const result: Record<string, string> = {}
-  for (const pair of header.split('; ')) {
-    const separatorIndex = pair.indexOf('=')
-    if (separatorIndex === -1) continue
-    const name = pair.slice(0, separatorIndex)
-    const value = pair.slice(separatorIndex + 1)
-    result[name] = decodeURIComponent(value)
+  for (const [name, value] of Object.entries(parseCookie(header))) {
+    if (value !== undefined) result[name] = value
   }
   return result
 }
@@ -25,15 +23,15 @@ export function serializeCookie(
   value: string,
   { maxAgeMs, httpOnly, secure, sameSite, path }: SerializeCookieOptions,
 ): string {
-  const parts = [`${name}=${value}`]
-
-  if (maxAgeMs !== undefined) parts.push(`Max-Age=${Math.floor(maxAgeMs / 1000)}`)
-  parts.push(`Path=${path ?? '/'}`)
-  if (httpOnly) parts.push('HttpOnly')
-  if (secure) parts.push('Secure')
-  parts.push(`SameSite=${sameSite}`)
-
-  return parts.join('; ')
+  return stringifySetCookie({
+    name,
+    value,
+    path: path ?? '/',
+    httpOnly,
+    secure,
+    sameSite: sameSite.toLowerCase() as 'lax' | 'strict',
+    ...(maxAgeMs !== undefined ? { maxAge: Math.floor(maxAgeMs / 1000) } : {}),
+  })
 }
 
 export function clearCookie(name: string, opts: SerializeCookieOptions): string {

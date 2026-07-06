@@ -1,4 +1,15 @@
-import { action, atom, reatomField, reatomForm, wrap, type Action, type Atom } from '@reatom/core'
+import {
+  action,
+  type Action,
+  atom,
+  type Atom,
+  Computed,
+  computed,
+  reatomField,
+  reatomForm,
+  withAsync,
+  wrap,
+} from '@reatom/core'
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -12,7 +23,6 @@ import * as errore from 'errore'
 export const CRED_HINT_STORAGE_KEY = 'mb_cred_hint'
 
 export type ActivationMode = 'new-account' | 'login'
-export type ActivationStatus = 'idle' | 'pending' | 'error'
 
 export class ActivationError extends errore.createTaggedError({
   name: 'ActivationError',
@@ -42,6 +52,13 @@ function readTokenFromLocation(): string | null {
   return new URLSearchParams(location.search).get('token')
 }
 
+// Stores only the last-used credentialId -- a *public*, non-secret WebAuthn
+// identifier (it is sent to the server in every ceremony and lives in
+// `allowCredentials`), used purely as a client-side login hint. It is not a
+// session token or private key, so localStorage is the right home: it never
+// needs to travel to the server (so no cookie), and a JS-readable cookie would
+// carry no security advantage. The server never trusts this hint -- login is
+// still verified against the stored public key + signature.
 function defaultStorage(): ActivationStorage {
   return {
     get: () =>
@@ -84,7 +101,7 @@ async function postJson(
 
 export interface ActivationModel {
   mode: Atom<ActivationMode>
-  status: Atom<ActivationStatus>
+  loading: Computed<boolean>
   error: Atom<string | null>
   registrationForm: ReturnType<typeof reatomForm<{ name: string }>>
   startRegistration: () => Promise<void>
@@ -103,7 +120,6 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
   }
 
   const mode = atom<ActivationMode>('new-account', 'activation.mode')
-  const status = atom<ActivationStatus>('idle', 'activation.status')
   const error = atom<string | null>(null, 'activation.error')
 
   const registrationForm = reatomForm(
@@ -120,11 +136,13 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
     {
       name: 'activation.registrationForm',
       onSubmit: async (state: { name: string }) => {
-        status.set('pending')
+        // Submission in-flight state is owned by the form's `submit` action
+        // (withAsyncData) -- read it via `registrationForm.submit.ready()`. We
+        // only keep `error` here for the human-readable failure message, since
+        // this flow returns errors (errore) instead of throwing.
         error.set(null)
 
         if (!deps.token) {
-          status.set('error')
           error.set('Missing invitation token')
           return
         }
@@ -133,17 +151,14 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
           postJson(deps.fetchImpl, '/api/auth/register/options', { token: deps.token }),
         )
         if (optionsResult instanceof Error) {
-          status.set('error')
           error.set(optionsResult.message)
           return
         }
         if (optionsResult.status === 409 && optionsResult.body.code === 'invite_consumed') {
           mode.set('login')
-          status.set('idle')
           return
         }
         if (optionsResult.status !== 200) {
-          status.set('error')
           error.set(`register/options failed with status ${optionsResult.status}`)
           return
         }
@@ -156,7 +171,6 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
           deps.startRegistrationCeremony({ optionsJSON: options }),
         ).catch((cause) => new ActivationError({ reason: 'registration ceremony failed', cause }))
         if (attestationResponse instanceof Error) {
-          status.set('error')
           error.set(attestationResponse.message)
           return
         }
@@ -169,19 +183,16 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
           }),
         )
         if (verifyResult instanceof Error) {
-          status.set('error')
           error.set(verifyResult.message)
           return
         }
         if (verifyResult.status !== 200) {
-          status.set('error')
           error.set(`register/verify failed with status ${verifyResult.status}`)
           return
         }
 
         const { credentialId } = verifyResult.body as { credentialId: string }
         deps.storage.set(credentialId)
-        status.set('idle')
         deps.navigate('/')
       },
     },
@@ -240,7 +251,6 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
   }
 
   const startLogin = action(async () => {
-    status.set('pending')
     error.set(null)
 
     const hint = deps.storage.get()
@@ -256,15 +266,21 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
     }
 
     if (!result.ok) {
-      status.set('error')
       error.set(result.message)
       return
     }
 
     deps.storage.set(result.credentialId)
-    status.set('idle')
     deps.navigate('/')
-  }, 'activation.startLogin')
+  }, 'activation.startLogin').extend(withAsync())
 
-  return { mode, status, error, registrationForm, startRegistration, startLogin }
+  // Unified in-flight flag for the UI: the registration form's submit action
+  // and the login action each expose `ready()` (true when not loading); only
+  // one is ever active at a time for a given mode.
+  const loading = computed(
+    () => !registrationForm.submit.ready() || !startLogin.ready(),
+    'activation.loading',
+  )
+
+  return { mode, loading, error, registrationForm, startRegistration, startLogin }
 }
