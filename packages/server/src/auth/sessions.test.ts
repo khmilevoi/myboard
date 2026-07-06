@@ -81,7 +81,10 @@ describe('issueSession / verifySession', () => {
 
     const result = await verifySession(ops, config, clock.now, issued.sessionId)
 
-    expect(result).toEqual(issued)
+    expect(result).not.toBeInstanceOf(Error)
+    if (result instanceof Error) throw result
+    expect(result.refreshed).toBe(false)
+    expect(result.record).toEqual(issued)
   })
 
   it('stores optional ip and ua', async () => {
@@ -118,8 +121,9 @@ describe('issueSession / verifySession', () => {
 
     expect(result).not.toBeInstanceOf(Error)
     if (result instanceof Error) throw result
-    expect(result.lastSeenAt).toBe(6 * MINUTE)
-    expect(result.expiresAt).toBe(6 * MINUTE + config.sessionTtlSlidingMs)
+    expect(result.refreshed).toBe(true)
+    expect(result.record.lastSeenAt).toBe(6 * MINUTE)
+    expect(result.record.expiresAt).toBe(6 * MINUTE + config.sessionTtlSlidingMs)
     expect(setSpy).toHaveBeenCalledTimes(1)
 
     const stored = await getJson(ops, sessionKey(issued.sessionId), SessionRecordSchema)
@@ -147,8 +151,9 @@ describe('issueSession / verifySession', () => {
 
     expect(result).not.toBeInstanceOf(Error)
     if (result instanceof Error) throw result
+    expect(result.refreshed).toBe(true)
     // Without capping this would be 26min (6+20), which exceeds the 25min absolute cap.
-    expect(result.expiresAt).toBe(25 * MINUTE)
+    expect(result.record.expiresAt).toBe(25 * MINUTE)
   })
 
   it('does not write again on a second verify within 5 minutes of the refreshed lastSeenAt', async () => {
@@ -164,11 +169,17 @@ describe('issueSession / verifySession', () => {
     const setSpy = vi.spyOn(ops, 'set')
 
     clock.set(6 * MINUTE)
-    await verifySession(ops, config, clock.now, issued.sessionId)
+    const first = await verifySession(ops, config, clock.now, issued.sessionId)
+    expect(first).not.toBeInstanceOf(Error)
+    if (first instanceof Error) throw first
+    expect(first.refreshed).toBe(true)
     expect(setSpy).toHaveBeenCalledTimes(1)
 
     clock.set(7 * MINUTE)
-    await verifySession(ops, config, clock.now, issued.sessionId)
+    const second = await verifySession(ops, config, clock.now, issued.sessionId)
+    expect(second).not.toBeInstanceOf(Error)
+    if (second instanceof Error) throw second
+    expect(second.refreshed).toBe(false)
     expect(setSpy).toHaveBeenCalledTimes(1)
   })
 

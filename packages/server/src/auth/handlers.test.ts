@@ -519,6 +519,62 @@ describe('postLoginVerify', () => {
     expect(result.body).toEqual({ code: 'device_disabled' })
     expect(verifyAuthentication).not.toHaveBeenCalled()
   })
+
+  it('serializes sign-counter verification so a concurrent stale/cloned assertion is rejected', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    await storeDevice(ops, {
+      credentialId: 'cred-race',
+      publicKey: 'pk',
+      signCount: 5,
+      label: 'Board device',
+      createdAt: 0,
+      lastSeenAt: 0,
+      disabled: false,
+      accountId: account.id,
+      status: 'active',
+      addedVia: 'invite',
+    })
+
+    const cookieA = await beginLogin(ops, config, clock.now)
+    const cookieB = await beginLogin(ops, config, clock.now)
+
+    // Legitimate request reads signCount 5 and reports the next counter (6). A
+    // concurrent clone/replay only gets to run once the lock releases, by which
+    // point the stored counter has already advanced to 6 — its embedded counter
+    // is stale relative to that, so it is rejected.
+    vi.mocked(verifyAuthentication).mockImplementation(async (_config, params) => {
+      if (params.device.signCount === 5) return { newSignCount: 6 }
+      return new WebAuthnVerificationError()
+    })
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const [a, b] = await Promise.all([
+      postLoginVerify(
+        deps,
+        fakeReq({ authenticationResponse: { id: 'cred-race' } }, { cookie: cookieA }),
+      ),
+      postLoginVerify(
+        deps,
+        fakeReq({ authenticationResponse: { id: 'cred-race' } }, { cookie: cookieB }),
+      ),
+    ])
+
+    const results = [a, b]
+    const successes = results.filter((r) => r.status === 200)
+    const rejected = results.filter(
+      (r) => r.status === 400 && (r.body as { code?: string })?.code === 'webauthn_verification_failed',
+    )
+
+    expect(successes).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+
+    const device = await getDevice(ops, 'cred-race')
+    if (device instanceof Error) throw device
+    expect(device.signCount).toBe(6)
+  })
 })
 
 describe('getSession', () => {
@@ -563,6 +619,49 @@ describe('getSession', () => {
     const result = await getSession(deps, fakeReq(undefined, { cookie: 'mb_session=nonexistent' }))
 
     expect(result.status).toBe(401)
+  })
+
+  it('emits a refreshed session cookie even when the clock ticks between reads (explicit refreshed flag, not a lastSeenAt===now heuristic)', async () => {
+    const ops = makeOps()
+    const setupClock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, setupClock.now, { name: 'Acc', inviteId: 'inv-1' })
+    await storeDevice(ops, {
+      credentialId: 'cred-1',
+      publicKey: 'pk',
+      signCount: 0,
+      label: 'Board device',
+      createdAt: 0,
+      lastSeenAt: 0,
+      disabled: false,
+      accountId: account.id,
+      status: 'active',
+      addedVia: 'invite',
+    })
+    const session = await issueSession(ops, config, setupClock.now, {
+      accountId: account.id,
+      credentialId: 'cred-1',
+    })
+
+    // Simulate a real clock that ticks between successive now() reads (as it would
+    // across awaited I/O), well past the 5-minute refresh throttle window.
+    let time = 6 * MINUTE
+    const drifting = () => {
+      const value = time
+      time += 1
+      return value
+    }
+    const deps: AuthDeps = { ops, config, now: drifting }
+
+    const result = await getSession(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+    )
+
+    expect(result.status).toBe(200)
+    const cookies = getSetCookies(result.headers)
+    expect(cookies).toHaveLength(1)
+    expect(cookies[0]).toContain(`${config.sessionCookieName}=`)
   })
 })
 

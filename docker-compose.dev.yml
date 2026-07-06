@@ -69,6 +69,13 @@ services:
       CHOKIDAR_USEPOLLING: 'true'
       BROWSER_AUTOMATION_URL: http://browser-automation:8788
       BROWSER_AUTOMATION_TIMEOUT_MS: '100000'
+      RP_ID: localhost
+      RP_NAME: MyBoard
+      PUBLIC_APP_URL: http://localhost:5173
+      EXPECTED_ORIGIN: http://localhost:5173
+      SESSION_TTL_SLIDING: 30d
+      SESSION_TTL_ABSOLUTE: 90d
+      TRUST_CF_CONNECTING_IP: '0'
     volumes: *workspace-volumes
     ports:
       - '127.0.0.1:8787:8787'

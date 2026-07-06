@@ -203,4 +203,32 @@ describe('consumeChallenge', () => {
     })
     expect(second).toBeInstanceOf(ChallengeInvalidError)
   })
+
+  it('only allows exactly one winner under a concurrent race for the same challenge', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const { cookie } = await saveChallenge(ops, config, clock.now, {
+      type: 'auth',
+      challenge: 'chal-1',
+    })
+
+    const [a, b] = await Promise.all([
+      consumeChallenge(ops, config, clock.now, {
+        cookieHeader: cookieHeaderFor(cookie),
+        expectedType: 'auth',
+      }),
+      consumeChallenge(ops, config, clock.now, {
+        cookieHeader: cookieHeaderFor(cookie),
+        expectedType: 'auth',
+      }),
+    ])
+
+    const results = [a, b]
+    const successes = results.filter((r) => !(r instanceof Error))
+    const invalidErrors = results.filter((r) => r instanceof ChallengeInvalidError)
+
+    expect(successes).toHaveLength(1)
+    expect(invalidErrors).toHaveLength(1)
+  })
 })

@@ -99,7 +99,7 @@ export async function consumeInvite(
       uses: record.uses + 1,
       usedAt: now(),
     }
-    await setJson(ops, inviteKey(hash), updated)
+    await setJson(ops, inviteKey(hash), updated, Math.max(0, updated.expiresAt - now()))
 
     return updated
   })
@@ -119,6 +119,6 @@ export async function recordInviteFailure(
       ...record,
       failedAttempts: record.failedAttempts + 1,
     }
-    await setJson(ops, inviteKey(hash), updated)
+    await setJson(ops, inviteKey(hash), updated, Math.max(0, updated.expiresAt - now()))
   })
 }

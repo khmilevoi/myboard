@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import { InviteConsumedError, InviteExpiredError, InviteLockedError } from './errors'
@@ -149,6 +149,19 @@ describe('consumeInvite', () => {
     expect(successes).toHaveLength(1)
     expect(consumedErrors).toHaveLength(1)
   })
+
+  it('preserves the remaining TTL when re-persisting on consume', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 60_000 })
+
+    const setSpy = vi.spyOn(ops, 'set')
+    clock.set(10_000)
+    await consumeInvite(ops, clock.now, token)
+
+    const lastCall = setSpy.mock.calls.at(-1)
+    expect(lastCall?.[2]).toBe(51_000)
+  })
 })
 
 describe('recordInviteFailure', () => {
@@ -164,5 +177,18 @@ describe('recordInviteFailure', () => {
     expect(result).not.toBeInstanceOf(Error)
     if (result instanceof Error) throw result
     expect(result.failedAttempts).toBe(2)
+  })
+
+  it('preserves the remaining TTL when re-persisting on failure', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 60_000 })
+
+    const setSpy = vi.spyOn(ops, 'set')
+    clock.set(10_000)
+    await recordInviteFailure(ops, clock.now, token)
+
+    const lastCall = setSpy.mock.calls.at(-1)
+    expect(lastCall?.[2]).toBe(51_000)
   })
 })

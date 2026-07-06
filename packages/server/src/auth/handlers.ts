@@ -8,6 +8,7 @@ import type {
 
 import { readJsonBody } from '../http/body'
 import { clientIp } from '../http/client-ip'
+import { runExclusive } from '../storage/key-lock'
 import { formatZodError } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
 import { addDeviceToAccount, createAccount } from './accounts'
@@ -18,6 +19,7 @@ import { getDevice, listAllDeviceCredentialIds, storeDevice, updateSignCount } f
 import { ChallengeInvalidError, DeviceDisabledError, InviteConsumedError } from './errors'
 import type { PublicAuthError } from './errors'
 import { consumeInvite, lookupInvite, recordInviteFailure } from './invites'
+import { deviceKey } from './records'
 import {
   LoginOptionsBodySchema,
   LoginVerifyBodySchema,
@@ -268,25 +270,31 @@ export async function postLoginVerify(deps: AuthDeps, req: IncomingMessage): Pro
   const response = parsed.data.authenticationResponse as AuthenticationResponseJSON
   const credentialId = response.id
 
-  const device = await getDevice(deps.ops, credentialId)
-  if (device instanceof Error) return toAuthResult(device)
-  if (device.disabled || device.status !== 'active') return toAuthResult(new DeviceDisabledError())
+  const result = await runExclusive(deviceKey(credentialId), async () => {
+    const device = await getDevice(deps.ops, credentialId)
+    if (device instanceof Error) return device
+    if (device.disabled || device.status !== 'active') return new DeviceDisabledError()
 
-  const verified = await verifyAuthentication(deps.config, {
-    response,
-    expectedChallenge: challenge.challenge,
-    device: {
-      credentialId: device.credentialId,
-      publicKey: device.publicKey,
-      signCount: device.signCount,
-      ...(device.transports
-        ? { transports: device.transports as AuthenticatorTransportFuture[] }
-        : {}),
-    },
+    const verified = await verifyAuthentication(deps.config, {
+      response,
+      expectedChallenge: challenge.challenge,
+      device: {
+        credentialId: device.credentialId,
+        publicKey: device.publicKey,
+        signCount: device.signCount,
+        ...(device.transports
+          ? { transports: device.transports as AuthenticatorTransportFuture[] }
+          : {}),
+      },
+    })
+    if (verified instanceof Error) return verified
+
+    await updateSignCount(deps.ops, credentialId, verified.newSignCount)
+
+    return device
   })
-  if (verified instanceof Error) return toAuthResult(verified)
-
-  await updateSignCount(deps.ops, credentialId, verified.newSignCount)
+  if (result instanceof Error) return toAuthResult(result)
+  const device = result
 
   const session = await issueSession(deps.ops, deps.config, deps.now, {
     accountId: device.accountId,
@@ -315,17 +323,17 @@ export async function getSession(deps: AuthDeps, req: IncomingMessage): Promise<
   const session = await verifySession(deps.ops, deps.config, deps.now, sessionId)
   if (session instanceof Error) return toAuthResult(session)
 
-  const refreshed = session.lastSeenAt === deps.now()
-  if (!refreshed) return { status: 200, body: { accountId: session.accountId } }
+  const { record, refreshed } = session
+  if (!refreshed) return { status: 200, body: { accountId: record.accountId } }
 
   return {
     status: 200,
-    body: { accountId: session.accountId },
+    body: { accountId: record.accountId },
     headers: {
       'Set-Cookie': sessionCookieFor(
         deps.config,
         sessionId,
-        Math.max(session.expiresAt - deps.now(), 0),
+        Math.max(record.expiresAt - deps.now(), 0),
       ),
     },
   }

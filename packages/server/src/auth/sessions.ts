@@ -39,13 +39,18 @@ export async function issueSession(
   return record
 }
 
+export type VerifySessionResult = {
+  record: SessionRecord
+  refreshed: boolean
+}
+
 export async function verifySession(
   ops: ValkeyOps,
   config: AuthConfig,
   now: () => number,
   sessionId: string,
 ): Promise<
-  SessionRecord | SessionMissingError | DeviceDisabledError | DeviceNotFoundError | Error
+  VerifySessionResult | SessionMissingError | DeviceDisabledError | DeviceNotFoundError | Error
 > {
   const record = await getJson(ops, sessionKey(sessionId), SessionRecordSchema)
   if (record instanceof Error) return record
@@ -75,10 +80,10 @@ export async function verifySession(
       updated,
       Math.max(record.absoluteExpiresAt - nowMs, 0),
     )
-    return updated
+    return { record: updated, refreshed: true }
   }
 
-  return record
+  return { record, refreshed: false }
 }
 
 export async function revokeSession(ops: ValkeyOps, sessionId: string): Promise<void> {

@@ -174,7 +174,7 @@ Everything else (`/`, `/assets/*`, `/widgets/*`, `/api/storage/*`,
 ## Invite creation and ops scripts
 
 - `packages/server/scripts/create-invite.ts`, compiled into the server image.
-  Run on the Pi: `docker compose exec server node dist/scripts/create-invite.js
+  Run on the Pi: `docker compose exec server node dist/scripts/create-invite.cjs
 --label "Grandma's iPad" --ttl 7d`. (The compose service is `server`, not
   `app`, and it builds to `dist/`.)
 - It generates a 256-bit token, writes `invite:{sha256}` to Valkey with a TTL,

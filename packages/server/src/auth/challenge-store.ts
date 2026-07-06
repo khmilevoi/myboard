@@ -1,3 +1,4 @@
+import { runExclusive } from '../storage/key-lock'
 import type { ValkeyOps } from '../storage/valkey'
 import type { AuthConfig } from './config'
 import { serializeCookie, parseCookies } from './cookies'
@@ -63,13 +64,15 @@ export async function consumeChallenge(
   const challengeId = parseCookies(cookieHeader)[config.challengeCookieName]
   if (!challengeId) return new ChallengeInvalidError()
 
-  const record = await getJson(ops, challengeKey(challengeId), ChallengeRecordSchema)
-  if (record instanceof Error) return record
-  if (record === null) return new ChallengeInvalidError()
-  if (now() >= record.expiresAt) return new ChallengeInvalidError()
-  if (record.type !== expectedType) return new ChallengeInvalidError()
+  return runExclusive(challengeKey(challengeId), async () => {
+    const record = await getJson(ops, challengeKey(challengeId), ChallengeRecordSchema)
+    if (record instanceof Error) return record
+    if (record === null) return new ChallengeInvalidError()
+    if (now() >= record.expiresAt) return new ChallengeInvalidError()
+    if (record.type !== expectedType) return new ChallengeInvalidError()
 
-  await ops.del(challengeKey(challengeId))
+    await ops.del(challengeKey(challengeId))
 
-  return record
+    return record
+  })
 }
