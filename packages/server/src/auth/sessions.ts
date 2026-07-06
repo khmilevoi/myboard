@@ -1,3 +1,4 @@
+import { runExclusive } from '../storage/key-lock'
 import type { ValkeyOps } from '../storage/valkey'
 import type { AuthConfig } from './config'
 import { getDevice } from './devices'
@@ -68,26 +69,37 @@ export async function verifySession(
   if (device.disabled || device.status !== 'active') return new DeviceDisabledError()
 
   if (nowMs - record.lastSeenAt > REFRESH_THROTTLE_MS) {
-    const slidExpiresAt = Math.min(nowMs + config.sessionTtlSlidingMs, record.absoluteExpiresAt)
-    const updated: SessionRecord = {
-      ...record,
-      lastSeenAt: nowMs,
-      expiresAt: slidExpiresAt,
-    }
-    await setJson(
-      ops,
-      sessionKey(sessionId),
-      updated,
-      Math.max(record.absoluteExpiresAt - nowMs, 0),
-    )
-    return { record: updated, refreshed: true }
+    return runExclusive(sessionKey(sessionId), async () => {
+      // Re-get inside the lock: a concurrent revokeSession may have deleted the
+      // session between the read above and acquiring this lock. If so, do not
+      // resurrect it.
+      const current = await getJson(ops, sessionKey(sessionId), SessionRecordSchema)
+      if (current instanceof Error) return current
+      if (current === null) return new SessionMissingError()
+
+      const slidExpiresAt = Math.min(nowMs + config.sessionTtlSlidingMs, current.absoluteExpiresAt)
+      const updated: SessionRecord = {
+        ...current,
+        lastSeenAt: nowMs,
+        expiresAt: slidExpiresAt,
+      }
+      await setJson(
+        ops,
+        sessionKey(sessionId),
+        updated,
+        Math.max(current.absoluteExpiresAt - nowMs, 0),
+      )
+      return { record: updated, refreshed: true }
+    })
   }
 
   return { record, refreshed: false }
 }
 
 export async function revokeSession(ops: ValkeyOps, sessionId: string): Promise<void> {
-  await ops.del(sessionKey(sessionId))
+  await runExclusive(sessionKey(sessionId), async () => {
+    await ops.del(sessionKey(sessionId))
+  })
 }
 
 export async function revokeAllSessionsForDevice(

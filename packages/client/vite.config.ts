@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import type { IncomingMessage } from 'node:http'
 import { resolve } from 'node:path'
 
@@ -25,13 +26,35 @@ function rewriteActivationRequest(req: IncomingMessage) {
   if (ACTIVATION_PATHS.has(pathname)) req.url = '/activate/index.html'
 }
 
+const activationDistIndex = resolve(__dirname, 'dist/activate/index.html')
+
 function activationRoutePlugin(): Plugin {
   return {
     name: 'activation-route',
     configureServer(server) {
-      server.middlewares.use((req, _res, next) => {
-        rewriteActivationRequest(req)
-        next()
+      // `pnpm dev` runs this Vite dev server (no build step), so the rewrite
+      // used by configurePreviewServer/production (-> /activate/index.html)
+      // doesn't resolve to anything real here: there's no such source file,
+      // and the standalone activation app isn't part of this dev server's
+      // module graph. Serve the already-built activation app from dist/ if
+      // present; otherwise fail loudly instead of silently falling through
+      // to the board's SPA shell.
+      server.middlewares.use((req, res, next) => {
+        if (!req.url) return next()
+        const pathname = req.url.split('?')[0]
+        if (!ACTIVATION_PATHS.has(pathname)) return next()
+
+        if (fs.existsSync(activationDistIndex)) {
+          res.setHeader('Content-Type', 'text/html')
+          res.end(fs.readFileSync(activationDistIndex, 'utf-8'))
+          return
+        }
+
+        res.statusCode = 404
+        res.setHeader('Content-Type', 'text/plain')
+        res.end(
+          'Activation app not built. Run `pnpm --filter client build:activation`, then reload.',
+        )
       })
     },
     configurePreviewServer(server) {

@@ -272,6 +272,31 @@ describe('revokeSession', () => {
     const stored = await ops.get(sessionKey(issued.sessionId))
     expect(stored).toBeNull()
   })
+
+  it('a concurrent refresh does not resurrect a session revoked at the same time', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    await storeDevice(ops, makeDevice())
+    const issued = await issueSession(ops, config, clock.now, {
+      accountId: 'acc-1',
+      credentialId: 'cred-1',
+    })
+
+    // Past the refresh throttle window, so verifySession will attempt to slide expiresAt.
+    clock.set(6 * MINUTE)
+
+    const [verifyResult] = await Promise.all([
+      verifySession(ops, config, clock.now, issued.sessionId),
+      revokeSession(ops, issued.sessionId),
+    ])
+
+    // Whichever order the lock serializes the two operations in, the session must
+    // end up deleted -- never resurrected by the refresh write.
+    void verifyResult
+    const stored = await ops.get(sessionKey(issued.sessionId))
+    expect(stored).toBeNull()
+  })
 })
 
 describe('revokeAllSessionsForDevice', () => {

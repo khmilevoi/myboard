@@ -1,3 +1,4 @@
+import { runExclusive } from '../storage/key-lock'
 import type { ValkeyOps } from '../storage/valkey'
 import { listAccountDeviceIds, removeDeviceFromAccount } from './accounts'
 import { DeviceNotFoundError } from './errors'
@@ -64,10 +65,18 @@ export async function updateSignCount(
 }
 
 export async function revokeDevice(ops: ValkeyOps, credentialId: string): Promise<void> {
-  const record = await getDevice(ops, credentialId)
-  if (record instanceof Error) return
+  // Share the device-key lock with login's getDevice -> verify -> updateSignCount
+  // critical section (see handlers.ts postLoginVerify), so a concurrent login can't
+  // resurrect a device that's being revoked.
+  const record = await runExclusive(deviceKey(credentialId), async () => {
+    const record = await getDevice(ops, credentialId)
+    if (record instanceof Error) return null
 
-  await ops.del(deviceKey(credentialId))
+    await ops.del(deviceKey(credentialId))
+    return record
+  })
+  if (record === null) return
+
   await removeDeviceFromAccount(ops, record.accountId, credentialId)
   await revokeAllSessionsForDevice(ops, credentialId)
 }

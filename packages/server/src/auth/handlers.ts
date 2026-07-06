@@ -188,7 +188,7 @@ export async function postRegisterVerify(
   if (challenge.inviteHash !== sha256hex(token)) return fail(new ChallengeInvalidError())
 
   const verified = await verifyRegistration(deps.config, {
-    response: attestationResponse as RegistrationResponseJSON,
+    response: attestationResponse as unknown as RegistrationResponseJSON,
     expectedChallenge: challenge.challenge,
   })
   if (verified instanceof Error) return fail(verified)
@@ -267,7 +267,7 @@ export async function postLoginVerify(deps: AuthDeps, req: IncomingMessage): Pro
   })
   if (challenge instanceof Error) return toAuthResult(challenge)
 
-  const response = parsed.data.authenticationResponse as AuthenticationResponseJSON
+  const response = parsed.data.authenticationResponse as unknown as AuthenticationResponseJSON
   const credentialId = response.id
 
   const result = await runExclusive(deviceKey(credentialId), async () => {

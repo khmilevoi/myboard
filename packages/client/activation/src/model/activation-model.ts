@@ -22,6 +22,7 @@ export class ActivationError extends errore.createTaggedError({
 export interface ActivationStorage {
   get(): string | null
   set(credentialId: string): void
+  clear(): void
 }
 
 export interface ActivationDeps {
@@ -48,6 +49,9 @@ function defaultStorage(): ActivationStorage {
     set: (credentialId) => {
       if (typeof localStorage !== 'undefined')
         localStorage.setItem(CRED_HINT_STORAGE_KEY, credentialId)
+    },
+    clear: () => {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(CRED_HINT_STORAGE_KEY)
     },
   }
 }
@@ -185,23 +189,27 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
 
   const startRegistration = () => registrationForm.submit().catch(() => undefined)
 
-  const startLogin = action(async () => {
-    status.set('pending')
-    error.set(null)
+  // A single login attempt: options -> ceremony -> verify. `hintFailure: true` marks
+  // failures that are plausibly caused by a stale/unavailable credential hint (the
+  // ceremony can't find a matching credential, or the server rejects it), as opposed
+  // to unrelated network/options failures that a hint retry wouldn't fix.
+  type LoginAttemptResult =
+    | { ok: true; credentialId: string }
+    | { ok: false; hintFailure: boolean; message: string }
 
-    const hint = deps.storage.get()
+  async function attemptLogin(hint: string | null): Promise<LoginAttemptResult> {
     const optionsResult = await wrap(
       postJson(deps.fetchImpl, '/api/auth/login/options', hint ? { credentialIdHint: hint } : {}),
     )
     if (optionsResult instanceof Error) {
-      status.set('error')
-      error.set(optionsResult.message)
-      return
+      return { ok: false, hintFailure: false, message: optionsResult.message }
     }
     if (optionsResult.status !== 200) {
-      status.set('error')
-      error.set(`login/options failed with status ${optionsResult.status}`)
-      return
+      return {
+        ok: false,
+        hintFailure: false,
+        message: `login/options failed with status ${optionsResult.status}`,
+      }
     }
 
     const { options } = optionsResult.body as { options: PublicKeyCredentialRequestOptionsJSON }
@@ -210,27 +218,49 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
       deps.startAuthenticationCeremony({ optionsJSON: options }),
     ).catch((cause) => new ActivationError({ reason: 'authentication ceremony failed', cause }))
     if (authenticationResponse instanceof Error) {
-      status.set('error')
-      error.set(authenticationResponse.message)
-      return
+      return { ok: false, hintFailure: true, message: authenticationResponse.message }
     }
 
     const verifyResult = await wrap(
       postJson(deps.fetchImpl, '/api/auth/login/verify', { authenticationResponse }),
     )
     if (verifyResult instanceof Error) {
-      status.set('error')
-      error.set(verifyResult.message)
-      return
+      return { ok: false, hintFailure: false, message: verifyResult.message }
     }
     if (verifyResult.status !== 200) {
-      status.set('error')
-      error.set(`login/verify failed with status ${verifyResult.status}`)
-      return
+      return {
+        ok: false,
+        hintFailure: true,
+        message: `login/verify failed with status ${verifyResult.status}`,
+      }
     }
 
     const { credentialId } = verifyResult.body as { credentialId: string }
-    deps.storage.set(credentialId)
+    return { ok: true, credentialId }
+  }
+
+  const startLogin = action(async () => {
+    status.set('pending')
+    error.set(null)
+
+    const hint = deps.storage.get()
+    const first = await attemptLogin(hint)
+
+    const result =
+      hint !== null && !first.ok && first.hintFailure
+        ? await (() => {
+            deps.storage.clear()
+            return attemptLogin(null)
+          })()
+        : first
+
+    if (!result.ok) {
+      status.set('error')
+      error.set(result.message)
+      return
+    }
+
+    deps.storage.set(result.credentialId)
     status.set('idle')
     deps.navigate('/')
   }, 'activation.startLogin')

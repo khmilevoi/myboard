@@ -143,4 +143,25 @@ describe('revokeDevice', () => {
 
     await expect(revokeDevice(ops, 'missing')).resolves.toBeUndefined()
   })
+
+  it('serializes against a concurrent sign-count update so the device stays deleted', async () => {
+    const ops = makeOps()
+    const account = await createAccount(ops, () => 0, { name: 'Household', inviteId: 'inv-1' })
+    const accountId = account.id
+    await storeDevice(ops, makeDevice({ credentialId: 'cred-1', accountId, signCount: 5 }))
+    await addDeviceToAccount(ops, accountId, 'cred-1', { countsAgainstLimit: true })
+
+    // Simulates login's runExclusive(deviceKey(...), getDevice -> verify -> updateSignCount)
+    // critical section racing with revokeDevice on the same device key.
+    const { runExclusive } = await import('../storage/key-lock')
+    const { deviceKey } = await import('./records')
+    const loginCriticalSection = runExclusive(deviceKey('cred-1'), async () => {
+      await updateSignCount(ops, 'cred-1', 6)
+    })
+
+    await Promise.all([loginCriticalSection, revokeDevice(ops, 'cred-1')])
+
+    const result = await getDevice(ops, 'cred-1')
+    expect(result).toBeInstanceOf(DeviceNotFoundError)
+  })
 })

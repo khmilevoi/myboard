@@ -20,6 +20,9 @@ function createStorage(initial: string | null = null) {
     set: vi.fn((credentialId: string) => {
       value = credentialId
     }),
+    clear: vi.fn(() => {
+      value = null
+    }),
   }
 }
 
@@ -152,5 +155,86 @@ describe('startLogin', () => {
     })
     expect(storage.set).toHaveBeenCalledWith('cred-456')
     expect(navigate).toHaveBeenCalledWith('/')
+  })
+
+  it('clears a stale credential hint and retries discoverable when the hinted ceremony fails', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'auth-challenge-hinted' } }))
+      .mockResolvedValueOnce(
+        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-789' }))
+    const startAuthenticationCeremony = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('NotAllowedError'))
+      .mockResolvedValueOnce({ id: 'cred-789' })
+    const navigate = vi.fn()
+    const storage = createStorage('stale-cred-hint')
+
+    const model = createActivationModel({
+      token: 'invite-token',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony,
+      navigate,
+      storage,
+    })
+
+    await model.startLogin()
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      '/api/auth/login/options',
+      expect.objectContaining({ body: JSON.stringify({ credentialIdHint: 'stale-cred-hint' }) }),
+    )
+    expect(storage.clear).toHaveBeenCalled()
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      '/api/auth/login/options',
+      expect.objectContaining({ body: JSON.stringify({}) }),
+    )
+    expect(startAuthenticationCeremony).toHaveBeenNthCalledWith(2, {
+      optionsJSON: { challenge: 'auth-challenge-discoverable' },
+    })
+    expect(storage.set).toHaveBeenCalledWith('cred-789')
+    expect(navigate).toHaveBeenCalledWith('/')
+    expect(model.status()).toBe('idle')
+  })
+
+  it('clears a stale credential hint and retries discoverable when the hinted verify is rejected', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'auth-challenge-hinted' } }))
+      .mockResolvedValueOnce(jsonResponse({ code: 'device_not_found' }, 404))
+      .mockResolvedValueOnce(
+        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-999' }))
+    const startAuthenticationCeremony = vi
+      .fn()
+      .mockResolvedValueOnce({ id: 'stale-cred-hint' })
+      .mockResolvedValueOnce({ id: 'cred-999' })
+    const navigate = vi.fn()
+    const storage = createStorage('stale-cred-hint')
+
+    const model = createActivationModel({
+      token: 'invite-token',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony,
+      navigate,
+      storage,
+    })
+
+    await model.startLogin()
+
+    expect(storage.clear).toHaveBeenCalled()
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      3,
+      '/api/auth/login/options',
+      expect.objectContaining({ body: JSON.stringify({}) }),
+    )
+    expect(storage.set).toHaveBeenCalledWith('cred-999')
+    expect(navigate).toHaveBeenCalledWith('/')
+    expect(model.status()).toBe('idle')
   })
 })

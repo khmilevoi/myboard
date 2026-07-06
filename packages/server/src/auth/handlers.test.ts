@@ -19,6 +19,7 @@ import {
   type AuthDeps,
 } from './handlers'
 import { createInvite, lookupInvite } from './invites'
+import { challengeKey } from './records'
 import { issueSession } from './sessions'
 import { sha256hex } from './tokens'
 
@@ -245,7 +246,7 @@ describe('postRegisterVerify', () => {
 
     const deps: AuthDeps = { ops, config, now: clock.now }
     const req = fakeReq(
-      { token, name: 'My Account', attestationResponse: {} },
+      { token, name: 'My Account', attestationResponse: { id: 'cred-1' } },
       {
         cookie: challengeCookie,
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36',
@@ -296,7 +297,7 @@ describe('postRegisterVerify', () => {
 
     const deps: AuthDeps = { ops, config, now: clock.now }
     const req = fakeReq(
-      { token: realToken, name: 'X', attestationResponse: {} },
+      { token: realToken, name: 'X', attestationResponse: { id: 'cred-attempt' } },
       { cookie: cookieHeaderFor(cookie) },
     )
 
@@ -322,7 +323,10 @@ describe('postRegisterVerify', () => {
     vi.mocked(verifyRegistration).mockResolvedValue(new WebAuthnVerificationError())
 
     const deps: AuthDeps = { ops, config, now: clock.now }
-    const req = fakeReq({ token, name: 'X', attestationResponse: {} }, { cookie: challengeCookie })
+    const req = fakeReq(
+      { token, name: 'X', attestationResponse: { id: 'cred-attempt' } },
+      { cookie: challengeCookie },
+    )
 
     const result = await postRegisterVerify(deps, req)
 
@@ -346,7 +350,7 @@ describe('postRegisterVerify', () => {
       const challengeCookie = await beginRegistration(ops, config, clock.now, token)
       const deps: AuthDeps = { ops, config, now: clock.now }
       const req = fakeReq(
-        { token, name: 'X', attestationResponse: {} },
+        { token, name: 'X', attestationResponse: { id: 'cred-attempt' } },
         { cookie: challengeCookie },
       )
       await postRegisterVerify(deps, req)
@@ -373,13 +377,55 @@ describe('postRegisterVerify', () => {
     })
 
     const deps: AuthDeps = { ops, config, now: clock.now }
-    const req = fakeReq({ token, name: 'X', attestationResponse: {} }, { cookie: challengeCookie })
+    const req = fakeReq(
+      { token, name: 'X', attestationResponse: { id: 'cred-x' } },
+      { cookie: challengeCookie },
+    )
 
     const result = await postRegisterVerify(deps, req)
 
     expect(result.status).toBe(409)
     const device = await getDevice(ops, 'cred-x')
     expect(device).toBeInstanceOf(Error)
+  })
+
+  it('rejects a null attestationResponse with 422 and does not consume the challenge', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 10 * MINUTE })
+    const challengeCookie = await beginRegistration(ops, config, clock.now, token)
+    const challengeId = challengeCookie.split('=')[1]
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const req = fakeReq(
+      { token, name: 'X', attestationResponse: null },
+      { cookie: challengeCookie },
+    )
+
+    const result = await postRegisterVerify(deps, req)
+
+    expect(result.status).toBe(422)
+    expect(verifyRegistration).not.toHaveBeenCalled()
+
+    const stored = await ops.get(challengeKey(challengeId))
+    expect(stored).not.toBeNull()
+  })
+
+  it('rejects an attestationResponse missing id with 422', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const { token } = await createInvite(ops, clock.now, { ttlMs: 10 * MINUTE })
+    const challengeCookie = await beginRegistration(ops, config, clock.now, token)
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const req = fakeReq({ token, name: 'X', attestationResponse: {} }, { cookie: challengeCookie })
+
+    const result = await postRegisterVerify(deps, req)
+
+    expect(result.status).toBe(422)
+    expect(verifyRegistration).not.toHaveBeenCalled()
   })
 })
 
@@ -575,6 +621,40 @@ describe('postLoginVerify', () => {
     const device = await getDevice(ops, 'cred-race')
     if (device instanceof Error) throw device
     expect(device.signCount).toBe(6)
+  })
+
+  it('rejects a null authenticationResponse with 422 and does not consume the challenge', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const challengeCookie = await beginLogin(ops, config, clock.now)
+    const challengeId = challengeCookie.split('=')[1]
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const req = fakeReq({ authenticationResponse: null }, { cookie: challengeCookie })
+
+    const result = await postLoginVerify(deps, req)
+
+    expect(result.status).toBe(422)
+    expect(verifyAuthentication).not.toHaveBeenCalled()
+
+    const stored = await ops.get(challengeKey(challengeId))
+    expect(stored).not.toBeNull()
+  })
+
+  it('rejects an authenticationResponse missing id with 422', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const challengeCookie = await beginLogin(ops, config, clock.now)
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    const req = fakeReq({ authenticationResponse: {} }, { cookie: challengeCookie })
+
+    const result = await postLoginVerify(deps, req)
+
+    expect(result.status).toBe(422)
+    expect(verifyAuthentication).not.toHaveBeenCalled()
   })
 })
 
