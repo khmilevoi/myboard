@@ -2,6 +2,7 @@ import type { ValkeyOps } from '../storage/valkey'
 import { listAccountDeviceIds, removeDeviceFromAccount } from './accounts'
 import { DeviceNotFoundError } from './errors'
 import { type DeviceRecord, DeviceRecordSchema, deviceKey, getJson, setJson } from './records'
+import { revokeAllSessionsForDevice } from './sessions'
 
 const DEVICE_KEY_PREFIX = 'device:'
 
@@ -68,5 +69,5 @@ export async function revokeDevice(ops: ValkeyOps, credentialId: string): Promis
 
   await ops.del(deviceKey(credentialId))
   await removeDeviceFromAccount(ops, record.accountId, credentialId)
-  // Session cascade (revoking all sessions for this device) is wired in Task 1.5.
+  await revokeAllSessionsForDevice(ops, credentialId)
 }
