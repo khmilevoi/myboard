@@ -11,6 +11,8 @@
     "**/playwright-report/**",
     "**/test-results/**",
     "**/.worktrees/**",
+    "**/looper-output/**",
+    "**/.superpowers/**",
     "pnpm-lock.yaml",
     "**/node_modules/**",
     "**/*.generated.ts"

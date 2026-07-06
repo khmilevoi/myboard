@@ -1,5 +1,5 @@
-import { Readable } from 'node:stream'
 import type { IncomingMessage } from 'node:http'
+import { Readable } from 'node:stream'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -217,7 +217,12 @@ describe('postRegisterVerify', () => {
     vi.mocked(verifyRegistration).mockReset()
   })
 
-  async function beginRegistration(ops: ReturnType<typeof makeOps>, config: AuthConfig, now: () => number, token: string) {
+  async function beginRegistration(
+    ops: ReturnType<typeof makeOps>,
+    config: AuthConfig,
+    now: () => number,
+    token: string,
+  ) {
     vi.mocked(buildRegistrationOptions).mockResolvedValue({ challenge: 'reg-challenge' } as never)
     const deps: AuthDeps = { ops, config, now }
     const optionsResult = await postRegisterOptions(deps, fakeReq({ token }))
@@ -241,7 +246,10 @@ describe('postRegisterVerify', () => {
     const deps: AuthDeps = { ops, config, now: clock.now }
     const req = fakeReq(
       { token, name: 'My Account', attestationResponse: {} },
-      { cookie: challengeCookie, 'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36' },
+      {
+        cookie: challengeCookie,
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36',
+      },
     )
 
     const result = await postRegisterVerify(deps, req)
@@ -257,7 +265,9 @@ describe('postRegisterVerify', () => {
     expect(sessionSetCookie).toContain('HttpOnly')
     expect(sessionSetCookie).toContain('SameSite=Lax')
 
-    const clearedChallengeCookie = cookies.find((c) => c.startsWith(`${config.challengeCookieName}=`))
+    const clearedChallengeCookie = cookies.find((c) =>
+      c.startsWith(`${config.challengeCookieName}=`),
+    )
     expect(clearedChallengeCookie).toContain('Max-Age=0')
 
     const device = await getDevice(ops, 'cred-1')
@@ -312,10 +322,7 @@ describe('postRegisterVerify', () => {
     vi.mocked(verifyRegistration).mockResolvedValue(new WebAuthnVerificationError())
 
     const deps: AuthDeps = { ops, config, now: clock.now }
-    const req = fakeReq(
-      { token, name: 'X', attestationResponse: {} },
-      { cookie: challengeCookie },
-    )
+    const req = fakeReq({ token, name: 'X', attestationResponse: {} }, { cookie: challengeCookie })
 
     const result = await postRegisterVerify(deps, req)
 
@@ -366,10 +373,7 @@ describe('postRegisterVerify', () => {
     })
 
     const deps: AuthDeps = { ops, config, now: clock.now }
-    const req = fakeReq(
-      { token, name: 'X', attestationResponse: {} },
-      { cookie: challengeCookie },
-    )
+    const req = fakeReq({ token, name: 'X', attestationResponse: {} }, { cookie: challengeCookie })
 
     const result = await postRegisterVerify(deps, req)
 
@@ -390,7 +394,9 @@ describe('postLoginOptions', () => {
     const config = makeConfig()
     const deps: AuthDeps = { ops, config, now: clock.now }
 
-    vi.mocked(buildAuthenticationOptions).mockResolvedValue({ challenge: 'auth-challenge' } as never)
+    vi.mocked(buildAuthenticationOptions).mockResolvedValue({
+      challenge: 'auth-challenge',
+    } as never)
 
     await postLoginOptions(deps, fakeReq({ credentialIdHint: 'cred-hint' }))
 
@@ -405,7 +411,9 @@ describe('postLoginOptions', () => {
     const config = makeConfig()
     const deps: AuthDeps = { ops, config, now: clock.now }
 
-    vi.mocked(buildAuthenticationOptions).mockResolvedValue({ challenge: 'auth-challenge' } as never)
+    vi.mocked(buildAuthenticationOptions).mockResolvedValue({
+      challenge: 'auth-challenge',
+    } as never)
 
     const result = await postLoginOptions(deps, fakeReq({}))
 
@@ -422,8 +430,14 @@ describe('postLoginVerify', () => {
     vi.mocked(verifyAuthentication).mockReset()
   })
 
-  async function beginLogin(ops: ReturnType<typeof makeOps>, config: AuthConfig, now: () => number) {
-    vi.mocked(buildAuthenticationOptions).mockResolvedValue({ challenge: 'auth-challenge' } as never)
+  async function beginLogin(
+    ops: ReturnType<typeof makeOps>,
+    config: AuthConfig,
+    now: () => number,
+  ) {
+    vi.mocked(buildAuthenticationOptions).mockResolvedValue({
+      challenge: 'auth-challenge',
+    } as never)
     const deps: AuthDeps = { ops, config, now }
     const optionsResult = await postLoginOptions(deps, fakeReq({}))
     const cookie = getSetCookies(optionsResult.headers)[0]
@@ -531,7 +545,10 @@ describe('getSession', () => {
     })
 
     const deps: AuthDeps = { ops, config, now: clock.now }
-    const result = await getSession(deps, fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }))
+    const result = await getSession(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+    )
 
     expect(result.status).toBe(200)
     expect(result.body).toEqual({ accountId: account.id })
@@ -561,7 +578,10 @@ describe('postLogout', () => {
     })
 
     const deps: AuthDeps = { ops, config, now: clock.now }
-    const result = await postLogout(deps, fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }))
+    const result = await postLogout(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+    )
 
     expect(result.status).toBe(204)
     const cookies = getSetCookies(result.headers)

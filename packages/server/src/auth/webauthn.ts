@@ -4,7 +4,6 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server'
-import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers'
 import type {
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
@@ -12,6 +11,7 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
 } from '@simplewebauthn/server'
+import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers'
 
 import type { AuthConfig } from './config'
 import { WebAuthnVerificationError } from './errors'

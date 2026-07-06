@@ -12,8 +12,8 @@ vi.mock('@simplewebauthn/server', async (importOriginal) => {
   }
 })
 
-import { isoBase64URL } from '@simplewebauthn/server/helpers'
 import type { AuthenticatorTransportFuture } from '@simplewebauthn/server'
+import { isoBase64URL } from '@simplewebauthn/server/helpers'
 
 import type { AuthConfig } from './config'
 import { WebAuthnVerificationError } from './errors'

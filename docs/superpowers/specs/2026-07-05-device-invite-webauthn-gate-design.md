@@ -35,7 +35,7 @@ These were settled during brainstorming and drive the whole design:
 - **Enforcement, not just enrollment.** The board API is currently wide open.
   Hiding only the frontend would be meaningless, so the API is gated too. This
   feature is "registration + API protection."
-- **Server-enforced boundary.** An unauthorized device cannot even *download*
+- **Server-enforced boundary.** An unauthorized device cannot even _download_
   the board/widget code. Gating is done by nginx `auth_request`, not by the
   client deciding what to render.
 - **WebAuthn / passkey** for the device credential (not app-generated WebCrypto
@@ -69,10 +69,10 @@ These were settled during brainstorming and drive the whole design:
 
 ### Two frontend shells
 
-| Shell | Contents | Served to |
-|-------|----------|-----------|
-| **Board shell** (existing `packages/client`, `main.tsx`) | Full board, federated widgets, PWA/service worker | Only requests with a valid session |
-| **Activation page** | Minimal HTML + a small script doing WebAuthn ceremonies and invite handling. Does **not** import board or widgets. Styled with the shared theme CSS variables | Unauthorized requests (the `401` fallback) |
+| Shell                                                    | Contents                                                                                                                                                      | Served to                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **Board shell** (existing `packages/client`, `main.tsx`) | Full board, federated widgets, PWA/service worker                                                                                                             | Only requests with a valid session         |
+| **Activation page**                                      | Minimal HTML + a small script doing WebAuthn ceremonies and invite handling. Does **not** import board or widgets. Styled with the shared theme CSS variables | Unauthorized requests (the `401` fallback) |
 
 ### nginx as a single gate (`auth_request`)
 
@@ -124,12 +124,12 @@ worker fetches carry the session cookie, so `auth_request` passes for them.
 
 ## Data model (Valkey key namespaces)
 
-| Key | Value (JSON) | TTL |
-|-----|--------------|-----|
-| `invite:{sha256(token)}` | `{ id, createdAt, expiresAt, maxUses, uses, usedAt, label?, createdBy? }` | `expiresAt` |
+| Key                           | Value (JSON)                                                                                             | TTL                  |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------- |
+| `invite:{sha256(token)}`      | `{ id, createdAt, expiresAt, maxUses, uses, usedAt, label?, createdBy? }`                                | `expiresAt`          |
 | `device:{credentialIdB64url}` | `{ credentialId, publicKey, signCount, transports?, label?, createdAt, inviteId, lastSeenAt, disabled }` | none (until revoked) |
-| `session:{sessionId}` | `{ credentialId, createdAt, expiresAt, lastSeenAt, ip?, ua? }` | sliding, 30d |
-| `wachal:{challengeId}` | `{ challenge, type: 'reg' \| 'auth', inviteHash? }` | 5 min |
+| `session:{sessionId}`         | `{ credentialId, createdAt, expiresAt, lastSeenAt, ip?, ua? }`                                           | sliding, 30d         |
+| `wachal:{challengeId}`        | `{ challenge, type: 'reg' \| 'auth', inviteHash? }`                                                      | 5 min                |
 
 - **Invites are looked up by hash.** The client sends `token`; the server
   computes `sha256(token)` and does `GET invite:{hash}`. Only the hash is stored
@@ -143,14 +143,14 @@ worker fetches carry the session cookie, so `auth_request` passes for them.
 
 ## Endpoints (`/api/auth/*`, public allowlist)
 
-| Method / path | Behavior |
-|---------------|----------|
-| `POST /register/options` | Verify the invite is live (no consumption) → return WebAuthn creation options → store challenge |
-| `POST /register/verify` | `verifyRegistrationResponse` → **atomically** consume the invite → store `device` → set session cookie |
-| `POST /login/options` | Return authentication options (challenge; `allowCredentials` from a local hint or discoverable credentials) |
-| `POST /login/verify` | `verifyAuthenticationResponse` (check public key; sign-counter regression = clone → reject) → set session cookie |
-| `GET /session` | The `auth_request` verifier: valid cookie → `200` + TTL refresh; otherwise `401`. Called on every gated request |
-| `POST /logout` | Delete the session and clear the cookie |
+| Method / path            | Behavior                                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `POST /register/options` | Verify the invite is live (no consumption) → return WebAuthn creation options → store challenge                  |
+| `POST /register/verify`  | `verifyRegistrationResponse` → **atomically** consume the invite → store `device` → set session cookie           |
+| `POST /login/options`    | Return authentication options (challenge; `allowCredentials` from a local hint or discoverable credentials)      |
+| `POST /login/verify`     | `verifyAuthenticationResponse` (check public key; sign-counter regression = clone → reject) → set session cookie |
+| `GET /session`           | The `auth_request` verifier: valid cookie → `200` + TTL refresh; otherwise `401`. Called on every gated request  |
+| `POST /logout`           | Delete the session and clear the cookie                                                                          |
 
 Everything else (`/`, `/assets/*`, `/widgets/*`, `/api/storage/*`,
 `/api/widgets/*`, `/api/time`) sits behind `auth_request`.
@@ -175,7 +175,7 @@ Everything else (`/`, `/assets/*`, `/widgets/*`, `/api/storage/*`,
 
 - `packages/server/scripts/create-invite.ts`, compiled into the server image.
   Run on the Pi: `docker compose exec server node dist/scripts/create-invite.js
-  --label "Grandma's iPad" --ttl 7d`. (The compose service is `server`, not
+--label "Grandma's iPad" --ttl 7d`. (The compose service is `server`, not
   `app`, and it builds to `dist/`.)
 - It generates a 256-bit token, writes `invite:{sha256}` to Valkey with a TTL,
   and prints `${PUBLIC_APP_URL}/activate?token=<token>`.
@@ -257,19 +257,21 @@ These decisions were locked in a focused follow-up brainstorm. They refine and,
 where noted, supersede the defaults above.
 
 ### A. Production origin & TLS
+
 - Public URL: `https://board.iiskelo.com`. TLS terminates at the Cloudflare
   edge; `cloudflared` on the Pi tunnels to the client nginx over HTTP. The
   browser always sees HTTPS, so `Secure` / `__Host-` cookies and the WebAuthn
   secure-context requirement are satisfied.
 - `RP_ID = board.iiskelo.com`; `EXPECTED_ORIGIN = PUBLIC_APP_URL =
-  https://board.iiskelo.com`. The WebAuthn origin is verified against the
+https://board.iiskelo.com`. The WebAuthn origin is verified against the
   hardcoded `EXPECTED_ORIGIN` env, never a request header.
 - The real client IP is taken from `CF-Connecting-IP` (Cloudflare Tunnel), not
   `X-Forwarded-For`, for rate limiting and audit. SSE (`/api/storage/events`)
   must be confirmed to pass through the tunnel unbuffered (`x-accel-buffering:
-  no` is already set).
+no` is already set).
 
 ### B. Expired-session / 401 behavior (offline-first preserved)
+
 - On an API `401`, the board client attempts a **silent WebAuthn re-login**
   (`login/options` → `navigator.credentials.get()` → `login/verify`). Success
   resumes seamlessly; failure or cancel redirects to the activation page. This
@@ -285,6 +287,7 @@ where noted, supersede the defaults above.
   after expiry is acceptable — it shows no data until re-auth.
 
 ### C. Dev/test strategy (the gate is nginx-only)
+
 - Server auth logic (invites/devices/sessions/webauthn/challenge) is covered by
   Vitest unit tests; no nginx needed.
 - The activation flow, WebAuthn, and gate behavior are covered by Playwright
@@ -304,6 +307,7 @@ where noted, supersede the defaults above.
   build is untouched.
 
 ### D. Session & cookies
+
 - Session cookie `__Host-mb_session`: `Secure` + `HttpOnly` + `Path=/` +
   `SameSite=Lax` + no `Domain`.
 - Challenge cookie `__Host-mb_chal`: `SameSite=Strict`, 5-minute TTL,
@@ -315,6 +319,7 @@ where noted, supersede the defaults above.
   revisit under load.
 
 ### E. WebAuthn parameters (strict profile)
+
 - `userVerification: 'required'` and `residentKey: 'required'` (discoverable
   credentials).
 - Identity: a random 16-byte `user.id` per device; `user.name` / `displayName`
@@ -327,6 +332,7 @@ where noted, supersede the defaults above.
   `excludeCredentials` on registration, the `@simplewebauthn/*` libraries.
 
 ### F. Env, rate limiting, ops scripts, delivery split
+
 - Env (`.env.example` + `docker-compose.yml`): `RP_ID`, `RP_NAME`,
   `PUBLIC_APP_URL`, `EXPECTED_ORIGIN`, `SESSION_TTL_SLIDING`,
   `SESSION_TTL_ABSOLUTE`, `SESSION_COOKIE_NAME`, and a flag to trust
@@ -342,6 +348,7 @@ where noted, supersede the defaults above.
   is proven, so we cannot lock ourselves out.
 
 ### Implementation loop (model routing)
+
 Captured in `looper-output/loop.yaml`, not implemented as product code: Opus
 4.8 orchestrates (writing-plans, triage, finishing-a-development-branch);
 Sonnet 5 implements **all** tasks via the `sonnet-superpowers-implementer`
@@ -360,6 +367,7 @@ stays shared for this iteration, but the identity/session model carries
 `accountId` so per-user scoping can be layered later without rework.
 
 ### Account & device data model (Valkey)
+
 - `account:{accountId}` → `{ id, name, createdAt, inviteId, deviceLimit }`
   (`deviceLimit` default 10).
 - `device:{credentialId}` gains `accountId`, `status: 'active' | 'pending'`,
@@ -373,13 +381,16 @@ stays shared for this iteration, but the identity/session model carries
 - The session carries `accountId` + `credentialId`.
 
 ### Enrollment flow (a): new account via admin invite
+
 Extends the base flow. `/activate?token=…` now shows a **name** field; on
 `register/verify` the server creates the `account` (with the entered name) plus
 the first device (`status: 'active'` — an admin invite is trusted) and issues a
 session.
 
 ### Enrollment flow (b): add a device to an existing account
+
 Self-served QR/link with owner confirmation:
+
 ```
 Device A (signed in): "My devices" → "Add device"
   → POST /api/auth/devices/add-token   (session + fresh UV)
@@ -392,10 +403,12 @@ Device A: SSE notification "device X wants to join" → Approve
   → device status='active'
 Device B: polls pending-status → approved → normal WebAuthn login → session
 ```
+
 Guards: the add-token is single-use, 5-min TTL, and minted only with a fresh
 user verification on device A; a pending device holds no session until approved.
 
 ### Endpoint changes (`/api/auth/*`)
+
 - `register/verify` (invite): also accepts `name`, creates the account.
 - `POST /devices/add-token` (session + fresh UV): mint an add-device token.
 - `POST /devices/register/options` + `/register/verify` (add-device mode,
@@ -409,6 +422,7 @@ user verification on device A; a pending device holds no session until approved.
   for approval.
 
 ### "My devices" in-board panel
+
 A gated, signed-in board surface (Reatom `reatomMemo` component, logic in
 `model/`): lists the account's devices (label, added date, "this device"
 marker, status); shows pending join requests with **Approve / Deny**; an **Add
@@ -418,6 +432,7 @@ active device from itself (that would strand the account — an admin
 `revoke-account` / re-invite is the recovery path).
 
 ### Activation page changes
+
 The standalone activation app gains a **name** field (new-account mode) and an
 **add-device mode** (`/add-device?token=…`) whose screen registers the device,
 then shows "waiting for approval" and polls until approved before completing a
@@ -426,6 +441,7 @@ device A's QR in-app (react-zxing). Still standalone — it never imports the
 board or widgets.
 
 ### Client tech stack
+
 - **Components — shadcn/ui**: already present in
   `packages/client/src/components/ui/`; add missing components (e.g. `form`,
   `card`, toast) as needed. Used on both the "My devices" panel and the
@@ -457,6 +473,7 @@ board or widgets.
   it emits nothing gated and the gating rule is unchanged.
 
 ### Delivery split (revised to three plans, supersedes section F)
+
 - **Plan 1 — dormant core:** auth backend + activation, **account creation**,
   one active device per account. Gate OFF.
 - **Plan 2 — accounts & multi-device:** add-device token + QR
@@ -465,6 +482,7 @@ board or widgets.
 - **Plan 3 — enforced:** enable the nginx `auth_request` gate + hardening.
 
 ### Testing additions
+
 - Unit: account creation from an invite; add-token mint/TTL/single-use/UV;
   register → pending; approve → active; revoke; the last-active-device guard;
   Reatom models for QR generation options and for scan-result validation.
@@ -473,6 +491,7 @@ board or widgets.
   denied approval.
 
 ### Pre-launch clarifications (2026-07-06)
+
 - **Immediate revocation (security requirement):** revoking a device deletes the
   device record and all of its sessions at once; the `GET /session`
   `auth_request` verifier also rejects when the backing device is missing,

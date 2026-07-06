@@ -51,11 +51,7 @@ const CardContent = reatomMemo<React.ComponentProps<'div'>>(({ className, ...pro
 
 const CardFooter = reatomMemo<React.ComponentProps<'div'>>(({ className, ...props }) => {
   return (
-    <div
-      data-slot="card-footer"
-      className={cn('flex items-center px-6', className)}
-      {...props}
-    />
+    <div data-slot="card-footer" className={cn('flex items-center px-6', className)} {...props} />
   )
 }, 'CardFooter')
 

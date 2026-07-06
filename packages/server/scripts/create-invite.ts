@@ -1,7 +1,7 @@
 import * as errore from 'errore'
 
-import { createInvite } from '../src/auth/invites'
 import { loadAuthConfig, parseDuration } from '../src/auth/config'
+import { createInvite } from '../src/auth/invites'
 import { createValkeyOps, type ValkeyOps } from '../src/storage/valkey'
 
 export class CliArgsError extends errore.createTaggedError({

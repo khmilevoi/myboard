@@ -38,7 +38,7 @@ it('routes local commands to the narrowest codegen target', () => {
     'pnpm run codegen:server && pnpm --filter server dev',
   )
   expect(rootPackage.scripts.build).toBe(
-    'pnpm run codegen:client && concurrently -g --kill-others-on-fail "pnpm --filter \\"./packages/widgets/*\\" build" "pnpm --filter client typecheck" && pnpm --filter client build',
+    'pnpm run codegen:client && concurrently -g --kill-others-on-fail "pnpm --filter \\"./packages/widgets/*\\" build" "pnpm --filter client typecheck" && pnpm --filter client build && pnpm --filter client build:activation',
   )
   expect(rootPackage.scripts['build:widgets']).toBe(
     'pnpm run codegen:client && pnpm --filter "./packages/widgets/*" build',

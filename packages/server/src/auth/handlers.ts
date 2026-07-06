@@ -6,8 +6,8 @@ import type {
   RegistrationResponseJSON,
 } from '@simplewebauthn/server'
 
-import { clientIp } from '../http/client-ip'
 import { readJsonBody } from '../http/body'
+import { clientIp } from '../http/client-ip'
 import { formatZodError } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
 import { addDeviceToAccount, createAccount } from './accounts'
@@ -18,6 +18,12 @@ import { getDevice, listAllDeviceCredentialIds, storeDevice, updateSignCount } f
 import { ChallengeInvalidError, DeviceDisabledError, InviteConsumedError } from './errors'
 import type { PublicAuthError } from './errors'
 import { consumeInvite, lookupInvite, recordInviteFailure } from './invites'
+import {
+  LoginOptionsBodySchema,
+  LoginVerifyBodySchema,
+  RegisterOptionsBodySchema,
+  RegisterVerifyBodySchema,
+} from './schemas'
 import { issueSession, revokeSession, verifySession } from './sessions'
 import { randomId, sha256hex } from './tokens'
 import {
@@ -26,12 +32,6 @@ import {
   verifyAuthentication,
   verifyRegistration,
 } from './webauthn'
-import {
-  LoginOptionsBodySchema,
-  LoginVerifyBodySchema,
-  RegisterOptionsBodySchema,
-  RegisterVerifyBodySchema,
-} from './schemas'
 
 export type AuthDeps = {
   ops: ValkeyOps
@@ -121,7 +121,10 @@ function clearedChallengeCookie(config: AuthConfig): string {
   })
 }
 
-function readSessionId(config: AuthConfig, req: Pick<IncomingMessage, 'headers'>): string | undefined {
+function readSessionId(
+  config: AuthConfig,
+  req: Pick<IncomingMessage, 'headers'>,
+): string | undefined {
   return parseCookies(req.headers.cookie)[config.sessionCookieName]
 }
 
@@ -129,7 +132,10 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   return readJsonBody(req).catch(() => undefined)
 }
 
-export async function postRegisterOptions(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+export async function postRegisterOptions(
+  deps: AuthDeps,
+  req: IncomingMessage,
+): Promise<AuthResult> {
   const parsed = RegisterOptionsBodySchema.safeParse(await readBody(req))
   if (!parsed.success) return { status: 422, body: formatZodError(parsed.error) }
   const { token } = parsed.data
@@ -159,7 +165,10 @@ export async function postRegisterOptions(deps: AuthDeps, req: IncomingMessage):
   return { status: 200, body: { options }, headers: { 'Set-Cookie': cookie } }
 }
 
-export async function postRegisterVerify(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+export async function postRegisterVerify(
+  deps: AuthDeps,
+  req: IncomingMessage,
+): Promise<AuthResult> {
   const parsed = RegisterVerifyBodySchema.safeParse(await readBody(req))
   if (!parsed.success) return { status: 422, body: formatZodError(parsed.error) }
   const { token, name, attestationResponse } = parsed.data
@@ -290,7 +299,11 @@ export async function postLoginVerify(deps: AuthDeps, req: IncomingMessage): Pro
     status: 200,
     body: { accountId: device.accountId, credentialId },
     headers: {
-      'Set-Cookie': sessionCookieFor(deps.config, session.sessionId, deps.config.sessionTtlSlidingMs),
+      'Set-Cookie': sessionCookieFor(
+        deps.config,
+        session.sessionId,
+        deps.config.sessionTtlSlidingMs,
+      ),
     },
   }
 }

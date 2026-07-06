@@ -2,15 +2,10 @@ import { bindField } from '@reatom/react'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { Button } from '../../../src/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../../../src/components/ui/card'
-import { Input } from '../../../src/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+
 import { createActivationModel } from '../model/activation-model'
 
 export const ActivateScreen = reatomMemo(() => {
@@ -43,11 +38,7 @@ export const ActivateScreen = reatomMemo(() => {
               }}
               className="flex flex-col gap-4"
             >
-              <Input
-                placeholder="Your name"
-                aria-label="Your name"
-                {...bindField(nameField)}
-              />
+              <Input placeholder="Your name" aria-label="Your name" {...bindField(nameField)} />
               {nameField.validation().error ? (
                 <p className="text-sm text-destructive">{nameField.validation().error}</p>
               ) : null}

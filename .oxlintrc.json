@@ -28,6 +28,8 @@
     "**/playwright-report/**",
     "**/test-results/**",
     "**/.worktrees/**",
+    "**/looper-output/**",
+    "**/.superpowers/**",
     "**/node_modules/**"
   ]
 }
