@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^13.3.2",
     "errore": "catalog:",
     "find-my-way": "catalog:",
     "iovalkey": "^0.3.3",
