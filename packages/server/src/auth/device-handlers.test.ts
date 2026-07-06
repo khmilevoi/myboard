@@ -10,8 +10,9 @@ import type { AuthConfig } from './config'
 import { getDevice, storeDevice } from './devices'
 import { AddTokenInvalidError, WebAuthnVerificationError } from './errors'
 import type { AuthDeps } from './handlers'
+import { issuePendingTicket } from './pending-tickets'
 import { AddTokenRecordSchema, addTokenKey, getJson } from './records'
-import { issueSession } from './sessions'
+import { issueSession, verifySession } from './sessions'
 import { sha256hex } from './tokens'
 
 vi.mock('./webauthn', () => ({
@@ -22,10 +23,16 @@ vi.mock('./webauthn', () => ({
 }))
 
 import {
+  getAccountInfo,
+  getDevices,
+  getPendingStatus,
   postAddToken,
   postAddTokenOptions,
+  postApproveDevice,
+  postDenyDevice,
   postDeviceRegisterOptions,
   postDeviceRegisterVerify,
+  postRevokeDevice,
 } from './device-handlers'
 import {
   buildAuthenticationOptions,
@@ -114,6 +121,27 @@ async function readAddTokenFailedAttempts(ops: Ops, code: string): Promise<numbe
   const record = await getJson(ops, addTokenKey(sha256hex(code)), AddTokenRecordSchema)
   if (record instanceof Error || record === null) throw new Error('add-token record missing')
   return record.failedAttempts
+}
+
+async function seedPendingDevice(
+  ops: Ops,
+  accountId: string,
+  credentialId: string,
+  overrides: { label?: string } = {},
+) {
+  await storeDevice(ops, {
+    credentialId,
+    publicKey: 'pk',
+    signCount: 0,
+    label: overrides.label ?? 'New phone',
+    createdAt: 0,
+    lastSeenAt: 0,
+    disabled: false,
+    accountId,
+    status: 'pending',
+    addedVia: 'add-token',
+  })
+  await addDeviceToAccount(ops, accountId, credentialId, { countsAgainstLimit: false })
 }
 
 describe('postAddTokenOptions', () => {
@@ -559,5 +587,487 @@ describe('postDeviceRegisterVerify', () => {
 
     expect(result.status).toBe(422)
     expect(verifyRegistration).not.toHaveBeenCalled()
+  })
+})
+
+describe('getAccountInfo', () => {
+  it('returns 401 without a session', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await getAccountInfo(deps, fakeReq(undefined))
+
+    expect(result.status).toBe(401)
+  })
+
+  it('returns id/name/deviceLimit for the session account', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await getAccountInfo(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ id: account.id, name: 'Acc', deviceLimit: account.deviceLimit })
+  })
+})
+
+describe('getDevices', () => {
+  it('returns 401 without a session', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await getDevices(deps, fakeReq(undefined))
+
+    expect(result.status).toBe(401)
+  })
+
+  it('returns device DTOs without publicKey, plus thisCredentialId', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await getDevices(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+    )
+
+    expect(result.status).toBe(200)
+    const body = result.body as {
+      devices: Array<Record<string, unknown>>
+      thisCredentialId: string
+    }
+    expect(body.thisCredentialId).toBe('cred-active')
+    expect(body.devices).toHaveLength(2)
+    const activeDto = body.devices.find((d) => d.credentialId === 'cred-active')
+    expect(activeDto).toEqual({
+      credentialId: 'cred-active',
+      label: 'Board device',
+      status: 'active',
+      addedVia: 'invite',
+      createdAt: 0,
+      lastSeenAt: 0,
+    })
+    for (const dto of body.devices) {
+      expect(dto).not.toHaveProperty('publicKey')
+    }
+  })
+})
+
+describe('postApproveDevice', () => {
+  it('returns 401 without a session', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postApproveDevice(deps, fakeReq(undefined), { credentialId: 'cred-x' })
+
+    expect(result.status).toBe(401)
+  })
+
+  it('flips a pending device to active and publishes device-approved', async () => {
+    const pubsub = createMemoryPubSub()
+    const ops = createMemoryOps(pubsub)
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const received: Array<{ key: string; value: unknown }> = []
+    pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
+
+    const result = await postApproveDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-pending' },
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ ok: true })
+
+    const device = await getDevice(ops, 'cred-pending')
+    if (device instanceof Error) throw device
+    expect(device.status).toBe('active')
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toEqual({
+      key: `auth:account:${account.id}`,
+      value: { type: 'device-approved', credentialId: 'cred-pending', label: 'New phone' },
+    })
+  })
+
+  it('rejects with device_limit when approving would exceed the account device limit', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, {
+      name: 'Acc',
+      inviteId: 'inv-1',
+      deviceLimit: 1,
+    })
+    await storeDevice(ops, {
+      credentialId: 'cred-active',
+      publicKey: 'pk',
+      signCount: 0,
+      label: 'Board device',
+      createdAt: 0,
+      lastSeenAt: 0,
+      disabled: false,
+      accountId: account.id,
+      status: 'active',
+      addedVia: 'invite',
+    })
+    await addDeviceToAccount(ops, account.id, 'cred-active', { countsAgainstLimit: false })
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postApproveDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-pending' },
+    )
+
+    expect(result.status).toBe(409)
+    expect(result.body).toEqual({ code: 'device_limit' })
+
+    const device = await getDevice(ops, 'cred-pending')
+    if (device instanceof Error) throw device
+    expect(device.status).toBe('pending')
+  })
+
+  it('rejects a device belonging to a different account with 403', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const accountA = await seedAccountWithDevice(ops, clock.now, 'cred-a')
+    await seedAccountWithDevice(ops, clock.now, 'cred-b')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: accountA.id,
+      credentialId: 'cred-a',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postApproveDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-b' },
+    )
+
+    expect(result.status).toBe(403)
+    expect(result.body).toEqual({ code: 'not_authorized' })
+  })
+})
+
+describe('postDenyDevice', () => {
+  it('returns 401 without a session', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postDenyDevice(deps, fakeReq(undefined), { credentialId: 'cred-x' })
+
+    expect(result.status).toBe(401)
+  })
+
+  it('deletes the pending device and publishes device-denied', async () => {
+    const pubsub = createMemoryPubSub()
+    const ops = createMemoryOps(pubsub)
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const received: Array<{ key: string; value: unknown }> = []
+    pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
+
+    const result = await postDenyDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-pending' },
+    )
+
+    expect(result.status).toBe(204)
+
+    const device = await getDevice(ops, 'cred-pending')
+    expect(device).toBeInstanceOf(Error)
+
+    const deviceIds = await listAccountDeviceIds(ops, account.id)
+    expect(deviceIds).not.toContain('cred-pending')
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toEqual({
+      key: `auth:account:${account.id}`,
+      value: { type: 'device-denied', credentialId: 'cred-pending', label: 'New phone' },
+    })
+  })
+
+  it('rejects a device belonging to a different account with 403', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const accountA = await seedAccountWithDevice(ops, clock.now, 'cred-a')
+    await seedAccountWithDevice(ops, clock.now, 'cred-b')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: accountA.id,
+      credentialId: 'cred-a',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postDenyDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-b' },
+    )
+
+    expect(result.status).toBe(403)
+    expect(result.body).toEqual({ code: 'not_authorized' })
+  })
+})
+
+describe('postRevokeDevice', () => {
+  it('returns 401 without a session', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postRevokeDevice(deps, fakeReq(undefined), { credentialId: 'cred-x' })
+
+    expect(result.status).toBe(401)
+  })
+
+  it('rejects with last_active_device (409) when revoking the only active device', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postRevokeDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-active' },
+    )
+
+    expect(result.status).toBe(409)
+    expect(result.body).toEqual({ code: 'last_active_device' })
+
+    const device = await getDevice(ops, 'cred-active')
+    expect(device).not.toBeInstanceOf(Error)
+  })
+
+  it('revokes a second active device, cascading to its sessions, and publishes device-revoked', async () => {
+    const pubsub = createMemoryPubSub()
+    const ops = createMemoryOps(pubsub)
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await storeDevice(ops, {
+      credentialId: 'cred-second',
+      publicKey: 'pk',
+      signCount: 0,
+      label: 'Second device',
+      createdAt: 0,
+      lastSeenAt: 0,
+      disabled: false,
+      accountId: account.id,
+      status: 'active',
+      addedVia: 'invite',
+    })
+    await addDeviceToAccount(ops, account.id, 'cred-second', { countsAgainstLimit: false })
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const secondSession = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-second',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const received: Array<{ key: string; value: unknown }> = []
+    pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
+
+    const result = await postRevokeDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-second' },
+    )
+
+    expect(result.status).toBe(204)
+
+    const device = await getDevice(ops, 'cred-second')
+    expect(device).toBeInstanceOf(Error)
+
+    const deviceIds = await listAccountDeviceIds(ops, account.id)
+    expect(deviceIds).not.toContain('cred-second')
+
+    const verified = await verifySession(ops, config, clock.now, secondSession.sessionId)
+    expect(verified).toBeInstanceOf(Error)
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toEqual({
+      key: `auth:account:${account.id}`,
+      value: { type: 'device-revoked', credentialId: 'cred-second', label: 'Second device' },
+    })
+  })
+
+  it('rejects a device belonging to a different account with 403', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const accountA = await seedAccountWithDevice(ops, clock.now, 'cred-a')
+    await seedAccountWithDevice(ops, clock.now, 'cred-b')
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: accountA.id,
+      credentialId: 'cred-a',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await postRevokeDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+      { credentialId: 'cred-b' },
+    )
+
+    expect(result.status).toBe(403)
+    expect(result.body).toEqual({ code: 'not_authorized' })
+  })
+})
+
+describe('getPendingStatus', () => {
+  it('returns 401 for a missing/invalid pending ticket', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await getPendingStatus(deps, fakeReq(undefined))
+
+    expect(result.status).toBe(401)
+    expect(result.body).toEqual({ code: 'pending_ticket_invalid' })
+  })
+
+  it('returns pending while the device awaits owner action', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-pending',
+      accountId: account.id,
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    const result = await getPendingStatus(
+      deps,
+      fakeReq(undefined, { cookie: cookieHeaderFor(cookie) }),
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ status: 'pending' })
+  })
+
+  it('transitions to approved once the owner approves the device', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const ownerSession = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-pending',
+      accountId: account.id,
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    await postApproveDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${ownerSession.sessionId}` }),
+      { credentialId: 'cred-pending' },
+    )
+
+    const result = await getPendingStatus(
+      deps,
+      fakeReq(undefined, { cookie: cookieHeaderFor(cookie) }),
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ status: 'approved' })
+  })
+
+  it('transitions to denied once the owner denies the device', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const ownerSession = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-pending',
+      accountId: account.id,
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now }
+
+    await postDenyDevice(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${ownerSession.sessionId}` }),
+      { credentialId: 'cred-pending' },
+    )
+
+    const result = await getPendingStatus(
+      deps,
+      fakeReq(undefined, { cookie: cookieHeaderFor(cookie) }),
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ status: 'denied' })
   })
 })

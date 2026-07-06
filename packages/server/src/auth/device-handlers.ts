@@ -19,12 +19,26 @@ import {
 } from './add-tokens'
 import { consumeChallenge, saveChallenge } from './challenge-store'
 import { publishAuthDeviceEvent } from './device-events'
-import { getDevice, listDevices, storeDevice, updateSignCount } from './devices'
-import { AddTokenInvalidError, DeviceDisabledError, NotAuthorizedError } from './errors'
+import {
+  getDevice,
+  listDevices,
+  revokeDevice,
+  setDeviceStatus,
+  storeDevice,
+  updateSignCount,
+} from './devices'
+import {
+  AddTokenInvalidError,
+  DeviceDisabledError,
+  DeviceLimitError,
+  DeviceNotFoundError,
+  LastActiveDeviceError,
+  NotAuthorizedError,
+} from './errors'
 import { clearedChallengeCookie, deviceLabelFromUa, toAuthResult } from './handlers'
 import type { AuthDeps, AuthResult } from './handlers'
-import { issuePendingTicket } from './pending-tickets'
-import { deviceKey } from './records'
+import { issuePendingTicket, readPendingTicket } from './pending-tickets'
+import { type DeviceRecord, deviceKey } from './records'
 import {
   AddDeviceRegisterOptionsBodySchema,
   AddDeviceRegisterVerifyBodySchema,
@@ -244,4 +258,157 @@ export async function postDeviceRegisterVerify(
       'Set-Cookie': [cookie, clearedChallengeCookie(deps.config)],
     },
   }
+}
+
+export type DeviceDto = {
+  credentialId: string
+  label: string
+  status: 'active' | 'pending'
+  addedVia: 'invite' | 'add-token'
+  createdAt: number
+  lastSeenAt: number
+}
+
+function toDeviceDto(device: DeviceRecord): DeviceDto {
+  // Deliberately excludes publicKey (and inviteId/disabled/transports): the
+  // device-management UI must never see credential public keys.
+  return {
+    credentialId: device.credentialId,
+    label: device.label,
+    status: device.status,
+    addedVia: device.addedVia,
+    createdAt: device.createdAt,
+    lastSeenAt: device.lastSeenAt,
+  }
+}
+
+async function assertOwnedDevice(
+  deps: AuthDeps,
+  accountId: string,
+  credentialId: string,
+): Promise<DeviceRecord | AuthResult> {
+  const device = await getDevice(deps.ops, credentialId)
+  if (device instanceof Error) return toAuthResult(device)
+  if (device.accountId !== accountId) return toAuthResult(new NotAuthorizedError())
+  return device
+}
+
+export async function getAccountInfo(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+  const session = await requireSession(deps, req)
+  if (isAuthResult(session)) return session
+
+  const account = await getAccount(deps.ops, session.accountId)
+  if (account instanceof Error) return toAuthResult(account)
+
+  return {
+    status: 200,
+    body: { id: account.id, name: account.name, deviceLimit: account.deviceLimit },
+  }
+}
+
+export async function getDevices(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+  const session = await requireSession(deps, req)
+  if (isAuthResult(session)) return session
+
+  const devices = await listDevices(deps.ops, session.accountId)
+
+  return {
+    status: 200,
+    body: { devices: devices.map(toDeviceDto), thisCredentialId: session.credentialId },
+  }
+}
+
+export async function postApproveDevice(
+  deps: AuthDeps,
+  req: IncomingMessage,
+  params: { credentialId: string },
+): Promise<AuthResult> {
+  const session = await requireSession(deps, req)
+  if (isAuthResult(session)) return session
+
+  const device = await assertOwnedDevice(deps, session.accountId, params.credentialId)
+  if (isAuthResult(device)) return device
+  // Approving only makes sense for a device that is still awaiting owner
+  // action; treat any other state the same as "not authorized to do this".
+  if (device.status !== 'pending') return toAuthResult(new NotAuthorizedError())
+
+  const account = await getAccount(deps.ops, session.accountId)
+  if (account instanceof Error) return toAuthResult(account)
+
+  const devices = await listDevices(deps.ops, session.accountId)
+  const activeCount = devices.filter((d) => d.status === 'active').length
+  if (activeCount + 1 > account.deviceLimit) return toAuthResult(new DeviceLimitError())
+
+  await setDeviceStatus(deps.ops, device.credentialId, 'active')
+
+  await publishAuthDeviceEvent(deps.ops, session.accountId, {
+    type: 'device-approved',
+    credentialId: device.credentialId,
+    label: device.label,
+  })
+
+  return { status: 200, body: { ok: true } }
+}
+
+export async function postDenyDevice(
+  deps: AuthDeps,
+  req: IncomingMessage,
+  params: { credentialId: string },
+): Promise<AuthResult> {
+  const session = await requireSession(deps, req)
+  if (isAuthResult(session)) return session
+
+  const device = await assertOwnedDevice(deps, session.accountId, params.credentialId)
+  if (isAuthResult(device)) return device
+  if (device.status !== 'pending') return toAuthResult(new NotAuthorizedError())
+
+  await revokeDevice(deps.ops, device.credentialId)
+
+  await publishAuthDeviceEvent(deps.ops, session.accountId, {
+    type: 'device-denied',
+    credentialId: device.credentialId,
+    label: device.label,
+  })
+
+  return { status: 204 }
+}
+
+export async function postRevokeDevice(
+  deps: AuthDeps,
+  req: IncomingMessage,
+  params: { credentialId: string },
+): Promise<AuthResult> {
+  const session = await requireSession(deps, req)
+  if (isAuthResult(session)) return session
+
+  const device = await assertOwnedDevice(deps, session.accountId, params.credentialId)
+  if (isAuthResult(device)) return device
+  if (device.status !== 'active') return toAuthResult(new NotAuthorizedError())
+
+  const devices = await listDevices(deps.ops, session.accountId)
+  const activeCount = devices.filter((d) => d.status === 'active').length
+  if (activeCount <= 1) return toAuthResult(new LastActiveDeviceError())
+
+  await revokeDevice(deps.ops, device.credentialId)
+
+  await publishAuthDeviceEvent(deps.ops, session.accountId, {
+    type: 'device-revoked',
+    credentialId: device.credentialId,
+    label: device.label,
+  })
+
+  return { status: 204 }
+}
+
+export async function getPendingStatus(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+  const ticket = await readPendingTicket(deps.ops, deps.config, deps.now, req.headers.cookie)
+  if (ticket instanceof Error) return toAuthResult(ticket)
+
+  const device = await getDevice(deps.ops, ticket.credentialId)
+  // A missing device record means the owner denied the join request: denying
+  // deletes the pending device (see postDenyDevice / revokeDevice).
+  if (device instanceof DeviceNotFoundError) return { status: 200, body: { status: 'denied' } }
+  if (device instanceof Error) return toAuthResult(device)
+
+  return { status: 200, body: { status: device.status === 'active' ? 'approved' : 'pending' } }
 }
