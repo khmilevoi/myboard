@@ -565,7 +565,8 @@ describe('postLoginVerify', () => {
     const results = [a, b]
     const successes = results.filter((r) => r.status === 200)
     const rejected = results.filter(
-      (r) => r.status === 400 && (r.body as { code?: string })?.code === 'webauthn_verification_failed',
+      (r) =>
+        r.status === 400 && (r.body as { code?: string })?.code === 'webauthn_verification_failed',
     )
 
     expect(successes).toHaveLength(1)
