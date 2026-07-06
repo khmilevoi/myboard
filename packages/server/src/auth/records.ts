@@ -111,6 +111,10 @@ export function pendingKey(id: string): string {
   return `pending:${id}`
 }
 
+export function authAccountKey(accountId: string): string {
+  return `auth:account:${accountId}`
+}
+
 export async function getJson<T>(
   ops: ValkeyOps,
   key: string,
