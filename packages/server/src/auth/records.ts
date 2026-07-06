@@ -67,6 +67,7 @@ export type ChallengeRecord = z.infer<typeof ChallengeRecordSchema>
 export const AddTokenRecordSchema = z.object({
   accountId: z.string(),
   expiresAt: z.number(),
+  failedAttempts: z.number(),
 })
 export type AddTokenRecord = z.infer<typeof AddTokenRecordSchema>
 
