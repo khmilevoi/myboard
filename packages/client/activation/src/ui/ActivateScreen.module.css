@@ -108,6 +108,13 @@
   border-color: var(--primary);
   box-shadow: 0 0 0 3px oklch(from var(--ring) l c h / 0.35);
 }
+.input.inputError {
+  border-color: var(--destructive);
+}
+.input.inputError:focus-visible {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px var(--destructive-soft);
+}
 
 .primaryButton {
   display: flex;
@@ -135,13 +142,22 @@
   opacity: 0.85;
 }
 
+/* Always mounted with a reserved min-height so a validation error appearing or
+   clearing doesn't shift the button/card beneath it (fades in place instead). */
 .fieldError {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 8px;
+  min-height: 17px;
   font-size: 12.5px;
   font-weight: 500;
+  opacity: 1;
+  transition: opacity 0.15s var(--ease);
+}
+.fieldErrorHidden {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .serverError {

@@ -35,6 +35,8 @@ export const ActivateScreen = reatomMemo(() => {
   const status = model.status()
   const error = model.error()
   const nameField = model.registrationForm.fields.name
+  const nameError = nameField.validation().error
+  const hasNameError = Boolean(nameError)
 
   return (
     <div className={styles.page}>
@@ -72,16 +74,21 @@ export const ActivateScreen = reatomMemo(() => {
                 type="text"
                 placeholder="Your name"
                 aria-label="Your name"
+                aria-invalid={hasNameError}
+                aria-describedby="activate-name-error"
                 disabled={status === 'pending'}
-                className={styles.input}
+                className={`${styles.input} ${hasNameError ? styles.inputError : ''}`}
                 {...bindField(nameField)}
               />
-              {nameField.validation().error ? (
-                <p role="alert" className={`${styles.fieldError} text-destructive`}>
-                  <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                  {nameField.validation().error}
-                </p>
-              ) : null}
+              <p
+                role="alert"
+                id="activate-name-error"
+                aria-hidden={!hasNameError}
+                className={`${styles.fieldError} ${hasNameError ? '' : styles.fieldErrorHidden} text-destructive`}
+              >
+                <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+                {nameError || ' '}
+              </p>
               <button
                 type="submit"
                 disabled={status === 'pending'}
