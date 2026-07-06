@@ -1,4 +1,5 @@
 import { createApp } from './app'
+import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
 import { createValkeySubscriber, createValkeyTestOps } from './storage/valkey'
@@ -24,6 +25,12 @@ if (browserConfig instanceof Error) {
   process.exit(1)
 }
 
+const authConfig = loadAuthConfig(process.env)
+if (authConfig instanceof Error) {
+  console.error(authConfig.message)
+  process.exit(1)
+}
+
 const browserClient = createHttpBrowserAutomationClient(browserConfig)
 
 const { server } = createApp({
@@ -32,6 +39,7 @@ const { server } = createApp({
   now: () => currentNow,
   widgetRegistry: productionWidgetServerRegistry,
   browserClient,
+  authConfig,
   testControls: {
     setNow: (ms) => {
       currentNow = ms

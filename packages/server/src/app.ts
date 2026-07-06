@@ -4,6 +4,9 @@ import { createServer, type Server, type ServerResponse } from 'node:http'
 import Router from 'find-my-way'
 import { z } from 'zod'
 
+import { registerAuthRoutes } from './auth'
+import type { AuthConfig } from './auth/config'
+import { createInvite } from './auth/invites'
 import type { BrowserAutomationClient } from './browser/client'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
@@ -40,6 +43,12 @@ const WidgetRequestSchema = z.object({
   payload: z.unknown(),
 })
 
+const SeedInviteBodySchema = z.object({
+  ttlMs: z.number().positive().optional(),
+  maxUses: z.number().int().positive().optional(),
+  label: z.string().optional(),
+})
+
 export type TestControls = {
   setNow: (ms: number) => void
   reset: () => Promise<void> | void
@@ -51,6 +60,7 @@ export type AppDeps = {
   now: () => number
   widgetRegistry: WidgetServerRegistry
   browserClient: BrowserAutomationClient
+  authConfig: AuthConfig
   testControls?: TestControls
 }
 
@@ -99,6 +109,8 @@ export function createApp(deps: AppDeps): App {
       }),
     )
   }
+
+  registerAuthRoutes({ router, ops, config: deps.authConfig, now })
 
   router.on('GET', '/api/storage/events', (req, res) => {
     res.writeHead(200, {
@@ -302,6 +314,32 @@ export function createApp(deps: AppDeps): App {
       await controls.reset()
       res.writeHead(204)
       res.end()
+    })
+
+    router.on('POST', '/api/test/seed-invite', async (req, res) => {
+      let raw: unknown
+      try {
+        raw = await readJsonBody(req)
+      } catch {
+        res.writeHead(400)
+        res.end()
+        return
+      }
+      const parsed = SeedInviteBodySchema.safeParse(raw ?? {})
+      if (!parsed.success) {
+        res.writeHead(422, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(formatZodError(parsed.error)))
+        return
+      }
+      const { ttlMs = 3_600_000, maxUses, label } = parsed.data
+      const { token } = await createInvite(ops, now, {
+        ttlMs,
+        ...(maxUses !== undefined ? { maxUses } : {}),
+        ...(label !== undefined ? { label } : {}),
+      })
+      const appUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:5173'
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ token, activateUrl: `${appUrl}/activate?token=${token}` }))
     })
   }
 

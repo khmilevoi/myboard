@@ -6,9 +6,24 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { createApp, type App } from './app'
+import type { AuthConfig } from './auth/config'
+import { lookupInvite } from './auth/invites'
 import { makeFakeBrowserAutomationClient } from './browser/testing/fake-client'
 import { createMemoryOps, createMemoryPubSub } from './test/memory-ops'
 import { createWidgetServerRegistry } from './widgets/registry'
+
+const testAuthConfig: AuthConfig = {
+  rpID: 'localhost',
+  rpName: 'MyBoard',
+  expectedOrigin: 'http://localhost',
+  sessionCookieName: 'session',
+  challengeCookieName: 'chal',
+  pendingCookieName: 'pending',
+  sessionTtlSlidingMs: 1000,
+  sessionTtlAbsoluteMs: 2000,
+  secureCookies: false,
+  trustCfConnectingIp: false,
+}
 
 const DEBTS_KEY = encodeURIComponent('w:t:ofelia-poop-duty:debts')
 
@@ -50,10 +65,11 @@ describe('createApp', () => {
   let base: string
   let now: number
   let browserFake: ReturnType<typeof makeFakeBrowserAutomationClient>
+  let ops: ReturnType<typeof createMemoryOps>
 
   beforeEach(async () => {
     const pubsub = createMemoryPubSub()
-    const ops = createMemoryOps(pubsub)
+    ops = createMemoryOps(pubsub)
     now = Date.parse('2026-06-16T10:00:00.000Z')
     browserFake = makeFakeBrowserAutomationClient()
     app = createApp({
@@ -62,6 +78,7 @@ describe('createApp', () => {
       now: () => now,
       widgetRegistry: testWidgetRegistry,
       browserClient: browserFake.client,
+      authConfig: testAuthConfig,
       testControls: {
         setNow: (ms) => {
           now = ms
@@ -214,5 +231,55 @@ describe('createApp', () => {
     expect(await echo.json()).toEqual({
       data: { echoed: 'hello', instanceId: 'placement-1' },
     })
+  })
+
+  it('POST /api/auth/register/options with an unknown token returns invite-not-found', async () => {
+    const res = await fetch(`${base}/api/auth/register/options`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: 'nonexistent-token' }),
+    })
+    expect(res.status).toBe(404)
+    expect(await res.json()).toMatchObject({ code: 'invite_not_found' })
+  })
+
+  it('POST /api/test/seed-invite returns a token lookupInvite accepts', async () => {
+    const res = await fetch(`${base}/api/test/seed-invite`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ttlMs: 60_000, maxUses: 1, label: 'Test invite' }),
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { token: string; activateUrl: string }
+    expect(typeof body.token).toBe('string')
+    expect(body.activateUrl).toContain(`token=${body.token}`)
+
+    const invite = await lookupInvite(ops, () => now, body.token)
+    expect(invite).not.toBeInstanceOf(Error)
+  })
+
+  it('POST /api/test/seed-invite is absent (404) when testControls is undefined', async () => {
+    const pubsub = createMemoryPubSub()
+    const noControlsOps = createMemoryOps(pubsub)
+    const noControlsApp = createApp({
+      ops: noControlsOps,
+      subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
+      now: () => now,
+      widgetRegistry: testWidgetRegistry,
+      browserClient: browserFake.client,
+      authConfig: testAuthConfig,
+    })
+    await new Promise<void>((resolve) => noControlsApp.server.listen(0, resolve))
+    const noControlsBase = `http://localhost:${(noControlsApp.server.address() as AddressInfo).port}`
+    try {
+      const res = await fetch(`${noControlsBase}/api/test/seed-invite`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      expect(res.status).toBe(404)
+    } finally {
+      await noControlsApp.close()
+    }
   })
 })
