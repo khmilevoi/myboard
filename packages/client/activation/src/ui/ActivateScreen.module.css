@@ -144,6 +144,28 @@
   font-weight: 500;
 }
 
+.serverError {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--destructive-soft);
+  border: 1px solid var(--destructive);
+  border-radius: 12px;
+}
+.serverErrorIcon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--destructive);
+}
+.serverErrorText {
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  text-wrap: pretty;
+}
+
 .footerNote {
   display: flex;
   align-items: center;

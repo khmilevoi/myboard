@@ -1,5 +1,5 @@
 import { bindField } from '@reatom/react'
-import { AlertCircle, Fingerprint, Loader2, Lock } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Fingerprint, Loader2, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
@@ -100,7 +100,17 @@ export const ActivateScreen = reatomMemo(() => {
               {passkeyButtonContent(status === 'pending', 'Sign in with passkey', 'Signing in…')}
             </button>
           )}
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <div role="alert" className={styles.serverError}>
+              <AlertTriangle
+                size={15}
+                strokeWidth={2.2}
+                className={styles.serverErrorIcon}
+                aria-hidden
+              />
+              <p className={`${styles.serverErrorText} text-destructive`}>{error}</p>
+            </div>
+          ) : null}
         </div>
 
         <div className={styles.footerNote}>
