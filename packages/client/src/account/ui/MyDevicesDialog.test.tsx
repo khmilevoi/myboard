@@ -72,7 +72,7 @@ describe('MyDevicesDialog', () => {
     expect(within(dialog).getByRole('button', { name: /Добавить устройство/ })).toBeEnabled()
   })
 
-  it('(b) three active devices: revoke buttons render only for the two non-current devices', async () => {
+  it('(b) three active devices: revoke buttons render for all three, including the current device', async () => {
     const { model } = await createTestModel(
       [
         device({ credentialId: 'c1', label: 'Chrome on Windows' }),
@@ -89,7 +89,53 @@ describe('MyDevicesDialog', () => {
     expect(within(dialog).getByText('Chrome on Windows')).toBeInTheDocument()
     expect(within(dialog).getByText('Safari on iPhone')).toBeInTheDocument()
     expect(within(dialog).getByText('Firefox on Linux')).toBeInTheDocument()
-    expect(within(dialog).getAllByRole('button', { name: 'Отозвать' })).toHaveLength(2)
+    // The server's LastActiveDeviceError guard only blocks revoking a device
+    // when activeCount <= 1 -- it has no special case for the caller's own
+    // device. With 3 active devices (including the current one), the server
+    // allows revoking any of them, so this dialog must offer all 3 buttons.
+    expect(within(dialog).getAllByRole('button', { name: 'Отозвать' })).toHaveLength(3)
+  })
+
+  it('shows an enabled revoke button for the current device when 2+ active devices exist', async () => {
+    const { model, fetchImpl } = await createTestModel(
+      [
+        device({ credentialId: 'c1', label: 'Chrome on Windows' }),
+        device({ credentialId: 'c2', label: 'Safari on iPhone' }),
+      ],
+      account,
+      'c1',
+    )
+
+    render(<MyDevicesDialog model={model} open onOpenChange={vi.fn()} />)
+
+    const dialog = await screen.findByRole('dialog')
+    const currentDeviceRow = within(dialog).getByTestId('device-row-c1')
+    const revokeButton = within(currentDeviceRow).getByRole('button', { name: 'Отозвать' })
+    expect(revokeButton).toBeEnabled()
+
+    fireEvent.click(revokeButton)
+    await within(dialog).findByText('Отозвать это устройство? Оно потеряет доступ.')
+
+    fetchImpl.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    fetchImpl.mockResolvedValueOnce(jsonResponse(account))
+    fetchImpl.mockResolvedValueOnce(
+      jsonResponse({ devices: [device({ credentialId: 'c2' })], thisCredentialId: null }),
+    )
+    // Scoped to c1's row -- c2's own normal row still has its own visible
+    // "Отозвать" button while c1's is in confirm mode, so an unscoped query
+    // would be ambiguous.
+    fireEvent.click(
+      within(within(dialog).getByTestId('device-row-c1')).getByRole('button', {
+        name: 'Отозвать',
+      }),
+    )
+
+    await waitFor(() =>
+      expect(fetchImpl).toHaveBeenCalledWith(
+        '/api/auth/devices/c1/revoke',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
   })
 
   it('(c) pending device: Подтвердить calls model.approve for that device', async () => {
@@ -177,19 +223,32 @@ describe('MyDevicesDialog', () => {
     render(<MyDevicesDialog model={model} open onOpenChange={vi.fn()} />)
 
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Отозвать' }))
+    // Scoped to c2's row throughout -- with 2 active devices, c1 (current)
+    // now also has its own visible "Отозвать" button (see the dedicated
+    // current-device-with-2+-actives test above), so unscoped queries would
+    // be ambiguous.
+    const c2Row = within(dialog).getByTestId('device-row-c2')
+    fireEvent.click(within(c2Row).getByRole('button', { name: 'Отозвать' }))
 
     await within(dialog).findByText('Отозвать это устройство? Оно потеряет доступ.')
     expect(fetchImpl).not.toHaveBeenCalledWith('/api/auth/devices/c2/revoke', expect.anything())
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }))
+    fireEvent.click(
+      within(within(dialog).getByTestId('device-row-c2')).getByRole('button', {
+        name: 'Отмена',
+      }),
+    )
     await waitFor(() =>
       expect(
         within(dialog).queryByText('Отозвать это устройство? Оно потеряет доступ.'),
       ).not.toBeInTheDocument(),
     )
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Отозвать' }))
+    fireEvent.click(
+      within(within(dialog).getByTestId('device-row-c2')).getByRole('button', {
+        name: 'Отозвать',
+      }),
+    )
     await within(dialog).findByText('Отозвать это устройство? Оно потеряет доступ.')
 
     fetchImpl.mockResolvedValueOnce(new Response(null, { status: 204 }))
@@ -197,7 +256,11 @@ describe('MyDevicesDialog', () => {
     fetchImpl.mockResolvedValueOnce(
       jsonResponse({ devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' }),
     )
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Отозвать' }))
+    fireEvent.click(
+      within(within(dialog).getByTestId('device-row-c2')).getByRole('button', {
+        name: 'Отозвать',
+      }),
+    )
 
     await waitFor(() =>
       expect(fetchImpl).toHaveBeenCalledWith(

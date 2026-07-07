@@ -155,7 +155,11 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
 
               if (confirming === device.credentialId) {
                 return (
-                  <div key={device.credentialId} className={styles.confirmRow}>
+                  <div
+                    key={device.credentialId}
+                    className={styles.confirmRow}
+                    data-testid={`device-row-${device.credentialId}`}
+                  >
                     <div className={styles.confirmHead}>
                       <div className={cn(styles.icon, styles.confirmIcon)}>
                         <DeviceIcon label={device.label} />
@@ -195,6 +199,7 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
                 <div
                   key={device.credentialId}
                   className={cn(styles.row, !isLast && styles.rowBordered)}
+                  data-testid={`device-row-${device.credentialId}`}
                 >
                   <div className={styles.icon}>
                     <DeviceIcon label={device.label} />
@@ -206,14 +211,16 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
                     </div>
                     <div className={styles.rowSub}>{formatAddedAt(device.createdAt, now)}</div>
                   </div>
-                  {/* Never rendered for the current device: mirrors the
-                      server's LastActiveDeviceError guard (revoking the sole
-                      active device is always rejected), and since the caller
-                      is always authenticated via an active device, that sole
-                      active device is always this one -- the design itself
-                      never shows a revoke action on the "Это устройство" row
-                      in any of its 5 states, current-vs-others or otherwise. */}
-                  {isCurrent ? null : (
+                  {/* Hidden only for the current device when it is the sole
+                      active device -- mirrors the server's
+                      LastActiveDeviceError guard exactly (postRevokeDevice
+                      rejects revoking ANY device once activeCount <= 1; the
+                      caller is always authenticated via an active device, so
+                      that sole device is always this one). With 2+ active
+                      devices the server allows revoking your own current
+                      session too, so the button must stay visible then --
+                      gate on device COUNT, not identity alone. */}
+                  {isCurrent && activeDevices.length <= 1 ? null : (
                     <button
                       type="button"
                       className={styles.revokeButton}
