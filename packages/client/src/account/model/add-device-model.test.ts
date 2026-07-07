@@ -33,18 +33,32 @@ function mintBody(overrides: Partial<{ expiresAt: number }> = {}) {
   }
 }
 
-function createFakeAccountModel(pendingDevices: DeviceDto[] = []) {
+function createFakeAccountModel(initialPending: DeviceDto[] = []) {
   // Mirrors the real account-model.ts contract: `approve`/`deny` never throw
   // -- they catch internally and set their OWN `error` atom, then resolve
   // normally. `setError` is a test-only helper simulating that.
+  //
+  // `pending` is backed by a real reatom atom (not a plain closure) so
+  // `setPending(...)` can simulate a *later*, externally-triggered pending
+  // change (e.g. a `device-pending` SSE event elsewhere refreshing the real
+  // account-model.ts's own `pending` computed) -- add-device-model.ts's
+  // `pendingDevice` computed calls `deps.accountModel.pending()` without
+  // reading any atom of its own, so it (and anything reacting to it) only
+  // picks up a change reactively if that call is itself a genuine reatom
+  // read, matching the real account-model.ts's `pending` (itself a
+  // `computed(...)`).
+  const pending = atom<DeviceDto[]>(initialPending, 'test.fakeAccountModel.pending')
   let errorValue: string | null = null
   return {
-    pending: () => pendingDevices,
+    pending: () => pending(),
     error: () => errorValue,
     approve: vi.fn(async (_credentialId: string) => {}),
     deny: vi.fn(async (_credentialId: string) => {}),
     setError: (value: string | null) => {
       errorValue = value
+    },
+    setPending: (devices: DeviceDto[]) => {
+      pending.set(devices)
     },
   }
 }
@@ -504,5 +518,132 @@ describe('reset', () => {
     model.reset()
 
     expect(model.justApproved()).toBeNull()
+  })
+
+  it('does not let a stale in-flight approve() resurrect justApproved after reset() already ran', async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    let resolveApprove!: () => void
+    accountModel.approve.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveApprove = resolve
+        }),
+    )
+    const model = createAddDeviceModel({ accountModel })
+
+    // Simulates: user clicks Подтвердить -> approve() starts its network
+    // round-trip -> user closes the dialog before it resolves (reset()) ->
+    // the in-flight approve() only *then* resolves.
+    const promise = model.approve()
+    model.reset()
+    expect(model.justApproved()).toBeNull()
+
+    resolveApprove()
+    await promise
+
+    expect(model.justApproved()).toBeNull()
+    expect(model.phase()).toBe('idle')
+  })
+
+  it('does not let a stale in-flight start() resurrect phase/code after reset() already ran', async () => {
+    // Only the *first* fetch call (options) is delayed; the second (mint)
+    // resolves immediately once reached -- so if the generation guard were
+    // missing, the whole chain would complete cleanly to 'showing' with a
+    // real code (a clean, informative failure), rather than hanging/crashing
+    // on an unconfigured second mock call.
+    let resolveOptions!: (value: Response) => void
+    const fetchImpl = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveOptions = resolve
+          }),
+      )
+      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const model = createAddDeviceModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
+      accountModel: createFakeAccountModel(),
+    })
+
+    // Simulates: user clicks Подтвердить -> start() begins its network
+    // round-trip -> user closes the dialog before the options fetch
+    // resolves (reset()) -> the in-flight start() only *then* resolves.
+    const promise = model.start()
+    expect(model.phase()).toBe('verifying')
+
+    model.reset()
+    expect(model.phase()).toBe('idle')
+
+    resolveOptions(jsonResponse(OPTIONS_BODY))
+    await promise
+
+    expect(model.phase()).toBe('idle')
+    expect(model.code()).toBeNull()
+    expect(model.url()).toBeNull()
+  })
+})
+
+describe('error scoping', () => {
+  it('clears a stale ceremony-failure error once an unrelated device becomes pending (e.g. a device-pending SSE event)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const accountModel = createFakeAccountModel([])
+    const model = createAddDeviceModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony: vi.fn(),
+      accountModel,
+    })
+
+    await model.start()
+    expect(model.error()).toBe('Сессия истекла, войдите снова')
+
+    // Simulates an unrelated device-pending SSE event elsewhere refreshing
+    // the real account-model.ts's own `pending` -- this model's own actions
+    // never touched `pending`, only the shared account model did.
+    accountModel.setPending([
+      {
+        credentialId: 'cred-other',
+        label: 'Someone else’s phone',
+        status: 'pending',
+        addedVia: 'add-token',
+        createdAt: 1,
+        lastSeenAt: 1,
+      },
+    ])
+    // Reactive effects settle on the next microtask tick after a dependency
+    // change (matches this repo's own reatom skill reference material), not
+    // synchronously within the same tick as the triggering `.set(...)`.
+    await Promise.resolve()
+
+    expect(model.error()).toBeNull()
+  })
+
+  it("does not clear a delegate error the same still-pending device's own approve() just set", async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    accountModel.approve.mockImplementation(async () => {
+      accountModel.setError('Достигнут лимит устройств аккаунта')
+    })
+    const model = createAddDeviceModel({ accountModel })
+
+    await model.approve()
+
+    expect(model.error()).toBe('Достигнут лимит устройств аккаунта')
   })
 })

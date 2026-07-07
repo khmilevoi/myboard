@@ -5,6 +5,7 @@ import {
   type Atom,
   type Computed,
   computed,
+  effect,
   withAsync,
   withConnectHook,
   wrap,
@@ -161,6 +162,15 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   // resurface after a later action.
   const justApproved = atom<DeviceDto | null>(null, 'addDevice.justApproved')
 
+  // Bumped by `reset()`. Each async action captures the current value at its
+  // start and re-checks it after every `await` before writing any result --
+  // if `reset()` ran while the action was in flight (e.g. the user closed
+  // the dialog mid-ceremony/mid-approval), the captured value no longer
+  // matches and the stale continuation's writes become a no-op instead of
+  // resurrecting `phase`/`code`/`justApproved`/`error` after `reset()`
+  // already cleared them.
+  let generation = 0
+
   // Ticking clock local to this model -- same idiom as
   // packages/widgets/clock/model/clock-model.ts's module-level `clockNow`: a
   // plain atom seeded with a lazy initial-state callback, ticking every
@@ -195,6 +205,26 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     'addDevice.pendingDevice',
   )
 
+  // Clears a stale `error` (a ceremony failure showing on the idle/showing
+  // screen, or a stale delegate failure from a *previous* device) whenever
+  // `pendingDevice` transitions to a *different*, non-null device -- e.g. an
+  // unrelated `device-pending` SSE event elsewhere refreshing the shared
+  // account model while this model's own error is still on screen. Tracks
+  // the previously-seen credentialId (not just "is it non-null") so this
+  // does NOT clear an error that `approve()`/`deny()` just set for the SAME
+  // still-pending device (a failed approve/deny never changes `pending`,
+  // per account-model.ts's real contract of only calling refresh() on
+  // success) -- only a genuine change in *which* device is pending counts.
+  let lastPendingCredentialId: string | null = null
+  effect(() => {
+    const device = pendingDevice()
+    const currentCredentialId = device?.credentialId ?? null
+    if (currentCredentialId != null && currentCredentialId !== lastPendingCredentialId) {
+      error.set(null)
+    }
+    lastPendingCredentialId = currentCredentialId
+  }, 'addDevice.clearErrorOnNewPendingDevice')
+
   // Constructed once, with a non-empty placeholder `data` (qr-code-styling's
   // internal QR generator throws on empty string data) so `.append()` never
   // fails even before a real url has been minted. `type: 'svg'` avoids
@@ -228,11 +258,13 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   }, 'addDevice.qrOptions')
 
   const start = action(async () => {
+    const myGeneration = generation
     error.set(null)
     justApproved.set(null)
     rawPhase.set('verifying')
 
     const optionsResult = await wrap(fetchAddTokenOptions(deps.fetchImpl))
+    if (myGeneration !== generation) return
     if (optionsResult instanceof Error) {
       error.set(describeDeviceError(optionsResult))
       rawPhase.set('idle')
@@ -252,6 +284,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
             new AddDeviceError({ reason: 'сбой процедуры подтверждения устройства', cause }),
         ),
     )
+    if (myGeneration !== generation) return
     if (authenticationResponse instanceof Error) {
       error.set(authenticationResponse.message)
       rawPhase.set('idle')
@@ -259,6 +292,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     }
 
     const mintResult = await wrap(mintAddToken(deps.fetchImpl, authenticationResponse))
+    if (myGeneration !== generation) return
     if (mintResult instanceof Error) {
       error.set(describeDeviceError(mintResult))
       rawPhase.set('idle')
@@ -278,6 +312,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   // model's own `error` -- otherwise a delegate failure (e.g.
   // device-limit-exceeded) would silently vanish.
   const approve = action(async () => {
+    const myGeneration = generation
     justApproved.set(null)
     const device = pendingDevice()
     if (!device) return
@@ -285,6 +320,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     error.set(null)
     rawPhase.set('approving')
     await wrap(deps.accountModel.approve(device.credentialId))
+    if (myGeneration !== generation) return
     const delegateError = deps.accountModel.error()
     if (delegateError != null) {
       error.set(delegateError)
@@ -295,6 +331,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   }, 'addDevice.approve').extend(withAsync())
 
   const deny = action(async () => {
+    const myGeneration = generation
     justApproved.set(null)
     const device = pendingDevice()
     if (!device) return
@@ -302,6 +339,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     error.set(null)
     rawPhase.set('approving')
     await wrap(deps.accountModel.deny(device.credentialId))
+    if (myGeneration !== generation) return
     const delegateError = deps.accountModel.error()
     if (delegateError != null) error.set(delegateError)
     rawPhase.set('idle')
@@ -310,6 +348,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   const busy = computed(() => !approve.ready() || !deny.ready(), 'addDevice.busy')
 
   const reset = action(() => {
+    generation += 1
     rawPhase.set('idle')
     code.set(null)
     formatted.set(null)
