@@ -32,10 +32,18 @@ function mintBody(overrides: Partial<{ expiresAt: number }> = {}) {
 }
 
 function createFakeAccountModel(pendingDevices: DeviceDto[] = []) {
+  // Mirrors the real account-model.ts contract: `approve`/`deny` never throw
+  // -- they catch internally and set their OWN `error` atom, then resolve
+  // normally. `setError` is a test-only helper simulating that.
+  let errorValue: string | null = null
   return {
     pending: () => pendingDevices,
+    error: () => errorValue,
     approve: vi.fn(async (_credentialId: string) => {}),
     deny: vi.fn(async (_credentialId: string) => {}),
+    setError: (value: string | null) => {
+      errorValue = value
+    },
   }
 }
 
@@ -80,7 +88,7 @@ describe('start', () => {
     await model.start()
 
     expect(model.phase()).toBe('idle')
-    expect(model.error()).not.toBeNull()
+    expect(model.error()).toBe('Сессия истекла, войдите снова')
   })
 
   it('surfaces a cancelled/failed ceremony into error and reverts to idle', async () => {
@@ -193,6 +201,30 @@ describe('approve', () => {
 
     expect(accountModel.approve).not.toHaveBeenCalled()
   })
+
+  it("surfaces a delegate approve failure into this model's own error atom", async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    // The real account-model.ts's approve() never throws -- it sets its own
+    // `error` atom (e.g. on a 409 device_limit response) and resolves
+    // normally. Simulate that exact contract here.
+    accountModel.approve.mockImplementation(async () => {
+      accountModel.setError('Достигнут лимит устройств аккаунта')
+    })
+    const model = createAddDeviceModel({ accountModel })
+
+    await model.approve()
+
+    expect(model.error()).toBe('Достигнут лимит устройств аккаунта')
+    expect(model.phase()).toBe('idle')
+  })
 })
 
 describe('deny', () => {
@@ -211,5 +243,26 @@ describe('deny', () => {
     await model.deny()
 
     expect(accountModel.deny).toHaveBeenCalledWith('cred-new')
+  })
+
+  it("surfaces a delegate deny failure into this model's own error atom", async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    accountModel.deny.mockImplementation(async () => {
+      accountModel.setError('Сессия истекла, войдите снова')
+    })
+    const model = createAddDeviceModel({ accountModel })
+
+    await model.deny()
+
+    expect(model.error()).toBe('Сессия истекла, войдите снова')
+    expect(model.phase()).toBe('idle')
   })
 })

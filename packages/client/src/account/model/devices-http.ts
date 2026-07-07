@@ -115,6 +115,31 @@ export function logout(fetchImpl: typeof fetch): Promise<Error | void> {
   return request<void>(fetchImpl, '/api/auth/logout', { method: 'POST' })
 }
 
+// Maps the server's errore `code` (packages/server/src/auth/errors.ts) to
+// Russian, user-facing copy (Plan 2 constraint: all new-surface UI copy is
+// Russian). Unknown codes fall back to a generic message that still surfaces
+// the code for debugging. Shared by account-model.ts and add-device-model.ts
+// so the same server error code always shows the same message regardless of
+// which flow (device management vs. the add-device ceremony) surfaced it.
+export const DEVICE_ERROR_MESSAGES: Record<string, string> = {
+  last_active_device: 'Нельзя отозвать последнее активное устройство аккаунта',
+  device_limit: 'Достигнут лимит устройств аккаунта',
+  not_authorized: 'Недостаточно прав для этого действия',
+  device_not_found: 'Устройство не найдено',
+  device_disabled: 'Это устройство отключено',
+  // packages/server/src/auth/session-guard.ts returns this (401) whenever the
+  // session cookie is missing/expired/invalid on any session-gated endpoint.
+  session_missing: 'Сессия истекла, войдите снова',
+  account_not_found: 'Аккаунт не найден',
+}
+
+export function describeDeviceError(err: Error): string {
+  if (err instanceof DeviceApiError) {
+    return DEVICE_ERROR_MESSAGES[err.code] ?? `Не удалось выполнить действие (код ${err.code})`
+  }
+  return err.message
+}
+
 export type AddTokenOptionsResult = {
   options: PublicKeyCredentialRequestOptionsJSON
 }

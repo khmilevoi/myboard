@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   approveDevice,
+  describeDeviceError,
   DeviceApiError,
   DeviceHttpError,
   denyDevice,
@@ -171,6 +172,26 @@ describe('logout', () => {
       expect.objectContaining({ method: 'POST' }),
     )
     expect(result).toBeUndefined()
+  })
+})
+
+describe('describeDeviceError', () => {
+  it('maps a known DeviceApiError code to its Russian, user-facing message', () => {
+    const err = new DeviceApiError({ code: 'session_missing', status: 401 })
+
+    expect(describeDeviceError(err)).toBe('Сессия истекла, войдите снова')
+  })
+
+  it('falls back to a generic message carrying the raw code for an unmapped DeviceApiError code', () => {
+    const err = new DeviceApiError({ code: 'totally_unknown', status: 500 })
+
+    expect(describeDeviceError(err)).toBe('Не удалось выполнить действие (код totally_unknown)')
+  })
+
+  it('falls back to the error message for a non-DeviceApiError error', () => {
+    const err = new DeviceHttpError({ reason: 'сбой сетевого запроса', cause: new Error('boom') })
+
+    expect(describeDeviceError(err)).toBe(err.message)
   })
 })
 

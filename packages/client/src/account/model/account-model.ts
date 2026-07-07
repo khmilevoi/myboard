@@ -13,7 +13,7 @@ import type { AccountDto, DeviceDto } from './devices-http'
 import {
   approveDevice as approveDeviceRequest,
   denyDevice as denyDeviceRequest,
-  DeviceApiError,
+  describeDeviceError,
   fetchAccount,
   fetchDevices,
   logout as logoutRequest,
@@ -42,29 +42,6 @@ function defaultStorage(): AccountStorage {
     get: () =>
       typeof localStorage === 'undefined' ? null : localStorage.getItem(CRED_HINT_STORAGE_KEY),
   }
-}
-
-// Maps the server's errore `code` (packages/server/src/auth/errors.ts) to
-// Russian, user-facing copy (Plan 2 constraint: all new-surface UI copy is
-// Russian). Unknown codes fall back to a generic message that still surfaces
-// the code for debugging.
-const DEVICE_ERROR_MESSAGES: Record<string, string> = {
-  last_active_device: 'Нельзя отозвать последнее активное устройство аккаунта',
-  device_limit: 'Достигнут лимит устройств аккаунта',
-  not_authorized: 'Недостаточно прав для этого действия',
-  device_not_found: 'Устройство не найдено',
-  device_disabled: 'Это устройство отключено',
-  // packages/server/src/auth/session-guard.ts returns this (401) whenever the
-  // session cookie is missing/expired/invalid on any session-gated endpoint.
-  session_missing: 'Сессия истекла, войдите снова',
-  account_not_found: 'Аккаунт не найден',
-}
-
-function describeError(err: Error): string {
-  if (err instanceof DeviceApiError) {
-    return DEVICE_ERROR_MESSAGES[err.code] ?? `Не удалось выполнить действие (код ${err.code})`
-  }
-  return err.message
 }
 
 type DeviceEventMessage = { type: string; credentialId: string; label?: string }
@@ -123,13 +100,13 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
 
     const accountResult = await wrap(fetchAccount(deps.fetchImpl))
     if (accountResult instanceof Error) {
-      error.set(describeError(accountResult))
+      error.set(describeDeviceError(accountResult))
       return
     }
 
     const devicesResult = await wrap(fetchDevices(deps.fetchImpl))
     if (devicesResult instanceof Error) {
-      error.set(describeError(devicesResult))
+      error.set(describeDeviceError(devicesResult))
       return
     }
 
@@ -147,7 +124,7 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
 
     const result = await wrap(approveDeviceRequest(deps.fetchImpl, credentialId))
     if (result instanceof Error) {
-      error.set(describeError(result))
+      error.set(describeDeviceError(result))
       return
     }
 
@@ -159,7 +136,7 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
 
     const result = await wrap(denyDeviceRequest(deps.fetchImpl, credentialId))
     if (result instanceof Error) {
-      error.set(describeError(result))
+      error.set(describeDeviceError(result))
       return
     }
 
@@ -171,7 +148,7 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
 
     const result = await wrap(revokeDeviceRequest(deps.fetchImpl, credentialId))
     if (result instanceof Error) {
-      error.set(describeError(result))
+      error.set(describeDeviceError(result))
       return
     }
 
@@ -183,7 +160,7 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
 
     const result = await wrap(logoutRequest(deps.fetchImpl))
     if (result instanceof Error) {
-      error.set(describeError(result))
+      error.set(describeDeviceError(result))
       return
     }
 

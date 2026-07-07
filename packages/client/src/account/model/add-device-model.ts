@@ -13,7 +13,7 @@ import { startAuthentication as browserStartAuthentication } from '@simplewebaut
 import * as errore from 'errore'
 
 import { createAccountModel } from './account-model'
-import { DeviceApiError, fetchAddTokenOptions, mintAddToken } from './devices-http'
+import { describeDeviceError, fetchAddTokenOptions, mintAddToken } from './devices-http'
 import type { DeviceDto } from './devices-http'
 
 export type AddDevicePhase = 'idle' | 'verifying' | 'showing' | 'expired' | 'approving'
@@ -29,12 +29,18 @@ export class AddDeviceError extends errore.createTaggedError({
 // (Task B2), so `approve()`/`deny()` here are thin delegations rather than a
 // second implementation of the same HTTP calls. A plain callable shape (not
 // `Pick<AccountModel, ...>`) is intentional: this model only ever *calls*
-// `pending()`/`approve()`/`deny()`, never touches Reatom-specific members
-// (`.subscribe()`, `.extend()`, ...), and a narrower interface keeps test
-// doubles trivial while a real `AccountModel` still satisfies it structurally
-// (its `Computed`/`Action` members are callable with these exact signatures).
+// `pending()`/`error()`/`approve()`/`deny()`, never touches Reatom-specific
+// members (`.subscribe()`, `.extend()`, ...), and a narrower interface keeps
+// test doubles trivial while a real `AccountModel` still satisfies it
+// structurally (its `Computed`/`Atom`/`Action` members are callable with
+// these exact signatures). `error` is required because `account-model.ts`'s
+// real `approve`/`deny` never throw -- they catch internally and set their
+// OWN `error` atom, then resolve normally -- so this model has to read that
+// atom after delegating to surface an approval/denial failure (e.g.
+// device-limit-exceeded) into its own `error`.
 export type AddDeviceAccountModel = {
   pending: () => DeviceDto[]
+  error: () => string | null
   approve: (credentialId: string) => Promise<void>
   deny: (credentialId: string) => Promise<void>
 }
@@ -46,13 +52,6 @@ export interface AddDeviceDeps {
   // `{ optionsJSON }` object), so a test double stays call-compatible with
   // the real ceremony -- mirrors activation-model.ts's ActivationDeps.
   startAuthenticationCeremony: typeof browserStartAuthentication
-}
-
-function describeError(err: Error): string {
-  if (err instanceof DeviceApiError) {
-    return `Не удалось выполнить действие (код ${err.code})`
-  }
-  return err.message
 }
 
 function formatCountdown(msRemaining: number): string {
@@ -134,15 +133,23 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
 
     const optionsResult = await wrap(fetchAddTokenOptions(deps.fetchImpl))
     if (optionsResult instanceof Error) {
-      error.set(describeError(optionsResult))
+      error.set(describeDeviceError(optionsResult))
       rawPhase.set('idle')
       return
     }
 
+    // The `.catch()` must chain onto the raw ceremony promise BEFORE it's
+    // passed to `wrap(...)`, not onto `wrap(...)`'s result -- chaining after
+    // `wrap()` runs the catch continuation (and everything awaited after it)
+    // outside the action's own reatom frame. Wrapping the whole
+    // promise-plus-catch as one unit keeps the re-entry correct.
     const authenticationResponse = await wrap(
-      deps.startAuthenticationCeremony({ optionsJSON: optionsResult.options }),
-    ).catch(
-      (cause) => new AddDeviceError({ reason: 'сбой процедуры подтверждения устройства', cause }),
+      deps
+        .startAuthenticationCeremony({ optionsJSON: optionsResult.options })
+        .catch(
+          (cause) =>
+            new AddDeviceError({ reason: 'сбой процедуры подтверждения устройства', cause }),
+        ),
     )
     if (authenticationResponse instanceof Error) {
       error.set(authenticationResponse.message)
@@ -152,7 +159,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
 
     const mintResult = await wrap(mintAddToken(deps.fetchImpl, authenticationResponse))
     if (mintResult instanceof Error) {
-      error.set(describeError(mintResult))
+      error.set(describeDeviceError(mintResult))
       rawPhase.set('idle')
       return
     }
@@ -164,12 +171,20 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     rawPhase.set('showing')
   }, 'addDevice.start').extend(withAsync())
 
+  // account-model.ts's real `approve`/`deny` never throw -- they catch
+  // internally, set their OWN `error` atom, and resolve normally. So after
+  // delegating, read that atom back and copy a non-null value into this
+  // model's own `error` -- otherwise a delegate failure (e.g.
+  // device-limit-exceeded) would silently vanish.
   const approve = action(async () => {
     const device = pendingDevice()
     if (!device) return
 
+    error.set(null)
     rawPhase.set('approving')
     await wrap(deps.accountModel.approve(device.credentialId))
+    const delegateError = deps.accountModel.error()
+    if (delegateError != null) error.set(delegateError)
     rawPhase.set('idle')
   }, 'addDevice.approve').extend(withAsync())
 
@@ -177,8 +192,11 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     const device = pendingDevice()
     if (!device) return
 
+    error.set(null)
     rawPhase.set('approving')
     await wrap(deps.accountModel.deny(device.credentialId))
+    const delegateError = deps.accountModel.error()
+    if (delegateError != null) error.set(delegateError)
     rawPhase.set('idle')
   }, 'addDevice.deny').extend(withAsync())
 
