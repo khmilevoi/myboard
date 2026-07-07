@@ -128,47 +128,15 @@
   text-align: center;
 }
 
-.primaryButton {
-  display: flex;
-  width: 100%;
-  height: 48px;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border: none;
-  border-radius: 13px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: var(--shadow-btn);
-  transition: background 0.15s var(--ease);
-}
-.primaryButton:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-.primaryButton:disabled {
-  cursor: default;
-  opacity: 0.85;
-}
 /* (a)'s "Сканировать QR-код" and (d1)/(d2)'s "Создать passkey" -- both sit
    24px below the preceding paragraph. */
 .primaryButtonTopGap {
   margin-top: 24px;
 }
 /* Manual-entry screens' (c1/c2) own "Продолжить" -- sits 14px below the code
-   field/error row (Мультиустройства.dc.html:537,558), and uses a plain
-   inert-disabled look (opacity .4/not-allowed, matching c2's disabled
-   button) rather than .primaryButton's own "busy" .85 default, since this
-   button never shows a spinner -- it's just unavailable until a code is
-   entered. */
+   field/error row (Мультиустройства.dc.html:537,558). */
 .primaryButtonManualGap {
   margin-top: 14px;
-}
-.primaryButton.primaryButtonManualGap:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 .divider {
@@ -197,35 +165,15 @@
 }
 
 .codeInput {
-  width: 100%;
-  height: 48px;
-  padding: 0 15px;
-  background: var(--card);
-  color: var(--foreground);
-  border: 1px solid var(--input);
-  border-radius: 13px;
   font-family: var(--font-mono);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-align: center;
-  outline: none;
-  transition:
-    border-color 0.15s var(--ease),
-    box-shadow 0.15s var(--ease),
-    background 0.15s var(--ease);
 }
 .codeInput::placeholder {
   color: var(--text-3);
   letter-spacing: 0.1em;
-}
-.codeInput:focus-visible {
-  border-color: var(--primary);
-  box-shadow: var(--focus-ring);
-}
-.codeInput.codeInputError {
-  border-color: var(--destructive);
-  box-shadow: 0 0 0 3px var(--destructive-soft);
 }
 .codeInput.codeInputExpired {
   background: var(--secondary);
@@ -244,27 +192,6 @@
   font-size: 12.5px;
   font-weight: 500;
   color: var(--destructive);
-}
-
-.outlineButton {
-  width: 100%;
-  height: 48px;
-  margin-top: 12px;
-  background: transparent;
-  color: var(--foreground);
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s var(--ease);
-}
-.outlineButton:hover:not(:disabled) {
-  background: var(--secondary);
-}
-.outlineButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
 }
 
 /* ---------- (b) / (b2) scanner ---------- */
@@ -402,20 +329,6 @@
   color: var(--muted-foreground);
   text-align: center;
   text-wrap: pretty;
-}
-
-.cameraDeniedLink {
-  margin-top: 16px;
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--primary);
-  cursor: pointer;
-}
-.cameraDeniedLink:hover {
-  color: var(--primary-hover);
 }
 
 /* ---------- (d) registering ---------- */

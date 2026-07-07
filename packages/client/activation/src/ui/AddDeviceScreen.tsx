@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { useZxing } from 'react-zxing'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
 import { type AddDeviceModel, createAddDeviceModel } from '../model/add-device-model'
 
 import styles from './AddDeviceScreen.module.css'
@@ -204,14 +207,14 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
                 Отсканируйте QR-код или введите код с другого устройства
               </p>
 
-              <button
+              <Button
                 type="button"
-                className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
+                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
                 onClick={goToScan}
               >
                 <Camera size={18} strokeWidth={2} aria-hidden />
                 Сканировать QR-код
-              </button>
+              </Button>
 
               <div className={styles.divider}>
                 <div className={styles.dividerLine} />
@@ -220,13 +223,13 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
               </div>
 
               <div className={styles.codeField}>
-                <input
+                <Input
                   type="text"
                   placeholder="____ – ____"
                   aria-label="Код с другого устройства"
                   aria-invalid={Boolean(error)}
                   value={manualValue}
-                  className={`${styles.codeInput} ${error ? styles.codeInputError : ''}`}
+                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput}`}
                   onChange={(event) => setManualValue(formatManualCode(event.target.value))}
                   onPaste={handleCodePaste}
                   onKeyDown={handleCodeKeyDown}
@@ -239,13 +242,14 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
                 ) : null}
               </div>
 
-              <button
+              <Button
                 type="button"
-                className={styles.outlineButton}
+                variant="outline"
+                className="h-12 w-full rounded-[13px] font-semibold"
                 onClick={() => submitCode(manualValue)}
               >
                 Продолжить
-              </button>
+              </Button>
 
               <div className={styles.footerNote}>
                 <Lock size={12} strokeWidth={2} aria-hidden />
@@ -279,9 +283,14 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
               </div>
               <h1 className={styles.statusHeading}>Нет доступа к камере</h1>
               <p className={styles.statusDescription}>{CAMERA_DENIED_MESSAGE}</p>
-              <button type="button" className={styles.cameraDeniedLink} onClick={goToManual}>
+              <Button
+                type="button"
+                variant="link"
+                className="mt-4 h-auto p-0 text-sm font-semibold"
+                onClick={goToManual}
+              >
                 Ввести код вручную
-              </button>
+              </Button>
             </>
           ) : null}
 
@@ -290,15 +299,15 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
               <h1 className={styles.manualHeading}>Введите код с другого устройства</h1>
 
               <div className={`${styles.codeField} ${styles.codeFieldWithMargin}`}>
-                <input
+                <Input
                   type="text"
                   placeholder="____ – ____"
                   aria-label="Код с другого устройства"
                   aria-invalid={Boolean(error)}
                   value={manualValue}
                   disabled={isExpiredError}
-                  className={`${styles.codeInput} ${
-                    isExpiredError ? styles.codeInputExpired : error ? styles.codeInputError : ''
+                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput} ${
+                    isExpiredError ? styles.codeInputExpired : ''
                   }`}
                   onChange={(event) => setManualValue(formatManualCode(event.target.value))}
                   onPaste={handleCodePaste}
@@ -312,14 +321,14 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
                 ) : null}
               </div>
 
-              <button
+              <Button
                 type="button"
                 disabled={isExpiredError}
-                className={`${styles.primaryButton} ${styles.primaryButtonManualGap}`}
+                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonManualGap}`}
                 onClick={() => submitCode(manualValue)}
               >
                 Продолжить
-              </button>
+              </Button>
             </>
           ) : null}
 
@@ -332,15 +341,15 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
               </h1>
               <p className={styles.description}>Создайте passkey, чтобы завершить</p>
 
-              <button
+              <Button
                 type="button"
                 disabled={showRegisterLoading}
                 aria-busy={showRegisterLoading}
-                className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
+                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
                 onClick={createPasskey}
               >
                 {passkeyButtonContent(showRegisterLoading)}
-              </button>
+              </Button>
 
               {error ? (
                 <p role="alert" className={styles.codeErrorRow}>
@@ -388,9 +397,14 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
                 Запрос отклонён
               </h1>
               <p className={styles.statusDescription}>Основное устройство отклонило подключение</p>
-              <button type="button" className={styles.outlineButton} onClick={goToChoose}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full rounded-[13px] font-semibold"
+                onClick={goToChoose}
+              >
                 Попробовать снова
-              </button>
+              </Button>
             </>
           ) : null}
         </div>
