@@ -2,6 +2,7 @@ import { wrap } from '@reatom/core'
 import { useMemo } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
+import { AccountMenu } from '@/account/ui/AccountMenu'
 import { addBoard, removeBoard, updateBoard } from '@/board/model/board-model'
 import { activeBoardId, boards, LOCAL_BOARD_ID } from '@/board/model/board-storage'
 import { AddWidgetMenu } from '@/board/ui/AddWidgetMenu'
@@ -23,6 +24,7 @@ export const Header = reatomMemo(() => {
       <div className={styles.actions}>
         <ThemeToggle />
         <AddWidgetMenu />
+        <AccountMenu />
       </div>
     </header>
   )

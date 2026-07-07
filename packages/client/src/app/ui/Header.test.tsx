@@ -18,4 +18,9 @@ describe('Header', () => {
     expect(screen.getByRole('radiogroup', { name: 'Тема' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Добавить виджет' })).toBeInTheDocument()
   })
+
+  it('renders the account menu avatar', () => {
+    render(<Header />)
+    expect(screen.getByRole('button', { name: 'Аккаунт' })).toBeInTheDocument()
+  })
 })
