@@ -22,11 +22,24 @@
 :root[data-theme='light'] {
   --destructive-soft: oklch(0.968 0.028 27);
   --shadow-elevated: 0 1px 2px rgba(20, 22, 40, 0.05), 0 24px 50px -18px rgba(30, 32, 55, 0.22);
+  /* Added for MyDevicesDialog.tsx (Task B5) -- the design's primary "Добавить
+     устройство" button uses a primary-tinted lift shadow and a hover shade
+     the shared tokens.css doesn't define. No source value exists in this repo
+     (the design tool's own default stylesheet isn't checked in), so these are
+     derived: --primary-hover mixes 12% black into --primary (mirrors
+     shadcn's `hover:bg-primary/80` intent without needing an alpha
+     composite); --shadow-btn reuses --shadow-card's neutral near shadow plus
+     a soft --primary-tinted glow, the same two-layer shape as
+     --shadow-elevated above. */
+  --primary-hover: color-mix(in oklch, var(--primary), black 12%);
+  --shadow-btn: 0 1px 2px rgba(20, 22, 40, 0.06), 0 10px 24px -8px oklch(0.55 0.17 281 / 0.38);
 }
 
 :root[data-theme='dark'] {
   --destructive-soft: oklch(0.3 0.07 25);
   --shadow-elevated: 0 1px 2px rgba(10, 12, 25, 0.2), 0 24px 50px -18px rgba(10, 12, 25, 0.5);
+  --primary-hover: color-mix(in oklch, var(--primary), white 15%);
+  --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 24px -8px oklch(0.68 0.15 285 / 0.38);
 }
 
 * {

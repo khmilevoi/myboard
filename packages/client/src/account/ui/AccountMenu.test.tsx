@@ -1,5 +1,5 @@
 import { context } from '@reatom/core'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -151,5 +151,17 @@ describe('AccountMenu', () => {
     await waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2))
     expect(FakeEventSource.instances).toHaveLength(1)
     expect(FakeEventSource.instances[0]!.url).toBe('/api/auth/devices/events')
+  })
+
+  it('opens MyDevicesDialog (sharing this same model) when "Мои устройства" is selected', async () => {
+    const { model } = createTestModel([device({ credentialId: 'c1', label: 'Chrome on Windows' })])
+
+    render(<AccountMenu model={model} />)
+    await openMenu()
+    fireEvent.click(await screen.findByText('Мои устройства'))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getAllByText('Анна Ковалёва').length).toBeGreaterThan(0)
+    expect(within(dialog).getByText('Chrome on Windows')).toBeInTheDocument()
   })
 })
