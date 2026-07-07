@@ -3,6 +3,7 @@ import { Monitor, Moon, Sun } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { ThemeMode } from '@/shared/theme/types'
 import { themeMode } from '@/theme/model/theme-model'
 
@@ -24,20 +25,19 @@ function setMode(mode: ThemeMode) {
 export const ThemeTogglePill = reatomMemo(() => {
   const current = themeMode()
   return (
-    <div role="group" aria-label="Тема" className={styles.themeToggle}>
+    <ToggleGroup type="single" value={current} aria-label="Тема" className={styles.themeToggle}>
       {OPTIONS.map(({ mode, label, title, Icon }) => (
-        <button
+        <ToggleGroupItem
           key={mode}
-          type="button"
+          value={mode}
           title={title}
           aria-label={label}
-          data-state={current === mode ? 'on' : 'off'}
           className={styles.themeToggleItem}
           onClick={() => setMode(mode)}
         >
           <Icon size={16} strokeWidth={2} aria-hidden />
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 }, 'ThemeTogglePill')
