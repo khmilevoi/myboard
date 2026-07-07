@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Enable the always-on nginx `auth_request` gate over the board and ship the hardening tail: CSRF guard, audit log, silent 401 re-login via ky, logout purge, five ops scripts, and gate tests.
+**Goal:** Enable the always-on nginx `auth_request` gate over the board and ship the hardening tail: CSRF guard, audit log, silent 401 re-login via the shared `HttpClient` port, logout purge, five ops scripts, and gate tests.
 
-**Architecture:** nginx gates `/`, `/assets/*`, `/widgets/*`, and `/api/*` (minus a public allowlist) by subrequesting `GET /api/auth/session`; a 401 on navigations serves the activation page. The server adds a router-level CSRF guard and stdout audit logging. The widget-runtime HTTP layer moves to a shared ky instance whose `afterResponse` hook consults the `unauthorizedHandlerAtom` config atom; the board sets that atom at bootstrap to a single-flight Reatom `ensureSession` model that runs the WebAuthn re-login ceremony.
+**Architecture:** nginx gates `/`, `/assets/*`, `/widgets/*`, and `/api/*` (minus a public allowlist) by subrequesting `GET /api/auth/session`; a 401 on navigations serves the activation page. The server adds a router-level CSRF guard and stdout audit logging. Client transport moves to owned ports in `packages/shared/http/`: a `HttpClient` class (ky inside as a swappable adapter, errore values out, CSRF header built in) and an `EventStream` port over `EventSource`. widget-runtime gains a `makeHostRuntime` composition-root factory owning one `HttpClient` and one SSE manager; the board’s root (`packages/client/src/runtime.ts`) wires `onUnauthorized` to a single-flight Reatom `ensureSession` model running the WebAuthn re-login ceremony, harnesses build a bare runtime, and every hand-rolled fetch layer (http-storage, widget-api, http-time, devices-http, activation) migrates to the port.
 
-**Tech Stack:** nginx `auth_request`/`limit_req`, ky (new dep in `widget-runtime` + `client`), `@simplewebauthn/browser`, Reatom v1001, errore, Zod, Vitest, Playwright (CDP virtual authenticator).
+**Tech Stack:** nginx `auth_request`/`limit_req`, ky (new dep in `shared`, hidden behind the `HttpClient` port), `@simplewebauthn/browser`, Reatom v1001, errore, Zod, Vitest, Playwright (CDP virtual authenticator).
 
 **Spec:** `docs/superpowers/specs/2026-07-07-webauthn-gate-enforcement-design.md` (read it first).
 
@@ -17,10 +17,11 @@
 - Every command through `rtk` (e.g. `rtk git add`, `rtk pnpm ...` where applicable).
 - UI copy for user-facing surfaces is Russian; this plan adds no new UI surfaces.
 - The gate exists **only** in the nginx image. `pnpm dev`, `pnpm test:e2e` (vite preview) stay ungated and must keep passing.
-- ky config invariants: `throwHttpErrors` stays default (on); automatic retries disabled via `retry: { limit: 1, methods: [], statusCodes: [] }`; exactly one forced retry per request via the `afterResponse` hook.
+- Transport port invariants: consumers depend on `HttpClient`/`HttpLike` from `@shared/http/client`, never on `fetch` (`typeof fetch` appears ONLY inside the adapter and its options). Errors are values: network failure or broken 2xx JSON → `HttpTransportError`; any non-2xx status → a normal `HttpResponse`; empty/non-JSON body on a non-2xx → `body: undefined`. CSRF header automatic on mutating methods; hooks fixed at construction; exactly one forced replay per request (`ResponseHook` → `'retry'`). Inside the adapter ky runs with `throwHttpErrors: false`, `retry: 0`, `timeout: false`.
+- Naming: new factories are `make*` (never `create*`); classes are instantiated with `new`. Pre-existing `create*` exports keep their names — renames are out of scope.
 - CSRF rule: mutating methods (`POST`/`PUT`/`DELETE`/`PATCH`) on `/api/*` except `/api/test/*` require header `X-Requested-With: MyBoard` → else 403 `{ code: 'csrf_required' }`.
 - Run tests per package: `pnpm --filter server exec vitest run <path>`, `pnpm --filter widget-runtime exec vitest run <path>`, `pnpm --filter client exec vitest run <path>`.
-- Commit after every task. Do not enable the gate (Task 11) before Tasks 1–10 are green.
+- Commit after every task. Do not enable the gate (Task 11) before Tasks 1–10 are green. Tasks 15–16 are post-gate port migrations; Task 16 is cuttable.
 
 ---
 
@@ -1079,382 +1080,714 @@ rtk git commit -m "feat(server): revoke-invite, revoke-account, mint-add-device-
 
 ---
 
-### Task 5: widget-runtime — shared ky instance and the `unauthorizedHandlerAtom` config atom
+### Task 5: `@shared/http` — HttpClient port (ky adapter), EventStream port, Navigate
 
 **Files:**
-- Modify: `packages/widget-runtime/package.json` (add `ky`)
-- Create: `packages/widget-runtime/src/http/client.ts`
-- Create: `packages/widget-runtime/src/http/client.test.ts`
-- Modify: `packages/widget-runtime/src/index.ts` (add `export * from './http/client'`)
-
-(The `client` package does NOT get a ky dependency: `devices-http` stays on plain `fetch` with its own retry in Task 9.)
+- Modify: `packages/shared/package.json` (add `ky`)
+- Create: `packages/shared/http/client.ts`
+- Create: `packages/shared/http/client.test.ts`
+- Create: `packages/shared/http/event-stream.ts`
+- Create: `packages/shared/http/event-stream.test.ts`
+- Create: `packages/shared/http/scripted-http.ts` (test helper used by later tasks)
+- Create: `packages/shared/navigation.ts`
 
 **Interfaces:**
-- Consumes: `atom` from `@reatom/core` (already a widget-runtime dependency and federation singleton).
-- Produces:
-  - `export type UnauthorizedHandler = () => Promise<boolean>`
-  - `export const unauthorizedHandlerAtom: Atom<UnauthorizedHandler | null>` — Reatom config atom; the board sets it at bootstrap, harnesses leave it `null`. Reading it from non-reactive spots (ky hook) uses the v1001 global context — that is the intended usage here.
-  - `export const http: KyInstance` — hooks: CSRF header on mutating methods; single forced retry after `401` when the handler resolves `true`.
-
-**ky API note:** this task relies on `ky.retry(...)` returned from an `afterResponse` hook (object-form hook arguments `{ request, response, retryCount }`) and named export `SchemaValidationError` (used in Task 6). These exist in current ky (see `node_modules/ky/readme.md` after install). Step 2's test locks the behavior; if the installed ky's hook signature differs, update the hook to the installed version's documented signature — the test is the contract.
+- Consumes: `ky` (new dep in `shared` only — resolved from `packages/shared/node_modules` by every consumer since `@shared/*` is a source alias), `errore` (already a `shared` dep).
+- Produces (all from `@shared/http/client`):
+  - `type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'`
+  - `type HttpResponse = { status: number; ok: boolean; body: unknown }`
+  - `class HttpTransportError` — errore tagged (`reason`, optional `cause`)
+  - `type HttpRequestContext = { method: HttpMethod; url: string; headers: Headers }`
+  - `type RequestHook = (ctx: HttpRequestContext) => void | Promise<void>`
+  - `type ResponseHookContext = { response: HttpResponse; retryCount: number }`
+  - `type ResponseHook = (ctx: ResponseHookContext) => void | 'retry' | Promise<void | 'retry'>`
+  - `type HttpRequestOptions = { json?: unknown; searchParams?: Record<string, string> }`
+  - `type HttpClientOptions = { baseUrl?: string; onRequest?: RequestHook[]; onResponse?: ResponseHook[]; fetch?: typeof globalThis.fetch }`
+  - `class HttpClient` — `new HttpClient(options?)`; methods `get/post/put/delete/patch(url, options?): Promise<HttpTransportError | HttpResponse>`
+  - `type HttpLike = Pick<HttpClient, 'get' | 'post' | 'put' | 'delete' | 'patch'>` — the structural view consumers and test fakes type against (the class has `#private` state, so object fakes cannot satisfy the class type directly)
+  - `makeUnauthorizedRetryHook(onUnauthorized: () => Promise<boolean>): ResponseHook`
+- From `@shared/http/event-stream`: `EventStreamMessage`, `EventStreamHandlers`, `EventStream`, `OpenEventStream`, `makeEventSourceStream(EventSourceImpl?)`.
+- From `@shared/http/scripted-http`: `makeScriptedHttp(script)` (tests only).
+- From `@shared/navigation`: `type Navigate = (path: string) => void`.
 
 - [ ] **Step 1: Add the dependency**
 
-Run: `pnpm --filter widget-runtime add ky`
-Expected: `ky` appears in `packages/widget-runtime/package.json` dependencies.
+Run: `pnpm --filter shared add ky`
+Expected: `ky` appears in `packages/shared/package.json` dependencies.
 
-- [ ] **Step 2: Write the failing test**
+- [ ] **Step 2: Write the failing HttpClient test**
 
-`packages/widget-runtime/src/http/client.test.ts`:
+`packages/shared/http/client.test.ts`:
 
 ```ts
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { http, unauthorizedHandlerAtom } from './client'
+import { HttpClient, HttpTransportError, makeUnauthorizedRetryHook } from './client'
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-  unauthorizedHandlerAtom.set(null)
-})
-
-function stubFetchSequence(...responses: Response[]) {
-  const fetchMock = vi.fn<(input: Request) => Promise<Response>>()
-  for (const response of responses) fetchMock.mockResolvedValueOnce(response)
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
+function stubFetch(...responses: Array<Response | Error>) {
+  const impl = vi.fn<(request: Request) => Promise<Response>>()
+  for (const item of responses) {
+    if (item instanceof Error) impl.mockRejectedValueOnce(item)
+    else impl.mockResolvedValueOnce(item)
+  }
+  return impl
 }
 
-describe('http (shared ky instance)', () => {
-  it('sets X-Requested-With on mutating requests only', async () => {
-    const fetchMock = stubFetchSequence(new Response(null, { status: 204 }))
-    await http.put('http://test.local/api/storage/k', { json: { value: 1 } })
-    const putReq = fetchMock.mock.calls[0][0]
-    expect(putReq.headers.get('x-requested-with')).toBe('MyBoard')
+const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status })
 
-    const fetchMock2 = stubFetchSequence(new Response('{}', { status: 200 }))
-    await http.get('http://test.local/api/storage/k')
-    const getReq = fetchMock2.mock.calls[0][0]
-    expect(getReq.headers.get('x-requested-with')).toBeNull()
+describe('HttpClient', () => {
+  it('returns status, ok, and the parsed body for 2xx JSON', async () => {
+    const http = new HttpClient({ fetch: stubFetch(json({ a: 1 })) })
+    expect(await http.get('http://test.local/x')).toEqual({ status: 200, ok: true, body: { a: 1 } })
   })
 
-  it('retries once after 401 when the handler succeeds (POST included)', async () => {
+  it('returns a non-2xx as a value with its parsed body', async () => {
+    const http = new HttpClient({ fetch: stubFetch(json({ code: 'nope' }, 403)) })
+    expect(await http.get('http://test.local/x')).toEqual({
+      status: 403,
+      ok: false,
+      body: { code: 'nope' },
+    })
+  })
+
+  it('maps an empty or non-JSON body on a non-2xx to body undefined (bare nginx 401)', async () => {
+    const empty = new HttpClient({ fetch: stubFetch(new Response(null, { status: 401 })) })
+    expect(await empty.get('http://test.local/x')).toEqual({
+      status: 401,
+      ok: false,
+      body: undefined,
+    })
+
+    const html = new HttpClient({
+      fetch: stubFetch(new Response('<html>401</html>', { status: 401 })),
+    })
+    expect(await html.get('http://test.local/x')).toMatchObject({ status: 401, body: undefined })
+  })
+
+  it('maps broken JSON on a 2xx to HttpTransportError', async () => {
+    const http = new HttpClient({ fetch: stubFetch(new Response('{oops', { status: 200 })) })
+    expect(await http.get('http://test.local/x')).toBeInstanceOf(HttpTransportError)
+  })
+
+  it('maps a network failure to HttpTransportError', async () => {
+    const http = new HttpClient({ fetch: stubFetch(new Error('boom')) })
+    expect(await http.get('http://test.local/x')).toBeInstanceOf(HttpTransportError)
+  })
+
+  it('sets the CSRF header on mutating methods only', async () => {
+    const fetchMock = stubFetch(new Response(null, { status: 204 }), json({}))
+    const http = new HttpClient({ fetch: fetchMock })
+    await http.put('http://test.local/x', { json: { a: 1 } })
+    expect(fetchMock.mock.calls[0][0].headers.get('x-requested-with')).toBe('MyBoard')
+    await http.get('http://test.local/x')
+    expect(fetchMock.mock.calls[1][0].headers.get('x-requested-with')).toBeNull()
+  })
+
+  it('joins baseUrl with the request path', async () => {
+    const fetchMock = stubFetch(json({}))
+    const http = new HttpClient({ baseUrl: 'http://test.local/api/', fetch: fetchMock })
+    await http.get('/storage/k')
+    expect(fetchMock.mock.calls[0][0].url).toBe('http://test.local/api/storage/k')
+  })
+
+  it('lets an onRequest hook add headers', async () => {
+    const fetchMock = stubFetch(json({}))
+    const http = new HttpClient({
+      fetch: fetchMock,
+      onRequest: [({ headers }) => headers.set('x-extra', '1')],
+    })
+    await http.get('http://test.local/x')
+    expect(fetchMock.mock.calls[0][0].headers.get('x-extra')).toBe('1')
+  })
+})
+
+describe('makeUnauthorizedRetryHook', () => {
+  it('replays exactly once after 401 when the handler recovers (POST body re-sent)', async () => {
     const handler = vi.fn(async () => true)
-    unauthorizedHandlerAtom.set(handler)
-    const fetchMock = stubFetchSequence(
+    const fetchMock = stubFetch(
       new Response(null, { status: 401 }),
       new Response(null, { status: 204 }),
     )
+    const http = new HttpClient({ fetch: fetchMock, onResponse: [makeUnauthorizedRetryHook(handler)] })
 
-    const res = await http.post('http://test.local/api/storage/k/append', { json: { entry: {} } })
-    expect(res.status).toBe(204)
+    const result = await http.post('http://test.local/append', { json: { entry: { x: 1 } } })
+    expect(result).toMatchObject({ status: 204 })
     expect(handler).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(await fetchMock.mock.calls[1][0].json()).toEqual({ entry: { x: 1 } })
   })
 
-  it('gives up after one forced retry', async () => {
+  it('gives up after one forced replay', async () => {
     const handler = vi.fn(async () => true)
-    unauthorizedHandlerAtom.set(handler)
-    const fetchMock = stubFetchSequence(
+    const fetchMock = stubFetch(
       new Response(null, { status: 401 }),
       new Response(null, { status: 401 }),
     )
-
-    await expect(http.get('http://test.local/x')).rejects.toMatchObject({
-      response: expect.objectContaining({ status: 401 }),
-    })
+    const http = new HttpClient({ fetch: fetchMock, onResponse: [makeUnauthorizedRetryHook(handler)] })
+    expect(await http.get('http://test.local/x')).toMatchObject({ status: 401 })
     expect(handler).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('passes 401 through when no handler is registered', async () => {
-    const fetchMock = stubFetchSequence(new Response(null, { status: 401 }))
-    await expect(http.get('http://test.local/x')).rejects.toMatchObject({
-      response: expect.objectContaining({ status: 401 }),
+  it('does not replay when the handler fails or is absent', async () => {
+    const failMock = stubFetch(new Response(null, { status: 401 }))
+    const failing = new HttpClient({
+      fetch: failMock,
+      onResponse: [makeUnauthorizedRetryHook(async () => false)],
     })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await failing.get('http://test.local/x')).toMatchObject({ status: 401 })
+    expect(failMock).toHaveBeenCalledTimes(1)
+
+    const bareMock = stubFetch(new Response(null, { status: 401 }))
+    const bare = new HttpClient({ fetch: bareMock })
+    expect(await bare.get('http://test.local/x')).toMatchObject({ status: 401 })
+    expect(bareMock).toHaveBeenCalledTimes(1)
   })
 
-  it('does not retry on the handler saying false', async () => {
-    unauthorizedHandlerAtom.set(async () => false)
-    const fetchMock = stubFetchSequence(new Response(null, { status: 401 }))
-    await expect(http.get('http://test.local/x')).rejects.toMatchObject({
-      response: expect.objectContaining({ status: 401 }),
+  it('never touches non-401 responses', async () => {
+    const handler = vi.fn(async () => true)
+    const http = new HttpClient({
+      fetch: stubFetch(new Response(null, { status: 500 })),
+      onResponse: [makeUnauthorizedRetryHook(handler)],
     })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('never auto-retries server errors', async () => {
-    const fetchMock = stubFetchSequence(new Response(null, { status: 500 }))
-    await expect(http.get('http://test.local/x')).rejects.toMatchObject({
-      response: expect.objectContaining({ status: 500 }),
-    })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await http.get('http://test.local/x')).toMatchObject({ status: 500 })
+    expect(handler).not.toHaveBeenCalled()
   })
 })
 ```
 
 - [ ] **Step 3: Run to verify failure**
 
-Run: `pnpm --filter widget-runtime exec vitest run src/http/client.test.ts`
+Run: `pnpm --filter shared exec vitest run http/client.test.ts`
 Expected: FAIL — `client.ts` does not exist.
 
 - [ ] **Step 4: Implement `client.ts`**
 
 ```ts
-import { atom } from '@reatom/core'
+import * as errore from 'errore'
 import ky from 'ky'
 
-/** Resolves true when the caller may retry the 401'd request once. */
-export type UnauthorizedHandler = () => Promise<boolean>
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+
+export type HttpResponse = { status: number; ok: boolean; body: unknown }
+
+export class HttpTransportError extends errore.createTaggedError({
+  name: 'HttpTransportError',
+  message: 'HTTP transport failed: $reason',
+}) {}
+
+export type HttpRequestContext = { method: HttpMethod; url: string; headers: Headers }
+export type RequestHook = (ctx: HttpRequestContext) => void | Promise<void>
+export type ResponseHookContext = { response: HttpResponse; retryCount: number }
+export type ResponseHook = (ctx: ResponseHookContext) => void | 'retry' | Promise<void | 'retry'>
+
+export type HttpRequestOptions = {
+  json?: unknown
+  searchParams?: Record<string, string>
+}
+
+export type HttpClientOptions = {
+  baseUrl?: string
+  onRequest?: RequestHook[]
+  onResponse?: ResponseHook[]
+  /** The ONE legitimate `typeof fetch` seam in the app: the adapter boundary. */
+  fetch?: typeof globalThis.fetch
+}
+
+/** Structural view of HttpClient for consumers and test fakes. */
+export type HttpLike = Pick<HttpClient, 'get' | 'post' | 'put' | 'delete' | 'patch'>
+
+const MUTATING_METHODS = new Set<HttpMethod>(['POST', 'PUT', 'DELETE', 'PATCH'])
 
 /**
- * Process-wide config as process-wide state: the board sets this atom at
- * bootstrap to its relogin action; standalone widget harnesses leave it null
- * and 401s pass through untouched. Read from non-reactive spots (the ky hook
- * below, the SSE reconnect) via the v1001 global context — intended usage.
+ * The app's HTTP port: errore values out (HttpTransportError | HttpResponse),
+ * non-2xx statuses are values, hooks are fixed at construction. ky runs inside
+ * as a swappable adapter detail — throwHttpErrors off, no auto-retries, no
+ * default timeout, so the port's semantics stay ours.
  */
-export const unauthorizedHandlerAtom = atom<UnauthorizedHandler | null>(
-  null,
-  'http.unauthorizedHandler',
-)
+export class HttpClient {
+  readonly #options: HttpClientOptions
 
-const MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
+  constructor(options: HttpClientOptions = {}) {
+    this.#options = options
+  }
 
-export const http = ky.create({
-  // Empty methods/statusCodes: automatic retries never fire (today's storage
-  // semantics have none); limit 1 leaves budget for the forced 401 retry below.
-  retry: { limit: 1, methods: [], statusCodes: [] },
-  hooks: {
-    beforeRequest: [
-      (request) => {
-        if (MUTATING_METHODS.has(request.method)) {
-          request.headers.set('X-Requested-With', 'MyBoard')
-        }
-      },
-    ],
-    afterResponse: [
-      async ({ response, retryCount }) => {
-        if (response.status !== 401 || retryCount > 0) return
-        const handler = unauthorizedHandlerAtom()
-        if (!handler) return
-        const ok = await handler().catch(() => false)
-        if (ok) return ky.retry({ code: 'SESSION_REFRESHED' })
-      },
-    ],
-  },
-})
+  get(url: string, options?: HttpRequestOptions) {
+    return this.#send('GET', url, options, 0)
+  }
+  post(url: string, options?: HttpRequestOptions) {
+    return this.#send('POST', url, options, 0)
+  }
+  put(url: string, options?: HttpRequestOptions) {
+    return this.#send('PUT', url, options, 0)
+  }
+  delete(url: string, options?: HttpRequestOptions) {
+    return this.#send('DELETE', url, options, 0)
+  }
+  patch(url: string, options?: HttpRequestOptions) {
+    return this.#send('PATCH', url, options, 0)
+  }
+
+  async #send(
+    method: HttpMethod,
+    url: string,
+    options: HttpRequestOptions | undefined,
+    retryCount: number,
+  ): Promise<HttpTransportError | HttpResponse> {
+    const headers = new Headers()
+    if (MUTATING_METHODS.has(method)) headers.set('X-Requested-With', 'MyBoard')
+    const ctx: HttpRequestContext = { method, url: this.#resolve(url), headers }
+    for (const hook of this.#options.onRequest ?? []) await hook(ctx)
+
+    const raw = await ky(ctx.url, {
+      method,
+      headers,
+      credentials: 'same-origin',
+      throwHttpErrors: false, // non-2xx is a value in this port
+      retry: 0,
+      timeout: false,
+      ...(options?.json !== undefined ? { json: options.json } : {}),
+      ...(options?.searchParams ? { searchParams: options.searchParams } : {}),
+      ...(this.#options.fetch ? { fetch: this.#options.fetch } : {}),
+    }).catch((cause) => new HttpTransportError({ reason: 'network request failed', cause }))
+    if (raw instanceof Error) return raw
+
+    const body = await parseBody(raw)
+    if (body instanceof Error) return body
+    const response: HttpResponse = { status: raw.status, ok: raw.ok, body }
+
+    for (const hook of this.#options.onResponse ?? []) {
+      const verdict = await hook({ response, retryCount })
+      // json bodies are plain values re-serialized per attempt — no
+      // body-stream cloning problem, POST included.
+      if (verdict === 'retry' && retryCount === 0) return this.#send(method, url, options, 1)
+    }
+    return response
+  }
+
+  #resolve(url: string): string {
+    const base = this.#options.baseUrl
+    if (!base) return url
+    return `${base.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`
+  }
+}
+
+/**
+ * Body semantics: empty body → undefined; broken JSON on a 2xx → transport
+ * error; broken/empty body on a non-2xx → undefined (nginx error pages carry
+ * no JSON — the status is the signal).
+ */
+async function parseBody(raw: Response): Promise<HttpTransportError | unknown> {
+  const text = await raw.text().catch(() => '')
+  if (text === '') return undefined
+  const parsed = errore.try(() => JSON.parse(text) as unknown)
+  if (parsed instanceof Error) {
+    return raw.ok
+      ? new HttpTransportError({ reason: 'invalid JSON in a 2xx response', cause: parsed })
+      : undefined
+  }
+  return parsed
+}
+
+/** 401 → ask the host to recover the session → replay the request once. */
+export function makeUnauthorizedRetryHook(
+  onUnauthorized: () => Promise<boolean>,
+): ResponseHook {
+  return async ({ response, retryCount }) => {
+    if (response.status !== 401 || retryCount > 0) return
+    const recovered = await onUnauthorized().catch(() => false)
+    if (recovered) return 'retry'
+  }
+}
 ```
 
-Add to `packages/widget-runtime/src/index.ts`:
-
-```ts
-export * from './http/client'
-```
+**ky API note:** only stable surface is used (`ky(url, options)` with `throwHttpErrors`, `retry: 0`, `timeout: false`, `json`, `searchParams`, `fetch`). No ky hooks, no `ky.retry`, no `HTTPError` — the retry loop and error mapping are ours, so ky version drift cannot change port semantics. If `errore.try` is not available in the installed errore version, inline `try { JSON.parse } catch` inside `parseBody` (allowed by the global constraint's existing-`JSON.parse` exception).
 
 - [ ] **Step 5: Run to verify pass**
 
-Run: `pnpm --filter widget-runtime exec vitest run src/http/client.test.ts`
-Expected: PASS. If the `afterResponse` hook signature of the installed ky differs (positional `(request, options, response)` instead of one object), adapt the hook to the installed ky's readme — the tests define the required behavior.
+Run: `pnpm --filter shared exec vitest run http/client.test.ts`
+Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: EventStream port — failing test**
+
+`packages/shared/http/event-stream.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from 'vitest'
+
+import { makeEventSourceStream } from './event-stream'
+
+class FakeES {
+  static instances: FakeES[] = []
+  onmessage: ((event: MessageEvent) => void) | null = null
+  onerror: (() => void) | null = null
+  readyState = 0
+  closed = false
+  listeners = new Map<string, (event: MessageEvent) => void>()
+  constructor(public url: string) {
+    FakeES.instances.push(this)
+  }
+  addEventListener(type: string, listener: (event: MessageEvent) => void) {
+    this.listeners.set(type, listener)
+  }
+  close() {
+    this.closed = true
+  }
+}
+
+function open(events?: string[]) {
+  FakeES.instances = []
+  const onMessage = vi.fn()
+  const onError = vi.fn()
+  const stream = makeEventSourceStream(FakeES as unknown as typeof EventSource)('/api/x/events', {
+    onMessage,
+    onError,
+    events,
+  })
+  return { stream, source: FakeES.instances[0], onMessage, onError }
+}
+
+describe('makeEventSourceStream', () => {
+  it('forwards plain messages without an event tag', () => {
+    const { source, onMessage } = open()
+    source.onmessage?.({ data: '{"key":"k"}' } as MessageEvent)
+    expect(onMessage).toHaveBeenCalledWith({ data: '{"key":"k"}' })
+  })
+
+  it('forwards named events with their tag', () => {
+    const { source, onMessage } = open(['ready'])
+    source.listeners.get('ready')?.({ data: '{"connId":"c1"}' } as MessageEvent)
+    expect(onMessage).toHaveBeenCalledWith({ event: 'ready', data: '{"connId":"c1"}' })
+  })
+
+  it('fires onError only when the source is CLOSED (fatal)', () => {
+    const { source, onError } = open()
+    source.readyState = 0 // CONNECTING: the browser retries by itself
+    source.onerror?.()
+    expect(onError).not.toHaveBeenCalled()
+    source.readyState = 2 // CLOSED: fatal, e.g. the gate answered 401
+    source.onerror?.()
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('close() closes the underlying source', () => {
+    const { stream, source } = open()
+    stream.close()
+    expect(source.closed).toBe(true)
+  })
+})
+```
+
+Run: `pnpm --filter shared exec vitest run http/event-stream.test.ts` → FAIL (module missing).
+
+- [ ] **Step 7: Implement `event-stream.ts`**
+
+```ts
+export type EventStreamMessage = { event?: string; data: string }
+
+export type EventStreamHandlers = {
+  onMessage: (message: EventStreamMessage) => void
+  /** Fires only when the stream is dead (CLOSED) and will not retry by itself. */
+  onError?: () => void
+  /** Named SSE events to forward in addition to plain `message` frames. */
+  events?: string[]
+}
+
+export type EventStream = { close(): void }
+
+export type OpenEventStream = (url: string, handlers: EventStreamHandlers) => EventStream
+
+const CLOSED = 2
+
+export function makeEventSourceStream(
+  EventSourceImpl: typeof EventSource = globalThis.EventSource,
+): OpenEventStream {
+  return (url, handlers) => {
+    const source = new EventSourceImpl(url)
+    source.onmessage = (event) => handlers.onMessage({ data: event.data as string })
+    for (const name of handlers.events ?? []) {
+      source.addEventListener(name, (event) =>
+        handlers.onMessage({ event: name, data: (event as MessageEvent).data as string }),
+      )
+    }
+    source.onerror = () => {
+      // CONNECTING (0): the browser retries by itself. CLOSED (2): fatal —
+      // e.g. the gate answered non-200 and EventSource will never reconnect.
+      if (source.readyState === CLOSED) handlers.onError?.()
+    }
+    return { close: () => source.close() }
+  }
+}
+```
+
+Run: `pnpm --filter shared exec vitest run http/event-stream.test.ts` → PASS.
+
+- [ ] **Step 8: Test helper + Navigate type (no own tests)**
+
+`packages/shared/http/scripted-http.ts` — the fake port every later task's tests use instead of `Response` mocks:
+
+```ts
+import {
+  HttpTransportError,
+  type HttpLike,
+  type HttpRequestOptions,
+  type HttpResponse,
+} from './client'
+
+export type ScriptedStep = { status: number; body?: unknown } | 'network-error'
+export type ScriptedCall = { method: string; url: string; json?: unknown }
+
+/**
+ * Test-only scripted HttpLike: each URL maps to a queue of steps consumed one
+ * per call. Import from tests only, never from production code.
+ */
+export function makeScriptedHttp(script: Record<string, ScriptedStep[]>) {
+  const calls: ScriptedCall[] = []
+  const run = async (
+    method: string,
+    url: string,
+    options?: HttpRequestOptions,
+  ): Promise<HttpTransportError | HttpResponse> => {
+    calls.push({ method, url, json: options?.json })
+    const step = script[url]?.shift()
+    if (!step) throw new Error(`unexpected ${method} ${url}`)
+    if (step === 'network-error') {
+      return new HttpTransportError({ reason: 'scripted network failure' })
+    }
+    return { status: step.status, ok: step.status >= 200 && step.status < 300, body: step.body }
+  }
+  const http: HttpLike = {
+    get: (url, options) => run('GET', url, options),
+    post: (url, options) => run('POST', url, options),
+    put: (url, options) => run('PUT', url, options),
+    delete: (url, options) => run('DELETE', url, options),
+    patch: (url, options) => run('PATCH', url, options),
+  }
+  return { http, calls }
+}
+```
+
+`packages/shared/navigation.ts`:
+
+```ts
+/**
+ * One navigation seam for models. Implementations stay one-liners at
+ * composition roots (e.g. `(path) => window.location.assign(path)`).
+ */
+export type Navigate = (path: string) => void
+```
+
+- [ ] **Step 9: Run the shared suite**
+
+Run: `pnpm --filter shared test`
+Expected: PASS (new tests + pre-existing shared tests).
+
+- [ ] **Step 10: Commit**
 
 ```bash
-rtk git add packages/widget-runtime/package.json packages/widget-runtime/src/http packages/widget-runtime/src/index.ts pnpm-lock.yaml
-rtk git commit -m "feat(widget-runtime): shared ky instance with 401 relogin hook and CSRF header"
+rtk git add packages/shared pnpm-lock.yaml
+rtk git commit -m "feat(shared): HttpClient port over ky, EventStream port, Navigate type"
 ```
 
 ---
 
-### Task 6: http-storage and widget-api on ky
+### Task 6: widget-runtime — `makeHostRuntime` + http-storage/widget-api/http-time on the port
 
 **Files:**
-- Modify: `packages/widget-runtime/src/storage/server/http-storage.ts` (rewrite fetch calls on `http`)
-- Modify: `packages/widget-runtime/src/storage/server/http-storage.test.ts` (Request-based stubs, absolute base URL)
-- Modify: `packages/widget-runtime/src/widget-api.ts` (CSRF header + one 401 retry through the atom)
-- Modify: `packages/widget-runtime/src/widget-api.test.ts` (new cases)
+- Create: `packages/widget-runtime/src/host-runtime.ts`
+- Create: `packages/widget-runtime/src/host-runtime.test.ts`
+- Modify: `packages/widget-runtime/src/storage/server/http-storage.ts` (deps-injected rewrite)
+- Modify: `packages/widget-runtime/src/storage/server/http-storage.test.ts` (fake-port stubs)
+- Modify: `packages/widget-runtime/src/widget-api.ts` (`http: HttpLike` instead of `fetch`)
+- Modify: `packages/widget-runtime/src/widget-api.test.ts`
+- Modify: `packages/widget-runtime/src/timer/http-time.ts` + `http-time.test.ts`
+- Modify: `packages/widget-runtime/src/storage/index.ts` (free factories removed — they move to host-runtime as transitional wrappers)
+- Modify: `packages/widget-runtime/src/index.ts` (`export * from './host-runtime'`)
 
 **Interfaces:**
-- Consumes: `http`, `unauthorizedHandlerAtom` from `../../http/client` (Task 5).
-- Produces: `makeHttpStorage(namespace, baseUrl?)` — signature and `StorageApi` behavior unchanged (404→`null`/`false`, non-2xx→`StorageError`, network→`StorageError` with `cause`); response envelopes now Zod-validated (`SchemaValidationError` → `StorageError`).
+- Consumes: `HttpClient`, `HttpLike`, `makeUnauthorizedRetryHook` from `@shared/http/client`; `OpenEventStream`, `makeEventSourceStream` from `@shared/http/event-stream`; `makeScriptedHttp` from `@shared/http/scripted-http` (tests).
+- Produces:
+  - `makeHostRuntime(options?: HostRuntimeOptions): HostRuntime` with
+    `HostRuntimeOptions = { serverBaseUrl?: string; onUnauthorized?: () => Promise<boolean>; http?: HttpLike; openEventStream?: OpenEventStream }` and
+    `HostRuntime = { makeWidgetStorage({instanceId, typeId}): WidgetStorage; makeScopedStorage(scope): ScopedStorage; makeWidgetApi<Events>({instanceId, typeId}): WidgetApi<Events, WidgetApiError> }`
+  - `makeRuntimeHttp(onUnauthorized?: () => Promise<boolean>): HttpClient` (exported so the default 401 wiring is unit-testable)
+  - `makeHttpStorage(namespace: string, deps: HttpStorageDeps)` with `HttpStorageDeps = { baseUrl: string; http: HttpLike; registerKey: (fullKey: string, deliver: SseDeliver) => () => void }`
+  - **Transitional** free `makeWidgetStorage` / `makeScopedStorage` / `makeWidgetApi` package exports delegating to a lazy default runtime — keep every current consumer compiling; **deleted in Task 9**.
+  - `fetchServerTime(baseUrl?, http?)` — same return contract as today.
 
-- [ ] **Step 1: Update the tests first**
+- [ ] **Step 1: Rewrite the http-storage tests on the fake port**
 
-Rework `packages/widget-runtime/src/storage/server/http-storage.test.ts`: ky constructs `Request` objects, so stubs receive a `Request` (not `(url, init)`), and Node's `Request` needs absolute URLs — the fixture moves to an absolute base:
+Replace the body of `packages/widget-runtime/src/storage/server/http-storage.test.ts` (no more global fetch stubs — each test builds its own scripted port):
 
 ```ts
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { makeScriptedHttp } from '@shared/http/scripted-http'
+import { describe, expect, it, vi } from 'vitest'
 
 import { typeNamespace } from '../scope'
 import { StorageError } from '../types'
 import { makeHttpStorage } from './http-storage'
 
 const ns = typeNamespace('clock')
-const BASE = 'http://test.local/api/storage'
-const storage = makeHttpStorage(ns, BASE)
+const BASE = '/api/storage'
+const KEY = `${BASE}/${encodeURIComponent('w:t:clock:settings')}`
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
-
-function stubFetch(impl: (req: Request) => Response) {
-  const fetchMock = vi.fn((input: Request) => Promise.resolve(impl(input)))
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
+function storageWith(script: Parameters<typeof makeScriptedHttp>[0]) {
+  const { http, calls } = makeScriptedHttp(script)
+  const registerKey = vi.fn(() => () => {})
+  return { storage: makeHttpStorage(ns, { baseUrl: BASE, http, registerKey }), calls, registerKey }
 }
 
-describe('makeHttpStorage on ky', () => {
+describe('makeHttpStorage on the HttpClient port', () => {
   it('GET returns the value', async () => {
-    stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 200, body: { value: { a: 1 } } }] })
     expect(await storage.get('settings')).toEqual({ a: 1 })
   })
 
   it('GET maps 404 to null', async () => {
-    stubFetch(() => new Response(null, { status: 404 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 404 }] })
     expect(await storage.get('settings')).toBeNull()
   })
 
   it('GET maps other non-2xx to StorageError', async () => {
-    stubFetch(() => new Response(null, { status: 503 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 503 }] })
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
 
   it('GET maps a malformed envelope to StorageError', async () => {
-    stubFetch(() => new Response(JSON.stringify({ nope: true }), { status: 200 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 200, body: { nope: true } }] })
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
 
-  it('SET sends a PUT with value, ttl, and the CSRF header', async () => {
-    const fetchMock = stubFetch(() => new Response(null, { status: 204 }))
-    await storage.set('settings', { a: 1 }, { ttlMs: 1000 })
+  it('GET maps transport failures to StorageError with the cause', async () => {
+    const { storage } = storageWith({ [KEY]: ['network-error'] })
+    expect(await storage.get('settings')).toBeInstanceOf(StorageError)
+  })
 
-    const req = fetchMock.mock.calls[0][0]
-    expect(req.url).toBe(`${BASE}/${encodeURIComponent('w:t:clock:settings')}`)
-    expect(req.method).toBe('PUT')
-    expect(req.headers.get('x-requested-with')).toBe('MyBoard')
-    expect(await req.json()).toEqual({ value: { a: 1 }, ttlMs: 1000 })
+  it('SET sends a PUT with value and ttl', async () => {
+    const { storage, calls } = storageWith({ [KEY]: [{ status: 204 }] })
+    await storage.set('settings', { a: 1 }, { ttlMs: 1000 })
+    expect(calls[0]).toEqual({
+      method: 'PUT',
+      url: KEY,
+      json: { value: { a: 1 }, ttlMs: 1000 },
+    })
   })
 
   it('DELETE sends a DELETE', async () => {
-    const fetchMock = stubFetch(() => new Response(null, { status: 204 }))
+    const { storage, calls } = storageWith({ [KEY]: [{ status: 204 }] })
     await storage.delete('settings')
-    expect(fetchMock.mock.calls[0][0].method).toBe('DELETE')
+    expect(calls[0]?.method).toBe('DELETE')
   })
 
   it('HAS maps 404 to false and 200 to true', async () => {
-    stubFetch(() => new Response(null, { status: 404 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 404 }, { status: 200, body: { value: 1 } }] })
     expect(await storage.has('settings')).toBe(false)
-    stubFetch(() => new Response(JSON.stringify({ value: 1 }), { status: 200 }))
     expect(await storage.has('settings')).toBe(true)
   })
 
   it('KEYS strips the namespace', async () => {
-    stubFetch(() => new Response(JSON.stringify({ keys: ['w:t:clock:a', 'w:t:clock:b'] }), { status: 200 }))
+    const url = `${BASE}?prefix=${encodeURIComponent('w:t:clock:')}`
+    const { storage } = storageWith({
+      [url]: [{ status: 200, body: { keys: ['w:t:clock:a', 'w:t:clock:b'] } }],
+    })
     expect(await storage.keys()).toEqual(['a', 'b'])
   })
 
-  it('APPEND posts the entry with the CSRF header', async () => {
-    const fetchMock = stubFetch(() => new Response(null, { status: 204 }))
+  it('APPEND posts the entry', async () => {
+    const url = `${BASE}/${encodeURIComponent('w:t:clock:log')}/append`
+    const { storage, calls } = storageWith({ [url]: [{ status: 204 }] })
     await storage.append('log', { x: 1 }, { cap: 10 })
-    const req = fetchMock.mock.calls[0][0]
-    expect(req.url).toBe(`${BASE}/${encodeURIComponent('w:t:clock:log')}/append`)
-    expect(req.method).toBe('POST')
-    expect(req.headers.get('x-requested-with')).toBe('MyBoard')
-    expect(await req.json()).toEqual({ entry: { x: 1 }, cap: 10 })
+    expect(calls[0]).toEqual({ method: 'POST', url, json: { entry: { x: 1 }, cap: 10 } })
   })
 
-  it('maps network failures to StorageError with the cause', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('boom'))))
-    const result = await storage.get('settings')
-    expect(result).toBeInstanceOf(StorageError)
+  it('subscribe registers the full key through the injected registerKey', () => {
+    const { storage, registerKey } = storageWith({})
+    const unsubscribe = storage.subscribe('settings', () => {})
+    expect(registerKey).toHaveBeenCalledWith('w:t:clock:settings', expect.any(Function))
+    unsubscribe()
   })
 })
 ```
 
-Preserve any other existing cases in the file by porting them to the `Request`-based stub the same way (subscribe/SSE cases stay untouched — they use `FakeEventSource`).
+Port any other existing cases in the file the same way. The CSRF-header assertions are **deleted here** — the header now lives in `HttpClient` and is covered by the shared suite (Task 5).
 
 - [ ] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter widget-runtime exec vitest run src/storage/server/http-storage.test.ts`
-Expected: FAIL (old implementation still uses raw fetch tuples).
+Expected: FAIL — `makeHttpStorage` still has the `(namespace, baseUrl?)` signature and raw fetch.
 
 - [ ] **Step 3: Rewrite `http-storage.ts`**
 
 ```ts
-import { HTTPError, SchemaValidationError } from 'ky'
+import type { HttpLike } from '@shared/http/client'
 import { z } from 'zod'
 
-import { http } from '../../http/client'
 import { toFullKey, toRelativeKey } from '../scope'
 import { subscribeStorageKey } from '../subscribe-key'
 import { StorageError, type StorageApi, type StorageListener, type StorageOptions } from '../types'
 import { parseValue } from '../validate'
-import { getSseManager } from './sse-client'
+import type { SseDeliver } from './sse-client'
 
-const NOT_FOUND = Symbol('not-found')
-
-/** Single errore mapping point: ky throws, storage returns values. */
-function mapError(op: string, cause: unknown): StorageError | typeof NOT_FOUND {
-  if (cause instanceof HTTPError) {
-    if (cause.response.status === 404) return NOT_FOUND
-    return new StorageError({ reason: `server ${op} ${cause.response.status}`, cause })
-  }
-  if (cause instanceof SchemaValidationError) {
-    return new StorageError({ reason: `server ${op} invalid response`, cause })
-  }
-  return new StorageError({ reason: `server ${op} failed`, cause })
+export type HttpStorageDeps = {
+  baseUrl: string
+  http: HttpLike
+  registerKey: (fullKey: string, deliver: SseDeliver) => () => void
 }
 
 const ValueEnvelopeSchema = z.object({ value: z.unknown() })
 const KeysEnvelopeSchema = z.object({ keys: z.array(z.string()) })
 
-export function makeHttpStorage(namespace: string, baseUrl = '/api/storage'): StorageApi {
+export function makeHttpStorage(namespace: string, deps: HttpStorageDeps): StorageApi {
+  const { http, baseUrl } = deps
   const keyUrl = (fullKey: string) => `${baseUrl}/${encodeURIComponent(fullKey)}`
 
   return {
     async get<T>(key: string, schema?: z.ZodType<T>): Promise<StorageError | T | null> {
-      const body = await http
-        .get(keyUrl(toFullKey(namespace, key)))
-        .json(ValueEnvelopeSchema)
-        .catch((cause) => mapError('GET', cause))
-      if (body === NOT_FOUND) return null
-      if (body instanceof StorageError) return body
-      return parseValue(schema, body.value)
+      const res = await http.get(keyUrl(toFullKey(namespace, key)))
+      if (res instanceof Error) return new StorageError({ reason: 'server GET failed', cause: res })
+      if (res.status === 404) return null
+      if (!res.ok) return new StorageError({ reason: `server GET ${res.status}` })
+      const envelope = ValueEnvelopeSchema.safeParse(res.body)
+      if (!envelope.success) {
+        return new StorageError({ reason: 'server GET invalid response', cause: envelope.error })
+      }
+      return parseValue(schema, envelope.data.value)
     },
 
     async set<T>(key: string, value: T, options?: StorageOptions): Promise<StorageError | void> {
-      const result = await http
-        .put(keyUrl(toFullKey(namespace, key)), { json: { value, ttlMs: options?.ttlMs } })
-        .catch((cause) => mapError('PUT', cause))
-      if (result === NOT_FOUND) return new StorageError({ reason: 'server PUT 404' })
-      if (result instanceof StorageError) return result
+      const res = await http.put(keyUrl(toFullKey(namespace, key)), {
+        json: { value, ttlMs: options?.ttlMs },
+      })
+      if (res instanceof Error) return new StorageError({ reason: 'server PUT failed', cause: res })
+      if (!res.ok) return new StorageError({ reason: `server PUT ${res.status}` })
     },
 
     async delete(key: string): Promise<StorageError | void> {
-      const result = await http
-        .delete(keyUrl(toFullKey(namespace, key)))
-        .catch((cause) => mapError('DELETE', cause))
-      if (result === NOT_FOUND) return new StorageError({ reason: 'server DELETE 404' })
-      if (result instanceof StorageError) return result
+      const res = await http.delete(keyUrl(toFullKey(namespace, key)))
+      if (res instanceof Error) {
+        return new StorageError({ reason: 'server DELETE failed', cause: res })
+      }
+      if (!res.ok) return new StorageError({ reason: `server DELETE ${res.status}` })
     },
 
     async has(key: string): Promise<StorageError | boolean> {
-      const result = await http
-        .get(keyUrl(toFullKey(namespace, key)))
-        .catch((cause) => mapError('HAS', cause))
-      if (result === NOT_FOUND) return false
-      if (result instanceof StorageError) return result
+      const res = await http.get(keyUrl(toFullKey(namespace, key)))
+      if (res instanceof Error) return new StorageError({ reason: 'server HAS failed', cause: res })
+      if (res.status === 404) return false
+      if (!res.ok) return new StorageError({ reason: `server HAS ${res.status}` })
       return true
     },
 
     async keys(prefix?: string): Promise<StorageError | string[]> {
       const fullPrefix = toFullKey(namespace, prefix ?? '')
-      const body = await http
-        .get(`${baseUrl}?prefix=${encodeURIComponent(fullPrefix)}`)
-        .json(KeysEnvelopeSchema)
-        .catch((cause) => mapError('KEYS', cause))
-      if (body === NOT_FOUND) return new StorageError({ reason: 'server KEYS 404' })
-      if (body instanceof StorageError) return body
-      return body.keys.map((full) => toRelativeKey(namespace, full))
+      const res = await http.get(`${baseUrl}?prefix=${encodeURIComponent(fullPrefix)}`)
+      if (res instanceof Error) return new StorageError({ reason: 'server KEYS failed', cause: res })
+      if (!res.ok) return new StorageError({ reason: `server KEYS ${res.status}` })
+      const envelope = KeysEnvelopeSchema.safeParse(res.body)
+      if (!envelope.success) {
+        return new StorageError({ reason: 'server KEYS invalid response', cause: envelope.error })
+      }
+      return envelope.data.keys.map((full) => toRelativeKey(namespace, full))
     },
 
     async append<T extends Record<string, unknown>>(
@@ -1462,20 +1795,20 @@ export function makeHttpStorage(namespace: string, baseUrl = '/api/storage'): St
       entry: T,
       options?: { cap?: number },
     ): Promise<StorageError | void> {
-      const result = await http
-        .post(`${keyUrl(toFullKey(namespace, key))}/append`, {
-          json: { entry, ...(options?.cap !== undefined ? { cap: options.cap } : {}) },
-        })
-        .catch((cause) => mapError('APPEND', cause))
-      if (result === NOT_FOUND) return new StorageError({ reason: 'server APPEND 404' })
-      if (result instanceof StorageError) return result
+      const res = await http.post(`${keyUrl(toFullKey(namespace, key))}/append`, {
+        json: { entry, ...(options?.cap !== undefined ? { cap: options.cap } : {}) },
+      })
+      if (res instanceof Error) {
+        return new StorageError({ reason: 'server APPEND failed', cause: res })
+      }
+      if (!res.ok) return new StorageError({ reason: `server APPEND ${res.status}` })
     },
 
     subscribe<T>(key: string, listener: StorageListener<T>, schema?: z.ZodType<T>): () => void {
       const fullKey = toFullKey(namespace, key)
       return subscribeStorageKey({
         getCurrent: () => this.get<T>(key, schema),
-        register: (deliver) => getSseManager(baseUrl).add(fullKey, deliver),
+        register: (deliver) => deps.registerKey(fullKey, deliver),
         listener,
         schema,
       })
@@ -1484,210 +1817,658 @@ export function makeHttpStorage(namespace: string, baseUrl = '/api/storage'): St
 }
 ```
 
-Note: if the installed ky's `.json(schema)` types reject a Zod schema, wrap explicitly: `.json().then((raw) => ValueEnvelopeSchema.parse(raw))` inside the same chain — the `.catch` still maps `ZodError` via the final `mapError` branch. Prefer the native `.json(schema)` form.
+No 401 code anywhere — the retry hook inside the runtime's `HttpClient` handles it. Run Step 1's file again → PASS.
 
-- [ ] **Step 4: widget-api — header + one retry**
+- [ ] **Step 4: widget-api on the port (test first)**
 
-In `packages/widget-runtime/src/widget-api.ts`, replace the single `fetchRequest` call (lines 41–47) with:
+Rework `packages/widget-runtime/src/widget-api.test.ts`: replace the injected-fetch fixtures with the scripted port. Representative rewrite (port every existing case in this style — same assertions, `makeScriptedHttp` instead of `Response` mocks):
 
 ```ts
-const url = `/api/widgets/${encodeURIComponent(typeId)}/${encodeURIComponent(event)}`
-const doRequest = () =>
-  fetchRequest(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
-    body,
-  }).catch((cause) => new WidgetApiError({ reason: 'network request failed', cause }))
+import { makeScriptedHttp } from '@shared/http/scripted-http'
 
-let response = await doRequest()
-if (response instanceof Error) return response
+const URL_ECHO = '/api/widgets/t/echo'
 
-if (response.status === 401) {
-  const handler = unauthorizedHandlerAtom()
-  if (handler && (await handler().catch(() => false))) {
-    const retried = await doRequest()
-    if (retried instanceof Error) return retried
-    response = retried
+it('invokes the server function and returns data', async () => {
+  const { http, calls } = makeScriptedHttp({ [URL_ECHO]: [{ status: 200, body: { data: 42 } }] })
+  const api = makeWidgetApi<TestEvents>({ typeId: 't', instanceId: 'i', http })
+  expect(await api.invoke('echo', { x: 1 })).toBe(42)
+  expect(calls[0]).toEqual({ method: 'POST', url: URL_ECHO, json: { instanceId: 'i', payload: { x: 1 } } })
+})
+
+it('maps the error envelope to WidgetApiError', async () => {
+  const { http } = makeScriptedHttp({
+    [URL_ECHO]: [{ status: 400, body: { error: { code: 'bad', message: 'nope' } } }],
+  })
+  const api = makeWidgetApi<TestEvents>({ typeId: 't', instanceId: 'i', http })
+  expect(await api.invoke('echo', { x: 1 })).toBeInstanceOf(WidgetApiError)
+})
+
+it('maps transport failures to WidgetApiError', async () => {
+  const { http } = makeScriptedHttp({ [URL_ECHO]: ['network-error'] })
+  const api = makeWidgetApi<TestEvents>({ typeId: 't', instanceId: 'i', http })
+  expect(await api.invoke('echo', { x: 1 })).toBeInstanceOf(WidgetApiError)
+})
+```
+
+Run → FAIL. Then rewrite `widget-api.ts`:
+
+```ts
+import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
+import type { HttpLike } from '@shared/http/client'
+import * as errore from 'errore'
+import { z } from 'zod'
+
+const WidgetApiEnvelopeSchema = z.union([
+  z.object({ data: z.unknown() }),
+  z.object({
+    error: z.object({
+      code: z.string(),
+      message: z.string(),
+    }),
+  }),
+])
+
+export class WidgetApiError extends errore.createTaggedError({
+  name: 'WidgetApiError',
+  message: 'Widget API request failed: $reason',
+}) {}
+
+export type MakeWidgetApiOptions = {
+  typeId: string
+  instanceId: string
+  http: HttpLike
+}
+
+export function makeWidgetApi<Events extends WidgetEventMap>({
+  typeId,
+  instanceId,
+  http,
+}: MakeWidgetApiOptions): WidgetApi<Events, WidgetApiError> {
+  return {
+    async invoke<Event extends keyof Events & string>(
+      event: Event,
+      payload: Events[Event]['payload'],
+    ): Promise<WidgetApiError | Events[Event]['result']> {
+      const url = `/api/widgets/${encodeURIComponent(typeId)}/${encodeURIComponent(event)}`
+      const response = await http.post(url, { json: { instanceId, payload } })
+      if (response instanceof Error) {
+        return new WidgetApiError({ reason: 'network request failed', cause: response })
+      }
+
+      const envelope = WidgetApiEnvelopeSchema.safeParse(response.body)
+      if (!envelope.success) {
+        return new WidgetApiError({ reason: 'response envelope is invalid', cause: envelope.error })
+      }
+      if ('error' in envelope.data) {
+        return new WidgetApiError({
+          reason: `${envelope.data.error.code}: ${envelope.data.error.message}`,
+        })
+      }
+      if (!response.ok) return new WidgetApiError({ reason: `HTTP ${response.status}` })
+
+      return envelope.data.data as Events[Event]['result']
+    },
   }
 }
 ```
 
-Add the import: `import { unauthorizedHandlerAtom } from './http/client'`.
+(The CSRF header and the 401 replay both come from the `HttpClient` — no auth code here. The old `errore.try(JSON.stringify)` guard is gone: serialization now happens inside the adapter and surfaces as `HttpTransportError` → the network branch.) Run → PASS.
 
-Extend `packages/widget-runtime/src/widget-api.test.ts` with two cases in the file's existing style (it injects `fetch`):
+- [ ] **Step 5: http-time on the port (test first)**
+
+Rework `packages/widget-runtime/src/timer/http-time.test.ts` cases onto the scripted port (same four assertions the file has today: value, network failure, non-2xx, invalid shape), e.g.:
 
 ```ts
-it('sends the CSRF header', async () => {
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: 1 }), { status: 200 }))
-  const api = makeWidgetApi({ typeId: 't', instanceId: 'i', fetch: fetchMock })
-  await api.invoke('echo', {})
-  expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ 'X-Requested-With': 'MyBoard' })
-})
+import { makeScriptedHttp } from '@shared/http/scripted-http'
 
-it('retries once after 401 when the unauthorized handler succeeds', async () => {
-  unauthorizedHandlerAtom.set(async () => true)
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'x', message: 'x' } }), { status: 401 }))
-    .mockResolvedValueOnce(new Response(JSON.stringify({ data: 42 }), { status: 200 }))
-  const api = makeWidgetApi({ typeId: 't', instanceId: 'i', fetch: fetchMock })
-  expect(await api.invoke('echo', {})).toBe(42)
-  expect(fetchMock).toHaveBeenCalledTimes(2)
-  unauthorizedHandlerAtom.set(null)
+it('returns server epoch ms', async () => {
+  const { http } = makeScriptedHttp({ '/api/time': [{ status: 200, body: { now: 1_700_000_000_000 } }] })
+  expect(await fetchServerTime('/api/time', http)).toBe(1_700_000_000_000)
 })
 ```
 
-(Import `unauthorizedHandlerAtom` from `./http/client` in the test.)
+Run → FAIL. Then rewrite `http-time.ts`:
 
-- [ ] **Step 5: Run the widget-runtime suite**
+```ts
+import { HttpClient, type HttpLike } from '@shared/http/client'
+import * as errore from 'errore'
+import { z } from 'zod'
 
-Run: `pnpm --filter widget-runtime test`
-Expected: PASS (including reatom-storage tests that go through `makeHttpStorage`; if any use relative-URL stubs, port them to the absolute-base pattern from Step 1).
+export class TimeError extends errore.createTaggedError({
+  name: 'TimeError',
+  message: 'Server time fetch failed: $reason',
+}) {}
 
-- [ ] **Step 6: Commit**
+export const ServerTimeSchema = z.object({ now: z.number() })
+export type ServerTimeResponse = z.infer<typeof ServerTimeSchema>
+
+// Module-default bare client (no auth hook) — deliberate: server-time is a
+// pre-existing module-level model outside the HostRuntime; a 401 here is a
+// non-fatal TimeError and the session heals via any storage-triggered relogin.
+let defaultHttp: HttpClient | undefined
+
+/** Fetches server epoch ms. Network/parse failures are returned as TimeError, never thrown. */
+export async function fetchServerTime(
+  baseUrl = '/api/time',
+  http: HttpLike = (defaultHttp ??= new HttpClient()),
+): Promise<number | TimeError> {
+  const res = await http.get(baseUrl)
+  if (res instanceof Error) return new TimeError({ reason: 'fetch failed', cause: res })
+  if (!res.ok) return new TimeError({ reason: `status ${res.status}` })
+  const parsed = ServerTimeSchema.safeParse(res.body)
+  if (!parsed.success) {
+    return new TimeError({ reason: 'invalid response shape', cause: parsed.error })
+  }
+  return parsed.data.now
+}
+```
+
+(`server-time.ts` keeps its injectable `fetchTime` default — no change there.) Run → PASS.
+
+- [ ] **Step 6: host-runtime — failing test**
+
+`packages/widget-runtime/src/host-runtime.test.ts`:
+
+```ts
+import { makeScriptedHttp } from '@shared/http/scripted-http'
+import { describe, expect, it, vi } from 'vitest'
+
+import { makeHostRuntime, makeRuntimeHttp } from './host-runtime'
+
+describe('makeHostRuntime', () => {
+  it('scopes widget storage to instance and type namespaces over the injected port', async () => {
+    const instanceKey = `/api/storage/${encodeURIComponent('w:i:inst-1:k')}`
+    const typeKey = `/api/storage/${encodeURIComponent('w:t:clock:k')}`
+    const { http, calls } = makeScriptedHttp({
+      [instanceKey]: [{ status: 200, body: { value: 1 } }],
+      [typeKey]: [{ status: 200, body: { value: 2 } }],
+    })
+    const runtime = makeHostRuntime({ http })
+    const storage = runtime.makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+
+    expect(await storage.instance.server.get('k')).toBe(1)
+    expect(await storage.shared.server.get('k')).toBe(2)
+    expect(calls.map((c) => c.url)).toEqual([instanceKey, typeKey])
+  })
+
+  it('makeScopedStorage uses the raw scope', async () => {
+    const rootKey = `/api/storage/${encodeURIComponent('root:k')}`
+    const { http } = makeScriptedHttp({ [rootKey]: [{ status: 404 }] })
+    const runtime = makeHostRuntime({ http })
+    expect(await runtime.makeScopedStorage('root').server.get('k')).toBeNull()
+  })
+
+  it('makeWidgetApi posts through the same injected port', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/widgets/t/echo': [{ status: 200, body: { data: 7 } }],
+    })
+    const runtime = makeHostRuntime({ http })
+    const api = runtime.makeWidgetApi<{ echo: { payload: unknown; result: number } }>({
+      instanceId: 'i',
+      typeId: 't',
+    })
+    expect(await api.invoke('echo', {})).toBe(7)
+    expect(calls[0]?.method).toBe('POST')
+  })
+})
+
+describe('makeRuntimeHttp', () => {
+  it('wires exactly one 401 replay through onUnauthorized', async () => {
+    const handler = vi.fn(async () => true)
+    const fetchMock = vi
+      .fn<(request: Request) => Promise<Response>>()
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await makeRuntimeHttp(handler).get('http://test.local/x')
+    expect(result).toMatchObject({ status: 204 })
+    expect(handler).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
+  })
+
+  it('is bare without onUnauthorized: the 401 flows through', async () => {
+    const fetchMock = vi
+      .fn<(request: Request) => Promise<Response>>()
+      .mockResolvedValue(new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await makeRuntimeHttp().get('http://test.local/x')).toMatchObject({ status: 401 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
+  })
+})
+```
+
+Run: `pnpm --filter widget-runtime exec vitest run src/host-runtime.test.ts` → FAIL (module missing).
+
+- [ ] **Step 7: Implement `host-runtime.ts` and rewire the package**
+
+`packages/widget-runtime/src/host-runtime.ts`:
+
+```ts
+import { HttpClient, makeUnauthorizedRetryHook, type HttpLike } from '@shared/http/client'
+import type { OpenEventStream } from '@shared/http/event-stream'
+import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
+
+import type { ScopedStorage, WidgetStorage } from './storage'
+import { makeDexieStorage } from './storage/client/dexie-storage'
+import { instanceNamespace, typeNamespace } from './storage/scope'
+import { makeHttpStorage } from './storage/server/http-storage'
+import { getSseManager, type SseDeliver } from './storage/server/sse-client'
+import { makeWidgetApi as makeWidgetApiWith, type WidgetApiError } from './widget-api'
+
+export type HostRuntimeOptions = {
+  serverBaseUrl?: string                  // default '/api/storage'
+  onUnauthorized?: () => Promise<boolean> // board: ensureSession; harnesses: absent
+  http?: HttpLike                         // test seam/override; default makeRuntimeHttp(onUnauthorized)
+  openEventStream?: OpenEventStream       // test seam; wired to the SSE manager in Task 7
+}
+
+export type HostRuntime = {
+  makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage
+  makeScopedStorage(scope: string): ScopedStorage
+  makeWidgetApi<Events extends WidgetEventMap>(options: {
+    instanceId: string
+    typeId: string
+  }): WidgetApi<Events, WidgetApiError>
+}
+
+/** The runtime's default client: bare, or with the single 401 replay hook. */
+export function makeRuntimeHttp(onUnauthorized?: () => Promise<boolean>): HttpClient {
+  return new HttpClient({
+    onResponse: onUnauthorized ? [makeUnauthorizedRetryHook(onUnauthorized)] : [],
+  })
+}
+
+/**
+ * The widget-runtime composition root: one per document, owning the shared
+ * transport (one HttpClient, one SSE manager). Hosts (board, harnesses) build
+ * exactly one; two runtimes would open two SSE connections — tests only.
+ */
+export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
+  const baseUrl = options.serverBaseUrl ?? '/api/storage'
+  const http = options.http ?? makeRuntimeHttp(options.onUnauthorized)
+  // Task 7 replaces this with a lazily constructed makeSseManager({ baseUrl,
+  // http, openEventStream, onUnauthorized }); until then the legacy
+  // module-level manager keeps serving subscriptions unchanged.
+  const registerKey = (fullKey: string, deliver: SseDeliver) =>
+    getSseManager(baseUrl).add(fullKey, deliver)
+
+  const makeScoped = (scope: string): ScopedStorage => {
+    const scopeWithColon = scope.endsWith(':') ? scope : `${scope}:`
+    return {
+      client: makeDexieStorage(scopeWithColon),
+      server: makeHttpStorage(scopeWithColon, { baseUrl, http, registerKey }),
+    }
+  }
+
+  return {
+    makeScopedStorage: makeScoped,
+    makeWidgetStorage: ({ instanceId, typeId }) => ({
+      instance: makeScoped(instanceNamespace(instanceId)),
+      shared: makeScoped(typeNamespace(typeId)),
+    }),
+    makeWidgetApi: ({ instanceId, typeId }) => makeWidgetApiWith({ instanceId, typeId, http }),
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Transitional free factories — DELETED in Task 9. A lazy module default
+ * runtime keeps WidgetFrame / rootStorage / harnesses / widget tests
+ * compiling until the composition roots land. No auth behavior: identical to
+ * the pre-plan state.
+ * ------------------------------------------------------------------------ */
+let defaultRuntime: HostRuntime | undefined
+function getDefaultRuntime(): HostRuntime {
+  return (defaultRuntime ??= makeHostRuntime())
+}
+
+/** @deprecated transitional — build a HostRuntime at your composition root. */
+export function makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage {
+  return getDefaultRuntime().makeWidgetStorage(options)
+}
+
+/** @deprecated transitional — build a HostRuntime at your composition root. */
+export function makeScopedStorage(scope: string): ScopedStorage {
+  return getDefaultRuntime().makeScopedStorage(scope)
+}
+
+/** @deprecated transitional — build a HostRuntime at your composition root. */
+export function makeWidgetApi<Events extends WidgetEventMap>(options: {
+  instanceId: string
+  typeId: string
+}): WidgetApi<Events, WidgetApiError> {
+  return getDefaultRuntime().makeWidgetApi<Events>(options)
+}
+```
+
+Rewire the package surface:
+
+1. `packages/widget-runtime/src/storage/index.ts` — delete the `makeWidgetStorage` / `makeScopedStorage` functions and `MakeWidgetStorageOptions`; keep (and still export) the `ScopedStorage` / `WidgetStorage` types. Its `makeHttpStorage` / `makeDexieStorage` imports move with the deleted code.
+2. `packages/widget-runtime/src/index.ts` — the package root must not double-export names:
+
+```ts
+export * from './types'
+export * from './widget-context'
+export * from './theme'
+export * from './tier'
+export { WidgetApiError } from './widget-api'
+export * from './storage'
+export * from './storage/types'
+export * from './storage/reatom'
+export * from './timer/server-time'
+export * from './host-runtime'
+```
+
+(`makeWidgetApi` now reaches consumers through `./host-runtime`'s transitional wrapper, not `./widget-api` — the internal one requires `http` and is not part of the package surface.)
+
+3. `packages/widget-runtime/src/storage/storage.test.ts` and `src/index.test.ts` keep passing unchanged — they consume the transitional wrappers.
+
+Run Step 6's file → PASS.
+
+- [ ] **Step 8: Suite + typecheck**
+
+Run: `pnpm --filter widget-runtime test && pnpm typecheck`
+Expected: PASS — the transitional wrappers keep `client` and `widgets/*` compiling; reatom-storage tests run through the default runtime exactly as before.
+
+- [ ] **Step 9: Commit**
 
 ```bash
 rtk git add packages/widget-runtime/src
-rtk git commit -m "refactor(widget-runtime): http-storage and widget-api on the shared ky instance"
+rtk git commit -m "feat(widget-runtime): makeHostRuntime composition root over the HttpClient port"
 ```
 
 ---
 
-### Task 7: SSE reconnect with re-auth + `purgeLocalData`
+### Task 7: SSE manager on the EventStream port + re-auth reconnect + `purgeLocalData`
 
 **Files:**
-- Modify: `packages/widget-runtime/src/storage/server/sse-client.ts` (reconnect on fatal close, subscribe POST via `http`)
-- Modify: `packages/widget-runtime/src/storage/test/fakes.ts` (`FakeEventSource` gains `onerror` + `emitError()`)
-- Modify: `packages/widget-runtime/src/storage/server/sse-client.test.ts` (reconnect test)
+- Modify: `packages/widget-runtime/src/storage/server/sse-client.ts` (constructor-injected `makeSseManager`; the `getSseManager` module map dies)
+- Modify: `packages/widget-runtime/src/host-runtime.ts` (own the SSE manager lazily)
+- Modify: `packages/widget-runtime/src/storage/test/fakes.ts` (`FakeEventStream` + `makeFakeOpenEventStream`; delete `FakeEventSource`/`installFakeEventSource` once unreferenced)
+- Modify: `packages/widget-runtime/src/storage/server/sse-client.test.ts` (rewrite on injected fakes)
 - Modify: `packages/widget-runtime/src/storage/client/db.ts` (add `purgeLocalData`)
 - Modify: `packages/widget-runtime/src/storage/index.ts` (re-export `purgeLocalData`)
-- Create test in: `packages/widget-runtime/src/storage/client/dexie-storage.test.ts` (purge case)
+- Test in: `packages/widget-runtime/src/storage/client/dexie-storage.test.ts` (purge case)
 
 **Interfaces:**
-- Consumes: `http`, `unauthorizedHandlerAtom` from `../../http/client`.
-- Produces: `purgeLocalData(): Promise<void>` (exported from the `widget-runtime` package root via `storage/index.ts`) — deletes the `myboard-storage` Dexie database.
-- Behavior: on an `EventSource` fatal error (`readyState === CLOSED`), the manager awaits the unauthorized handler (if registered), then reconnects after `RECONNECT_DELAY_MS = 2000`; a new connection re-registers all desired keys (existing `ready` handler already resets `registered`).
+- Consumes: `HttpLike` from `@shared/http/client`; `OpenEventStream`, `EventStream`, `makeEventSourceStream` from `@shared/http/event-stream`.
+- Produces:
+  - `makeSseManager(deps: SseManagerDeps): SseManager` with `SseManagerDeps = { baseUrl: string; http: HttpLike; openEventStream: OpenEventStream; onUnauthorized?: () => Promise<boolean> }` and `SseManager = { add(fullKey, deliver): () => void }`
+  - `purgeLocalData(): Promise<void>` (exported from the `widget-runtime` package root via `storage/index.ts`) — deletes the `myboard-storage` Dexie database.
+- Behavior: on the stream's fatal `onError`, the manager awaits `onUnauthorized` (when present), then reconnects after `RECONNECT_DELAY_MS = 2000`; a fresh connection re-registers all desired keys (the existing `ready` handler already resets `registered`).
 
-- [ ] **Step 1: Extend the fake**
+- [ ] **Step 1: New fakes**
 
-In `packages/widget-runtime/src/storage/test/fakes.ts`, add to `FakeEventSource`:
-
-```ts
-onerror: ((event: Event) => void) | null = null
-
-/** Simulate a fatal close (e.g. the gate answered 401): readyState CLOSED + error event. */
-emitError() {
-  this.readyState = 2
-  this.onerror?.({} as Event)
-}
-```
-
-- [ ] **Step 2: Write the failing test**
-
-Append to `packages/widget-runtime/src/storage/server/sse-client.test.ts` (reuse the file's existing setup helpers for `installFakeEventSource` and fetch stubbing; `vi.useFakeTimers()` where the file does):
+In `packages/widget-runtime/src/storage/test/fakes.ts`, add:
 
 ```ts
-it('re-authenticates and reconnects after a fatal EventSource error', async () => {
-  vi.useFakeTimers()
-  installFakeEventSource()
-  const handler = vi.fn(async () => true)
-  unauthorizedHandlerAtom.set(handler)
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => new Response(null, { status: 204 })),
-  )
+import type { EventStream, EventStreamHandlers, OpenEventStream } from '@shared/http/event-stream'
 
-  const manager = getSseManager('http://test.local/api/storage')
-  manager.add('k1', () => {})
-
-  const first = FakeEventSource.instances[0]
-  first.emit('ready', { connId: 'c1' })
-  await vi.runAllTimersAsync()
-
-  first.emitError()
-  await vi.runAllTimersAsync()
-
-  expect(handler).toHaveBeenCalledTimes(1)
-  expect(FakeEventSource.instances.length).toBe(2)
-
-  // the fresh connection re-registers the desired key
-  FakeEventSource.instances[1].emit('ready', { connId: 'c2' })
-  await vi.runAllTimersAsync()
-  const lastCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1)
-  expect(String(lastCall?.[0].url ?? lastCall?.[0])).toContain('/events/c2')
-  unauthorizedHandlerAtom.set(null)
-  vi.useRealTimers()
-})
-```
-
-Import `unauthorizedHandlerAtom` from `../../http/client` and `FakeEventSource, installFakeEventSource` from `../test/fakes` (match the file's existing imports). Note: `getSseManager` memoizes per `baseUrl` — use a unique `baseUrl` per test to get a fresh manager.
-
-- [ ] **Step 3: Run to verify failure**
-
-Run: `pnpm --filter widget-runtime exec vitest run src/storage/server/sse-client.test.ts`
-Expected: FAIL — no reconnect logic exists.
-
-- [ ] **Step 4: Implement the reconnect + ky subscribe**
-
-In `sse-client.ts`:
-
-1. Import: `import { http, unauthorizedHandlerAtom } from '../../http/client'` and add `const RECONNECT_DELAY_MS = 2_000`.
-2. Restructure `createSseManager` so the `EventSource` construction and its listeners live in a local `connect()` function; module state (`subscribers`, `desired`, `registered`, `connId`, sync fields) stays where it is. The existing `source.addEventListener('ready', ...)` and `source.onmessage` bodies move unchanged into `connect()`:
-
-```ts
-let source: EventSource | undefined
-let reconnectTimer: ReturnType<typeof setTimeout> | undefined
-
-function connect(): void {
-  source = new EventSource(`${baseUrl}/events`)
-  source.addEventListener('ready', onReady)
-  source.onmessage = onMessage
-  source.onerror = () => {
-    // CONNECTING (0): the browser retries by itself. CLOSED (2): fatal — the
-    // gate answered non-200 (e.g. 401) and EventSource will never retry.
-    if (source && source.readyState !== 2) return
-    source = undefined
-    connId = undefined
-    scheduleReconnect()
+/** In-memory EventStream double: capture opened streams and push frames manually. */
+export class FakeEventStream implements EventStream {
+  closed = false
+  constructor(
+    public url: string,
+    public handlers: EventStreamHandlers,
+  ) {}
+  /** Simulate a server frame; `event` undefined = plain message. */
+  emit(event: string | undefined, data: unknown) {
+    this.handlers.onMessage({ event, data: JSON.stringify(data) })
+  }
+  /** Simulate a fatal close (e.g. the gate answered 401). */
+  fail() {
+    this.handlers.onError?.()
+  }
+  close() {
+    this.closed = true
   }
 }
 
-function scheduleReconnect(): void {
-  if (reconnectTimer) return
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = undefined
-    void (async () => {
-      const handler = unauthorizedHandlerAtom()
-      if (handler) await handler().catch(() => false)
-      connect()
-    })()
-  }, RECONNECT_DELAY_MS)
+export function makeFakeOpenEventStream() {
+  const streams: FakeEventStream[] = []
+  const open: OpenEventStream = (url, handlers) => {
+    const stream = new FakeEventStream(url, handlers)
+    streams.push(stream)
+    return stream
+  }
+  return { open, streams }
 }
-
-connect()
 ```
 
-(Extract the current inline `ready`/`message` handlers into named `onReady`/`onMessage` functions so `connect()` can attach them.)
+- [ ] **Step 2: Rewrite the sse-client tests on injected deps**
 
-3. Switch the subscribe POST inside `sync()` to the shared instance (keeps the manual status handling — `throwHttpErrors: false` per request):
+Replace `packages/widget-runtime/src/storage/server/sse-client.test.ts` with per-test construction (no `vi.resetModules`, no global fetch/EventSource stubs). Setup helper + the two key new cases in full; port the file's remaining cases (re-register on fresh ready, pending-unsubscribe race, registration retry) onto this helper mechanically — same assertions, `post.mock.calls` instead of `fetch.mock.calls`:
 
 ```ts
-let response: Response | null
-response = await http
-  .post(`${baseUrl}/events/${requestConnId}`, {
-    json: { subscribe, unsubscribe },
-    throwHttpErrors: false,
+import type { HttpLike } from '@shared/http/client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { FakeEventStream, makeFakeOpenEventStream } from '../test/fakes'
+import { makeSseManager, type SseManagerDeps } from './sse-client'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+function makeStubHttp(
+  post = vi.fn(async () => ({ status: 204, ok: true, body: undefined as unknown })),
+) {
+  const reject = () => {
+    throw new Error('unexpected non-POST call')
+  }
+  const http = { get: reject, put: reject, delete: reject, patch: reject, post } as unknown as HttpLike
+  return { http, post }
+}
+
+function setup(overrides: Partial<SseManagerDeps> = {}) {
+  const fake = makeFakeOpenEventStream()
+  const { http, post } = makeStubHttp()
+  const manager = makeSseManager({
+    baseUrl: '/api/storage',
+    http,
+    openEventStream: fake.open,
+    ...overrides,
   })
-  .catch((cause) => {
-    console.warn('storage SSE registration failed', cause)
-    return null
+  return { manager, streams: fake.streams, post }
+}
+
+describe('makeSseManager', () => {
+  it('registers interest after ready and delivers matching events', async () => {
+    const { manager, streams, post } = setup()
+    const seen: unknown[] = []
+    manager.add('w:t:clock:settings', (raw) => seen.push(raw))
+
+    expect(streams[0].url).toBe('/api/storage/events')
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => {
+      expect(post).toHaveBeenCalledWith(
+        '/api/storage/events/c1',
+        expect.objectContaining({ json: expect.objectContaining({ subscribe: ['w:t:clock:settings'] }) }),
+      )
+    })
+
+    streams[0].emit(undefined, { key: 'w:t:clock:settings', value: 7 })
+    expect(seen).toEqual([7])
   })
-syncInFlight = false
+
+  it('re-authenticates and reconnects after a fatal stream error', async () => {
+    vi.useFakeTimers()
+    const onUnauthorized = vi.fn(async () => true)
+    const { manager, streams, post } = setup({ onUnauthorized })
+    manager.add('k1', () => {})
+
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.runAllTimersAsync()
+
+    streams[0].fail()
+    await vi.runAllTimersAsync()
+
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
+    expect(streams.length).toBe(2)
+
+    // the fresh connection re-registers the desired key
+    streams[1].emit('ready', { connId: 'c2' })
+    await vi.runAllTimersAsync()
+    expect(String(post.mock.calls.at(-1)?.[0])).toContain('/events/c2')
+  })
+})
 ```
 
-(Replace the existing `try/catch/finally` block with this errore-style chain; keep everything after it — the `connId` drift check, retry scheduling, `registered` bookkeeping — unchanged.)
+Run: `pnpm --filter widget-runtime exec vitest run src/storage/server/sse-client.test.ts`
+Expected: FAIL — `makeSseManager` does not exist yet.
 
-- [ ] **Step 5: `purgeLocalData`**
+- [ ] **Step 3: Rewrite `sse-client.ts`**
+
+Keep the file's state machine (subscribers/desired/registered/connId/sync fields, `scheduleSync`, the drift check) and change construction + I/O:
+
+1. Delete `getSseManager` and the module-level `managers` map. New surface:
+
+```ts
+import type { HttpLike } from '@shared/http/client'
+import type { EventStream, OpenEventStream } from '@shared/http/event-stream'
+import { z } from 'zod'
+
+export type SseDeliver = (rawValue: unknown) => void
+export type SseManager = { add(fullKey: string, deliver: SseDeliver): () => void }
+
+export type SseManagerDeps = {
+  baseUrl: string
+  http: HttpLike
+  openEventStream: OpenEventStream
+  onUnauthorized?: () => Promise<boolean>
+}
+
+const REGISTER_RETRY_MS = 1_000
+const RECONNECT_DELAY_MS = 2_000
+
+export function makeSseManager(deps: SseManagerDeps): SseManager {
+```
+
+2. Connection lifecycle — extract the current inline `ready`/`message` handler bodies into named `onReady(raw: unknown)` / `onStorageEvent(raw: unknown)` functions (their Zod parsing stays byte-identical; they now receive the already-JSON-parsed value):
+
+```ts
+  let stream: EventStream | undefined
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+
+  function parseFrame(data: string): unknown | Error {
+    try {
+      return JSON.parse(data) as unknown
+    } catch (cause) {
+      return new Error('invalid SSE JSON', { cause })
+    }
+  }
+
+  function connect(): void {
+    stream = deps.openEventStream(`${deps.baseUrl}/events`, {
+      events: ['ready'],
+      onMessage: (message) => {
+        const raw = parseFrame(message.data)
+        if (raw instanceof Error) {
+          console.warn('invalid storage SSE frame', raw)
+          return
+        }
+        if (message.event === 'ready') onReady(raw)
+        else onStorageEvent(raw)
+      },
+      onError: () => {
+        // The port only reports fatal closes (e.g. the gate answered 401);
+        // transient blips are retried by EventSource itself.
+        stream?.close()
+        stream = undefined
+        connId = undefined
+        scheduleReconnect()
+      },
+    })
+  }
+
+  function scheduleReconnect(): void {
+    if (reconnectTimer) return
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = undefined
+      void (async () => {
+        // The probe inside the handler distinguishes network from session.
+        if (deps.onUnauthorized) await deps.onUnauthorized().catch(() => false)
+        connect()
+      })()
+    }, RECONNECT_DELAY_MS)
+  }
+
+  connect()
+```
+
+3. The subscribe POST inside `sync()` goes through the port — replace the `try/catch/finally` around `fetch` with:
+
+```ts
+    syncInFlight = true
+    const result = await deps.http.post(`${deps.baseUrl}/events/${requestConnId}`, {
+      json: { subscribe, unsubscribe },
+    })
+    syncInFlight = false
+
+    if (connId !== requestConnId) {
+      syncDirty = false
+      scheduleSync()
+      return
+    }
+
+    if (result instanceof Error || !result.ok) {
+      console.warn('storage SSE registration failed', result instanceof Error ? result : result.status)
+      syncDirty = false
+      scheduleRetry()
+      return
+    }
+```
+
+(Everything after — `registered` bookkeeping, `needsResync` — stays unchanged.)
+
+Run Step 2's file → PASS.
+
+- [ ] **Step 4: Own the manager in `makeHostRuntime`**
+
+In `host-runtime.ts`, replace the Task 6 transitional `registerKey` (and the `getSseManager` import) with lazy ownership:
+
+```ts
+import { makeEventSourceStream } from '@shared/http/event-stream'
+import { makeSseManager, type SseDeliver, type SseManager } from './storage/server/sse-client'
+// ...inside makeHostRuntime():
+  let sse: SseManager | undefined
+  const getSse = () =>
+    (sse ??= makeSseManager({
+      baseUrl,
+      http,
+      openEventStream: options.openEventStream ?? makeEventSourceStream(),
+      onUnauthorized: options.onUnauthorized,
+    }))
+  const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
+```
+
+(Lazy: building a runtime must not open an SSE connection until the first subscription — harness pages and unit tests never connect.)
+
+Add to `host-runtime.test.ts`:
+
+```ts
+it('opens the SSE stream lazily through the injected openEventStream', () => {
+  const fake = makeFakeOpenEventStream()
+  const { http } = makeScriptedHttp({})
+  const runtime = makeHostRuntime({ http, openEventStream: fake.open })
+  expect(fake.streams.length).toBe(0)
+
+  const storage = runtime.makeScopedStorage('root')
+  const unsubscribe = storage.server.subscribe('k', () => {})
+  expect(fake.streams.length).toBe(1)
+  unsubscribe()
+})
+```
+
+(Import `makeFakeOpenEventStream` from `./storage/test/fakes`.)
+
+- [ ] **Step 5: Delete the EventSource fakes**
+
+Remove `FakeEventSource` and `installFakeEventSource` from `fakes.ts`; port any remaining widget-runtime test that used them onto `makeFakeOpenEventStream` (check `http-storage.test.ts` subscribe cases and `reatom-storage.test.ts`; the `EventSourcePolyfill` stubs in `vitest.setup.ts` files stay — they feed the real `makeEventSourceStream` default in tests that don't inject).
+
+- [ ] **Step 6: `purgeLocalData`**
 
 Append to `packages/widget-runtime/src/storage/client/db.ts`:
 
@@ -1720,16 +2501,16 @@ it('purgeLocalData drops the database', async () => {
 
 (Import `purgeLocalData` from `./db` and `Dexie` from `dexie`. Place it last in the file — it destroys the shared db.)
 
-- [ ] **Step 6: Run the suite**
+- [ ] **Step 7: Run the suite**
 
 Run: `pnpm --filter widget-runtime test`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 rtk git add packages/widget-runtime/src
-rtk git commit -m "feat(widget-runtime): SSE re-auth reconnect and purgeLocalData"
+rtk git commit -m "feat(widget-runtime): SSE manager on the EventStream port with re-auth reconnect; purgeLocalData"
 ```
 
 ---
@@ -1741,53 +2522,38 @@ rtk git commit -m "feat(widget-runtime): SSE re-auth reconnect and purgeLocalDat
 - Create: `packages/client/src/session/model/relogin.test.ts`
 
 **Interfaces:**
-- Consumes: `startAuthentication` from `@simplewebauthn/browser` (already a client dependency); Reatom v1001 (`action`, `atom`, `wrap`).
+- Consumes: `startAuthentication` from `@simplewebauthn/browser` (already a client dependency); `HttpClient`, `HttpLike` from `@shared/http/client`; `Navigate` from `@shared/navigation`; Reatom v1001 (`action`, `atom`, `wrap`); `makeScriptedHttp` (tests).
 - Produces:
-  - `createReloginModel(overrides?: Partial<ReloginDeps>): ReloginModel` with `ReloginDeps = { fetchImpl: typeof fetch; startAuthenticationCeremony: typeof startAuthentication; locationAssign: (path: string) => void; storage: { get(): string | null; clear(): void } }` and `ReloginModel = { ensureSession: () => Promise<boolean> }`
-  - Module singleton: `export const ensureSession: () => Promise<boolean>` — the function Tasks 9 wires everywhere.
+  - `makeReloginModel(overrides?: Partial<ReloginDeps>): ReloginModel` with `ReloginDeps = { http: HttpLike; startAuthenticationCeremony: typeof startAuthentication; navigate: Navigate; storage: { get(): string | null; clear(): void } }` and `ReloginModel = { ensureSession: () => Promise<boolean> }`
+  - Module singleton: `export const ensureSession: () => Promise<boolean>` — the function Task 9 wires everywhere.
 - Behavior contract:
   1. Single-flight: concurrent calls share one promise.
   2. Probe `GET /api/auth/session` → `200` ⇒ `true`, no ceremony.
-  3. Probe network failure ⇒ `false`, **no redirect** (offline-first: the caller just sees its original error).
+  3. Probe transport failure ⇒ `false`, **no redirect** (offline-first: the caller just sees its original error).
   4. Probe `401` ⇒ ceremony `POST /api/auth/login/options` (with `credentialIdHint` from `mb_cred_hint` when present) → `startAuthentication` → `POST /api/auth/login/verify` ⇒ `true`.
-  5. Any ceremony/verify failure or cancel ⇒ clear the hint, `locationAssign('/')`, `false`.
+  5. Any ceremony/verify failure or cancel ⇒ clear the hint, `navigate('/')`, `false`.
+  6. The model builds its **own bare `new HttpClient()`** by default — no retry hook: the re-login path must never recurse into itself, and constructing it here keeps `runtime.ts` → `relogin.ts` acyclic.
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/client/src/session/model/relogin.test.ts`:
 
 ```ts
+import { makeScriptedHttp } from '@shared/http/scripted-http'
 import { describe, expect, it, vi } from 'vitest'
 
-import { createReloginModel } from './relogin'
-
-type FetchStep = { status: number; body?: unknown } | 'reject'
-
-function fetchScript(steps: Record<string, FetchStep[]>) {
-  const calls: Array<{ url: string; body: unknown }> = []
-  const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    const step = steps[url]?.shift()
-    calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : undefined })
-    if (!step) throw new Error(`unexpected fetch ${url}`)
-    if (step === 'reject') throw new Error('network down')
-    return new Response(step.body === undefined ? null : JSON.stringify(step.body), {
-      status: step.status,
-    })
-  }) as unknown as typeof fetch
-  return { fetchImpl, calls }
-}
+import { makeReloginModel } from './relogin'
 
 const noStorage = { get: () => null, clear: vi.fn() }
 
 describe('ensureSession', () => {
   it('returns true without a ceremony when the probe says 200', async () => {
-    const { fetchImpl } = fetchScript({ '/api/auth/session': [{ status: 200, body: {} }] })
+    const { http } = makeScriptedHttp({ '/api/auth/session': [{ status: 200, body: {} }] })
     const ceremony = vi.fn()
-    const model = createReloginModel({
-      fetchImpl,
+    const model = makeReloginModel({
+      http,
       startAuthenticationCeremony: ceremony as never,
-      locationAssign: vi.fn(),
+      navigate: vi.fn(),
       storage: noStorage,
     })
     expect(await model.ensureSession()).toBe(true)
@@ -1795,31 +2561,33 @@ describe('ensureSession', () => {
   })
 
   it('runs the ceremony on probe 401 and returns true on verified login', async () => {
-    const { fetchImpl, calls } = fetchScript({
+    const { http, calls } = makeScriptedHttp({
       '/api/auth/session': [{ status: 401 }],
       '/api/auth/login/options': [{ status: 200, body: { options: { challenge: 'x' } } }],
       '/api/auth/login/verify': [{ status: 200, body: { accountId: 'a', credentialId: 'c' } }],
     })
     const ceremony = vi.fn(async () => ({ id: 'c' }))
-    const model = createReloginModel({
-      fetchImpl,
+    const model = makeReloginModel({
+      http,
       startAuthenticationCeremony: ceremony as never,
-      locationAssign: vi.fn(),
+      navigate: vi.fn(),
       storage: { get: () => 'hint-1', clear: vi.fn() },
     })
 
     expect(await model.ensureSession()).toBe(true)
     expect(ceremony).toHaveBeenCalledTimes(1)
     const optionsCall = calls.find((c) => c.url === '/api/auth/login/options')
-    expect(optionsCall?.body).toEqual({ credentialIdHint: 'hint-1' })
+    expect(optionsCall?.json).toEqual({ credentialIdHint: 'hint-1' })
   })
 
   it('coalesces concurrent calls into one flight', async () => {
-    const { fetchImpl } = fetchScript({ '/api/auth/session': [{ status: 200, body: {} }] })
-    const model = createReloginModel({
-      fetchImpl,
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/session': [{ status: 200, body: {} }],
+    })
+    const model = makeReloginModel({
+      http,
       startAuthenticationCeremony: vi.fn() as never,
-      locationAssign: vi.fn(),
+      navigate: vi.fn(),
       storage: noStorage,
     })
     const [a, b, c] = await Promise.all([
@@ -1828,59 +2596,59 @@ describe('ensureSession', () => {
       model.ensureSession(),
     ])
     expect([a, b, c]).toEqual([true, true, true])
-    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(calls.length).toBe(1)
   })
 
   it('redirects to / and returns false when the ceremony is cancelled', async () => {
-    const { fetchImpl } = fetchScript({
+    const { http } = makeScriptedHttp({
       '/api/auth/session': [{ status: 401 }],
       '/api/auth/login/options': [{ status: 200, body: { options: { challenge: 'x' } } }],
     })
-    const locationAssign = vi.fn()
+    const navigate = vi.fn()
     const storage = { get: () => 'hint', clear: vi.fn() }
-    const model = createReloginModel({
-      fetchImpl,
+    const model = makeReloginModel({
+      http,
       startAuthenticationCeremony: vi.fn(async () => {
         throw new Error('NotAllowedError')
       }) as never,
-      locationAssign,
+      navigate,
       storage,
     })
 
     expect(await model.ensureSession()).toBe(false)
-    expect(locationAssign).toHaveBeenCalledWith('/')
+    expect(navigate).toHaveBeenCalledWith('/')
     expect(storage.clear).toHaveBeenCalled()
   })
 
   it('returns false without redirect when the probe network-fails (offline)', async () => {
-    const { fetchImpl } = fetchScript({ '/api/auth/session': ['reject'] })
-    const locationAssign = vi.fn()
-    const model = createReloginModel({
-      fetchImpl,
+    const { http } = makeScriptedHttp({ '/api/auth/session': ['network-error'] })
+    const navigate = vi.fn()
+    const model = makeReloginModel({
+      http,
       startAuthenticationCeremony: vi.fn() as never,
-      locationAssign,
+      navigate,
       storage: noStorage,
     })
     expect(await model.ensureSession()).toBe(false)
-    expect(locationAssign).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('allows a fresh flight after the previous one settles', async () => {
-    const { fetchImpl } = fetchScript({
+    const { http, calls } = makeScriptedHttp({
       '/api/auth/session': [
         { status: 200, body: {} },
         { status: 200, body: {} },
       ],
     })
-    const model = createReloginModel({
-      fetchImpl,
+    const model = makeReloginModel({
+      http,
       startAuthenticationCeremony: vi.fn() as never,
-      locationAssign: vi.fn(),
+      navigate: vi.fn(),
       storage: noStorage,
     })
     await model.ensureSession()
     await model.ensureSession()
-    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(calls.length).toBe(2)
   })
 })
 ```
@@ -1893,6 +2661,8 @@ Expected: FAIL — module missing.
 - [ ] **Step 3: Implement `relogin.ts`**
 
 ```ts
+import { HttpClient, type HttpLike } from '@shared/http/client'
+import type { Navigate } from '@shared/navigation'
 import { action, atom, wrap } from '@reatom/core'
 import { startAuthentication } from '@simplewebauthn/browser'
 
@@ -1901,9 +2671,9 @@ import { startAuthentication } from '@simplewebauthn/browser'
 export const CRED_HINT_STORAGE_KEY = 'mb_cred_hint'
 
 export interface ReloginDeps {
-  fetchImpl: typeof fetch
+  http: HttpLike
   startAuthenticationCeremony: typeof startAuthentication
-  locationAssign: (path: string) => void
+  navigate: Navigate
   storage: { get(): string | null; clear(): void }
 }
 
@@ -1922,11 +2692,13 @@ function defaultStorage(): ReloginDeps['storage'] {
   }
 }
 
-export function createReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginModel {
+export function makeReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginModel {
   const deps: ReloginDeps = {
-    fetchImpl: overrides.fetchImpl ?? ((...args) => fetch(...args)),
+    // Own bare client (no retry hook): the re-login path must never recurse
+    // into itself; building it here also keeps runtime.ts → relogin.ts acyclic.
+    http: overrides.http ?? new HttpClient(),
     startAuthenticationCeremony: overrides.startAuthenticationCeremony ?? startAuthentication,
-    locationAssign: overrides.locationAssign ?? ((path) => window.location.assign(path)),
+    navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
     storage: overrides.storage ?? defaultStorage(),
   }
 
@@ -1934,51 +2706,41 @@ export function createReloginModel(overrides: Partial<ReloginDeps> = {}): Relogi
 
   async function run(): Promise<boolean> {
     // Probe first: distinguishes "session expired" (401 → ceremony) from
-    // network failures (offline-first: report false, change nothing) and
+    // transport failures (offline-first: report false, change nothing) and
     // spurious per-endpoint 401s (200 → the session is fine, just retry).
-    const probe = await deps
-      .fetchImpl('/api/auth/session', { credentials: 'same-origin' })
-      .catch(() => null)
-    if (probe === null) return false
+    const probe = await deps.http.get('/api/auth/session')
+    if (probe instanceof Error) return false
     if (probe.ok) return true
     if (probe.status !== 401) return false
 
     const bail = (): false => {
       deps.storage.clear()
-      deps.locationAssign('/')
+      deps.navigate('/')
       return false
     }
 
     const hint = deps.storage.get()
-    const optionsRes = await deps
-      .fetchImpl('/api/auth/login/options', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'MyBoard' },
-        body: JSON.stringify(hint ? { credentialIdHint: hint } : {}),
-      })
-      .catch(() => null)
-    if (optionsRes === null || !optionsRes.ok) return bail()
+    const optionsRes = await deps.http.post('/api/auth/login/options', {
+      json: hint ? { credentialIdHint: hint } : {},
+    })
+    if (optionsRes instanceof Error || !optionsRes.ok) return bail()
 
-    const optionsBody = (await optionsRes.json().catch(() => null)) as {
-      options?: Parameters<typeof startAuthentication>[0]['optionsJSON']
-    } | null
-    if (!optionsBody?.options) return bail()
+    const options = (
+      optionsRes.body as
+        | { options?: Parameters<typeof startAuthentication>[0]['optionsJSON'] }
+        | undefined
+    )?.options
+    if (!options) return bail()
 
     const assertion = await deps
-      .startAuthenticationCeremony({ optionsJSON: optionsBody.options })
+      .startAuthenticationCeremony({ optionsJSON: options })
       .catch(() => null)
     if (assertion === null) return bail()
 
-    const verifyRes = await deps
-      .fetchImpl('/api/auth/login/verify', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'MyBoard' },
-        body: JSON.stringify({ authenticationResponse: assertion }),
-      })
-      .catch(() => null)
-    if (verifyRes === null || !verifyRes.ok) return bail()
+    const verifyRes = await deps.http.post('/api/auth/login/verify', {
+      json: { authenticationResponse: assertion },
+    })
+    if (verifyRes instanceof Error || !verifyRes.ok) return bail()
 
     return true
   }
@@ -1996,9 +2758,11 @@ export function createReloginModel(overrides: Partial<ReloginDeps> = {}): Relogi
   return { ensureSession: () => ensureSession() }
 }
 
-const model = createReloginModel()
+const model = makeReloginModel()
 export const ensureSession = model.ensureSession
 ```
+
+(No CSRF/`credentials` code — both come from `HttpClient`. Existing `create*` factory names elsewhere in the codebase stay; new factories are `make*`.)
 
 - [ ] **Step 4: Run to verify pass**
 
@@ -2009,99 +2773,135 @@ Expected: PASS.
 
 ```bash
 rtk git add packages/client/src/session
-rtk git commit -m "feat(client): single-flight ensureSession relogin model"
+rtk git commit -m "feat(client): single-flight ensureSession relogin model on the HttpClient port"
 ```
 
 ---
 
-### Task 9: Client wiring — bootstrap, devices-http retry, logout purge
+### Task 9: Composition roots — board `runtime.ts`, consumer migration, devices-http on the port, logout purge
 
 **Files:**
-- Modify: `packages/client/src/app/main.tsx` (register the handler)
-- Modify: `packages/client/src/account/model/devices-http.ts` (401 → `ensureSession` → one retry)
-- Modify: `packages/client/src/account/model/devices-http.test.ts`
+- Create: `packages/client/src/runtime.ts` (the board's composition root)
+- Modify: `packages/client/src/widget-host/ui/WidgetFrame.tsx` (use `hostRuntime`)
+- Modify: `packages/client/src/board/model/storage.ts` (`rootStorage` via `hostRuntime`)
+- Modify: `packages/widgets/clock/dev/harness.tsx`, `packages/widgets/ofelia-poop-duty/dev/harness.tsx` (bare `makeHostRuntime()`)
+- Modify: `packages/widgets/clock/ui/Clock.test.tsx`, `packages/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.test.tsx` (if they call the free factories — same one-line swap)
+- Modify: `packages/client/src/account/model/devices-http.ts` + `devices-http.test.ts` (port-based `request`)
+- Modify: `packages/client/src/account/model/account-model.ts` + test (`http`/`bareHttp` deps, logout purge)
+- Modify: `packages/client/src/account/model/add-device-model.ts` + tests, `packages/client/src/account/ui/AddDeviceModal.test.tsx` (`http` dep)
 - Create: `packages/client/src/session/model/purge.ts` + `purge.test.ts`
-- Modify: `packages/client/src/account/model/account-model.ts` (logout purge step)
-- Modify: `packages/client/src/account/model/account-model.test.ts`
+- Modify: `packages/widget-runtime/src/host-runtime.ts` (delete the transitional free factories + default runtime)
+- Modify: `packages/widget-runtime/src/storage/storage.test.ts`, `packages/widget-runtime/src/index.test.ts` (construct via `makeHostRuntime`)
 
 **Interfaces:**
-- Consumes: `unauthorizedHandlerAtom`, `purgeLocalData` from `widget-runtime`; `ensureSession` from `@/session/model/relogin`.
-- Produces: `purgeLocalSession(): Promise<void>` in `@/session/model/purge`; `AccountDeps` gains `purge: () => Promise<void>` (default `purgeLocalSession`).
+- Consumes: `makeHostRuntime`, `purgeLocalData` from `widget-runtime`; `HttpClient`, `HttpLike`, `makeUnauthorizedRetryHook` from `@shared/http/client`; `ensureSession` from `@/session/model/relogin`; `makeScriptedHttp` (tests).
+- Produces:
+  - `@/runtime`: `export const http: HttpClient` (retry-hooked board client) and `export const hostRuntime: HostRuntime`.
+  - `devices-http.ts`: every exported function's first parameter becomes `http: HttpLike` (was `fetchImpl: typeof fetch`); behavior contract otherwise unchanged, plus: a non-2xx without a JSON body (bare nginx 401) now maps to `DeviceApiError` with `code: 'unknown_error'`, not a transport error.
+  - `purgeLocalSession(): Promise<void>` in `@/session/model/purge`; `AccountDeps` gains `purge: () => Promise<void>` (default `purgeLocalSession`) and `bareHttp: HttpLike` (default `new HttpClient()`) for logout.
+- After this task **no transitional factory exists**: the only way to obtain storage/api is a `HostRuntime` from a composition root.
 
-- [ ] **Step 1: Bootstrap registration**
+- [ ] **Step 1: The board composition root**
 
-In `packages/client/src/app/main.tsx` add after `initTheme()`:
-
-```ts
-import { unauthorizedHandlerAtom } from 'widget-runtime'
-
-import { ensureSession } from '@/session/model/relogin'
-// ...
-unauthorizedHandlerAtom.set(() => ensureSession())
-```
-
-- [ ] **Step 2: devices-http retry (test first)**
-
-Append to `packages/client/src/account/model/devices-http.test.ts`:
+`packages/client/src/runtime.ts`:
 
 ```ts
+import { HttpClient, makeUnauthorizedRetryHook } from '@shared/http/client'
+import { makeHostRuntime } from 'widget-runtime'
+
 import { ensureSession } from '@/session/model/relogin'
 
-vi.mock('@/session/model/relogin', () => ({ ensureSession: vi.fn(async () => true) }))
-
-it('retries once through ensureSession on a 401', async () => {
-  const fetchImpl = vi
-    .fn()
-    .mockResolvedValueOnce(
-      new Response(JSON.stringify({ code: 'session_missing' }), { status: 401 }),
-    )
-    .mockResolvedValueOnce(
-      new Response(JSON.stringify({ id: 'a', name: 'N', deviceLimit: 10 }), { status: 200 }),
-    ) as unknown as typeof fetch
-
-  const result = await fetchAccount(fetchImpl)
-  expect(result).toEqual({ id: 'a', name: 'N', deviceLimit: 10 })
-  expect(ensureSession).toHaveBeenCalledTimes(1)
-  expect(fetchImpl).toHaveBeenCalledTimes(2)
+/** Board-wide HTTP: silent 401 re-login via a single forced replay. */
+export const http = new HttpClient({
+  onResponse: [makeUnauthorizedRetryHook(() => ensureSession())],
 })
 
-it('does not retry when ensureSession fails', async () => {
-  ;(ensureSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false)
-  const fetchImpl = vi
-    .fn()
-    .mockResolvedValue(
-      new Response(JSON.stringify({ code: 'session_missing' }), { status: 401 }),
-    ) as unknown as typeof fetch
+/** The board's single widget-runtime composition root (one per document). */
+export const hostRuntime = makeHostRuntime({
+  onUnauthorized: () => ensureSession(),
+})
+```
 
-  const result = await fetchAccount(fetchImpl)
+(`relogin.ts` builds its own bare client and does not import this module — the graph is `runtime.ts` → `relogin.ts`, acyclic.)
+
+- [ ] **Step 2: devices-http on the port (test first)**
+
+Rework `packages/client/src/account/model/devices-http.test.ts` onto `makeScriptedHttp`. Representative rewrites (port every case in this style — the old `as unknown as typeof fetch` casts all disappear); the old "retries once through ensureSession" cases are **replaced** by the bare-401 mapping case (the retry now lives in the board client's hook, covered by Task 5):
+
+```ts
+import { makeScriptedHttp } from '@shared/http/scripted-http'
+
+it('fetchAccount returns the account payload', async () => {
+  const { http } = makeScriptedHttp({
+    '/api/auth/account': [{ status: 200, body: { id: 'a', name: 'N', deviceLimit: 10 } }],
+  })
+  expect(await fetchAccount(http)).toEqual({ id: 'a', name: 'N', deviceLimit: 10 })
+})
+
+it('maps a bare-bodied 401 (nginx gate) to DeviceApiError, not a transport error', async () => {
+  const { http } = makeScriptedHttp({ '/api/auth/account': [{ status: 401 }] })
+  const result = await fetchAccount(http)
   expect(result).toBeInstanceOf(DeviceApiError)
-  expect(fetchImpl).toHaveBeenCalledTimes(1)
+  expect(result).toMatchObject({ status: 401, code: 'unknown_error' })
+})
+
+it('maps transport failures to DeviceHttpError', async () => {
+  const { http } = makeScriptedHttp({ '/api/auth/account': ['network-error'] })
+  expect(await fetchAccount(http)).toBeInstanceOf(DeviceHttpError)
 })
 ```
 
-Run: `pnpm --filter client exec vitest run src/account/model/devices-http.test.ts` → FAIL.
+(Check the file's existing URL fixtures for the exact paths — keep them.) Run → FAIL.
 
-Implement in `devices-http.ts`: rename the current `request` body to `attemptRequest` and add on top:
+Rewrite the `request` helper in `devices-http.ts` (the exported functions only swap their first parameter's type; their bodies keep calling `request`):
 
 ```ts
-import { ensureSession } from '@/session/model/relogin'
-// ...
+import type { HttpLike } from '@shared/http/client'
+
+type RequestOptions = {
+  method?: 'GET' | 'POST'
+  body?: unknown
+}
+
 async function request<T>(
-  fetchImpl: typeof fetch,
+  http: HttpLike,
   url: string,
   options: RequestOptions = {},
 ): Promise<Error | T> {
-  const first = await attemptRequest<T>(fetchImpl, url, options)
-  if (first instanceof DeviceApiError && first.status === 401 && (await ensureSession())) {
-    return attemptRequest<T>(fetchImpl, url, options)
+  const res =
+    options.method === 'POST'
+      ? await http.post(url, options.body !== undefined ? { json: options.body } : undefined)
+      : await http.get(url)
+  if (res instanceof Error) {
+    return new DeviceHttpError({ reason: 'сбой сетевого запроса', cause: res })
   }
-  return first
+
+  // 204 No Content is the success response for deny/revoke/logout.
+  if (res.status === 204) return undefined as T
+
+  if (!res.ok) {
+    const code =
+      typeof (res.body as { code?: unknown } | undefined)?.code === 'string'
+        ? (res.body as { code: string }).code
+        : 'unknown_error'
+    return new DeviceApiError({ code, status: res.status })
+  }
+
+  return res.body as T
 }
 ```
 
-(`attemptRequest` is the existing implementation verbatim.) Run the test again → PASS.
+Change every exported function signature from `(fetchImpl: typeof fetch, ...)` to `(http: HttpLike, ...)` (`fetchAccount`, `fetchDevices`, `approveDevice`, `denyDevice`, `revokeDevice`, `logout`, `fetchAddTokenOptions`, `mintAddToken` — match the file's actual export list). Run → PASS.
 
-- [ ] **Step 3: `purgeLocalSession` (test first)**
+- [ ] **Step 3: account models on the port**
+
+In `packages/client/src/account/model/account-model.ts` and `packages/client/src/account/model/add-device-model.ts`: replace the `fetchImpl: typeof fetch` dep with `http: HttpLike`; defaults become `overrides.http ?? http` (import `{ http }` from `'@/runtime'`); every `deps.fetchImpl` argument to a devices-http function becomes `deps.http`. `account-model.ts` additionally gains `bareHttp: HttpLike` (default `new HttpClient()`) — see Step 5.
+
+Port the deps fixtures in `account-model.test.ts`, `add-device-model.test.ts`, and `AddDeviceModal.test.tsx` from `Response`-mock `fetchImpl`s to `makeScriptedHttp` (same URL scripts, `{ status, body }` steps instead of `new Response(JSON.stringify(...))`).
+
+Run: `pnpm --filter client exec vitest run src/account` → PASS.
+
+- [ ] **Step 4: `purgeLocalSession` (test first)**
 
 `packages/client/src/session/model/purge.test.ts`:
 
@@ -2167,15 +2967,16 @@ export async function purgeLocalSession(): Promise<void> {
 
 Run: `pnpm --filter client exec vitest run src/session/model/purge.test.ts` → PASS.
 
-- [ ] **Step 4: Logout purge in the account model (test first)**
+- [ ] **Step 5: Logout purge + bare client in the account model (test first)**
 
-In `packages/client/src/account/model/account-model.test.ts`, find the existing logout test and extend the deps the file builds with `purge: vi.fn(async () => undefined)`; assert order:
+In `packages/client/src/account/model/account-model.test.ts`, extend the deps the file's helper builds with `purge: vi.fn(async () => undefined)` and assert order:
 
 ```ts
 it('purges local data after server logout and before navigation', async () => {
   const order: string[] = []
+  // extend the file's existing deps helper: script POST /api/auth/logout → 204 on bareHttp
   const deps = {
-    // the file's existing fetch fixture that returns 204 for /api/auth/logout
+    bareHttp: makeScriptedHttp({ '/api/auth/logout': [{ status: 204 }] }).http,
     purge: vi.fn(async () => {
       order.push('purge')
     }),
@@ -2191,14 +2992,16 @@ it('purges local data after server logout and before navigation', async () => {
 
 In `account-model.ts`:
 
-1. `AccountDeps` gains `purge: () => Promise<void>`; default in `createAccountModel`: `purge: overrides.purge ?? purgeLocalSession` (import from `@/session/model/purge`).
+1. `AccountDeps` gains `purge: () => Promise<void>` (default `overrides.purge ?? purgeLocalSession`, import from `@/session/model/purge`) and `bareHttp: HttpLike` (default `overrides.bareHttp ?? new HttpClient()`).
 2. The `logout` action body, after the successful `logoutRequest`, becomes:
 
 ```ts
 const logout = action(async () => {
   error.set(null)
 
-  const result = await wrap(logoutRequest(deps.fetchImpl))
+  // Bare client deliberately: a dead session is already logged out — running
+  // a WebAuthn ceremony in order to log out would be absurd.
+  const result = await wrap(logoutRequest(deps.bareHttp))
   if (result instanceof Error) {
     error.set(describeDeviceError(result))
     return
@@ -2211,16 +3014,43 @@ const logout = action(async () => {
 
 Run: `pnpm --filter client exec vitest run src/account/model/account-model.test.ts` → PASS.
 
-- [ ] **Step 5: Full client suite + typecheck**
+- [ ] **Step 6: Migrate the remaining consumers and delete the transitional factories**
 
-Run: `pnpm --filter client test && pnpm typecheck`
+1. `packages/client/src/widget-host/ui/WidgetFrame.tsx` — drop `makeWidgetApi`/`makeWidgetStorage` from the `widget-runtime` import; import `{ hostRuntime }` from `'@/runtime'`; the two `useMemo`s become `hostRuntime.makeWidgetStorage({ instanceId, typeId })` / `hostRuntime.makeWidgetApi({ instanceId, typeId })`.
+2. `packages/client/src/board/model/storage.ts`:
+
+```ts
+import { hostRuntime } from '@/runtime'
+
+export const rootStorage = hostRuntime.makeScopedStorage('root')
+```
+
+3. Both dev harnesses (`packages/widgets/clock/dev/harness.tsx`, `packages/widgets/ofelia-poop-duty/dev/harness.tsx`):
+
+```ts
+import { makeHostRuntime, WidgetRuntimeContext } from 'widget-runtime'
+
+const runtime = makeHostRuntime() // bare: no auth anywhere in a harness
+
+// in harnessProps():
+storage: runtime.makeWidgetStorage({ instanceId: `dev:${DEV_ID}`, typeId: DEV_ID }),
+api: runtime.makeWidgetApi({ instanceId: `dev:${DEV_ID}`, typeId: DEV_ID }),
+```
+
+4. `packages/widgets/clock/ui/Clock.test.tsx` (and `OfeliaPoopDuty.test.tsx` if it does the same): `makeWidgetStorage({...})` → `makeHostRuntime().makeWidgetStorage({...})`.
+5. `packages/widget-runtime/src/storage/storage.test.ts` and `src/index.test.ts`: construct via `makeHostRuntime()` (for storage.test.ts pass `makeScriptedHttp({}).http` to avoid network); `index.test.ts` asserts `runtime.makeHostRuntime` is exported instead of the free factories.
+6. Delete from `packages/widget-runtime/src/host-runtime.ts`: `defaultRuntime`, `getDefaultRuntime`, and the three `@deprecated` wrappers. `rtk grep "makeWidgetStorage\|makeScopedStorage\|makeWidgetApi" packages` must show only `HostRuntime` members, internal implementations, and their tests.
+
+- [ ] **Step 7: Full client suite + typecheck**
+
+Run: `pnpm --filter client test && pnpm --filter widget-runtime test && pnpm typecheck`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-rtk git add packages/client/src
-rtk git commit -m "feat(client): wire relogin handler, devices-http retry, logout purge"
+rtk git add packages/client/src packages/widgets packages/widget-runtime/src
+rtk git commit -m "feat(client): composition roots on makeHostRuntime; devices-http on the HttpClient port; logout purge"
 ```
 
 ---
@@ -3026,8 +3856,167 @@ rtk git commit -m "docs: access-control ops and gated e2e instructions"
 
 ---
 
+### Task 15: Activation models on the HttpClient port
+
+Post-gate port migration (activation already sends the CSRF header and sits on
+the public allowlist — nothing here blocks the gate; that is why this task
+runs after Task 14).
+
+**Files:**
+- Modify: `packages/client/activation/src/model/activation-model.ts` + `activation-model.test.ts`
+- Modify: `packages/client/activation/src/model/add-device-model.ts` + `add-device-model.test.ts`
+- Modify: `packages/client/activation/src/ui/AddDeviceScreen.test.tsx`
+
+**Interfaces:**
+- Consumes: `HttpClient`, `HttpLike` from `@shared/http/client`; `Navigate` from `@shared/navigation`; `makeScriptedHttp` (tests).
+- Produces: `ActivationDeps` / `AddDeviceDeps` swap `fetchImpl: typeof fetch` for `http: HttpLike` (default `new HttpClient()` — bare: activation **is** the login surface, a 401-retry hook here would be circular) and type `navigate` as `Navigate`. Factory names `createActivationModel` / `createAddDeviceModel` stay (pre-existing names are out of scope for the `make*` rule).
+- Deliberate scope note: the local `postJson`/`getJson`/`requestJson` names survive as **4-line adapters over the port** so their ~10 call sites stay untouched; what disappears is the duplicated transport code (headers, CSRF, `credentials`, JSON parsing, network `.catch`) and the `fetchImpl` threading.
+
+- [ ] **Step 1: Port the activation-model tests**
+
+In `activation-model.test.ts`, replace every `fetchImpl: fetchImpl as unknown as typeof fetch` fixture with `http` from `makeScriptedHttp` — same URL scripts, `{ status, body }` steps instead of `Response` mocks. Example of the pattern (apply to each case):
+
+```ts
+import { makeScriptedHttp } from '@shared/http/scripted-http'
+
+const { http, calls } = makeScriptedHttp({
+  '/api/auth/register/options': [{ status: 200, body: { options: { challenge: 'x' } } }],
+  '/api/auth/register/verify': [{ status: 200, body: { credentialId: 'c' } }],
+})
+const model = createActivationModel({ http /* was fetchImpl */, ...restOverrides })
+```
+
+Run: `pnpm --filter client exec vitest run activation/src/model/activation-model.test.ts` → FAIL (deps shape).
+
+- [ ] **Step 2: Migrate `activation-model.ts`**
+
+1. `ActivationDeps`: `fetchImpl: typeof fetch` → `http: HttpLike`; `navigate: (path: string) => void` → `navigate: Navigate`.
+2. Default in `createActivationModel`: `http: overrides.http ?? new HttpClient()`.
+3. The `postJson` helper shrinks to an adapter (its `JsonResult` type and every call site stay untouched — they just pass `deps.http`):
+
+```ts
+import { HttpClient, type HttpLike } from '@shared/http/client'
+import type { Navigate } from '@shared/navigation'
+
+type JsonResult = { status: number; body: Record<string, unknown> }
+
+async function postJson(
+  http: HttpLike,
+  url: string,
+  payload: unknown,
+): Promise<ActivationError | JsonResult> {
+  const res = await http.post(url, { json: payload })
+  if (res instanceof Error) {
+    return new ActivationError({ reason: 'сбой сетевого запроса', cause: res })
+  }
+  return { status: res.status, body: (res.body ?? {}) as Record<string, unknown> }
+}
+```
+
+4. Every `postJson(deps.fetchImpl, ...)` call becomes `postJson(deps.http, ...)`.
+
+Run Step 1's file → PASS.
+
+- [ ] **Step 3: Migrate `add-device-model.ts` the same way (test first)**
+
+Port `add-device-model.test.ts` fixtures to `makeScriptedHttp` (same pattern as Step 1) → FAIL. Then in `add-device-model.ts`:
+
+1. `AddDeviceDeps`: `fetchImpl` → `http: HttpLike`; `navigate` → `Navigate`; default `http: overrides.http ?? new HttpClient()`.
+2. `requestJson` shrinks to the adapter (its `postJson`/`getJson` wrappers and all call sites stay):
+
+```ts
+async function requestJson(
+  http: HttpLike,
+  url: string,
+  init: { method: 'GET' | 'POST'; body?: unknown },
+): Promise<AddDeviceError | JsonResult> {
+  const res =
+    init.method === 'POST'
+      ? await http.post(url, init.body !== undefined ? { json: init.body } : undefined)
+      : await http.get(url)
+  if (res instanceof Error) {
+    return new AddDeviceError({ reason: 'сбой сетевого запроса', cause: res })
+  }
+  return { status: res.status, body: (res.body ?? {}) as Record<string, unknown> }
+}
+```
+
+3. `AddDeviceScreen.test.tsx`: `fetchImpl: vi.fn() as unknown as typeof fetch` → `http: makeScriptedHttp({}).http`.
+
+Run: `pnpm --filter client exec vitest run activation` → PASS.
+
+- [ ] **Step 4: Suite + typecheck**
+
+Run: `pnpm --filter client test && pnpm typecheck`
+Expected: PASS. `rtk grep "typeof fetch" packages/client packages/widget-runtime packages/widgets` must return only test-setup polyfill casts (`vitest.setup.ts`) — no production seams.
+
+- [ ] **Step 5: Commit**
+
+```bash
+rtk git add packages/client/activation
+rtk git commit -m "refactor(activation): models on the HttpClient port"
+```
+
+---
+
+### Task 16 (cuttable): BroadcastChannel hub injection
+
+The same missing-port symptom, lowest stakes: `storage/client/channel.ts`
+builds its `BroadcastChannel` ambiently, so widget-runtime tests stub the
+global (`installFakeBroadcastChannel`) and two vitest setups carry duplicated
+jsdom polyfills. This task is deliberately last and independent — cutting it
+loses nothing gate-related.
+
+**Files:**
+- Modify: `packages/widget-runtime/src/storage/client/channel.ts`
+- Modify: `packages/widget-runtime/src/storage/test/fakes.ts`
+- Modify: `packages/widget-runtime/src/storage/client/channel.test.ts` + the tests currently calling `installFakeBroadcastChannel` (`dexie-storage.test.ts`, `reatom-storage.test.ts`)
+- Modify: `packages/widget-runtime/vitest.setup.ts` (drop the polyfill if nothing needs it afterwards)
+
+**Interfaces:**
+- Produces: `type BroadcastChannelLike = Pick<BroadcastChannel, 'postMessage' | 'addEventListener' | 'close'>`; `setStorageChannelFactory` is NOT introduced (module setters are the disease this plan removes) — instead `channel.ts` exports `makeChannelHub(makeChannel: (name: string) => BroadcastChannelLike)` and keeps one module-level hub built with the native constructor, mirroring the deliberate module-singleton design of `db.ts` (cross-tab fanout is per-document by nature; documented in-code).
+- `registerLocal` / `publishChange` / `notifyLocal` keep their exact signatures — `dexie-storage.ts` and other consumers stay untouched; they delegate to the module hub.
+
+- [ ] **Step 1: Restructure `channel.ts`**
+
+Wrap the current module state (`subscribers`, `channel`, `listening`, `ensureChannelListener`) into `makeChannelHub(makeChannel)` returning `{ registerLocal, publishChange, notifyLocal }` with byte-identical logic; then:
+
+```ts
+/**
+ * Per-document module hub — deliberate module state, like client/db.ts: the
+ * BroadcastChannel fans key changes out to OTHER tabs, so one hub per
+ * document is the correct cardinality. Tests build their own hubs.
+ */
+const hub = makeChannelHub((name) => new BroadcastChannel(name))
+export const registerLocal = hub.registerLocal
+export const publishChange = hub.publishChange
+export const notifyLocal = hub.notifyLocal
+```
+
+- [ ] **Step 2: De-globalize the fakes**
+
+In `fakes.ts`: keep `FakeBroadcastChannel` but delete `installFakeBroadcastChannel`; add `makeFakeChannelHub()` returning a hub built over `FakeBroadcastChannel`. Port `channel.test.ts` to construct hubs directly; `dexie-storage.test.ts` / `reatom-storage.test.ts` keep exercising the module hub — if jsdom still lacks `BroadcastChannel` for them, the `vitest.setup.ts` polyfill stays and only the `vi.stubGlobal` fake dies (decide by running the suite; both outcomes are acceptable, state which happened in the commit message).
+
+- [ ] **Step 3: Suite + full local gate**
+
+Run: `pnpm --filter widget-runtime test`
+Expected: PASS.
+
+Run: `pnpm check` (this task is now the plan's last code change — re-run the full local gate from Task 14 Step 3)
+Expected: PASS.
+
+- [ ] **Step 4: Commit**
+
+```bash
+rtk git add packages/widget-runtime
+rtk git commit -m "refactor(widget-runtime): injectable BroadcastChannel hub, de-globalized fakes"
+```
+
+---
+
 ## Plan self-review notes
 
-- **Spec coverage:** nginx gate + allowlist + 401 fallback (T11), verifier subtleties `proxy_method GET` (T11), rate limits + 429 test (T11/T12), CSRF guard + both-frontends audit (T1), stdout audit log + CF IP (T2), ky instance + forced-retry + auto-retry-off + CSRF header (T5), `.json(schema)` + single `.catch` errore mapping (T6), widget-api coverage (T6), SSE re-auth reconnect (T7), `purgeLocalData` (T7), single-flight `ensureSession` + probe + offline no-redirect (T8), bootstrap DI + devices-http retry + logout purge order (T9), five ops scripts (T3/T4), seed-session/expire/revoke test routes + prod test mode + compose passthrough (T10), rpi.toml hostname + 401-tripwire healthcheck (T11), nginx suite + gated journeys (T12/T13), docs (T14). Delivery order matches the spec: client resilience (T5–T9) lands before the gate (T11).
-- **Deliberate deviations from the spec text:** none in behavior; the spec's "bare 401" for assets/API means "no activation fallback" — nginx's default minimal 401 error body is acceptable and asserted as such (tests check the absence of activation markers, not an empty body).
-- **Known adaptation points (flagged in-task, must be verified against code, not guessed):** ky hook signature (T5 Step 5), account-menu selectors and activation marker text (T13), the existing deps-factory helpers in `handlers.test.ts` / `account-model.test.ts` (T2/T9).
+- **Spec coverage:** nginx gate + allowlist + 401 fallback (T11), verifier subtleties `proxy_method GET` (T11), rate limits + 429 test (T11/T12), CSRF guard + both-frontends audit (T1), stdout audit log + CF IP (T2), `@shared/http` HttpClient port over ky + errore semantics + bare-401 body rule + CSRF header + forced single replay (T5, spec 3.2), EventStream port + Navigate type (T5), `makeHostRuntime` composition root owning one HttpClient + one SSE manager, free factories deleted (T6/T9, spec 3.3), storage/widget-api/http-time with zero 401 code below the client (T6), SSE re-auth reconnect on the port (T7, spec 3.5), `purgeLocalData` (T7), single-flight `ensureSession` + probe + offline no-redirect + own bare client (T8, spec 3.1), board/harness/activation composition roots + devices-http on the port + bare-client logout + purge order (T9/T15, spec 3.4/3.6/3.7/3.8), five ops scripts (T3/T4), seed-session/expire/revoke test routes + prod test mode + compose passthrough (T10), rpi.toml hostname + 401-tripwire healthcheck (T11), nginx suite + gated journeys (T12/T13), docs (T14), BroadcastChannel hub (T16, spec 3.9). Delivery order matches the spec: client resilience (T5–T9) lands before the gate (T11); T15/T16 are post-gate port refactors, T16 cuttable.
+- **Deliberate deviations from the spec text:** (1) `http-time.ts` keeps a module-default **bare** client instead of the runtime's — `server-time` is a pre-existing module-level model outside `HostRuntime`; a 401 there is a non-fatal `TimeError` and the session heals via any storage-triggered relogin. (2) The activation models keep 4-line `postJson`/`requestJson` **adapters** over the port so ~10 call sites stay untouched; the spec's target (no duplicated transport layers, no `fetchImpl` threading) is met. (3) The spec's "bare 401" for assets/API means "no activation fallback" — nginx's default minimal 401 body is acceptable and asserted as such (tests check the absence of activation markers, not an empty body).
+- **Known adaptation points (flagged in-task, must be verified against code, not guessed):** exact URL fixtures and deps-helper shapes in `devices-http.test.ts` / `account-model.test.ts` / activation model tests (T9/T15), account-menu selectors and activation marker text (T13), the existing deps-factory helpers in `handlers.test.ts` (T2), which widget-runtime tests still reference `FakeEventSource` after T7 Step 5, and whether the jsdom `BroadcastChannel` polyfill is still needed after T16 Step 2.
+- **Type-consistency spine:** `HttpLike`/`HttpResponse`/`HttpTransportError`/`makeUnauthorizedRetryHook` (T5) are consumed with these exact names in T6 (`HttpStorageDeps`, `MakeWidgetApiOptions`, `makeRuntimeHttp`), T7 (`SseManagerDeps`), T8 (`ReloginDeps`), T9 (`request`, `AccountDeps`, `runtime.ts`), and T15 (`ActivationDeps`/`AddDeviceDeps`); `makeHostRuntime`/`HostRuntime` (T6) are consumed in T7 (SSE ownership) and T9 (roots); naming is `make*`/`new` — never `create*` for new exports.
