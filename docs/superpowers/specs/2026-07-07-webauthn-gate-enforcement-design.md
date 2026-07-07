@@ -35,11 +35,14 @@ end to end:
 - **Audit logs go to stdout** (structured JSON lines, read via
   `docker compose logs server`). No Valkey audit stream.
 - **Adopt ky** (sindresorhus/ky) as the HTTP client in the widget-runtime
-  storage backend and the client's `devices-http`, using its hooks for the 401
-  re-login retry and the CSRF header, and its Zod-validating `.json(schema)`.
+  storage backend, using its hooks for the 401 re-login retry and the CSRF
+  header, and its Zod-validating `.json(schema)`. The client's `devices-http`
+  stays on plain `fetch` with a direct `ensureSession` retry (one retry does
+  not justify the dependency). The 401 handler slot is a Reatom config atom
+  (`unauthorizedHandlerAtom`), not a module setter — see 3.2.
   **Future work (explicitly out of Plan 3):** migrate the rest of the app
-  (activation app, `http-time`, remaining `fetch` call sites) to ky in a later
-  app-wide refactor.
+  (activation app, `devices-http`, `http-time`, remaining `fetch` call sites)
+  to ky in a later app-wide refactor.
 
 ## Non-goals
 
@@ -179,32 +182,51 @@ instance used by `makeHttpStorage` (all methods) and the SSE subscribe
   auto-retries disabled and for `POST` (append, subscribe) — ky auto-retries
   skip POST, but the `afterResponse` force path is method-independent.
 
-`setUnauthorizedHandler(fn | null)` is a module-level registry alongside the
-instance (same pattern as the existing SSE-manager singleton): the handler
-arrives at board bootstrap, after module init, so the hook reads the registry.
-A config option threaded through `makeWidgetStorage` was rejected — it would
-thread one always-identical parameter through every widget placement.
+The handler slot is a **Reatom config atom** exported next to the instance
+(2026-07-07 revision — replaces the earlier `setUnauthorizedHandler` module
+registry, rejected as hidden mutable module state):
 
-New dependency: `ky` (~4 KB, ESM, zero deps) in `widget-runtime` and `client`.
+```ts
+export const unauthorizedHandlerAtom = atom<null | (() => Promise<boolean>)>(
+  null,
+  'http.unauthorizedHandler',
+)
+```
+
+Process-wide config expressed as process-wide state: Reatom is already a hard
+dependency and federation singleton of widget-runtime, reading the atom from
+non-reactive spots (the ky hook) is well-defined in v1001 (global context),
+tests set/reset it like any state, and future UI (a "session lost" indicator)
+can subscribe to it. Alternatives rejected: threading an `onUnauthorized`
+option through `makeWidgetStorage`/`makeWidgetApi`/`getSseManager` degrades to
+first-caller-wins at the SSE singleton anyway (false explicitness); an event
+emitter cannot return the required `Promise<boolean>` without reinventing
+`respondWith`; a reactive auth-state machine hangs in standalone harnesses
+where no effect answers the `recovering` state.
+
+New dependency: `ky` (~4 KB, ESM, zero deps) in `widget-runtime` only.
 
 ### 3.3 Board bootstrap
 
-One call at board-shell startup: `setUnauthorizedHandler(() => ensureSession())`
-(the reatom context binding happens in the client). Standalone widget
-harnesses call nothing — runtime behavior is unchanged for them.
+One line at board-shell startup:
+`unauthorizedHandlerAtom.set(() => ensureSession())`. Standalone widget
+harnesses touch nothing — the atom stays `null` and 401s flow through
+unchanged.
 
 ### 3.4 SSE reconnect (`sse-client.ts`)
 
-On an `EventSource` `error`, before the next reconnect attempt: if a handler
-is registered — `await handler()` (the probe inside distinguishes network from
-session), then reconnect on the existing backoff. Mid-stream expiry heals on
-the next reconnect, exactly as the parent spec requires. The client-side auth
-SSE (device A) reuses the same approach with a direct `ensureSession` import.
+On an `EventSource` `error`, before the next reconnect attempt: if
+`unauthorizedHandlerAtom` holds a handler — `await handler()` (the probe
+inside distinguishes network from session), then reconnect on the existing
+backoff. Mid-stream expiry heals on the next reconnect, exactly as the parent
+spec requires. The client-side auth SSE (device A) reuses the same approach
+with a direct `ensureSession` import.
 
 ### 3.5 `devices-http.ts` (client)
 
-Moves to its own ky instance with the same hooks, but the 401 handler is a
-direct `ensureSession` import — same package, no registry needed.
+Stays on plain `fetch` (no ky in the client — one retry does not justify the
+dependency): on a 401 response it awaits a direct `ensureSession` import and
+retries the request once.
 
 ### 3.6 Logout (account model)
 

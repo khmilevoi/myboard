@@ -4,7 +4,7 @@
 
 **Goal:** Enable the always-on nginx `auth_request` gate over the board and ship the hardening tail: CSRF guard, audit log, silent 401 re-login via ky, logout purge, five ops scripts, and gate tests.
 
-**Architecture:** nginx gates `/`, `/assets/*`, `/widgets/*`, and `/api/*` (minus a public allowlist) by subrequesting `GET /api/auth/session`; a 401 on navigations serves the activation page. The server adds a router-level CSRF guard and stdout audit logging. The widget-runtime HTTP layer moves to a shared ky instance whose `afterResponse` hook consults a registered unauthorized-handler; the board registers a single-flight Reatom `ensureSession` model that runs the WebAuthn re-login ceremony.
+**Architecture:** nginx gates `/`, `/assets/*`, `/widgets/*`, and `/api/*` (minus a public allowlist) by subrequesting `GET /api/auth/session`; a 401 on navigations serves the activation page. The server adds a router-level CSRF guard and stdout audit logging. The widget-runtime HTTP layer moves to a shared ky instance whose `afterResponse` hook consults the `unauthorizedHandlerAtom` config atom; the board sets that atom at bootstrap to a single-flight Reatom `ensureSession` model that runs the WebAuthn re-login ceremony.
 
 **Tech Stack:** nginx `auth_request`/`limit_req`, ky (new dep in `widget-runtime` + `client`), `@simplewebauthn/browser`, Reatom v1001, errore, Zod, Vitest, Playwright (CDP virtual authenticator).
 
@@ -1079,7 +1079,7 @@ rtk git commit -m "feat(server): revoke-invite, revoke-account, mint-add-device-
 
 ---
 
-### Task 5: widget-runtime — shared ky instance and unauthorized-handler registry
+### Task 5: widget-runtime — shared ky instance and the `unauthorizedHandlerAtom` config atom
 
 **Files:**
 - Modify: `packages/widget-runtime/package.json` (add `ky`)
@@ -1090,10 +1090,10 @@ rtk git commit -m "feat(server): revoke-invite, revoke-account, mint-add-device-
 (The `client` package does NOT get a ky dependency: `devices-http` stays on plain `fetch` with its own retry in Task 9.)
 
 **Interfaces:**
+- Consumes: `atom` from `@reatom/core` (already a widget-runtime dependency and federation singleton).
 - Produces:
   - `export type UnauthorizedHandler = () => Promise<boolean>`
-  - `setUnauthorizedHandler(handler: UnauthorizedHandler | null): void`
-  - `getUnauthorizedHandler(): UnauthorizedHandler | null`
+  - `export const unauthorizedHandlerAtom: Atom<UnauthorizedHandler | null>` — Reatom config atom; the board sets it at bootstrap, harnesses leave it `null`. Reading it from non-reactive spots (ky hook) uses the v1001 global context — that is the intended usage here.
   - `export const http: KyInstance` — hooks: CSRF header on mutating methods; single forced retry after `401` when the handler resolves `true`.
 
 **ky API note:** this task relies on `ky.retry(...)` returned from an `afterResponse` hook (object-form hook arguments `{ request, response, retryCount }`) and named export `SchemaValidationError` (used in Task 6). These exist in current ky (see `node_modules/ky/readme.md` after install). Step 2's test locks the behavior; if the installed ky's hook signature differs, update the hook to the installed version's documented signature — the test is the contract.
@@ -1110,11 +1110,11 @@ Expected: `ky` appears in `packages/widget-runtime/package.json` dependencies.
 ```ts
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { http, setUnauthorizedHandler } from './client'
+import { http, unauthorizedHandlerAtom } from './client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  setUnauthorizedHandler(null)
+  unauthorizedHandlerAtom.set(null)
 })
 
 function stubFetchSequence(...responses: Response[]) {
@@ -1139,7 +1139,7 @@ describe('http (shared ky instance)', () => {
 
   it('retries once after 401 when the handler succeeds (POST included)', async () => {
     const handler = vi.fn(async () => true)
-    setUnauthorizedHandler(handler)
+    unauthorizedHandlerAtom.set(handler)
     const fetchMock = stubFetchSequence(
       new Response(null, { status: 401 }),
       new Response(null, { status: 204 }),
@@ -1153,7 +1153,7 @@ describe('http (shared ky instance)', () => {
 
   it('gives up after one forced retry', async () => {
     const handler = vi.fn(async () => true)
-    setUnauthorizedHandler(handler)
+    unauthorizedHandlerAtom.set(handler)
     const fetchMock = stubFetchSequence(
       new Response(null, { status: 401 }),
       new Response(null, { status: 401 }),
@@ -1175,7 +1175,7 @@ describe('http (shared ky instance)', () => {
   })
 
   it('does not retry on the handler saying false', async () => {
-    setUnauthorizedHandler(async () => false)
+    unauthorizedHandlerAtom.set(async () => false)
     const fetchMock = stubFetchSequence(new Response(null, { status: 401 }))
     await expect(http.get('http://test.local/x')).rejects.toMatchObject({
       response: expect.objectContaining({ status: 401 }),
@@ -1201,25 +1201,22 @@ Expected: FAIL — `client.ts` does not exist.
 - [ ] **Step 4: Implement `client.ts`**
 
 ```ts
+import { atom } from '@reatom/core'
 import ky from 'ky'
 
 /** Resolves true when the caller may retry the 401'd request once. */
 export type UnauthorizedHandler = () => Promise<boolean>
 
-let unauthorizedHandler: UnauthorizedHandler | null = null
-
 /**
- * Host-app DI point (mirrors the SSE-manager singleton pattern): the board
- * registers its relogin action at bootstrap; standalone widget harnesses
- * register nothing and 401s pass through untouched.
+ * Process-wide config as process-wide state: the board sets this atom at
+ * bootstrap to its relogin action; standalone widget harnesses leave it null
+ * and 401s pass through untouched. Read from non-reactive spots (the ky hook
+ * below, the SSE reconnect) via the v1001 global context — intended usage.
  */
-export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
-  unauthorizedHandler = handler
-}
-
-export function getUnauthorizedHandler(): UnauthorizedHandler | null {
-  return unauthorizedHandler
-}
+export const unauthorizedHandlerAtom = atom<UnauthorizedHandler | null>(
+  null,
+  'http.unauthorizedHandler',
+)
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
 
@@ -1238,7 +1235,7 @@ export const http = ky.create({
     afterResponse: [
       async ({ response, retryCount }) => {
         if (response.status !== 401 || retryCount > 0) return
-        const handler = unauthorizedHandler
+        const handler = unauthorizedHandlerAtom()
         if (!handler) return
         const ok = await handler().catch(() => false)
         if (ok) return ky.retry({ code: 'SESSION_REFRESHED' })
@@ -1273,11 +1270,11 @@ rtk git commit -m "feat(widget-runtime): shared ky instance with 401 relogin hoo
 **Files:**
 - Modify: `packages/widget-runtime/src/storage/server/http-storage.ts` (rewrite fetch calls on `http`)
 - Modify: `packages/widget-runtime/src/storage/server/http-storage.test.ts` (Request-based stubs, absolute base URL)
-- Modify: `packages/widget-runtime/src/widget-api.ts` (CSRF header + one 401 retry through the registry)
+- Modify: `packages/widget-runtime/src/widget-api.ts` (CSRF header + one 401 retry through the atom)
 - Modify: `packages/widget-runtime/src/widget-api.test.ts` (new cases)
 
 **Interfaces:**
-- Consumes: `http`, `getUnauthorizedHandler` from `../../http/client` (Task 5).
+- Consumes: `http`, `unauthorizedHandlerAtom` from `../../http/client` (Task 5).
 - Produces: `makeHttpStorage(namespace, baseUrl?)` — signature and `StorageApi` behavior unchanged (404→`null`/`false`, non-2xx→`StorageError`, network→`StorageError` with `cause`); response envelopes now Zod-validated (`SchemaValidationError` → `StorageError`).
 
 - [ ] **Step 1: Update the tests first**
@@ -1506,7 +1503,7 @@ let response = await doRequest()
 if (response instanceof Error) return response
 
 if (response.status === 401) {
-  const handler = getUnauthorizedHandler()
+  const handler = unauthorizedHandlerAtom()
   if (handler && (await handler().catch(() => false))) {
     const retried = await doRequest()
     if (retried instanceof Error) return retried
@@ -1515,7 +1512,7 @@ if (response.status === 401) {
 }
 ```
 
-Add the import: `import { getUnauthorizedHandler } from './http/client'`.
+Add the import: `import { unauthorizedHandlerAtom } from './http/client'`.
 
 Extend `packages/widget-runtime/src/widget-api.test.ts` with two cases in the file's existing style (it injects `fetch`):
 
@@ -1528,7 +1525,7 @@ it('sends the CSRF header', async () => {
 })
 
 it('retries once after 401 when the unauthorized handler succeeds', async () => {
-  setUnauthorizedHandler(async () => true)
+  unauthorizedHandlerAtom.set(async () => true)
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'x', message: 'x' } }), { status: 401 }))
@@ -1536,11 +1533,11 @@ it('retries once after 401 when the unauthorized handler succeeds', async () => 
   const api = makeWidgetApi({ typeId: 't', instanceId: 'i', fetch: fetchMock })
   expect(await api.invoke('echo', {})).toBe(42)
   expect(fetchMock).toHaveBeenCalledTimes(2)
-  setUnauthorizedHandler(null)
+  unauthorizedHandlerAtom.set(null)
 })
 ```
 
-(Import `setUnauthorizedHandler` from `./http/client` in the test.)
+(Import `unauthorizedHandlerAtom` from `./http/client` in the test.)
 
 - [ ] **Step 5: Run the widget-runtime suite**
 
@@ -1567,7 +1564,7 @@ rtk git commit -m "refactor(widget-runtime): http-storage and widget-api on the 
 - Create test in: `packages/widget-runtime/src/storage/client/dexie-storage.test.ts` (purge case)
 
 **Interfaces:**
-- Consumes: `http`, `getUnauthorizedHandler` from `../../http/client`.
+- Consumes: `http`, `unauthorizedHandlerAtom` from `../../http/client`.
 - Produces: `purgeLocalData(): Promise<void>` (exported from the `widget-runtime` package root via `storage/index.ts`) — deletes the `myboard-storage` Dexie database.
 - Behavior: on an `EventSource` fatal error (`readyState === CLOSED`), the manager awaits the unauthorized handler (if registered), then reconnects after `RECONNECT_DELAY_MS = 2000`; a new connection re-registers all desired keys (existing `ready` handler already resets `registered`).
 
@@ -1594,7 +1591,7 @@ it('re-authenticates and reconnects after a fatal EventSource error', async () =
   vi.useFakeTimers()
   installFakeEventSource()
   const handler = vi.fn(async () => true)
-  setUnauthorizedHandler(handler)
+  unauthorizedHandlerAtom.set(handler)
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => new Response(null, { status: 204 })),
@@ -1618,12 +1615,12 @@ it('re-authenticates and reconnects after a fatal EventSource error', async () =
   await vi.runAllTimersAsync()
   const lastCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1)
   expect(String(lastCall?.[0].url ?? lastCall?.[0])).toContain('/events/c2')
-  setUnauthorizedHandler(null)
+  unauthorizedHandlerAtom.set(null)
   vi.useRealTimers()
 })
 ```
 
-Import `setUnauthorizedHandler` from `../../http/client` and `FakeEventSource, installFakeEventSource` from `../test/fakes` (match the file's existing imports). Note: `getSseManager` memoizes per `baseUrl` — use a unique `baseUrl` per test to get a fresh manager.
+Import `unauthorizedHandlerAtom` from `../../http/client` and `FakeEventSource, installFakeEventSource` from `../test/fakes` (match the file's existing imports). Note: `getSseManager` memoizes per `baseUrl` — use a unique `baseUrl` per test to get a fresh manager.
 
 - [ ] **Step 3: Run to verify failure**
 
@@ -1634,7 +1631,7 @@ Expected: FAIL — no reconnect logic exists.
 
 In `sse-client.ts`:
 
-1. Import: `import { getUnauthorizedHandler, http } from '../../http/client'` and add `const RECONNECT_DELAY_MS = 2_000`.
+1. Import: `import { http, unauthorizedHandlerAtom } from '../../http/client'` and add `const RECONNECT_DELAY_MS = 2_000`.
 2. Restructure `createSseManager` so the `EventSource` construction and its listeners live in a local `connect()` function; module state (`subscribers`, `desired`, `registered`, `connId`, sync fields) stays where it is. The existing `source.addEventListener('ready', ...)` and `source.onmessage` bodies move unchanged into `connect()`:
 
 ```ts
@@ -1660,7 +1657,7 @@ function scheduleReconnect(): void {
   reconnectTimer = setTimeout(() => {
     reconnectTimer = undefined
     void (async () => {
-      const handler = getUnauthorizedHandler()
+      const handler = unauthorizedHandlerAtom()
       if (handler) await handler().catch(() => false)
       connect()
     })()
@@ -2028,7 +2025,7 @@ rtk git commit -m "feat(client): single-flight ensureSession relogin model"
 - Modify: `packages/client/src/account/model/account-model.test.ts`
 
 **Interfaces:**
-- Consumes: `setUnauthorizedHandler`, `purgeLocalData` from `widget-runtime`; `ensureSession` from `@/session/model/relogin`.
+- Consumes: `unauthorizedHandlerAtom`, `purgeLocalData` from `widget-runtime`; `ensureSession` from `@/session/model/relogin`.
 - Produces: `purgeLocalSession(): Promise<void>` in `@/session/model/purge`; `AccountDeps` gains `purge: () => Promise<void>` (default `purgeLocalSession`).
 
 - [ ] **Step 1: Bootstrap registration**
@@ -2036,11 +2033,11 @@ rtk git commit -m "feat(client): single-flight ensureSession relogin model"
 In `packages/client/src/app/main.tsx` add after `initTheme()`:
 
 ```ts
-import { setUnauthorizedHandler } from 'widget-runtime'
+import { unauthorizedHandlerAtom } from 'widget-runtime'
 
 import { ensureSession } from '@/session/model/relogin'
 // ...
-setUnauthorizedHandler(() => ensureSession())
+unauthorizedHandlerAtom.set(() => ensureSession())
 ```
 
 - [ ] **Step 2: devices-http retry (test first)**
