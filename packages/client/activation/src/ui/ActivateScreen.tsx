@@ -3,6 +3,9 @@ import { AlertCircle, AlertTriangle, Fingerprint, Loader2, Lock } from 'lucide-r
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
 import { createActivationModel } from '../model/activation-model'
 import { ThemeTogglePill } from './ThemeTogglePill'
 
@@ -62,14 +65,14 @@ export const ActivateScreen = reatomMemo(() => {
 
         {mode === 'new-account' ? (
           <div className={styles.fieldGroup}>
-            <input
+            <Input
               type="text"
               placeholder="Ваше имя"
               aria-label="Ваше имя"
               aria-invalid={hasNameError}
               aria-describedby="activate-name-error"
               disabled={loading}
-              className={`${styles.input} ${hasNameError ? styles.inputError : ''}`}
+              className="h-12 rounded-[13px] px-[15px] text-[15px]"
               onKeyDown={(event) => {
                 if (event.key === 'Enter') model.startRegistration()
               }}
@@ -87,16 +90,16 @@ export const ActivateScreen = reatomMemo(() => {
           </div>
         ) : null}
 
-        <button
+        <Button
           type="button"
           disabled={loading}
           onClick={() => (mode === 'new-account' ? model.startRegistration() : model.startLogin())}
-          className={`${styles.primaryButton} ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
+          className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
         >
           {mode === 'new-account'
             ? passkeyButtonContent(loading, 'Создать ключ доступа', 'Создание ключа доступа…')
             : passkeyButtonContent(loading, 'Войти с ключом доступа', 'Вход…')}
-        </button>
+        </Button>
 
         {error ? (
           <div role="alert" className={styles.serverError}>
