@@ -304,4 +304,54 @@ describe('MyDevicesDialog', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
+
+  // Task B6 wiring: "Добавить устройство" opens AddDeviceModal, sharing this
+  // dialog's own `model` instance via `createAddDeviceModel({ accountModel:
+  // model })` -- not strictly red-first (see task-B5-report.md's identical
+  // precedent for its own AccountMenu.tsx wiring test): the wiring itself is
+  // a small, directly-observable compositional JSX change reusing
+  // AddDeviceModal.tsx's already-TDD'd behavior.
+  //
+  // Asserts on text becoming visible via plain `screen.findByText`, not on
+  // "a second dialog role" -- Radix marks the *background* Dialog.Root
+  // `aria-hidden="true"` once a second, nested one opens (correct
+  // accessibility behavior: only the now-topmost AddDeviceModal should be
+  // exposed to assistive tech), and testing-library's role queries exclude
+  // `aria-hidden` elements by default, so a `role="dialog"` query for the
+  // *new* dialog while the old one still (transiently) has that attribute
+  // is unreliable; plain text queries aren't affected by that filtering.
+  it('Добавить устройство opens AddDeviceModal wired to the same account model', async () => {
+    const { model } = await createTestModel([device({ credentialId: 'c1' })])
+
+    render(<MyDevicesDialog model={model} open onOpenChange={vi.fn()} />)
+
+    await screen.findByText('Мои устройства')
+
+    fireEvent.click(screen.getByRole('button', { name: /Добавить устройство/ }))
+
+    await screen.findByText('Подтвердите личность, чтобы создать код')
+  })
+
+  it('AddDeviceModal reads the shared model.pending, flipping straight to the approval card for an already-pending device', async () => {
+    const { model } = await createTestModel(
+      [
+        device({ credentialId: 'c1' }),
+        device({
+          credentialId: 'c2',
+          label: 'Chrome on Android',
+          status: 'pending',
+          addedVia: 'add-token',
+        }),
+      ],
+      account,
+      'c1',
+    )
+
+    render(<MyDevicesDialog model={model} open onOpenChange={vi.fn()} />)
+    await screen.findByText('Мои устройства')
+
+    fireEvent.click(screen.getByRole('button', { name: /Добавить устройство/ }))
+
+    await screen.findByText('Устройство хочет присоединиться')
+  })
 })

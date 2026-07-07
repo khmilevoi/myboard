@@ -7,7 +7,9 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
 import { type AccountModel, createAccountModel } from '../model/account-model'
+import { createAddDeviceModel } from '../model/add-device-model'
 import { pluralize } from './AccountMenu'
+import { AddDeviceModal } from './AddDeviceModal'
 
 import styles from './MyDevicesDialog.module.css'
 
@@ -59,7 +61,9 @@ function formatPendingAge(createdAt: number, now: number): string {
   return formatAddedAt(createdAt, now).replace('Добавлено ', '')
 }
 
-function DeviceIcon({ label, className }: { label: string; className?: string }) {
+// Exported for reuse by AddDeviceModal.tsx (Task B6), whose approval-flip
+// card (design state (c)) reuses the same device-icon convention.
+export function DeviceIcon({ label, className }: { label: string; className?: string }) {
   const Icon = MOBILE_LABEL_PATTERN.test(label) ? Smartphone : Monitor
   return <Icon size={17} strokeWidth={1.8} className={className} aria-hidden />
 }
@@ -73,11 +77,18 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
     const [confirmingId] = useState(() =>
       atom<string | null>(null, 'myDevicesDialog.confirmingRevokeId'),
     )
-    // Stub open-state atom for Task B6's AddDeviceModal -- the "Добавить
-    // устройство" button flips this to true; nothing reads it yet. Same
-    // "write-only stub" pattern AccountMenu.tsx (Task B4) left for this
-    // dialog's own open state, one level down.
+    // Open-state atom for AddDeviceModal, flipped by the "Добавить
+    // устройство" button below. Same "one level down" open-state pattern
+    // AccountMenu.tsx (Task B4) used for `myDevicesOpen` -> this dialog.
     const [addDeviceOpen] = useState(() => atom(false, 'myDevicesDialog.addDeviceOpen'))
+    // Shares the SAME `model` (`AccountModel`) instance as this dialog and
+    // AccountMenu.tsx -- add-device-model.ts's own `AddDeviceAccountModel`
+    // contract (pending/error/approve/deny) is satisfied structurally by the
+    // real `AccountModel`, and its `pending`/`approve`/`deny` must be the
+    // live, already-SSE-connected instance for the add-device flow's
+    // "flip to approval on a device-pending event" to work (a second,
+    // independent AccountModel here would never see that event).
+    const [addDeviceModel] = useState(() => createAddDeviceModel({ accountModel: model }))
 
     const account = model.account()
     const devices = model.devices()
@@ -90,128 +101,133 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
     const now = Date.now()
 
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={styles.content} overlayClassName={styles.overlay}>
-          <div className={styles.header}>
-            <div>
-              <DialogTitle className={styles.title}>Мои устройства</DialogTitle>
-              <div className={styles.subtitle}>{account?.name}</div>
-            </div>
-            <DialogClose asChild>
-              <button type="button" aria-label="Закрыть" className={styles.close}>
-                <X size={16} strokeWidth={2} aria-hidden />
-              </button>
-            </DialogClose>
-          </div>
-
-          {pending.length > 0 ? (
-            <>
-              <div className={styles.sectionLabel}>Ожидают подтверждения</div>
-              <div className={styles.pendingList}>
-                {pending.map((device) => (
-                  <div key={device.credentialId} className={styles.pendingRow}>
-                    <div className={styles.pendingIcon}>
-                      <DeviceIcon label={device.label} />
-                    </div>
-                    <div className={styles.rowBody}>
-                      <div className={styles.rowLabel}>{device.label}</div>
-                      <div className={styles.rowSub}>
-                        хочет присоединиться · {formatPendingAge(device.createdAt, now)}
-                      </div>
-                    </div>
-                    <div className={styles.pendingActions}>
-                      <button
-                        type="button"
-                        className={styles.denyButton}
-                        onClick={wrap(() => {
-                          void model.deny(device.credentialId)
-                        })}
-                      >
-                        Отклонить
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.approveButton}
-                        onClick={wrap(() => {
-                          void model.approve(device.credentialId)
-                        })}
-                      >
-                        Подтвердить
-                      </button>
-                    </div>
-                  </div>
-                ))}
+      <>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className={styles.content} overlayClassName={styles.overlay}>
+            <div className={styles.header}>
+              <div>
+                <DialogTitle className={styles.title}>Мои устройства</DialogTitle>
+                <div className={styles.subtitle}>{account?.name}</div>
               </div>
-            </>
-          ) : null}
+              <DialogClose asChild>
+                <button type="button" aria-label="Закрыть" className={styles.close}>
+                  <X size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </DialogClose>
+            </div>
 
-          <div className={cn(styles.sectionLabel, pending.length > 0 && styles.sectionLabelTight)}>
-            Ваши устройства
-          </div>
-          <div>
-            {activeDevices.map((device, index) => {
-              const isCurrent = device.credentialId === thisCredentialId
-              const isLast = index === activeDevices.length - 1
-
-              if (confirming === device.credentialId) {
-                return (
-                  <div
-                    key={device.credentialId}
-                    className={styles.confirmRow}
-                    data-testid={`device-row-${device.credentialId}`}
-                  >
-                    <div className={styles.confirmHead}>
-                      <div className={cn(styles.icon, styles.confirmIcon)}>
+            {pending.length > 0 ? (
+              <>
+                <div className={styles.sectionLabel}>Ожидают подтверждения</div>
+                <div className={styles.pendingList}>
+                  {pending.map((device) => (
+                    <div key={device.credentialId} className={styles.pendingRow}>
+                      <div className={styles.pendingIcon}>
                         <DeviceIcon label={device.label} />
                       </div>
                       <div className={styles.rowBody}>
                         <div className={styles.rowLabel}>{device.label}</div>
-                        <div className={styles.rowSub}>{formatAddedAt(device.createdAt, now)}</div>
+                        <div className={styles.rowSub}>
+                          хочет присоединиться · {formatPendingAge(device.createdAt, now)}
+                        </div>
+                      </div>
+                      <div className={styles.pendingActions}>
+                        <button
+                          type="button"
+                          className={styles.denyButton}
+                          onClick={wrap(() => {
+                            void model.deny(device.credentialId)
+                          })}
+                        >
+                          Отклонить
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.approveButton}
+                          onClick={wrap(() => {
+                            void model.approve(device.credentialId)
+                          })}
+                        >
+                          Подтвердить
+                        </button>
                       </div>
                     </div>
-                    <div className={styles.confirmText}>
-                      Отозвать это устройство? Оно потеряет доступ.
-                    </div>
-                    <div className={styles.confirmActions}>
-                      <button
-                        type="button"
-                        className={styles.cancelButton}
-                        onClick={wrap(() => confirmingId.set(null))}
-                      >
-                        Отмена
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.confirmRevokeButton}
-                        onClick={wrap(() => {
-                          void model.revoke(device.credentialId)
-                          confirmingId.set(null)
-                        })}
-                      >
-                        Отозвать
-                      </button>
-                    </div>
-                  </div>
-                )
-              }
+                  ))}
+                </div>
+              </>
+            ) : null}
 
-              return (
-                <div
-                  key={device.credentialId}
-                  className={cn(styles.row, !isLast && styles.rowBordered)}
-                  data-testid={`device-row-${device.credentialId}`}
-                >
-                  <div className={styles.icon}>
-                    <DeviceIcon label={device.label} />
-                  </div>
-                  <div className={styles.rowBody}>
-                    <div className={styles.rowLabelLine}>
-                      <span className={styles.rowLabel}>{device.label}</span>
-                      {isCurrent ? <span className={styles.chip}>Это устройство</span> : null}
+            <div
+              className={cn(styles.sectionLabel, pending.length > 0 && styles.sectionLabelTight)}
+            >
+              Ваши устройства
+            </div>
+            <div>
+              {activeDevices.map((device, index) => {
+                const isCurrent = device.credentialId === thisCredentialId
+                const isLast = index === activeDevices.length - 1
+
+                if (confirming === device.credentialId) {
+                  return (
+                    <div
+                      key={device.credentialId}
+                      className={styles.confirmRow}
+                      data-testid={`device-row-${device.credentialId}`}
+                    >
+                      <div className={styles.confirmHead}>
+                        <div className={cn(styles.icon, styles.confirmIcon)}>
+                          <DeviceIcon label={device.label} />
+                        </div>
+                        <div className={styles.rowBody}>
+                          <div className={styles.rowLabel}>{device.label}</div>
+                          <div className={styles.rowSub}>
+                            {formatAddedAt(device.createdAt, now)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className={styles.confirmText}>
+                        Отозвать это устройство? Оно потеряет доступ.
+                      </div>
+                      <div className={styles.confirmActions}>
+                        <button
+                          type="button"
+                          className={styles.cancelButton}
+                          onClick={wrap(() => confirmingId.set(null))}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.confirmRevokeButton}
+                          onClick={wrap(() => {
+                            void model.revoke(device.credentialId)
+                            confirmingId.set(null)
+                          })}
+                        >
+                          Отозвать
+                        </button>
+                      </div>
                     </div>
-                    <div className={styles.rowSub}>{formatAddedAt(device.createdAt, now)}</div>
-                  </div>
-                  {/* Hidden only for the current device when it is the sole
+                  )
+                }
+
+                return (
+                  <div
+                    key={device.credentialId}
+                    className={cn(styles.row, !isLast && styles.rowBordered)}
+                    data-testid={`device-row-${device.credentialId}`}
+                  >
+                    <div className={styles.icon}>
+                      <DeviceIcon label={device.label} />
+                    </div>
+                    <div className={styles.rowBody}>
+                      <div className={styles.rowLabelLine}>
+                        <span className={styles.rowLabel}>{device.label}</span>
+                        {isCurrent ? <span className={styles.chip}>Это устройство</span> : null}
+                      </div>
+                      <div className={styles.rowSub}>{formatAddedAt(device.createdAt, now)}</div>
+                    </div>
+                    {/* Hidden only for the current device when it is the sole
                       active device -- mirrors the server's
                       LastActiveDeviceError guard exactly (postRevokeDevice
                       rejects revoking ANY device once activeCount <= 1; the
@@ -220,42 +236,49 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
                       devices the server allows revoking your own current
                       session too, so the button must stay visible then --
                       gate on device COUNT, not identity alone. */}
-                  {isCurrent && activeDevices.length <= 1 ? null : (
-                    <button
-                      type="button"
-                      className={styles.revokeButton}
-                      onClick={wrap(() => confirmingId.set(device.credentialId))}
-                    >
-                      Отозвать
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {limitReached ? (
-            <div className={styles.limitNote}>
-              <CircleAlert size={15} strokeWidth={2.1} className={styles.limitIcon} aria-hidden />
-              <span>Достигнут лимит устройств</span>
+                    {isCurrent && activeDevices.length <= 1 ? null : (
+                      <button
+                        type="button"
+                        className={styles.revokeButton}
+                        onClick={wrap(() => confirmingId.set(device.credentialId))}
+                      >
+                        Отозвать
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-          ) : null}
 
-          <button
-            type="button"
-            disabled={limitReached}
-            className={cn(
-              styles.addButton,
-              limitReached && styles.addButtonDisabled,
-              !limitReached && confirming != null && styles.addButtonDimmed,
-            )}
-            onClick={wrap(() => addDeviceOpen.set(true))}
-          >
-            <Plus size={17} strokeWidth={2.3} aria-hidden />
-            Добавить устройство
-          </button>
-        </DialogContent>
-      </Dialog>
+            {limitReached ? (
+              <div className={styles.limitNote}>
+                <CircleAlert size={15} strokeWidth={2.1} className={styles.limitIcon} aria-hidden />
+                <span>Достигнут лимит устройств</span>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              disabled={limitReached}
+              className={cn(
+                styles.addButton,
+                limitReached && styles.addButtonDisabled,
+                !limitReached && confirming != null && styles.addButtonDimmed,
+              )}
+              onClick={wrap(() => addDeviceOpen.set(true))}
+            >
+              <Plus size={17} strokeWidth={2.3} aria-hidden />
+              Добавить устройство
+            </button>
+          </DialogContent>
+        </Dialog>
+
+        <AddDeviceModal
+          model={addDeviceModel}
+          open={addDeviceOpen()}
+          onOpenChange={wrap((next: boolean) => addDeviceOpen.set(next))}
+        />
+      </>
     )
   },
   'MyDevicesDialog',

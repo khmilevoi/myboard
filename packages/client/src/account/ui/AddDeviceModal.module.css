@@ -1,0 +1,224 @@
+/* Panel "3 · Модалка «Добавить устройство» · устройство А" of
+   Мультиустройства.dc.html -- states (a)-(e):
+   (a) confirm identity, (b) QR + code, (c) flips to approval,
+   (d) code expired, (e) device added. */
+
+.overlay {
+  background: var(--scrim);
+}
+
+/* 420px is this panel's own consistent per-state sandbox width (480px for
+   panel "2 · Диалог устройств"'s MyDevicesDialog) -- same "the design's
+   sandbox framing width is deliberate and per-panel" reasoning
+   MyDevicesDialog.module.css documents for its own 480px. */
+.content {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  padding: 30px 28px 26px;
+  text-align: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-elevated);
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--secondary);
+}
+
+.heading {
+  margin: 8px 0 0;
+  font: 700 22px/1.25 'Hanken Grotesk';
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  text-align: center;
+}
+/* States (d)/(e): a status circle precedes the heading, so it needs the
+   design's larger 16px top margin instead of the plain 8px states (a)-(c)
+   use. */
+.headingWithIcon {
+  margin-top: 16px;
+}
+
+.description {
+  margin: 10px 0 0;
+  font: 400 15px/1.5 'Hanken Grotesk';
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+.iconCircle {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  margin: 8px auto 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.iconCircleDanger {
+  background: var(--destructive-soft);
+  color: var(--destructive);
+}
+.iconCircleSuccess {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+/* Shared primary-button shape for the two full-width CTAs: (a)'s
+   "Подтвердить" and (d)'s "Создать новый код". Only (a)'s has a leading
+   icon and a 24px top margin (vs. (d)'s plain text and 22px). */
+.confirmButton,
+.retryButton {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font: 600 15px 'Hanken Grotesk';
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border: none;
+  border-radius: 13px;
+  box-shadow: var(--shadow-btn);
+  cursor: pointer;
+}
+.confirmButton {
+  margin-top: 24px;
+}
+.retryButton {
+  margin-top: 22px;
+}
+.confirmButton:hover:not(:disabled),
+.retryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.confirmButton:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+/* (b) QR + code */
+.qrChip {
+  display: flex;
+  width: 167px;
+  height: 167px;
+  margin: 20px auto 0;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.code {
+  margin-top: 18px;
+  font-family: var(--font-mono);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--foreground);
+}
+.copyButton {
+  display: flex;
+  width: 100%;
+  height: 46px;
+  margin-top: 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 600 14px 'Hanken Grotesk';
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  cursor: pointer;
+}
+.copyButton:hover {
+  background: var(--secondary);
+}
+.countdown {
+  margin-top: 14px;
+  font: 500 12.5px 'Hanken Grotesk';
+  color: var(--muted-foreground);
+}
+
+/* (c) flip to approval */
+.approvalRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 13px 14px;
+  text-align: left;
+  background: var(--accent-soft);
+  border: 1px solid var(--border-strong);
+  border-radius: 13px;
+}
+.approvalIcon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  color: var(--primary);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
+.approvalLabel {
+  font: 600 14px 'Hanken Grotesk';
+  color: var(--foreground);
+}
+.approvalActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.denyButton,
+.approveButton {
+  flex: 1;
+  height: 46px;
+  font: 600 14px 'Hanken Grotesk';
+  border-radius: 13px;
+  cursor: pointer;
+}
+.denyButton {
+  color: var(--destructive);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+.denyButton:hover:not(:disabled) {
+  background: var(--destructive-soft);
+  border-color: var(--destructive);
+}
+.approveButton {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border: none;
+}
+.approveButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.denyButton:disabled,
+.approveButton:disabled {
+  cursor: default;
+  opacity: 0.7;
+}

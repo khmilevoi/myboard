@@ -33,6 +33,13 @@
      --shadow-elevated above. */
   --primary-hover: color-mix(in oklch, var(--primary), black 12%);
   --shadow-btn: 0 1px 2px rgba(20, 22, 40, 0.06), 0 10px 24px -8px oklch(0.55 0.17 281 / 0.38);
+  /* Added for AddDeviceModal.tsx (Task B6) -- the "device added" success
+     circle's background. The design's own literal light-theme value
+     (oklch(0.95 0.05 155)) is copied verbatim; the dark-theme value is
+     derived by the same lightness/chroma-shift pattern --destructive-soft
+     above already uses relative to its own light counterpart (much darker,
+     slightly more saturated, same hue). */
+  --success-soft: oklch(0.95 0.05 155);
 }
 
 :root[data-theme='dark'] {
@@ -40,6 +47,7 @@
   --shadow-elevated: 0 1px 2px rgba(10, 12, 25, 0.2), 0 24px 50px -18px rgba(10, 12, 25, 0.5);
   --primary-hover: color-mix(in oklch, var(--primary), white 15%);
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 24px -8px oklch(0.68 0.15 285 / 0.38);
+  --success-soft: oklch(0.28 0.07 155);
 }
 
 * {

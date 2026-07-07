@@ -1,7 +1,9 @@
-import { context } from '@reatom/core'
+import { atom, context } from '@reatom/core'
 // @vitest-environment jsdom
 import type { AuthenticationResponseJSON } from '@simplewebauthn/browser'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import type { ResolvedTheme } from '@/shared/theme/types'
 
 import { createAddDeviceModel } from './add-device-model'
 import type { DeviceDto } from './devices-http'
@@ -264,5 +266,200 @@ describe('deny', () => {
 
     expect(model.error()).toBe('Сессия истекла, войдите снова')
     expect(model.phase()).toBe('idle')
+  })
+
+  it('clears a stale justApproved value from a previous approval cycle', async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const staleDevice: DeviceDto = { ...pendingDevice, credentialId: 'cred-stale' }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    const model = createAddDeviceModel({ accountModel })
+    model.justApproved.set(staleDevice)
+
+    await model.deny()
+
+    expect(model.justApproved()).toBeNull()
+  })
+})
+
+describe('justApproved', () => {
+  it('is null before any approval', () => {
+    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+
+    expect(model.justApproved()).toBeNull()
+  })
+
+  it('is set to the approved device once approve() succeeds', async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'Chrome на Android',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    const model = createAddDeviceModel({ accountModel })
+
+    await model.approve()
+
+    expect(model.justApproved()).toEqual(pendingDevice)
+  })
+
+  it('stays null when approve() surfaces a delegate error', async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    accountModel.approve.mockImplementation(async () => {
+      accountModel.setError('Достигнут лимит устройств аккаунта')
+    })
+    const model = createAddDeviceModel({ accountModel })
+
+    await model.approve()
+
+    expect(model.justApproved()).toBeNull()
+  })
+
+  it('is cleared again once a fresh start() ceremony begins', async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
+      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const model = createAddDeviceModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
+      accountModel,
+    })
+
+    await model.approve()
+    expect(model.justApproved()).toEqual(pendingDevice)
+
+    await model.start()
+
+    expect(model.justApproved()).toBeNull()
+  })
+})
+
+describe('qrOptions', () => {
+  it('is null before a code has been minted', () => {
+    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+
+    expect(model.qrOptions()).toBeNull()
+  })
+
+  it("derives dots color from the light theme's --primary and a literal white background once a url is minted", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
+      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const themeAtom = atom<ResolvedTheme>('light', 'test.resolvedTheme')
+    const model = createAddDeviceModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
+      accountModel: createFakeAccountModel(),
+      resolvedTheme: themeAtom,
+    })
+
+    await model.start()
+
+    expect(model.qrOptions()).toEqual({
+      data: model.url(),
+      width: 167,
+      height: 167,
+      type: 'svg',
+      margin: 0,
+      qrOptions: { errorCorrectionLevel: 'Q' },
+      dotsOptions: { type: 'square', color: 'oklch(0.55 0.17 281)' },
+      backgroundOptions: { color: '#ffffff' },
+    })
+  })
+
+  it('regenerates the dots color when the resolved theme changes, keeping the background white', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
+      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const themeAtom = atom<ResolvedTheme>('light', 'test.resolvedTheme')
+    const model = createAddDeviceModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
+      accountModel: createFakeAccountModel(),
+      resolvedTheme: themeAtom,
+    })
+    await model.start()
+
+    themeAtom.set('dark')
+
+    expect(model.qrOptions()?.dotsOptions).toEqual({
+      type: 'square',
+      color: 'oklch(0.68 0.15 285)',
+    })
+    expect(model.qrOptions()?.backgroundOptions).toEqual({ color: '#ffffff' })
+  })
+})
+
+describe('qrCode', () => {
+  it('exposes a stable QRCodeStyling instance with append/update methods', () => {
+    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+
+    expect(typeof model.qrCode.append).toBe('function')
+    expect(typeof model.qrCode.update).toBe('function')
+  })
+})
+
+describe('busy', () => {
+  it('is false when neither approve() nor deny() is in flight', () => {
+    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+
+    expect(model.busy()).toBe(false)
+  })
+
+  it('is true while approve() is in flight and false again once it settles', async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    let resolveApprove!: () => void
+    accountModel.approve.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveApprove = resolve
+        }),
+    )
+    const model = createAddDeviceModel({ accountModel })
+
+    const promise = model.approve()
+    expect(model.busy()).toBe(true)
+
+    resolveApprove()
+    await promise
+
+    expect(model.busy()).toBe(false)
   })
 })
