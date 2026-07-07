@@ -1,0 +1,438 @@
+/* Shell classes (.page/.card/.brandMark/.brandCell/.brandCellDim/.brandLabel/
+   .footerNote) are an intentional near-copy of ActivateScreen.module.css's
+   own shell -- Мультиустройства.dc.html panel 4 reuses the exact same card
+   chrome as Activate.dc.html (22px radius, --shadow-elevated, 2x2 brand
+   mark), and each activation screen keeps its own module.css rather than
+   importing another screen's classnames across files. */
+.page {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  display: flex;
+  width: 100%;
+  max-width: 392px;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 34px 30px;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-elevated);
+  transition:
+    background 0.2s var(--ease),
+    border-color 0.2s var(--ease);
+}
+
+.brandMark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 12px;
+  background: var(--accent-soft);
+  border-radius: 16px;
+}
+
+.brandCell {
+  border-radius: 4px;
+  background: var(--primary);
+}
+
+.brandCellDim {
+  border-radius: 4px;
+  background: var(--primary);
+  opacity: 0.5;
+}
+
+.brandLabel {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.footerNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 22px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* Re-triggers on every mode/sub-state change via a `key` on this wrapper --
+   section "5 · Анимации и переходы": "Смена шага: затухание + сдвиг на 10px,
+   320мс, var(--ease)." */
+.stepContent {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  animation: stepIn 320ms var(--ease);
+}
+@keyframes stepIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- (a) choose method ---------- */
+.heading {
+  width: 100%;
+  margin: 20px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  text-align: center;
+}
+
+.description {
+  margin: 9px 0 0;
+  max-width: 290px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.primaryButton {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 24px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: background 0.15s var(--ease);
+}
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.primaryButton:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 20px 0;
+}
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.dividerLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.codeField {
+  width: 100%;
+}
+.codeFieldWithMargin {
+  margin-top: 20px;
+}
+
+.codeInput {
+  width: 100%;
+  height: 48px;
+  padding: 0 15px;
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--input);
+  border-radius: 13px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-align: center;
+  outline: none;
+  transition:
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease),
+    background 0.15s var(--ease);
+}
+.codeInput::placeholder {
+  color: var(--text-3);
+  letter-spacing: 0.1em;
+}
+.codeInput:focus-visible {
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+.codeInput.codeInputError {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px var(--destructive-soft);
+}
+.codeInput.codeInputExpired {
+  background: var(--secondary);
+  color: var(--muted-foreground);
+}
+.codeInput:disabled {
+  opacity: 0.7;
+}
+
+.codeErrorRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--destructive);
+}
+
+.outlineButton {
+  width: 100%;
+  height: 48px;
+  margin-top: 12px;
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+.outlineButton:hover:not(:disabled) {
+  background: var(--secondary);
+}
+.outlineButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+/* Follows an error row directly under the manual-entry heading (c1/c2),
+   rather than the choose screen's own input (which already carries its own
+   12px top margin above). */
+.outlineButtonAfterError {
+  margin-top: 14px;
+}
+
+/* ---------- (b) / (b2) scanner ---------- */
+.scanHeading {
+  margin: 0;
+  width: 100%;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  text-align: center;
+}
+
+.scannerViewport {
+  position: relative;
+  width: 100%;
+  height: 230px;
+  margin-top: 20px;
+  overflow: hidden;
+  background: #1b1b20;
+  border-radius: 16px;
+}
+.scannerVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.scannerCorner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-color: var(--primary);
+  border-style: solid;
+  border-width: 0;
+}
+.scannerCornerTl {
+  top: 24px;
+  left: 24px;
+  border-top-width: 3px;
+  border-left-width: 3px;
+  border-radius: 6px 0 0 0;
+}
+.scannerCornerTr {
+  top: 24px;
+  right: 24px;
+  border-top-width: 3px;
+  border-right-width: 3px;
+  border-radius: 0 6px 0 0;
+}
+.scannerCornerBl {
+  bottom: 24px;
+  left: 24px;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+  border-radius: 0 0 0 6px;
+}
+.scannerCornerBr {
+  bottom: 24px;
+  right: 24px;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+  border-radius: 0 0 6px 0;
+}
+/* "Живая демонстрация" (section 5) scanline, applied to the real scanner
+   viewport at panel 4(b)'s own 24px inset. */
+.scannerLine {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  height: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 8px 1px var(--primary);
+  animation: scanline 1.6s ease-in-out infinite;
+}
+@keyframes scanline {
+  0% {
+    top: 10%;
+    opacity: 0.2;
+  }
+  50% {
+    top: 88%;
+    opacity: 1;
+  }
+  100% {
+    top: 10%;
+    opacity: 0.2;
+  }
+}
+
+.scannerHint {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.cameraDeniedIcon {
+  position: relative;
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  background: var(--destructive-soft);
+  color: var(--destructive);
+  border-radius: 50%;
+}
+.cameraDeniedSlash {
+  position: absolute;
+  inset: 0;
+}
+
+.statusHeading {
+  margin: 16px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  text-align: center;
+}
+
+.statusDescription {
+  margin: 9px 0 0;
+  max-width: 270px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.cameraDeniedLink {
+  margin-top: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+}
+.cameraDeniedLink:hover {
+  color: var(--primary-hover);
+}
+
+/* ---------- (d) registering ---------- */
+.registerHeading {
+  margin: 20px 0 0;
+  width: 100%;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  text-align: center;
+}
+
+/* ---------- (e) waiting ---------- */
+.spinnerLarge {
+  display: inline-block;
+  width: 34px;
+  height: 34px;
+  margin-top: 22px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- (f) done / (g) rejected ---------- */
+.statusIcon {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  margin-top: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.statusIconSuccess {
+  background: oklch(0.95 0.05 155);
+  color: var(--success);
+}
+.statusIconDanger {
+  background: var(--destructive-soft);
+  color: var(--destructive);
+}
