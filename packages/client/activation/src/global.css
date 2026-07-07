@@ -1,4 +1,12 @@
 @import 'tailwindcss';
+/* Tailwind's automatic content detection only walks this Vite root
+   (activation/); it never sees packages/client/src/components/ui/*.tsx,
+   whose class-name strings this app now depends on via ActivateScreen.tsx/
+   AddDeviceScreen.tsx/ThemeTogglePill.tsx's shadcn Button/Input/ToggleGroup
+   imports. Without this, none of those components' own border/background/
+   hover/focus-visible/aria-invalid classes get generated -- only the size
+   overrides written directly in this app's own .tsx files. */
+@source '../../src/components/ui';
 @import '../../src/shared/theme/tokens.css';
 @import 'shadcn/tailwind.css';
 @import 'tw-animate-css';
