@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { Check, CircleAlert, Link2, Loader2, ShieldCheck, X } from 'lucide-react'
+import { AlertTriangle, Check, CircleAlert, Link2, Loader2, ShieldCheck, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
@@ -61,6 +61,12 @@ export const AddDeviceModal = reatomMemo<AddDeviceModalProps>(({ model, open, on
   const url = model.url()
   const formatted = model.formatted()
   const countdown = model.countdown()
+  // Surfaces both `start()`'s ceremony/network failures (idle/verifying,
+  // showing/expired states) and `approve()`/`deny()`'s delegate failures
+  // (e.g. device-limit-exceeded) near the approval card -- `start()` is a
+  // security-relevant fresh-UV WebAuthn ceremony, so a cancelled/failed
+  // prompt must not silently revert to a plain button with no feedback.
+  const error = model.error()
   // `busy` covers either action being in flight -- `pendingDevice` stays
   // non-null until the delegate call completes and account-model.refresh()
   // removes it, so both buttons need disabling regardless of which one
@@ -215,6 +221,12 @@ export const AddDeviceModal = reatomMemo<AddDeviceModalProps>(({ model, open, on
           {heading}
         </DialogTitle>
         {body}
+        {error ? (
+          <div role="alert" className={styles.error}>
+            <AlertTriangle size={14} strokeWidth={2.2} className={styles.errorIcon} aria-hidden />
+            <span>{error}</span>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   )

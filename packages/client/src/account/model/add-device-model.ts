@@ -125,6 +125,14 @@ export interface AddDeviceModel {
   start: Action<[], Promise<void>>
   approve: Action<[], Promise<void>>
   deny: Action<[], Promise<void>>
+  // Clears the whole flow back to its initial idle values (rawPhase, minted
+  // code/formatted/url/expiresAt, error, justApproved). The view calls this
+  // when its dialog *closes*, not when it opens -- since this model instance
+  // is created once and persists for as long as the owning dialog is
+  // mounted (which itself never remounts between opens), without this a
+  // successful approval's `justApproved` (design state (e), which has no
+  // buttons at all) would dead-end every future reopen of the same modal.
+  reset: Action<[], void>
 }
 
 export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
@@ -301,6 +309,16 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
 
   const busy = computed(() => !approve.ready() || !deny.ready(), 'addDevice.busy')
 
+  const reset = action(() => {
+    rawPhase.set('idle')
+    code.set(null)
+    formatted.set(null)
+    url.set(null)
+    expiresAt.set(null)
+    error.set(null)
+    justApproved.set(null)
+  }, 'addDevice.reset')
+
   return {
     phase,
     code,
@@ -317,5 +335,6 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     start,
     approve,
     deny,
+    reset,
   }
 }

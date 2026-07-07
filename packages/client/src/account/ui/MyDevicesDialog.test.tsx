@@ -354,4 +354,44 @@ describe('MyDevicesDialog', () => {
 
     await screen.findByText('Устройство хочет присоединиться')
   })
+
+  it('resets AddDeviceModal back to idle after closing, so reopening starts a fresh ceremony instead of dead-ending on the previous success card', async () => {
+    const { model, fetchImpl } = await createTestModel(
+      [
+        device({ credentialId: 'c1' }),
+        device({
+          credentialId: 'c2',
+          label: 'Chrome on Android',
+          status: 'pending',
+          addedVia: 'add-token',
+        }),
+      ],
+      account,
+      'c1',
+    )
+
+    render(<MyDevicesDialog model={model} open onOpenChange={vi.fn()} />)
+    await screen.findByText('Мои устройства')
+
+    fireEvent.click(screen.getByRole('button', { name: /Добавить устройство/ }))
+    await screen.findByText('Устройство хочет присоединиться')
+
+    fetchImpl.mockResolvedValueOnce(jsonResponse({ ok: true }))
+    fetchImpl.mockResolvedValueOnce(jsonResponse(account))
+    fetchImpl.mockResolvedValueOnce(
+      jsonResponse({ devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
+    await screen.findByText('Устройство добавлено')
+
+    // Close AddDeviceModal (its own X button -- MyDevicesDialog's own is
+    // aria-hidden while AddDeviceModal is on top, so this unambiguously
+    // resolves to AddDeviceModal's).
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    await waitFor(() => expect(screen.queryByText('Устройство добавлено')).not.toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /Добавить устройство/ }))
+
+    await screen.findByText('Подтвердите личность, чтобы создать код')
+  })
 })

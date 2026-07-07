@@ -63,10 +63,13 @@ function formatPendingAge(createdAt: number, now: number): string {
 
 // Exported for reuse by AddDeviceModal.tsx (Task B6), whose approval-flip
 // card (design state (c)) reuses the same device-icon convention.
-export function DeviceIcon({ label, className }: { label: string; className?: string }) {
-  const Icon = MOBILE_LABEL_PATTERN.test(label) ? Smartphone : Monitor
-  return <Icon size={17} strokeWidth={1.8} className={className} aria-hidden />
-}
+export const DeviceIcon = reatomMemo<{ label: string; className?: string }>(
+  ({ label, className }) => {
+    const Icon = MOBILE_LABEL_PATTERN.test(label) ? Smartphone : Monitor
+    return <Icon size={17} strokeWidth={1.8} className={className} aria-hidden />
+  },
+  'DeviceIcon',
+)
 
 export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
   ({ model: modelOverride, open, onOpenChange }) => {
@@ -276,7 +279,19 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
         <AddDeviceModal
           model={addDeviceModel}
           open={addDeviceOpen()}
-          onOpenChange={wrap((next: boolean) => addDeviceOpen.set(next))}
+          onOpenChange={wrap((next: boolean) => {
+            addDeviceOpen.set(next)
+            // Reset on CLOSE, not on open: `addDeviceModel` is created once
+            // (above) and outlives every open/close cycle of this dialog, so
+            // without this a successful approval's `justApproved` state
+            // (design state (e), which the design gives no button at all)
+            // would permanently dead-end every future "Добавить устройство"
+            // click. Resetting here (every path -- X button, Escape,
+            // outside click -- routes through this same onOpenChange) means
+            // the model is already back at idle by the time it's reopened,
+            // rather than flashing idle mid-close.
+            if (!next) addDeviceModel.reset()
+          })}
         />
       </>
     )

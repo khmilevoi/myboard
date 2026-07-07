@@ -222,3 +222,30 @@
   cursor: default;
   opacity: 0.7;
 }
+
+/* Not part of any of the design's 5 states -- `start()` is a
+   security-relevant fresh-UV WebAuthn ceremony, so a cancelled/failed
+   prompt or a device-limit-exceeded rejection on approve/deny must not
+   silently revert with no visible feedback. Mirrors
+   packages/client/activation/src/ui/ActivateScreen.module.css's own
+   `.serverError`/`.serverErrorText` shape (same destructive-soft card,
+   left-aligned icon + text, same font sizes), the closest same-system
+   precedent for a generic ceremony-failure banner. */
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--destructive-soft);
+  border: 1px solid var(--destructive);
+  border-radius: 12px;
+  font: 500 13px/1.45 'Hanken Grotesk';
+  color: var(--destructive);
+}
+.errorIcon {
+  flex: none;
+  margin-top: 1px;
+}

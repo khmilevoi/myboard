@@ -463,3 +463,46 @@ describe('busy', () => {
     expect(model.busy()).toBe(false)
   })
 })
+
+describe('reset', () => {
+  it('clears phase/code/formatted/url/expiresAt/error back to their initial idle values', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const model = createAddDeviceModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony: vi.fn(),
+      accountModel: createFakeAccountModel(),
+    })
+    // Drive some non-initial state via a real failure path so `error` is
+    // also non-null, not just the minted fields.
+    await model.start()
+    expect(model.error()).not.toBeNull()
+
+    model.reset()
+
+    expect(model.phase()).toBe('idle')
+    expect(model.code()).toBeNull()
+    expect(model.formatted()).toBeNull()
+    expect(model.url()).toBeNull()
+    expect(model.expiresAt()).toBeNull()
+    expect(model.error()).toBeNull()
+  })
+
+  it('clears a stale justApproved success flag', async () => {
+    const pendingDevice: DeviceDto = {
+      credentialId: 'cred-new',
+      label: 'New phone',
+      status: 'pending',
+      addedVia: 'add-token',
+      createdAt: 1,
+      lastSeenAt: 1,
+    }
+    const accountModel = createFakeAccountModel([pendingDevice])
+    const model = createAddDeviceModel({ accountModel })
+    await model.approve()
+    expect(model.justApproved()).not.toBeNull()
+
+    model.reset()
+
+    expect(model.justApproved()).toBeNull()
+  })
+})

@@ -49,10 +49,9 @@ function pendingDeviceFixture(overrides: Partial<DeviceDto> = {}): DeviceDto {
 // Mirrors the real account-model.ts contract closely enough for this
 // component's tests: `approve`/`deny` remove the device from `pending()`
 // (mirroring the real model's approve/deny -> refresh() effect) and never
-// throw (they'd set their own `error` atom instead -- not exercised here,
-// AddDeviceModal doesn't surface a generic error banner, matching
-// MyDevicesDialog.tsx's own established precedent of not rendering
-// `model.error()` either).
+// throw -- they'd set their own `error` atom instead (a test can call
+// `setError(...)` from inside a mocked `approve`/`deny` to simulate that
+// exact contract, matching add-device-model.test.ts's own fake).
 //
 // `pending` MUST be backed by a real reatom atom, not a plain closure --
 // add-device-model.ts's `pendingDevice` computed calls `deps.accountModel
@@ -67,15 +66,19 @@ function pendingDeviceFixture(overrides: Partial<DeviceDto> = {}): DeviceDto {
 // indefinitely (the dialog never left the (c) approval-card render).
 function createFakeAccountModel(initialPending: DeviceDto[] = []) {
   const pending = atom<DeviceDto[]>(initialPending, 'test.fakeAccountModel.pending')
+  let errorValue: string | null = null
   return {
     pending: () => pending(),
-    error: () => null,
+    error: () => errorValue,
     approve: vi.fn(async (credentialId: string) => {
       pending.set(pending().filter((device) => device.credentialId !== credentialId))
     }),
     deny: vi.fn(async (credentialId: string) => {
       pending.set(pending().filter((device) => device.credentialId !== credentialId))
     }),
+    setError: (value: string | null) => {
+      errorValue = value
+    },
   }
 }
 
@@ -122,6 +125,22 @@ describe('AddDeviceModal', () => {
 
     await within(dialog).findByText('Подтверждение…')
     expect(within(dialog).getByRole('button', { name: /Подтверждение/ })).toBeDisabled()
+  })
+
+  it('shows model.error() when the ceremony fails, on the confirm-identity state', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const model = createAddDeviceModel({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startAuthenticationCeremony: vi.fn(),
+      accountModel: createFakeAccountModel(),
+    })
+
+    render(<AddDeviceModal model={model} open onOpenChange={vi.fn()} />)
+    const dialog = await screen.findByRole('dialog')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Подтвердить/ }))
+
+    await within(dialog).findByText('Сессия истекла, войдите снова')
   })
 
   it('(b) shows the QR, formatted code, and countdown once a code is minted', async () => {
@@ -189,6 +208,25 @@ describe('AddDeviceModal', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Отклонить' }))
 
     await waitFor(() => expect(accountModel.deny).toHaveBeenCalledWith('cred-new'))
+  })
+
+  it('shows model.error() near Approve/Deny when approve() surfaces a delegate failure (e.g. device limit)', async () => {
+    const pendingDevice = pendingDeviceFixture()
+    const accountModel = createFakeAccountModel([pendingDevice])
+    accountModel.approve.mockImplementation(async (credentialId: string) => {
+      accountModel.setError('Достигнут лимит устройств аккаунта')
+      // Real account-model.ts's approve() never removes the device from
+      // `pending` on failure -- it only refreshes on success.
+      void credentialId
+    })
+    const model = createAddDeviceModel({ accountModel })
+
+    render(<AddDeviceModal model={model} open onOpenChange={vi.fn()} />)
+    const dialog = await screen.findByRole('dialog')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Подтвердить' }))
+
+    await within(dialog).findByText('Достигнут лимит устройств аккаунта')
   })
 
   it('(e) shows the device-added success card once Подтвердить succeeds', async () => {
