@@ -124,6 +124,35 @@ test('device B registers via a minted code, owner approves over SSE, device B au
   await contextB.close()
 })
 
+test('closing AddDeviceModal via its own X button leaves MyDevicesDialog open underneath', async ({
+  browser,
+  request,
+}) => {
+  // Regression test for a Radix DismissableLayer stacking race: these are
+  // two sibling (not DOM-nested) Dialog.Root instances, and AddDeviceModal's
+  // own close button used to also close MyDevicesDialog underneath it. See
+  // MyDevicesDialog.tsx's onPointerDownOutside/onInteractOutside comment for
+  // the mechanism. jsdom's fireEvent.click can't reproduce this -- it skips
+  // the real pointerdown-then-click sequence the race depends on -- so this
+  // needs a real browser.
+  test.slow()
+
+  const contextA = await browser.newContext()
+  const pageA = await contextA.newPage()
+  await registerAccountAndDeviceA(pageA, request)
+
+  const { modal } = await mintAddDeviceCode(pageA)
+
+  const myDevices = new MyDevicesDialogPage(pageA)
+  await modal.close()
+
+  await expect(modal.dialog).not.toBeVisible()
+  await expect(myDevices.dialog).toBeVisible()
+  await expect(myDevices.addDeviceButton).toBeVisible()
+
+  await contextA.close()
+})
+
 test('an invalid add-device code shows an error instead of registering', async ({ browser }) => {
   test.slow()
 

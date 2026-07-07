@@ -21,6 +21,7 @@ export class AddDeviceModalPage {
   readonly codeText: Locator
   readonly pendingHeading: Locator
   readonly successHeading: Locator
+  readonly closeButton: Locator
 
   constructor(readonly page: Page) {
     this.dialog = page.getByTestId('add-device-modal')
@@ -32,6 +33,12 @@ export class AddDeviceModalPage {
       name: 'Устройство хочет присоединиться',
     })
     this.successHeading = this.dialog.getByRole('heading', { name: 'Устройство добавлено' })
+    this.closeButton = this.dialog.getByRole('button', { name: 'Закрыть' })
+  }
+
+  /** Closes the modal via its own X button, leaving MyDevicesDialog underneath open. */
+  async close(): Promise<void> {
+    await this.closeButton.click()
   }
 
   /** Confirms identity via the fresh-UV WebAuthn ceremony, minting a code. */

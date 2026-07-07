@@ -51,6 +51,12 @@ Use TypeScript and ESM imports. Follow the existing style: 2-space indentation, 
 
 All exported React function components in `packages/client/src` and `packages/widgets/*` must be defined with `reatomMemo` from `widget-sdk` (normally `widget-sdk/reatom/reatom-memo`). This is a hard rule: use `reatomMemo` even for simple presentational components so every component has the same Reatom integration and React memo wrapper. Keep business logic, derived state, timers, async flows, and cross-component UI state in `model/` Reatom atoms/actions/computeds; leave only refs, DOM interop, and truly tiny view glue in `ui/`. For React error boundaries, keep the class implementation internal and export a `reatomMemo` wrapper component.
 
+## UI Gotchas
+
+Stacked Radix `Dialog`/`AlertDialog`/`Popover` roots (two sibling `Root` instances open at once, not DOM-nested) are prone to a known `DismissableLayer` race: closing the top one via its own close button/escape/outside-click can also dismiss the one underneath, because the underlying root's deferred `pointerDownOutside` check (`deferPointerDownOutside` → `setTimeout(0)`) runs after the top root has already unregistered from Radix's shared "topmost" layer stack. A reactive open-state guard does not fix this (the state has already flipped by the time the deferred check runs); only a plain ref cleared one tick later works, and even that is coupled to Radix's internal event timing.
+
+If this resurfaces, treat it as an architectural decision, not another timing patch: first consider collapsing the stack into a single `Dialog.Root` with an internal view/content switch (no second `Root` needed, so the race cannot occur), before reaching for another ref-based guard.
+
 ## Testing Guidelines
 
 Vitest is the unit/component test runner; React tests use Testing Library and jsdom. Keep tests near the code they verify as `*.test.ts` or `*.test.tsx`. Playwright specs belong in `packages/client/e2e`, with page helpers in `packages/client/e2e/pages`. Run `pnpm check` (or `pnpm test` and `pnpm typecheck`) before opening a PR; run `pnpm test:e2e` for browser-facing behavior.

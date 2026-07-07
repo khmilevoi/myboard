@@ -1,6 +1,6 @@
 import { atom, wrap } from '@reatom/core'
 import { CircleAlert, Monitor, Plus, Smartphone, X } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
@@ -92,12 +92,17 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
     // "flip to approval on a device-pending event" to work (a second,
     // independent AccountModel here would never see that event).
     const [addDeviceModel] = useState(() => createAddDeviceModel({ accountModel: model }))
+    // Plain ref (not reactive state) backing the onPointerDownOutside/
+    // onInteractOutside guards below -- see the comment on those props for
+    // why a reactive `addDeviceOpen()` read can't do this job.
+    const addDeviceWasOpenRef = useRef(false)
 
     const account = model.account()
     const devices = model.devices()
     const pending = model.pending()
     const thisCredentialId = model.thisCredentialId()
     const confirming = confirmingId()
+    const addDeviceIsOpen = addDeviceOpen()
 
     const activeDevices = devices.filter((device) => device.status === 'active')
     const limitReached = account != null && activeDevices.length >= account.deviceLimit
@@ -110,6 +115,28 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
             className={styles.content}
             overlayClassName={styles.overlay}
             data-testid="my-devices-dialog"
+            // Radix's DismissableLayer stack has a known race for sibling
+            // (not DOM-nested) modals: AddDeviceModal's own X button closes
+            // it *synchronously* (via DialogClose's onClick), but *this*
+            // dialog's own "was that click outside me?" check is deferred a
+            // tick (`deferPointerDownOutside` -> `setTimeout(0)`). By the
+            // time that deferred check runs, AddDeviceModal has already
+            // unregistered itself from Radix's shared "topmost modal" stack,
+            // so this dialog wrongly concludes *it* is now topmost and
+            // dismisses itself too -- closing both modals from one click.
+            // Guarding on a *reactive* `addDeviceOpen()` read doesn't work
+            // here: that atom has *already* flipped to `false` (same click,
+            // synchronously) by the time this deferred check reads it. So
+            // this needs a plain ref that's cleared one tick *later* than
+            // Radix's own deferred check -- see the AddDeviceModal
+            // onOpenChange below for how `addDeviceWasOpenRef` is kept true
+            // through that exact window.
+            onPointerDownOutside={(event) => {
+              if (addDeviceWasOpenRef.current) event.preventDefault()
+            }}
+            onInteractOutside={(event) => {
+              if (addDeviceWasOpenRef.current) event.preventDefault()
+            }}
           >
             <div className={styles.header}>
               <div>
@@ -272,7 +299,10 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
                 limitReached && styles.addButtonDisabled,
                 !limitReached && confirming != null && styles.addButtonDimmed,
               )}
-              onClick={wrap(() => addDeviceOpen.set(true))}
+              onClick={wrap(() => {
+                addDeviceWasOpenRef.current = true
+                addDeviceOpen.set(true)
+              })}
             >
               <Plus size={17} strokeWidth={2.3} aria-hidden />
               Добавить устройство
@@ -282,8 +312,26 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
 
         <AddDeviceModal
           model={addDeviceModel}
-          open={addDeviceOpen()}
+          open={addDeviceIsOpen}
           onOpenChange={wrap((next: boolean) => {
+            if (next) {
+              addDeviceWasOpenRef.current = true
+            } else {
+              // Clear a tick *later* than `addDeviceOpen.set(false)` below,
+              // not in the same synchronous pass: this onOpenChange call is
+              // itself running inside the same click that Radix's own
+              // DismissableLayer has already scheduled a deferred
+              // outside-dismiss check for (see the onPointerDownOutside
+              // comment above) via `setTimeout(fn, 0)`, registered *before*
+              // this handler runs (during the click's capture phase). A
+              // `setTimeout(0)` scheduled here, during the bubble phase,
+              // therefore always fires *after* that already-queued one --
+              // so the ref is still `true` when Radix's check reads it, and
+              // only flips back to `false` once that window has passed.
+              setTimeout(() => {
+                addDeviceWasOpenRef.current = false
+              }, 0)
+            }
             addDeviceOpen.set(next)
             // Reset on CLOSE, not on open: `addDeviceModel` is created once
             // (above) and outlives every open/close cycle of this dialog, so
