@@ -407,9 +407,11 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     const optionsOrError = await wrap(fetchRegistrationOptions(currentToken))
     if (optionsOrError instanceof Error) {
       error.set(optionsOrError.message)
-      // Recoverable -- only reachable once the server has actually
-      // confirmed (or, here, rejected) the token; never leave `mode` on
-      // 'registering' past this point without a corresponding success.
+      // Recoverable: the *code itself* was rejected here (never confirmed
+      // valid), so land back on the manual-entry screen to let the user
+      // edit/resubmit it -- unlike the ceremony/verify failure branches
+      // below, which happen only *after* the code was already confirmed
+      // valid and so stay on 'registering' for an in-place retry instead.
       mode.set('manual')
       return
     }
@@ -429,7 +431,13 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     )
     if (attestationResponse instanceof Error) {
       error.set(attestationResponse.message)
-      mode.set('manual')
+      // Deliberately NOT reset to 'manual' -- the code itself was already
+      // confirmed valid by the options fetch above. A cancelled/failed
+      // WebAuthn prompt (very common -- the user backs out of Face ID/Touch
+      // ID) is retried right here via 4(d1)/(d2)'s own in-place error row
+      // (AddDeviceScreen.tsx's "Создать passkey" button), not by bouncing
+      // to the manual-entry screen and re-validating a code that was never
+      // the problem.
       return
     }
 
@@ -441,12 +449,12 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     )
     if (verifyResult instanceof Error) {
       error.set(verifyResult.message)
-      mode.set('manual')
+      // Same as the ceremony-failure branch above -- stay on 'registering'.
       return
     }
     if (verifyResult.status !== 200) {
       error.set(`Не удалось подтвердить регистрацию (код ${verifyResult.status})`)
-      mode.set('manual')
+      // Same as the ceremony-failure branch above -- stay on 'registering'.
       return
     }
 

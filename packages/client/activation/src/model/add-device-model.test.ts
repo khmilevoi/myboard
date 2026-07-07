@@ -159,6 +159,48 @@ describe('stageScannedCode', () => {
   })
 })
 
+describe('startRegistration ceremony/verify failures', () => {
+  it('keeps mode on registering (not manual) when the WebAuthn ceremony fails, so the existing in-place error row can be used to retry', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ options: { challenge: 'c' } }))
+    const startRegistrationCeremony = vi.fn().mockRejectedValue(new Error('user cancelled'))
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startRegistrationCeremony,
+    })
+    // Simulates having already reached 'registering' (via submitManual or
+    // stageScannedCode having already validated the code) before the
+    // ceremony itself is attempted -- a cancelled/failed WebAuthn prompt
+    // (e.g. the user backs out of Face ID/Touch ID) must not re-validate
+    // the code or bounce back to the manual-entry screen; it should stay
+    // right here so the same "Создать passkey" button can be retried.
+    model.token.set('K7QP3M9X')
+
+    await model.startRegistration()
+
+    expect(model.mode()).toBe('registering')
+    expect(model.error()).not.toBeNull()
+  })
+
+  it('keeps mode on registering (not manual) when register/verify is rejected by the server', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'c' } }))
+      .mockResolvedValueOnce(jsonResponse({}, 409))
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
+    })
+    model.token.set('K7QP3M9X')
+
+    await model.startRegistration()
+
+    expect(model.mode()).toBe('registering')
+    expect(model.error()).not.toBeNull()
+  })
+})
+
 describe('registration + polling flow', () => {
   it('goes registering -> waiting -> done, logs in, and navigates on approval', async () => {
     vi.useFakeTimers()
