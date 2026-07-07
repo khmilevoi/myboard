@@ -275,6 +275,12 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
       return
     }
 
+    // A successful response clears any stale error left behind by an
+    // earlier transient failure (mirrors `startRegistration`/`submitManual`
+    // clearing `error` at entry) -- otherwise a one-off network blip's error
+    // message would stay on screen indefinitely even after polling recovers.
+    error.set(null)
+
     const { status } = result.body as { status: 'approved' | 'pending' | 'denied' }
     if (status === 'pending') return
 
@@ -379,7 +385,12 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
 
     token.set(code)
     mode.set('registering')
-    await startRegistration()
+    // Wrapped even though nothing currently follows this await -- matches
+    // this codebase's established convention for "action calling another
+    // action" (see account/model/add-device-model.ts's
+    // `await wrap(deps.accountModel.approve(...))`), so a future edit adding
+    // logic after this line doesn't silently reintroduce a frame-escape bug.
+    await wrap(startRegistration())
   }, 'addDevice.submitManual')
 
   return {

@@ -203,6 +203,37 @@ describe('registration + polling flow', () => {
     expect(fetchImpl.mock.calls.length).toBe(callsAfterRejected)
   })
 
+  it('clears a stale error once a later poll tick succeeds again', async () => {
+    vi.useFakeTimers()
+
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'add-device-challenge' } }))
+      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
+      // First poll tick: a transient server error.
+      .mockResolvedValueOnce(jsonResponse({}, 500))
+      // Second poll tick: recovered -- still pending.
+      .mockResolvedValueOnce(jsonResponse({ status: 'pending' }))
+    const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
+
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startRegistrationCeremony,
+      storage: createStorage(),
+    })
+
+    await model.submitManual('K7QP-3M9X')
+    expect(model.mode()).toBe('waiting')
+
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(model.error()).not.toBeNull()
+
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(model.error()).toBeNull()
+    expect(model.mode()).toBe('waiting')
+  })
+
   it('gives up polling after 10 minutes without a resolution', async () => {
     vi.useFakeTimers()
 
