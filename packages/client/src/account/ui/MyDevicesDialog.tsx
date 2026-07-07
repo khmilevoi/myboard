@@ -106,7 +106,11 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className={styles.content} overlayClassName={styles.overlay}>
+          <DialogContent
+            className={styles.content}
+            overlayClassName={styles.overlay}
+            data-testid="my-devices-dialog"
+          >
             <div className={styles.header}>
               <div>
                 <DialogTitle className={styles.title}>Мои устройства</DialogTitle>

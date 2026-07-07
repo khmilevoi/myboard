@@ -210,7 +210,11 @@ export const AddDeviceModal = reatomMemo<AddDeviceModalProps>(({ model, open, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={styles.content} overlayClassName={styles.overlay}>
+      <DialogContent
+        className={styles.content}
+        overlayClassName={styles.overlay}
+        data-testid="add-device-modal"
+      >
         <DialogClose asChild>
           <button type="button" aria-label="Закрыть" className={styles.close}>
             <X size={15} strokeWidth={2} aria-hidden />
