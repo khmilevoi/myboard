@@ -1,0 +1,132 @@
+/* Panel "1 · Хедер" of Мультиустройства.dc.html — states (a) closed,
+   (b) open, (c) badge + pending. */
+
+.trigger {
+  position: relative;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--accent-soft);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* (c) badge dot — top-right of the avatar circle. */
+.badge {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 11px;
+  height: 11px;
+  background: var(--destructive);
+  border: 2px solid var(--card);
+  border-radius: 50%;
+}
+
+/* (b)/(c) dropdown panel. Width differs: 252px with no pending row, 264px
+   once the pending-request row is showing (matches the design's two
+   literal panel widths). */
+.content {
+  width: 252px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: var(--shadow-elevated);
+}
+.contentPending {
+  width: 264px;
+}
+
+.head {
+  padding: 14px 16px 12px;
+}
+.name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.deviceCount {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+.dividerInset {
+  width: calc(100% - 12px);
+  height: 1px;
+  margin: 0 6px;
+  background: var(--border);
+}
+
+.section {
+  padding: 6px;
+}
+.pendingSection {
+  padding: 0 6px 6px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--foreground);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.item:hover,
+.item:focus {
+  background: var(--secondary);
+}
+
+.itemDestructive {
+  color: var(--destructive);
+}
+.itemDestructive:hover,
+.itemDestructive:focus {
+  background: var(--destructive-soft);
+}
+
+.pendingItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  background: var(--accent-soft);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.pendingIcon {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 8px;
+}
+.pendingLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--primary);
+}
