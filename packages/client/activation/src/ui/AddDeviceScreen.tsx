@@ -96,6 +96,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   const [model] = useState(() => injectedModel ?? createAddDeviceModel())
   const mode = model.mode()
   const error = model.error()
+  const ownerName = model.ownerName()
   const [manualValue, setManualValue] = useState('')
   // Tracks whether the WebAuthn *ceremony itself* is currently in flight,
   // distinguishing panel 4(d1) "ready to create a passkey" from 4(d2)
@@ -150,16 +151,15 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   }
 
   function handleDecode(rawValue: string) {
-    const code = model.extractAddCode(rawValue)
-    if (!code) return
     // A decoded QR is not itself a user gesture -- unlike the manual/paste
     // path, we deliberately do NOT call `submitManual` (which would start
-    // the WebAuthn ceremony) here. Instead we stage the code and land on
-    // 4(d1)'s "Создать passkey" button, so the ceremony only ever starts
-    // from a real click.
-    model.error.set(null)
-    model.token.set(code)
-    model.mode.set('registering')
+    // the WebAuthn ceremony) here. `stageScannedCode` validates the code
+    // against the server (extracting it from the raw scanned text itself)
+    // and, only once confirmed, lands on 4(d1)'s "Создать passkey" button
+    // so the ceremony only ever starts from a real click. An unrecognized
+    // or server-rejected code routes back to 4(c1)'s manual-entry screen
+    // rather than stranding the user on 'registering'.
+    void model.stageScannedCode(rawValue)
   }
 
   function handleCameraError() {
@@ -204,7 +204,11 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
                 Отсканируйте QR-код или введите код с другого устройства
               </p>
 
-              <button type="button" className={styles.primaryButton} onClick={goToScan}>
+              <button
+                type="button"
+                className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
+                onClick={goToScan}
+              >
                 <Camera size={18} strokeWidth={2} aria-hidden />
                 Сканировать QR-код
               </button>
@@ -283,7 +287,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
 
           {mode === 'manual' ? (
             <>
-              <h1 className={styles.heading}>Введите код с другого устройства</h1>
+              <h1 className={styles.manualHeading}>Введите код с другого устройства</h1>
 
               <div className={`${styles.codeField} ${styles.codeFieldWithMargin}`}>
                 <input
@@ -311,7 +315,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
               <button
                 type="button"
                 disabled={isExpiredError}
-                className={`${styles.outlineButton} ${error ? styles.outlineButtonAfterError : ''}`}
+                className={`${styles.primaryButton} ${styles.primaryButtonManualGap}`}
                 onClick={() => submitCode(manualValue)}
               >
                 Продолжить
@@ -321,14 +325,18 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
 
           {mode === 'registering' ? (
             <>
-              <h1 className={styles.registerHeading}>Добавить устройство в аккаунт?</h1>
+              <h1 className={styles.registerHeading}>
+                {ownerName
+                  ? `Добавить устройство в аккаунт «${ownerName}»?`
+                  : 'Добавить устройство в аккаунт?'}
+              </h1>
               <p className={styles.description}>Создайте passkey, чтобы завершить</p>
 
               <button
                 type="button"
                 disabled={showRegisterLoading}
                 aria-busy={showRegisterLoading}
-                className={styles.primaryButton}
+                className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
                 onClick={createPasskey}
               >
                 {passkeyButtonContent(showRegisterLoading)}
@@ -351,7 +359,9 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
           {mode === 'waiting' ? (
             <>
               <span aria-hidden className={styles.spinnerLarge} />
-              <h1 className={styles.statusHeading}>Ожидаем подтверждения</h1>
+              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+                Ожидаем подтверждения
+              </h1>
               <p className={styles.statusDescription}>
                 Подтвердите это устройство на основном устройстве
               </p>
@@ -363,7 +373,9 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
               <div className={`${styles.statusIcon} ${styles.statusIconSuccess}`}>
                 <Check size={24} strokeWidth={2.4} aria-hidden />
               </div>
-              <h1 className={styles.statusHeading}>Готово. Перенаправляем…</h1>
+              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+                Готово. Перенаправляем…
+              </h1>
             </>
           ) : null}
 
@@ -372,7 +384,9 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
               <div className={`${styles.statusIcon} ${styles.statusIconDanger}`}>
                 <X size={24} strokeWidth={2} aria-hidden />
               </div>
-              <h1 className={styles.statusHeading}>Запрос отклонён</h1>
+              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+                Запрос отклонён
+              </h1>
               <p className={styles.statusDescription}>Основное устройство отклонило подключение</p>
               <button type="button" className={styles.outlineButton} onClick={goToChoose}>
                 Попробовать снова

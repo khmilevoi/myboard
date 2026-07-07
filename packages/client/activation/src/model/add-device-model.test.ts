@@ -84,6 +84,79 @@ describe('submitManual', () => {
     expect(model.mode()).not.toBe('registering')
     expect(fetchImpl).not.toHaveBeenCalled()
   })
+
+  it('returns to manual mode with an error when the server rejects a well-formed code (invalid/expired/exhausted token), instead of stranding the user on registering', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ code: 'add_token_invalid' }, 404))
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+    model.mode.set('manual')
+
+    await model.submitManual('K7QP-3M9X')
+
+    expect(model.mode()).toBe('manual')
+    expect(model.error()).not.toBeNull()
+  })
+
+  it('exposes the account owner display name (for the registering heading) once register/options succeeds', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
+      storage: createStorage(),
+    })
+
+    await model.submitManual('K7QP-3M9X')
+
+    expect(model.ownerName()).toBe('Анна Ковалёва')
+  })
+})
+
+describe('stageScannedCode', () => {
+  it('stages the scanned code and moves to registering once the server confirms it, exposing the owner name', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+      }),
+    )
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+
+    await model.stageScannedCode('K7QP-3M9X')
+
+    expect(model.token()).toBe('K7QP3M9X')
+    expect(model.mode()).toBe('registering')
+    expect(model.error()).toBeNull()
+    expect(model.ownerName()).toBe('Анна Ковалёва')
+  })
+
+  it('returns to manual mode with an error when the server rejects the scanned code, instead of stranding the user on registering', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ code: 'add_token_invalid' }, 404))
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+
+    await model.stageScannedCode('K7QP-3M9X')
+
+    expect(model.mode()).toBe('manual')
+    expect(model.error()).not.toBeNull()
+  })
 })
 
 describe('registration + polling flow', () => {

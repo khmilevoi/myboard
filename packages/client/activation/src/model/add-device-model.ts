@@ -175,8 +175,21 @@ export interface AddDeviceModel {
   token: Atom<string | null>
   mode: Atom<AddDeviceMode>
   error: Atom<string | null>
+  // The account owner's display name, surfaced from register/options'
+  // `options.user.displayName` (the server already sets this to
+  // `account.name`, see postDeviceRegisterOptions) -- used by the
+  // "Добавить устройство в аккаунт «Имя»?" heading once we reach
+  // 'registering'. Null before the first successful options fetch.
+  ownerName: Atom<string | null>
   extractAddCode: (text: string) => string | null
   submitManual: Action<[string], Promise<void>>
+  // Validates a *scanned* code against the server without running the
+  // WebAuthn ceremony -- a QR decode is not a user gesture, so
+  // `navigator.credentials.create()` must wait for a real click (the
+  // "Создать passkey" button, which then calls `startRegistration`).
+  // Mirrors `submitManual`'s server-validation step but stops at
+  // 'registering' instead of continuing into the ceremony.
+  stageScannedCode: Action<[string], Promise<void>>
   startRegistration: Action<[], Promise<void>>
   pollPendingStatus: Action<[], Promise<void>>
 }
@@ -196,6 +209,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   const token = atom<string | null>(deps.token, 'addDevice.token')
   const mode = atom<AddDeviceMode>('choose', 'addDevice.mode')
   const error = atom<string | null>(null, 'addDevice.error')
+  const ownerName = atom<string | null>(null, 'addDevice.ownerName')
 
   // The just-registered device's own credentialId, captured after a
   // successful register/verify -- used as the login hint once the owner
@@ -320,37 +334,102 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     )
   }
 
-  const startRegistration = action(async () => {
-    error.set(null)
-    const currentToken = token()
-    if (!currentToken) {
-      error.set('Отсутствует код приглашения')
-      return
-    }
-
+  // Shared by `startRegistration` and `stageScannedCode` -- fetches and
+  // validates the registration options for `currentToken` WITHOUT running
+  // the WebAuthn ceremony. This is the point where the server actually
+  // confirms a code is real (`lookupAddToken`/`checkLive` reject an
+  // unknown/expired/exhausted token here with the same generic
+  // AddTokenInvalidError either way -- there's no server-side signal to
+  // distinguish "invalid" from "expired", so both surface identically).
+  async function fetchRegistrationOptions(
+    currentToken: string,
+  ): Promise<AddDeviceError | PublicKeyCredentialCreationOptionsJSON> {
     const optionsResult = await wrap(
       postJson(deps.fetchImpl, '/api/auth/devices/register/options', { token: currentToken }),
     )
-    if (optionsResult instanceof Error) {
-      error.set(optionsResult.message)
-      return
-    }
+    if (optionsResult instanceof Error) return optionsResult
     if (optionsResult.status !== 200) {
-      error.set(`Не удалось получить параметры регистрации (код ${optionsResult.status})`)
-      return
+      return new AddDeviceError({
+        reason: `не удалось получить параметры регистрации (код ${optionsResult.status})`,
+      })
     }
 
     const { options } = optionsResult.body as {
       options: PublicKeyCredentialCreationOptionsJSON
     }
+    return options
+  }
+
+  // `options.user` is required by the real `PublicKeyCredentialCreationOptionsJSON`
+  // shape (the server always sends it, see postDeviceRegisterOptions), but
+  // read defensively via a widened cast rather than assuming it on the
+  // exact type -- keeps this tolerant of minimal test fixtures that omit it.
+  function readOwnerDisplayName(options: PublicKeyCredentialCreationOptionsJSON): string | null {
+    return (options as { user?: { displayName?: string } }).user?.displayName ?? null
+  }
+
+  // Validates a *scanned* code against the server without running the
+  // ceremony -- see the `AddDeviceModel.stageScannedCode` doc comment. Takes
+  // the raw decoded QR text (same shared `extractAddCode` as `submitManual`
+  // and the manual field's paste handler -- "one implementation, three
+  // entry points"). A frame that decodes to something unrelated (any other
+  // QR code the camera happens to see) is silently ignored rather than
+  // surfaced as an error, matching the scanner's own prior behavior.
+  const stageScannedCode = action(async (rawText: string) => {
+    const code = extractAddCode(rawText)
+    if (!code) return
+
+    error.set(null)
+    token.set(code)
+
+    const optionsOrError = await wrap(fetchRegistrationOptions(code))
+    if (optionsOrError instanceof Error) {
+      error.set(optionsOrError.message)
+      // Recoverable: land on the manual-entry screen (design panel 4(c1))
+      // rather than stranding the user on 'registering' with no way back.
+      mode.set('manual')
+      return
+    }
+
+    ownerName.set(readOwnerDisplayName(optionsOrError))
+    mode.set('registering')
+  }, 'addDevice.stageScannedCode')
+
+  const startRegistration = action(async () => {
+    error.set(null)
+    const currentToken = token()
+    if (!currentToken) {
+      error.set('Отсутствует код приглашения')
+      mode.set('manual')
+      return
+    }
+
+    const optionsOrError = await wrap(fetchRegistrationOptions(currentToken))
+    if (optionsOrError instanceof Error) {
+      error.set(optionsOrError.message)
+      // Recoverable -- only reachable once the server has actually
+      // confirmed (or, here, rejected) the token; never leave `mode` on
+      // 'registering' past this point without a corresponding success.
+      mode.set('manual')
+      return
+    }
+
+    ownerName.set(readOwnerDisplayName(optionsOrError))
+    // Only now -- once the server has confirmed the token is real -- do we
+    // move to 'registering' (design panel 4(d1)/(d2)). Doing this any
+    // earlier (e.g. from `submitManual` before this fetch resolves) is
+    // exactly the bug this replaced: a well-formed-but-server-rejected code
+    // would otherwise strand the user on 'registering' with no recovery.
+    mode.set('registering')
 
     const attestationResponse = await wrap(
       deps
-        .startRegistrationCeremony({ optionsJSON: options })
+        .startRegistrationCeremony({ optionsJSON: optionsOrError })
         .catch((cause) => new AddDeviceError({ reason: 'сбой процедуры регистрации', cause })),
     )
     if (attestationResponse instanceof Error) {
       error.set(attestationResponse.message)
+      mode.set('manual')
       return
     }
 
@@ -362,10 +441,12 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     )
     if (verifyResult instanceof Error) {
       error.set(verifyResult.message)
+      mode.set('manual')
       return
     }
     if (verifyResult.status !== 200) {
       error.set(`Не удалось подтвердить регистрацию (код ${verifyResult.status})`)
+      mode.set('manual')
       return
     }
 
@@ -384,12 +465,9 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     }
 
     token.set(code)
-    mode.set('registering')
-    // Wrapped even though nothing currently follows this await -- matches
-    // this codebase's established convention for "action calling another
-    // action" (see account/model/add-device-model.ts's
-    // `await wrap(deps.accountModel.approve(...))`), so a future edit adding
-    // logic after this line doesn't silently reintroduce a frame-escape bug.
+    // `mode` deliberately stays untouched here -- `startRegistration` itself
+    // only moves to 'registering' once the server has confirmed the token
+    // (see its own comment), and falls back to 'manual' on any failure.
     await wrap(startRegistration())
   }, 'addDevice.submitManual')
 
@@ -397,8 +475,10 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     token,
     mode,
     error,
+    ownerName,
     extractAddCode,
     submitManual,
+    stageScannedCode,
     startRegistration,
     pollPendingStatus,
   }
