@@ -1,8 +1,9 @@
 # WebAuthn Gate Enforcement (Plan 3) Design
 
 **Date:** 2026-07-07
-**Status:** Approved — revised 2026-07-08 (3.2–3.4: `unauthorizedHandlerAtom`
-→ `makeHostRuntime` composition root)
+**Status:** Approved — revised 2026-07-08 (`unauthorizedHandlerAtom` →
+`makeHostRuntime` composition root; raw ky adoption → owned
+`HttpClient`/`EventStream` ports in `@shared/http`, ky as adapter detail)
 **Parent spec:** [2026-07-05-device-invite-webauthn-gate-design.md](./2026-07-05-device-invite-webauthn-gate-design.md)
 
 ## Goal
@@ -18,8 +19,8 @@ end to end:
 - Rate limiting (nginx `limit_req`).
 - Server-side CSRF check of `X-Requested-With`.
 - Audit logging of auth events to stdout.
-- Silent re-login on 401 in the widget-runtime HTTP backend (via ky) + SSE
-  re-auth + logout purge of local data.
+- Silent re-login on 401 in the widget-runtime HTTP backend (via the shared
+  `HttpClient` port) + SSE re-auth + logout purge of local data.
 - The five missing ops scripts.
 - Gate tests (nginx suite) and gated e2e.
 
@@ -35,16 +36,17 @@ end to end:
   up cloudflared/DNS themselves.
 - **Audit logs go to stdout** (structured JSON lines, read via
   `docker compose logs server`). No Valkey audit stream.
-- **Adopt ky** (sindresorhus/ky) as the HTTP client in the widget-runtime
-  storage backend, using its hooks for the 401 re-login retry and the CSRF
-  header, and its Zod-validating `.json(schema)`. The client's `devices-http`
-  stays on plain `fetch` with a direct `ensureSession` retry (one retry does
-  not justify the dependency). The 401 handler reaches widget-runtime as a
-  `makeHostRuntime` option at each host's composition root — no global
-  handler slot — see 3.2.
-  **Future work (explicitly out of Plan 3):** migrate the rest of the app
-  (activation app, `devices-http`, `http-time`, remaining `fetch` call sites)
-  to ky in a later app-wide refactor.
+- **Own transport ports in `packages/shared/http/`** (2026-07-08 revision —
+  supersedes "adopt ky as the HTTP client interface"). An `HttpClient` class
+  (`new HttpClient({ baseUrl, onRequest, onResponse })`) with errore-value
+  semantics wraps ky as a swappable implementation detail; an `EventStream`
+  port wraps `EventSource`. Every hand-rolled fetch layer migrates to the
+  ports **in this plan**: widget-runtime (`http-storage`, `widget-api`,
+  `http-time`, SSE subscribe), the client's `devices-http` and the new
+  relogin model, and the activation app's two `postJson` copies. `typeof
+  fetch` survives only inside the adapter. The 401 handler reaches
+  widget-runtime as a `makeHostRuntime` option at each host's composition
+  root — no global handler slot — see 3.2–3.4.
 
 ## Non-goals
 
@@ -130,7 +132,7 @@ Everything else on the parent spec's hardening list already shipped in
 Plans 1–2: per-invite/per-code failed-attempt locks, immediate revocation in
 `verifySession`, `__Host-` cookies, sign-counter clone detection.
 
-## 3. Client: silent re-login, SSE, logout
+## 3. Client: transport ports, silent re-login, SSE, logout
 
 ### 3.1 `packages/client/src/session/model/relogin.ts` — all logic, pure Reatom
 
@@ -143,15 +145,120 @@ Reatom action `ensureSession(): Promise<boolean>`:
 - Chain: **probe** `GET /api/auth/session`. `200` → return `true` with no
   ceremony (session is alive; the failure was not auth). `401` → ceremony:
   `POST /api/auth/login/options` → `navigator.credentials.get()` →
-  `POST /api/auth/login/verify` → `true`.
-- Any failure or ceremony cancel → `location.assign('/')` (the gate serves
-  activation in login mode) and `false`. `location` is an injected dependency
-  for tests.
+  `POST /api/auth/login/verify` → `true`. The probe and ceremony calls go
+  through the model's **own bare `new HttpClient()`** (no retry hook — the
+  re-login path must never recurse into itself; also keeps the import graph
+  acyclic, see 3.4).
+- Any failure or ceremony cancel → `navigate('/')` (the gate serves
+  activation in login mode) and `false`. `navigate` is an injected
+  dependency (the shared `Navigate` type, 3.2) for tests.
 - The probe buys two properties: SSE can call `ensureSession` on any connect
   error without knowing the status (network blip → probe 200 → no biometric
   prompt), and for HTTP 401s it confirms the failure is session-level.
 
-### 3.2 `makeHostRuntime` in widget-runtime — knows nothing about auth
+### 3.2 `@shared/http` — owned transport ports (ky stays, behind the port)
+
+(2026-07-08 revision — supersedes raw ky adoption. The codebase has four
+independently written fetch/JSON/errore layers: `devices-http.ts`'s
+`request<T>`, two mirrored `postJson`/`getJson` copies in the activation
+models, and the raw `fetch` chains in widget-runtime's `http-storage.ts`,
+`widget-api.ts`, and `http-time.ts` — each threading `fetchImpl: typeof
+fetch` through its API and re-mapping errors by hand. The ports replace all
+of them.)
+
+`packages/shared/http/client.ts`:
+
+```ts
+export type HttpResponse = { status: number; ok: boolean; body: unknown }
+
+export class HttpTransportError extends errore.createTaggedError(/* … */) {}
+
+export type RequestHook = (ctx: HttpRequestContext) => void | Promise<void>
+export type ResponseHook = (
+  ctx: { response: HttpResponse; retryCount: number },
+) => void | 'retry' | Promise<void | 'retry'>
+
+export type HttpClientOptions = {
+  baseUrl?: string
+  onRequest?: RequestHook[]
+  onResponse?: ResponseHook[]
+  fetch?: typeof globalThis.fetch // the ONE legitimate typeof-fetch seam: the adapter
+}
+
+export class HttpClient {
+  constructor(options?: HttpClientOptions) // ky.create inside
+  get(path: string, options?): Promise<HttpTransportError | HttpResponse>
+  post(path: string, options?: { json?: unknown }): Promise<HttpTransportError | HttpResponse>
+  // put / delete / patch — same shape
+}
+
+export function makeUnauthorizedRetryHook(
+  onUnauthorized: () => Promise<boolean>,
+): ResponseHook // 401 && retryCount === 0 && await onUnauthorized() → 'retry'
+```
+
+Semantics:
+
+- **Errors are values.** Only transport failures return `HttpTransportError`:
+  network failure, or a 2xx body that fails JSON parsing. A non-2xx status is
+  a normal `HttpResponse` — domain layers decide what it means (404 → `null`
+  in storage, error-code extraction in `devices-http`).
+- **Non-JSON or empty body on a non-2xx → `body: undefined`**, status
+  preserved. This matters behind the gate: nginx serves bare-bodied 401s,
+  which today's unconditional `res.json()` in `devices-http` would turn into
+  the wrong error class (`DeviceHttpError` instead of a 401 `DeviceApiError`).
+- **Immutable after construction.** Hooks are constructor options, composed
+  at the composition root — no post-construction registration (that would be
+  the `unauthorizedHandlerAtom` disease in instance form).
+- **CSRF built in**: `X-Requested-With: MyBoard` on mutating methods is this
+  server's protocol convention, so the client sets it by default — no
+  per-root hook noise.
+- **`'retry'` from an `onResponse` hook replays the request exactly once**
+  (`retryCount` guards the hook). `json` bodies are plain values,
+  re-serialized per attempt — no body-stream cloning problem, POST included.
+- **ky is the implementation detail** inside the class: baseUrl joining, JSON
+  handling, and the forced-retry mechanics (`afterResponse` → `ky.retry()`).
+  It stays swappable behind the port; its thrown `HTTPError`s are mapped back
+  to values at this single adapter boundary. Automatic retries and ky's
+  default 10 s timeout are **off** — today's semantics must not change
+  silently. Implementation-time check: a test proves the forced retry fires
+  for `POST` (append, subscribe) with auto-retries disabled.
+
+`packages/shared/http/event-stream.ts` — the same treatment for SSE:
+
+```ts
+export type EventStreamMessage = { event?: string; data: string }
+export type EventStream = { close(): void }
+export type OpenEventStream = (
+  url: string,
+  handlers: {
+    onMessage: (message: EventStreamMessage) => void
+    onError?: () => void
+    /** named SSE events to forward besides plain messages, e.g. ['ready'] */
+    events?: string[]
+  },
+) => EventStream
+
+export function makeEventSourceStream(): OpenEventStream // over native EventSource
+```
+
+Reconnection policy stays in consumers; the port only opens/closes and
+delivers. Tests pass a fake `OpenEventStream` — this retires the
+`EventSource` polyfills currently duplicated across three vitest setups.
+
+`packages/shared/navigation.ts`: `export type Navigate = (path: string) =>
+void` — the type the activation models already invented ad hoc
+(`overrides.navigate`); relogin and logout take the same. Implementations
+stay one-liners at composition roots.
+
+New dependency: `ky` (~4 KB, ESM, zero deps), resolved by the packages that
+consume `@shared/http` (exact package.json placement is a plan detail).
+
+Considered and left alone: WebAuthn ceremonies stay injected as
+`@simplewebauthn/browser` functions (the library is already the abstraction);
+Dexie already sits behind the `StorageApi` port.
+
+### 3.3 `makeHostRuntime` in widget-runtime — knows nothing about auth
 
 (2026-07-08 revision — replaces the `unauthorizedHandlerAtom` config atom,
 which itself replaced a `setUnauthorizedHandler` module registry. Both were
@@ -167,8 +274,8 @@ the config deeper in a global slot.)
 export type HostRuntimeOptions = {
   serverBaseUrl?: string                  // default '/api/storage'
   onUnauthorized?: () => Promise<boolean> // board: ensureSession; harnesses: absent
-  fetch?: typeof globalThis.fetch         // test seam
-  eventSource?: typeof EventSource        // test seam
+  http?: HttpClient                       // test seam/override; default built internally
+  openEventStream?: OpenEventStream       // test seam; default makeEventSourceStream()
 }
 
 export type HostRuntime = {
@@ -183,58 +290,41 @@ export type HostRuntime = {
 export function makeHostRuntime(options?: HostRuntimeOptions): HostRuntime
 ```
 
+When `http` is absent the runtime builds its own:
+`new HttpClient({ onResponse: onUnauthorized ? [makeUnauthorizedRetryHook(onUnauthorized)] : [] })`.
+The same `onUnauthorized` drives SSE reconnect (3.5).
+
 One `HostRuntime` per document, built once at the host's composition root
-(3.3). It privately owns the two shared transport resources — **one ky
-instance** (used by `makeHttpStorage` for all methods and by the SSE
-subscribe `POST /events/:connId`) and **one SSE manager**. The module-level
-`getSseManager` map and the free `makeWidgetStorage` / `makeScopedStorage` /
-`makeWidgetApi` package exports are deleted: the factories exist only on the
-runtime, so no ambient path around the composition root remains. Building two
-runtimes opens two SSE connections — legitimate only in tests; hosts build
-exactly one.
+(3.4). It privately owns the two shared transport resources — **one
+`HttpClient`** (used by `makeHttpStorage` for all methods, `makeWidgetApi`,
+`fetchServerTime`, and the SSE subscribe `POST /events/:connId`) and **one
+SSE manager**. The module-level `getSseManager` map and the free
+`makeWidgetStorage` / `makeScopedStorage` / `makeWidgetApi` package exports
+are deleted: the factories exist only on the runtime, so no ambient path
+around the composition root remains. Building two runtimes opens two SSE
+connections — legitimate only in tests; hosts build exactly one.
 
-`makeWidgetApi` keeps its plain-`fetch` implementation (the runtime's
-injected `fetch`), gains the CSRF header, and on a 401 awaits the runtime's
-`onUnauthorized` and retries once — the same policy the ky hook applies
-below.
+Below the client, **no 401 code exists at all** — the retry hook handles it:
 
-The ky instance:
+- `makeHttpStorage`: `http.get/put/delete/post` → `HttpTransportError` →
+  `StorageError` with `cause`; `status === 404` → `null`/`false`; other
+  non-ok → `StorageError` with the status; `body.value` through the existing
+  `parseValue` (Zod). No try/catch, no error-mapping chains.
+- `makeWidgetApi`: drops its `fetch` option and hand-rolled headers; parses
+  its `{ data } / { error }` envelope from `HttpResponse.body`.
+- `fetchServerTime` (`http-time.ts`): same port, keeps its `TimeError`
+  mapping.
 
-- `throwHttpErrors` stays **on** (ky default). `makeHttpStorage` moves to
-  ky-idiomatic chains with **no try/catch** — errors map to errore values in
-  a single `.catch()` point:
-
-  ```ts
-  const body = await http.get(keyUrl(fullKey))
-    .json(z.object({ value: schema ?? z.unknown() }))
-    .catch(mapStorageError)
-  ```
-
-  `mapStorageError`: `HTTPError` 404 → `null` (for `get`/`has`), other
-  `HTTPError` → `StorageError` with the status, `SchemaValidationError` →
-  `StorageError` with the Zod issues (free response validation — today only
-  `body.value` is checked), network errors → `StorageError` with `cause`.
-- `hooks.beforeRequest`: sets `X-Requested-With: MyBoard` on mutating methods.
-- `hooks.afterResponse`: on `401` with an `onUnauthorized` configured and
-  `retryCount === 0` → `await onUnauthorized()`; `true` → `return ky.retry(...)`
-  (exactly one forced retry); `false` or no handler → the 401 flows through.
-  `afterResponse` runs before `HTTPError` is thrown, so this works with
-  `throwHttpErrors` on.
-- **Automatic retries are disabled** (ky defaults to 2 retries on 408/429/5xx
-  for idempotent methods): today's storage semantics have no retries and must
-  not change silently. Only the forced `ky.retry` path is used.
-  Implementation-time check: a test must prove the forced retry fires with
-  auto-retries disabled and for `POST` (append, subscribe) — ky auto-retries
-  skip POST, but the `afterResponse` force path is method-independent.
-
-New dependency: `ky` (~4 KB, ESM, zero deps) in `widget-runtime` only.
-
-### 3.3 Composition roots
+### 3.4 Composition roots
 
 The board's is one module:
 
 ```ts
 // packages/client/src/runtime.ts
+export const http = new HttpClient({
+  onResponse: [makeUnauthorizedRetryHook(() => ensureSession())],
+}) // devices-http and other board HTTP
+
 export const hostRuntime = makeHostRuntime({
   onUnauthorized: () => ensureSession(),
 })
@@ -246,35 +336,64 @@ export const hostRuntime = makeHostRuntime({
   `rootStorage = hostRuntime.makeScopedStorage('root')`.
 - Standalone widget harnesses build their own bare `makeHostRuntime()`: no
   handler, 401s flow through unchanged, nothing auth-shaped exists there.
+- The activation app's root builds one bare `new HttpClient()` for its two
+  models — no retry hook: activation **is** the login surface.
 
 No bootstrap mutation and no init-order requirement: the binding is
-declarative at module init and the call is lazy (`() => ensureSession()`
-also keeps the import graph acyclic — `relogin.ts` does not import the
-runtime module).
+declarative at module init and the calls are lazy. `relogin.ts` constructs
+its own bare `HttpClient` (3.1) rather than importing one from `runtime.ts`,
+which keeps the import graph acyclic: `runtime.ts` → `relogin.ts`, never
+back.
 
-### 3.4 SSE reconnect (`sse-client.ts`)
+### 3.5 SSE reconnect (`sse-client.ts`)
 
-On an `EventSource` `error`, before the next reconnect attempt: the manager
-closes over its runtime's `onUnauthorized` — if present, `await
-onUnauthorized()` (the probe inside distinguishes network from session), then
-reconnect on the existing backoff. Mid-stream expiry heals on the next reconnect, exactly as the parent
-spec requires. The client-side auth SSE (device A) reuses the same approach
-with a direct `ensureSession` import.
+The manager opens its stream through the runtime's `OpenEventStream` port.
+On the stream's `onError`, before the next reconnect attempt: if the
+runtime has an `onUnauthorized` — `await onUnauthorized()` (the probe inside
+distinguishes network from session), then reconnect on the existing backoff.
+Mid-stream expiry heals on the next reconnect, exactly as the parent spec
+requires. The client-side auth SSE (device A) consumes the same
+`OpenEventStream` port with a direct `ensureSession` import.
 
-### 3.5 `devices-http.ts` (client)
+### 3.6 `devices-http.ts` (client)
 
-Stays on plain `fetch` (no ky in the client — one retry does not justify the
-dependency): on a 401 response it awaits a direct `ensureSession` import and
-retries the request once.
+The hand-rolled `request<T>` helper and its `fetchImpl: typeof fetch`
+threading (ten exported functions, dozens of `as unknown as typeof fetch`
+test casts) collapse onto the port: functions take `http: HttpClient` (the
+board's retry-hooked instance from 3.4), so the previously planned manual
+`ensureSession`-and-retry code disappears here entirely. `DeviceHttpError`
+maps from `HttpTransportError`; `DeviceApiError` from non-2xx statuses —
+now robust to bare-bodied nginx 401s (3.2). Exception: `logout()` goes
+through a bare client — a dead session is already logged out; prompting a
+WebAuthn ceremony in order to log out would be absurd.
 
-### 3.6 Logout (account model)
+### 3.7 Activation models
+
+`activation-model.ts` and `add-device-model.ts` drop their duplicated
+`postJson`/`getJson`/`JsonResult` helpers and their `fetchImpl: typeof
+fetch` deps for `http: HttpClient` (the bare instance from 3.4). `navigate`
+switches to the shared `Navigate` type. WebAuthn ceremony injection stays
+as is. Tests hand in a fake port object (`{ status, ok, body }` values)
+instead of `Response` mocks behind `as unknown as typeof fetch`.
+
+### 3.8 Logout (account model)
 
 `logout()`: `POST /api/auth/logout` → `purgeLocalData()` (new widget-runtime
 storage export — deletes its Dexie databases; `client/db.ts` knows the names)
 → delete all Cache Storage caches → unregister all service workers →
-`location.assign('/')`. Order matters: server-side invalidation first, so a
+`navigate('/')`. Order matters: server-side invalidation first, so a
 failed purge cannot leave a live session. `mb_cred_hint` in localStorage is
 kept — a non-secret hint that speeds up return login.
+
+### 3.9 BroadcastChannel port (last task, cuttable)
+
+`storage/client/channel.ts`'s module-singleton `BroadcastChannel` shows the
+same missing-port symptom: a `FakeBroadcastChannel` + `vi.stubGlobal` in
+widget-runtime tests and jsdom polyfills duplicated across two vitest
+setups. A small broadcast port owned by `makeHostRuntime` (option with a
+native-`BroadcastChannel` default) retires the global fakes. Purely internal
+to widget-runtime and independent of the gate — scheduled last so it can be
+cut without touching anything else in this plan.
 
 ## 4. Ops scripts and infrastructure
 
@@ -323,21 +442,30 @@ event fires through an injected sink as a JSON line; tokens/challenges never
 leak into output. Ops scripts: device revocation kills its sessions,
 `revoke-account` cascades, `mint-add-device-token` yields a valid code.
 
+**shared http unit.** `HttpClient`: errore semantics (network →
+`HttpTransportError`; non-2xx → value; non-JSON body on a non-2xx →
+`body: undefined` with status preserved; broken JSON on a 2xx → error);
+CSRF header on mutating methods only; `makeUnauthorizedRetryHook` → exactly
+one forced retry including `POST`, no retry when the handler returns
+`false` or is absent; ky auto-retries and timeout stay off. Event stream:
+named events forwarded, `close()` stops delivery.
+
 **widget-runtime unit.** Each test builds its own
-`makeHostRuntime({ onUnauthorized: stub, fetch: fetchMock, eventSource: FakeEventSource })`
+`makeHostRuntime({ http: fakeHttpClient, onUnauthorized: stub, openEventStream: fakeStream })`
 — isolation by construction, no global set/reset and no `vi.stubGlobal`.
-Cases: 401 → `onUnauthorized` → exactly one forced retry (including `POST`
-append/subscribe and the plain-`fetch` `makeWidgetApi` path); no handler →
-401 flows through; auto-retries disabled; `X-Requested-With` on mutations;
-`.json(schema)` error mapping (404 → `null`, `SchemaValidationError` →
-`StorageError` with issues, network → `StorageError` with cause). SSE:
-connect error → handler → reconnect. `purgeLocalData` deletes the Dexie
-databases.
+Cases: storage mapping over the port (404 → `null`/`false`, transport error
+→ `StorageError` with cause, other non-ok → `StorageError` with status,
+`body.value` Zod-validated); `makeWidgetApi` envelope parsing over
+`HttpResponse.body`; the default internal client wires
+`makeUnauthorizedRetryHook(onUnauthorized)`. SSE: connect error → handler →
+reconnect. `purgeLocalData` deletes the Dexie databases.
 
 **Client unit.** Relogin model: single-flight (N parallel calls → one
 ceremony), probe-200 → no ceremony, probe-401 → ceremony → `true`, failure →
-redirect (injected `location`). Logout: server → purge → caches → SW →
-redirect order on fakes. `devices-http`: retry on 401.
+redirect (injected `Navigate`). Logout: server → purge → caches → SW →
+redirect order on fakes; logout uses the bare client. `devices-http` and the
+activation models: fake `HttpClient` ports instead of `Response` mocks; a
+bare-bodied 401 maps to `DeviceApiError`, not a transport error.
 
 **nginx suite (`test:e2e:nginx`).** No cookie: `/` → 401 with activation HTML;
 `/assets/*.js`, `/widgets/*/remoteEntry.js`, `/api/storage/*` → bare 401
@@ -365,10 +493,11 @@ stack).**
 
 1. **Server hardening + ops scripts** — gate-independent: CSRF guard, audit
    log, the five scripts, unit tests.
-2. **Client resilience** — `makeHostRuntime` (ky) in widget-runtime, the
-   board/harness composition roots, `devices-http` retry, relogin model, SSE
-   re-auth, logout purge. Dormant until 401s actually happen; fully
-   unit-tested.
+2. **Client resilience** — the `@shared/http` ports (`HttpClient` over ky,
+   `EventStream`), `makeHostRuntime` in widget-runtime, the
+   board/harness/activation composition roots, `devices-http` and activation
+   migration to the ports, relogin model, SSE re-auth, logout purge. Dormant
+   until 401s actually happen; fully unit-tested.
 3. **The gate** — nginx `auth_request` + allowlist + `error_page 401` +
    `limit_req`, compose env, `rpi.toml`, nginx suite. The door closes here.
 4. **Gated e2e + docs** — the journeys above; deployment doc.
