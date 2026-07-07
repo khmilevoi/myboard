@@ -588,6 +588,60 @@ describe('postDeviceRegisterVerify', () => {
     expect(result.status).toBe(422)
     expect(verifyRegistration).not.toHaveBeenCalled()
   })
+
+  it('under a concurrent race with the same still-live code, creates exactly one device and cleanly rejects the loser', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
+
+    const deps: AuthDeps = { ops, config, now: clock.now }
+    // Each concurrent request completed its own separate register/options ->
+    // challenge -> ceremony ahead of time, so each carries its own challenge
+    // cookie while sharing the same still-live add-device code.
+    const challengeCookieA = await beginDeviceRegister(deps, code)
+    const challengeCookieB = await beginDeviceRegister(deps, code)
+
+    vi.mocked(verifyRegistration).mockImplementation(async (_config, params) => {
+      const id = (params.response as unknown as { id: string }).id
+      return { credentialId: id, publicKey: `pk-${id}`, signCount: 0 }
+    })
+
+    const reqA = fakeReq(
+      { token: code, attestationResponse: { id: 'cred-race-a' } },
+      { cookie: challengeCookieA },
+    )
+    const reqB = fakeReq(
+      { token: code, attestationResponse: { id: 'cred-race-b' } },
+      { cookie: challengeCookieB },
+    )
+
+    const [resultA, resultB] = await Promise.all([
+      postDeviceRegisterVerify(deps, reqA),
+      postDeviceRegisterVerify(deps, reqB),
+    ])
+
+    const results = [resultA, resultB]
+    const successes = results.filter((r) => r.status === 200)
+    const failures = results.filter((r) => r.status !== 200)
+
+    expect(successes).toHaveLength(1)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toEqual({ status: 400, body: { code: 'add_token_invalid' } })
+
+    const deviceIds = await listAccountDeviceIds(ops, account.id)
+    expect(deviceIds).toHaveLength(1)
+
+    const winnerCredentialId = (successes[0].body as { credentialId: string }).credentialId
+    const loserCredentialId = winnerCredentialId === 'cred-race-a' ? 'cred-race-b' : 'cred-race-a'
+
+    const winnerDevice = await getDevice(ops, winnerCredentialId)
+    expect(winnerDevice).not.toBeInstanceOf(Error)
+
+    const loserDevice = await getDevice(ops, loserCredentialId)
+    expect(loserDevice).toBeInstanceOf(Error)
+  })
 })
 
 describe('getAccountInfo', () => {

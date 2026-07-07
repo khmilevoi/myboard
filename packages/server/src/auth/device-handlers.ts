@@ -213,6 +213,15 @@ export async function postDeviceRegisterVerify(
   if (addToken instanceof Error) return fail(addToken)
   if (addToken.accountId !== challenge.accountId) return fail(new AddTokenInvalidError())
 
+  // Consume the add-token now, before creating any device records. consumeAddToken
+  // is runExclusive-protected per code and atomically deletes the record on
+  // success, so two concurrent verify requests carrying the same still-live code
+  // can no longer both pass this point: only the winner proceeds to
+  // addDeviceToAccount/storeDevice below, and the loser fails cleanly here with
+  // no orphaned device row, preserving the code's single-use guarantee.
+  const consumed = await consumeAddToken(deps.ops, deps.now, token)
+  if (consumed instanceof Error) return fail(consumed)
+
   // Runs before storeDevice so a device-limit failure (defensive; unreachable
   // while countsAgainstLimit is false here) leaves no orphaned device record
   // behind, mirroring postRegisterVerify.
@@ -236,9 +245,6 @@ export async function postDeviceRegisterVerify(
     status: 'pending',
     addedVia: 'add-token',
   })
-
-  const consumed = await consumeAddToken(deps.ops, deps.now, token)
-  if (consumed instanceof Error) return fail(consumed)
 
   const { cookie } = await issuePendingTicket(deps.ops, deps.config, deps.now, {
     credentialId: verified.credentialId,
