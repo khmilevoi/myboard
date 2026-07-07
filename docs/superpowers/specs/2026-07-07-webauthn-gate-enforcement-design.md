@@ -1,7 +1,8 @@
 # WebAuthn Gate Enforcement (Plan 3) Design
 
 **Date:** 2026-07-07
-**Status:** Approved
+**Status:** Approved — revised 2026-07-08 (3.2–3.4: `unauthorizedHandlerAtom`
+→ `makeHostRuntime` composition root)
 **Parent spec:** [2026-07-05-device-invite-webauthn-gate-design.md](./2026-07-05-device-invite-webauthn-gate-design.md)
 
 ## Goal
@@ -38,8 +39,9 @@ end to end:
   storage backend, using its hooks for the 401 re-login retry and the CSRF
   header, and its Zod-validating `.json(schema)`. The client's `devices-http`
   stays on plain `fetch` with a direct `ensureSession` retry (one retry does
-  not justify the dependency). The 401 handler slot is a Reatom config atom
-  (`unauthorizedHandlerAtom`), not a module setter — see 3.2.
+  not justify the dependency). The 401 handler reaches widget-runtime as a
+  `makeHostRuntime` option at each host's composition root — no global
+  handler slot — see 3.2.
   **Future work (explicitly out of Plan 3):** migrate the rest of the app
   (activation app, `devices-http`, `http-time`, remaining `fetch` call sites)
   to ky in a later app-wide refactor.
@@ -149,11 +151,54 @@ Reatom action `ensureSession(): Promise<boolean>`:
   error without knowing the status (network blip → probe 200 → no biometric
   prompt), and for HTTP 401s it confirms the failure is session-level.
 
-### 3.2 ky instance in widget-runtime — knows nothing about auth
+### 3.2 `makeHostRuntime` in widget-runtime — knows nothing about auth
 
-`packages/widget-runtime/src/storage/server/http.ts` exports a `ky.create`
-instance used by `makeHttpStorage` (all methods) and the SSE subscribe
-`POST /events/:connId`:
+(2026-07-08 revision — replaces the `unauthorizedHandlerAtom` config atom,
+which itself replaced a `setUnauthorizedHandler` module registry. Both were
+global mutable state papering over a missing composition root: the SSE
+manager was a lazily-created module singleton — `getSseManager`'s
+module-level map — so a per-call `onUnauthorized` option would have degraded
+to first-caller-wins. The fix is to make construction explicit, not to hide
+the config deeper in a global slot.)
+
+`packages/widget-runtime/src/host-runtime.ts`:
+
+```ts
+export type HostRuntimeOptions = {
+  serverBaseUrl?: string                  // default '/api/storage'
+  onUnauthorized?: () => Promise<boolean> // board: ensureSession; harnesses: absent
+  fetch?: typeof globalThis.fetch         // test seam
+  eventSource?: typeof EventSource        // test seam
+}
+
+export type HostRuntime = {
+  makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage
+  makeScopedStorage(scope: string): ScopedStorage
+  makeWidgetApi<Events extends WidgetEventMap>(options: {
+    instanceId: string
+    typeId: string
+  }): WidgetApi<Events, WidgetApiError>
+}
+
+export function makeHostRuntime(options?: HostRuntimeOptions): HostRuntime
+```
+
+One `HostRuntime` per document, built once at the host's composition root
+(3.3). It privately owns the two shared transport resources — **one ky
+instance** (used by `makeHttpStorage` for all methods and by the SSE
+subscribe `POST /events/:connId`) and **one SSE manager**. The module-level
+`getSseManager` map and the free `makeWidgetStorage` / `makeScopedStorage` /
+`makeWidgetApi` package exports are deleted: the factories exist only on the
+runtime, so no ambient path around the composition root remains. Building two
+runtimes opens two SSE connections — legitimate only in tests; hosts build
+exactly one.
+
+`makeWidgetApi` keeps its plain-`fetch` implementation (the runtime's
+injected `fetch`), gains the CSRF header, and on a 401 awaits the runtime's
+`onUnauthorized` and retries once — the same policy the ky hook applies
+below.
+
+The ky instance:
 
 - `throwHttpErrors` stays **on** (ky default). `makeHttpStorage` moves to
   ky-idiomatic chains with **no try/catch** — errors map to errore values in
@@ -170,8 +215,8 @@ instance used by `makeHttpStorage` (all methods) and the SSE subscribe
   `StorageError` with the Zod issues (free response validation — today only
   `body.value` is checked), network errors → `StorageError` with `cause`.
 - `hooks.beforeRequest`: sets `X-Requested-With: MyBoard` on mutating methods.
-- `hooks.afterResponse`: on `401` with a registered handler and
-  `retryCount === 0` → `await handler()`; `true` → `return ky.retry(...)`
+- `hooks.afterResponse`: on `401` with an `onUnauthorized` configured and
+  `retryCount === 0` → `await onUnauthorized()`; `true` → `return ky.retry(...)`
   (exactly one forced retry); `false` or no handler → the 401 flows through.
   `afterResponse` runs before `HTTPError` is thrown, so this works with
   `throwHttpErrors` on.
@@ -182,43 +227,37 @@ instance used by `makeHttpStorage` (all methods) and the SSE subscribe
   auto-retries disabled and for `POST` (append, subscribe) — ky auto-retries
   skip POST, but the `afterResponse` force path is method-independent.
 
-The handler slot is a **Reatom config atom** exported next to the instance
-(2026-07-07 revision — replaces the earlier `setUnauthorizedHandler` module
-registry, rejected as hidden mutable module state):
-
-```ts
-export const unauthorizedHandlerAtom = atom<null | (() => Promise<boolean>)>(
-  null,
-  'http.unauthorizedHandler',
-)
-```
-
-Process-wide config expressed as process-wide state: Reatom is already a hard
-dependency and federation singleton of widget-runtime, reading the atom from
-non-reactive spots (the ky hook) is well-defined in v1001 (global context),
-tests set/reset it like any state, and future UI (a "session lost" indicator)
-can subscribe to it. Alternatives rejected: threading an `onUnauthorized`
-option through `makeWidgetStorage`/`makeWidgetApi`/`getSseManager` degrades to
-first-caller-wins at the SSE singleton anyway (false explicitness); an event
-emitter cannot return the required `Promise<boolean>` without reinventing
-`respondWith`; a reactive auth-state machine hangs in standalone harnesses
-where no effect answers the `recovering` state.
-
 New dependency: `ky` (~4 KB, ESM, zero deps) in `widget-runtime` only.
 
-### 3.3 Board bootstrap
+### 3.3 Composition roots
 
-One line at board-shell startup:
-`unauthorizedHandlerAtom.set(() => ensureSession())`. Standalone widget
-harnesses touch nothing — the atom stays `null` and 401s flow through
-unchanged.
+The board's is one module:
+
+```ts
+// packages/client/src/runtime.ts
+export const hostRuntime = makeHostRuntime({
+  onUnauthorized: () => ensureSession(),
+})
+```
+
+- `WidgetFrame` calls `hostRuntime.makeWidgetStorage` / `.makeWidgetApi`
+  instead of the deleted free factories.
+- `board/model/storage.ts`:
+  `rootStorage = hostRuntime.makeScopedStorage('root')`.
+- Standalone widget harnesses build their own bare `makeHostRuntime()`: no
+  handler, 401s flow through unchanged, nothing auth-shaped exists there.
+
+No bootstrap mutation and no init-order requirement: the binding is
+declarative at module init and the call is lazy (`() => ensureSession()`
+also keeps the import graph acyclic — `relogin.ts` does not import the
+runtime module).
 
 ### 3.4 SSE reconnect (`sse-client.ts`)
 
-On an `EventSource` `error`, before the next reconnect attempt: if
-`unauthorizedHandlerAtom` holds a handler — `await handler()` (the probe
-inside distinguishes network from session), then reconnect on the existing
-backoff. Mid-stream expiry heals on the next reconnect, exactly as the parent
+On an `EventSource` `error`, before the next reconnect attempt: the manager
+closes over its runtime's `onUnauthorized` — if present, `await
+onUnauthorized()` (the probe inside distinguishes network from session), then
+reconnect on the existing backoff. Mid-stream expiry heals on the next reconnect, exactly as the parent
 spec requires. The client-side auth SSE (device A) reuses the same approach
 with a direct `ensureSession` import.
 
@@ -284,12 +323,16 @@ event fires through an injected sink as a JSON line; tokens/challenges never
 leak into output. Ops scripts: device revocation kills its sessions,
 `revoke-account` cascades, `mint-add-device-token` yields a valid code.
 
-**widget-runtime unit.** ky instance: 401 → handler → exactly one forced retry
-(including `POST` append/subscribe); no handler → 401 flows through;
-auto-retries disabled; `X-Requested-With` on mutations; `.json(schema)` error
-mapping (404 → `null`, `SchemaValidationError` → `StorageError` with issues,
-network → `StorageError` with cause). SSE: connect error → handler →
-reconnect. `purgeLocalData` deletes the Dexie databases.
+**widget-runtime unit.** Each test builds its own
+`makeHostRuntime({ onUnauthorized: stub, fetch: fetchMock, eventSource: FakeEventSource })`
+— isolation by construction, no global set/reset and no `vi.stubGlobal`.
+Cases: 401 → `onUnauthorized` → exactly one forced retry (including `POST`
+append/subscribe and the plain-`fetch` `makeWidgetApi` path); no handler →
+401 flows through; auto-retries disabled; `X-Requested-With` on mutations;
+`.json(schema)` error mapping (404 → `null`, `SchemaValidationError` →
+`StorageError` with issues, network → `StorageError` with cause). SSE:
+connect error → handler → reconnect. `purgeLocalData` deletes the Dexie
+databases.
 
 **Client unit.** Relogin model: single-flight (N parallel calls → one
 ceremony), probe-200 → no ceremony, probe-401 → ceremony → `true`, failure →
@@ -322,9 +365,10 @@ stack).**
 
 1. **Server hardening + ops scripts** — gate-independent: CSRF guard, audit
    log, the five scripts, unit tests.
-2. **Client resilience** — ky in widget-runtime + `devices-http`, relogin
-   model, SSE re-auth, logout purge. Dormant until 401s actually happen;
-   fully unit-tested.
+2. **Client resilience** — `makeHostRuntime` (ky) in widget-runtime, the
+   board/harness composition roots, `devices-http` retry, relogin model, SSE
+   re-auth, logout purge. Dormant until 401s actually happen; fully
+   unit-tested.
 3. **The gate** — nginx `auth_request` + allowlist + `error_page 401` +
    `limit_req`, compose env, `rpi.toml`, nginx suite. The door closes here.
 4. **Gated e2e + docs** — the journeys above; deployment doc.
