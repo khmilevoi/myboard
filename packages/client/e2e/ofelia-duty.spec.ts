@@ -72,6 +72,7 @@ test('Простить — decrements an existing debt', async ({ page, request 
   // (2026-06-16) stays pending — the secondary row, and thus "Простить", only
   // renders while status is pending.
   await request.put(LEDGER_URL, {
+    headers: { 'X-Requested-With': 'MyBoard' },
     data: {
       value: [
         {
