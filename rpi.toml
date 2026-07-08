@@ -25,3 +25,9 @@ timeout = "60s"
 # observed headroom when this pipeline changes.
 [timeouts]
 build = "30m"
+
+# create-invite needs Node + VALKEY_URL/PUBLIC_APP_URL, which only exist in the
+# server container; ingress.service (client) is a bare nginx image.
+[commands.create-invite]
+run = "node dist/scripts/create-invite.cjs"
+service = "server"
