@@ -102,7 +102,7 @@ export function toAuthResult(err: Error): AuthResult {
   return { status: 500, body: { code: 'internal_error' } }
 }
 
-function sessionCookieFor(config: AuthConfig, sessionId: string, maxAgeMs: number): string {
+export function sessionCookieFor(config: AuthConfig, sessionId: string, maxAgeMs: number): string {
   return serializeCookie(config.sessionCookieName, sessionId, {
     maxAgeMs,
     httpOnly: true,

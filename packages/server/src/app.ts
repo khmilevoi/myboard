@@ -5,11 +5,15 @@ import Router from 'find-my-way'
 import { z } from 'zod'
 
 import { registerAuthRoutes } from './auth'
+import { addDeviceToAccount, createAccount } from './auth/accounts'
 import { makeAuditLogger, type AuditLogger } from './auth/audit'
 import type { AuthConfig } from './auth/config'
+import { revokeDevice, storeDevice } from './auth/devices'
+import { sessionCookieFor } from './auth/handlers'
 import { createInvite } from './auth/invites'
 import { authAccountKey } from './auth/records'
 import { isAuthResult, requireSession } from './auth/session-guard'
+import { issueSession } from './auth/sessions'
 import type { BrowserAutomationClient } from './browser/client'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
@@ -52,6 +56,8 @@ const SeedInviteBodySchema = z.object({
   maxUses: z.number().int().positive().optional(),
   label: z.string().optional(),
 })
+
+const RevokeDeviceBodySchema = z.object({ credentialId: z.string().min(1) })
 
 export type TestControls = {
   setNow: (ms: number) => void
@@ -373,6 +379,67 @@ export function createApp(deps: AppDeps): App {
       const appUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:5173'
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ token, activateUrl: `${appUrl}/activate?token=${token}` }))
+    })
+
+    router.on('POST', '/api/test/seed-session', async (_req, res) => {
+      const account = await createAccount(ops, now, { name: 'E2E', inviteId: 'test-seed' })
+      const credentialId = randomUUID()
+      const createdAt = now()
+      await storeDevice(ops, {
+        credentialId,
+        publicKey: 'test-seed',
+        signCount: 0,
+        label: 'e2e seeded',
+        createdAt,
+        lastSeenAt: createdAt,
+        disabled: false,
+        accountId: account.id,
+        status: 'active',
+        addedVia: 'invite',
+      })
+      await addDeviceToAccount(ops, account.id, credentialId, { countsAgainstLimit: false })
+      const session = await issueSession(ops, deps.authConfig, now, {
+        accountId: account.id,
+        credentialId,
+      })
+      res.writeHead(200, {
+        'content-type': 'application/json',
+        'set-cookie': sessionCookieFor(
+          deps.authConfig,
+          session.sessionId,
+          deps.authConfig.sessionTtlSlidingMs,
+        ),
+      })
+      res.end(
+        JSON.stringify({ accountId: account.id, credentialId, sessionId: session.sessionId }),
+      )
+    })
+
+    router.on('POST', '/api/test/expire-sessions', async (_req, res) => {
+      const keys = await ops.scanKeys('session:')
+      for (const key of keys) await ops.del(key)
+      res.writeHead(204)
+      res.end()
+    })
+
+    router.on('POST', '/api/test/revoke-device', async (req, res) => {
+      let raw: unknown
+      try {
+        raw = await readJsonBody(req)
+      } catch {
+        res.writeHead(400)
+        res.end()
+        return
+      }
+      const parsed = RevokeDeviceBodySchema.safeParse(raw)
+      if (!parsed.success) {
+        res.writeHead(422, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(formatZodError(parsed.error)))
+        return
+      }
+      await revokeDevice(ops, parsed.data.credentialId)
+      res.writeHead(204)
+      res.end()
     })
   }
 

@@ -350,6 +350,38 @@ describe('createApp', () => {
     expect(invite).not.toBeInstanceOf(Error)
   })
 
+  it('seed-session issues a working session cookie', async () => {
+    const res = await fetch(`${base}/api/test/seed-session`, { method: 'POST' })
+    expect(res.status).toBe(200)
+    const { accountId, credentialId } = (await res.json()) as {
+      accountId: string
+      credentialId: string
+    }
+    expect(accountId).toBeTruthy()
+
+    const cookie = res.headers.get('set-cookie')!.split(';')[0]
+    const session = await fetch(`${base}/api/auth/session`, { headers: { cookie } })
+    expect(session.status).toBe(200)
+    expect(await session.json()).toEqual({ accountId })
+
+    // expire-sessions kills it
+    await fetch(`${base}/api/test/expire-sessions`, { method: 'POST' })
+    expect((await fetch(`${base}/api/auth/session`, { headers: { cookie } })).status).toBe(401)
+  })
+
+  it('revoke-device cuts a seeded session on the next request', async () => {
+    const res = await fetch(`${base}/api/test/seed-session`, { method: 'POST' })
+    const { credentialId } = (await res.json()) as { credentialId: string }
+    const cookie = res.headers.get('set-cookie')!.split(';')[0]
+
+    await fetch(`${base}/api/test/revoke-device`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ credentialId }),
+    })
+    expect((await fetch(`${base}/api/auth/session`, { headers: { cookie } })).status).toBe(401)
+  })
+
   it('POST /api/test/seed-invite is absent (404) when testControls is undefined', async () => {
     const pubsub = createMemoryPubSub()
     const noControlsOps = createMemoryOps(pubsub)

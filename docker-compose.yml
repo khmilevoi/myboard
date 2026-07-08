@@ -32,6 +32,9 @@ services:
       SESSION_TTL_SLIDING: 30d
       SESSION_TTL_ABSOLUTE: 90d
       TRUST_CF_CONNECTING_IP: '1'
+      # Test seeding/reset endpoints for the nginx e2e suite. NEVER set in
+      # production; empty/absent keeps them disabled.
+      ALLOW_TEST_DB_RESET: ${ALLOW_TEST_DB_RESET:-}
     depends_on:
       valkey:
         condition: service_healthy
