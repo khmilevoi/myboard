@@ -2,10 +2,13 @@ import { expect, test } from '@playwright/test'
 
 import { BoardPage } from './pages/BoardPage.js'
 import { HeaderPage } from './pages/HeaderPage.js'
+import { seedSession } from './support/gate.js'
 
 test('nginx serves remote entries as JavaScript and never falls back for a missing remote', async ({
   request,
 }) => {
+  await seedSession(request)
+
   const remote = await request.get('/widgets/clock/remoteEntry.js')
   expect(remote.status()).toBe(200)
   expect(remote.headers()['content-type']).toContain('javascript')
@@ -18,6 +21,7 @@ test('nginx serves remote entries as JavaScript and never falls back for a missi
 })
 
 test('the production nginx image mounts Clock through the same-origin remote', async ({ page }) => {
+  await seedSession(page.request)
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
   await page.reload()
