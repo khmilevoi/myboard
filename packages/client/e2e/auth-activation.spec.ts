@@ -48,6 +48,7 @@ test('invite activation registers a passkey, reaches the board, and survives rel
   // Re-activating with the now-spent invite token must not allow a second
   // registration: the register/options call reports the invite as consumed.
   const spentOptions = await page.request.post('/api/auth/register/options', {
+    headers: { 'X-Requested-With': 'MyBoard' },
     data: { token },
   })
   expect(spentOptions.status()).toBe(409)

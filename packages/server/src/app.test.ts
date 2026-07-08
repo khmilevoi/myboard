@@ -132,7 +132,7 @@ describe('createApp', () => {
   it('PUT then GET round-trips a stored value', async () => {
     const put = await fetch(`${base}/api/storage/${DEBTS_KEY}`, {
       method: 'PUT',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ value: { count: 1 } }),
     })
     expect(put.status).toBe(204)
@@ -154,17 +154,27 @@ describe('createApp', () => {
   it('POST /api/test/reset clears stored keys', async () => {
     await fetch(`${base}/api/storage/${DEBTS_KEY}`, {
       method: 'PUT',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ value: { count: 1 } }),
     })
     expect((await fetch(`${base}/api/test/reset`, { method: 'POST' })).status).toBe(204)
     expect((await fetch(`${base}/api/storage/${DEBTS_KEY}`)).status).toBe(404)
   })
 
+  it('rejects a mutating /api request without the CSRF header', async () => {
+    const res = await fetch(`${base}/api/storage/${DEBTS_KEY}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value: [] }),
+    })
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ code: 'csrf_required' })
+  })
+
   it('dispatches a validated widget event', async () => {
     const res = await fetch(`${base}/api/widgets/test-widget/echo`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ instanceId: 'placement-1', payload: { value: 'hello' } }),
     })
 
@@ -180,7 +190,7 @@ describe('createApp', () => {
   ])('%s returns a safe error', async (_label, path, status, code) => {
     const res = await fetch(`${base}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ instanceId: 'placement-1', payload: { value: 'hello' } }),
     })
     expect(res.status).toBe(status)
@@ -190,7 +200,7 @@ describe('createApp', () => {
   it('rejects an invalid widget request body', async () => {
     const res = await fetch(`${base}/api/widgets/test-widget/echo`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ instanceId: '', payload: { value: 'hello' } }),
     })
     expect(res.status).toBe(422)
@@ -200,7 +210,7 @@ describe('createApp', () => {
   it('rejects malformed JSON', async () => {
     const res = await fetch(`${base}/api/widgets/test-widget/echo`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: '{',
     })
     expect(res.status).toBe(400)
@@ -210,7 +220,7 @@ describe('createApp', () => {
   it('rejects an oversized body', async () => {
     const res = await fetch(`${base}/api/widgets/test-widget/echo`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: 'x'.repeat(1_048_577),
     })
     expect(res.status).toBe(413)
@@ -220,7 +230,7 @@ describe('createApp', () => {
   it('rejects a payload that does not match the event schema', async () => {
     const res = await fetch(`${base}/api/widgets/test-widget/echo`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ instanceId: 'placement-1', payload: { value: 1 } }),
     })
     expect(res.status).toBe(422)
@@ -231,7 +241,7 @@ describe('createApp', () => {
     browserFake.setResult({ result: { echoed: 'from-browser' } })
     const res = await fetch(`${base}/api/widgets/test-widget/browserEcho`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ instanceId: 'placement-1', payload: { value: 'hello' } }),
     })
 
@@ -253,7 +263,7 @@ describe('createApp', () => {
 
     const echo = await fetch(`${base}/api/widgets/test-widget/echo`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ instanceId: 'placement-1', payload: { value: 'hello' } }),
     })
     expect(echo.status).toBe(200)
@@ -265,7 +275,7 @@ describe('createApp', () => {
   it('POST /api/auth/register/options with an unknown token returns invite-not-found', async () => {
     const res = await fetch(`${base}/api/auth/register/options`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
       body: JSON.stringify({ token: 'nonexistent-token' }),
     })
     expect(res.status).toBe(404)
@@ -314,7 +324,7 @@ describe('createApp', () => {
 
     const res = await fetch(`${base}/api/auth/devices/cred-a8-pending/approve`, {
       method: 'POST',
-      headers: { cookie: `session=${session.sessionId}` },
+      headers: { cookie: `session=${session.sessionId}`, 'X-Requested-With': 'MyBoard' },
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })

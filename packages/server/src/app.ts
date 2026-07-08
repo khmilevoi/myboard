@@ -12,6 +12,7 @@ import { isAuthResult, requireSession } from './auth/session-guard'
 import type { BrowserAutomationClient } from './browser/client'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
+import { csrfBlocked } from './http/csrf'
 import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
 import {
   handleGet,
@@ -373,6 +374,11 @@ export function createApp(deps: AppDeps): App {
   }
 
   const server = createServer((req, res) => {
+    if (csrfBlocked(req)) {
+      res.writeHead(403, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ code: 'csrf_required' }))
+      return
+    }
     Promise.resolve(router.lookup(req, res)).catch(() => {
       if (!res.writableEnded) {
         res.writeHead(500)
