@@ -274,7 +274,7 @@ the config deeper in a global slot.)
 export type HostRuntimeOptions = {
   serverBaseUrl?: string                  // default '/api/storage'
   onUnauthorized?: () => Promise<boolean> // board: ensureSession; harnesses: absent
-  http?: HttpClient                       // test seam/override; default built internally
+  http?: HttpClient                       // the host's shared client (the board passes its own); default built internally (bare harnesses, tests)
   openEventStream?: OpenEventStream       // test seam; default makeEventSourceStream()
 }
 
@@ -295,10 +295,11 @@ When `http` is absent the runtime builds its own:
 The same `onUnauthorized` drives SSE reconnect (3.5).
 
 One `HostRuntime` per document, built once at the host's composition root
-(3.4). It privately owns the two shared transport resources — **one
+(3.4). It owns **one SSE manager** and runs every request through **one
 `HttpClient`** (used by `makeHttpStorage` for all methods, `makeWidgetApi`,
-`fetchServerTime`, and the SSE subscribe `POST /events/:connId`) and **one
-SSE manager**. The module-level `getSseManager` map and the free
+and the SSE subscribe `POST /events/:connId`) — the board injects its shared
+retry-hooked client so the whole document uses a single hooked instance;
+bare hosts get an internally built one. The module-level `getSseManager` map and the free
 `makeWidgetStorage` / `makeScopedStorage` / `makeWidgetApi` package exports
 are deleted: the factories exist only on the runtime, so no ambient path
 around the composition root remains. Building two runtimes opens two SSE
@@ -321,12 +322,15 @@ The board's is one module:
 
 ```ts
 // packages/client/src/runtime.ts
+const relogin = makeReloginModel() // the app's single relogin instance
+
 export const http = new HttpClient({
-  onResponse: [makeUnauthorizedRetryHook(() => ensureSession())],
-}) // devices-http and other board HTTP
+  onResponse: [makeUnauthorizedRetryHook(relogin.ensureSession)],
+}) // devices-http, account models (via UI wiring), and the runtime below
 
 export const hostRuntime = makeHostRuntime({
-  onUnauthorized: () => ensureSession(),
+  http, // ONE hooked client per document
+  onUnauthorized: relogin.ensureSession, // drives SSE reconnect only
 })
 ```
 
@@ -343,7 +347,10 @@ No bootstrap mutation and no init-order requirement: the binding is
 declarative at module init and the calls are lazy. `relogin.ts` constructs
 its own bare `HttpClient` (3.1) rather than importing one from `runtime.ts`,
 which keeps the import graph acyclic: `runtime.ts` → `relogin.ts`, never
-back.
+back. Instance ownership follows the same direction: `relogin.ts` exports
+only the factory — `runtime.ts` builds the single instance (no module
+singleton in the model), and models take `http` as a **required** dep passed
+by the UI wiring; a model module never imports `runtime.ts`.
 
 ### 3.5 SSE reconnect (`sse-client.ts`)
 
@@ -352,8 +359,11 @@ On the stream's `onError`, before the next reconnect attempt: if the
 runtime has an `onUnauthorized` — `await onUnauthorized()` (the probe inside
 distinguishes network from session), then reconnect on the existing backoff.
 Mid-stream expiry heals on the next reconnect, exactly as the parent spec
-requires. The client-side auth SSE (device A) consumes the same
-`OpenEventStream` port with a direct `ensureSession` import.
+requires. The client-side auth SSE (device A — `connectEvents` in the
+account model) consumes the same `OpenEventStream` port, deliberately
+**without** re-auth: it lives only while the devices dialog is open, and
+every action in that dialog goes through the retry-hooked client, which
+heals the session by itself.
 
 ### 3.6 `devices-http.ts` (client)
 
