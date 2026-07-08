@@ -1,143 +1,176 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { HttpLike } from '@shared/http/client'
+import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { FakeEventSource, installFakeEventSource } from '../test/fakes'
-
-beforeEach(() => {
-  installFakeEventSource()
-  vi.resetModules()
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
-  )
-})
+import { makeSseManager, type SseManagerDeps } from './sse-client'
 
 afterEach(() => {
   vi.useRealTimers()
-  vi.unstubAllGlobals()
 })
 
-describe('getSseManager', () => {
+type PostFn = (url: string, options?: { json: unknown }) => Promise<Error | HttpResponseLike>
+type HttpResponseLike = { status: number; ok: boolean; body: unknown }
+
+function makeStubHttp(
+  post: ReturnType<typeof vi.fn<PostFn>> = vi.fn(async () => ({
+    status: 204,
+    ok: true,
+    body: undefined,
+  })),
+) {
+  const reject = () => {
+    throw new Error('unexpected non-POST call')
+  }
+  const http = {
+    get: reject,
+    put: reject,
+    delete: reject,
+    patch: reject,
+    post,
+  } as unknown as HttpLike
+  return { http, post }
+}
+
+function setup(overrides: Partial<SseManagerDeps> = {}) {
+  const fake = makeFakeOpenEventStream()
+  const { http, post } = makeStubHttp()
+  const manager = makeSseManager({
+    baseUrl: '/api/storage',
+    http,
+    openEventStream: fake.open,
+    ...overrides,
+  })
+  return { manager, streams: fake.streams, post }
+}
+
+describe('makeSseManager', () => {
   it('registers interest after ready and delivers matching events', async () => {
-    const { getSseManager } = await import('./sse-client')
-    const mgr = getSseManager('/api/storage')
+    const { manager, streams, post } = setup()
     const seen: unknown[] = []
-    mgr.add('w:t:clock:settings', (raw) => seen.push(raw))
+    manager.add('w:t:clock:settings', (raw) => seen.push(raw))
 
-    const es = FakeEventSource.instances[0]
-    expect(es.url).toBe('/api/storage/events')
-
-    es.emit('ready', { connId: 'c1' })
+    expect(streams[0].url).toBe('/api/storage/events')
+    streams[0].emit('ready', { connId: 'c1' })
     await vi.waitFor(() => {
-      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-      expect(fetchMock).toHaveBeenCalledWith(
+      expect(post).toHaveBeenCalledWith(
         '/api/storage/events/c1',
-        expect.objectContaining({ method: 'POST' }),
+        expect.objectContaining({
+          json: expect.objectContaining({ subscribe: ['w:t:clock:settings'] }),
+        }),
       )
     })
 
-    es.emit('message', { key: 'w:t:clock:settings', value: 7 })
+    streams[0].emit(undefined, { key: 'w:t:clock:settings', value: 7 })
     expect(seen).toEqual([7])
   })
 
-  it('re-registers all desired keys on a fresh ready (reconnect)', async () => {
-    const { getSseManager } = await import('./sse-client')
-    const mgr = getSseManager('/api/storage')
-    mgr.add('k1', () => {})
-    const es = FakeEventSource.instances[0]
-    es.emit('ready', { connId: 'c1' })
-    await vi.waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
-    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockClear()
+  it('reconnects after a fatal stream error and re-registers desired keys', async () => {
+    vi.useFakeTimers()
+    const { manager, streams, post } = setup()
+    manager.add('k1', () => {})
 
-    es.emit('ready', { connId: 'c2' }) // reconnect: new connId
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.runAllTimersAsync()
+
+    streams[0].fail()
+    await vi.runAllTimersAsync()
+
+    expect(streams.length).toBe(2)
+
+    // the fresh connection re-registers the desired key
+    streams[1].emit('ready', { connId: 'c2' })
+    await vi.runAllTimersAsync()
+    expect(String(post.mock.calls.at(-1)?.[0])).toContain('/events/c2')
+  })
+
+  it('re-registers all desired keys on a fresh ready (reconnect)', async () => {
+    const { manager, streams, post } = setup()
+    manager.add('k1', () => {})
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(post).toHaveBeenCalled())
+    post.mockClear()
+
+    streams[0].emit('ready', { connId: 'c2' }) // reconnect: new connId
     await vi.waitFor(() => {
-      const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
-      expect(fetchMock.mock.calls[0][0]).toBe('/api/storage/events/c2')
-      expect(body.subscribe).toContain('k1')
+      expect(post.mock.calls[0][0]).toBe('/api/storage/events/c2')
+      const body = post.mock.calls[0][1] as { json: { subscribe: string[] } }
+      expect(body.json.subscribe).toContain('k1')
     })
   })
 
   it('unsubscribes when local interest is removed while registration is pending', async () => {
-    let resolveRegistration: ((response: Response) => void) | undefined
-    const fetchMock = vi.fn(
-      (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Promise<Response>((resolve) => {
+    let resolveRegistration: ((response: HttpResponseLike) => void) | undefined
+    const post: ReturnType<typeof vi.fn<PostFn>> = vi.fn(
+      () =>
+        new Promise<HttpResponseLike>((resolve) => {
           resolveRegistration = resolve
         }),
     )
-    vi.stubGlobal('fetch', fetchMock)
+    const { manager, streams } = setup({ http: makeStubHttp(post).http })
 
-    const { getSseManager } = await import('./sse-client')
-    const mgr = getSseManager('/api/storage')
-    const unsubscribe = mgr.add('k1', () => {})
+    const unsubscribe = manager.add('k1', () => {})
 
-    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1))
 
     unsubscribe()
-    resolveRegistration?.(new Response(null, { status: 204 }))
+    resolveRegistration?.({ status: 204, ok: true, body: undefined })
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    const secondCall = fetchMock.mock.calls[1]
-    const body = JSON.parse(secondCall[1]!.body as string)
-    expect(body).toEqual({ subscribe: [], unsubscribe: ['k1'] })
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2))
+    const secondCall = post.mock.calls[1]
+    expect(secondCall[1]).toEqual({ json: { subscribe: [], unsubscribe: ['k1'] } })
   })
 
-  it('retries registration when the POST rejects', async () => {
+  it('retries registration when the POST fails at the transport', async () => {
     vi.useFakeTimers()
-    const fetchMock = vi
+    const post: ReturnType<typeof vi.fn<PostFn>> = vi
       .fn()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    vi.stubGlobal('fetch', fetchMock)
+      .mockResolvedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ status: 204, ok: true, body: undefined })
+    const { manager, streams } = setup({ http: makeStubHttp(post).http })
+    manager.add('k1', () => {})
 
-    const { getSseManager } = await import('./sse-client')
-    const mgr = getSseManager('/api/storage')
-    mgr.add('k1', () => {})
-
-    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1))
 
     await vi.advanceTimersByTimeAsync(1_000)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2))
     vi.useRealTimers()
   })
 
   it('retries registration when the POST returns non-2xx', async () => {
     vi.useFakeTimers()
-    const fetchMock = vi
+    const post: ReturnType<typeof vi.fn<PostFn>> = vi
       .fn()
-      .mockResolvedValueOnce(new Response(null, { status: 500 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    vi.stubGlobal('fetch', fetchMock)
+      .mockResolvedValueOnce({ status: 500, ok: false, body: undefined })
+      .mockResolvedValueOnce({ status: 204, ok: true, body: undefined })
+    const { manager, streams } = setup({ http: makeStubHttp(post).http })
+    manager.add('k1', () => {})
 
-    const { getSseManager } = await import('./sse-client')
-    getSseManager('/api/storage').add('k1', () => {})
-
-    FakeEventSource.instances[0].emit('ready', { connId: 'c1' })
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1))
 
     await vi.advanceTimersByTimeAsync(1_000)
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2))
     vi.useRealTimers()
   })
 
   it('ignores malformed ready frames without registering', async () => {
-    const { getSseManager } = await import('./sse-client')
-    getSseManager('/api/storage').add('k1', () => {})
+    const { manager, streams, post } = setup()
+    manager.add('k1', () => {})
 
-    FakeEventSource.instances[0].emit('ready', { connId: 123 })
+    streams[0].emit('ready', { connId: 123 })
     await Promise.resolve()
 
-    expect(globalThis.fetch).not.toHaveBeenCalled()
+    expect(post).not.toHaveBeenCalled()
   })
 
   it('ignores malformed message frames without delivery', async () => {
-    const { getSseManager } = await import('./sse-client')
+    const { manager, streams } = setup()
     const seen: unknown[] = []
-    getSseManager('/api/storage').add('k1', (raw) => seen.push(raw))
+    manager.add('k1', (raw) => seen.push(raw))
 
-    FakeEventSource.instances[0].emit('message', { key: 123, value: 1 })
+    streams[0].emit(undefined, { key: 123, value: 1 })
     expect(seen).toEqual([])
   })
 })

@@ -1,18 +1,18 @@
 import { HttpClient, type HttpLike } from '@shared/http/client'
-import type { OpenEventStream } from '@shared/http/event-stream'
+import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 
 import type { ScopedStorage, WidgetStorage } from './storage'
 import { makeDexieStorage } from './storage/client/dexie-storage'
 import { instanceNamespace, typeNamespace } from './storage/scope'
 import { makeHttpStorage } from './storage/server/http-storage'
-import { getSseManager, type SseDeliver } from './storage/server/sse-client'
+import { makeSseManager, type SseDeliver, type SseManager } from './storage/server/sse-client'
 import { makeWidgetApi as makeWidgetApiWith, type WidgetApiError } from './widget-api'
 
 export type HostRuntimeOptions = {
   serverBaseUrl?: string // default '/api/storage'
   http?: HttpLike // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
-  openEventStream?: OpenEventStream // test seam; wired to the SSE manager in Task 7
+  openEventStream?: OpenEventStream // test seam for the lazily built SSE manager; default: makeEventSourceStream()
 }
 
 export type HostRuntime = {
@@ -36,11 +36,16 @@ export type HostRuntime = {
 export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
   const baseUrl = options.serverBaseUrl ?? '/api/storage'
   const http = options.http ?? new HttpClient()
-  // Task 7 replaces this with a lazily constructed makeSseManager({ baseUrl,
-  // http, openEventStream }); until then the legacy module-level manager
-  // keeps serving subscriptions unchanged.
-  const registerKey = (fullKey: string, deliver: SseDeliver) =>
-    getSseManager(baseUrl).add(fullKey, deliver)
+  // Lazy: building a runtime must not open an SSE connection until the first
+  // subscription — harness pages and unit tests never connect.
+  let sse: SseManager | undefined
+  const getSse = () =>
+    (sse ??= makeSseManager({
+      baseUrl,
+      http,
+      openEventStream: options.openEventStream ?? makeEventSourceStream(),
+    }))
+  const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
 
   const makeScoped = (scope: string): ScopedStorage => {
     const scopeWithColon = scope.endsWith(':') ? scope : `${scope}:`

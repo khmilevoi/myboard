@@ -1,3 +1,4 @@
+import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 import { describe, expect, it } from 'vitest'
 
@@ -37,5 +38,19 @@ describe('makeHostRuntime', () => {
     })
     expect(await api.invoke('echo', {})).toBe(7)
     expect(calls[0]?.method).toBe('POST')
+  })
+
+  it('opens the SSE stream lazily through the injected openEventStream', () => {
+    const fake = makeFakeOpenEventStream()
+    const { http } = makeScriptedHttp({
+      [`/api/storage/${encodeURIComponent('root:k')}`]: [{ status: 404 }],
+    })
+    const runtime = makeHostRuntime({ http, openEventStream: fake.open })
+    expect(fake.streams.length).toBe(0)
+
+    const storage = runtime.makeScopedStorage('root')
+    const unsubscribe = storage.server.subscribe('k', () => {})
+    expect(fake.streams.length).toBe(1)
+    unsubscribe()
   })
 })

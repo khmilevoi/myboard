@@ -24,3 +24,11 @@ export async function clearExpired(database: StorageDb = db): Promise<number> {
   for (const entry of expired) publishChange(entry.key, null)
   return expired.length
 }
+
+/**
+ * Logout hygiene: drop the whole client-side storage database. The page must
+ * be reloaded afterwards — the module-level `db` handle is closed by delete().
+ */
+export async function purgeLocalData(): Promise<void> {
+  await db.delete()
+}

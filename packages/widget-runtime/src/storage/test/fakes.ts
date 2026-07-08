@@ -66,40 +66,6 @@ export function installFakeBroadcastChannel() {
   vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
 }
 
-/** Minimal EventSource double: capture instances and push events manually. */
-export class FakeEventSource {
-  static instances: FakeEventSource[] = []
-  listeners = new Map<string, Set<(event: MessageEvent) => void>>()
-  onmessage: ((event: MessageEvent) => void) | null = null
-  readyState = 0
-
-  constructor(public url: string) {
-    FakeEventSource.instances.push(this)
-  }
-
-  addEventListener(type: string, listener: (event: MessageEvent) => void) {
-    const set = this.listeners.get(type) ?? new Set()
-    set.add(listener)
-    this.listeners.set(type, set)
-  }
-
-  /** Simulate a server frame. type 'message' fires onmessage + 'message' listeners. */
-  emit(type: string, data: unknown) {
-    const event = { data: JSON.stringify(data) } as MessageEvent
-    if (type === 'message') this.onmessage?.(event)
-    for (const listener of this.listeners.get(type) ?? []) listener(event)
-  }
-
-  close() {
-    this.readyState = 2
-  }
-}
-
-export function installFakeEventSource() {
-  FakeEventSource.instances = []
-  vi.stubGlobal('EventSource', FakeEventSource)
-}
-
 /**
  * In-memory StorageApi double for model tests. Keys are used verbatim (no
  * namespacing); TTL and schema validation are intentionally ignored.

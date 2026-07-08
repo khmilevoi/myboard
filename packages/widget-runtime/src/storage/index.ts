@@ -1,5 +1,7 @@
 import type { StorageApi } from './types'
 
+export { purgeLocalData } from './client/db'
+
 export type ScopedStorage = { client: StorageApi; server: StorageApi }
 
 export type WidgetStorage = {

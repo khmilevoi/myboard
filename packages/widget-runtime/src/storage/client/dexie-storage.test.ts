@@ -1,9 +1,10 @@
 import 'fake-indexeddb/auto'
+import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { instanceNamespace } from '../scope'
 import { installFakeBroadcastChannel } from '../test/fakes'
-import { db, clearExpired } from './db'
+import { db, clearExpired, purgeLocalData } from './db'
 import { makeDexieStorage } from './dexie-storage'
 
 const ns = instanceNamespace('inst-1')
@@ -14,7 +15,9 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  await db.entries.clear()
+  // purgeLocalData's test closes/deletes the shared db as its last act; the
+  // db no longer exists to clear afterward.
+  if (db.isOpen()) await db.entries.clear()
 })
 
 describe('createDexieStorage', () => {
@@ -175,5 +178,12 @@ describe('createDexieStorage subscribe', () => {
     })
     await clearExpired()
     await vi.waitFor(() => expect(seen).toEqual([null]))
+  })
+
+  it('purgeLocalData drops the database', async () => {
+    const purgeStorage = makeDexieStorage('w:t:purge:')
+    await purgeStorage.set('k', 1)
+    await purgeLocalData()
+    expect(await Dexie.exists('myboard-storage')).toBe(false)
   })
 })
