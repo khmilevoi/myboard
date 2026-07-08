@@ -1,8 +1,6 @@
 import { expect, test } from '@playwright/test'
 
 import { ActivatePage } from './pages/ActivatePage.js'
-import { BoardPage } from './pages/BoardPage.js'
-import { HeaderPage } from './pages/HeaderPage.js'
 import {
   expireSessions,
   revokeDeviceViaGate,
@@ -170,6 +168,58 @@ test.describe('gate: browser journeys', () => {
     expect((await page.request.get('/api/auth/session')).status()).toBe(200)
   })
 
+  // Both journeys below drive a real *server-backed* storage mutation via
+  // the board-schema switcher ("Схемы борды": create/rename a named board),
+  // not `HeaderPage.addWidget`. Two things ruled out placing a widget on the
+  // default board:
+  //  1. The default "Локальная" board (`LOCAL_BOARD_ID`) is wired to
+  //     `rootStorage.client` only (see board-storage.ts) -- a deliberately
+  //     Dexie-only, offline-first board that never calls the server at all,
+  //     so there is no HTTP mutation for ensureSession's retry hook to ever
+  //     intercept.
+  //  2. Even switched to a real API-backed action, a *first-ever* mount of
+  //     a widget also dynamically `import()`s its Module Federation remote
+  //     under `/widgets/`, which sits behind the same nginx gate as the
+  //     APIs -- but browser dynamic `import()` has no retry hook (only this
+  //     app's HttpClient does, via makeUnauthorizedRetryHook in runtime.ts).
+  //     A 401 there throws an uncaught "Failed to fetch dynamically
+  //     imported module" and crashes the page before ensureSession ever
+  //     runs. `BoardSchemaSelect`'s create/rename actions are core,
+  //     already-bundled client code -- no federation fetch involved -- and
+  //     `addBoard`/`updateBoard` (board-model.ts) write to the `boards` atom,
+  //     which board-storage.ts wires to `rootStorage.server`: a genuine
+  //     `http.put` through the shared, retry-hooked client every time.
+  // `boards` (the server-backed named-schema list) is NOT scoped per account
+  // server-side (packages/server has no accountId-prefixed storage
+  // namespacing -- every account on this deployment shares one board
+  // dataset, by design: this is a single-household app, and "accounts" are
+  // just that household's different devices/members). That means a schema
+  // name created by one test run can still be sitting in Valkey (and thus
+  // auto-selected as the new active board on mount, via
+  // selectInitialActiveBoard in board-storage.ts) the next time this suite
+  // runs against the same, not-yet-reset stack -- confirmed by observation
+  // (a stale "Гейт-схема 2" from an earlier local run was already the active
+  // board on a brand new account, so the initial "Текущая схема: Локальная"
+  // trigger never existed for that run). A per-invocation-unique name plus a
+  // run-independent trigger locator (matching "Текущая схема:" regardless of
+  // *which* board it currently names) make each journey robust to that.
+  function uniqueSchemaName(): string {
+    return `Гейт-схема-${Date.now()}`
+  }
+  const schemaTrigger = (page: import('@playwright/test').Page) =>
+    page.getByRole('button', { name: /^Текущая схема:/ })
+
+  async function createNamedSchema(
+    page: import('@playwright/test').Page,
+    name: string,
+  ): Promise<void> {
+    await schemaTrigger(page).click()
+    await page.getByLabel('Название новой схемы').fill(name)
+    await page.getByRole('button', { name: 'Добавить схему' }).click()
+    await page.getByRole('button', { name, exact: true }).click()
+    await expect(page.getByRole('button', { name: `Текущая схема: ${name}` })).toBeVisible()
+  }
+
   test('an expired session re-logs in silently on a storage call', async ({ page }) => {
     // Every /api/auth/* call (including plain session checks) shares one
     // nginx `auth_zone` limit_req budget (30r/m, burst 15, nodelay) with
@@ -182,18 +232,34 @@ test.describe('gate: browser journeys', () => {
     test.slow()
     await page.waitForTimeout(45_000)
 
+    const schemaName = uniqueSchemaName()
     await activateToBoard(page)
+    await createNamedSchema(page, schemaName)
 
     await expireSessions(page.request)
 
-    // The next storage mutation hits a 401, ensureSession runs the ceremony
-    // against the virtual authenticator, and the request is retried — all
-    // without a navigation.
-    await new HeaderPage(page).addWidget('Часы')
-    await expect(new BoardPage(page).getCard(0).getByText(/:/)).toBeVisible()
+    // The next storage mutation (renaming the schema) hits a 401,
+    // ensureSession runs the ceremony against the virtual authenticator, and
+    // the request is retried — all without a navigation.
+    await schemaTrigger(page).click()
+    await page.getByRole('button', { name: `Переименовать схему ${schemaName}` }).click()
+    const renamed = `${schemaName} 2`
+    await page.getByLabel(`Новое имя схемы ${schemaName}`).fill(renamed)
+    await page.getByRole('button', { name: 'Сохранить имя схемы' }).click()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('button', { name: `Текущая схема: ${renamed}` })).toBeVisible()
 
+    // The rename's optimistic UI update above lands slightly before the
+    // recovered session cookie is actually swapped in (confirmed by
+    // observation: the old, now-invalid `mb_session` value is still present
+    // and /api/auth/session still 401 in the same tick the rename becomes
+    // visible; a fresh `mb_session` + `mb_chal` land ~1-2s later once the
+    // retried ceremony's response is fully processed) -- poll rather than
+    // check once immediately.
     expect(new URL(page.url()).pathname).toBe('/')
-    expect((await page.request.get('/api/auth/session')).status()).toBe(200)
+    await expect
+      .poll(async () => (await page.request.get('/api/auth/session')).status())
+      .toBe(200)
   })
 
   test('a revoked device is bounced to the activation page', async ({ page }) => {
@@ -202,7 +268,9 @@ test.describe('gate: browser journeys', () => {
     test.slow()
     await page.waitForTimeout(45_000)
 
+    const schemaName = uniqueSchemaName()
     await activateToBoard(page)
+    await createNamedSchema(page, schemaName)
 
     const credentialId = await page.evaluate(() => localStorage.getItem('mb_cred_hint'))
     expect(credentialId).toBeTruthy()
@@ -215,7 +283,11 @@ test.describe('gate: browser journeys', () => {
     // service worker is not yet controlling navigations, so this exercises
     // the same-origin nginx fallback rather than the SW's own
     // navigateFallbackDenylist (Task 8 Step 5 covers that separately).
-    await new HeaderPage(page).addWidget('Часы')
+    await schemaTrigger(page).click()
+    await page.getByRole('button', { name: `Переименовать схему ${schemaName}` }).click()
+    await page.getByLabel(`Новое имя схемы ${schemaName}`).fill(`${schemaName} 2`)
+    await page.getByRole('button', { name: 'Сохранить имя схемы' }).click()
+
     await expect(page).toHaveURL(/\/activate\//)
     await expect(page).toHaveTitle(/активация/)
   })
