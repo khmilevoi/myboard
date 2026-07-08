@@ -1,132 +1,106 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
+import { describe, expect, it, vi } from 'vitest'
 
 import { typeNamespace } from '../scope'
-import { FakeEventSource, installFakeEventSource } from '../test/fakes'
 import { StorageError } from '../types'
 import { makeHttpStorage } from './http-storage'
 
 const ns = typeNamespace('clock')
-const storage = makeHttpStorage(ns)
+const BASE = '/api/storage'
+const KEY = `${BASE}/${encodeURIComponent('w:t:clock:settings')}`
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
-
-function stubFetch(impl: (input: string, init?: RequestInit) => Response) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((input: string, init?: RequestInit) => Promise.resolve(impl(input, init))),
-  )
+function storageWith(script: Parameters<typeof makeScriptedHttp>[0]) {
+  const { http, calls } = makeScriptedHttp(script)
+  const registerKey = vi.fn(() => () => {})
+  return { storage: makeHttpStorage(ns, { baseUrl: BASE, http, registerKey }), calls, registerKey }
 }
 
-describe('createHttpStorage', () => {
+describe('makeHttpStorage on the HttpClient port', () => {
   it('GET returns the value', async () => {
-    stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 200, body: { value: { a: 1 } } }] })
     expect(await storage.get('settings')).toEqual({ a: 1 })
   })
 
   it('GET maps 404 to null', async () => {
-    stubFetch(() => new Response(null, { status: 404 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 404 }] })
     expect(await storage.get('settings')).toBeNull()
   })
 
   it('GET maps other non-2xx to StorageError', async () => {
-    stubFetch(() => new Response(null, { status: 503 }))
+    const { storage } = storageWith({ [KEY]: [{ status: 503 }] })
     expect(await storage.get('settings')).toBeInstanceOf(StorageError)
   })
 
-  it('SET sends a PUT with value and ttl, namespaced and encoded', async () => {
-    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
-      Promise.resolve(new Response(null, { status: 204 })),
-    )
-    vi.stubGlobal('fetch', fetchMock)
+  it('GET maps a malformed envelope to StorageError', async () => {
+    const { storage } = storageWith({ [KEY]: [{ status: 200, body: { nope: true } }] })
+    expect(await storage.get('settings')).toBeInstanceOf(StorageError)
+  })
+
+  it('GET maps transport failures to StorageError with the cause', async () => {
+    const { storage } = storageWith({ [KEY]: ['network-error'] })
+    expect(await storage.get('settings')).toBeInstanceOf(StorageError)
+  })
+
+  it('SET sends a PUT with value and ttl', async () => {
+    const { storage, calls } = storageWith({ [KEY]: [{ status: 204 }] })
     await storage.set('settings', { a: 1 }, { ttlMs: 1000 })
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe(`/api/storage/${encodeURIComponent('w:t:clock:settings')}`)
-    expect(init).toMatchObject({ method: 'PUT' })
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
-      value: { a: 1 },
-      ttlMs: 1000,
+    expect(calls[0]).toEqual({
+      method: 'PUT',
+      url: KEY,
+      json: { value: { a: 1 }, ttlMs: 1000 },
     })
   })
 
   it('DELETE sends a DELETE', async () => {
-    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
-      Promise.resolve(new Response(null, { status: 204 })),
-    )
-    vi.stubGlobal('fetch', fetchMock)
+    const { storage, calls } = storageWith({ [KEY]: [{ status: 204 }] })
     await storage.delete('settings')
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'DELETE' })
+    expect(calls[0]?.method).toBe('DELETE')
   })
 
-  it('has returns false on 404, true on 200', async () => {
-    stubFetch(() => new Response(null, { status: 404 }))
+  it('HAS maps 404 to false and 200 to true', async () => {
+    const { storage } = storageWith({ [KEY]: [{ status: 404 }, { status: 200, body: { value: 1 } }] })
     expect(await storage.has('settings')).toBe(false)
-    stubFetch(() => new Response(JSON.stringify({ value: 1 }), { status: 200 }))
     expect(await storage.has('settings')).toBe(true)
   })
 
-  it('keys queries by prefix and strips the namespace', async () => {
-    const fetchMock = vi.fn((_url: string) =>
-      Promise.resolve(
-        new Response(JSON.stringify({ keys: ['w:t:clock:a', 'w:t:clock:b'] }), { status: 200 }),
-      ),
-    )
-    vi.stubGlobal('fetch', fetchMock)
+  it('KEYS strips the namespace', async () => {
+    const url = `${BASE}?prefix=${encodeURIComponent('w:t:clock:')}`
+    const { storage } = storageWith({
+      [url]: [{ status: 200, body: { keys: ['w:t:clock:a', 'w:t:clock:b'] } }],
+    })
     expect(await storage.keys()).toEqual(['a', 'b'])
-    expect(fetchMock.mock.calls[0][0]).toBe(
-      `/api/storage?prefix=${encodeURIComponent('w:t:clock:')}`,
-    )
   })
 
-  it('maps a network failure to StorageError', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.reject(new Error('offline'))),
-    )
-    expect(await storage.get('settings')).toBeInstanceOf(StorageError)
+  it('APPEND posts the entry', async () => {
+    const url = `${BASE}/${encodeURIComponent('w:t:clock:log')}/append`
+    const { storage, calls } = storageWith({ [url]: [{ status: 204 }] })
+    await storage.append('log', { x: 1 }, { cap: 10 })
+    expect(calls[0]).toEqual({ method: 'POST', url, json: { entry: { x: 1 }, cap: 10 } })
   })
 
-  it('append POSTs the entry and cap to the key /append URL', async () => {
-    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
-      Promise.resolve(new Response(null, { status: 204 })),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-    await storage.append('history:2026-06-15', { type: 'cleaned' }, { cap: 100 })
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe(`/api/storage/${encodeURIComponent('w:t:clock:history:2026-06-15')}/append`)
-    expect(init).toMatchObject({ method: 'POST' })
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
-      entry: { type: 'cleaned' },
-      cap: 100,
-    })
+  it('APPEND without a cap omits it from the payload', async () => {
+    const url = `${BASE}/${encodeURIComponent('w:t:clock:log')}/append`
+    const { storage, calls } = storageWith({ [url]: [{ status: 204 }] })
+    await storage.append('log', { x: 1 })
+    expect(calls[0]).toEqual({ method: 'POST', url, json: { entry: { x: 1 } } })
   })
 
-  it('append maps a non-2xx response to StorageError', async () => {
-    stubFetch(() => new Response(null, { status: 500 }))
+  it('APPEND maps a non-2xx response to StorageError', async () => {
+    const url = `${BASE}/${encodeURIComponent('w:t:clock:k')}/append`
+    const { storage } = storageWith({ [url]: [{ status: 500 }] })
     expect(await storage.append('k', { a: 1 })).toBeInstanceOf(StorageError)
   })
 
-  it('append maps a network failure to StorageError', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.reject(new Error('offline'))),
-    )
+  it('APPEND maps a network failure to StorageError', async () => {
+    const url = `${BASE}/${encodeURIComponent('w:t:clock:k')}/append`
+    const { storage } = storageWith({ [url]: ['network-error'] })
     expect(await storage.append('k', { a: 1 })).toBeInstanceOf(StorageError)
   })
 
-  it('subscribe emits the initial value then live SSE updates', async () => {
-    installFakeEventSource()
-    stubFetch(() => new Response(JSON.stringify({ value: { a: 1 } }), { status: 200 }))
-    const seen: unknown[] = []
-    storage.subscribe<{ a: number }>('settings', (event) => {
-      seen.push(event instanceof Error ? 'error' : event.value)
-    })
-    await vi.waitFor(() => expect(seen).toContainEqual({ a: 1 }))
-
-    const es = FakeEventSource.instances[0]
-    es.emit('ready', { connId: 'c1' })
-    es.emit('message', { key: 'w:t:clock:settings', value: { a: 2 } })
-    expect(seen).toContainEqual({ a: 2 })
+  it('subscribe registers the full key through the injected registerKey', () => {
+    const { storage, registerKey } = storageWith({ [KEY]: [{ status: 404 }] })
+    const unsubscribe = storage.subscribe('settings', () => {})
+    expect(registerKey).toHaveBeenCalledWith('w:t:clock:settings', expect.any(Function))
+    unsubscribe()
   })
 })

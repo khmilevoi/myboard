@@ -1,3 +1,4 @@
+import type { HttpLike } from '@shared/http/client'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import * as errore from 'errore'
 import { z } from 'zod'
@@ -20,42 +21,29 @@ export class WidgetApiError extends errore.createTaggedError({
 export type MakeWidgetApiOptions = {
   typeId: string
   instanceId: string
-  fetch?: typeof globalThis.fetch
+  http: HttpLike
 }
 
 export function makeWidgetApi<Events extends WidgetEventMap>({
   typeId,
   instanceId,
-  fetch: fetchRequest = globalThis.fetch,
+  http,
 }: MakeWidgetApiOptions): WidgetApi<Events, WidgetApiError> {
   return {
     async invoke<Event extends keyof Events & string>(
       event: Event,
       payload: Events[Event]['payload'],
     ): Promise<WidgetApiError | Events[Event]['result']> {
-      const body = errore.try(() => JSON.stringify({ instanceId, payload }))
-      if (body instanceof Error) {
-        return new WidgetApiError({ reason: 'request serialization failed', cause: body })
+      const url = `/api/widgets/${encodeURIComponent(typeId)}/${encodeURIComponent(event)}`
+      const response = await http.post(url, { json: { instanceId, payload } })
+      if (response instanceof Error) {
+        return new WidgetApiError({ reason: 'network request failed', cause: response })
       }
 
-      const url = `/api/widgets/${encodeURIComponent(typeId)}/${encodeURIComponent(event)}`
-      const response = await fetchRequest(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body,
-      }).catch((cause) => new WidgetApiError({ reason: 'network request failed', cause }))
-      if (response instanceof Error) return response
-
-      const raw = await (response.json() as Promise<unknown>).catch(
-        (cause) => new WidgetApiError({ reason: 'response JSON is invalid', cause }),
-      )
-      if (raw instanceof Error) return raw
-
-      const envelope = WidgetApiEnvelopeSchema.safeParse(raw)
+      const envelope = WidgetApiEnvelopeSchema.safeParse(response.body)
       if (!envelope.success) {
         return new WidgetApiError({ reason: 'response envelope is invalid', cause: envelope.error })
       }
-
       if ('error' in envelope.data) {
         return new WidgetApiError({
           reason: `${envelope.data.error.code}: ${envelope.data.error.message}`,

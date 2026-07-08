@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from './client/db'
-import { makeWidgetStorage } from './index'
+import { makeWidgetStorage } from '../host-runtime'
 import { instanceNamespace, typeNamespace, toFullKey } from './scope'
 
 beforeEach(async () => {

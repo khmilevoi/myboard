@@ -1,5 +1,5 @@
 import * as errore from 'errore'
-import ky from 'ky'
+import ky, { type Input } from 'ky'
 
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from './csrf'
 
@@ -88,10 +88,12 @@ export class HttpClient {
       // settles (internal stream cleanup) — cloning before handing it to the
       // injected fetch keeps the clone readable afterward (e.g. test doubles
       // that inspect the sent request body), independent of that cleanup.
+      // ky's fetch option is typed over Input (string | URL | Request), but it
+      // always calls this hook with the Request it built internally.
       ...(this.#options.fetch
         ? {
-            fetch: (request: Request, init: RequestInit) =>
-              this.#options.fetch!(request.clone(), init),
+            fetch: (request: Input, init?: RequestInit) =>
+              this.#options.fetch!((request as Request).clone(), init ?? {}),
           }
         : {}),
     }).catch((cause) => new HttpTransportError({ reason: 'network request failed', cause }))
