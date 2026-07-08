@@ -1,4 +1,5 @@
 import { context } from '@reatom/core'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -8,13 +9,6 @@ afterEach(() => {
   vi.useRealTimers()
   context.reset()
 })
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 function createStorage(initial: string | null = null) {
   let value = initial
@@ -72,26 +66,28 @@ describe('extractAddCode', () => {
 
 describe('submitManual', () => {
   it('sets an error and never calls fetch when the input is not a valid code', async () => {
-    const fetchImpl = vi.fn()
+    const { http, calls } = makeScriptedHttp({})
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
     })
 
     await model.submitManual('not a real code!!')
 
     expect(model.error()).not.toBeNull()
     expect(model.mode()).not.toBe('registering')
-    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(calls).toHaveLength(0)
   })
 
   it('returns to manual mode with an error when the server rejects a well-formed code (invalid/expired/exhausted token), instead of stranding the user on registering', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ code: 'add_token_invalid' }, 404))
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 404, body: { code: 'add_token_invalid' } },
+      ],
+    })
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
     })
     model.mode.set('manual')
 
@@ -102,17 +98,18 @@ describe('submitManual', () => {
   })
 
   it('exposes the account owner display name (for the registering heading) once register/options succeeds', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
-        }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        {
+          status: 200,
+          body: { options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } } },
+        },
+      ],
+      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+    })
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
       storage: createStorage(),
     })
@@ -125,14 +122,17 @@ describe('submitManual', () => {
 
 describe('stageScannedCode', () => {
   it('stages the scanned code and moves to registering once the server confirms it, exposing the owner name', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(
-      jsonResponse({
-        options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
-      }),
-    )
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        {
+          status: 200,
+          body: { options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } } },
+        },
+      ],
+    })
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
     })
 
     await model.stageScannedCode('K7QP-3M9X')
@@ -144,12 +144,14 @@ describe('stageScannedCode', () => {
   })
 
   it('returns to manual mode with an error when the server rejects the scanned code, instead of stranding the user on registering', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ code: 'add_token_invalid' }, 404))
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 404, body: { code: 'add_token_invalid' } },
+      ],
+    })
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
     })
 
     await model.stageScannedCode('K7QP-3M9X')
@@ -161,11 +163,13 @@ describe('stageScannedCode', () => {
 
 describe('startRegistration ceremony/verify failures', () => {
   it('keeps mode on registering (not manual) when the WebAuthn ceremony fails, so the existing in-place error row can be used to retry', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ options: { challenge: 'c' } }))
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [{ status: 200, body: { options: { challenge: 'c' } } }],
+    })
     const startRegistrationCeremony = vi.fn().mockRejectedValue(new Error('user cancelled'))
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony,
     })
     // Simulates having already reached 'registering' (via submitManual or
@@ -183,13 +187,13 @@ describe('startRegistration ceremony/verify failures', () => {
   })
 
   it('keeps mode on registering (not manual) when register/verify is rejected by the server', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'c' } }))
-      .mockResolvedValueOnce(jsonResponse({}, 409))
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [{ status: 200, body: { options: { challenge: 'c' } } }],
+      '/api/auth/devices/register/verify': [{ status: 409, body: {} }],
+    })
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
     })
     model.token.set('K7QP3M9X')
@@ -205,14 +209,20 @@ describe('registration + polling flow', () => {
   it('goes registering -> waiting -> done, logs in, and navigates on approval', async () => {
     vi.useFakeTimers()
 
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'add-device-challenge' } }))
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
-      .mockResolvedValueOnce(jsonResponse({ status: 'pending' }))
-      .mockResolvedValueOnce(jsonResponse({ status: 'approved' }))
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'login-challenge' } }))
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+      ],
+      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+      '/api/auth/devices/pending-status': [
+        { status: 200, body: { status: 'pending' } },
+        { status: 200, body: { status: 'approved' } },
+      ],
+      '/api/auth/login/options': [
+        { status: 200, body: { options: { challenge: 'login-challenge' } } },
+      ],
+      '/api/auth/login/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+    })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b', rawId: 'raw' })
     const startAuthenticationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
     const navigate = vi.fn()
@@ -220,7 +230,7 @@ describe('registration + polling flow', () => {
 
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony,
       startAuthenticationCeremony,
       navigate,
@@ -230,48 +240,38 @@ describe('registration + polling flow', () => {
     await model.submitManual('K7QP-3M9X')
 
     expect(model.token()).toBe('K7QP3M9X')
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      1,
-      '/api/auth/devices/register/options',
-      expect.objectContaining({
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: expect.objectContaining({ 'X-Requested-With': 'MyBoard' }),
-        body: JSON.stringify({ token: 'K7QP3M9X' }),
-      }),
-    )
+    expect(calls[0]).toEqual({
+      method: 'POST',
+      url: '/api/auth/devices/register/options',
+      json: { token: 'K7QP3M9X' },
+    })
     expect(startRegistrationCeremony).toHaveBeenCalledWith({
       optionsJSON: { challenge: 'add-device-challenge' },
     })
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      2,
-      '/api/auth/devices/register/verify',
-      expect.objectContaining({
-        body: JSON.stringify({
-          token: 'K7QP3M9X',
-          attestationResponse: { id: 'cred-b', rawId: 'raw' },
-        }),
-      }),
-    )
+    expect(calls[1]).toEqual({
+      method: 'POST',
+      url: '/api/auth/devices/register/verify',
+      json: { token: 'K7QP3M9X', attestationResponse: { id: 'cred-b', rawId: 'raw' } },
+    })
     expect(model.mode()).toBe('waiting')
 
     // First poll tick: still pending.
     await vi.advanceTimersByTimeAsync(2_000)
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      3,
-      '/api/auth/devices/pending-status',
-      expect.objectContaining({ method: 'GET', credentials: 'same-origin' }),
-    )
+    expect(calls[2]).toEqual({
+      method: 'GET',
+      url: '/api/auth/devices/pending-status',
+      json: undefined,
+    })
     expect(model.mode()).toBe('waiting')
 
     // Second poll tick: approved -> runs a normal login, then navigates.
     await vi.advanceTimersByTimeAsync(2_000)
 
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      5,
-      '/api/auth/login/options',
-      expect.objectContaining({ body: JSON.stringify({ credentialIdHint: 'cred-b' }) }),
-    )
+    expect(calls[4]).toEqual({
+      method: 'POST',
+      url: '/api/auth/login/options',
+      json: { credentialIdHint: 'cred-b' },
+    })
     expect(startAuthenticationCeremony).toHaveBeenCalledWith({
       optionsJSON: { challenge: 'login-challenge' },
     })
@@ -280,25 +280,27 @@ describe('registration + polling flow', () => {
     expect(navigate).toHaveBeenCalledWith('/')
 
     // Polling has stopped -- no further pending-status calls on more ticks.
-    const callsAfterDone = fetchImpl.mock.calls.length
+    const callsAfterDone = calls.length
     await vi.advanceTimersByTimeAsync(10_000)
-    expect(fetchImpl.mock.calls.length).toBe(callsAfterDone)
+    expect(calls.length).toBe(callsAfterDone)
   })
 
   it('transitions to rejected when a poll reports the device was denied', async () => {
     vi.useFakeTimers()
 
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'add-device-challenge' } }))
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
-      .mockResolvedValueOnce(jsonResponse({ status: 'denied' }))
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+      ],
+      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+      '/api/auth/devices/pending-status': [{ status: 200, body: { status: 'denied' } }],
+    })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
     const navigate = vi.fn()
 
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony,
       navigate,
       storage: createStorage(),
@@ -313,27 +315,30 @@ describe('registration + polling flow', () => {
     expect(navigate).not.toHaveBeenCalled()
 
     // Polling has stopped -- no further pending-status calls.
-    const callsAfterRejected = fetchImpl.mock.calls.length
+    const callsAfterRejected = calls.length
     await vi.advanceTimersByTimeAsync(10_000)
-    expect(fetchImpl.mock.calls.length).toBe(callsAfterRejected)
+    expect(calls.length).toBe(callsAfterRejected)
   })
 
   it('clears a stale error once a later poll tick succeeds again', async () => {
     vi.useFakeTimers()
 
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'add-device-challenge' } }))
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
-      // First poll tick: a transient server error.
-      .mockResolvedValueOnce(jsonResponse({}, 500))
-      // Second poll tick: recovered -- still pending.
-      .mockResolvedValueOnce(jsonResponse({ status: 'pending' }))
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+      ],
+      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+      // First poll tick: a transient server error. Second poll tick: recovered -- still pending.
+      '/api/auth/devices/pending-status': [
+        { status: 500, body: {} },
+        { status: 200, body: { status: 'pending' } },
+      ],
+    })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
 
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony,
       storage: createStorage(),
     })
@@ -352,21 +357,26 @@ describe('registration + polling flow', () => {
   it('gives up polling after 10 minutes without a resolution', async () => {
     vi.useFakeTimers()
 
-    // `mockResolvedValue` (no "Once") would replay the *same* Response
-    // instance on every call -- and a Response body can only be read once,
-    // so a second `.json()` read throws and would surface as an unrelated
-    // "invalid server response" error, masking whether the give-up logic
-    // itself ever ran. `mockImplementation` builds a fresh Response per call.
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'add-device-challenge' } }))
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-b' }))
-      .mockImplementation(async () => jsonResponse({ status: 'pending' }))
+    // A fixed 'pending' script entry is repeatedly reused because
+    // makeScriptedHttp shifts one step per call; only the last entry, once
+    // shifted away, would leave the queue empty and throw -- so provide
+    // enough 'pending' steps to cover every expected poll tick within the
+    // window (300 real polls fit inside the 10-minute window).
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+      ],
+      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+      '/api/auth/devices/pending-status': Array.from({ length: 300 }, () => ({
+        status: 200,
+        body: { status: 'pending' },
+      })),
+    })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
 
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony,
       storage: createStorage(),
     })
@@ -379,7 +389,7 @@ describe('registration + polling flow', () => {
     // be crossed by one more interval to observe it.
     await vi.advanceTimersByTimeAsync(10 * 60_000)
     expect(model.error()).toBeNull()
-    const callsWithinWindow = fetchImpl.mock.calls.length
+    const callsWithinWindow = calls.length
     expect(callsWithinWindow).toBe(2 + 300)
 
     await vi.advanceTimersByTimeAsync(2_000)
@@ -387,10 +397,10 @@ describe('registration + polling flow', () => {
     expect(model.mode()).toBe('waiting')
     expect(model.error()).not.toBeNull()
     // The give-up tick itself never calls pending-status again.
-    expect(fetchImpl.mock.calls.length).toBe(callsWithinWindow)
+    expect(calls.length).toBe(callsWithinWindow)
 
-    const callsAfterGiveUp = fetchImpl.mock.calls.length
+    const callsAfterGiveUp = calls.length
     await vi.advanceTimersByTimeAsync(10_000)
-    expect(fetchImpl.mock.calls.length).toBe(callsAfterGiveUp)
+    expect(calls.length).toBe(callsAfterGiveUp)
   })
 })

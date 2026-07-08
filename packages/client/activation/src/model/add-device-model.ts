@@ -1,4 +1,6 @@
 import { action, type Action, atom, type Atom, wrap } from '@reatom/core'
+import { HttpClient, type HttpLike } from '@shared/http/client'
+import type { Navigate } from '@shared/navigation'
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -46,9 +48,9 @@ export interface AddDeviceDeps {
   // scanning device is physically different hardware. A URL pointing
   // anywhere else (e.g. a phishing link) is rejected outright.
   currentOrigin: string
-  navigate: (path: string) => void
+  navigate: Navigate
   storage: AddDeviceStorage
-  fetchImpl: typeof fetch
+  http: HttpLike
   // Matches the real @simplewebauthn/browser signatures exactly (both take a
   // single `{ optionsJSON }` object), mirroring activation-model.ts's
   // ActivationDeps so a test double stays call-compatible with the real
@@ -90,39 +92,30 @@ type JsonResult = { status: number; body: Record<string, unknown> }
 // function (not wrapped internally) -- callers inside an action/computed wrap
 // the whole call, matching this app's established convention.
 async function requestJson(
-  fetchImpl: typeof fetch,
+  http: HttpLike,
   url: string,
   init: { method: 'GET' | 'POST'; body?: unknown },
 ): Promise<AddDeviceError | JsonResult> {
-  const res = await fetchImpl(url, {
-    method: init.method,
-    credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'MyBoard',
-    },
-    ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
-  }).catch((cause) => new AddDeviceError({ reason: 'сбой сетевого запроса', cause }))
-  if (res instanceof Error) return res
-
-  const body = await res
-    .json()
-    .catch((cause) => new AddDeviceError({ reason: 'некорректный ответ сервера', cause }))
-  if (body instanceof Error) return body as AddDeviceError
-
-  return { status: res.status, body: body as Record<string, unknown> }
+  const res =
+    init.method === 'POST'
+      ? await http.post(url, init.body !== undefined ? { json: init.body } : undefined)
+      : await http.get(url)
+  if (res instanceof Error) {
+    return new AddDeviceError({ reason: 'сбой сетевого запроса', cause: res })
+  }
+  return { status: res.status, body: (res.body ?? {}) as Record<string, unknown> }
 }
 
 function postJson(
-  fetchImpl: typeof fetch,
+  http: HttpLike,
   url: string,
   payload: unknown,
 ): Promise<AddDeviceError | JsonResult> {
-  return requestJson(fetchImpl, url, { method: 'POST', body: payload })
+  return requestJson(http, url, { method: 'POST', body: payload })
 }
 
-function getJson(fetchImpl: typeof fetch, url: string): Promise<AddDeviceError | JsonResult> {
-  return requestJson(fetchImpl, url, { method: 'GET' })
+function getJson(http: HttpLike, url: string): Promise<AddDeviceError | JsonResult> {
+  return requestJson(http, url, { method: 'GET' })
 }
 
 // Crockford base32 (no I L O U), 8 characters -- duplicated from
@@ -200,7 +193,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     currentOrigin: overrides.currentOrigin ?? defaultOrigin(),
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
     storage: overrides.storage ?? defaultStorage(),
-    fetchImpl: overrides.fetchImpl ?? fetch,
+    http: overrides.http ?? new HttpClient(),
     startRegistrationCeremony: overrides.startRegistrationCeremony ?? browserStartRegistration,
     startAuthenticationCeremony:
       overrides.startAuthenticationCeremony ?? browserStartAuthentication,
@@ -242,7 +235,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     hint: string | null,
   ): Promise<AddDeviceError | { credentialId: string }> {
     const optionsResult = await wrap(
-      postJson(deps.fetchImpl, '/api/auth/login/options', hint ? { credentialIdHint: hint } : {}),
+      postJson(deps.http, '/api/auth/login/options', hint ? { credentialIdHint: hint } : {}),
     )
     if (optionsResult instanceof Error) return optionsResult
     if (optionsResult.status !== 200) {
@@ -265,7 +258,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     if (authenticationResponse instanceof Error) return authenticationResponse
 
     const verifyResult = await wrap(
-      postJson(deps.fetchImpl, '/api/auth/login/verify', { authenticationResponse }),
+      postJson(deps.http, '/api/auth/login/verify', { authenticationResponse }),
     )
     if (verifyResult instanceof Error) return verifyResult
     if (verifyResult.status !== 200) {
@@ -279,7 +272,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   }
 
   const pollPendingStatus = action(async () => {
-    const result = await wrap(getJson(deps.fetchImpl, '/api/auth/devices/pending-status'))
+    const result = await wrap(getJson(deps.http, '/api/auth/devices/pending-status'))
     if (result instanceof Error) {
       error.set(result.message)
       return
@@ -345,7 +338,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     currentToken: string,
   ): Promise<AddDeviceError | PublicKeyCredentialCreationOptionsJSON> {
     const optionsResult = await wrap(
-      postJson(deps.fetchImpl, '/api/auth/devices/register/options', { token: currentToken }),
+      postJson(deps.http, '/api/auth/devices/register/options', { token: currentToken }),
     )
     if (optionsResult instanceof Error) return optionsResult
     if (optionsResult.status !== 200) {
@@ -442,7 +435,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     }
 
     const verifyResult = await wrap(
-      postJson(deps.fetchImpl, '/api/auth/devices/register/verify', {
+      postJson(deps.http, '/api/auth/devices/register/verify', {
         token: currentToken,
         attestationResponse,
       }),

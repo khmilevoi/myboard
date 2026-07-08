@@ -1,4 +1,5 @@
 import { context } from '@reatom/core'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,7 +18,7 @@ describe('AddDeviceScreen', () => {
   it('extracts the code from a pasted add-device link, submits it, and does not leave the raw URL in the field', () => {
     const model = createAddDeviceModel({
       currentOrigin: 'https://host',
-      fetchImpl: vi.fn() as unknown as typeof fetch,
+      http: makeScriptedHttp({}).http,
     })
     const submitManual = vi.spyOn(model, 'submitManual').mockImplementation(async () => {})
 

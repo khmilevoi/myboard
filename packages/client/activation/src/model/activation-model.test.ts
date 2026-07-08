@@ -1,17 +1,11 @@
 import { context } from '@reatom/core'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createActivationModel } from './activation-model'
 
 afterEach(() => context.reset())
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 function createStorage(initial: string | null = null) {
   let value = initial
@@ -28,17 +22,19 @@ function createStorage(initial: string | null = null) {
 
 describe('startRegistration', () => {
   it('posts options, runs the registration ceremony, posts verify, stores the hint, and navigates', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'reg-challenge' } }))
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-123' }))
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/register/options': [
+        { status: 200, body: { options: { challenge: 'reg-challenge' } } },
+      ],
+      '/api/auth/register/verify': [{ status: 200, body: { credentialId: 'cred-123' } }],
+    })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-123', rawId: 'raw' })
     const navigate = vi.fn()
     const storage = createStorage()
 
     const model = createActivationModel({
       token: 'invite-token',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startRegistrationCeremony,
       navigate,
       storage,
@@ -47,68 +43,63 @@ describe('startRegistration', () => {
     model.registrationForm.fields.name.change('Alice')
     await model.startRegistration()
 
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      1,
-      '/api/auth/register/options',
-      expect.objectContaining({
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: expect.objectContaining({ 'X-Requested-With': 'MyBoard' }),
-        body: JSON.stringify({ token: 'invite-token' }),
-      }),
-    )
+    expect(calls[0]).toEqual({
+      method: 'POST',
+      url: '/api/auth/register/options',
+      json: { token: 'invite-token' },
+    })
     expect(startRegistrationCeremony).toHaveBeenCalledWith({
       optionsJSON: { challenge: 'reg-challenge' },
     })
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      2,
-      '/api/auth/register/verify',
-      expect.objectContaining({
-        body: JSON.stringify({
-          token: 'invite-token',
-          name: 'Alice',
-          attestationResponse: { id: 'cred-123', rawId: 'raw' },
-        }),
-      }),
-    )
+    expect(calls[1]).toEqual({
+      method: 'POST',
+      url: '/api/auth/register/verify',
+      json: {
+        token: 'invite-token',
+        name: 'Alice',
+        attestationResponse: { id: 'cred-123', rawId: 'raw' },
+      },
+    })
     expect(storage.set).toHaveBeenCalledWith('cred-123')
     expect(navigate).toHaveBeenCalledWith('/')
   })
 
   it('blocks submit with a field error when the name is empty', async () => {
-    const fetchImpl = vi.fn()
+    const { http, calls } = makeScriptedHttp({})
     const model = createActivationModel({
       token: 'invite-token',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
     })
 
     await model.startRegistration()
 
     expect(model.registrationForm.fields.name.validation().error).toBeDefined()
-    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(calls).toHaveLength(0)
   })
 
   it('blocks submit with a field error when the name exceeds 40 characters', async () => {
-    const fetchImpl = vi.fn()
+    const { http, calls } = makeScriptedHttp({})
     const model = createActivationModel({
       token: 'invite-token',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
     })
 
     model.registrationForm.fields.name.change('a'.repeat(41))
     await model.startRegistration()
 
     expect(model.registrationForm.fields.name.validation().error).toBeDefined()
-    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(calls).toHaveLength(0)
   })
 
   it('flips mode to login when register/options returns 409 invite_consumed', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ code: 'invite_consumed', canLogin: true }, 409))
+    const { http } = makeScriptedHttp({
+      '/api/auth/register/options': [
+        { status: 409, body: { code: 'invite_consumed', canLogin: true } },
+      ],
+    })
     const model = createActivationModel({
       token: 'invite-token',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
     })
 
     model.registrationForm.fields.name.change('Alice')
@@ -120,18 +111,22 @@ describe('startRegistration', () => {
 
 describe('startLogin', () => {
   it('sends the stored credential hint from localStorage after invite_consumed flips mode', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ code: 'invite_consumed', canLogin: true }, 409))
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'auth-challenge' } }))
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-456' }))
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/register/options': [
+        { status: 409, body: { code: 'invite_consumed', canLogin: true } },
+      ],
+      '/api/auth/login/options': [
+        { status: 200, body: { options: { challenge: 'auth-challenge' } } },
+      ],
+      '/api/auth/login/verify': [{ status: 200, body: { credentialId: 'cred-456' } }],
+    })
     const startAuthenticationCeremony = vi.fn().mockResolvedValue({ id: 'cred-456' })
     const navigate = vi.fn()
     const storage = createStorage('cred-hint-1')
 
     const model = createActivationModel({
       token: 'invite-token',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony,
       navigate,
       storage,
@@ -143,13 +138,11 @@ describe('startLogin', () => {
 
     await model.startLogin()
 
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      2,
-      '/api/auth/login/options',
-      expect.objectContaining({
-        body: JSON.stringify({ credentialIdHint: 'cred-hint-1' }),
-      }),
-    )
+    expect(calls[1]).toEqual({
+      method: 'POST',
+      url: '/api/auth/login/options',
+      json: { credentialIdHint: 'cred-hint-1' },
+    })
     expect(startAuthenticationCeremony).toHaveBeenCalledWith({
       optionsJSON: { challenge: 'auth-challenge' },
     })
@@ -158,16 +151,23 @@ describe('startLogin', () => {
   })
 
   it('clears a stale credential hint without auto-retrying when the hinted ceremony fails, then runs hintless on a subsequent user retry', async () => {
-    const fetchImpl = vi
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/login/options': [
+        { status: 200, body: { options: { challenge: 'auth-challenge-hinted' } } },
+        { status: 200, body: { options: { challenge: 'auth-challenge-discoverable' } } },
+      ],
+      '/api/auth/login/verify': [{ status: 200, body: { credentialId: 'cred-789' } }],
+    })
+    const startAuthenticationCeremony = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'auth-challenge-hinted' } }))
-    const startAuthenticationCeremony = vi.fn().mockRejectedValueOnce(new Error('NotAllowedError'))
+      .mockRejectedValueOnce(new Error('NotAllowedError'))
+      .mockResolvedValueOnce({ id: 'cred-789' })
     const navigate = vi.fn()
     const storage = createStorage('stale-cred-hint')
 
     const model = createActivationModel({
       token: 'invite-token',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony,
       navigate,
       storage,
@@ -175,36 +175,29 @@ describe('startLogin', () => {
 
     await model.startLogin()
 
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      1,
-      '/api/auth/login/options',
-      expect.objectContaining({ body: JSON.stringify({ credentialIdHint: 'stale-cred-hint' }) }),
-    )
+    expect(calls[0]).toEqual({
+      method: 'POST',
+      url: '/api/auth/login/options',
+      json: { credentialIdHint: 'stale-cred-hint' },
+    })
     expect(storage.clear).toHaveBeenCalled()
     // No automatic second ceremony/options call, and no navigation -- the
     // failure (which could be a genuine user cancel) surfaces as an error
     // instead of silently re-prompting.
-    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(calls).toHaveLength(1)
     expect(startAuthenticationCeremony).toHaveBeenCalledTimes(1)
     expect(navigate).not.toHaveBeenCalled()
     expect(model.error()).not.toBeNull()
 
     // A subsequent user-initiated retry sees the hint already cleared and
     // runs hintless (discoverable).
-    fetchImpl
-      .mockResolvedValueOnce(
-        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-789' }))
-    startAuthenticationCeremony.mockResolvedValueOnce({ id: 'cred-789' })
-
     await model.startLogin()
 
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      2,
-      '/api/auth/login/options',
-      expect.objectContaining({ body: JSON.stringify({}) }),
-    )
+    expect(calls[1]).toEqual({
+      method: 'POST',
+      url: '/api/auth/login/options',
+      json: {},
+    })
     expect(startAuthenticationCeremony).toHaveBeenNthCalledWith(2, {
       optionsJSON: { challenge: 'auth-challenge-discoverable' },
     })
@@ -214,17 +207,26 @@ describe('startLogin', () => {
   })
 
   it('clears a stale credential hint without auto-retrying when the hinted verify is rejected, then runs hintless on a subsequent user retry', async () => {
-    const fetchImpl = vi
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/login/options': [
+        { status: 200, body: { options: { challenge: 'auth-challenge-hinted' } } },
+        { status: 200, body: { options: { challenge: 'auth-challenge-discoverable' } } },
+      ],
+      '/api/auth/login/verify': [
+        { status: 404, body: { code: 'device_not_found' } },
+        { status: 200, body: { credentialId: 'cred-999' } },
+      ],
+    })
+    const startAuthenticationCeremony = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ options: { challenge: 'auth-challenge-hinted' } }))
-      .mockResolvedValueOnce(jsonResponse({ code: 'device_not_found' }, 404))
-    const startAuthenticationCeremony = vi.fn().mockResolvedValueOnce({ id: 'stale-cred-hint' })
+      .mockResolvedValueOnce({ id: 'stale-cred-hint' })
+      .mockResolvedValueOnce({ id: 'cred-999' })
     const navigate = vi.fn()
     const storage = createStorage('stale-cred-hint')
 
     const model = createActivationModel({
       token: 'invite-token',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony,
       navigate,
       storage,
@@ -233,24 +235,17 @@ describe('startLogin', () => {
     await model.startLogin()
 
     expect(storage.clear).toHaveBeenCalled()
-    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(calls).toHaveLength(2)
     expect(navigate).not.toHaveBeenCalled()
     expect(model.error()).not.toBeNull()
 
-    fetchImpl
-      .mockResolvedValueOnce(
-        jsonResponse({ options: { challenge: 'auth-challenge-discoverable' } }),
-      )
-      .mockResolvedValueOnce(jsonResponse({ credentialId: 'cred-999' }))
-    startAuthenticationCeremony.mockResolvedValueOnce({ id: 'cred-999' })
-
     await model.startLogin()
 
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      3,
-      '/api/auth/login/options',
-      expect.objectContaining({ body: JSON.stringify({}) }),
-    )
+    expect(calls[2]).toEqual({
+      method: 'POST',
+      url: '/api/auth/login/options',
+      json: {},
+    })
     expect(storage.set).toHaveBeenCalledWith('cred-999')
     expect(navigate).toHaveBeenCalledWith('/')
     expect(model.error()).toBeNull()

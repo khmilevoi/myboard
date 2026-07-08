@@ -10,6 +10,8 @@ import {
   withAsync,
   wrap,
 } from '@reatom/core'
+import { HttpClient, type HttpLike } from '@shared/http/client'
+import type { Navigate } from '@shared/navigation'
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -37,9 +39,9 @@ export interface ActivationStorage {
 
 export interface ActivationDeps {
   token: string | null
-  navigate: (path: string) => void
+  navigate: Navigate
   storage: ActivationStorage
-  fetchImpl: typeof fetch
+  http: HttpLike
   // Matches the real @simplewebauthn/browser signatures exactly (both take
   // a single `{ optionsJSON }` object, not the raw options), so a test
   // double stays call-compatible with the real ceremony.
@@ -76,27 +78,15 @@ function defaultStorage(): ActivationStorage {
 type JsonResult = { status: number; body: Record<string, unknown> }
 
 async function postJson(
-  fetchImpl: typeof fetch,
+  http: HttpLike,
   url: string,
   payload: unknown,
 ): Promise<ActivationError | JsonResult> {
-  const res = await fetchImpl(url, {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'MyBoard',
-    },
-    body: JSON.stringify(payload),
-  }).catch((cause) => new ActivationError({ reason: 'сбой сетевого запроса', cause }))
-  if (res instanceof Error) return res
-
-  const body = await res
-    .json()
-    .catch((cause) => new ActivationError({ reason: 'некорректный ответ сервера', cause }))
-  if (body instanceof Error) return body as ActivationError
-
-  return { status: res.status, body: body as Record<string, unknown> }
+  const res = await http.post(url, { json: payload })
+  if (res instanceof Error) {
+    return new ActivationError({ reason: 'сбой сетевого запроса', cause: res })
+  }
+  return { status: res.status, body: (res.body ?? {}) as Record<string, unknown> }
 }
 
 export interface ActivationModel {
@@ -113,7 +103,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
     token: overrides.token ?? readTokenFromLocation(),
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
     storage: overrides.storage ?? defaultStorage(),
-    fetchImpl: overrides.fetchImpl ?? fetch,
+    http: overrides.http ?? new HttpClient(),
     startRegistrationCeremony: overrides.startRegistrationCeremony ?? browserStartRegistration,
     startAuthenticationCeremony:
       overrides.startAuthenticationCeremony ?? browserStartAuthentication,
@@ -148,7 +138,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
         }
 
         const optionsResult = await wrap(
-          postJson(deps.fetchImpl, '/api/auth/register/options', { token: deps.token }),
+          postJson(deps.http, '/api/auth/register/options', { token: deps.token }),
         )
         if (optionsResult instanceof Error) {
           error.set(optionsResult.message)
@@ -176,7 +166,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
         }
 
         const verifyResult = await wrap(
-          postJson(deps.fetchImpl, '/api/auth/register/verify', {
+          postJson(deps.http, '/api/auth/register/verify', {
             token: deps.token,
             name: state.name,
             attestationResponse,
@@ -210,7 +200,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
 
   async function attemptLogin(hint: string | null): Promise<LoginAttemptResult> {
     const optionsResult = await wrap(
-      postJson(deps.fetchImpl, '/api/auth/login/options', hint ? { credentialIdHint: hint } : {}),
+      postJson(deps.http, '/api/auth/login/options', hint ? { credentialIdHint: hint } : {}),
     )
     if (optionsResult instanceof Error) {
       return { ok: false, hintFailure: false, message: optionsResult.message }
@@ -233,7 +223,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
     }
 
     const verifyResult = await wrap(
-      postJson(deps.fetchImpl, '/api/auth/login/verify', { authenticationResponse }),
+      postJson(deps.http, '/api/auth/login/verify', { authenticationResponse }),
     )
     if (verifyResult instanceof Error) {
       return { ok: false, hintFailure: false, message: verifyResult.message }
