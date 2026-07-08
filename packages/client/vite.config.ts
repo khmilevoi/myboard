@@ -169,6 +169,11 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         navigateFallback: '/index.html',
+        // The activation surfaces are public and must always reach nginx:
+        // without this denylist the installed SW serves the cached board
+        // shell for them, and a revoked device loops through ceremonies
+        // instead of landing on the activation page.
+        navigateFallbackDenylist: [/^\/activate/, /^\/add-device/],
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff2}'],
         runtimeCaching: [
