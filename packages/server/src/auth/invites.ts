@@ -151,3 +151,18 @@ export async function releaseInvite(
     await setJson(ops, inviteKey(hash), updated, Math.max(0, updated.expiresAt - now()))
   })
 }
+
+const INVITE_KEY_PREFIX = 'invite:'
+
+/** Ops-script path: invites are stored by token hash, so find by record id via scan. */
+export async function revokeInviteById(ops: ValkeyOps, id: string): Promise<boolean> {
+  const keys = await ops.scanKeys(INVITE_KEY_PREFIX)
+  for (const key of keys) {
+    const record = await getJson(ops, key, InviteRecordSchema)
+    if (record instanceof Error || record === null) continue
+    if (record.id !== id) continue
+    await ops.del(key)
+    return true
+  }
+  return false
+}

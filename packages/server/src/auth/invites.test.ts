@@ -1,13 +1,19 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
-import { InviteConsumedError, InviteExpiredError, InviteLockedError } from './errors'
+import {
+  InviteConsumedError,
+  InviteExpiredError,
+  InviteLockedError,
+  InviteNotFoundError,
+} from './errors'
 import {
   consumeInvite,
   createInvite,
   lookupInvite,
   recordInviteFailure,
   releaseInvite,
+  revokeInviteById,
 } from './invites'
 
 function makeOps() {
@@ -245,5 +251,21 @@ describe('releaseInvite', () => {
     await releaseInvite(ops, clock.now, token)
 
     expect(setSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('revokeInviteById', () => {
+  it('deletes the invite with the matching id and reports true', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    const { record, token } = await createInvite(ops, clock.now, { ttlMs: 60_000 })
+
+    expect(await revokeInviteById(ops, record.id)).toBe(true)
+    expect(await lookupInvite(ops, clock.now, token)).toBeInstanceOf(InviteNotFoundError)
+  })
+
+  it('returns false when no invite has that id', async () => {
+    const ops = makeOps()
+    expect(await revokeInviteById(ops, 'missing')).toBe(false)
   })
 })
