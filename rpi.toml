@@ -14,10 +14,15 @@ compose = "docker-compose.yml"
 service = "client"
 port = 80
 expose = "lan"
+hostname = "board.iiskelo.com"
 
 [healthcheck]
+# With the gate on, / answers 401 (activation page) for anonymous probes.
+# Expecting 401 checks the whole nginx -> auth_request -> server -> Valkey
+# chain AND that the door is locked: if the gate ever disappears, / returns
+# 200 and the deploy fails as unhealthy.
 path = "/"
-expect = "200"
+expect = "401"
 timeout = "60s"
 
 # The Pi builds every widget remote, assembles the client PWA/nginx image, and
@@ -31,3 +36,31 @@ build = "30m"
 [commands.create-invite]
 run = "node dist/scripts/create-invite.cjs"
 service = "server"
+
+[commands.list-devices]
+run = "node dist/scripts/list-devices.cjs"
+service = "server"
+
+[commands.revoke-device]
+run = "node dist/scripts/revoke-device.cjs"
+service = "server"
+
+[commands.revoke-invite]
+run = "node dist/scripts/revoke-invite.cjs"
+service = "server"
+
+[commands.revoke-account]
+run = "node dist/scripts/revoke-account.cjs"
+service = "server"
+
+[commands.mint-add-device-token]
+run = "node dist/scripts/mint-add-device-token.cjs"
+service = "server"
+
+# Logical backup INSIDE the valkey_data volume: SAVE is synchronous (fine at
+# this DB size), the dated copy survives FLUSHDB and bad deploys (files are
+# not keys) — but not volume deletion. Restore = stop stack, copy a dump over
+# /data/dump.rdb, start with AOF disabled once (or delete the AOF files).
+[commands.backup]
+run = "sh -c 'valkey-cli SAVE && mkdir -p /data/backups && cp /data/dump.rdb /data/backups/dump-$(date +%Y%m%d-%H%M%S).rdb && ls -lh /data/backups'"
+service = "valkey"
