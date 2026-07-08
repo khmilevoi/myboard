@@ -38,7 +38,10 @@ describe('makeWidgetApi', () => {
   it('returns WidgetApiError for a safe server error envelope', async () => {
     const { http } = makeScriptedHttp({
       '/api/widgets/notes/save': [
-        { status: 422, body: { error: { code: 'payload_invalid', message: 'Widget event payload is invalid' } } },
+        {
+          status: 422,
+          body: { error: { code: 'payload_invalid', message: 'Widget event payload is invalid' } },
+        },
       ],
     })
     const api = makeWidgetApi<TestEvents>({

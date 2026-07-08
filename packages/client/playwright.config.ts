@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: 'e2e',
-  testIgnore: 'nginx-smoke.spec.ts',
+  testIgnore: ['nginx-smoke.spec.ts', 'nginx-gate.spec.ts', 'nginx-rate-limit.spec.ts'],
   outputDir: 'test-results',
   // All spec files share ONE test-server process (started once below, for
   // the whole run) backed by ONE Valkey instance -- the process-wide test

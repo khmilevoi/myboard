@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { AuthConfig } from './config'
 import { auditFor, auditIp, makeAuditLogger } from './audit'
+import type { AuthConfig } from './config'
 
 const baseConfig = { trustCfConnectingIp: false } as AuthConfig
 
@@ -46,7 +46,12 @@ describe('auditFor', () => {
     const emit = auditFor({ audit, config: baseConfig }, req)
 
     emit('login', { accountId: 'a1' })
-    expect(audit).toHaveBeenCalledWith({ event: 'login', accountId: 'a1', ip: '10.0.0.9', ua: 'UA' })
+    expect(audit).toHaveBeenCalledWith({
+      event: 'login',
+      accountId: 'a1',
+      ip: '10.0.0.9',
+      ua: 'UA',
+    })
   })
 
   it('omits ua when the request carries none', () => {

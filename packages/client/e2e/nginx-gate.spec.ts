@@ -257,9 +257,7 @@ test.describe('gate: browser journeys', () => {
     // retried ceremony's response is fully processed) -- poll rather than
     // check once immediately.
     expect(new URL(page.url()).pathname).toBe('/')
-    await expect
-      .poll(async () => (await page.request.get('/api/auth/session')).status())
-      .toBe(200)
+    await expect.poll(async () => (await page.request.get('/api/auth/session')).status()).toBe(200)
   })
 
   test('a revoked device is bounced to the activation page', async ({ page }) => {

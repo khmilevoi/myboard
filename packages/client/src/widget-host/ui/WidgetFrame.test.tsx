@@ -142,9 +142,18 @@ describe('WidgetFrame', () => {
   })
 
   it('provides one type- and instance-bound API through runtime context', async () => {
-    const fetchRequest = vi.fn(
-      async () => new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }),
-    )
+    // ky always calls fetch with a built Request instance (never a bare URL
+    // string + options), and — unlike HttpClient's own `fetch` seam — ky's
+    // real network path doesn't clone before/after handing the Request to
+    // fetch, so its body stream can only be read once. Capture it inside the
+    // mock, before ky/undici mark it consumed.
+    let requestUrl: string | undefined
+    let requestBody: unknown
+    const fetchRequest = vi.fn(async (request: Request) => {
+      requestUrl = request.url
+      requestBody = await request.clone().json()
+      return new Response(JSON.stringify({ data: { ok: true } }), { status: 200 })
+    })
     vi.stubGlobal('fetch', fetchRequest)
 
     const Probe = () => {
@@ -164,13 +173,10 @@ describe('WidgetFrame', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'context-api' }))
 
     await vi.waitFor(() => {
-      expect(fetchRequest).toHaveBeenCalledWith(
-        '/api/widgets/probe%2Ftype/probe',
-        expect.objectContaining({
-          body: JSON.stringify({ instanceId: 'instance-7', payload: { value: 1 } }),
-        }),
-      )
+      expect(fetchRequest).toHaveBeenCalledTimes(1)
     })
+    expect(new URL(requestUrl!).pathname).toBe('/api/widgets/probe%2Ftype/probe')
+    expect(requestBody).toEqual({ instanceId: 'instance-7', payload: { value: 1 } })
     vi.unstubAllGlobals()
   })
 })

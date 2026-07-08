@@ -410,9 +410,7 @@ export function createApp(deps: AppDeps): App {
           deps.authConfig.sessionTtlSlidingMs,
         ),
       })
-      res.end(
-        JSON.stringify({ accountId: account.id, credentialId, sessionId: session.sessionId }),
-      )
+      res.end(JSON.stringify({ accountId: account.id, credentialId, sessionId: session.sessionId }))
     })
 
     router.on('POST', '/api/test/expire-sessions', async (_req, res) => {

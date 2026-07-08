@@ -58,7 +58,9 @@ export async function runListDevicesCli(): Promise<void> {
     console.log(`${account.accountName} (${account.accountId})`)
     for (const device of account.devices) {
       const flags = [device.status, device.disabled ? 'disabled' : null].filter(Boolean).join(', ')
-      console.log(`  ${device.credentialId}  ${device.label}  [${flags}]  last seen ${device.lastSeenAt}`)
+      console.log(
+        `  ${device.credentialId}  ${device.label}  [${flags}]  last seen ${device.lastSeenAt}`,
+      )
     }
   }
   process.exit(0)

@@ -2,8 +2,8 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { db } from './client/db'
 import { makeHostRuntime } from '../host-runtime'
+import { db } from './client/db'
 import { instanceNamespace, typeNamespace, toFullKey } from './scope'
 
 const { makeWidgetStorage } = makeHostRuntime({ http: makeScriptedHttp({}).http })

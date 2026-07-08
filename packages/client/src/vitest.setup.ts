@@ -14,6 +14,17 @@ beforeEach(async () => {
   await resetClientStorage()
 })
 
+// `@vitest-environment node` files (e.g. board-storage.test.ts) have no
+// `location` at all, unlike jsdom. HttpClient falls back to
+// `location.origin` to turn the app's relative `/api/...` calls into an
+// absolute URL (browsers do this resolution against document.baseURI for
+// free; ky/undici's Request constructor requires it explicit). Without a
+// stand-in, ky throws building the Request before the fetch stub below is
+// ever reached.
+if (typeof globalThis.location === 'undefined') {
+  globalThis.location = new URL('http://localhost/') as unknown as Location
+}
+
 // Node's fetch rejects the app's relative `/api` URLs outright, so every
 // server-scope storage call fails. A persistently failing backend feeds the
 // reactive graph an endless error/revert re-run cycle (withStorageKey +

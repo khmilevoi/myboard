@@ -60,7 +60,8 @@ export function makeHttpStorage(namespace: string, deps: HttpStorageDeps): Stora
     async keys(prefix?: string): Promise<StorageError | string[]> {
       const fullPrefix = toFullKey(namespace, prefix ?? '')
       const res = await http.get(`${baseUrl}?prefix=${encodeURIComponent(fullPrefix)}`)
-      if (res instanceof Error) return new StorageError({ reason: 'server KEYS failed', cause: res })
+      if (res instanceof Error)
+        return new StorageError({ reason: 'server KEYS failed', cause: res })
       if (!res.ok) return new StorageError({ reason: `server KEYS ${res.status}` })
       const envelope = KeysEnvelopeSchema.safeParse(res.body)
       if (!envelope.success) {

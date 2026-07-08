@@ -353,10 +353,7 @@ describe('createApp', () => {
   it('seed-session issues a working session cookie', async () => {
     const res = await fetch(`${base}/api/test/seed-session`, { method: 'POST' })
     expect(res.status).toBe(200)
-    const { accountId, credentialId } = (await res.json()) as {
-      accountId: string
-      credentialId: string
-    }
+    const { accountId } = (await res.json()) as { accountId: string; credentialId: string }
     expect(accountId).toBeTruthy()
 
     const cookie = res.headers.get('set-cookie')!.split(';')[0]

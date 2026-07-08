@@ -75,6 +75,17 @@ describe('HttpClient', () => {
     expect(fetchMock.mock.calls[0][0].url).toBe('http://other.local/x')
   })
 
+  it('resolves a relative URL against globalThis.location.origin when no baseUrl is given', async () => {
+    vi.stubGlobal('location', new URL('http://widget-host.local/board'))
+    const fetchMock = stubFetch(json({}))
+    const http = new HttpClient({ fetch: fetchMock })
+
+    await http.get('/api/storage/k')
+
+    expect(fetchMock.mock.calls[0][0].url).toBe('http://widget-host.local/api/storage/k')
+    vi.unstubAllGlobals()
+  })
+
   it('lets an onRequest hook add headers', async () => {
     const fetchMock = stubFetch(json({}))
     const http = new HttpClient({
@@ -93,7 +104,10 @@ describe('makeUnauthorizedRetryHook', () => {
       new Response(null, { status: 401 }),
       new Response(null, { status: 204 }),
     )
-    const http = new HttpClient({ fetch: fetchMock, onResponse: [makeUnauthorizedRetryHook(handler)] })
+    const http = new HttpClient({
+      fetch: fetchMock,
+      onResponse: [makeUnauthorizedRetryHook(handler)],
+    })
 
     const result = await http.post('http://test.local/append', { json: { entry: { x: 1 } } })
     expect(result).toMatchObject({ status: 204 })
@@ -108,7 +122,10 @@ describe('makeUnauthorizedRetryHook', () => {
       new Response(null, { status: 401 }),
       new Response(null, { status: 401 }),
     )
-    const http = new HttpClient({ fetch: fetchMock, onResponse: [makeUnauthorizedRetryHook(handler)] })
+    const http = new HttpClient({
+      fetch: fetchMock,
+      onResponse: [makeUnauthorizedRetryHook(handler)],
+    })
     expect(await http.get('http://test.local/x')).toMatchObject({ status: 401 })
     expect(handler).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledTimes(2)

@@ -20,7 +20,9 @@ describe('runMintAddDeviceToken', () => {
     if (result instanceof Error) throw result
 
     expect(result.code).toMatch(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/)
-    expect(result.url).toBe(`https://board.example/add-device?token=${result.code.replace('-', '')}`)
+    expect(result.url).toBe(
+      `https://board.example/add-device?token=${result.code.replace('-', '')}`,
+    )
 
     const record = await lookupAddToken(ops, now, result.code)
     if (record instanceof Error) throw record

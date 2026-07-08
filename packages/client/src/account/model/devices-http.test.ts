@@ -1,5 +1,5 @@
-import type { AuthenticationResponseJSON } from '@simplewebauthn/browser'
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
+import type { AuthenticationResponseJSON } from '@simplewebauthn/browser'
 import { describe, expect, it } from 'vitest'
 
 import {

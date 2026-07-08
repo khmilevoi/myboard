@@ -195,7 +195,10 @@ describe('pendingDevice', () => {
   })
 
   it('is null when the account model has no pending devices', () => {
-    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel([]) })
+    const model = createAddDeviceModel({
+      http: noopHttp(),
+      accountModel: createFakeAccountModel([]),
+    })
 
     expect(model.pendingDevice()).toBeNull()
   })

@@ -115,9 +115,17 @@ export class HttpClient {
   }
 
   #resolve(url: string): string {
-    const base = this.#options.baseUrl
     // Absolute URLs bypass baseUrl joining — `${base}/http://…` is never right.
-    if (!base || /^https?:\/\//i.test(url)) return url
+    if (/^https?:\/\//i.test(url)) return url
+    // A real browser's fetch resolves a relative path against the document's
+    // base URL for free; Node's fetch (undici, used by ky outside a browser —
+    // including tests) has no notion of "current page" and throws on a bare
+    // path. Falling back to globalThis.location.origin — present in browsers
+    // and jsdom, absent in plain Node — keeps that same-origin behavior
+    // explicit instead of relying on an implicit browser-only mechanism.
+    const base =
+      this.#options.baseUrl ?? (typeof location === 'undefined' ? undefined : location.origin)
+    if (!base) return url
     return `${base.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`
   }
 }
@@ -142,9 +150,7 @@ async function parseBody(raw: Response): Promise<HttpTransportError | { body: un
 }
 
 /** 401 → ask the host to recover the session → replay the request once. */
-export function makeUnauthorizedRetryHook(
-  onUnauthorized: () => Promise<boolean>,
-): ResponseHook {
+export function makeUnauthorizedRetryHook(onUnauthorized: () => Promise<boolean>): ResponseHook {
   return async ({ response, retryCount }) => {
     if (response.status !== 401 || retryCount > 0) return
     const recovered = await onUnauthorized().catch(() => false)

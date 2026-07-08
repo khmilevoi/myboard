@@ -27,7 +27,7 @@ pnpm test:e2e                  # board Playwright e2e against the assembled prod
 pnpm test:e2e:docker           # same suite, fully isolated: ephemeral Valkey + browsers in one container, torn down after
 pnpm test:e2e:docker:down      # tear down the containerized e2e stack
 pnpm test:e2e:docker:headed    # dockerized Valkey + host Playwright in headed mode
-pnpm test:e2e:nginx            # with pnpm start:docker running, smoke-test the actual nginx image
+pnpm test:e2e:nginx            # gate + nginx image tests; needs `ALLOW_TEST_DB_RESET=1 pnpm start:docker` running
 pnpm typecheck                 # workspace-wide tsc --noEmit
 pnpm lint / pnpm lint:fix       # oxlint
 pnpm format / pnpm format:check # oxfmt

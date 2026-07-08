@@ -58,7 +58,9 @@ describe('makeHttpStorage on the HttpClient port', () => {
   })
 
   it('HAS maps 404 to false and 200 to true', async () => {
-    const { storage } = storageWith({ [KEY]: [{ status: 404 }, { status: 200, body: { value: 1 } }] })
+    const { storage } = storageWith({
+      [KEY]: [{ status: 404 }, { status: 200, body: { value: 1 } }],
+    })
     expect(await storage.has('settings')).toBe(false)
     expect(await storage.has('settings')).toBe(true)
   })

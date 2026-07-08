@@ -1,8 +1,8 @@
+import type { HttpLike } from '@shared/http/client'
 import type {
   AuthenticationResponseJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/browser'
-import type { HttpLike } from '@shared/http/client'
 import * as errore from 'errore'
 
 export type AccountDto = {
@@ -80,10 +80,7 @@ export function fetchDevices(http: HttpLike): Promise<Error | DevicesResult> {
   return request<DevicesResult>(http, '/api/auth/devices')
 }
 
-export function approveDevice(
-  http: HttpLike,
-  credentialId: string,
-): Promise<Error | { ok: true }> {
+export function approveDevice(http: HttpLike, credentialId: string): Promise<Error | { ok: true }> {
   return request<{ ok: true }>(
     http,
     `/api/auth/devices/${encodeURIComponent(credentialId)}/approve`,

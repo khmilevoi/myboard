@@ -10,7 +10,6 @@ import { readJsonBody } from '../http/body'
 import { runExclusive } from '../storage/key-lock'
 import { formatZodError } from '../storage/schemas'
 import { addDeviceToAccount, getAccount } from './accounts'
-import { auditFor } from './audit'
 import {
   consumeAddToken,
   formatAddCode,
@@ -18,6 +17,7 @@ import {
   mintAddToken,
   recordAddTokenFailure,
 } from './add-tokens'
+import { auditFor } from './audit'
 import { consumeChallenge, saveChallenge } from './challenge-store'
 import { publishAuthDeviceEvent } from './device-events'
 import {
