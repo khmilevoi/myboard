@@ -3,7 +3,6 @@ import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { instanceNamespace } from '../scope'
-import { installFakeBroadcastChannel } from '../test/fakes'
 import { db, clearExpired, purgeLocalData } from './db'
 import { makeDexieStorage } from './dexie-storage'
 
@@ -141,13 +140,6 @@ describe('createDexieStorage', () => {
 })
 
 describe('createDexieStorage subscribe', () => {
-  beforeEach(() => {
-    installFakeBroadcastChannel()
-  })
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('emits the current value on subscribe then on each change', async () => {
     await storage.set('draft', { text: 'first' })
     const seen: unknown[] = []

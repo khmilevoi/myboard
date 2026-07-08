@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../client/db'
 import { makeDexieStorage } from '../client/dexie-storage'
 import { instanceNamespace } from '../scope'
-import { installFakeBroadcastChannel } from '../test/fakes'
 import { StorageError, type StorageApi } from '../types'
 import {
   reatomStorageMutations,
@@ -61,13 +60,6 @@ describe('reatomClearExpired', () => {
 })
 
 describe('withStorageKey', () => {
-  beforeEach(() => {
-    installFakeBroadcastChannel()
-  })
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('reflects the current value and live updates while connected', async () => {
     const api: StorageApi = makeDexieStorage(instanceNamespace('inst-1'))
     await api.set('draft', 1)
@@ -155,13 +147,6 @@ describe('withStorageKey', () => {
 })
 
 describe('withStorageKeyReadonly', () => {
-  beforeEach(() => {
-    installFakeBroadcastChannel()
-  })
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('mirrors the stored value, applies fallback on delete, and never writes back', async () => {
     const real = makeDexieStorage(instanceNamespace('inst-ro'))
     const set = vi.fn(real.set)

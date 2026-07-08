@@ -1,5 +1,4 @@
-import { vi } from 'vitest'
-
+import { makeChannelHub, type BroadcastChannelLike } from '../client/channel'
 import { db } from '../client/db'
 import type {
   StorageApi,
@@ -61,9 +60,13 @@ export class FakeBroadcastChannel {
   }
 }
 
-export function installFakeBroadcastChannel() {
+/** Build a channel hub over a fresh, isolated `FakeBroadcastChannel` namespace for tests. */
+export function makeFakeChannelHub() {
   FakeBroadcastChannel.channels.clear()
-  vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
+  // FakeBroadcastChannel's addEventListener is intentionally narrower than
+  // EventTarget's overloaded DOM signature; it satisfies BroadcastChannelLike
+  // at runtime (same 'message' event shape).
+  return makeChannelHub((name) => new FakeBroadcastChannel(name) as unknown as BroadcastChannelLike)
 }
 
 /**
