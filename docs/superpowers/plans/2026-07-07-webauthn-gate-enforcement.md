@@ -4,7 +4,7 @@
 
 **Goal:** Enable the always-on nginx `auth_request` gate over the board and ship the hardening tail: CSRF guard, audit log, silent 401 re-login via the shared `HttpClient` port, logout purge, five ops scripts, and gate tests.
 
-**Architecture:** nginx gates `/`, `/assets/*`, `/widgets/*`, and `/api/*` (minus a public allowlist) by subrequesting `GET /api/auth/session`; a 401 on navigations serves the activation page. The server adds a router-level CSRF guard and stdout audit logging. Client transport moves to owned ports in `packages/shared/http/`: a `HttpClient` class (ky inside as a swappable adapter, errore values out, CSRF header built in) and an `EventStream` port over `EventSource`. widget-runtime gains a `makeHostRuntime` composition-root factory owning one SSE manager over an injected `HttpClient`; the board’s root (`packages/client/src/runtime.ts`) builds the single-flight Reatom relogin model (WebAuthn re-login ceremony) and the ONE retry-hooked `HttpClient` shared by board models and the runtime (`makeHostRuntime({ http, onUnauthorized })`), harnesses build a bare runtime, and every hand-rolled fetch/EventSource layer (http-storage, widget-api, http-time, devices-http, account device-events SSE, activation) migrates to the ports.
+**Architecture:** nginx gates `/`, `/assets/*`, `/widgets/*`, and `/api/*` (minus a public allowlist) by subrequesting `GET /api/auth/session`; a 401 on navigations serves the activation page. The server adds a router-level CSRF guard and stdout audit logging. Client transport moves to owned ports in `packages/shared/http/`: a `HttpClient` class (ky inside as a swappable adapter, errore values out, CSRF header built in) and an `EventStream` port over `EventSource`. widget-runtime gains a `makeHostRuntime` composition-root factory owning one SSE manager over an injected `HttpClient`; the board’s root (`packages/client/src/runtime.ts`) builds the single-flight Reatom relogin model (WebAuthn re-login ceremony) and the ONE retry-hooked `HttpClient` shared by board models and the runtime (`makeHostRuntime({ http })` — that hook is the app's only session-healing path), harnesses build a bare runtime, and every hand-rolled fetch/EventSource layer (http-storage, widget-api, http-time, devices-http, account device-events SSE, activation) migrates to the ports.
 
 **Tech Stack:** nginx `auth_request`/`limit_req`, ky (new dep in `shared`, hidden behind the `HttpClient` port), `@simplewebauthn/browser`, Reatom v1001, errore, Zod, Vitest, Playwright (CDP virtual authenticator).
 
@@ -18,9 +18,9 @@
 - UI copy for user-facing surfaces is Russian; this plan adds no new UI surfaces.
 - The gate exists **only** in the nginx image. `pnpm dev`, `pnpm test:e2e` (vite preview) stay ungated and must keep passing.
 - Transport port invariants: consumers depend on `HttpClient`/`HttpLike` from `@shared/http/client`, never on `fetch` (`typeof fetch` appears ONLY inside the adapter and its options). Errors are values: network failure or broken 2xx JSON → `HttpTransportError`; any non-2xx status → a normal `HttpResponse`; empty/non-JSON body on a non-2xx → `body: undefined`. CSRF header automatic on mutating methods; hooks fixed at construction; exactly one forced replay per request (`ResponseHook` → `'retry'`), and a `'retry'` verdict short-circuits the remaining response hooks for that response (every hook runs again on the replayed one). Inside the adapter ky runs with `throwHttpErrors: false`, `retry: 0`, `timeout: false`.
-- One hooked client per document: the board root builds it and passes it both to its models (via UI wiring) and to `makeHostRuntime({ http, ... })`. Bare clients (no retry hook) are a closed list: the relogin model (must never recurse), account logout `bareHttp` (a ceremony to log out is absurd), the activation models (they ARE the login surface), and `fetchServerTime`'s default (a 401 there is a non-fatal `TimeError`).
+- One hooked client per document: the board root builds it and passes it both to its models (via UI wiring) and to `makeHostRuntime({ http })`. That retry hook is the app's ONLY session-healing path — background flows never run a ceremony (SSE reconnect just retries the connect; the attempt itself is the probe). Bare clients (no retry hook) are a closed list: the relogin model (must never recurse), account logout `bareHttp` (a ceremony to log out is absurd), the activation models (they ARE the login surface), `fetchServerTime`'s default (a 401 there is a non-fatal `TimeError`), and `makeHostRuntime`'s internal default (harnesses/tests — auth never exists below a composition root).
 - Naming: new factories are `make*` (never `create*`); classes are instantiated with `new`. Pre-existing `create*` exports keep their names — renames are out of scope.
-- CSRF rule: mutating methods (`POST`/`PUT`/`DELETE`/`PATCH`) on `/api/*` except `/api/test/*` require header `X-Requested-With: MyBoard` → else 403 `{ code: 'csrf_required' }`.
+- CSRF rule: mutating methods (`POST`/`PUT`/`DELETE`/`PATCH`) on `/api/*` except `/api/test/*` require header `X-Requested-With: MyBoard` → else 403 `{ code: 'csrf_required' }`. The name/value constants live once in `@shared/http/csrf` (created in Task 1, consumed by the server guard and `HttpClient`); tests keep raw strings to pin the contract from outside.
 - Run tests per package: `pnpm --filter server exec vitest run <path>`, `pnpm --filter widget-runtime exec vitest run <path>`, `pnpm --filter client exec vitest run <path>`.
 - Commit after every task. Do not enable the gate (Task 11) before Tasks 1–10 are green. Tasks 15–16 are post-gate port migrations; Task 16 is cuttable.
 
@@ -29,6 +29,7 @@
 ### Task 1: Server CSRF guard
 
 **Files:**
+- Create: `packages/shared/http/csrf.ts` (the CSRF contract constants — Task 5's `HttpClient` imports them too)
 - Create: `packages/server/src/http/csrf.ts`
 - Create: `packages/server/src/http/csrf.test.ts`
 - Modify: `packages/server/src/app.ts` (the `createServer` callback, ~line 375)
@@ -90,14 +91,29 @@ Expected: FAIL — `csrf.ts` does not exist.
 
 - [ ] **Step 3: Implement**
 
-`packages/server/src/http/csrf.ts`:
+First `packages/shared/http/csrf.ts` — the ONE place the CSRF contract
+constants live (the server guard below and Task 5's `HttpClient` both import
+them; tests everywhere keep raw `'X-Requested-With': 'MyBoard'` strings so
+the contract stays pinned from outside):
+
+```ts
+/**
+ * CSRF contract: mutating /api requests must carry this header. The name is
+ * lowercase — valid verbatim both in Node's `req.headers` (Node lowercases
+ * incoming names) and in `Headers.set` (case-insensitive).
+ */
+export const CSRF_HEADER = 'x-requested-with'
+export const CSRF_HEADER_VALUE = 'MyBoard'
+```
+
+Then `packages/server/src/http/csrf.ts`:
 
 ```ts
 import type { IncomingMessage } from 'node:http'
 
+import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@shared/http/csrf'
+
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
-const CSRF_HEADER = 'x-requested-with'
-const CSRF_VALUE = 'MyBoard'
 
 /**
  * Router-level CSRF check: mutating /api requests must carry the custom
@@ -109,7 +125,7 @@ export function csrfBlocked(req: Pick<IncomingMessage, 'method' | 'url' | 'heade
   const url = req.url ?? ''
   if (!url.startsWith('/api/')) return false
   if (url.startsWith('/api/test/')) return false
-  return req.headers[CSRF_HEADER] !== CSRF_VALUE
+  return req.headers[CSRF_HEADER] !== CSRF_HEADER_VALUE
 }
 ```
 
@@ -176,7 +192,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-rtk git add packages/server/src/http/csrf.ts packages/server/src/http/csrf.test.ts packages/server/src/app.ts packages/server/src/app.test.ts packages/client/e2e/auth-activation.spec.ts
+rtk git add packages/shared/http/csrf.ts packages/server/src/http/csrf.ts packages/server/src/http/csrf.test.ts packages/server/src/app.ts packages/server/src/app.test.ts packages/client/e2e/auth-activation.spec.ts
 rtk git commit -m "feat(server): CSRF guard - mutating /api requires X-Requested-With"
 ```
 
@@ -201,7 +217,7 @@ rtk git commit -m "feat(server): CSRF guard - mutating /api requires X-Requested
   - `makeAuditLogger(write?: (line: string) => void): AuditLogger` — one JSON line per event with an ISO `ts` prepended.
   - `noopAudit: AuditLogger` — the null object for hosts that don't audit; handler code never null-checks.
   - `auditIp(req: Pick<IncomingMessage, 'headers' | 'socket'>, config: AuthConfig): string | null` — `CF-Connecting-IP` when `config.trustCfConnectingIp`, else `clientIp(req)`.
-  - `uaOf(req: Pick<IncomingMessage, 'headers'>): { ua?: string }` — audit-payload helper, lives next to `auditIp`.
+  - `auditFor(deps: { audit: AuditLogger; config: AuthConfig }, req: Pick<IncomingMessage, 'headers' | 'socket'>): (event: AuditEventName, extra?: Omit<AuditEvent, 'event' | 'ip' | 'ua'>) => void` — request-scoped emitter binding the mechanical context (ip, ua) once; emission sites state only the event and its own fields.
   - `AuthDeps` gains **required** `audit: AuditLogger`; the optionality lives only at the boundary — `RegisterAuthRoutesDeps` takes `audit?` and fills it with `?? noopAudit`.
 
 - [ ] **Step 1: Write the failing test**
@@ -212,7 +228,7 @@ rtk git commit -m "feat(server): CSRF guard - mutating /api requires X-Requested
 import { describe, expect, it, vi } from 'vitest'
 
 import type { AuthConfig } from './config'
-import { auditIp, makeAuditLogger } from './audit'
+import { auditFor, auditIp, makeAuditLogger } from './audit'
 
 const baseConfig = { trustCfConnectingIp: false } as AuthConfig
 
@@ -247,6 +263,24 @@ describe('auditIp', () => {
   it('uses CF-Connecting-IP when trusted', () => {
     const config = { ...baseConfig, trustCfConnectingIp: true } as AuthConfig
     expect(auditIp(req({ 'cf-connecting-ip': '203.0.113.7' }), config)).toBe('203.0.113.7')
+  })
+})
+
+describe('auditFor', () => {
+  it('binds ip and ua once and merges the event fields', () => {
+    const audit = vi.fn()
+    const req = { headers: { 'user-agent': 'UA' }, socket: { remoteAddress: '10.0.0.9' } } as never
+    const emit = auditFor({ audit, config: baseConfig }, req)
+
+    emit('login', { accountId: 'a1' })
+    expect(audit).toHaveBeenCalledWith({ event: 'login', accountId: 'a1', ip: '10.0.0.9', ua: 'UA' })
+  })
+
+  it('omits ua when the request carries none', () => {
+    const audit = vi.fn()
+    const req = { headers: {}, socket: { remoteAddress: '10.0.0.9' } } as never
+    auditFor({ audit, config: baseConfig }, req)('logout')
+    expect(audit).toHaveBeenCalledWith({ event: 'logout', ip: '10.0.0.9' })
   })
 })
 ```
@@ -297,11 +331,6 @@ export function makeAuditLogger(write: (line: string) => void = console.log): Au
 /** Null object for hosts that don't audit — handler code never null-checks. */
 export const noopAudit: AuditLogger = () => {}
 
-/** Audit-payload helper: include `ua` only when the request carries one. */
-export function uaOf(req: Pick<IncomingMessage, 'headers'>): { ua?: string } {
-  return req.headers['user-agent'] ? { ua: req.headers['user-agent'] } : {}
-}
-
 /** Real client IP for audit: CF header only behind the trusted tunnel. */
 export function auditIp(
   req: Pick<IncomingMessage, 'headers' | 'socket'>,
@@ -314,13 +343,27 @@ export function auditIp(
   }
   return clientIp(req)
 }
+
+/**
+ * Request-scoped emitter: binds the mechanical context (ip, ua) once so
+ * emission sites state only the event and its own fields.
+ */
+export function auditFor(
+  deps: { audit: AuditLogger; config: AuthConfig },
+  req: Pick<IncomingMessage, 'headers' | 'socket'>,
+): (event: AuditEventName, extra?: Omit<AuditEvent, 'event' | 'ip' | 'ua'>) => void {
+  return (event, extra = {}) => {
+    const ua = req.headers['user-agent']
+    deps.audit({ event, ...extra, ip: auditIp(req, deps.config), ...(ua ? { ua } : {}) })
+  }
+}
 ```
 
 - [ ] **Step 4: Wire `audit` into AuthDeps and emit events**
 
 In `packages/server/src/auth/handlers.ts`:
 
-1. Add to imports: `import { auditIp, uaOf, type AuditLogger } from './audit'` and add `InviteLockedError` to the existing `./errors` import.
+1. Add to imports: `import { auditFor, type AuditLogger } from './audit'` and add `InviteLockedError` to the existing `./errors` import.
 2. Extend the deps type (`audit` is **required** — the null object lives at the boundary, see `index.ts` below):
 
 ```ts
@@ -332,19 +375,15 @@ export type AuthDeps = {
 }
 ```
 
-3. (`uaOf` comes from `./audit` — no local helper.)
+3. Each auditing handler opens with `const emit = auditFor(deps, req)` — ip/ua never appear at emission sites.
 
 4. `postRegisterVerify`: extend the `fail` closure and the success return:
 
 ```ts
+const emit = auditFor(deps, req)
 const fail = async (err: Error): Promise<AuthResult> => {
   await recordInviteFailure(deps.ops, deps.now, token)
-  deps.audit({
-    event: err instanceof InviteLockedError ? 'invite_locked' : 'register_failed',
-    code: err.name,
-    ip: auditIp(req, deps.config),
-    ...uaOf(req),
-  })
+  emit(err instanceof InviteLockedError ? 'invite_locked' : 'register_failed', { code: err.name })
   return toAuthResult(err)
 }
 ```
@@ -352,58 +391,50 @@ const fail = async (err: Error): Promise<AuthResult> => {
 In the `addResult instanceof Error` rollback branch, before `return toAuthResult(addResult)` add:
 
 ```ts
-deps.audit({
-  event: 'register_failed',
-  code: addResult.name,
-  ip: auditIp(req, deps.config),
-  ...uaOf(req),
-})
+emit('register_failed', { code: addResult.name })
 ```
 
 Immediately before the final success `return { status: 200, ... }` add:
 
 ```ts
-deps.audit({
-  event: 'register',
+emit('register', {
   accountId: account.id,
   credentialId: verified.credentialId,
   inviteId: invite.id,
-  ip: auditIp(req, deps.config),
-  ...uaOf(req),
 })
 ```
 
-5. `postLoginVerify`: at the two failure exits and the success exit:
+5. `postLoginVerify` (`const emit = auditFor(deps, req)` at the top): at the two failure exits and the success exit:
 
 ```ts
 if (challenge instanceof Error) {
-  deps.audit({ event: 'login_failed', code: challenge.name, ip: auditIp(req, deps.config), ...uaOf(req) })
+  emit('login_failed', { code: challenge.name })
   return toAuthResult(challenge)
 }
 // ...
 if (result instanceof Error) {
-  deps.audit({ event: 'login_failed', credentialId, code: result.name, ip: auditIp(req, deps.config), ...uaOf(req) })
+  emit('login_failed', { credentialId, code: result.name })
   return toAuthResult(result)
 }
 // ... before the success return:
-deps.audit({ event: 'login', accountId: device.accountId, credentialId, ip: auditIp(req, deps.config), ...uaOf(req) })
+emit('login', { accountId: device.accountId, credentialId })
 ```
 
 6. `postLogout`: before the return:
 
 ```ts
-deps.audit({ event: 'logout', ip: auditIp(req, deps.config), ...uaOf(req) })
+auditFor(deps, req)('logout')
 ```
 
-In `packages/server/src/auth/device-handlers.ts`, using the same `auditIp`/`deps.audit` pattern (import `auditIp` and `uaOf` from `./audit`), emit immediately before each success return, with the account/credential ids that are in scope in that function:
+In `packages/server/src/auth/device-handlers.ts`, same pattern (import `auditFor` from `./audit`, open each handler with `const emit = auditFor(deps, req)`), emit immediately before each success return, with the account/credential ids that are in scope in that function:
 
-- `postAddToken` → `{ event: 'addtoken_minted', accountId: <the session's accountId> }`
-- `postDeviceRegisterVerify` → `{ event: 'device_pending', accountId, credentialId: <the new pending device id> }`
-- `postApproveDevice` → `{ event: 'device_approved', accountId: <session accountId>, credentialId: <params.credentialId> }`
-- `postDenyDevice` → `{ event: 'device_denied', accountId, credentialId }`
-- `postRevokeDevice` → `{ event: 'device_revoked', accountId, credentialId }`
+- `postAddToken` → `emit('addtoken_minted', { accountId: <the session's accountId> })`
+- `postDeviceRegisterVerify` → `emit('device_pending', { accountId, credentialId: <the new pending device id> })`
+- `postApproveDevice` → `emit('device_approved', { accountId: <session accountId>, credentialId: <params.credentialId> })`
+- `postDenyDevice` → `emit('device_denied', { accountId, credentialId })`
+- `postRevokeDevice` → `emit('device_revoked', { accountId, credentialId })`
 
-All device events also get `ip: auditIp(req, deps.config)` and `...uaOf(req)` (both from `./audit`).
+(`auditFor` adds `ip`/`ua` automatically.)
 
 In `packages/server/src/auth/index.ts`: add `audit?: AuditLogger` to `RegisterAuthRoutesDeps` (type import from `./audit`), destructure it as `audit = noopAudit` (value import of `noopAudit` from `./audit`), and include it in the local `authDeps` — handlers always receive a real function.
 
@@ -1098,7 +1129,7 @@ rtk git commit -m "feat(server): revoke-invite, revoke-account, mint-add-device-
 - Create: `packages/shared/navigation.ts`
 
 **Interfaces:**
-- Consumes: `ky` (new dep in `shared` only — resolved from `packages/shared/node_modules` by every consumer since `@shared/*` is a source alias), `errore` (already a `shared` dep).
+- Consumes: `ky` (new dep in `shared` only — resolved from `packages/shared/node_modules` by every consumer since `@shared/*` is a source alias), `errore` (already a `shared` dep), `CSRF_HEADER`/`CSRF_HEADER_VALUE` from `@shared/http/csrf` (created in Task 1).
 - Produces (all from `@shared/http/client`):
   - `type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'`
   - `type HttpResponse = { status: number; ok: boolean; body: unknown }`
@@ -1197,6 +1228,13 @@ describe('HttpClient', () => {
     expect(fetchMock.mock.calls[0][0].url).toBe('http://test.local/api/storage/k')
   })
 
+  it('leaves absolute URLs alone even with a baseUrl', async () => {
+    const fetchMock = stubFetch(json({}))
+    const http = new HttpClient({ baseUrl: 'http://test.local/api/', fetch: fetchMock })
+    await http.get('http://other.local/x')
+    expect(fetchMock.mock.calls[0][0].url).toBe('http://other.local/x')
+  })
+
   it('lets an onRequest hook add headers', async () => {
     const fetchMock = stubFetch(json({}))
     const http = new HttpClient({
@@ -1274,6 +1312,8 @@ Expected: FAIL — `client.ts` does not exist.
 import * as errore from 'errore'
 import ky from 'ky'
 
+import { CSRF_HEADER, CSRF_HEADER_VALUE } from './csrf'
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
 
 export type HttpResponse = { status: number; ok: boolean; body: unknown }
@@ -1342,7 +1382,7 @@ export class HttpClient {
     retryCount: number,
   ): Promise<HttpTransportError | HttpResponse> {
     const headers = new Headers()
-    if (MUTATING_METHODS.has(method)) headers.set('X-Requested-With', 'MyBoard')
+    if (MUTATING_METHODS.has(method)) headers.set(CSRF_HEADER, CSRF_HEADER_VALUE)
     const ctx: HttpRequestContext = { method, url: this.#resolve(url), headers }
     for (const hook of this.#options.onRequest ?? []) await hook(ctx)
 
@@ -1376,7 +1416,8 @@ export class HttpClient {
 
   #resolve(url: string): string {
     const base = this.#options.baseUrl
-    if (!base) return url
+    // Absolute URLs bypass baseUrl joining — `${base}/http://…` is never right.
+    if (!base || /^https?:\/\//i.test(url)) return url
     return `${base.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`
   }
 }
@@ -1652,12 +1693,12 @@ rtk git commit -m "feat(shared): HttpClient port over ky, EventStream port, Navi
 - Modify: `packages/widget-runtime/src/index.ts` (`export * from './host-runtime'`)
 
 **Interfaces:**
-- Consumes: `HttpClient`, `HttpLike`, `makeUnauthorizedRetryHook` from `@shared/http/client`; `OpenEventStream`, `makeEventSourceStream` from `@shared/http/event-stream`; `makeScriptedHttp` from `@shared/http/test/scripted-http` (tests).
+- Consumes: `HttpClient`, `HttpLike` from `@shared/http/client`; `OpenEventStream`, `makeEventSourceStream` from `@shared/http/event-stream`; `makeScriptedHttp` from `@shared/http/test/scripted-http` (tests).
 - Produces:
   - `makeHostRuntime(options?: HostRuntimeOptions): HostRuntime` with
-    `HostRuntimeOptions = { serverBaseUrl?: string; onUnauthorized?: () => Promise<boolean>; http?: HttpLike; openEventStream?: OpenEventStream }` and
-    `HostRuntime = { makeWidgetStorage({instanceId, typeId}): WidgetStorage; makeScopedStorage(scope): ScopedStorage; makeWidgetApi<Events>({instanceId, typeId}): WidgetApi<Events, WidgetApiError> }`
-  - `makeRuntimeHttp(onUnauthorized?: () => Promise<boolean>): HttpClient` (exported so the default 401 wiring is unit-testable)
+    `HostRuntimeOptions = { serverBaseUrl?: string; http?: HttpLike; openEventStream?: OpenEventStream }` and
+    `HostRuntime = { makeWidgetStorage({instanceId, typeId}): WidgetStorage; makeScopedStorage(scope): ScopedStorage; makeWidgetApi<Events>({instanceId, typeId}): WidgetApi<Events, WidgetApiError> }`.
+    No `onUnauthorized` option and no `makeRuntimeHttp` helper: auth never exists below a composition root — the default client is a bare `new HttpClient()`, and the board's 401 healing arrives solely through the retry hook on the client it injects.
   - `makeHttpStorage(namespace: string, deps: HttpStorageDeps)` with `HttpStorageDeps = { baseUrl: string; http: HttpLike; registerKey: (fullKey: string, deliver: SseDeliver) => () => void }`
   - **Transitional** free `makeWidgetStorage` / `makeScopedStorage` / `makeWidgetApi` package exports delegating to a lazy default runtime — keep every current consumer compiling; **deleted in Task 9**.
   - `fetchServerTime(baseUrl?, http?)` — same return contract as today.
@@ -2020,9 +2061,9 @@ export async function fetchServerTime(
 
 ```ts
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { makeHostRuntime, makeRuntimeHttp } from './host-runtime'
+import { makeHostRuntime } from './host-runtime'
 
 describe('makeHostRuntime', () => {
   it('scopes widget storage to instance and type namespaces over the injected port', async () => {
@@ -2060,33 +2101,6 @@ describe('makeHostRuntime', () => {
     expect(calls[0]?.method).toBe('POST')
   })
 })
-
-describe('makeRuntimeHttp', () => {
-  it('wires exactly one 401 replay through onUnauthorized', async () => {
-    const handler = vi.fn(async () => true)
-    const fetchMock = vi
-      .fn<(request: Request) => Promise<Response>>()
-      .mockResolvedValueOnce(new Response(null, { status: 401 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    const result = await makeRuntimeHttp(handler).get('http://test.local/x')
-    expect(result).toMatchObject({ status: 204 })
-    expect(handler).toHaveBeenCalledTimes(1)
-    vi.unstubAllGlobals()
-  })
-
-  it('is bare without onUnauthorized: the 401 flows through', async () => {
-    const fetchMock = vi
-      .fn<(request: Request) => Promise<Response>>()
-      .mockResolvedValue(new Response(null, { status: 401 }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    expect(await makeRuntimeHttp().get('http://test.local/x')).toMatchObject({ status: 401 })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    vi.unstubAllGlobals()
-  })
-})
 ```
 
 Run: `pnpm --filter widget-runtime exec vitest run src/host-runtime.test.ts` → FAIL (module missing).
@@ -2096,7 +2110,7 @@ Run: `pnpm --filter widget-runtime exec vitest run src/host-runtime.test.ts` →
 `packages/widget-runtime/src/host-runtime.ts`:
 
 ```ts
-import { HttpClient, makeUnauthorizedRetryHook, type HttpLike } from '@shared/http/client'
+import { HttpClient, type HttpLike } from '@shared/http/client'
 import type { OpenEventStream } from '@shared/http/event-stream'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 
@@ -2108,10 +2122,9 @@ import { getSseManager, type SseDeliver } from './storage/server/sse-client'
 import { makeWidgetApi as makeWidgetApiWith, type WidgetApiError } from './widget-api'
 
 export type HostRuntimeOptions = {
-  serverBaseUrl?: string                  // default '/api/storage'
-  onUnauthorized?: () => Promise<boolean> // board: ensureSession; harnesses: absent
-  http?: HttpLike                         // the host's shared client (the board passes its own); default makeRuntimeHttp(onUnauthorized)
-  openEventStream?: OpenEventStream       // test seam; wired to the SSE manager in Task 7
+  serverBaseUrl?: string            // default '/api/storage'
+  http?: HttpLike                   // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
+  openEventStream?: OpenEventStream // test seam; wired to the SSE manager in Task 7
 }
 
 export type HostRuntime = {
@@ -2123,26 +2136,21 @@ export type HostRuntime = {
   }): WidgetApi<Events, WidgetApiError>
 }
 
-/** The runtime's default client: bare, or with the single 401 replay hook. */
-export function makeRuntimeHttp(onUnauthorized?: () => Promise<boolean>): HttpClient {
-  return new HttpClient({
-    onResponse: onUnauthorized ? [makeUnauthorizedRetryHook(onUnauthorized)] : [],
-  })
-}
-
 /**
  * The widget-runtime composition root: one per document, owning the SSE
  * manager and running every request through ONE HttpClient — the board
  * injects its shared retry-hooked client, bare hosts (harnesses) get an
- * internally built one. Hosts build exactly one runtime; two runtimes would
+ * internally built bare one. Auth never exists below a composition root:
+ * there is no onUnauthorized option — 401 healing is entirely the injected
+ * client's concern. Hosts build exactly one runtime; two runtimes would
  * open two SSE connections — tests only.
  */
 export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
   const baseUrl = options.serverBaseUrl ?? '/api/storage'
-  const http = options.http ?? makeRuntimeHttp(options.onUnauthorized)
+  const http = options.http ?? new HttpClient()
   // Task 7 replaces this with a lazily constructed makeSseManager({ baseUrl,
-  // http, openEventStream, onUnauthorized }); until then the legacy
-  // module-level manager keeps serving subscriptions unchanged.
+  // http, openEventStream }); until then the legacy module-level manager
+  // keeps serving subscriptions unchanged.
   const registerKey = (fullKey: string, deliver: SseDeliver) =>
     getSseManager(baseUrl).add(fullKey, deliver)
 
@@ -2246,9 +2254,9 @@ rtk git commit -m "feat(widget-runtime): makeHostRuntime composition root over t
 **Interfaces:**
 - Consumes: `HttpLike` from `@shared/http/client`; `OpenEventStream`, `EventStream`, `makeEventSourceStream` from `@shared/http/event-stream`.
 - Produces:
-  - `makeSseManager(deps: SseManagerDeps): SseManager` with `SseManagerDeps = { baseUrl: string; http: HttpLike; openEventStream: OpenEventStream; onUnauthorized?: () => Promise<boolean> }` and `SseManager = { add(fullKey, deliver): () => void }`
+  - `makeSseManager(deps: SseManagerDeps): SseManager` with `SseManagerDeps = { baseUrl: string; http: HttpLike; openEventStream: OpenEventStream }` and `SseManager = { add(fullKey, deliver): () => void }`
   - `purgeLocalData(): Promise<void>` (exported from the `widget-runtime` package root via `storage/index.ts`) — deletes the `myboard-storage` Dexie database.
-- Behavior: on the stream's fatal `onError`, the manager awaits `onUnauthorized` (when present), then reconnects after `RECONNECT_DELAY_MS = 2000`; a fresh connection re-registers all desired keys (the existing `ready` handler already resets `registered`).
+- Behavior: on the stream's fatal `onError`, the manager reconnects after `RECONNECT_DELAY_MS = 2000`, forever — **no re-auth hook**: the connect attempt itself is the probe (a dead session ⇒ the gate answers non-200 ⇒ fatal close ⇒ next attempt in 2 s), and session healing lives solely in the board client's 401 retry hook — once any board-driven request heals the session, the next tick reconnects. A fresh connection re-registers all desired keys (the existing `ready` handler already resets `registered`).
 
 - [ ] **Step 1: Fakes come from the port**
 
@@ -2311,10 +2319,9 @@ describe('makeSseManager', () => {
     expect(seen).toEqual([7])
   })
 
-  it('re-authenticates and reconnects after a fatal stream error', async () => {
+  it('reconnects after a fatal stream error and re-registers desired keys', async () => {
     vi.useFakeTimers()
-    const onUnauthorized = vi.fn(async () => true)
-    const { manager, streams, post } = setup({ onUnauthorized })
+    const { manager, streams, post } = setup()
     manager.add('k1', () => {})
 
     streams[0].emit('ready', { connId: 'c1' })
@@ -2323,7 +2330,6 @@ describe('makeSseManager', () => {
     streams[0].fail()
     await vi.runAllTimersAsync()
 
-    expect(onUnauthorized).toHaveBeenCalledTimes(1)
     expect(streams.length).toBe(2)
 
     // the fresh connection re-registers the desired key
@@ -2355,7 +2361,6 @@ export type SseManagerDeps = {
   baseUrl: string
   http: HttpLike
   openEventStream: OpenEventStream
-  onUnauthorized?: () => Promise<boolean>
 }
 
 const REGISTER_RETRY_MS = 1_000
@@ -2401,19 +2406,19 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
     })
   }
 
-  // Fixed 2 s, no backoff, retry forever — deliberate: the common fatal
-  // close is a server deploy/restart (nginx up, upstream down → non-200 →
-  // CLOSED), where fast indefinite retry is what brings the board back by
-  // itself; the per-tab probe load is negligible for nginx.
+  // Fixed 2 s, no backoff, retry forever, no re-auth — deliberate. The
+  // common fatal close is a server deploy/restart (nginx up, upstream down →
+  // non-200 → CLOSED), where fast indefinite retry brings the board back by
+  // itself. The connect attempt IS the session probe: while the session is
+  // dead the gate answers non-200 and the loop just keeps ticking; healing
+  // arrives through the board client's 401 retry hook on the next real
+  // request, and the following tick reconnects. Running a WebAuthn ceremony
+  // from this timer would pop a passkey prompt with no user gesture.
   function scheduleReconnect(): void {
     if (reconnectTimer) return
     reconnectTimer = setTimeout(() => {
       reconnectTimer = undefined
-      void (async () => {
-        // The probe inside the handler distinguishes network from session.
-        if (deps.onUnauthorized) await deps.onUnauthorized().catch(() => false)
-        connect()
-      })()
+      connect()
     }, RECONNECT_DELAY_MS)
   }
 
@@ -2461,7 +2466,6 @@ import { makeSseManager, type SseDeliver, type SseManager } from './storage/serv
       baseUrl,
       http,
       openEventStream: options.openEventStream ?? makeEventSourceStream(),
-      onUnauthorized: options.onUnauthorized,
     }))
   const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
 ```
@@ -2542,18 +2546,19 @@ rtk git commit -m "feat(widget-runtime): SSE manager on the EventStream port wit
 **Files:**
 - Create: `packages/client/src/session/model/relogin.ts`
 - Create: `packages/client/src/session/model/relogin.test.ts`
+- Modify: `packages/client/vite.config.ts` (PWA `navigateFallbackDenylist`)
 
 **Interfaces:**
-- Consumes: `startAuthentication` from `@simplewebauthn/browser` (already a client dependency); `HttpClient`, `HttpLike` from `@shared/http/client`; `Navigate` from `@shared/navigation`; Reatom v1001 (`action`, `atom`, `wrap`); `makeScriptedHttp` (tests).
+- Consumes: `startAuthentication` from `@simplewebauthn/browser` (already a client dependency); `HttpClient`, `HttpLike` from `@shared/http/client`; `Navigate` from `@shared/navigation`; Reatom v1001 (`action`, `atom`, `wrap`); Zod; `makeScriptedHttp` (tests).
 - Produces:
-  - `makeReloginModel(overrides?: Partial<ReloginDeps>): ReloginModel` with `ReloginDeps = { http: HttpLike; startAuthenticationCeremony: typeof startAuthentication; navigate: Navigate; storage: { get(): string | null; clear(): void } }` and `ReloginModel = { ensureSession: () => Promise<boolean> }`
+  - `makeReloginModel(overrides?: Partial<ReloginDeps>): ReloginModel` with `ReloginDeps = { http: HttpLike; startAuthenticationCeremony: typeof startAuthentication; navigate: Navigate; credHint: { get(): string | null; clear(): void } }` and `ReloginModel = { ensureSession: () => Promise<boolean> }`
   - No module singleton: the file exports only the factory (and `CRED_HINT_STORAGE_KEY`). The board's composition root (Task 9 `runtime.ts`) builds the single instance; anything needing `ensureSession` imports it from `@/runtime`, never from this module.
 - Behavior contract:
   1. Single-flight: concurrent calls share one promise.
   2. Probe `GET /api/auth/session` → `200` ⇒ `true`, no ceremony.
   3. Probe transport failure ⇒ `false`, **no redirect** (offline-first: the caller just sees its original error).
-  4. Probe `401` ⇒ ceremony `POST /api/auth/login/options` (with `credentialIdHint` from `mb_cred_hint` when present) → `startAuthentication` → `POST /api/auth/login/verify` ⇒ `true`.
-  5. Any ceremony/verify failure or cancel ⇒ clear the hint, `navigate('/')`, `false`.
+  4. Probe `401` ⇒ ceremony `POST /api/auth/login/options` (with `credentialIdHint` from `mb_cred_hint` when present; the response envelope is Zod-validated) → `startAuthentication` → `POST /api/auth/login/verify` ⇒ `true`.
+  5. Any ceremony/verify failure or cancel ⇒ clear the hint, `navigate('/activate/')`, `false`. The target is `/activate/`, **not** `/`: the installed PWA service worker serves the cached board shell for `/` (`navigateFallback`), which would loop a revoked device through endless ceremonies without ever reaching nginx; `/activate/` is public and excluded from the SW fallback (Step 5).
   6. The model builds its **own bare `new HttpClient()`** by default — no retry hook: the re-login path must never recurse into itself, and constructing it here keeps `runtime.ts` → `relogin.ts` acyclic.
 
 - [ ] **Step 1: Write the failing test**
@@ -2566,7 +2571,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { makeReloginModel } from './relogin'
 
-const noStorage = { get: () => null, clear: vi.fn() }
+const noCredHint = { get: () => null, clear: vi.fn() }
 
 describe('ensureSession', () => {
   it('returns true without a ceremony when the probe says 200', async () => {
@@ -2576,7 +2581,7 @@ describe('ensureSession', () => {
       http,
       startAuthenticationCeremony: ceremony as never,
       navigate: vi.fn(),
-      storage: noStorage,
+      credHint: noCredHint,
     })
     expect(await model.ensureSession()).toBe(true)
     expect(ceremony).not.toHaveBeenCalled()
@@ -2593,7 +2598,7 @@ describe('ensureSession', () => {
       http,
       startAuthenticationCeremony: ceremony as never,
       navigate: vi.fn(),
-      storage: { get: () => 'hint-1', clear: vi.fn() },
+      credHint: { get: () => 'hint-1', clear: vi.fn() },
     })
 
     expect(await model.ensureSession()).toBe(true)
@@ -2610,7 +2615,7 @@ describe('ensureSession', () => {
       http,
       startAuthenticationCeremony: vi.fn() as never,
       navigate: vi.fn(),
-      storage: noStorage,
+      credHint: noCredHint,
     })
     const [a, b, c] = await Promise.all([
       model.ensureSession(),
@@ -2621,25 +2626,41 @@ describe('ensureSession', () => {
     expect(calls.length).toBe(1)
   })
 
-  it('redirects to / and returns false when the ceremony is cancelled', async () => {
+  it('redirects to /activate/ and returns false when the ceremony is cancelled', async () => {
     const { http } = makeScriptedHttp({
       '/api/auth/session': [{ status: 401 }],
       '/api/auth/login/options': [{ status: 200, body: { options: { challenge: 'x' } } }],
     })
     const navigate = vi.fn()
-    const storage = { get: () => 'hint', clear: vi.fn() }
+    const credHint = { get: () => 'hint', clear: vi.fn() }
     const model = makeReloginModel({
       http,
       startAuthenticationCeremony: vi.fn(async () => {
         throw new Error('NotAllowedError')
       }) as never,
       navigate,
-      storage,
+      credHint,
     })
 
     expect(await model.ensureSession()).toBe(false)
-    expect(navigate).toHaveBeenCalledWith('/')
-    expect(storage.clear).toHaveBeenCalled()
+    expect(navigate).toHaveBeenCalledWith('/activate/')
+    expect(credHint.clear).toHaveBeenCalled()
+  })
+
+  it('bails on a malformed login/options envelope', async () => {
+    const { http } = makeScriptedHttp({
+      '/api/auth/session': [{ status: 401 }],
+      '/api/auth/login/options': [{ status: 200, body: { nope: true } }],
+    })
+    const navigate = vi.fn()
+    const model = makeReloginModel({
+      http,
+      startAuthenticationCeremony: vi.fn() as never,
+      navigate,
+      credHint: noCredHint,
+    })
+    expect(await model.ensureSession()).toBe(false)
+    expect(navigate).toHaveBeenCalledWith('/activate/')
   })
 
   it('returns false without redirect when the probe network-fails (offline)', async () => {
@@ -2649,7 +2670,7 @@ describe('ensureSession', () => {
       http,
       startAuthenticationCeremony: vi.fn() as never,
       navigate,
-      storage: noStorage,
+      credHint: noCredHint,
     })
     expect(await model.ensureSession()).toBe(false)
     expect(navigate).not.toHaveBeenCalled()
@@ -2666,7 +2687,7 @@ describe('ensureSession', () => {
       http,
       startAuthenticationCeremony: vi.fn() as never,
       navigate: vi.fn(),
-      storage: noStorage,
+      credHint: noCredHint,
     })
     await model.ensureSession()
     await model.ensureSession()
@@ -2687,16 +2708,21 @@ import { HttpClient, type HttpLike } from '@shared/http/client'
 import type { Navigate } from '@shared/navigation'
 import { action, atom, wrap } from '@reatom/core'
 import { startAuthentication } from '@simplewebauthn/browser'
+import { z } from 'zod'
 
 // Same non-secret localStorage hint the activation app maintains
 // (packages/client/activation/src/model/activation-model.ts).
 export const CRED_HINT_STORAGE_KEY = 'mb_cred_hint'
 
+// Envelope-level validation only: the inner options shape is the
+// server ↔ @simplewebauthn contract, not this model's business.
+const LoginOptionsEnvelopeSchema = z.object({ options: z.record(z.string(), z.unknown()) })
+
 export interface ReloginDeps {
   http: HttpLike
   startAuthenticationCeremony: typeof startAuthentication
   navigate: Navigate
-  storage: { get(): string | null; clear(): void }
+  credHint: { get(): string | null; clear(): void }
 }
 
 export interface ReloginModel {
@@ -2704,7 +2730,7 @@ export interface ReloginModel {
   ensureSession: () => Promise<boolean>
 }
 
-function defaultStorage(): ReloginDeps['storage'] {
+function defaultCredHint(): ReloginDeps['credHint'] {
   return {
     get: () =>
       typeof localStorage === 'undefined' ? null : localStorage.getItem(CRED_HINT_STORAGE_KEY),
@@ -2721,7 +2747,7 @@ export function makeReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginM
     http: overrides.http ?? new HttpClient(),
     startAuthenticationCeremony: overrides.startAuthenticationCeremony ?? startAuthentication,
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
-    storage: overrides.storage ?? defaultStorage(),
+    credHint: overrides.credHint ?? defaultCredHint(),
   }
 
   const inflight = atom<Promise<boolean> | null>(null, 'relogin.inflight')
@@ -2736,23 +2762,25 @@ export function makeReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginM
     if (probe.status !== 401) return false
 
     const bail = (): false => {
-      deps.storage.clear()
-      deps.navigate('/')
+      deps.credHint.clear()
+      // /activate/, not '/': the PWA service worker serves the cached board
+      // shell for '/' (navigateFallback) — a revoked device would loop
+      // through endless ceremonies. /activate/ is public and denylisted from
+      // the SW fallback, so it always reaches nginx.
+      deps.navigate('/activate/')
       return false
     }
 
-    const hint = deps.storage.get()
+    const hint = deps.credHint.get()
     const optionsRes = await deps.http.post('/api/auth/login/options', {
       json: hint ? { credentialIdHint: hint } : {},
     })
     if (optionsRes instanceof Error || !optionsRes.ok) return bail()
 
-    const options = (
-      optionsRes.body as
-        | { options?: Parameters<typeof startAuthentication>[0]['optionsJSON'] }
-        | undefined
-    )?.options
-    if (!options) return bail()
+    const envelope = LoginOptionsEnvelopeSchema.safeParse(optionsRes.body)
+    if (!envelope.success) return bail()
+    const options = envelope.data
+      .options as Parameters<typeof startAuthentication>[0]['optionsJSON']
 
     const assertion = await deps
       .startAuthenticationCeremony({ optionsJSON: options })
@@ -2788,11 +2816,26 @@ export function makeReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginM
 Run: `pnpm --filter client exec vitest run src/session/model/relogin.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: SW must never mask the activation surfaces**
+
+In `packages/client/vite.config.ts`, extend the `workbox` block (next to the existing `navigateFallback`):
+
+```ts
+        navigateFallback: '/index.html',
+        // The activation surfaces are public and must always reach nginx:
+        // without this denylist the installed SW serves the cached board
+        // shell for them, and a revoked device loops through ceremonies
+        // instead of landing on the activation page.
+        navigateFallbackDenylist: [/^\/activate/, /^\/add-device/],
+```
+
+No unit test — Task 13's revoked-device journey asserts the product-visible outcome (URL `/activate/` + the activation page). SW-active e2e coverage is deliberately out of scope: fresh Playwright contexts don't run the installed SW, and a test that waits for SW activation is slow and flaky; the denylist is the product fix.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-rtk git add packages/client/src/session
-rtk git commit -m "feat(client): single-flight ensureSession relogin model on the HttpClient port"
+rtk git add packages/client/src/session packages/client/vite.config.ts
+rtk git commit -m "feat(client): single-flight ensureSession relogin model; SW denylist for activation surfaces"
 ```
 
 ---
@@ -2802,7 +2845,9 @@ rtk git commit -m "feat(client): single-flight ensureSession relogin model on th
 **Files:**
 - Create: `packages/client/src/runtime.ts` (the board's composition root)
 - Modify: `packages/client/src/widget-host/ui/WidgetFrame.tsx` (use `hostRuntime`)
-- Modify: `packages/client/src/board/model/storage.ts` (`rootStorage` via `hostRuntime`)
+- Create: `packages/client/src/board/storage.ts` (the `rootStorage` binding — deliberately **outside** `model/`)
+- Delete: `packages/client/src/board/model/storage.ts`
+- Modify: `packages/client/src/board/model/board-storage.ts` (import `rootStorage` from `'../storage'`)
 - Modify: `packages/widgets/clock/dev/harness.tsx`, `packages/widgets/ofelia-poop-duty/dev/harness.tsx` (bare `makeHostRuntime()`)
 - Modify: `packages/widgets/clock/ui/Clock.test.tsx`, `packages/widgets/ofelia-poop-duty/ui/OfeliaPoopDuty.test.tsx` (if they call the free factories — same one-line swap)
 - Modify: `packages/client/src/account/model/devices-http.ts` + `devices-http.test.ts` (port-based `request`)
@@ -2816,7 +2861,7 @@ rtk git commit -m "feat(client): single-flight ensureSession relogin model on th
 **Interfaces:**
 - Consumes: `makeHostRuntime`, `purgeLocalData` from `widget-runtime`; `HttpClient`, `HttpLike`, `makeUnauthorizedRetryHook` from `@shared/http/client`; `makeReloginModel` from `@/session/model/relogin`; `OpenEventStream`, `makeEventSourceStream` from `@shared/http/event-stream`; `makeScriptedHttp`, `makeFakeOpenEventStream` (tests).
 - Produces:
-  - `@/runtime`: the board's private relogin instance, `export const http: HttpClient` (the ONE retry-hooked board client), and `export const hostRuntime: HostRuntime` built with `{ http, onUnauthorized }` — board models (via UI wiring), storage, widget API, and SSE subscribe all share this client.
+  - `@/runtime`: the board's private relogin instance, `export const http: HttpClient` (the ONE retry-hooked board client), and `export const hostRuntime: HostRuntime` built with `{ http }` — board models (via UI wiring), storage, widget API, and SSE subscribe all share this client, and its retry hook is the app's only session-healing path.
   - `devices-http.ts`: every exported function's first parameter becomes `http: HttpLike` (was `fetchImpl: typeof fetch`); behavior contract otherwise unchanged, plus: a non-2xx without a JSON body (bare nginx 401) now maps to `DeviceApiError` with `code: 'unknown_error'`, not a transport error.
   - Account models: `http: HttpLike` becomes a **required** dep (no default — model modules never import `@/runtime`; the UI wiring passes the client); `AccountDeps` swaps `eventSourceCtor?: typeof EventSource` for `openEventStream: OpenEventStream` (default `makeEventSourceStream()`); `createAddDeviceModel` loses its dead `accountModel` default.
   - `purgeLocalSession(): Promise<void>` in `@/session/model/purge`; `AccountDeps` gains `purge: () => Promise<void>` (default `purgeLocalSession`) and `bareHttp: HttpLike` (default `new HttpClient()`) for logout.
@@ -2836,17 +2881,19 @@ import { makeReloginModel } from '@/session/model/relogin'
  * module singleton inside the model. */
 const relogin = makeReloginModel()
 
-/** Board-wide HTTP: silent 401 re-login via a single forced replay. */
+/** Board-wide HTTP: silent 401 re-login via a single forced replay. This
+ * hook is the app's ONLY session-healing path — SSE reconnect deliberately
+ * never re-auths (the connect attempt is its own probe). Known residual,
+ * accepted: a timer-driven widget fetch after absolute-TTL expiry reaches
+ * the ceremony here without a user gesture; sliding TTL makes that a
+ * once-per-absolute-TTL event. */
 export const http = new HttpClient({
   onResponse: [makeUnauthorizedRetryHook(relogin.ensureSession)],
 })
 
-/** The board's single widget-runtime composition root (one per document).
- * Shares the board client — onUnauthorized only drives SSE reconnect. */
-export const hostRuntime = makeHostRuntime({
-  http,
-  onUnauthorized: relogin.ensureSession,
-})
+/** The board's single widget-runtime composition root (one per document),
+ * sharing the board client. */
+export const hostRuntime = makeHostRuntime({ http })
 ```
 
 (`relogin.ts` builds its own bare client and does not import this module — the graph is `runtime.ts` → `relogin.ts`, acyclic. Anything else needing `ensureSession` would import it from here, never from the model module.)
@@ -3063,6 +3110,9 @@ const logout = action(async () => {
   }
 
   await wrap(deps.purge().catch(() => undefined))
+  // '/' is safe here (unlike relogin's bail): purge just unregistered the
+  // service worker, so this navigation reaches nginx and gets the 401
+  // activation page.
   deps.navigate('/')
 }, 'account.logout').extend(withAsync())
 ```
@@ -3072,13 +3122,21 @@ Run: `pnpm --filter client exec vitest run src/account/model/account-model.test.
 - [ ] **Step 6: Migrate the remaining consumers and delete the transitional factories**
 
 1. `packages/client/src/widget-host/ui/WidgetFrame.tsx` — drop `makeWidgetApi`/`makeWidgetStorage` from the `widget-runtime` import; import `{ hostRuntime }` from `'@/runtime'`; the two `useMemo`s become `hostRuntime.makeWidgetStorage({ instanceId, typeId })` / `hostRuntime.makeWidgetApi({ instanceId, typeId })`.
-2. `packages/client/src/board/model/storage.ts`:
+2. Move the `rootStorage` binding out of `model/`: delete `packages/client/src/board/model/storage.ts`, create `packages/client/src/board/storage.ts`:
 
 ```ts
 import { hostRuntime } from '@/runtime'
 
+/**
+ * Binding module — the one board file allowed to import the composition
+ * root. Deliberately OUTSIDE model/: the rule "nothing under model/ imports
+ * @/runtime" holds absolutely and stays greppable
+ * (`rtk grep "@/runtime" packages/client/src/board/model` must be empty).
+ */
 export const rootStorage = hostRuntime.makeScopedStorage('root')
 ```
+
+`packages/client/src/board/model/board-storage.ts` changes its import to `import { rootStorage } from '../storage'` — nothing else in it moves.
 
 3. Both dev harnesses (`packages/widgets/clock/dev/harness.tsx`, `packages/widgets/ofelia-poop-duty/dev/harness.tsx`):
 
@@ -3360,6 +3418,9 @@ server {
     # ---- auth_request verifier -------------------------------------------
     # Every gated request triggers this subrequest. The verifier must always
     # see a bodyless GET regardless of the original request's method/body.
+    # Cost, accepted knowingly: one extra Node+Valkey round-trip per gated
+    # request — noise at this scale; if it ever hurts, proxy_cache on this
+    # location keyed by the session cookie is the known escape hatch.
     location = /internal/auth {
         internal;
         proxy_pass $upstream/api/auth/session;
@@ -3542,10 +3603,11 @@ rtk git commit -m "feat(gate): enable nginx auth_request gate, rate limits, 401 
 ### Task 12: nginx suite — config, smoke update, request-level gate tests
 
 **Files:**
-- Modify: `packages/client/playwright.nginx.config.ts` (two spec files, one worker)
+- Modify: `packages/client/playwright.nginx.config.ts` (two projects: main specs + a dependent rate-limit project)
 - Create: `packages/client/e2e/support/gate.ts`
 - Modify: `packages/client/e2e/nginx-smoke.spec.ts` (seed a session first)
-- Create: `packages/client/e2e/nginx-gate.spec.ts` (request-level matrix; browser journeys arrive in Task 13; the rate-limit test MUST stay the last test in the file)
+- Create: `packages/client/e2e/nginx-gate.spec.ts` (request-level matrix; browser journeys arrive in Task 13)
+- Create: `packages/client/e2e/nginx-rate-limit.spec.ts` (the `limit_req` burst test, isolated in its own last-run project)
 
 **Interfaces:**
 - Consumes: `/api/test/seed-session`, `/api/test/expire-sessions`, `/api/test/revoke-device`, `/api/test/seed-invite` (Task 10) through the nginx origin; the stack from Task 11 running with `ALLOW_TEST_DB_RESET=1`.
@@ -3560,10 +3622,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: 'e2e',
-  testMatch: ['nginx-smoke.spec.ts', 'nginx-gate.spec.ts'],
   outputDir: 'test-results/nginx',
-  // Serial: the rate-limit test consumes the shared per-IP limit_req budget;
-  // parallel workers would poison each other's auth calls.
+  // Serial: all specs share one origin, one Valkey, and one per-IP
+  // limit_req budget.
   workers: 1,
   use: {
     baseURL: 'http://127.0.0.1:8080',
@@ -3572,6 +3633,17 @@ export default defineConfig({
   projects: [
     {
       name: 'nginx-chromium',
+      testMatch: ['nginx-smoke.spec.ts', 'nginx-gate.spec.ts'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // The burst test drains the shared per-IP limit_req budget for ~60 s.
+      // Playwright runs files alphabetically, so ordering "by comment" would
+      // put it BEFORE nginx-smoke; a dependent project pins it last by
+      // runner mechanics, not convention.
+      name: 'nginx-rate-limit',
+      testMatch: 'nginx-rate-limit.spec.ts',
+      dependencies: ['nginx-chromium'],
       use: { ...devices['Desktop Chrome'] },
     },
   ],
@@ -3744,9 +3816,19 @@ test.describe('gate: seeded session', () => {
   })
 })
 
-// Task 13 inserts the browser journeys here — BEFORE the rate-limit test.
+// Task 13 appends the browser journeys here. The limit_req burst test lives
+// in nginx-rate-limit.spec.ts — its own dependent Playwright project — so it
+// can never poison this file's (or the smoke file's) auth budget.
+```
 
-// LAST TEST IN THE FILE: consumes the shared per-IP limit_req budget.
+- [ ] **Step 5: `nginx-rate-limit.spec.ts` — the isolated burst test**
+
+```ts
+import { expect, test } from '@playwright/test'
+
+// Runs in its own project AFTER everything else (see
+// playwright.nginx.config.ts): the burst drains the shared per-IP limit_req
+// budget for ~60 s and would otherwise starve any spec running after it.
 test('auth endpoints are rate limited', async ({ request }) => {
   const responses = await Promise.all(
     Array.from({ length: 50 }, () => request.get('/api/auth/session')),
@@ -3758,14 +3840,14 @@ test('auth endpoints are rate limited', async ({ request }) => {
 })
 ```
 
-- [ ] **Step 5: Run the suite**
+- [ ] **Step 6: Run the suite**
 
 With the Task-11 stack still running (`ALLOW_TEST_DB_RESET=1`):
 
 Run: `pnpm test:e2e:nginx`
-Expected: PASS. (If a previous run consumed rate-limit budget, wait ~60s and rerun.)
+Expected: PASS, with the `nginx-rate-limit` project reported after `nginx-chromium`. (If a previous run consumed rate-limit budget, wait ~60s and rerun.)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 rtk git add packages/client/playwright.nginx.config.ts packages/client/e2e
@@ -3777,7 +3859,7 @@ rtk git commit -m "test(gate): nginx gate request-level matrix and authenticated
 ### Task 13: Gated browser journeys
 
 **Files:**
-- Modify: `packages/client/e2e/nginx-gate.spec.ts` (insert the three journeys BEFORE the rate-limit test)
+- Modify: `packages/client/e2e/nginx-gate.spec.ts` (append the three journeys; the rate-limit test lives in its own dependent project since Task 12)
 
 **Interfaces:**
 - Consumes: `ActivatePage` (`e2e/pages/ActivatePage.js` — `gotoActivate`, `fillName`, `submitRegister`, `waitForBoardRedirect`, `signInButton`), `HeaderPage.addWidget`, `BoardPage.getCard`, `enableVirtualAuthenticator` (`e2e/support/webauthn.js`), `seedInviteViaGate`, `expireSessions`, `revokeDeviceViaGate` (Task 12). For the logout journey, reuse the account-menu selectors that `add-device.spec.ts` already uses to open the avatar menu.
@@ -3854,15 +3936,16 @@ test.describe('gate: browser journeys', () => {
     await revokeDeviceViaGate(page.request, credentialId!)
 
     // Trigger a storage call: relogin's ceremony verifies against a deleted
-    // device, login/verify rejects, and the model hard-navigates to '/',
-    // where the gate serves activation.
+    // device, login/verify rejects, and the model hard-navigates to
+    // /activate/ — the SW-proof target (Task 8), always served by nginx.
     await new HeaderPage(page).addWidget('Часы')
+    await expect(page).toHaveURL(/\/activate\//)
     await expect(page.getByText('активация', { exact: false })).toBeVisible()
   })
 })
 ```
 
-Adaptation notes (verify against the actual code, do not guess): the avatar-button selector must match the account-menu trigger the board renders (see `add-device.spec.ts` / `packages/client/src/account/ui`); the activation-page marker text must match the real `<title>`/heading of `packages/client/activation/index.html` (the auth spec asserts `'myboard — активация'`). Move the `revokeDeviceViaGate` import to the top of the file with the others.
+Adaptation notes (verify against the actual code, do not guess): the avatar-button selector must match the account-menu trigger the board renders (see `add-device.spec.ts` / `packages/client/src/account/ui`); the activation-page marker text must match the real `<title>`/heading of `packages/client/activation/index.html` (the auth spec asserts `'myboard — активация'`). Move the `revokeDeviceViaGate` import to the top of the file with the others. SW note: these journeys run in fresh Playwright contexts where the installed service worker is not yet controlling navigations — SW-active coverage of the `/activate/` redirect is deliberately out of scope; the `navigateFallbackDenylist` (Task 8 Step 5) is the product fix.
 
 - [ ] **Step 2: Run the suite**
 
@@ -4113,8 +4196,9 @@ rtk git commit -m "refactor(widget-runtime): injectable BroadcastChannel hub, de
 
 ## Plan self-review notes
 
-- **Spec coverage:** nginx gate + allowlist + 401 fallback (T11), verifier subtleties `proxy_method GET` (T11), rate limits + 429 test (T11/T12), CSRF guard + both-frontends audit (T1), stdout audit log + CF IP (T2), `@shared/http` HttpClient port over ky + errore semantics + bare-401 body rule + CSRF header + forced single replay (T5, spec 3.2), EventStream port + Navigate type (T5), `makeHostRuntime` composition root owning one SSE manager over the board-injected shared HttpClient, free factories deleted (T6/T9, spec 3.3), storage/widget-api/http-time with zero 401 code below the client (T6), SSE re-auth reconnect on the port (T7, spec 3.5), `purgeLocalData` (T7), single-flight `ensureSession` + probe + offline no-redirect + own bare client, instance built in `runtime.ts` (T8/T9, spec 3.1), board/harness/activation composition roots + devices-http on the port + account device-events SSE on the `OpenEventStream` port + bare-client logout + purge order (T9/T15, spec 3.4/3.5/3.6/3.7/3.8), five ops scripts (T3/T4), seed-session/expire/revoke test routes + prod test mode + compose passthrough (T10), rpi.toml hostname + 401-tripwire healthcheck + ops `[commands]` incl. the valkey backup (T11), nginx suite + gated journeys (T12/T13), docs (T14), BroadcastChannel hub (T16, spec 3.9). Delivery order matches the spec: client resilience (T5–T9) lands before the gate (T11); T15/T16 are post-gate port refactors, T16 cuttable.
+- **Spec coverage:** nginx gate + allowlist + 401 fallback (T11), verifier subtleties `proxy_method GET` (T11), rate limits + 429 test (T11/T12), CSRF guard + both-frontends audit (T1), stdout audit log + CF IP (T2), `@shared/http` HttpClient port over ky + errore semantics + bare-401 body rule + CSRF header + forced single replay (T5, spec 3.2), EventStream port + Navigate type (T5), `makeHostRuntime` composition root owning one SSE manager over the board-injected shared HttpClient, free factories deleted (T6/T9, spec 3.3), storage/widget-api/http-time with zero 401 code below the client (T6), SSE reconnect on the port — no re-auth, see the second-pass bullet (T7, spec 3.5), `purgeLocalData` (T7), single-flight `ensureSession` + probe + offline no-redirect + own bare client, instance built in `runtime.ts` (T8/T9, spec 3.1), board/harness/activation composition roots + devices-http on the port + account device-events SSE on the `OpenEventStream` port + bare-client logout + purge order (T9/T15, spec 3.4/3.5/3.6/3.7/3.8), five ops scripts (T3/T4), seed-session/expire/revoke test routes + prod test mode + compose passthrough (T10), rpi.toml hostname + 401-tripwire healthcheck + ops `[commands]` incl. the valkey backup (T11), nginx suite + gated journeys (T12/T13), docs (T14), BroadcastChannel hub (T16, spec 3.9). Delivery order matches the spec: client resilience (T5–T9) lands before the gate (T11); T15/T16 are post-gate port refactors, T16 cuttable.
 - **Deliberate deviations from the spec text:** (1) `fetchServerTime` keeps a per-call **bare** default client (`http: HttpLike = new HttpClient()`, no module state) instead of the runtime's — `server-time` is a pre-existing module-level model outside `HostRuntime`; a 401 there is a non-fatal `TimeError` and the session heals via any storage-triggered relogin. (2) The activation models keep 4-line `postJson`/`requestJson` **adapters** over the port so ~10 call sites stay untouched; the spec's target (no duplicated transport layers, no `fetchImpl` threading) is met. (3) The spec's "bare 401" for assets/API means "no activation fallback" — nginx's default minimal 401 body is acceptable and asserted as such (tests check the absence of activation markers, not an empty body).
 - **Known adaptation points (flagged in-task, must be verified against code, not guessed):** exact URL fixtures and deps-helper shapes in `devices-http.test.ts` / `account-model.test.ts` / activation model tests (T9/T15), account-menu selectors and activation marker text (T13), the existing deps-factory helpers in `handlers.test.ts` (T2), which widget-runtime tests still reference `FakeEventSource` after T7 Step 5, and whether the jsdom `BroadcastChannel` polyfill is still needed after T16 Step 2.
 - **2026-07-08 architecture review revisions:** one shared retry-hooked client per document — the board passes `http` into `makeHostRuntime` (bare clients are a closed, documented list); the relogin instance is built in `runtime.ts`, not as a module singleton; account models take **required** `http` via UI wiring instead of importing `@/runtime`; `connectEvents` migrates to the `OpenEventStream` port without re-auth (deliberate, documented asymmetry); `makeAuditLogger`/`makeTestControls` follow the `make*` rule; `noopAudit` null object + required `AuthDeps.audit`, `uaOf` lives in `audit.ts`; test doubles live under `@shared/http/test/`; `parseBody` returns `HttpTransportError | { body: unknown }` (discriminable union); `'retry'` short-circuit semantics documented in the global constraints; `fetchServerTime`'s default client is per-call (no module `let`); SSE reconnect stays fixed 2 s / no backoff, documented as deliberate.
-- **Type-consistency spine:** `HttpLike`/`HttpResponse`/`HttpTransportError`/`makeUnauthorizedRetryHook` (T5) are consumed with these exact names in T6 (`HttpStorageDeps`, `MakeWidgetApiOptions`, `makeRuntimeHttp`), T7 (`SseManagerDeps`), T8 (`ReloginDeps`), T9 (`request`, `AccountDeps`, `runtime.ts`), and T15 (`ActivationDeps`/`AddDeviceDeps`); `makeHostRuntime`/`HostRuntime` (T6) are consumed in T7 (SSE ownership) and T9 (roots); naming is `make*`/`new` — never `create*` for new exports.
+- **Type-consistency spine:** `HttpLike`/`HttpResponse`/`HttpTransportError`/`makeUnauthorizedRetryHook` (T5) are consumed with these exact names in T6 (`HttpStorageDeps`, `MakeWidgetApiOptions`), T7 (`SseManagerDeps`), T8 (`ReloginDeps`), T9 (`request`, `AccountDeps`, `runtime.ts` — the one `makeUnauthorizedRetryHook` call site), and T15 (`ActivationDeps`/`AddDeviceDeps`); `CSRF_HEADER`/`CSRF_HEADER_VALUE` (T1, `@shared/http/csrf`) are consumed by the server guard (T1) and `HttpClient` (T5); `makeHostRuntime`/`HostRuntime` (T6) are consumed in T7 (SSE ownership) and T9 (roots); naming is `make*`/`new` — never `create*` for new exports.
+- **2026-07-08 second review pass (brainstorm):** (1) **SW vs gate** — `bail()` hard-navigates to `/activate/` (not `/`) and the PWA config gains `navigateFallbackDenylist: [/^\/activate/, /^\/add-device/]` (T8): without both, the installed service worker serves the cached board shell for every navigation and a revoked device loops through endless ceremonies; SW-active e2e stays out of scope (T13 note). (2) **Background flows never run a ceremony** — `onUnauthorized` deleted from both `SseManagerDeps` (T7) and `HostRuntimeOptions` (T6), `makeRuntimeHttp` deleted (default: bare `new HttpClient()`): the SSE connect attempt is its own probe, and healing lives solely in the board client's retry hook; the residual case (timer-driven fetch after absolute-TTL expiry → ceremony without a gesture) is accepted and documented in `runtime.ts` (T9). (3) **e2e ordering** — the `limit_req` burst test moved to `nginx-rate-limit.spec.ts` in a dependent Playwright project (T12): alphabetical file order would otherwise run it before `nginx-smoke.spec.ts` and poison its auth budget. (4) **`rootStorage` binding** moved out of `model/` to `board/storage.ts` (T9), making "nothing under `model/` imports `@/runtime`" absolute and greppable. (5) **CSRF constants** live once in `@shared/http/csrf` (T1 creates, T5 consumes); tests keep raw strings as the external contract pin. (6) **`auditFor(deps, req)`** request-scoped emitter replaces the ip/ua boilerplate at ~10 sites; `uaOf` is no longer part of the audit surface (T2). (7) Small: Zod envelope for `login/options` in relogin (T8), absolute-URL guard in `HttpClient#resolve` (T5), `auth_request` cost note in nginx.conf (T11), `ReloginDeps.storage` → `credHint` (T8).

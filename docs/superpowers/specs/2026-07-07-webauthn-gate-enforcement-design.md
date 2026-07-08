@@ -3,7 +3,10 @@
 **Date:** 2026-07-07
 **Status:** Approved — revised 2026-07-08 (`unauthorizedHandlerAtom` →
 `makeHostRuntime` composition root; raw ky adoption → owned
-`HttpClient`/`EventStream` ports in `@shared/http`, ky as adapter detail)
+`HttpClient`/`EventStream` ports in `@shared/http`, ky as adapter detail);
+second review pass 2026-07-08 (SW-aware bail target `/activate/` +
+`navigateFallbackDenylist`; SSE reconnect without re-auth — session heals
+only via the 401 retry hook; shared CSRF constants in `@shared/http/csrf`)
 **Parent spec:** [2026-07-05-device-invite-webauthn-gate-design.md](./2026-07-05-device-invite-webauthn-gate-design.md)
 
 ## Goal
@@ -20,7 +23,7 @@ end to end:
 - Server-side CSRF check of `X-Requested-With`.
 - Audit logging of auth events to stdout.
 - Silent re-login on 401 in the widget-runtime HTTP backend (via the shared
-  `HttpClient` port) + SSE re-auth + logout purge of local data.
+  `HttpClient` port) + SSE reconnect + logout purge of local data.
 - The five missing ops scripts.
 - Gate tests (nginx suite) and gated e2e.
 
@@ -66,7 +69,10 @@ server's `GET /api/auth/session` with `proxy_method GET`,
 subrequest would inherit the original method/body and miss the find-my-way
 route. `/api/auth/session` already does everything required: validates the
 `__Host-mb_session` cookie, rejects revoked/pending/disabled devices
-(immediate revocation), and refreshes the sliding TTL.
+(immediate revocation), and refreshes the sliding TTL. Cost, accepted
+knowingly: every gated request adds one verifier subrequest to Node+Valkey;
+at this scale that is noise, and if it ever hurts, `proxy_cache` on the
+verifier location keyed by the session cookie is the known escape hatch.
 
 **Behind `auth_request /internal/auth`:**
 
@@ -115,7 +121,11 @@ without the env flag; keeps e2e helpers untouched). Both frontends already
 send the header (board `devices-http`, activation `postJson`); the missing
 sender is the widget-runtime HTTP backend, fixed in section 3. GET/HEAD and
 the SSE streams are exempt. WebAuthn is origin-bound by itself, but one
-uniform rule is simpler than per-namespace exceptions.
+uniform rule is simpler than per-namespace exceptions. The header name/value
+pair lives once in `@shared/http/csrf` (`CSRF_HEADER`, `CSRF_HEADER_VALUE`,
+lowercase name — valid verbatim in Node's `req.headers` and in `Headers.set`);
+the server guard and the client port both import it, while tests keep raw
+strings so the contract stays pinned from outside.
 
 **Audit log.** New `auth/audit.ts`: `audit(event, fields)` writes one JSON
 line to stdout. Events: `register`, `register_failed`, `login`,
@@ -125,8 +135,10 @@ Fields: `ts`, `event`, `accountId`/`credentialId`/`inviteId` (when known),
 `ip`, `ua`, and the error code on failures. The IP helper honors
 `TRUST_CF_CONNECTING_IP=1` → `CF-Connecting-IP`, else `X-Real-IP` (set by
 nginx), else the socket address. The logger is a dependency in `AuthDeps`;
-tests swap it and assert events fire and that tokens/challenges never appear
-in output.
+handlers bind the request context once via a request-scoped emitter
+(`auditFor(deps, req)` → `emit(event, extra)`), so emission sites state only
+the event-specific fields. Tests swap the logger and assert events fire and
+that tokens/challenges never appear in output.
 
 Everything else on the parent spec's hardening list already shipped in
 Plans 1–2: per-invite/per-code failed-attempt locks, immediate revocation in
@@ -149,12 +161,24 @@ Reatom action `ensureSession(): Promise<boolean>`:
   through the model's **own bare `new HttpClient()`** (no retry hook — the
   re-login path must never recurse into itself; also keeps the import graph
   acyclic, see 3.4).
-- Any failure or ceremony cancel → `navigate('/')` (the gate serves
-  activation in login mode) and `false`. `navigate` is an injected
+- Any failure or ceremony cancel → clear the credential hint,
+  `navigate('/activate/')`, and `false`. The target is `/activate/`, **not**
+  `/` (2026-07-08 second-pass revision): the installed PWA service worker
+  serves the cached board shell for `/` (`navigateFallback`), which would
+  loop a revoked device through endless ceremonies without ever reaching
+  nginx; `/activate/` is public and excluded from the SW fallback (denylist
+  below), so it always reaches the gate. `navigate` is an injected
   dependency (the shared `Navigate` type, 3.2) for tests.
-- The probe buys two properties: SSE can call `ensureSession` on any connect
-  error without knowing the status (network blip → probe 200 → no biometric
-  prompt), and for HTTP 401s it confirms the failure is session-level.
+- The probe separates concerns before any ceremony: transport failure →
+  `false` with no redirect (offline-first — the caller just sees its
+  original error), 200 → the session is fine and the caller's 401 was
+  spurious, 401 → the ceremony is actually needed.
+- The client PWA config gains
+  `navigateFallbackDenylist: [/^\/activate/, /^\/add-device/]` — the service
+  worker must never mask the activation surfaces with the cached board
+  shell. SW-active e2e coverage of this is deliberately out of scope (fresh
+  Playwright contexts do not run the installed SW); the denylist is the
+  product fix, the revoked-device journey asserts the visible outcome.
 
 ### 3.2 `@shared/http` — owned transport ports (ky stays, behind the port)
 
@@ -212,7 +236,8 @@ Semantics:
   the `unauthorizedHandlerAtom` disease in instance form).
 - **CSRF built in**: `X-Requested-With: MyBoard` on mutating methods is this
   server's protocol convention, so the client sets it by default — no
-  per-root hook noise.
+  per-root hook noise. Both sides import the constants from
+  `@shared/http/csrf` (section 2).
 - **`'retry'` from an `onResponse` hook replays the request exactly once**
   (`retryCount` guards the hook). `json` bodies are plain values,
   re-serialized per attempt — no body-stream cloning problem, POST included.
@@ -272,10 +297,9 @@ the config deeper in a global slot.)
 
 ```ts
 export type HostRuntimeOptions = {
-  serverBaseUrl?: string                  // default '/api/storage'
-  onUnauthorized?: () => Promise<boolean> // board: ensureSession; harnesses: absent
-  http?: HttpClient                       // the host's shared client (the board passes its own); default built internally (bare harnesses, tests)
-  openEventStream?: OpenEventStream       // test seam; default makeEventSourceStream()
+  serverBaseUrl?: string            // default '/api/storage'
+  http?: HttpClient                 // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
+  openEventStream?: OpenEventStream // test seam; default makeEventSourceStream()
 }
 
 export type HostRuntime = {
@@ -290,9 +314,11 @@ export type HostRuntime = {
 export function makeHostRuntime(options?: HostRuntimeOptions): HostRuntime
 ```
 
-When `http` is absent the runtime builds its own:
-`new HttpClient({ onResponse: onUnauthorized ? [makeUnauthorizedRetryHook(onUnauthorized)] : [] })`.
-The same `onUnauthorized` drives SSE reconnect (3.5).
+When `http` is absent the runtime builds its own **bare** `new HttpClient()`
+(2026-07-08 second-pass revision: no `onUnauthorized` option at all — auth
+never exists below a composition root; the board's 401 healing arrives
+solely through the retry hook on the client it injects, and SSE reconnect
+needs no re-auth, see 3.5).
 
 One `HostRuntime` per document, built once at the host's composition root
 (3.4). It owns **one SSE manager** and runs every request through **one
@@ -329,15 +355,17 @@ export const http = new HttpClient({
 }) // devices-http, account models (via UI wiring), and the runtime below
 
 export const hostRuntime = makeHostRuntime({
-  http, // ONE hooked client per document
-  onUnauthorized: relogin.ensureSession, // drives SSE reconnect only
+  http, // ONE hooked client per document — the app's only 401-healing path
 })
 ```
 
 - `WidgetFrame` calls `hostRuntime.makeWidgetStorage` / `.makeWidgetApi`
   instead of the deleted free factories.
-- `board/model/storage.ts`:
-  `rootStorage = hostRuntime.makeScopedStorage('root')`.
+- `board/storage.ts` — a binding module deliberately **outside** `model/`:
+  `rootStorage = hostRuntime.makeScopedStorage('root')`. With the binding
+  there, the rule "nothing under `model/` imports `runtime.ts`" holds
+  absolutely and stays mechanically greppable; `board/model/board-storage.ts`
+  imports the binding, never the root.
 - Standalone widget harnesses build their own bare `makeHostRuntime()`: no
   handler, 401s flow through unchanged, nothing auth-shaped exists there.
 - The activation app's root builds one bare `new HttpClient()` for its two
@@ -355,15 +383,21 @@ by the UI wiring; a model module never imports `runtime.ts`.
 ### 3.5 SSE reconnect (`sse-client.ts`)
 
 The manager opens its stream through the runtime's `OpenEventStream` port.
-On the stream's `onError`, before the next reconnect attempt: if the
-runtime has an `onUnauthorized` — `await onUnauthorized()` (the probe inside
-distinguishes network from session), then reconnect on the existing backoff.
-Mid-stream expiry heals on the next reconnect, exactly as the parent spec
-requires. The client-side auth SSE (device A — `connectEvents` in the
-account model) consumes the same `OpenEventStream` port, deliberately
-**without** re-auth: it lives only while the devices dialog is open, and
-every action in that dialog goes through the retry-hooked client, which
-heals the session by itself.
+On a fatal `onError` it simply reconnects after a fixed 2 s delay, forever —
+**no re-auth hook** (2026-07-08 second-pass revision). The connect attempt
+itself is the probe: a dead session means the gate answers non-200 → fatal
+close → next attempt in 2 s; a probe call before connecting would ask the
+same server the same question twice, and running a WebAuthn ceremony from a
+background timer would pop a passkey prompt with no user gesture. Session
+healing lives in exactly one place — the shared client's 401 retry hook —
+and once any board-driven request heals the session, the loop's next attempt
+connects and re-registers every desired key. Known residual, accepted: a
+timer-driven widget fetch after absolute-TTL expiry still reaches the
+ceremony through the retry hook without a gesture; sliding TTL makes that a
+once-per-absolute-TTL event. The client-side auth SSE (device A —
+`connectEvents` in the account model) consumes the same `OpenEventStream`
+port, also without re-auth: it lives only while the devices dialog is open,
+and every action in that dialog goes through the retry-hooked client.
 
 ### 3.6 `devices-http.ts` (client)
 
@@ -469,18 +503,18 @@ one forced retry including `POST`, no retry when the handler returns
 named events forwarded, `close()` stops delivery.
 
 **widget-runtime unit.** Each test builds its own
-`makeHostRuntime({ http: fakeHttpClient, onUnauthorized: stub, openEventStream: fakeStream })`
+`makeHostRuntime({ http: fakeHttpClient, openEventStream: fakeStream })`
 — isolation by construction, no global set/reset and no `vi.stubGlobal`.
 Cases: storage mapping over the port (404 → `null`/`false`, transport error
 → `StorageError` with cause, other non-ok → `StorageError` with status,
 `body.value` Zod-validated); `makeWidgetApi` envelope parsing over
-`HttpResponse.body`; the default internal client wires
-`makeUnauthorizedRetryHook(onUnauthorized)`. SSE: connect error → handler →
-reconnect. `purgeLocalData` deletes the Dexie databases.
+`HttpResponse.body`; the default internal client is bare. SSE: fatal error →
+reconnect after 2 s → desired keys re-registered on the fresh connection.
+`purgeLocalData` deletes the Dexie databases.
 
 **Client unit.** Relogin model: single-flight (N parallel calls → one
 ceremony), probe-200 → no ceremony, probe-401 → ceremony → `true`, failure →
-redirect (injected `Navigate`). Logout: server → purge → caches → SW →
+hard-navigate to `/activate/` (injected `Navigate`). Logout: server → purge → caches → SW →
 redirect order on fakes; logout uses the bare client. `devices-http` and the
 activation models: fake `HttpClient` ports instead of `Response` mocks; a
 bare-bodied 401 maps to `DeviceApiError`, not a transport error.
@@ -503,7 +537,8 @@ stack).**
   endpoint) → next storage operation → ceremony with the virtual
   authenticator → data flows **without a page reload**.
 - Revocation: revoke the device → next request → re-login fails
-  (`login/verify` rejected) → redirect to activation.
+  (`login/verify` rejected) → hard-navigate to `/activate/` (the SW-proof
+  target) with the activation page visible.
 - The existing `pnpm test:e2e` (vite preview, no nginx) is untouched — the
   gate lives only in the nginx image.
 
@@ -514,8 +549,8 @@ stack).**
 2. **Client resilience** — the `@shared/http` ports (`HttpClient` over ky,
    `EventStream`), `makeHostRuntime` in widget-runtime, the
    board/harness/activation composition roots, `devices-http` and activation
-   migration to the ports, relogin model, SSE re-auth, logout purge. Dormant
-   until 401s actually happen; fully unit-tested.
+   migration to the ports, relogin model, SSE reconnect, logout purge.
+   Dormant until 401s actually happen; fully unit-tested.
 3. **The gate** — nginx `auth_request` + allowlist + `error_page 401` +
    `limit_req`, compose env, `rpi.toml`, nginx suite. The door closes here.
 4. **Gated e2e + docs** — the journeys above; deployment doc.
