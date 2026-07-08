@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "errore": "catalog:",
+    "ky": "^2.0.2",
     "zod": "catalog:"
   },
   "devDependencies": {
