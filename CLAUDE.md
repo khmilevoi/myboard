@@ -64,6 +64,8 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 
 `packages/widget-runtime/src/storage` owns per-widget instance/shared scopes, Dexie and HTTP backends, SSE/BroadcastChannel fanout, and Reatom bindings. Board and standalone harnesses construct the same `WidgetRuntimeProps`; widgets do not import storage through `packages/client/src`.
 
+> ⚠️ **Storage keys are a persistence contract — never change how a key is derived without a data migration.** Keys are `namespace + relativeKey` where the namespace comes from `instanceNamespace`/`typeNamespace` (`packages/shared/storage/scope.ts`) and the `scopeWithColon` normalization in `makeScopedStorage` (`packages/widget-runtime/src/widget-api.ts`). Any edit to the scope prefix, separator (e.g. the colon), `instanceId`/`typeId` values, or a widget's `relativeKey` **silently orphans all existing data**: deployed clients read the new key, get a 404 → fall back to the empty default, and the old data sits unreachable under the previous key in Valkey/IndexedDB. This already bit us once — commit `0027a99` "stop doubling the colon in scoped storage keys" changed `w:t:<id>::` → `w:t:<id>:` and wiped every widget's shared/instance state on deploy (the `root:`-scoped board survived only because its namespace never had the trailing colon). If you must change a key shape, ship a one-time migration (rename old keys → new) in the same release, or key data will vanish for users on the next deploy.
+
 ### Server (storage API)
 
 `packages/server/src/index.ts` is a plain `node:http` server routed with `find-my-way`, backed by Valkey (Redis-compatible):
