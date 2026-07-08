@@ -89,10 +89,25 @@ describe('ensureSession', () => {
       http,
       startAuthenticationCeremony: vi.fn() as never,
       navigate,
-      credHint: noCredHint,
+      credHint: { get: () => 'hint', clear: vi.fn() },
     })
     expect(await model.ensureSession()).toBe(false)
     expect(navigate).toHaveBeenCalledWith('/activate/')
+  })
+
+  it('returns false without a ceremony when there is no stored cred hint', async () => {
+    const { http } = makeScriptedHttp({ '/api/auth/session': [{ status: 401 }] })
+    const ceremony = vi.fn()
+    const navigate = vi.fn()
+    const model = makeReloginModel({
+      http,
+      startAuthenticationCeremony: ceremony as never,
+      navigate,
+      credHint: noCredHint,
+    })
+    expect(await model.ensureSession()).toBe(false)
+    expect(ceremony).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('returns false without redirect when the probe network-fails (offline)', async () => {

@@ -55,6 +55,16 @@ export function makeReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginM
     if (probe.ok) return true
     if (probe.status !== 401) return false
 
+    // No stored hint means this device never registered/logged in. Under the
+    // real nginx gate a first-time anonymous visit never reaches this code
+    // (nginx serves the activation page before the SPA loads), so this only
+    // fires from an ungated dev/test context or a rare hint-cleared edge
+    // case — either way, forcing a ceremony/hard-navigate from a background
+    // probe is unnecessarily aggressive. Offline-first: report false, change
+    // nothing; nginx's own auth_request check backstops the next navigation.
+    const hint = deps.credHint.get()
+    if (!hint) return false
+
     const bail = (): false => {
       deps.credHint.clear()
       // /activate/, not '/': the PWA service worker serves the cached board
@@ -65,9 +75,8 @@ export function makeReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginM
       return false
     }
 
-    const hint = deps.credHint.get()
     const optionsRes = await deps.http.post('/api/auth/login/options', {
-      json: hint ? { credentialIdHint: hint } : {},
+      json: { credentialIdHint: hint },
     })
     if (optionsRes instanceof Error || !optionsRes.ok) return bail()
 
