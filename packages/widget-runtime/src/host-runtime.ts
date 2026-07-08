@@ -64,32 +64,3 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
     makeWidgetApi: ({ instanceId, typeId }) => makeWidgetApiWith({ instanceId, typeId, http }),
   }
 }
-
-/* --------------------------------------------------------------------------
- * Transitional free factories — DELETED in Task 9. A lazy module default
- * runtime keeps WidgetFrame / rootStorage / harnesses / widget tests
- * compiling until the composition roots land. No auth behavior: identical to
- * the pre-plan state.
- * ------------------------------------------------------------------------ */
-let defaultRuntime: HostRuntime | undefined
-function getDefaultRuntime(): HostRuntime {
-  return (defaultRuntime ??= makeHostRuntime())
-}
-
-/** @deprecated transitional — build a HostRuntime at your composition root. */
-export function makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage {
-  return getDefaultRuntime().makeWidgetStorage(options)
-}
-
-/** @deprecated transitional — build a HostRuntime at your composition root. */
-export function makeScopedStorage(scope: string): ScopedStorage {
-  return getDefaultRuntime().makeScopedStorage(scope)
-}
-
-/** @deprecated transitional — build a HostRuntime at your composition root. */
-export function makeWidgetApi<Events extends WidgetEventMap>(options: {
-  instanceId: string
-  typeId: string
-}): WidgetApi<Events, WidgetApiError> {
-  return getDefaultRuntime().makeWidgetApi<Events>(options)
-}

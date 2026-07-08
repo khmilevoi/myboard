@@ -4,8 +4,6 @@ import { AlertTriangle } from 'lucide-react'
 import { lazy, Suspense, useMemo } from 'react'
 import {
   DEFAULT_TIERS,
-  makeWidgetApi,
-  makeWidgetStorage,
   resolveTier,
   WidgetRuntimeContext,
   type WidgetMode,
@@ -16,6 +14,7 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { hostRuntime } from '@/runtime'
 import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { resolvedTheme } from '@/theme/model/theme-model'
 import { findWidgetType } from '@/widget-registry/model/registry'
@@ -60,10 +59,10 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
     }, [type, reloadKey])
 
     const widgetStorage = useMemo(() => {
-      return makeWidgetStorage({ instanceId, typeId })
+      return hostRuntime.makeWidgetStorage({ instanceId, typeId })
     }, [instanceId, typeId])
     const widgetApi = useMemo(() => {
-      return makeWidgetApi({ instanceId, typeId })
+      return hostRuntime.makeWidgetApi({ instanceId, typeId })
     }, [instanceId, typeId])
 
     const context = useMemo<WidgetRuntimeProps>(() => {

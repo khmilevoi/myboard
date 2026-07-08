@@ -8,6 +8,10 @@ import {
   wrap,
   withAsync,
 } from '@reatom/core'
+import { HttpClient, type HttpLike } from '@shared/http/client'
+import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
+
+import { purgeLocalSession } from '@/session/model/purge'
 
 import type { AccountDto, DeviceDto } from './devices-http'
 import {
@@ -31,10 +35,17 @@ export interface AccountStorage {
 }
 
 export interface AccountDeps {
-  fetchImpl: typeof fetch
+  http: HttpLike
   storage: AccountStorage
   navigate: (path: string) => void
-  eventSourceCtor?: typeof EventSource
+  openEventStream: OpenEventStream
+  /** Bare (no retry hook) client for logout: a dead session is already
+   * logged out — running a WebAuthn ceremony in order to log out would be
+   * absurd. A local `new HttpClient()` construction, so a default is fine
+   * here (unlike `http` above, which a model must never default itself). */
+  bareHttp: HttpLike
+  /** Local-data hygiene on logout (Dexie, caches, service worker). */
+  purge: () => Promise<void>
 }
 
 function defaultStorage(): AccountStorage {
@@ -76,13 +87,16 @@ export interface AccountModel {
   connectEvents: () => () => void
 }
 
-export function createAccountModel(overrides: Partial<AccountDeps> = {}): AccountModel {
+export function createAccountModel(
+  overrides: Partial<AccountDeps> & { http: HttpLike },
+): AccountModel {
   const deps: AccountDeps = {
-    fetchImpl: overrides.fetchImpl ?? fetch,
+    http: overrides.http,
     storage: overrides.storage ?? defaultStorage(),
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
-    eventSourceCtor:
-      overrides.eventSourceCtor ?? (globalThis as { EventSource?: typeof EventSource }).EventSource,
+    openEventStream: overrides.openEventStream ?? makeEventSourceStream(),
+    bareHttp: overrides.bareHttp ?? new HttpClient(),
+    purge: overrides.purge ?? purgeLocalSession,
   }
 
   const account = atom<AccountDto | null>(null, 'account.account')
@@ -98,13 +112,13 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
   const refresh = action(async () => {
     error.set(null)
 
-    const accountResult = await wrap(fetchAccount(deps.fetchImpl))
+    const accountResult = await wrap(fetchAccount(deps.http))
     if (accountResult instanceof Error) {
       error.set(describeDeviceError(accountResult))
       return
     }
 
-    const devicesResult = await wrap(fetchDevices(deps.fetchImpl))
+    const devicesResult = await wrap(fetchDevices(deps.http))
     if (devicesResult instanceof Error) {
       error.set(describeDeviceError(devicesResult))
       return
@@ -122,7 +136,7 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
   const approve = action(async (credentialId: string) => {
     error.set(null)
 
-    const result = await wrap(approveDeviceRequest(deps.fetchImpl, credentialId))
+    const result = await wrap(approveDeviceRequest(deps.http, credentialId))
     if (result instanceof Error) {
       error.set(describeDeviceError(result))
       return
@@ -134,7 +148,7 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
   const deny = action(async (credentialId: string) => {
     error.set(null)
 
-    const result = await wrap(denyDeviceRequest(deps.fetchImpl, credentialId))
+    const result = await wrap(denyDeviceRequest(deps.http, credentialId))
     if (result instanceof Error) {
       error.set(describeDeviceError(result))
       return
@@ -146,7 +160,7 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
   const revoke = action(async (credentialId: string) => {
     error.set(null)
 
-    const result = await wrap(revokeDeviceRequest(deps.fetchImpl, credentialId))
+    const result = await wrap(revokeDeviceRequest(deps.http, credentialId))
     if (result instanceof Error) {
       error.set(describeDeviceError(result))
       return
@@ -158,12 +172,18 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
   const logout = action(async () => {
     error.set(null)
 
-    const result = await wrap(logoutRequest(deps.fetchImpl))
+    // Bare client deliberately: a dead session is already logged out — running
+    // a WebAuthn ceremony in order to log out would be absurd.
+    const result = await wrap(logoutRequest(deps.bareHttp))
     if (result instanceof Error) {
       error.set(describeDeviceError(result))
       return
     }
 
+    await wrap(deps.purge().catch(() => undefined))
+    // '/' is safe here (unlike relogin's bail): purge just unregistered the
+    // service worker, so this navigation reaches nginx and gets the 401
+    // activation page.
     deps.navigate('/')
   }, 'account.logout').extend(withAsync())
 
@@ -172,17 +192,18 @@ export function createAccountModel(overrides: Partial<AccountDeps> = {}): Accoun
     'account.loading',
   )
 
+  // No re-auth reconnect here — deliberate asymmetry with the storage SSE
+  // manager: device events live only while the devices dialog is open, and
+  // every action in that dialog goes through the retry-hooked `http`, which
+  // heals the session by itself.
   function connectEvents(): () => void {
-    const EventSourceCtor = deps.eventSourceCtor
-    if (!EventSourceCtor) return () => {}
-
-    const source = new EventSourceCtor('/api/auth/devices/events')
-    source.onmessage = wrap((event: MessageEvent) => {
-      const message = parseDeviceEventMessage(event.data as string)
-      if (message) void refresh()
+    const stream = deps.openEventStream('/api/auth/devices/events', {
+      onMessage: wrap((message) => {
+        const parsed = parseDeviceEventMessage(message.data)
+        if (parsed) void refresh()
+      }),
     })
-
-    return () => source.close()
+    return () => stream.close()
   }
 
   return {

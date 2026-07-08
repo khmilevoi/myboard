@@ -3,7 +3,7 @@ import { computed } from '@reatom/core'
 import { withStorageKey } from 'widget-runtime'
 import z from 'zod'
 
-import { rootStorage } from './storage'
+import { rootStorage } from '../storage'
 import { BoardSnapshot, BoardSnapshots, BoardSnapshotSchema, BoardSnapshotsShema } from './types'
 
 export const LOCAL_BOARD_ID = 'local'

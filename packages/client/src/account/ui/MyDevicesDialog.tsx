@@ -5,6 +5,7 @@ import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { http } from '@/runtime'
 
 import { type AccountModel, createAccountModel } from '../model/account-model'
 import { createAddDeviceModel } from '../model/add-device-model'
@@ -73,7 +74,7 @@ export const DeviceIcon = reatomMemo<{ label: string; className?: string }>(
 
 export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
   ({ model: modelOverride, open, onOpenChange }) => {
-    const [model] = useState(() => modelOverride ?? createAccountModel())
+    const [model] = useState(() => modelOverride ?? createAccountModel({ http }))
     // Component-scoped confirm state for the two-click revoke flow (design
     // state (d)) -- same lazy-`useState(() => atom(...))` idiom AccountMenu.tsx
     // uses for its own local, ephemeral UI atoms.
@@ -91,7 +92,7 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
     // live, already-SSE-connected instance for the add-device flow's
     // "flip to approval on a device-pending event" to work (a second,
     // independent AccountModel here would never see that event).
-    const [addDeviceModel] = useState(() => createAddDeviceModel({ accountModel: model }))
+    const [addDeviceModel] = useState(() => createAddDeviceModel({ http, accountModel: model }))
     // Plain ref (not reactive state) backing the onPointerDownOutside/
     // onInteractOutside guards below -- see the comment on those props for
     // why a reactive `addDeviceOpen()` read can't do this job.

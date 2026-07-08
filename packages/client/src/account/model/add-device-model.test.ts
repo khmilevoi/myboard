@@ -1,4 +1,5 @@
 import { atom, context } from '@reatom/core'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import type { AuthenticationResponseJSON } from '@simplewebauthn/browser'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -13,13 +14,6 @@ afterEach(() => {
   context.reset()
 })
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
 const OPTIONS_BODY = { options: { challenge: 'add-token-challenge' } }
 const authenticationResponse = { id: 'cred-this' } as unknown as AuthenticationResponseJSON
 
@@ -31,6 +25,19 @@ function mintBody(overrides: Partial<{ expiresAt: number }> = {}) {
     expiresAt: Date.now() + 5 * 60_000,
     ...overrides,
   }
+}
+
+function makeStartHttp(options: { optionsStatus?: number; optionsBody?: unknown } = {}) {
+  return makeScriptedHttp({
+    '/api/auth/devices/add-token/options': [
+      { status: options.optionsStatus ?? 200, body: options.optionsBody ?? OPTIONS_BODY },
+    ],
+    '/api/auth/devices/add-token': [{ status: 200, body: mintBody() }],
+  }).http
+}
+
+function noopHttp() {
+  return makeScriptedHttp({}).http
 }
 
 function createFakeAccountModel(initialPending: DeviceDto[] = []) {
@@ -65,13 +72,10 @@ function createFakeAccountModel(initialPending: DeviceDto[] = []) {
 
 describe('start', () => {
   it('transitions idle -> verifying -> showing and exposes the mint result', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const http = makeStartHttp()
     const startAuthenticationCeremony = vi.fn(async () => authenticationResponse)
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony,
       accountModel: createFakeAccountModel(),
     })
@@ -94,9 +98,11 @@ describe('start', () => {
   })
 
   it('surfaces an options-fetch failure into error and reverts to idle', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const http = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [{ status: 401, body: { code: 'session_missing' } }],
+    }).http
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(),
       accountModel: createFakeAccountModel(),
     })
@@ -108,12 +114,14 @@ describe('start', () => {
   })
 
   it('surfaces a cancelled/failed ceremony into error and reverts to idle', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
+    const http = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [{ status: 200, body: OPTIONS_BODY }],
+    }).http
     const startAuthenticationCeremony = vi.fn(async () => {
       throw new Error('NotAllowedError')
     })
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony,
       accountModel: createFakeAccountModel(),
     })
@@ -131,12 +139,12 @@ describe('countdown', () => {
     vi.setSystemTime(new Date('2026-07-06T12:00:00.000Z'))
 
     const expiresAt = Date.now() + 5 * 60_000
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody({ expiresAt })))
+    const http = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [{ status: 200, body: OPTIONS_BODY }],
+      '/api/auth/devices/add-token': [{ status: 200, body: mintBody({ expiresAt }) }],
+    }).http
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
     })
@@ -162,7 +170,7 @@ describe('countdown', () => {
   })
 
   it('reads 0:00 before any code has been minted', () => {
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel() })
 
     expect(model.countdown()).toBe('0:00')
   })
@@ -178,13 +186,16 @@ describe('pendingDevice', () => {
       createdAt: 1,
       lastSeenAt: 1,
     }
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel([pendingDevice]) })
+    const model = createAddDeviceModel({
+      http: noopHttp(),
+      accountModel: createFakeAccountModel([pendingDevice]),
+    })
 
     expect(model.pendingDevice()).toEqual(pendingDevice)
   })
 
   it('is null when the account model has no pending devices', () => {
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel([]) })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel([]) })
 
     expect(model.pendingDevice()).toBeNull()
   })
@@ -201,7 +212,7 @@ describe('approve', () => {
       lastSeenAt: 1,
     }
     const accountModel = createFakeAccountModel([pendingDevice])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.approve()
 
@@ -211,7 +222,7 @@ describe('approve', () => {
 
   it('does nothing when there is no pending device', async () => {
     const accountModel = createFakeAccountModel([])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.approve()
 
@@ -234,7 +245,7 @@ describe('approve', () => {
     accountModel.approve.mockImplementation(async () => {
       accountModel.setError('Достигнут лимит устройств аккаунта')
     })
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.approve()
 
@@ -254,7 +265,7 @@ describe('deny', () => {
       lastSeenAt: 1,
     }
     const accountModel = createFakeAccountModel([pendingDevice])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.deny()
 
@@ -274,7 +285,7 @@ describe('deny', () => {
     accountModel.deny.mockImplementation(async () => {
       accountModel.setError('Сессия истекла, войдите снова')
     })
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.deny()
 
@@ -293,7 +304,7 @@ describe('deny', () => {
     }
     const staleDevice: DeviceDto = { ...pendingDevice, credentialId: 'cred-stale' }
     const accountModel = createFakeAccountModel([pendingDevice])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
     model.justApproved.set(staleDevice)
 
     await model.deny()
@@ -304,7 +315,7 @@ describe('deny', () => {
 
 describe('justApproved', () => {
   it('is null before any approval', () => {
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel() })
 
     expect(model.justApproved()).toBeNull()
   })
@@ -319,7 +330,7 @@ describe('justApproved', () => {
       lastSeenAt: 1,
     }
     const accountModel = createFakeAccountModel([pendingDevice])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.approve()
 
@@ -339,7 +350,7 @@ describe('justApproved', () => {
     accountModel.approve.mockImplementation(async () => {
       accountModel.setError('Достигнут лимит устройств аккаунта')
     })
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.approve()
 
@@ -356,12 +367,9 @@ describe('justApproved', () => {
       lastSeenAt: 1,
     }
     const accountModel = createFakeAccountModel([pendingDevice])
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const http = makeStartHttp()
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel,
     })
@@ -377,19 +385,16 @@ describe('justApproved', () => {
 
 describe('qrOptions', () => {
   it('is null before a code has been minted', () => {
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel() })
 
     expect(model.qrOptions()).toBeNull()
   })
 
   it("derives dots color from the light theme's --primary and a literal white background once a url is minted", async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const http = makeStartHttp()
     const themeAtom = atom<ResolvedTheme>('light', 'test.resolvedTheme')
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
       resolvedTheme: themeAtom,
@@ -410,13 +415,10 @@ describe('qrOptions', () => {
   })
 
   it('regenerates the dots color when the resolved theme changes, keeping the background white', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const http = makeStartHttp()
     const themeAtom = atom<ResolvedTheme>('light', 'test.resolvedTheme')
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
       resolvedTheme: themeAtom,
@@ -435,7 +437,7 @@ describe('qrOptions', () => {
 
 describe('qrCode', () => {
   it('exposes a stable QRCodeStyling instance with append/update methods', () => {
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel() })
 
     expect(typeof model.qrCode.append).toBe('function')
     expect(typeof model.qrCode.update).toBe('function')
@@ -444,7 +446,7 @@ describe('qrCode', () => {
 
 describe('busy', () => {
   it('is false when neither approve() nor deny() is in flight', () => {
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel() })
 
     expect(model.busy()).toBe(false)
   })
@@ -466,7 +468,7 @@ describe('busy', () => {
           resolveApprove = resolve
         }),
     )
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     const promise = model.approve()
     expect(model.busy()).toBe(true)
@@ -480,9 +482,11 @@ describe('busy', () => {
 
 describe('reset', () => {
   it('clears phase/code/formatted/url/expiresAt/error back to their initial idle values', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const http = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [{ status: 401, body: { code: 'session_missing' } }],
+    }).http
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(),
       accountModel: createFakeAccountModel(),
     })
@@ -511,7 +515,7 @@ describe('reset', () => {
       lastSeenAt: 1,
     }
     const accountModel = createFakeAccountModel([pendingDevice])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
     await model.approve()
     expect(model.justApproved()).not.toBeNull()
 
@@ -537,7 +541,7 @@ describe('reset', () => {
           resolveApprove = resolve
         }),
     )
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     // Simulates: user clicks Подтвердить -> approve() starts its network
     // round-trip -> user closes the dialog before it resolves (reset()) ->
@@ -559,18 +563,24 @@ describe('reset', () => {
     // missing, the whole chain would complete cleanly to 'showing' with a
     // real code (a clean, informative failure), rather than hanging/crashing
     // on an unconfigured second mock call.
-    let resolveOptions!: (value: Response) => void
-    const fetchImpl = vi
-      .fn()
-      .mockImplementationOnce(
-        () =>
-          new Promise<Response>((resolve) => {
-            resolveOptions = resolve
-          }),
-      )
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    let resolveOptions!: () => void
+    const optionsPromise = new Promise<void>((resolve) => {
+      resolveOptions = resolve
+    })
+    const http = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [{ status: 200, body: OPTIONS_BODY }],
+      '/api/auth/devices/add-token': [{ status: 200, body: mintBody() }],
+    }).http
+    const delayedHttp = {
+      ...http,
+      get: http.get,
+      post: async (url: string, options?: Parameters<typeof http.post>[1]) => {
+        if (url === '/api/auth/devices/add-token/options') await optionsPromise
+        return http.post(url, options)
+      },
+    }
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http: delayedHttp,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
     })
@@ -584,7 +594,7 @@ describe('reset', () => {
     model.reset()
     expect(model.phase()).toBe('idle')
 
-    resolveOptions(jsonResponse(OPTIONS_BODY))
+    resolveOptions()
     await promise
 
     expect(model.phase()).toBe('idle')
@@ -595,10 +605,12 @@ describe('reset', () => {
 
 describe('error scoping', () => {
   it('clears a stale ceremony-failure error once an unrelated device becomes pending (e.g. a device-pending SSE event)', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const http = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [{ status: 401, body: { code: 'session_missing' } }],
+    }).http
     const accountModel = createFakeAccountModel([])
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(),
       accountModel,
     })
@@ -640,7 +652,7 @@ describe('error scoping', () => {
     accountModel.approve.mockImplementation(async () => {
       accountModel.setError('Достигнут лимит устройств аккаунта')
     })
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     await model.approve()
 

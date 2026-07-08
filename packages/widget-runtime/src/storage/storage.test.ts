@@ -1,9 +1,12 @@
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from './client/db'
-import { makeWidgetStorage } from '../host-runtime'
+import { makeHostRuntime } from '../host-runtime'
 import { instanceNamespace, typeNamespace, toFullKey } from './scope'
+
+const { makeWidgetStorage } = makeHostRuntime({ http: makeScriptedHttp({}).http })
 
 beforeEach(async () => {
   await db.entries.clear()

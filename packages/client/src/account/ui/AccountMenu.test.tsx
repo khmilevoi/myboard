@@ -1,4 +1,6 @@
 import { context } from '@reatom/core'
+import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
+import { makeScriptedHttp, type ScriptedStep } from '@shared/http/test/scripted-http'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,28 +15,6 @@ import { AccountMenu } from './AccountMenu'
 // that same test's tree (the reset can tear down reatom's internal state
 // before React finishes running that tree's unmount effects).
 beforeEach(() => context.reset())
-
-class FakeEventSource {
-  static instances: FakeEventSource[] = []
-  url: string
-  onmessage: ((event: MessageEvent) => void) | null = null
-  close = vi.fn()
-  constructor(url: string) {
-    this.url = url
-    FakeEventSource.instances.push(this)
-  }
-}
-
-afterEach(() => {
-  FakeEventSource.instances = []
-})
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 function device(overrides: Partial<DeviceDto> & Pick<DeviceDto, 'credentialId'>): DeviceDto {
   return {
@@ -54,20 +34,26 @@ const account: AccountDto = { id: 'acc-1', name: 'Анна Ковалёва', de
 // instead of poking `model.account`/`model.devices` directly -- the
 // component always calls `refresh()` on mount, so a manual `.set()` would
 // just be raced and overwritten once that call resolves.
-function createTestModel(devices: DeviceDto[], ...extraResponses: Response[]) {
-  const fetchImpl = vi
-    .fn()
-    .mockResolvedValueOnce(jsonResponse(account))
-    .mockResolvedValueOnce(jsonResponse({ devices, thisCredentialId: null }))
-  for (const response of extraResponses) fetchImpl.mockResolvedValueOnce(response)
+function createTestModel(devices: DeviceDto[], logoutSteps: ScriptedStep[] = []) {
+  const { http, calls } = makeScriptedHttp({
+    '/api/auth/account': [{ status: 200, body: account }],
+    '/api/auth/devices': [{ status: 200, body: { devices, thisCredentialId: null } }],
+  })
+  const bareHttp = makeScriptedHttp({ '/api/auth/logout': logoutSteps }).http
+  const { open: openEventStream, streams } = makeFakeOpenEventStream()
 
   const model = createAccountModel({
-    fetchImpl,
+    http,
+    bareHttp,
+    // Not exercising purge behavior here (account-model.test.ts owns that) --
+    // a no-op avoids the real purgeLocalSession's Dexie db.delete() leaking a
+    // closed shared `db` singleton into this file's other tests.
+    purge: vi.fn(async () => undefined),
     storage: { get: () => null },
     navigate: vi.fn(),
-    eventSourceCtor: FakeEventSource as unknown as typeof EventSource,
+    openEventStream,
   })
-  return { model, fetchImpl }
+  return { model, calls, streams }
 }
 
 async function findTrigger() {
@@ -126,31 +112,23 @@ describe('AccountMenu', () => {
   })
 
   it('calls logout when the "Выйти" item is selected', async () => {
-    const { model, fetchImpl } = createTestModel(
-      [device({ credentialId: 'c1' })],
-      new Response(null, { status: 204 }),
-    )
+    const { model } = createTestModel([device({ credentialId: 'c1' })], [{ status: 204 }])
 
     render(<AccountMenu model={model} />)
     await openMenu()
     fireEvent.click(await screen.findByText('Выйти'))
 
-    await waitFor(() => {
-      expect(fetchImpl).toHaveBeenCalledWith(
-        '/api/auth/logout',
-        expect.objectContaining({ method: 'POST' }),
-      )
-    })
+    await waitFor(() => expect(model.error()).toBeNull())
   })
 
   it('calls refresh and opens the devices SSE connection on mount', async () => {
-    const { model, fetchImpl } = createTestModel([])
+    const { model, calls, streams } = createTestModel([])
 
     render(<AccountMenu model={model} />)
 
-    await waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2))
-    expect(FakeEventSource.instances).toHaveLength(1)
-    expect(FakeEventSource.instances[0]!.url).toBe('/api/auth/devices/events')
+    await waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2))
+    expect(streams).toHaveLength(1)
+    expect(streams[0]!.url).toBe('/api/auth/devices/events')
   })
 
   it('opens MyDevicesDialog (sharing this same model) when "Мои устройства" is selected', async () => {

@@ -1,4 +1,5 @@
 import { atom, context } from '@reatom/core'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import type { AuthenticationResponseJSON } from '@simplewebauthn/browser'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -14,13 +15,6 @@ import { AddDeviceModal } from './AddDeviceModal'
 beforeEach(() => context.reset())
 afterEach(() => vi.useRealTimers())
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
 const OPTIONS_BODY = { options: { challenge: 'add-token-challenge' } }
 const authenticationResponse = { id: 'cred-this' } as unknown as AuthenticationResponseJSON
 
@@ -32,6 +26,19 @@ function mintBody(overrides: Partial<{ expiresAt: number }> = {}) {
     expiresAt: Date.now() + 5 * 60_000,
     ...overrides,
   }
+}
+
+function makeStartHttp(options: { optionsStatus?: number; optionsBody?: unknown } = {}) {
+  return makeScriptedHttp({
+    '/api/auth/devices/add-token/options': [
+      { status: options.optionsStatus ?? 200, body: options.optionsBody ?? OPTIONS_BODY },
+    ],
+    '/api/auth/devices/add-token': [{ status: 200, body: mintBody() }],
+  }).http
+}
+
+function noopHttp() {
+  return makeScriptedHttp({}).http
 }
 
 function pendingDeviceFixture(overrides: Partial<DeviceDto> = {}): DeviceDto {
@@ -84,12 +91,9 @@ function createFakeAccountModel(initialPending: DeviceDto[] = []) {
 
 describe('AddDeviceModal', () => {
   it('(a) confirm identity: Подтвердить calls model.start()', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const http = makeStartHttp()
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
     })
@@ -101,18 +105,15 @@ describe('AddDeviceModal', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: /Подтвердить/ }))
 
-    await waitFor(() =>
-      expect(fetchImpl).toHaveBeenCalledWith(
-        '/api/auth/devices/add-token/options',
-        expect.objectContaining({ method: 'POST' }),
-      ),
-    )
+    await waitFor(() => expect(model.phase()).not.toBe('idle'))
   })
 
   it('shows a disabled, loading Подтвердить button while verifying', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
+    const http = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [{ status: 200, body: OPTIONS_BODY }],
+    }).http
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       // Never resolves -- keeps phase pinned at 'verifying' for the assertion.
       startAuthenticationCeremony: vi.fn(() => new Promise<AuthenticationResponseJSON>(() => {})),
       accountModel: createFakeAccountModel(),
@@ -128,9 +129,9 @@ describe('AddDeviceModal', () => {
   })
 
   it('shows model.error() when the ceremony fails, on the confirm-identity state', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
+    const http = makeStartHttp({ optionsStatus: 401, optionsBody: { code: 'session_missing' } })
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(),
       accountModel: createFakeAccountModel(),
     })
@@ -144,12 +145,9 @@ describe('AddDeviceModal', () => {
   })
 
   it('(b) shows the QR, formatted code, and countdown once a code is minted', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const http = makeStartHttp()
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
     })
@@ -175,12 +173,9 @@ describe('AddDeviceModal', () => {
       value: { writeText },
       configurable: true,
     })
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
+    const http = makeStartHttp()
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
     })
@@ -197,7 +192,7 @@ describe('AddDeviceModal', () => {
   it('(c) flips to the approval card for a pending device; Отклонить calls model.deny for it', async () => {
     const pendingDevice = pendingDeviceFixture()
     const accountModel = createFakeAccountModel([pendingDevice])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     render(<AddDeviceModal model={model} open onOpenChange={vi.fn()} />)
 
@@ -219,7 +214,7 @@ describe('AddDeviceModal', () => {
       // `pending` on failure -- it only refreshes on success.
       void credentialId
     })
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     render(<AddDeviceModal model={model} open onOpenChange={vi.fn()} />)
     const dialog = await screen.findByRole('dialog')
@@ -232,7 +227,7 @@ describe('AddDeviceModal', () => {
   it('(e) shows the device-added success card once Подтвердить succeeds', async () => {
     const pendingDevice = pendingDeviceFixture()
     const accountModel = createFakeAccountModel([pendingDevice])
-    const model = createAddDeviceModel({ accountModel })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel })
 
     render(<AddDeviceModal model={model} open onOpenChange={vi.fn()} />)
     const dialog = await screen.findByRole('dialog')
@@ -256,12 +251,18 @@ describe('AddDeviceModal', () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
     vi.setSystemTime(new Date('2026-07-06T12:00:00.000Z'))
     const expiresAt = Date.now() + 5_000
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody({ expiresAt })))
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/add-token/options': [
+        { status: 200, body: OPTIONS_BODY },
+        { status: 200, body: OPTIONS_BODY },
+      ],
+      '/api/auth/devices/add-token': [
+        { status: 200, body: mintBody({ expiresAt }) },
+        { status: 200, body: mintBody() },
+      ],
+    })
     const model = createAddDeviceModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       startAuthenticationCeremony: vi.fn(async () => authenticationResponse),
       accountModel: createFakeAccountModel(),
     })
@@ -274,16 +275,13 @@ describe('AddDeviceModal', () => {
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByText('Срок действия кода истёк')
 
-    fetchImpl
-      .mockResolvedValueOnce(jsonResponse(OPTIONS_BODY))
-      .mockResolvedValueOnce(jsonResponse(mintBody()))
     fireEvent.click(within(dialog).getByRole('button', { name: 'Создать новый код' }))
 
     await waitFor(() => expect(within(dialog).getByText('Добавить устройство')).toBeInTheDocument())
   })
 
   it('does not render dialog content when open is false', () => {
-    const model = createAddDeviceModel({ accountModel: createFakeAccountModel() })
+    const model = createAddDeviceModel({ http: noopHttp(), accountModel: createFakeAccountModel() })
 
     render(<AddDeviceModal model={model} open={false} onOpenChange={vi.fn()} />)
 

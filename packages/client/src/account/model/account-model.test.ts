@@ -1,17 +1,12 @@
 import { context } from '@reatom/core'
+import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createAccountModel } from './account-model'
 
 afterEach(() => context.reset())
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 function createStorage(initial: string | null) {
   return { get: vi.fn(() => initial) }
@@ -42,14 +37,11 @@ const devicesBody = {
 
 describe('refresh', () => {
   it('populates account and devices from the server', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesBody))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage(null),
+    const { http } = makeScriptedHttp({
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
     })
+    const model = createAccountModel({ http, storage: createStorage(null) })
 
     await model.refresh()
 
@@ -60,14 +52,11 @@ describe('refresh', () => {
 
 describe('pending', () => {
   it('computes only devices with status pending', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesBody))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage(null),
+    const { http } = makeScriptedHttp({
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
     })
+    const model = createAccountModel({ http, storage: createStorage(null) })
 
     await model.refresh()
 
@@ -77,14 +66,11 @@ describe('pending', () => {
 
 describe('thisCredentialId', () => {
   it('marks the device matching localStorage[mb_cred_hint]', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesBody))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage('cred-this'),
+    const { http } = makeScriptedHttp({
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
     })
+    const model = createAccountModel({ http, storage: createStorage('cred-this') })
 
     await model.refresh()
 
@@ -95,12 +81,12 @@ describe('thisCredentialId', () => {
   })
 
   it('prefers the server-authoritative thisCredentialId from refresh over a stale localStorage hint', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesBody))
+    const { http } = makeScriptedHttp({
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
+    })
     const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http,
       // localStorage still has a stale/different hint; the server's session
       // credential (devicesBody.thisCredentialId === 'cred-this') must win.
       storage: createStorage('stale-hint'),
@@ -113,16 +99,17 @@ describe('thisCredentialId', () => {
 
   it('falls back to the localStorage hint when the server response omits thisCredentialId', async () => {
     const { thisCredentialId: _omit, ...devicesWithoutHint } = devicesBody
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesBody))
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesWithoutHint))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage('fallback-hint'),
+    const { http } = makeScriptedHttp({
+      '/api/auth/account': [
+        { status: 200, body: accountBody },
+        { status: 200, body: accountBody },
+      ],
+      '/api/auth/devices': [
+        { status: 200, body: devicesBody },
+        { status: 200, body: devicesWithoutHint },
+      ],
     })
+    const model = createAccountModel({ http, storage: createStorage('fallback-hint') })
 
     // First establish a server-provided value different from the storage hint...
     await model.refresh()
@@ -137,30 +124,25 @@ describe('thisCredentialId', () => {
 
 describe('revoke', () => {
   it('surfaces the server last_active_device error into error', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ code: 'last_active_device' }, 409))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage(null),
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/cred-this/revoke': [{ status: 409, body: { code: 'last_active_device' } }],
     })
+    const model = createAccountModel({ http, storage: createStorage(null) })
 
     await model.revoke('cred-this')
 
-    expect(fetchImpl).toHaveBeenCalledWith(
-      '/api/auth/devices/cred-this/revoke',
-      expect.objectContaining({ method: 'POST' }),
-    )
+    expect(calls).toEqual([
+      { method: 'POST', url: '/api/auth/devices/cred-this/revoke', json: undefined },
+    ])
     expect(model.error()).not.toBeNull()
     expect(model.error()).toContain('последнее активное устройство')
   })
 
   it('maps a session_missing error into a Russian "sign in again" message', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'session_missing' }, 401))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage(null),
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/cred-this/revoke': [{ status: 401, body: { code: 'session_missing' } }],
     })
+    const model = createAccountModel({ http, storage: createStorage(null) })
 
     await model.revoke('cred-this')
 
@@ -169,15 +151,12 @@ describe('revoke', () => {
   })
 
   it('clears the error and refreshes devices on a successful revoke', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesBody))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage(null),
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/cred-other/revoke': [{ status: 204 }],
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
     })
+    const model = createAccountModel({ http, storage: createStorage(null) })
 
     await model.revoke('cred-other')
 
@@ -188,82 +167,84 @@ describe('revoke', () => {
 })
 
 describe('logout', () => {
-  it('posts to /api/auth/logout and navigates away', async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(new Response(null, { status: 204 }))
-    const navigate = vi.fn()
+  it('purges local data after server logout and before navigation', async () => {
+    const order: string[] = []
+    const bareHttp = makeScriptedHttp({ '/api/auth/logout': [{ status: 204 }] }).http
+    const purge = vi.fn(async () => {
+      order.push('purge')
+    })
+    const navigate = vi.fn(() => {
+      order.push('navigate')
+    })
     const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      http: makeScriptedHttp({}).http,
       storage: createStorage(null),
+      bareHttp,
+      purge,
       navigate,
     })
 
     await model.logout()
 
-    expect(fetchImpl).toHaveBeenCalledWith(
-      '/api/auth/logout',
-      expect.objectContaining({ method: 'POST' }),
-    )
+    expect(order).toEqual(['purge', 'navigate'])
     expect(navigate).toHaveBeenCalledWith('/')
+  })
+
+  it('surfaces a server logout failure into error and does not navigate away', async () => {
+    const bareHttp = makeScriptedHttp({
+      '/api/auth/logout': [{ status: 401, body: { code: 'session_missing' } }],
+    }).http
+    const purge = vi.fn(async () => undefined)
+    const navigate = vi.fn()
+    const model = createAccountModel({
+      http: makeScriptedHttp({}).http,
+      storage: createStorage(null),
+      bareHttp,
+      purge,
+      navigate,
+    })
+
+    await model.logout()
+
+    expect(model.error()).not.toBeNull()
+    expect(purge).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
   })
 })
 
 describe('connectEvents', () => {
-  class FakeEventSource {
-    static instances: FakeEventSource[] = []
-    url: string
-    onmessage: ((event: MessageEvent) => void) | null = null
-    close = vi.fn()
-    constructor(url: string) {
-      this.url = url
-      FakeEventSource.instances.push(this)
-    }
-  }
-
-  afterEach(() => {
-    FakeEventSource.instances = []
-  })
-
   it('calls refresh when a device-* SSE message arrives', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(accountBody))
-      .mockResolvedValueOnce(jsonResponse(devicesBody))
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage(null),
-      eventSourceCtor: FakeEventSource as unknown as typeof EventSource,
+    const { http } = makeScriptedHttp({
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
     })
+    const { open: openEventStream, streams } = makeFakeOpenEventStream()
+    const model = createAccountModel({ http, storage: createStorage(null), openEventStream })
 
     const disconnect = model.connectEvents()
-    const source = FakeEventSource.instances[0]!
-    expect(source.url).toBe('/api/auth/devices/events')
+    const stream = streams[0]!
+    expect(stream.url).toBe('/api/auth/devices/events')
 
-    source.onmessage?.({
-      data: JSON.stringify({
-        key: 'auth:account:acc-1',
-        value: { type: 'device-approved', credentialId: 'cred-pending' },
-      }),
-    } as MessageEvent)
+    stream.emit(undefined, {
+      key: 'auth:account:acc-1',
+      value: { type: 'device-approved', credentialId: 'cred-pending' },
+    })
 
-    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2))
-    expect(model.account()).toEqual(accountBody)
+    await vi.waitFor(() => expect(model.account()).toEqual(accountBody))
 
     disconnect()
-    expect(source.close).toHaveBeenCalled()
+    expect(stream.closed).toBe(true)
   })
 
   it('ignores non device-* SSE messages', async () => {
-    const fetchImpl = vi.fn()
-    const model = createAccountModel({
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      storage: createStorage(null),
-      eventSourceCtor: FakeEventSource as unknown as typeof EventSource,
-    })
+    const { http, calls } = makeScriptedHttp({})
+    const { open: openEventStream, streams } = makeFakeOpenEventStream()
+    const model = createAccountModel({ http, storage: createStorage(null), openEventStream })
 
     model.connectEvents()
-    const source = FakeEventSource.instances[0]!
-    source.onmessage?.({ data: JSON.stringify({ connId: 'abc' }) } as MessageEvent)
+    const stream = streams[0]!
+    stream.emit(undefined, { connId: 'abc' })
 
-    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(calls).toHaveLength(0)
   })
 })

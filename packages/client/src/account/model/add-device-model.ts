@@ -10,6 +10,7 @@ import {
   withConnectHook,
   wrap,
 } from '@reatom/core'
+import type { HttpLike } from '@shared/http/client'
 import { startAuthentication as browserStartAuthentication } from '@simplewebauthn/browser'
 import * as errore from 'errore'
 import QRCodeStyling, { type Options as QrOptions } from 'qr-code-styling'
@@ -17,7 +18,6 @@ import QRCodeStyling, { type Options as QrOptions } from 'qr-code-styling'
 import type { ResolvedTheme } from '@/shared/theme/types'
 import { resolvedTheme as globalResolvedTheme } from '@/theme/model/theme-model'
 
-import { createAccountModel } from './account-model'
 import { describeDeviceError, fetchAddTokenOptions, mintAddToken } from './devices-http'
 import type { DeviceDto } from './devices-http'
 
@@ -51,7 +51,7 @@ export type AddDeviceAccountModel = {
 }
 
 export interface AddDeviceDeps {
-  fetchImpl: typeof fetch
+  http: HttpLike
   accountModel: AddDeviceAccountModel
   // Matches the real @simplewebauthn/browser signature exactly (a single
   // `{ optionsJSON }` object), so a test double stays call-compatible with
@@ -136,10 +136,12 @@ export interface AddDeviceModel {
   reset: Action<[], void>
 }
 
-export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
+export function createAddDeviceModel(
+  overrides: Partial<AddDeviceDeps> & { http: HttpLike; accountModel: AddDeviceAccountModel },
+): AddDeviceModel {
   const deps: AddDeviceDeps = {
-    fetchImpl: overrides.fetchImpl ?? fetch,
-    accountModel: overrides.accountModel ?? createAccountModel(),
+    http: overrides.http,
+    accountModel: overrides.accountModel,
     startAuthenticationCeremony:
       overrides.startAuthenticationCeremony ?? browserStartAuthentication,
     resolvedTheme: overrides.resolvedTheme ?? (() => globalResolvedTheme()),
@@ -263,7 +265,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     justApproved.set(null)
     rawPhase.set('verifying')
 
-    const optionsResult = await wrap(fetchAddTokenOptions(deps.fetchImpl))
+    const optionsResult = await wrap(fetchAddTokenOptions(deps.http))
     if (myGeneration !== generation) return
     if (optionsResult instanceof Error) {
       error.set(describeDeviceError(optionsResult))
@@ -291,7 +293,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
       return
     }
 
-    const mintResult = await wrap(mintAddToken(deps.fetchImpl, authenticationResponse))
+    const mintResult = await wrap(mintAddToken(deps.http, authenticationResponse))
     if (myGeneration !== generation) return
     if (mintResult instanceof Error) {
       error.set(describeDeviceError(mintResult))

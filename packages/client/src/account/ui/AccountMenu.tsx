@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { http } from '@/runtime'
 
 import { type AccountModel, createAccountModel } from '../model/account-model'
 import { MyDevicesDialog } from './MyDevicesDialog'
@@ -48,7 +49,7 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
   // rendered below from inside this same component and reuses this instance
   // (never creates its own), so both surfaces always agree on `account`/
   // `devices`/`pending`.
-  const [model] = useState(() => modelOverride ?? createAccountModel())
+  const [model] = useState(() => modelOverride ?? createAccountModel({ http }))
   // Local, component-scoped open state for the dropdown -- same
   // controlled-atom idiom as board/model/add-widget-menu-model.ts's
   // `isAddWidgetMenuOpen`, just instance-scoped since this menu has exactly

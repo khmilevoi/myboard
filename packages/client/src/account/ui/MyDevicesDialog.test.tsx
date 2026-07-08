@@ -1,4 +1,5 @@
 import { context } from '@reatom/core'
+import { makeScriptedHttp, type ScriptedStep } from '@shared/http/test/scripted-http'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -11,13 +12,6 @@ import { MyDevicesDialog } from './MyDevicesDialog'
 // convention: resetting after a test races with @testing-library/react's own
 // automatic unmount cleanup for that same test's tree.
 beforeEach(() => context.reset())
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 function device(overrides: Partial<DeviceDto> & Pick<DeviceDto, 'credentialId'>): DeviceDto {
   return {
@@ -44,17 +38,23 @@ async function createTestModel(
   accountOverride: AccountDto = account,
   thisCredentialId: string | null = devices[0]?.credentialId ?? null,
 ) {
-  const fetchImpl = vi
-    .fn()
-    .mockResolvedValueOnce(jsonResponse(accountOverride))
-    .mockResolvedValueOnce(jsonResponse({ devices, thisCredentialId }))
+  const script: Record<string, ScriptedStep[]> = {
+    '/api/auth/account': [{ status: 200, body: accountOverride }],
+    '/api/auth/devices': [{ status: 200, body: { devices, thisCredentialId } }],
+  }
+  const { http, calls } = makeScriptedHttp(script)
   const model = createAccountModel({
-    fetchImpl,
+    http,
     storage: { get: () => null },
     navigate: vi.fn(),
   })
   await model.refresh()
-  return { model, fetchImpl }
+  return { model, calls, script }
+}
+
+/** Queue a step onto an already-scripted http's script for a URL not yet used. */
+function queue(script: Record<string, ScriptedStep[]>, url: string, step: ScriptedStep) {
+  ;(script[url] ??= []).push(step)
 }
 
 describe('MyDevicesDialog', () => {
@@ -97,7 +97,7 @@ describe('MyDevicesDialog', () => {
   })
 
   it('shows an enabled revoke button for the current device when 2+ active devices exist', async () => {
-    const { model, fetchImpl } = await createTestModel(
+    const { model, calls, script } = await createTestModel(
       [
         device({ credentialId: 'c1', label: 'Chrome on Windows' }),
         device({ credentialId: 'c2', label: 'Safari on iPhone' }),
@@ -116,11 +116,12 @@ describe('MyDevicesDialog', () => {
     fireEvent.click(revokeButton)
     await within(dialog).findByText('Отозвать это устройство? Оно потеряет доступ.')
 
-    fetchImpl.mockResolvedValueOnce(new Response(null, { status: 204 }))
-    fetchImpl.mockResolvedValueOnce(jsonResponse(account))
-    fetchImpl.mockResolvedValueOnce(
-      jsonResponse({ devices: [device({ credentialId: 'c2' })], thisCredentialId: null }),
-    )
+    queue(script, '/api/auth/devices/c1/revoke', { status: 204 })
+    queue(script, '/api/auth/account', { status: 200, body: account })
+    queue(script, '/api/auth/devices', {
+      status: 200,
+      body: { devices: [device({ credentialId: 'c2' })], thisCredentialId: null },
+    })
     // Scoped to c1's row -- c2's own normal row still has its own visible
     // "Отозвать" button while c1's is in confirm mode, so an unscoped query
     // would be ambiguous.
@@ -131,15 +132,16 @@ describe('MyDevicesDialog', () => {
     )
 
     await waitFor(() =>
-      expect(fetchImpl).toHaveBeenCalledWith(
-        '/api/auth/devices/c1/revoke',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+      expect(calls).toContainEqual({
+        method: 'POST',
+        url: '/api/auth/devices/c1/revoke',
+        json: undefined,
+      }),
     )
   })
 
   it('(c) pending device: Подтвердить calls model.approve for that device', async () => {
-    const { model, fetchImpl } = await createTestModel(
+    const { model, calls, script } = await createTestModel(
       [
         device({ credentialId: 'c1', label: 'Chrome on Windows' }),
         device({
@@ -159,24 +161,26 @@ describe('MyDevicesDialog', () => {
     expect(within(dialog).getByText('Ожидают подтверждения')).toBeInTheDocument()
     expect(within(dialog).getByText('Chrome on Android')).toBeInTheDocument()
 
-    fetchImpl.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    fetchImpl.mockResolvedValueOnce(jsonResponse(account))
-    fetchImpl.mockResolvedValueOnce(
-      jsonResponse({ devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' }),
-    )
+    queue(script, '/api/auth/devices/c2/approve', { status: 200, body: { ok: true } })
+    queue(script, '/api/auth/account', { status: 200, body: account })
+    queue(script, '/api/auth/devices', {
+      status: 200,
+      body: { devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' },
+    })
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Подтвердить' }))
 
     await waitFor(() =>
-      expect(fetchImpl).toHaveBeenCalledWith(
-        '/api/auth/devices/c2/approve',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+      expect(calls).toContainEqual({
+        method: 'POST',
+        url: '/api/auth/devices/c2/approve',
+        json: undefined,
+      }),
     )
   })
 
   it('(c) pending device: Отклонить calls model.deny for that device', async () => {
-    const { model, fetchImpl } = await createTestModel(
+    const { model, calls, script } = await createTestModel(
       [
         device({ credentialId: 'c1', label: 'Chrome on Windows' }),
         device({
@@ -194,24 +198,26 @@ describe('MyDevicesDialog', () => {
 
     const dialog = await screen.findByRole('dialog')
 
-    fetchImpl.mockResolvedValueOnce(new Response(null, { status: 204 }))
-    fetchImpl.mockResolvedValueOnce(jsonResponse(account))
-    fetchImpl.mockResolvedValueOnce(
-      jsonResponse({ devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' }),
-    )
+    queue(script, '/api/auth/devices/c2/deny', { status: 204 })
+    queue(script, '/api/auth/account', { status: 200, body: account })
+    queue(script, '/api/auth/devices', {
+      status: 200,
+      body: { devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' },
+    })
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Отклонить' }))
 
     await waitFor(() =>
-      expect(fetchImpl).toHaveBeenCalledWith(
-        '/api/auth/devices/c2/deny',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+      expect(calls).toContainEqual({
+        method: 'POST',
+        url: '/api/auth/devices/c2/deny',
+        json: undefined,
+      }),
     )
   })
 
   it('(d) revoke requires a second click: first click shows inline confirm without calling revoke, Отмена dismisses it, confirming calls model.revoke', async () => {
-    const { model, fetchImpl } = await createTestModel(
+    const { model, calls, script } = await createTestModel(
       [
         device({ credentialId: 'c1', label: 'Chrome on Windows' }),
         device({ credentialId: 'c2', label: 'Safari on iPhone' }),
@@ -231,7 +237,9 @@ describe('MyDevicesDialog', () => {
     fireEvent.click(within(c2Row).getByRole('button', { name: 'Отозвать' }))
 
     await within(dialog).findByText('Отозвать это устройство? Оно потеряет доступ.')
-    expect(fetchImpl).not.toHaveBeenCalledWith('/api/auth/devices/c2/revoke', expect.anything())
+    expect(calls).not.toContainEqual(
+      expect.objectContaining({ url: '/api/auth/devices/c2/revoke' }),
+    )
 
     fireEvent.click(
       within(within(dialog).getByTestId('device-row-c2')).getByRole('button', {
@@ -251,11 +259,12 @@ describe('MyDevicesDialog', () => {
     )
     await within(dialog).findByText('Отозвать это устройство? Оно потеряет доступ.')
 
-    fetchImpl.mockResolvedValueOnce(new Response(null, { status: 204 }))
-    fetchImpl.mockResolvedValueOnce(jsonResponse(account))
-    fetchImpl.mockResolvedValueOnce(
-      jsonResponse({ devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' }),
-    )
+    queue(script, '/api/auth/devices/c2/revoke', { status: 204 })
+    queue(script, '/api/auth/account', { status: 200, body: account })
+    queue(script, '/api/auth/devices', {
+      status: 200,
+      body: { devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' },
+    })
     fireEvent.click(
       within(within(dialog).getByTestId('device-row-c2')).getByRole('button', {
         name: 'Отозвать',
@@ -263,10 +272,11 @@ describe('MyDevicesDialog', () => {
     )
 
     await waitFor(() =>
-      expect(fetchImpl).toHaveBeenCalledWith(
-        '/api/auth/devices/c2/revoke',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+      expect(calls).toContainEqual({
+        method: 'POST',
+        url: '/api/auth/devices/c2/revoke',
+        json: undefined,
+      }),
     )
   })
 
@@ -356,7 +366,7 @@ describe('MyDevicesDialog', () => {
   })
 
   it('resets AddDeviceModal back to idle after closing, so reopening starts a fresh ceremony instead of dead-ending on the previous success card', async () => {
-    const { model, fetchImpl } = await createTestModel(
+    const { model, script } = await createTestModel(
       [
         device({ credentialId: 'c1' }),
         device({
@@ -376,11 +386,12 @@ describe('MyDevicesDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /Добавить устройство/ }))
     await screen.findByText('Устройство хочет присоединиться')
 
-    fetchImpl.mockResolvedValueOnce(jsonResponse({ ok: true }))
-    fetchImpl.mockResolvedValueOnce(jsonResponse(account))
-    fetchImpl.mockResolvedValueOnce(
-      jsonResponse({ devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' }),
-    )
+    queue(script, '/api/auth/devices/c2/approve', { status: 200, body: { ok: true } })
+    queue(script, '/api/auth/account', { status: 200, body: account })
+    queue(script, '/api/auth/devices', {
+      status: 200,
+      body: { devices: [device({ credentialId: 'c1' })], thisCredentialId: 'c1' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
     await screen.findByText('Устройство добавлено')
 

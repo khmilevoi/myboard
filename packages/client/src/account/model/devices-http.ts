@@ -2,6 +2,7 @@ import type {
   AuthenticationResponseJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/browser'
+import type { HttpLike } from '@shared/http/client'
 import * as errore from 'errore'
 
 export type AccountDto = {
@@ -45,74 +46,65 @@ type RequestOptions = {
 }
 
 async function request<T>(
-  fetchImpl: typeof fetch,
+  http: HttpLike,
   url: string,
   options: RequestOptions = {},
 ): Promise<Error | T> {
-  const headers: Record<string, string> = { 'X-Requested-With': 'MyBoard' }
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+  const res =
+    options.method === 'POST'
+      ? await http.post(url, options.body !== undefined ? { json: options.body } : undefined)
+      : await http.get(url)
+  if (res instanceof Error) {
+    return new DeviceHttpError({ reason: 'сбой сетевого запроса', cause: res })
+  }
 
-  const res = await fetchImpl(url, {
-    method: options.method ?? 'GET',
-    credentials: 'same-origin',
-    headers,
-    ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
-  }).catch((cause) => new DeviceHttpError({ reason: 'сбой сетевого запроса', cause }))
-  if (res instanceof Error) return res
-
-  // 204 No Content is the success response for deny/revoke/logout -- there is
-  // no body to parse.
+  // 204 No Content is the success response for deny/revoke/logout.
   if (res.status === 204) return undefined as T
-
-  const body = await res
-    .json()
-    .catch((cause) => new DeviceHttpError({ reason: 'некорректный ответ сервера', cause }))
-  if (body instanceof Error) return body
 
   if (!res.ok) {
     const code =
-      typeof (body as { code?: unknown }).code === 'string'
-        ? (body as { code: string }).code
+      typeof (res.body as { code?: unknown } | undefined)?.code === 'string'
+        ? (res.body as { code: string }).code
         : 'unknown_error'
     return new DeviceApiError({ code, status: res.status })
   }
 
-  return body as T
+  return res.body as T
 }
 
-export function fetchAccount(fetchImpl: typeof fetch): Promise<Error | AccountDto> {
-  return request<AccountDto>(fetchImpl, '/api/auth/account')
+export function fetchAccount(http: HttpLike): Promise<Error | AccountDto> {
+  return request<AccountDto>(http, '/api/auth/account')
 }
 
-export function fetchDevices(fetchImpl: typeof fetch): Promise<Error | DevicesResult> {
-  return request<DevicesResult>(fetchImpl, '/api/auth/devices')
+export function fetchDevices(http: HttpLike): Promise<Error | DevicesResult> {
+  return request<DevicesResult>(http, '/api/auth/devices')
 }
 
 export function approveDevice(
-  fetchImpl: typeof fetch,
+  http: HttpLike,
   credentialId: string,
 ): Promise<Error | { ok: true }> {
   return request<{ ok: true }>(
-    fetchImpl,
+    http,
     `/api/auth/devices/${encodeURIComponent(credentialId)}/approve`,
     { method: 'POST' },
   )
 }
 
-export function denyDevice(fetchImpl: typeof fetch, credentialId: string): Promise<Error | void> {
-  return request<void>(fetchImpl, `/api/auth/devices/${encodeURIComponent(credentialId)}/deny`, {
+export function denyDevice(http: HttpLike, credentialId: string): Promise<Error | void> {
+  return request<void>(http, `/api/auth/devices/${encodeURIComponent(credentialId)}/deny`, {
     method: 'POST',
   })
 }
 
-export function revokeDevice(fetchImpl: typeof fetch, credentialId: string): Promise<Error | void> {
-  return request<void>(fetchImpl, `/api/auth/devices/${encodeURIComponent(credentialId)}/revoke`, {
+export function revokeDevice(http: HttpLike, credentialId: string): Promise<Error | void> {
+  return request<void>(http, `/api/auth/devices/${encodeURIComponent(credentialId)}/revoke`, {
     method: 'POST',
   })
 }
 
-export function logout(fetchImpl: typeof fetch): Promise<Error | void> {
-  return request<void>(fetchImpl, '/api/auth/logout', { method: 'POST' })
+export function logout(http: HttpLike): Promise<Error | void> {
+  return request<void>(http, '/api/auth/logout', { method: 'POST' })
 }
 
 // Maps the server's errore `code` (packages/server/src/auth/errors.ts) to
@@ -148,10 +140,8 @@ export type AddTokenOptionsResult = {
 // a fresh-UV re-authentication challenge for the already-signed-in device
 // ("device A") that is about to mint an add-device code. No request body --
 // the account is derived from the live session.
-export function fetchAddTokenOptions(
-  fetchImpl: typeof fetch,
-): Promise<Error | AddTokenOptionsResult> {
-  return request<AddTokenOptionsResult>(fetchImpl, '/api/auth/devices/add-token/options', {
+export function fetchAddTokenOptions(http: HttpLike): Promise<Error | AddTokenOptionsResult> {
+  return request<AddTokenOptionsResult>(http, '/api/auth/devices/add-token/options', {
     method: 'POST',
   })
 }
@@ -166,10 +156,10 @@ export type AddTokenResult = {
 // Mirrors postAddToken: verifies the fresh-UV assertion and mints a
 // short-lived add-device code/URL for "device B" to consume.
 export function mintAddToken(
-  fetchImpl: typeof fetch,
+  http: HttpLike,
   authenticationResponse: AuthenticationResponseJSON,
 ): Promise<Error | AddTokenResult> {
-  return request<AddTokenResult>(fetchImpl, '/api/auth/devices/add-token', {
+  return request<AddTokenResult>(http, '/api/auth/devices/add-token', {
     method: 'POST',
     body: { authenticationResponse },
   })
