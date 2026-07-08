@@ -158,8 +158,10 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
         }
 
         const attestationResponse = await wrap(
-          deps.startRegistrationCeremony({ optionsJSON: options }),
-        ).catch((cause) => new ActivationError({ reason: 'сбой процедуры регистрации', cause }))
+          deps
+            .startRegistrationCeremony({ optionsJSON: options })
+            .catch((cause) => new ActivationError({ reason: 'сбой процедуры регистрации', cause })),
+        )
         if (attestationResponse instanceof Error) {
           error.set(attestationResponse.message)
           return
@@ -216,8 +218,10 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
     const { options } = optionsResult.body as { options: PublicKeyCredentialRequestOptionsJSON }
 
     const authenticationResponse = await wrap(
-      deps.startAuthenticationCeremony({ optionsJSON: options }),
-    ).catch((cause) => new ActivationError({ reason: 'сбой процедуры аутентификации', cause }))
+      deps
+        .startAuthenticationCeremony({ optionsJSON: options })
+        .catch((cause) => new ActivationError({ reason: 'сбой процедуры аутентификации', cause })),
+    )
     if (authenticationResponse instanceof Error) {
       return { ok: false, hintFailure: true, message: authenticationResponse.message }
     }
