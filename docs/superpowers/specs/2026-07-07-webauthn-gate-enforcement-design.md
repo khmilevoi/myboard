@@ -399,7 +399,10 @@ cut without touching anything else in this plan.
 
 **Ops scripts** (`packages/server/scripts/`, following the `create-invite`
 shape: `*.ts` logic with unit tests on `memory-ops`, `*.cli.ts` entry compiled
-into the image, run via `docker compose exec server node dist/scripts/<name>.cjs`):
+into the image; each registered as an `rpi.toml` `[commands]` entry like the
+existing `create-invite`, so the normal invocation is `rpi command <name> --
+<args>` from the dev machine — `docker compose exec server node
+dist/scripts/<name>.cjs` stays the on-Pi fallback):
 
 - `list-devices` — all accounts with their devices: id, label, status,
   createdAt, lastSeenAt, disabled marker.
@@ -421,10 +424,15 @@ Each script prints a human-readable result and exits non-zero on failure
 `TRUST_CF_CONNECTING_IP` — all already read by the config since Plan 1; only
 the wiring is new. `.env.example` is already complete.
 
-**rpi.toml.** Two changes:
+**rpi.toml.** Three changes:
 
 - `ingress.hostname = "board.iiskelo.com"` — the public route for the user's
   Cloudflare Tunnel (the tunnel itself is the user's manual step).
+- `[commands]` entries for the five ops scripts (table form,
+  `service = "server"`) plus `[commands.backup]` (`service = "valkey"`):
+  `valkey-cli SAVE` and a dated `dump.rdb` copy into `/data/backups` inside
+  the `valkey_data` volume — a logical backup that survives `FLUSHDB` and bad
+  deploys (files are not keys), though not volume deletion.
 - `healthcheck`: with the gate, `/` answers 401 (activation page). Set
   `path = "/"`, `expect = "401"` — deliberately: the health probe exercises
   the whole nginx → auth_request → server → Valkey chain **and** asserts the

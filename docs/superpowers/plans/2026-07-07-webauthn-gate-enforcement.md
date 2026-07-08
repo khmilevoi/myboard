@@ -3263,7 +3263,7 @@ rtk git commit -m "feat(server): e2e session seeding routes and opt-in test mode
 
 **Files:**
 - Modify: `packages/client/nginx.conf` (full rewrite below)
-- Modify: `rpi.toml` (hostname + 401 healthcheck)
+- Modify: `rpi.toml` (hostname + 401 healthcheck + ops `[commands]`)
 
 **Interfaces:**
 - Consumes: `GET /api/auth/session` (the Plan-1 verifier — 200/401), the activation build at `/usr/share/nginx/html/activate/`.
@@ -3418,7 +3418,45 @@ expect = "401"
 timeout = "60s"
 ```
 
-(Only the `[ingress]` and `[healthcheck]` sections change; the rest of the file stays.)
+Also append the five ops scripts from Tasks 3–4 (same table shape as the
+existing `create-invite` entry) plus a Valkey backup, so every ops action is
+one `rpi command <name>` from the dev machine (extra args pass through after
+`--`, e.g. `rpi command revoke-device -- --credential-id <id>`):
+
+```toml
+[commands.list-devices]
+run = "node dist/scripts/list-devices.cjs"
+service = "server"
+
+[commands.revoke-device]
+run = "node dist/scripts/revoke-device.cjs"
+service = "server"
+
+[commands.revoke-invite]
+run = "node dist/scripts/revoke-invite.cjs"
+service = "server"
+
+[commands.revoke-account]
+run = "node dist/scripts/revoke-account.cjs"
+service = "server"
+
+[commands.mint-add-device-token]
+run = "node dist/scripts/mint-add-device-token.cjs"
+service = "server"
+
+# Logical backup INSIDE the valkey_data volume: SAVE is synchronous (fine at
+# this DB size), the dated copy survives FLUSHDB and bad deploys (files are
+# not keys) — but not volume deletion. Restore = stop stack, copy a dump over
+# /data/dump.rdb, start with AOF disabled once (or delete the AOF files).
+[commands.backup]
+run = "sh -c 'valkey-cli SAVE && mkdir -p /data/backups && cp /data/dump.rdb /data/backups/dump-$(date +%Y%m%d-%H%M%S).rdb && ls -lh /data/backups'"
+service = "valkey"
+```
+
+(`[ingress]`, `[healthcheck]`, and `[commands]` change; the rest of the file
+stays. The `run` string is shell-word split with quotes respected, so the
+`sh -c '...'` one-liner is a single argv element — same pattern as the
+rpi.toml schema's own backup example.)
 
 - [ ] **Step 3: Verify the config parses and the gate closes**
 
@@ -3802,16 +3840,20 @@ The board is private: nginx `auth_request` gates every route, asset, and API
 behind a WebAuthn device session. Anonymous requests to `/` receive the
 activation page with status 401 (the deploy healthcheck asserts exactly that).
 
-Ops (run inside the server container on the Pi):
+Ops (from the dev machine via `rpi command` — each is an `rpi.toml`
+`[commands]` entry; on the Pi itself the same scripts run via
+`docker compose exec server node dist/scripts/<name>.cjs`):
 
 ```bash
-docker compose exec server node dist/scripts/create-invite.cjs --label "Grandma's iPad" --ttl 7d
-docker compose exec server node dist/scripts/list-devices.cjs
-docker compose exec server node dist/scripts/revoke-device.cjs --credential-id <id>
-docker compose exec server node dist/scripts/revoke-invite.cjs --id <inviteId>
-docker compose exec server node dist/scripts/revoke-account.cjs --account <accountId>
+rpi command create-invite -- --label "Grandma's iPad" --ttl 7d
+rpi command list-devices
+rpi command revoke-device -- --credential-id <id>
+rpi command revoke-invite -- --id <inviteId>
+rpi command revoke-account -- --account <accountId>
 # Stranded user (lost all devices) — re-enroll into the SAME account:
-docker compose exec server node dist/scripts/mint-add-device-token.cjs --account <accountId>
+rpi command mint-add-device-token -- --account <accountId>
+# Dated Valkey snapshot into the valkey_data volume (survives FLUSHDB, not volume deletion):
+rpi command backup
 ```
 
 Audit: every register/login/logout/device event is one JSON line in
@@ -4016,7 +4058,7 @@ rtk git commit -m "refactor(widget-runtime): injectable BroadcastChannel hub, de
 
 ## Plan self-review notes
 
-- **Spec coverage:** nginx gate + allowlist + 401 fallback (T11), verifier subtleties `proxy_method GET` (T11), rate limits + 429 test (T11/T12), CSRF guard + both-frontends audit (T1), stdout audit log + CF IP (T2), `@shared/http` HttpClient port over ky + errore semantics + bare-401 body rule + CSRF header + forced single replay (T5, spec 3.2), EventStream port + Navigate type (T5), `makeHostRuntime` composition root owning one HttpClient + one SSE manager, free factories deleted (T6/T9, spec 3.3), storage/widget-api/http-time with zero 401 code below the client (T6), SSE re-auth reconnect on the port (T7, spec 3.5), `purgeLocalData` (T7), single-flight `ensureSession` + probe + offline no-redirect + own bare client (T8, spec 3.1), board/harness/activation composition roots + devices-http on the port + bare-client logout + purge order (T9/T15, spec 3.4/3.6/3.7/3.8), five ops scripts (T3/T4), seed-session/expire/revoke test routes + prod test mode + compose passthrough (T10), rpi.toml hostname + 401-tripwire healthcheck (T11), nginx suite + gated journeys (T12/T13), docs (T14), BroadcastChannel hub (T16, spec 3.9). Delivery order matches the spec: client resilience (T5–T9) lands before the gate (T11); T15/T16 are post-gate port refactors, T16 cuttable.
+- **Spec coverage:** nginx gate + allowlist + 401 fallback (T11), verifier subtleties `proxy_method GET` (T11), rate limits + 429 test (T11/T12), CSRF guard + both-frontends audit (T1), stdout audit log + CF IP (T2), `@shared/http` HttpClient port over ky + errore semantics + bare-401 body rule + CSRF header + forced single replay (T5, spec 3.2), EventStream port + Navigate type (T5), `makeHostRuntime` composition root owning one HttpClient + one SSE manager, free factories deleted (T6/T9, spec 3.3), storage/widget-api/http-time with zero 401 code below the client (T6), SSE re-auth reconnect on the port (T7, spec 3.5), `purgeLocalData` (T7), single-flight `ensureSession` + probe + offline no-redirect + own bare client (T8, spec 3.1), board/harness/activation composition roots + devices-http on the port + bare-client logout + purge order (T9/T15, spec 3.4/3.6/3.7/3.8), five ops scripts (T3/T4), seed-session/expire/revoke test routes + prod test mode + compose passthrough (T10), rpi.toml hostname + 401-tripwire healthcheck + ops `[commands]` incl. the valkey backup (T11), nginx suite + gated journeys (T12/T13), docs (T14), BroadcastChannel hub (T16, spec 3.9). Delivery order matches the spec: client resilience (T5–T9) lands before the gate (T11); T15/T16 are post-gate port refactors, T16 cuttable.
 - **Deliberate deviations from the spec text:** (1) `http-time.ts` keeps a module-default **bare** client instead of the runtime's — `server-time` is a pre-existing module-level model outside `HostRuntime`; a 401 there is a non-fatal `TimeError` and the session heals via any storage-triggered relogin. (2) The activation models keep 4-line `postJson`/`requestJson` **adapters** over the port so ~10 call sites stay untouched; the spec's target (no duplicated transport layers, no `fetchImpl` threading) is met. (3) The spec's "bare 401" for assets/API means "no activation fallback" — nginx's default minimal 401 body is acceptable and asserted as such (tests check the absence of activation markers, not an empty body).
 - **Known adaptation points (flagged in-task, must be verified against code, not guessed):** exact URL fixtures and deps-helper shapes in `devices-http.test.ts` / `account-model.test.ts` / activation model tests (T9/T15), account-menu selectors and activation marker text (T13), the existing deps-factory helpers in `handlers.test.ts` (T2), which widget-runtime tests still reference `FakeEventSource` after T7 Step 5, and whether the jsdom `BroadcastChannel` polyfill is still needed after T16 Step 2.
 - **Type-consistency spine:** `HttpLike`/`HttpResponse`/`HttpTransportError`/`makeUnauthorizedRetryHook` (T5) are consumed with these exact names in T6 (`HttpStorageDeps`, `MakeWidgetApiOptions`, `makeRuntimeHttp`), T7 (`SseManagerDeps`), T8 (`ReloginDeps`), T9 (`request`, `AccountDeps`, `runtime.ts`), and T15 (`ActivationDeps`/`AddDeviceDeps`); `makeHostRuntime`/`HostRuntime` (T6) are consumed in T7 (SSE ownership) and T9 (roots); naming is `make*`/`new` — never `create*` for new exports.
