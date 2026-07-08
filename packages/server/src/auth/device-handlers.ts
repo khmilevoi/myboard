@@ -10,6 +10,7 @@ import { readJsonBody } from '../http/body'
 import { runExclusive } from '../storage/key-lock'
 import { formatZodError } from '../storage/schemas'
 import { addDeviceToAccount, getAccount } from './accounts'
+import { auditFor } from './audit'
 import {
   consumeAddToken,
   formatAddCode,
@@ -89,6 +90,7 @@ export async function postAddTokenOptions(
 }
 
 export async function postAddToken(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+  const emit = auditFor(deps, req)
   const session = await requireSession(deps, req)
   if (isAuthResult(session)) return session
 
@@ -134,6 +136,8 @@ export async function postAddToken(deps: AuthDeps, req: IncomingMessage): Promis
     accountId: session.accountId,
     ttlMs: ADD_TOKEN_TTL_MS,
   })
+
+  emit('addtoken_minted', { accountId: session.accountId })
 
   return {
     status: 200,
@@ -188,6 +192,7 @@ export async function postDeviceRegisterVerify(
   if (!parsed.success) return { status: 422, body: formatZodError(parsed.error) }
   const { token, attestationResponse } = parsed.data
 
+  const emit = auditFor(deps, req)
   const fail = async (err: Error): Promise<AuthResult> => {
     await recordAddTokenFailure(deps.ops, deps.now, token)
     return toAuthResult(err)
@@ -256,6 +261,8 @@ export async function postDeviceRegisterVerify(
     credentialId: verified.credentialId,
     label,
   })
+
+  emit('device_pending', { accountId: addToken.accountId, credentialId: verified.credentialId })
 
   return {
     status: 200,
@@ -329,6 +336,7 @@ export async function postApproveDevice(
   req: IncomingMessage,
   params: { credentialId: string },
 ): Promise<AuthResult> {
+  const emit = auditFor(deps, req)
   const session = await requireSession(deps, req)
   if (isAuthResult(session)) return session
 
@@ -353,6 +361,8 @@ export async function postApproveDevice(
     label: device.label,
   })
 
+  emit('device_approved', { accountId: session.accountId, credentialId: params.credentialId })
+
   return { status: 200, body: { ok: true } }
 }
 
@@ -361,6 +371,7 @@ export async function postDenyDevice(
   req: IncomingMessage,
   params: { credentialId: string },
 ): Promise<AuthResult> {
+  const emit = auditFor(deps, req)
   const session = await requireSession(deps, req)
   if (isAuthResult(session)) return session
 
@@ -376,6 +387,8 @@ export async function postDenyDevice(
     label: device.label,
   })
 
+  emit('device_denied', { accountId: session.accountId, credentialId: device.credentialId })
+
   return { status: 204 }
 }
 
@@ -384,6 +397,7 @@ export async function postRevokeDevice(
   req: IncomingMessage,
   params: { credentialId: string },
 ): Promise<AuthResult> {
+  const emit = auditFor(deps, req)
   const session = await requireSession(deps, req)
   if (isAuthResult(session)) return session
 
@@ -402,6 +416,8 @@ export async function postRevokeDevice(
     credentialId: device.credentialId,
     label: device.label,
   })
+
+  emit('device_revoked', { accountId: session.accountId, credentialId: device.credentialId })
 
   return { status: 204 }
 }

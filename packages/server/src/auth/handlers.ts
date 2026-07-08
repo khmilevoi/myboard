@@ -12,11 +12,17 @@ import { runExclusive } from '../storage/key-lock'
 import { formatZodError } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
 import { addDeviceToAccount, createAccount } from './accounts'
+import { auditFor, type AuditLogger } from './audit'
 import { consumeChallenge, saveChallenge } from './challenge-store'
 import type { AuthConfig } from './config'
 import { clearCookie, parseCookies, serializeCookie } from './cookies'
 import { getDevice, listAllDeviceCredentialIds, storeDevice, updateSignCount } from './devices'
-import { ChallengeInvalidError, DeviceDisabledError, InviteConsumedError } from './errors'
+import {
+  ChallengeInvalidError,
+  DeviceDisabledError,
+  InviteConsumedError,
+  InviteLockedError,
+} from './errors'
 import type { PublicAuthError } from './errors'
 import { consumeInvite, lookupInvite, recordInviteFailure, releaseInvite } from './invites'
 import { accountDevicesKey, accountKey, deviceKey } from './records'
@@ -39,6 +45,7 @@ export type AuthDeps = {
   ops: ValkeyOps
   config: AuthConfig
   now: () => number
+  audit: AuditLogger
 }
 
 export type AuthResult = {
@@ -175,8 +182,12 @@ export async function postRegisterVerify(
   if (!parsed.success) return { status: 422, body: formatZodError(parsed.error) }
   const { token, name, attestationResponse } = parsed.data
 
+  const emit = auditFor(deps, req)
   const fail = async (err: Error): Promise<AuthResult> => {
     await recordInviteFailure(deps.ops, deps.now, token)
+    emit(err instanceof InviteLockedError ? 'invite_locked' : 'register_failed', {
+      code: err.name,
+    })
     return toAuthResult(err)
   }
 
@@ -210,6 +221,7 @@ export async function postRegisterVerify(
     await deps.ops.del(accountKey(account.id))
     await deps.ops.del(accountDevicesKey(account.id))
     await releaseInvite(deps.ops, deps.now, token)
+    emit('register_failed', { code: addResult.name })
     return toAuthResult(addResult)
   }
 
@@ -235,6 +247,12 @@ export async function postRegisterVerify(
     credentialId: verified.credentialId,
     ...(clientIp(req) ? { ip: clientIp(req) as string } : {}),
     ...(req.headers['user-agent'] ? { ua: req.headers['user-agent'] } : {}),
+  })
+
+  emit('register', {
+    accountId: account.id,
+    credentialId: verified.credentialId,
+    inviteId: invite.id,
   })
 
   return {
@@ -271,11 +289,16 @@ export async function postLoginVerify(deps: AuthDeps, req: IncomingMessage): Pro
   const parsed = LoginVerifyBodySchema.safeParse(await readBody(req))
   if (!parsed.success) return { status: 422, body: formatZodError(parsed.error) }
 
+  const emit = auditFor(deps, req)
+
   const challenge = await consumeChallenge(deps.ops, deps.config, deps.now, {
     cookieHeader: req.headers.cookie,
     expectedType: 'auth',
   })
-  if (challenge instanceof Error) return toAuthResult(challenge)
+  if (challenge instanceof Error) {
+    emit('login_failed', { code: challenge.name })
+    return toAuthResult(challenge)
+  }
 
   const response = parsed.data.authenticationResponse as unknown as AuthenticationResponseJSON
   const credentialId = response.id
@@ -303,7 +326,10 @@ export async function postLoginVerify(deps: AuthDeps, req: IncomingMessage): Pro
 
     return device
   })
-  if (result instanceof Error) return toAuthResult(result)
+  if (result instanceof Error) {
+    emit('login_failed', { credentialId, code: result.name })
+    return toAuthResult(result)
+  }
   const device = result
 
   const session = await issueSession(deps.ops, deps.config, deps.now, {
@@ -312,6 +338,8 @@ export async function postLoginVerify(deps: AuthDeps, req: IncomingMessage): Pro
     ...(clientIp(req) ? { ip: clientIp(req) as string } : {}),
     ...(req.headers['user-agent'] ? { ua: req.headers['user-agent'] } : {}),
   })
+
+  emit('login', { accountId: device.accountId, credentialId })
 
   return {
     status: 200,
@@ -352,6 +380,8 @@ export async function getSession(deps: AuthDeps, req: IncomingMessage): Promise<
 export async function postLogout(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
   const sessionId = readSessionId(deps.config, req)
   if (sessionId) await revokeSession(deps.ops, sessionId)
+
+  auditFor(deps, req)('logout')
 
   return {
     status: 204,

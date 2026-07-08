@@ -127,7 +127,7 @@ describe('postRegisterOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const { token } = await createInvite(ops, clock.now, { ttlMs: 10 * MINUTE, label: 'Kitchen' })
 
     vi.mocked(buildRegistrationOptions).mockResolvedValue({
@@ -148,7 +148,7 @@ describe('postRegisterOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const { token } = await createInvite(ops, clock.now, { ttlMs: 10 * MINUTE })
 
     const account = await createAccount(ops, clock.now, { name: 'Existing', inviteId: 'inv-1' })
@@ -181,7 +181,7 @@ describe('postRegisterOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const { token } = await createInvite(ops, clock.now, { ttlMs: 10 * MINUTE })
     const { consumeInvite } = await import('./invites')
     await consumeInvite(ops, clock.now, token)
@@ -195,7 +195,7 @@ describe('postRegisterOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postRegisterOptions(deps, fakeReq({ token: 'nope' }))
 
@@ -215,7 +215,7 @@ describe('postRegisterOptions', () => {
     const result = await lookupInvite(ops, clock.now, token)
     expect(result).toBeInstanceOf(InviteLockedError)
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const optionsResult = await postRegisterOptions(deps, fakeReq({ token }))
     expect(optionsResult).toEqual({ status: 429, body: { code: 'invite_locked' } })
   })
@@ -234,7 +234,7 @@ describe('postRegisterVerify', () => {
     token: string,
   ) {
     vi.mocked(buildRegistrationOptions).mockResolvedValue({ challenge: 'reg-challenge' } as never)
-    const deps: AuthDeps = { ops, config, now }
+    const deps: AuthDeps = { ops, config, now, audit: vi.fn() }
     const optionsResult = await postRegisterOptions(deps, fakeReq({ token }))
     const cookie = getSetCookies(optionsResult.headers)[0]
     return cookieHeaderFor(cookie)
@@ -253,7 +253,7 @@ describe('postRegisterVerify', () => {
       signCount: 0,
     })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { token, name: 'My Account', attestationResponse: { id: 'cred-1' } },
       {
@@ -304,7 +304,7 @@ describe('postRegisterVerify', () => {
       inviteHash: sha256hex(otherToken),
     })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { token: realToken, name: 'X', attestationResponse: { id: 'cred-attempt' } },
       { cookie: cookieHeaderFor(cookie) },
@@ -331,7 +331,7 @@ describe('postRegisterVerify', () => {
 
     vi.mocked(verifyRegistration).mockResolvedValue(new WebAuthnVerificationError())
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { token, name: 'X', attestationResponse: { id: 'cred-attempt' } },
       { cookie: challengeCookie },
@@ -357,7 +357,7 @@ describe('postRegisterVerify', () => {
 
     for (let i = 0; i < 10; i++) {
       const challengeCookie = await beginRegistration(ops, config, clock.now, token)
-      const deps: AuthDeps = { ops, config, now: clock.now }
+      const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
       const req = fakeReq(
         { token, name: 'X', attestationResponse: { id: 'cred-attempt' } },
         { cookie: challengeCookie },
@@ -385,7 +385,7 @@ describe('postRegisterVerify', () => {
       signCount: 0,
     })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { token, name: 'X', attestationResponse: { id: 'cred-x' } },
       { cookie: challengeCookie },
@@ -412,7 +412,7 @@ describe('postRegisterVerify', () => {
     })
     vi.mocked(addDeviceToAccount).mockResolvedValueOnce(new DeviceLimitError())
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { token, name: 'X', attestationResponse: { id: 'cred-fail' } },
       { cookie: challengeCookie },
@@ -445,7 +445,7 @@ describe('postRegisterVerify', () => {
     const challengeCookie = await beginRegistration(ops, config, clock.now, token)
     const challengeId = challengeCookie.split('=')[1]
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { token, name: 'X', attestationResponse: null },
       { cookie: challengeCookie },
@@ -467,7 +467,7 @@ describe('postRegisterVerify', () => {
     const { token } = await createInvite(ops, clock.now, { ttlMs: 10 * MINUTE })
     const challengeCookie = await beginRegistration(ops, config, clock.now, token)
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq({ token, name: 'X', attestationResponse: {} }, { cookie: challengeCookie })
 
     const result = await postRegisterVerify(deps, req)
@@ -486,7 +486,7 @@ describe('postLoginOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     vi.mocked(buildAuthenticationOptions).mockResolvedValue({
       challenge: 'auth-challenge',
@@ -503,7 +503,7 @@ describe('postLoginOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     vi.mocked(buildAuthenticationOptions).mockResolvedValue({
       challenge: 'auth-challenge',
@@ -532,7 +532,7 @@ describe('postLoginVerify', () => {
     vi.mocked(buildAuthenticationOptions).mockResolvedValue({
       challenge: 'auth-challenge',
     } as never)
-    const deps: AuthDeps = { ops, config, now }
+    const deps: AuthDeps = { ops, config, now, audit: vi.fn() }
     const optionsResult = await postLoginOptions(deps, fakeReq({}))
     const cookie = getSetCookies(optionsResult.headers)[0]
     return cookieHeaderFor(cookie)
@@ -559,7 +559,7 @@ describe('postLoginVerify', () => {
     const challengeCookie = await beginLogin(ops, config, clock.now)
     vi.mocked(verifyAuthentication).mockResolvedValue({ newSignCount: 6 })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { authenticationResponse: { id: 'cred-active' } },
       { cookie: challengeCookie },
@@ -601,7 +601,7 @@ describe('postLoginVerify', () => {
 
     const challengeCookie = await beginLogin(ops, config, clock.now)
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq(
       { authenticationResponse: { id: 'cred-pending' } },
       { cookie: challengeCookie },
@@ -612,6 +612,76 @@ describe('postLoginVerify', () => {
     expect(result.status).toBe(403)
     expect(result.body).toEqual({ code: 'device_disabled' })
     expect(verifyAuthentication).not.toHaveBeenCalled()
+  })
+
+  it('audits a successful login', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    await storeDevice(ops, {
+      credentialId: 'cred-audit',
+      publicKey: 'pk',
+      signCount: 5,
+      label: 'Board device',
+      createdAt: 0,
+      lastSeenAt: 0,
+      disabled: false,
+      accountId: account.id,
+      status: 'active',
+      addedVia: 'invite',
+    })
+
+    const challengeCookie = await beginLogin(ops, config, clock.now)
+    vi.mocked(verifyAuthentication).mockResolvedValue({ newSignCount: 6 })
+
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+    const req = fakeReq(
+      { authenticationResponse: { id: 'cred-audit' } },
+      { cookie: challengeCookie },
+    )
+
+    await postLoginVerify(deps, req)
+
+    expect(deps.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'login', credentialId: expect.any(String) }),
+    )
+    // No secrets in the event payload:
+    const events = (deps.audit as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])
+    for (const event of events) {
+      expect(JSON.stringify(event)).not.toMatch(/challenge|token/i)
+    }
+  })
+
+  it('audits a failed login as login_failed', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    await storeDevice(ops, {
+      credentialId: 'cred-pending-audit',
+      publicKey: 'pk',
+      signCount: 0,
+      label: 'Board device',
+      createdAt: 0,
+      lastSeenAt: 0,
+      disabled: false,
+      accountId: account.id,
+      status: 'pending',
+      addedVia: 'add-token',
+    })
+
+    const challengeCookie = await beginLogin(ops, config, clock.now)
+
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+    const req = fakeReq(
+      { authenticationResponse: { id: 'cred-pending-audit' } },
+      { cookie: challengeCookie },
+    )
+
+    await postLoginVerify(deps, req)
+
+    expect(deps.audit).toHaveBeenCalledWith(expect.objectContaining({ event: 'login_failed' }))
   })
 
   it('serializes sign-counter verification so a concurrent stale/cloned assertion is rejected', async () => {
@@ -644,7 +714,7 @@ describe('postLoginVerify', () => {
       return new WebAuthnVerificationError()
     })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const [a, b] = await Promise.all([
       postLoginVerify(
         deps,
@@ -678,7 +748,7 @@ describe('postLoginVerify', () => {
     const challengeCookie = await beginLogin(ops, config, clock.now)
     const challengeId = challengeCookie.split('=')[1]
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq({ authenticationResponse: null }, { cookie: challengeCookie })
 
     const result = await postLoginVerify(deps, req)
@@ -696,7 +766,7 @@ describe('postLoginVerify', () => {
     const config = makeConfig()
     const challengeCookie = await beginLogin(ops, config, clock.now)
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq({ authenticationResponse: {} }, { cookie: challengeCookie })
 
     const result = await postLoginVerify(deps, req)
@@ -729,7 +799,7 @@ describe('getSession', () => {
       credentialId: 'cred-1',
     })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const result = await getSession(
       deps,
       fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
@@ -743,7 +813,7 @@ describe('getSession', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await getSession(deps, fakeReq(undefined, { cookie: 'mb_session=nonexistent' }))
 
@@ -780,7 +850,7 @@ describe('getSession', () => {
       time += 1
       return value
     }
-    const deps: AuthDeps = { ops, config, now: drifting }
+    const deps: AuthDeps = { ops, config, now: drifting, audit: vi.fn() }
 
     const result = await getSession(
       deps,
@@ -805,7 +875,7 @@ describe('postLogout', () => {
       credentialId: 'cred-1',
     })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const result = await postLogout(
       deps,
       fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),

@@ -153,7 +153,7 @@ describe('postAddTokenOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postAddTokenOptions(deps, fakeReq(undefined))
 
@@ -189,7 +189,7 @@ describe('postAddTokenOptions', () => {
       challenge: 'add-token-challenge',
     } as never)
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const result = await postAddTokenOptions(
       deps,
       fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
@@ -231,7 +231,7 @@ describe('postAddToken', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postAddToken(deps, fakeReq({ authenticationResponse: { id: 'x' } }))
 
@@ -249,7 +249,7 @@ describe('postAddToken', () => {
     })
     const sessionCookieHeader = `mb_session=${session.sessionId}`
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const challengeCookieHeader = await beginAddToken(deps, sessionCookieHeader)
 
     vi.mocked(verifyAuthentication).mockResolvedValue({ newSignCount: 6 })
@@ -297,7 +297,7 @@ describe('postAddToken', () => {
     })
     const sessionCookieHeader = `mb_session=${session.sessionId}`
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const challengeCookieHeader = await beginAddToken(deps, sessionCookieHeader)
 
     const req = fakeReq(
@@ -337,7 +337,7 @@ describe('postAddToken', () => {
     })
     const sessionCookieHeader = `mb_session=${session.sessionId}`
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const challengeCookieHeader = await beginAddToken(deps, sessionCookieHeader)
 
     const req = fakeReq(
@@ -362,7 +362,7 @@ describe('postDeviceRegisterOptions', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postDeviceRegisterOptions(deps, fakeReq({ token: 'NOPE1234' }))
 
@@ -378,7 +378,7 @@ describe('postDeviceRegisterOptions', () => {
     const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 1000 })
     clock.set(2000)
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const result = await postDeviceRegisterOptions(deps, fakeReq({ token: code }))
 
     expect(result).toEqual({ status: 400, body: { code: 'add_token_invalid' } })
@@ -395,7 +395,7 @@ describe('postDeviceRegisterOptions', () => {
       challenge: 'add-device-challenge',
     } as never)
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const result = await postDeviceRegisterOptions(deps, fakeReq({ token: code }))
 
     expect(result.status).toBe(200)
@@ -443,7 +443,7 @@ describe('postDeviceRegisterVerify', () => {
     const received: Array<{ key: string; value: unknown }> = []
     pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const challengeCookie = await beginDeviceRegister(deps, code)
 
     vi.mocked(verifyRegistration).mockResolvedValue({
@@ -501,7 +501,7 @@ describe('postDeviceRegisterVerify', () => {
     const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
     const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const req = fakeReq({ token: code, attestationResponse: { id: 'cred-x' } })
 
     const result = await postDeviceRegisterVerify(deps, req)
@@ -517,7 +517,7 @@ describe('postDeviceRegisterVerify', () => {
     const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
     const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const challengeCookie = await beginDeviceRegister(deps, code)
 
     vi.mocked(verifyRegistration).mockResolvedValue(new WebAuthnVerificationError())
@@ -546,7 +546,7 @@ describe('postDeviceRegisterVerify', () => {
     const tokenA = await mintAddToken(ops, clock.now, { accountId: accountA.id, ttlMs: 60_000 })
     const tokenB = await mintAddToken(ops, clock.now, { accountId: accountB.id, ttlMs: 60_000 })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     // Challenge is bound to account A (the options step used token A)...
     const challengeCookie = await beginDeviceRegister(deps, tokenA.code)
 
@@ -578,7 +578,7 @@ describe('postDeviceRegisterVerify', () => {
     const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
     const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     const challengeCookie = await beginDeviceRegister(deps, code)
 
     const req = fakeReq({ token: code, attestationResponse: null }, { cookie: challengeCookie })
@@ -596,7 +596,7 @@ describe('postDeviceRegisterVerify', () => {
     const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
     const { code } = await mintAddToken(ops, clock.now, { accountId: account.id, ttlMs: 60_000 })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
     // Each concurrent request completed its own separate register/options ->
     // challenge -> ceremony ahead of time, so each carries its own challenge
     // cookie while sharing the same still-live add-device code.
@@ -649,7 +649,7 @@ describe('getAccountInfo', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await getAccountInfo(deps, fakeReq(undefined))
 
@@ -665,7 +665,7 @@ describe('getAccountInfo', () => {
       accountId: account.id,
       credentialId: 'cred-active',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await getAccountInfo(
       deps,
@@ -682,7 +682,7 @@ describe('getDevices', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await getDevices(deps, fakeReq(undefined))
 
@@ -699,7 +699,7 @@ describe('getDevices', () => {
       accountId: account.id,
       credentialId: 'cred-active',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await getDevices(
       deps,
@@ -733,7 +733,7 @@ describe('postApproveDevice', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postApproveDevice(deps, fakeReq(undefined), { credentialId: 'cred-x' })
 
@@ -751,7 +751,7 @@ describe('postApproveDevice', () => {
       accountId: account.id,
       credentialId: 'cred-active',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const received: Array<{ key: string; value: unknown }> = []
     pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
@@ -774,6 +774,10 @@ describe('postApproveDevice', () => {
       key: `auth:account:${account.id}`,
       value: { type: 'device-approved', credentialId: 'cred-pending', label: 'New phone' },
     })
+
+    expect(deps.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'device_approved', credentialId: 'cred-pending' }),
+    )
   })
 
   it('rejects with device_limit when approving would exceed the account device limit', async () => {
@@ -803,7 +807,7 @@ describe('postApproveDevice', () => {
       accountId: account.id,
       credentialId: 'cred-active',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postApproveDevice(
       deps,
@@ -829,7 +833,7 @@ describe('postApproveDevice', () => {
       accountId: accountA.id,
       credentialId: 'cred-a',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postApproveDevice(
       deps,
@@ -847,7 +851,7 @@ describe('postDenyDevice', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postDenyDevice(deps, fakeReq(undefined), { credentialId: 'cred-x' })
 
@@ -865,7 +869,7 @@ describe('postDenyDevice', () => {
       accountId: account.id,
       credentialId: 'cred-active',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const received: Array<{ key: string; value: unknown }> = []
     pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
@@ -901,7 +905,7 @@ describe('postDenyDevice', () => {
       accountId: accountA.id,
       credentialId: 'cred-a',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postDenyDevice(
       deps,
@@ -919,7 +923,7 @@ describe('postRevokeDevice', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postRevokeDevice(deps, fakeReq(undefined), { credentialId: 'cred-x' })
 
@@ -935,7 +939,7 @@ describe('postRevokeDevice', () => {
       accountId: account.id,
       credentialId: 'cred-active',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postRevokeDevice(
       deps,
@@ -977,7 +981,7 @@ describe('postRevokeDevice', () => {
       accountId: account.id,
       credentialId: 'cred-second',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const received: Array<{ key: string; value: unknown }> = []
     pubsub.subscribe('storage:events', (message) => received.push(JSON.parse(message)))
@@ -1016,7 +1020,7 @@ describe('postRevokeDevice', () => {
       accountId: accountA.id,
       credentialId: 'cred-a',
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await postRevokeDevice(
       deps,
@@ -1034,7 +1038,7 @@ describe('getPendingStatus', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await getPendingStatus(deps, fakeReq(undefined))
 
@@ -1052,7 +1056,7 @@ describe('getPendingStatus', () => {
       credentialId: 'cred-pending',
       accountId: account.id,
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     const result = await getPendingStatus(
       deps,
@@ -1077,7 +1081,7 @@ describe('getPendingStatus', () => {
       credentialId: 'cred-pending',
       accountId: account.id,
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     await postApproveDevice(
       deps,
@@ -1108,7 +1112,7 @@ describe('getPendingStatus', () => {
       credentialId: 'cred-pending',
       accountId: account.id,
     })
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
 
     await postDenyDevice(
       deps,

@@ -5,6 +5,7 @@ import Router from 'find-my-way'
 import { z } from 'zod'
 
 import { registerAuthRoutes } from './auth'
+import { makeAuditLogger, type AuditLogger } from './auth/audit'
 import type { AuthConfig } from './auth/config'
 import { createInvite } from './auth/invites'
 import { authAccountKey } from './auth/records'
@@ -65,6 +66,7 @@ export type AppDeps = {
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
   testControls?: TestControls
+  audit?: AuditLogger
 }
 
 export type App = {
@@ -76,7 +78,8 @@ export function createApp(deps: AppDeps): App {
   const { ops, now } = deps
   const router = Router({ ignoreTrailingSlash: true })
   const registry = new SseRegistry()
-  const authDeps = { ops, config: deps.authConfig, now }
+  const audit = deps.audit ?? makeAuditLogger()
+  const authDeps = { ops, config: deps.authConfig, now, audit }
 
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown

@@ -55,7 +55,7 @@ describe('requireSession', () => {
     const ops = makeOps()
     const clock = makeClock(0)
     const config = makeConfig()
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: () => {} }
 
     const result = await requireSession(deps, fakeReq())
 
@@ -86,7 +86,7 @@ describe('requireSession', () => {
       credentialId: 'cred-1',
     })
 
-    const deps: AuthDeps = { ops, config, now: clock.now }
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: () => {} }
     const result = await requireSession(
       deps,
       fakeReq({ cookie: `mb_session=${session.sessionId}` }),

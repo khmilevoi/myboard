@@ -4,6 +4,7 @@ import type Router from 'find-my-way'
 
 import { formatZodError } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
+import { noopAudit, type AuditLogger } from './audit'
 import type { AuthConfig } from './config'
 import {
   getAccountInfo,
@@ -33,6 +34,7 @@ export type RegisterAuthRoutesDeps = {
   ops: ValkeyOps
   config: AuthConfig
   now: () => number
+  audit?: AuditLogger
 }
 
 function sendAuth(res: ServerResponse, result: AuthResult): void {
@@ -51,8 +53,8 @@ function sendAuth(res: ServerResponse, result: AuthResult): void {
 }
 
 export function registerAuthRoutes(deps: RegisterAuthRoutesDeps): void {
-  const { router, ops, config, now } = deps
-  const authDeps = { ops, config, now }
+  const { router, ops, config, now, audit = noopAudit } = deps
+  const authDeps = { ops, config, now, audit }
 
   router.on(
     'POST',
