@@ -11,6 +11,7 @@ Ops (from the dev machine via `rpi command` — each is an `rpi.toml`
 ```bash
 rpi command create-invite -- --label "Grandma's iPad" --ttl 7d
 rpi command list-devices
+rpi command list-invites
 rpi command revoke-device -- --credential-id <id>
 rpi command revoke-invite -- --id <inviteId>
 rpi command revoke-account -- --account <accountId>

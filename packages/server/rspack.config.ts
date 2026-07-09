@@ -9,6 +9,7 @@ export default defineConfig({
     'test-server': './src/test-server.ts',
     'scripts/create-invite': './scripts/create-invite.cli.ts',
     'scripts/list-devices': './scripts/list-devices.cli.ts',
+    'scripts/list-invites': './scripts/list-invites.cli.ts',
     'scripts/revoke-device': './scripts/revoke-device.cli.ts',
     'scripts/revoke-invite': './scripts/revoke-invite.cli.ts',
     'scripts/revoke-account': './scripts/revoke-account.cli.ts',

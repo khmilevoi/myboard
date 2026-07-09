@@ -44,6 +44,10 @@ service = "server"
 run = "node dist/scripts/list-devices.cjs"
 service = "server"
 
+[commands.list-invites]
+run = "node dist/scripts/list-invites.cjs"
+service = "server"
+
 [commands.revoke-device]
 run = "node dist/scripts/revoke-device.cjs"
 service = "server"

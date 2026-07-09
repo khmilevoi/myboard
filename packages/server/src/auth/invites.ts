@@ -41,14 +41,29 @@ export async function createInvite(
   return { token, record }
 }
 
+export type InviteStatus = 'active' | 'expired' | 'consumed' | 'locked'
+
+export function inviteStatus(record: InviteRecord, now: () => number): InviteStatus {
+  if (record.expiresAt <= now()) return 'expired'
+  if (record.uses >= record.maxUses) return 'consumed'
+  if (record.failedAttempts >= FAILED_ATTEMPTS_LIMIT) return 'locked'
+  return 'active'
+}
+
 function checkLive(
   record: InviteRecord,
   now: () => number,
 ): InviteExpiredError | InviteConsumedError | InviteLockedError | undefined {
-  if (record.expiresAt <= now()) return new InviteExpiredError()
-  if (record.uses >= record.maxUses) return new InviteConsumedError()
-  if (record.failedAttempts >= FAILED_ATTEMPTS_LIMIT) return new InviteLockedError()
-  return undefined
+  switch (inviteStatus(record, now)) {
+    case 'expired':
+      return new InviteExpiredError()
+    case 'consumed':
+      return new InviteConsumedError()
+    case 'locked':
+      return new InviteLockedError()
+    case 'active':
+      return undefined
+  }
 }
 
 export async function lookupInvite(
@@ -165,4 +180,16 @@ export async function revokeInviteById(ops: ValkeyOps, id: string): Promise<bool
     return true
   }
   return false
+}
+
+/** Ops-script path: list every invite record currently in the store. */
+export async function listAllInvites(ops: ValkeyOps): Promise<InviteRecord[]> {
+  const keys = await ops.scanKeys(INVITE_KEY_PREFIX)
+  const records: InviteRecord[] = []
+  for (const key of keys) {
+    const record = await getJson(ops, key, InviteRecordSchema)
+    if (record instanceof Error || record === null) continue
+    records.push(record)
+  }
+  return records
 }
