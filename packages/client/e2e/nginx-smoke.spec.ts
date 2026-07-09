@@ -7,6 +7,7 @@ import { seedSession } from './support/gate.js'
 test('nginx serves remote entries as JavaScript and never falls back for a missing remote', async ({
   request,
 }) => {
+  // все действия и экшены лучше хранить на уровне хендлеров, чтобы переюзать логику
   await seedSession(request)
 
   const remote = await request.get('/widgets/clock/remoteEntry.js')
@@ -30,5 +31,6 @@ test('the production nginx image mounts Clock through the same-origin remote', a
 
   const card = new BoardPage(page).getCard(0)
   await expect(card.getByText(/:/)).toBeVisible()
+  //  заебал, че напрямую локатор в тесте ищется? сохрани ёпта
   await expect(card.locator('[class*="skeleton"]')).toHaveCount(0)
 })

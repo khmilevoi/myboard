@@ -1,3 +1,5 @@
+name: myboard
+
 services:
   valkey:
     image: valkey/valkey:8-alpine

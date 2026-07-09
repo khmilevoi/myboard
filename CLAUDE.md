@@ -64,6 +64,8 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 
 `packages/widget-runtime/src/storage` owns per-widget instance/shared scopes, Dexie and HTTP backends, SSE/BroadcastChannel fanout, and Reatom bindings. Board and standalone harnesses construct the same `WidgetRuntimeProps`; widgets do not import storage through `packages/client/src`.
 
+> ⚠️ **Storage keys are a persistence contract — never change how a key is derived without a data migration.** Keys are `namespace + relativeKey` where the namespace comes from `instanceNamespace`/`typeNamespace` (`packages/shared/storage/scope.ts`) and the `scopeWithColon` normalization in `makeScopedStorage` (`packages/widget-runtime/src/widget-api.ts`). Any edit to the scope prefix, separator (e.g. the colon), `instanceId`/`typeId` values, or a widget's `relativeKey` **silently orphans all existing data**: deployed clients read the new key, get a 404 → fall back to the empty default, and the old data sits unreachable under the previous key in Valkey/IndexedDB. This already bit us once — commit `0027a99` "stop doubling the colon in scoped storage keys" changed `w:t:<id>::` → `w:t:<id>:` and wiped every widget's shared/instance state on deploy (the `root:`-scoped board survived only because its namespace never had the trailing colon). If you must change a key shape, ship a one-time migration (rename old keys → new) in the same release, or key data will vanish for users on the next deploy.
+
 ### Server (storage API)
 
 `packages/server/src/index.ts` is a plain `node:http` server routed with `find-my-way`, backed by Valkey (Redis-compatible):
@@ -90,31 +92,3 @@ Three roles, three models. Opus orchestrates, Sonnet implements, Codex GPT-5.5 r
 | Orchestrator | Opus          | the main session (`model: opus`)                                     |
 | Implementer  | Sonnet        | `Agent` tool → `sonnet-superpowers-implementer` subagent             |
 | Reviewer     | Codex GPT-5.5 | `codex exec review` via `Bash` (external CLI, not a Claude subagent) |
-
-### Rules
-
-- The main Claude Code session is the orchestrator and must stay on Opus.
-- Do not use the main Opus session for routine implementation. Dispatch every implementation task to the `sonnet-superpowers-implementer` subagent.
-- Use Superpowers workflows normally and do not skip their review loops: brainstorming → writing-plans → executing-plans / subagent-driven-development → verification-before-completion → finishing-a-development-branch.
-
-### Automated feature-by-plan loop
-
-Run this loop for each independent task in the plan; the orchestrator drives it end to end without manual steps:
-
-1. **Dispatch** the task to `sonnet-superpowers-implementer` via the `Agent` tool. Sonnet writes tests first (TDD) and makes minimal local changes.
-2. **Verify locally** (verification-before-completion): run the relevant `pnpm test` / `pnpm typecheck` / `pnpm lint` for the touched packages. Do not proceed until they pass.
-3. **Codex review — automatic.** The orchestrator runs the review itself via `Bash` (do **not** rely on `/codex:review`; that slash command has `disable-model-invocation: true`, so Opus cannot invoke it — only the human can). Use the real GPT-5.5 slug `gpt-5.5`:
-   ```bash
-   # branch-scoped review against main (default for a completed plan task)
-   codex exec review --base main -m gpt-5.5
-   # or working-tree review while iterating
-   codex exec review --uncommitted -m gpt-5.5
-   ```
-   `codex exec review` is read-only by nature — it only reads the diff and returns findings, it never patches.
-4. **Triage.** The orchestrator parses Codex's findings. If Codex reports blocking issues, dispatch the fixes back to `sonnet-superpowers-implementer` with the finding text, then return to step 2. Repeat until Codex is clean.
-5. **Finish** with finishing-a-development-branch once the whole plan is implemented, locally green, and Codex-clean.
-
-### Manual / backstop options (optional)
-
-- `/codex:review --model gpt-5.5` — the `codex@openai-codex` plugin command for an interactive, nicely-formatted review (supports `--background` + `/codex:status`). Human-triggered only.
-- `/codex:setup --enable-review-gate` — enables the plugin's `Stop` review gate as a safety net that forces a Codex pass before the session can finish, independent of the loop above.

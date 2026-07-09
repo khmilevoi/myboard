@@ -34,12 +34,12 @@ async function launchPersistentChromium(profileDir: string) {
 }
 
 async function closePage(page: Page) {
-  const result = await page.close().catch((cause) => cause as Error)
+  const result = await page.close().catch((cause: unknown) => cause as Error)
   if (result instanceof Error) console.warn('Failed to close Chromium page', result)
 }
 
 async function closeBrowserContext(context: BrowserContext) {
-  const result = await context.close().catch((cause) => cause as Error)
+  const result = await context.close().catch((cause: unknown) => cause as Error)
   if (result instanceof Error) {
     console.warn('Failed to close Chromium persistent context', result)
   }
@@ -122,7 +122,7 @@ export function makeChromiumExecutor(deps: {
 
         const page = await context
           .newPage()
-          .catch((cause) =>
+          .catch((cause: unknown) =>
             signal.aborted ? toAbortError(signal) : new BrowserLaunchError({ cause }),
           )
         if (page instanceof Error) return page

@@ -25,6 +25,9 @@ path = "/"
 expect = "401"
 timeout = "60s"
 
+[secrets]
+env = ".env"
+
 # The Pi builds every widget remote, assembles the client PWA/nginx image, and
 # builds the server image in one Compose release. Keep at least five minutes of
 # observed headroom when this pipeline changes.
