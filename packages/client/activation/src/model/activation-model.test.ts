@@ -3,7 +3,7 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createActivationModel } from './activation-model'
+import { makeActivationModel } from './activation-model'
 
 afterEach(() => context.reset())
 
@@ -32,7 +32,7 @@ describe('startRegistration', () => {
     const navigate = vi.fn()
     const storage = createStorage()
 
-    const model = createActivationModel({
+    const model = makeActivationModel({
       token: 'invite-token',
       http,
       startRegistrationCeremony,
@@ -66,7 +66,7 @@ describe('startRegistration', () => {
 
   it('blocks submit with a field error when the name is empty', async () => {
     const { http, calls } = makeScriptedHttp({})
-    const model = createActivationModel({
+    const model = makeActivationModel({
       token: 'invite-token',
       http,
     })
@@ -79,7 +79,7 @@ describe('startRegistration', () => {
 
   it('blocks submit with a field error when the name exceeds 40 characters', async () => {
     const { http, calls } = makeScriptedHttp({})
-    const model = createActivationModel({
+    const model = makeActivationModel({
       token: 'invite-token',
       http,
     })
@@ -91,21 +91,18 @@ describe('startRegistration', () => {
     expect(calls).toHaveLength(0)
   })
 
-  it('flips mode to login when register/options returns 409 invite_consumed', async () => {
+  it('moves to the activate-used screen when register/options returns 409 invite_consumed', async () => {
     const { http } = makeScriptedHttp({
       '/api/auth/register/options': [
         { status: 409, body: { code: 'invite_consumed', canLogin: true } },
       ],
     })
-    const model = createActivationModel({
-      token: 'invite-token',
-      http,
-    })
+    const model = makeActivationModel({ token: 'invite-token', http })
 
     model.registrationForm.fields.name.change('Alice')
     await model.startRegistration()
 
-    expect(model.mode()).toBe('login')
+    expect(model.screen()).toBe('activate-used')
   })
 })
 
@@ -124,7 +121,7 @@ describe('startLogin', () => {
     const navigate = vi.fn()
     const storage = createStorage('cred-hint-1')
 
-    const model = createActivationModel({
+    const model = makeActivationModel({
       token: 'invite-token',
       http,
       startAuthenticationCeremony,
@@ -134,7 +131,7 @@ describe('startLogin', () => {
 
     model.registrationForm.fields.name.change('Alice')
     await model.startRegistration()
-    expect(model.mode()).toBe('login')
+    expect(model.screen()).toBe('activate-used')
 
     await model.startLogin()
 
@@ -165,7 +162,7 @@ describe('startLogin', () => {
     const navigate = vi.fn()
     const storage = createStorage('stale-cred-hint')
 
-    const model = createActivationModel({
+    const model = makeActivationModel({
       token: 'invite-token',
       http,
       startAuthenticationCeremony,
@@ -224,7 +221,7 @@ describe('startLogin', () => {
     const navigate = vi.fn()
     const storage = createStorage('stale-cred-hint')
 
-    const model = createActivationModel({
+    const model = makeActivationModel({
       token: 'invite-token',
       http,
       startAuthenticationCeremony,
@@ -249,5 +246,22 @@ describe('startLogin', () => {
     expect(storage.set).toHaveBeenCalledWith('cred-999')
     expect(navigate).toHaveBeenCalledWith('/')
     expect(model.error()).toBeNull()
+  })
+})
+
+describe('initial screen', () => {
+  it('is home when there is no invite token', () => {
+    const model = makeActivationModel({ token: null, http: makeScriptedHttp({}).http })
+    expect(model.screen()).toBe('home')
+  })
+
+  it('is activate when a non-empty token is present', () => {
+    const model = makeActivationModel({ token: 'invite-token', http: makeScriptedHttp({}).http })
+    expect(model.screen()).toBe('activate')
+  })
+
+  it('is activate-no-code when the token param is present but empty', () => {
+    const model = makeActivationModel({ token: '', http: makeScriptedHttp({}).http })
+    expect(model.screen()).toBe('activate-no-code')
   })
 })

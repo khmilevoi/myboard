@@ -24,7 +24,7 @@ import * as errore from 'errore'
 
 export const CRED_HINT_STORAGE_KEY = 'mb_cred_hint'
 
-export type ActivationMode = 'new-account' | 'login'
+export type ActivationScreen = 'home' | 'activate' | 'activate-no-code' | 'activate-used'
 
 export class ActivationError extends errore.createTaggedError({
   name: 'ActivationError',
@@ -52,6 +52,14 @@ export interface ActivationDeps {
 function readTokenFromLocation(): string | null {
   if (typeof location === 'undefined') return null
   return new URLSearchParams(location.search).get('token')
+}
+
+// home = no invite in the URL; activate-no-code = the `?token=` param is present
+// but empty/whitespace (a malformed activation link); activate = a real token.
+function initialScreen(token: string | null): ActivationScreen {
+  if (token === null) return 'home'
+  if (token.trim() === '') return 'activate-no-code'
+  return 'activate'
 }
 
 // Stores only the last-used credentialId -- a *public*, non-secret WebAuthn
@@ -90,7 +98,7 @@ async function postJson(
 }
 
 export interface ActivationModel {
-  mode: Atom<ActivationMode>
+  screen: Atom<ActivationScreen>
   loading: Computed<boolean>
   error: Atom<string | null>
   registrationForm: ReturnType<typeof reatomForm<{ name: string }>>
@@ -98,7 +106,7 @@ export interface ActivationModel {
   startLogin: Action<[], Promise<void>>
 }
 
-export function createActivationModel(overrides: Partial<ActivationDeps> = {}): ActivationModel {
+export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): ActivationModel {
   const deps: ActivationDeps = {
     token: overrides.token ?? readTokenFromLocation(),
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
@@ -109,7 +117,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
       overrides.startAuthenticationCeremony ?? browserStartAuthentication,
   }
 
-  const mode = atom<ActivationMode>('new-account', 'activation.mode')
+  const screen = atom<ActivationScreen>(initialScreen(deps.token), 'activation.screen')
   const error = atom<string | null>(null, 'activation.error')
 
   const registrationForm = reatomForm(
@@ -145,7 +153,7 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
           return
         }
         if (optionsResult.status === 409 && optionsResult.body.code === 'invite_consumed') {
-          mode.set('login')
+          screen.set('activate-used')
           return
         }
         if (optionsResult.status !== 200) {
@@ -276,5 +284,5 @@ export function createActivationModel(overrides: Partial<ActivationDeps> = {}): 
     'activation.loading',
   )
 
-  return { mode, loading, error, registrationForm, startRegistration, startLogin }
+  return { screen, loading, error, registrationForm, startRegistration, startLogin }
 }
