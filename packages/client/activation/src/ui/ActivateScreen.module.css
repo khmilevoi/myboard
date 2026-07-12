@@ -186,3 +186,39 @@
   font-size: 12px;
   color: var(--muted-foreground);
 }
+
+/* Secondary (outline) button — the "Сканировать QR-код" action, 10px below the
+   primary button above it. */
+.secondaryButtonGap {
+  margin-top: 10px;
+}
+
+/* Cross-screen text links ("Уже активировано? Войти с passkey", etc.). */
+.crossLink {
+  margin-top: 18px;
+  padding: 2px;
+  background: none;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  text-align: center;
+  cursor: pointer;
+}
+.crossLink:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.crossLinkAccent {
+  color: var(--primary);
+}
+
+/* HOME admin hint line. */
+.adminHint {
+  margin-top: 18px;
+  padding: 2px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  text-align: center;
+}
