@@ -1,14 +1,11 @@
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
+import { pathname } from './model/router'
 import { ActivateScreen } from './ui/ActivateScreen'
 import { AddDeviceScreen } from './ui/AddDeviceScreen'
 
-function currentPath(): string {
-  return typeof location === 'undefined' ? '/activate' : location.pathname
-}
-
 export const App = reatomMemo(() => {
-  const path = currentPath()
+  const path = pathname()
 
   if (path === '/add-device') {
     return <AddDeviceScreen />
