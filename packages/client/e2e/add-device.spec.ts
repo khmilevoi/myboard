@@ -120,8 +120,9 @@ test('device B registers via a minted code, owner approves over SSE, device B cl
   await modal.approve()
   await expect(modal.successHeading).toBeVisible()
 
-  // Device B's poll (every 2s) picks up the approval, completes a normal
-  // login, and lands on the board root -- no manual sign-in on device B.
+  // Device B's poll (every 2s) picks up the approval, claims its session via
+  // claim-session (no second ceremony), and lands on the board root -- no
+  // manual sign-in on device B.
   await addDeviceB.waitForBoardRedirect()
   expect(new URL(pageB.url()).pathname).toBe('/')
 
