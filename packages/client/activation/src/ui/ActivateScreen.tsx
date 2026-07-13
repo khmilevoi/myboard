@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 import { type ActivationModel } from '../model/activation-model'
-import { addDeviceRoute } from '../model/routes'
+import { addDeviceRoute, recordScanReturn } from '../model/routes'
 
 import styles from './ActivateScreen.module.css'
 import shellStyles from './shell.module.css'
@@ -38,6 +38,7 @@ export const ActivateScreen = reatomMemo<ActivateScreenProps>(
   ({
     model,
     onScan = () => {
+      recordScanReturn()
       addDeviceRoute.go({ scan: '1' })
       notify()
     },

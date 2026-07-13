@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 import { type AddDeviceModel } from '../model/add-device-model'
-import { activateRoute } from '../model/routes'
+import { closeScan } from '../model/routes'
 
 import styles from './AddDeviceScreen.module.css'
 import shellStyles from './shell.module.css'
@@ -120,12 +120,11 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
 
   function closeScanner() {
     if (enteredScanDirectly) {
-      // Deterministic: always return to the activation card, replacing the
-      // /add-device?scan=1 history entry (replace = true) so browser Back
-      // does not reopen the scanner. No window.history.back()/length
-      // heuristic -- that could exit the app when /add-device?scan=1 was
-      // opened directly from an external QR link (no /activate behind it).
-      activateRoute.go({}, true)
+      // Return to wherever the scanner was opened from (recorded in
+      // scanReturn), replacing the /add-device?scan=1 history entry so browser
+      // Back does not reopen the scanner. Falls back to the home card only for
+      // a true external deep-link with no in-app screen behind it.
+      closeScan()
       notify()
       return
     }
