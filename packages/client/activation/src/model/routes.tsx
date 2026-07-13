@@ -5,8 +5,8 @@ import { ActivateScreen } from '../ui/ActivateScreen'
 import { AddDeviceScreen } from '../ui/AddDeviceScreen'
 import { LoadingCard } from '../ui/LoadingCard'
 import { Shell } from '../ui/Shell'
-import { makeAddDeviceModel } from './add-device-model'
 import { makeActivationModel } from './activation-model'
+import { makeAddDeviceModel } from './add-device-model'
 
 // Pathless layout: renders the shared card shell and composes the active page
 // through `outlet()`. Always active. See the design spec for why the shell

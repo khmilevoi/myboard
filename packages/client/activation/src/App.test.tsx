@@ -38,7 +38,9 @@ describe('App routing', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'Нужен код приглашения' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Нужен код приглашения' }),
+    ).toBeInTheDocument()
   })
 
   it('switches to the add-device page via addDeviceRoute.go without remounting', async () => {
