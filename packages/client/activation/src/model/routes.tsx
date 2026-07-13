@@ -41,6 +41,13 @@ export function closeScan(): void {
 export const rootRoute = reatomRoute(
   {
     layout: true,
+    // No child route matched (e.g. bare `/`) — send the user to the login screen.
+    params() {
+      if (!activateRoute.match() && !addDeviceRoute.match()) {
+        activateRoute.go({}, true)
+      }
+      return {}
+    },
     render: (self): RouteChild => <Shell>{self.outlet()}</Shell>,
   },
   'rootRoute',
