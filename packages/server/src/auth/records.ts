@@ -131,6 +131,22 @@ export async function getJson<T>(
   return result.data
 }
 
+export async function getdelJson<T>(
+  ops: ValkeyOps,
+  key: string,
+  schema: z.ZodType<T>,
+): Promise<T | null | Error> {
+  const raw = await ops.getdel(key)
+  if (raw === null) return null
+
+  const parsed = safeParse(raw)
+  if (parsed instanceof JSONParseError) return parsed
+
+  const result = schema.safeParse(parsed)
+  if (!result.success) return result.error
+  return result.data
+}
+
 export async function setJson(
   ops: ValkeyOps,
   key: string,

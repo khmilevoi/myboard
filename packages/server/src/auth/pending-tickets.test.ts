@@ -169,4 +169,26 @@ describe('consumePendingTicket', () => {
     const result = await consumePendingTicket(ops, config, clock.now, undefined)
     expect(result).toBeInstanceOf(PendingTicketInvalidError)
   })
+
+  it('single-use under concurrency: two simultaneous consumes yield exactly one record', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-1',
+      accountId: 'acc-1',
+    })
+    const header = cookieHeaderFor(cookie)
+
+    const [a, b] = await Promise.all([
+      consumePendingTicket(ops, config, clock.now, header),
+      consumePendingTicket(ops, config, clock.now, header),
+    ])
+
+    const records = [a, b].filter((r) => !(r instanceof Error))
+    const invalid = [a, b].filter((r) => r instanceof PendingTicketInvalidError)
+    expect(records).toHaveLength(1)
+    expect(invalid).toHaveLength(1)
+  })
 })
