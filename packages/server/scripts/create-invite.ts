@@ -1,4 +1,5 @@
 import * as errore from 'errore'
+import * as qrcodeTerminal from 'qrcode-terminal'
 
 import { loadAuthConfig, parseDuration } from '../src/auth/config'
 import { createInvite } from '../src/auth/invites'
@@ -92,5 +93,6 @@ export async function runCli(): Promise<void> {
   const ops = createValkeyOps()
   const url = await runCreateInvite(ops, Date.now, publicAppUrl, args)
   console.log(url)
+  qrcodeTerminal.generate(url, { small: true }, (qr) => console.error(qr))
   process.exit(0)
 }
