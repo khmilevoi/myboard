@@ -207,7 +207,7 @@ export interface AddDeviceModel {
   init: Action<[], Promise<void>>
 }
 
-export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
+export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
   const deps: AddDeviceDeps = {
     token: overrides.token ?? readTokenFromLocation(),
     scan: overrides.scan ?? readScanFromLocation(),

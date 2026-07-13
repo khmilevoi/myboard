@@ -7,7 +7,7 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { type AddDeviceModel, createAddDeviceModel } from '../model/add-device-model'
+import { type AddDeviceModel, makeAddDeviceModel } from '../model/add-device-model'
 import { navigateInApp } from '../model/router'
 
 import styles from './AddDeviceScreen.module.css'
@@ -106,7 +106,7 @@ function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProp
 }
 
 export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: injectedModel }) => {
-  const [model] = useState(() => injectedModel ?? createAddDeviceModel())
+  const [model] = useState(() => injectedModel ?? makeAddDeviceModel())
   const mode = model.mode()
   const error = model.error()
   const ownerName = model.ownerName()

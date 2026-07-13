@@ -4,7 +4,7 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createAddDeviceModel } from '../model/add-device-model'
+import { makeAddDeviceModel } from '../model/add-device-model'
 import { AddDeviceScreen } from './AddDeviceScreen'
 
 // `beforeEach` (not `afterEach`) -- matches AccountMenu.test.tsx's documented
@@ -16,7 +16,7 @@ beforeEach(() => context.reset())
 
 describe('AddDeviceScreen', () => {
   it('extracts the code from a pasted add-device link, submits it, and does not leave the raw URL in the field', () => {
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: 'https://host',
       http: makeScriptedHttp({}).http,
     })

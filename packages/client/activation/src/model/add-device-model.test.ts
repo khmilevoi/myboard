@@ -3,7 +3,7 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createAddDeviceModel } from './add-device-model'
+import { makeAddDeviceModel } from './add-device-model'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -27,37 +27,37 @@ const CURRENT_ORIGIN = 'https://host'
 
 describe('extractAddCode', () => {
   it('accepts a full URL with a bare token and normalizes it', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://host/add-device?token=K7QP3M9X')).toBe('K7QP3M9X')
   })
 
   it('accepts a bare dashed code with no URL', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('K7QP-3M9X')).toBe('K7QP3M9X')
   })
 
   it('accepts a full URL with a dashed token and normalizes it', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://host/add-device?token=K7QP-3M9X')).toBe('K7QP3M9X')
   })
 
   it('rejects a URL on a different origin', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://evil.example/add-device?token=K7QP3M9X')).toBeNull()
   })
 
   it('rejects a URL on the right origin but the wrong path', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://host/other-path?token=K7QP3M9X')).toBeNull()
   })
 
   it('rejects junk text that is not a URL or a valid code', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('not a real code!!')).toBeNull()
     expect(model.extractAddCode('')).toBeNull()
@@ -66,7 +66,7 @@ describe('extractAddCode', () => {
 
 describe('initial mode', () => {
   it('starts in scanning mode when scan is requested', () => {
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       scan: true,
       http: makeScriptedHttp({}).http,
@@ -75,7 +75,7 @@ describe('initial mode', () => {
   })
 
   it('starts in choose mode by default', () => {
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http: makeScriptedHttp({}).http,
     })
@@ -85,7 +85,7 @@ describe('initial mode', () => {
 
 describe('init (auto-submit a code embedded in the activation link)', () => {
   it('starts on registering and ignores scan=1 when a valid code is present in the URL', () => {
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       token: 'K7QP-3M9X',
       // scan=1 is explicitly requested but must be ignored: a present code wins,
@@ -104,7 +104,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
         { status: 200, body: { options: { challenge: 'c', user: { displayName: 'A' } } } },
       ],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       token: 'K7QP-3M9X',
       http,
@@ -120,7 +120,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
   })
 
   it('never flags validating when there is no URL code', () => {
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http: makeScriptedHttp({}).http,
     })
@@ -139,7 +139,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
         },
       ],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       token: 'K7QP-3M9X',
       http,
@@ -158,7 +158,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
     const { http } = makeScriptedHttp({
       '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       token: 'K7QP-3M9X',
       http,
@@ -176,7 +176,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
         { status: 200, body: { options: { challenge: 'c', user: { displayName: 'A' } } } },
       ],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       token: 'K7QP-3M9X',
       http,
@@ -190,7 +190,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
 
   it('does nothing on init when the URL has no code, leaving the choose flow untouched', async () => {
     const { http, calls } = makeScriptedHttp({})
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -203,7 +203,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
   })
 
   it('keeps scanning on init when scan=1 is requested and there is no URL code', async () => {
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       scan: true,
       http: makeScriptedHttp({}).http,
@@ -217,7 +217,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
 
   it('ignores a malformed (non-normalizable) URL code, keeping the choose flow', async () => {
     const { http, calls } = makeScriptedHttp({})
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       token: 'not-a-real-code',
       http,
@@ -234,7 +234,7 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
 describe('submitManual', () => {
   it('sets an error and never calls fetch when the input is not a valid code', async () => {
     const { http, calls } = makeScriptedHttp({})
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -250,7 +250,7 @@ describe('submitManual', () => {
     const { http } = makeScriptedHttp({
       '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -274,7 +274,7 @@ describe('submitManual', () => {
       ],
       '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
@@ -299,7 +299,7 @@ describe('stageScannedCode', () => {
         },
       ],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -316,7 +316,7 @@ describe('stageScannedCode', () => {
     const { http } = makeScriptedHttp({
       '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -336,7 +336,7 @@ describe('startRegistration ceremony/verify failures', () => {
       ],
     })
     const startRegistrationCeremony = vi.fn().mockRejectedValue(new Error('user cancelled'))
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -362,7 +362,7 @@ describe('startRegistration ceremony/verify failures', () => {
       ],
       '/api/auth/devices/register/verify': [{ status: 409, body: {} }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
@@ -397,7 +397,7 @@ describe('registration + polling flow', () => {
     const navigate = vi.fn()
     const storage = createStorage()
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -457,7 +457,7 @@ describe('registration + polling flow', () => {
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
     const navigate = vi.fn()
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -493,7 +493,7 @@ describe('registration + polling flow', () => {
     const navigate = vi.fn()
     const storage = createStorage()
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       navigate,
@@ -524,7 +524,7 @@ describe('registration + polling flow', () => {
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
     const navigate = vi.fn()
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -562,7 +562,7 @@ describe('registration + polling flow', () => {
     })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -600,7 +600,7 @@ describe('registration + polling flow', () => {
     })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
