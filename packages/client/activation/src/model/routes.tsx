@@ -25,7 +25,9 @@ export const activateRoute = rootRoute.reatomRoute(
   {
     path: 'activate',
     search: z.object({ token: z.string().optional() }),
-    loader: ({ token }) => ({ model: makeActivationModel({ token: token ?? null }) }),
+    async loader({ token }) {
+      return { model: makeActivationModel({ token: token ?? null }) }
+    },
     render: (self): RouteChild => {
       // `loader.data()` is `Payload | undefined` (undefined until the first
       // successful load), so narrow via the value, not `loader.ready()`.

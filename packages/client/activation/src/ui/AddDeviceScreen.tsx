@@ -1,3 +1,4 @@
+import { notify } from '@reatom/core'
 import { AlertCircle, Camera, Check, Loader2, Lock, ShieldCheck, X } from 'lucide-react'
 import type { ClipboardEvent, KeyboardEvent } from 'react'
 import { useState } from 'react'
@@ -131,6 +132,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
       // heuristic -- that could exit the app when /add-device?scan=1 was
       // opened directly from an external QR link (no /activate behind it).
       activateRoute.go({}, true)
+      notify()
       return
     }
     goToChoose()

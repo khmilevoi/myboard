@@ -35,7 +35,13 @@ function passkeyButtonContent(loading: boolean, idleLabel: string, loadingLabel:
 }
 
 export const ActivateScreen = reatomMemo<ActivateScreenProps>(
-  ({ model, onScan = () => addDeviceRoute.go({ scan: '1' }) }) => {
+  ({
+    model,
+    onScan = () => {
+      addDeviceRoute.go({ scan: '1' })
+      notify()
+    },
+  }) => {
     const screen = model.screen()
     const error = model.error()
     const loading = model.loading()
