@@ -1,4 +1,4 @@
-import { atom, reatomRoute, type RouteChild, urlAtom } from '@reatom/core'
+import { atom, effect, reatomRoute, type RouteChild, urlAtom } from '@reatom/core'
 import { z } from 'zod'
 
 import { ActivateScreen } from '../ui/ActivateScreen'
@@ -41,13 +41,6 @@ export function closeScan(): void {
 export const rootRoute = reatomRoute(
   {
     layout: true,
-    // No child route matched (e.g. bare `/`) — send the user to the login screen.
-    params() {
-      if (!activateRoute.match() && !addDeviceRoute.match()) {
-        activateRoute.go({}, true)
-      }
-      return {}
-    },
     render: (self): RouteChild => <Shell>{self.outlet()}</Shell>,
   },
   'rootRoute',
@@ -91,3 +84,18 @@ export const addDeviceRoute = rootRoute.reatomRoute(
   },
   'addDeviceRoute',
 )
+
+// Neither known route matched the current URL (e.g. bare `/`) — send the
+// user to the login screen. This must be a standalone `effect`, not part of
+// `rootRoute`'s own `params()`: `rootRoute` is a pathless layout that's
+// always "active", so it can't tell child-route mismatches apart on its own,
+// and calling `.go()` synchronously from inside `rootRoute`'s own match
+// computation would recursively re-trigger that same computation (Reatom's
+// "stuck in recursion" guard) since both read and write `urlAtom` in the same
+// pass. An `effect` here only depends on the child routes' `.match()`, and
+// its callback runs as a deferred subscription, so the `.go()` write is safe.
+effect(() => {
+  if (!activateRoute.match() && !addDeviceRoute.match()) {
+    activateRoute.go({}, true)
+  }
+}, 'activation.redirectUnmatchedRoute')
