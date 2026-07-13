@@ -98,36 +98,6 @@ describe('init (auto-submit a code embedded in the activation link)', () => {
     expect(model.token()).toBe('K7QP3M9X')
   })
 
-  it('flags validating while the URL code is being checked, then clears it', async () => {
-    const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        { status: 200, body: { options: { challenge: 'c', user: { displayName: 'A' } } } },
-      ],
-    })
-    const model = makeAddDeviceModel({
-      currentOrigin: CURRENT_ORIGIN,
-      token: 'K7QP-3M9X',
-      http,
-    })
-
-    // The button must be gated from first paint so a click can't race the
-    // background validation (which would otherwise revert a later 'waiting').
-    expect(model.validating()).toBe(true)
-
-    await model.init()
-
-    expect(model.validating()).toBe(false)
-  })
-
-  it('never flags validating when there is no URL code', () => {
-    const model = makeAddDeviceModel({
-      currentOrigin: CURRENT_ORIGIN,
-      http: makeScriptedHttp({}).http,
-    })
-
-    expect(model.validating()).toBe(false)
-  })
-
   it('auto-validates the URL code and lands on registering with the owner name', async () => {
     const { http, calls } = makeScriptedHttp({
       '/api/auth/devices/register/options': [

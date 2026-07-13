@@ -170,12 +170,6 @@ export interface AddDeviceModel {
   // "Добавить устройство в аккаунт «Имя»?" heading once we reach
   // 'registering'. Null before the first successful options fetch.
   ownerName: Atom<string | null>
-  // True from first paint through the end of `init` when the activation link
-  // carried a code (`/add-device?token=...`): the code is being server-validated
-  // in the background. The UI keeps the "Создать passkey" button in a disabled
-  // loading state while this is true, so a click can't race the validation and
-  // clobber a later 'waiting' mode. Always false when the URL has no code.
-  validating: Atom<boolean>
   extractAddCode: (text: string) => string | null
   submitManual: Action<[string], Promise<void>>
   // Validates a *scanned* code against the server without running the
@@ -221,7 +215,6 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
   )
   const error = atom<string | null>(null, 'addDevice.error')
   const ownerName = atom<string | null>(null, 'addDevice.ownerName')
-  const validating = atom(Boolean(urlCode), 'addDevice.validating')
 
   let pollIntervalId: ReturnType<typeof window.setInterval> | undefined
   let pollTicks = 0
@@ -500,13 +493,7 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     if (initialized) return
     initialized = true
     if (!urlCode) return
-    // Reuse the QR path verbatim: server-validate the code, then land on
-    // 'registering' (initial `mode` already put us there, so a valid code shows
-    // no flash) -- or fall back to 'manual' with an error on rejection.
-    // `stageScannedCode` never throws (it maps failures to error/mode), so a
-    // single unconditional clear afterwards covers both outcomes.
     await wrap(stageScannedCode(urlCode))
-    validating.set(false)
   }, 'addDevice.init')
 
   return {
@@ -514,7 +501,6 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     mode,
     error,
     ownerName,
-    validating,
     extractAddCode,
     submitManual,
     stageScannedCode,

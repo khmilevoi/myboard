@@ -107,7 +107,6 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   const mode = model.mode()
   const error = model.error()
   const ownerName = model.ownerName()
-  const validating = model.validating()
   const [manualValue, setManualValue] = useState('')
   // Tracks whether the WebAuthn *ceremony itself* is currently in flight,
   // distinguishing panel 4(d1) "ready to create a passkey" from 4(d2)
@@ -197,10 +196,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   }
 
   const isExpiredError = mode === 'manual' && error != null && error.toLowerCase().includes('истёк')
-  // `validating` covers the auto-validation of a code from the activation link;
-  // `ceremonyPending` covers the passkey ceremony started by a click. Either
-  // keeps the button disabled + spinning on the 'registering' step.
-  const showRegisterLoading = mode === 'registering' && (ceremonyPending || validating)
+  const showRegisterLoading = mode === 'registering' && ceremonyPending
 
   // Forces the "затухание + сдвиг на 10px, 320мс, var(--ease)" step
   // transition (section 5) to replay on every visually distinct state, not
