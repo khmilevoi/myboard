@@ -99,6 +99,10 @@ export interface ActivationModel {
   registrationForm: ReturnType<typeof reatomForm<{ name: string }>>
   startRegistration: () => Promise<void>
   startLogin: Action<[], Promise<void>>
+  // Named, traceable transition to the HOME login landing (the "Уже
+  // активировано? Войти" cross-link), owned by the model rather than a raw
+  // atom.set() in the view.
+  goHome: Action<[], void>
 }
 
 export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): ActivationModel {
@@ -279,5 +283,7 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
     'activation.loading',
   )
 
-  return { screen, loading, error, registrationForm, startRegistration, startLogin }
+  const goHome = action(() => screen.set('home'), 'activation.goHome')
+
+  return { screen, loading, error, registrationForm, startRegistration, startLogin, goHome }
 }

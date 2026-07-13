@@ -49,14 +49,15 @@ export const ActivateScreen = reatomMemo<ActivateScreenProps>(
     const nameError = nameField.validation().error
     const hasNameError = Boolean(nameError)
 
-    // Direct atom.set() from a raw DOM handler (not routed through
-    // useAction/useWrap) only enqueues a microtask flush by default -- see
-    // `@reatom/react`'s own `useAtom` hook, which calls `notify()` right
-    // after `.set()` for the same reason. Without it, React's re-render
-    // lands one microtask late, which is invisible to a user but trips
-    // "not wrapped in act(...)" and fails synchronous assertions in tests.
+    // The model owns the transition (`goHome` action); the view just flushes.
+    // A model action called from a raw DOM handler still only enqueues a
+    // microtask flush by default -- see `@reatom/react`'s own `useAtom` hook,
+    // which calls `notify()` right after a write for the same reason. Without
+    // it, React's re-render lands one microtask late, which is invisible to a
+    // user but trips "not wrapped in act(...)" and fails synchronous
+    // assertions in tests.
     function goHome() {
-      model.screen.set('home')
+      model.goHome()
       notify()
     }
 

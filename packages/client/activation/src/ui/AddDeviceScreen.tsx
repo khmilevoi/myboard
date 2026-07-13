@@ -107,16 +107,11 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   const mode = model.mode()
   const error = model.error()
   const ownerName = model.ownerName()
+  // Whether the WebAuthn ceremony is in flight (panel 4(d1) "ready" vs 4(d2)
+  // "creating…"). Sourced from the model's `startRegistration` withAsync status
+  // (see model.ceremonyPending) rather than tracked as React state here.
+  const ceremonyPending = model.ceremonyPending()
   const [manualValue, setManualValue] = useState('')
-  // Tracks whether the WebAuthn *ceremony itself* is currently in flight,
-  // distinguishing panel 4(d1) "ready to create a passkey" from 4(d2)
-  // "creating…" -- add-device-model.ts's `startRegistration` action has no
-  // exposed pending flag of its own (unlike activation-model.ts's `loading`
-  // computed), so this is plain view-local state around the two call sites
-  // that trigger it (the manual/paste path's `submitManual`, which starts
-  // the ceremony automatically, and the scan path's own "Создать passkey"
-  // button, which starts it directly).
-  const [ceremonyPending, setCeremonyPending] = useState(false)
 
   // True when this screen mounted straight into scanning (activation card →
   // /add-device?scan=1). Its close ✕ returns to the activation card; a scanner
@@ -140,30 +135,17 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   const scanning = mode === 'scanning'
   const cameraDenied = scanning && error != null
 
-  function goToScan() {
-    model.error.set(null)
-    model.mode.set('scanning')
-  }
-
-  function goToManual() {
-    model.error.set(null)
-    model.mode.set('manual')
-  }
-
   function goToChoose() {
-    model.error.set(null)
+    model.goToChoose()
     setManualValue('')
-    model.mode.set('choose')
   }
 
   function submitCode(value: string) {
-    setCeremonyPending(true)
-    void model.submitManual(value).finally(() => setCeremonyPending(false))
+    void model.submitManual(value)
   }
 
   function createPasskey() {
-    setCeremonyPending(true)
-    void model.startRegistration().finally(() => setCeremonyPending(false))
+    void model.startRegistration()
   }
 
   function handleCodeKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -219,6 +201,12 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
     )
   }
 
+  // Connect the status poller only while the waiting screen is shown. Reading
+  // `poll` here subscribes this component to it; the interval's lifetime is
+  // bound to that connection (model.poll / withConnectHook), so leaving
+  // 'waiting' or unmounting stops polling automatically.
+  if (mode === 'waiting') model.poll()
+
   return (
     <div key={stepKey} className={styles.stepContent}>
       {mode === 'choose' ? (
@@ -231,7 +219,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
           <Button
             type="button"
             className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
-            onClick={goToScan}
+            onClick={model.goToScan}
           >
             <Camera size={18} strokeWidth={2} aria-hidden />
             Сканировать QR-код
@@ -304,7 +292,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
             type="button"
             variant="link"
             className="mt-4 h-auto p-0 text-sm font-semibold"
-            onClick={goToManual}
+            onClick={model.goToManual}
           >
             Ввести код вручную
           </Button>

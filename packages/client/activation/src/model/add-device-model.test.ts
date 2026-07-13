@@ -383,6 +383,10 @@ describe('registration + polling flow', () => {
     })
     expect(model.mode()).toBe('waiting')
 
+    // Connect the poller the way the mounted 'waiting' screen does; the interval
+    // only runs while `poll` is connected (withConnectHook).
+    model.poll.subscribe(() => {})
+
     // First poll tick: still pending.
     await vi.advanceTimersByTimeAsync(2_000)
     expect(model.mode()).toBe('waiting')
@@ -437,6 +441,7 @@ describe('registration + polling flow', () => {
 
     await model.submitManual('K7QP-3M9X')
     expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
 
     // Approved poll -> claim 500 -> stay on waiting with an error, do not navigate.
     await vi.advanceTimersByTimeAsync(2_000)
@@ -504,6 +509,7 @@ describe('registration + polling flow', () => {
 
     await model.submitManual('K7QP-3M9X')
     expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
 
     await vi.advanceTimersByTimeAsync(2_000)
 
@@ -541,6 +547,7 @@ describe('registration + polling flow', () => {
 
     await model.submitManual('K7QP-3M9X')
     expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
 
     await vi.advanceTimersByTimeAsync(2_000)
     expect(model.error()).not.toBeNull()
@@ -579,6 +586,7 @@ describe('registration + polling flow', () => {
 
     await model.submitManual('K7QP-3M9X')
     expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
 
     // 300 real polls fit inside the 10-minute window (2s * 300 = 600_000ms);
     // give-up is only decided at the next (301st) tick, so the window has to

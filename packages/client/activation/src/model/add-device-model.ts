@@ -1,4 +1,14 @@
-import { action, type Action, atom, type Atom, wrap } from '@reatom/core'
+import {
+  action,
+  type Action,
+  atom,
+  type Atom,
+  computed,
+  type Computed,
+  withAsync,
+  withConnectHook,
+  wrap,
+} from '@reatom/core'
 import { HttpClient, type HttpLike } from '@shared/http/client'
 import type { Navigate } from '@shared/navigation'
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser'
@@ -170,6 +180,20 @@ export interface AddDeviceModel {
   // "Добавить устройство в аккаунт «Имя»?" heading once we reach
   // 'registering'. Null before the first successful options fetch.
   ownerName: Atom<string | null>
+  // In-flight flag for the "Создать passkey" button (WebAuthn ceremony running),
+  // derived from `startRegistration`'s own withAsync status. Exposed as a
+  // Computed so the view reads it instead of tracking pending state with React
+  // useState (mirrors activation-model.ts's `loading`).
+  ceremonyPending: Computed<boolean>
+  // Connect this (read it) from the 'waiting' screen to drive pending-status
+  // polling. The interval's lifetime is bound to that connection via
+  // withConnectHook, so leaving 'waiting'/navigating away stops it automatically.
+  poll: Atom<undefined>
+  // Named, traceable screen transitions (each clears `error`), owned by the model
+  // rather than raw atom.set() calls in the view.
+  goToScan: Action<[], void>
+  goToManual: Action<[], void>
+  goToChoose: Action<[], void>
   extractAddCode: (text: string) => string | null
   submitManual: Action<[string], Promise<void>>
   // Validates a *scanned* code against the server without running the
@@ -181,13 +205,13 @@ export interface AddDeviceModel {
   stageScannedCode: Action<[string], Promise<void>>
   startRegistration: Action<[], Promise<void>>
   pollPendingStatus: Action<[], Promise<void>>
-  // Called once on mount. When the activation link already carries a code
-  // (`/add-device?token=...`), auto-validates it against the server and lands
-  // on 'registering' -- the same server-validation-only path as a scanned QR
-  // (`stageScannedCode`), stopping at the "Создать passkey" button because
-  // `navigator.credentials.create()` still needs a real user gesture. A no-op
-  // when the URL has no (valid) code. Idempotent, so React StrictMode's
-  // double-invoked mount effect can call it twice safely.
+  // Awaited by the route loader before first render. When the activation link
+  // already carries a code (`/add-device?token=...`), auto-validates it against
+  // the server and lands on 'registering' -- the same server-validation-only
+  // path as a scanned QR (`stageScannedCode`), stopping at the "Создать passkey"
+  // button because `navigator.credentials.create()` still needs a real user
+  // gesture. A no-op when the URL has no (valid) code. Idempotent as a defensive
+  // guard in case the loader ever re-runs for the same model.
   init: Action<[], Promise<void>>
 }
 
@@ -216,20 +240,13 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
   const error = atom<string | null>(null, 'addDevice.error')
   const ownerName = atom<string | null>(null, 'addDevice.ownerName')
 
-  let pollIntervalId: ReturnType<typeof window.setInterval> | undefined
+  // Elapsed poll ticks, so polling gives up after POLL_TIMEOUT_MS. Reset each
+  // time the poller reconnects (see `poll`).
   let pollTicks = 0
   // Single-flight guard: with the post-approval ceremony gone, an overlapping
   // duplicate claim is already harmless, but this also stops a second claim from
   // hitting an already-consumed (single-use) ticket.
   let claiming = false
-
-  function stopPolling(): void {
-    if (pollIntervalId !== undefined) {
-      window.clearInterval(pollIntervalId)
-      pollIntervalId = undefined
-    }
-    pollTicks = 0
-  }
 
   function extractAddCode(text: string): string | null {
     return extractAddCodeFrom(text, deps.currentOrigin)
@@ -283,9 +300,9 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     const { status } = result.body as { status: 'approved' | 'pending' | 'denied' }
     if (status === 'pending') return
 
-    stopPolling()
-
     if (status === 'denied') {
+      // Leaving 'waiting' disconnects the poller (see `poll`) and clears the
+      // interval -- no explicit stop needed.
       mode.set('rejected')
       return
     }
@@ -300,9 +317,9 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     if (claim instanceof Error) {
       claiming = false
       error.set(claim.message)
-      // Retry affordance: resume polling so a later approved tick re-attempts
-      // the claim (the single-use ticket is untouched on a failed claim).
-      beginPolling()
+      // Stay on 'waiting': the poller is still connected, so a later approved
+      // tick re-attempts the claim (the single-use ticket is untouched on a
+      // failed claim).
       return
     }
 
@@ -313,9 +330,8 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
 
     if (claim.status === 'pending') {
       // Defensive: an `approved` poll should not see the device un-approved on
-      // the claim. Resume polling rather than get stuck.
+      // the claim. Clear the single-flight guard and let polling continue.
       claiming = false
-      beginPolling()
       return
     }
 
@@ -325,21 +341,39 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     deps.navigate('/')
   }, 'addDevice.pollPendingStatus')
 
-  function beginPolling(): void {
-    stopPolling()
-    pollIntervalId = window.setInterval(
-      wrap(() => {
-        pollTicks += 1
-        if (pollTicks > POLL_MAX_TICKS) {
-          stopPolling()
-          error.set('Время ожидания подтверждения истекло. Попробуйте снова.')
-          return
-        }
-        void pollPendingStatus()
-      }),
-      POLL_INTERVAL_MS,
-    )
-  }
+  // Status poller. The 'waiting' screen connects this atom by reading it, so the
+  // polling interval's lifetime is bound to that screen staying mounted
+  // (withConnectHook): leaving 'waiting' or navigating away from /add-device
+  // disconnects it and clears the timer, so polling never outlives the view.
+  // Mirrors account-model.ts's `now` clock. The interval callback is wrap()ed so
+  // its reatom writes land in a live context, and is created fresh on each
+  // (re)connect to avoid a stale wrap() closure aborting after context.reset().
+  const poll = atom<undefined>(undefined, 'addDevice.poll').extend(
+    withConnectHook(() => {
+      pollTicks = 0
+      const intervalId = window.setInterval(
+        wrap(() => {
+          // A terminal mode change (approved -> done, denied -> rejected) is the
+          // signal to stop. In production the view also disconnects the poller,
+          // but self-clearing here keeps a lingering subscription (e.g. in a
+          // unit test) from polling past a terminal state.
+          if (mode() !== 'waiting') {
+            window.clearInterval(intervalId)
+            return
+          }
+          pollTicks += 1
+          if (pollTicks > POLL_MAX_TICKS) {
+            window.clearInterval(intervalId)
+            error.set('Время ожидания подтверждения истекло. Попробуйте снова.')
+            return
+          }
+          void pollPendingStatus()
+        }),
+        POLL_INTERVAL_MS,
+      )
+      return () => window.clearInterval(intervalId)
+    }),
+  )
 
   // Shared by `startRegistration` and `stageScannedCode` -- fetches and
   // validates the registration options for `currentToken` WITHOUT running
@@ -466,8 +500,31 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     }
 
     mode.set('waiting')
-    beginPolling()
-  }, 'addDevice.startRegistration')
+    // Polling starts when the 'waiting' screen connects `poll`; nothing to kick
+    // off imperatively here.
+  }, 'addDevice.startRegistration').extend(withAsync())
+
+  // In-flight flag for the "Создать passkey" button: true while
+  // `startRegistration` (options fetch + WebAuthn ceremony + verify) runs.
+  // Sourced from its withAsync status so the view no longer tracks it with React
+  // state. Covers the manual/paste path too, since `submitManual` awaits
+  // `startRegistration`.
+  const ceremonyPending = computed(() => !startRegistration.ready(), 'addDevice.ceremonyPending')
+
+  const goToScan = action(() => {
+    error.set(null)
+    mode.set('scanning')
+  }, 'addDevice.goToScan')
+
+  const goToManual = action(() => {
+    error.set(null)
+    mode.set('manual')
+  }, 'addDevice.goToManual')
+
+  const goToChoose = action(() => {
+    error.set(null)
+    mode.set('choose')
+  }, 'addDevice.goToChoose')
 
   const submitManual = action(async (input: string) => {
     error.set(null)
@@ -484,9 +541,9 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     await wrap(startRegistration())
   }, 'addDevice.submitManual')
 
-  // Guards against a double run: React StrictMode double-invokes the mount
-  // effect in dev, and we must validate the URL code exactly once (a second
-  // pass would consume a second register/options round-trip for nothing).
+  // Guards against a double run: the route loader awaits `init` once, but this
+  // keeps a second call (e.g. if the loader ever re-runs for the same model)
+  // from consuming a second register/options round-trip for nothing.
   let initialized = false
 
   const init = action(async () => {
@@ -501,6 +558,11 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     mode,
     error,
     ownerName,
+    ceremonyPending,
+    poll,
+    goToScan,
+    goToManual,
+    goToChoose,
     extractAddCode,
     submitManual,
     stageScannedCode,
