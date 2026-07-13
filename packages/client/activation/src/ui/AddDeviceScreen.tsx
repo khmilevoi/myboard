@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 import { type AddDeviceModel } from '../model/add-device-model'
-import { closeScan } from '../model/routes'
+import { activateRoute, closeScan } from '../model/routes'
 
 import styles from './AddDeviceScreen.module.css'
 import shellStyles from './shell.module.css'
@@ -25,8 +25,7 @@ export type AddDeviceScreenProps = {
 // field and `error` is already the shared "something went wrong for the
 // current mode" slot (mirrors how it's reused across manual/registering/
 // waiting failures).
-const CAMERA_DENIED_MESSAGE =
-  'Разрешите доступ к камере в настройках браузера или введите код вручную'
+const CAMERA_DENIED_MESSAGE = 'Разрешите доступ к камере в настройках браузера или вернитесь назад'
 
 // View-only formatting for the manual code field (uppercase, strip
 // separators, group as XXXX-XXXX) -- distinct from the model's
@@ -147,6 +146,15 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
     void model.startRegistration()
   }
 
+  // "Уже вошли на этом устройстве? Войти с passkey" -- lets someone who landed
+  // on the registering step (e.g. a stale/foreign add-device link) bail to the
+  // ordinary login card instead of the only other option being to register a
+  // brand-new device for that account.
+  function goToLogin() {
+    activateRoute.go({}, true)
+    notify()
+  }
+
   function handleCodeKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Enter') submitCode(manualValue)
   }
@@ -253,7 +261,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full rounded-[13px] font-semibold"
+            className={`h-12 w-full rounded-[13px] font-semibold ${styles.primaryButtonManualGap}`}
             onClick={() => submitCode(manualValue)}
           >
             Продолжить
@@ -291,9 +299,9 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
             type="button"
             variant="link"
             className="mt-4 h-auto p-0 text-sm font-semibold"
-            onClick={model.goToManual}
+            onClick={closeScanner}
           >
-            Ввести код вручную
+            Назад
           </Button>
         </>
       ) : null}
@@ -361,6 +369,16 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
               {error}
             </p>
           ) : null}
+
+          <button
+            type="button"
+            disabled={showRegisterLoading}
+            onClick={goToLogin}
+            className={styles.crossLink}
+          >
+            Уже вошли на этом устройстве?{' '}
+            <span className={styles.crossLinkAccent}>Войти с passkey</span>
+          </button>
 
           <div className={shellStyles.footerNote}>
             <Lock size={12} strokeWidth={2} aria-hidden />
