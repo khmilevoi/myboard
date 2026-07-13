@@ -29,6 +29,7 @@ import {
   postAddToken,
   postAddTokenOptions,
   postApproveDevice,
+  postClaimSession,
   postDenyDevice,
   postDeviceRegisterOptions,
   postDeviceRegisterVerify,
@@ -1127,5 +1128,151 @@ describe('getPendingStatus', () => {
 
     expect(result.status).toBe(200)
     expect(result.body).toEqual({ status: 'denied' })
+  })
+})
+
+describe('postClaimSession', () => {
+  async function seedActiveJoiningDevice(ops: Ops, accountId: string, credentialId: string) {
+    await storeDevice(ops, {
+      credentialId,
+      publicKey: 'pk',
+      signCount: 0,
+      label: 'New phone',
+      createdAt: 0,
+      lastSeenAt: 0,
+      disabled: false,
+      accountId,
+      status: 'active',
+      addedVia: 'add-token',
+    })
+    await addDeviceToAccount(ops, accountId, credentialId, { countsAgainstLimit: false })
+  }
+
+  it('returns 401 for a missing/invalid pending ticket', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+
+    const result = await postClaimSession(deps, fakeReq(undefined))
+
+    expect(result.status).toBe(401)
+    expect(result.body).toEqual({ code: 'pending_ticket_invalid' })
+  })
+
+  it('returns { status: pending } and leaves the ticket intact while the device awaits approval', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    await seedPendingDevice(ops, account.id, 'cred-pending')
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-pending',
+      accountId: account.id,
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+
+    const result = await postClaimSession(
+      deps,
+      fakeReq(undefined, { cookie: cookieHeaderFor(cookie) }),
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ status: 'pending' })
+    expect(getSetCookies(result.headers)).toHaveLength(0)
+
+    // Ticket intact: a subsequent status peek still resolves it.
+    const stillThere = await getPendingStatus(
+      deps,
+      fakeReq(undefined, { cookie: cookieHeaderFor(cookie) }),
+    )
+    expect(stillThere.body).toEqual({ status: 'pending' })
+  })
+
+  it('returns { status: denied } when the owner denied (device record gone)', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await createAccount(ops, clock.now, { name: 'Acc', inviteId: 'inv-1' })
+    // A ticket whose credential has no device record models a denied join
+    // (deny deletes the pending device).
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-gone',
+      accountId: account.id,
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+
+    const result = await postClaimSession(
+      deps,
+      fakeReq(undefined, { cookie: cookieHeaderFor(cookie) }),
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ status: 'denied' })
+    expect(getSetCookies(result.headers)).toHaveLength(0)
+  })
+
+  it('mints a session for an approved device, clears the pending cookie, consumes the ticket, and audits a login', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await seedActiveJoiningDevice(ops, account.id, 'cred-new')
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-new',
+      accountId: account.id,
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+    const cookieHeader = cookieHeaderFor(cookie)
+
+    const result = await postClaimSession(deps, fakeReq(undefined, { cookie: cookieHeader }))
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({ status: 'approved', credentialId: 'cred-new' })
+
+    const cookies = getSetCookies(result.headers)
+    const sessionCookie = cookies.find((c) => c.startsWith(`${config.sessionCookieName}=`))
+    expect(sessionCookie).toBeDefined()
+    expect(sessionCookie).toContain('HttpOnly')
+    expect(sessionCookie).toContain('SameSite=Lax')
+    const clearedPending = cookies.find((c) => c.startsWith(`${config.pendingCookieName}=`))
+    expect(clearedPending).toContain('Max-Age=0')
+
+    // The minted session is valid.
+    const sessionPair = cookieHeaderFor(sessionCookie as string)
+    const sessionId = sessionPair.slice(config.sessionCookieName.length + 1)
+    const verified = await verifySession(ops, config, clock.now, sessionId)
+    expect(verified).not.toBeInstanceOf(Error)
+
+    expect(deps.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'login', credentialId: 'cred-new' }),
+    )
+
+    // Single-use: a second claim on the same ticket now fails.
+    const second = await postClaimSession(deps, fakeReq(undefined, { cookie: cookieHeader }))
+    expect(second.status).toBe(401)
+    expect(second.body).toEqual({ code: 'pending_ticket_invalid' })
+  })
+
+  it('rejects an expired ticket with 401', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    await seedActiveJoiningDevice(ops, account.id, 'cred-new')
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-new',
+      accountId: account.id,
+    })
+    clock.set(15 * MINUTE + 1)
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+
+    const result = await postClaimSession(
+      deps,
+      fakeReq(undefined, { cookie: cookieHeaderFor(cookie) }),
+    )
+
+    expect(result.status).toBe(401)
+    expect(result.body).toEqual({ code: 'pending_ticket_invalid' })
   })
 })

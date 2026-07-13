@@ -130,6 +130,15 @@ export function clearedChallengeCookie(config: AuthConfig): string {
   })
 }
 
+export function clearedPendingCookie(config: AuthConfig): string {
+  return clearCookie(config.pendingCookieName, {
+    httpOnly: true,
+    secure: config.secureCookies,
+    sameSite: 'Strict',
+    path: '/',
+  })
+}
+
 function readSessionId(
   config: AuthConfig,
   req: Pick<IncomingMessage, 'headers'>,
