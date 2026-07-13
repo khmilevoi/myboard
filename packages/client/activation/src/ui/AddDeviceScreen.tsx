@@ -11,6 +11,7 @@ import { type AddDeviceModel, makeAddDeviceModel } from '../model/add-device-mod
 import { navigateInApp } from '../model/router'
 
 import styles from './AddDeviceScreen.module.css'
+import shellStyles from './shell.module.css'
 
 export type AddDeviceScreenProps = {
   // Optional so the real route (App.tsx) can mount `<AddDeviceScreen />` with
@@ -212,7 +213,6 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   // `ceremonyPending` covers the passkey ceremony started by a click. Either
   // keeps the button disabled + spinning on the 'registering' step.
   const showRegisterLoading = mode === 'registering' && (ceremonyPending || validating)
-  const showBrandMark = mode !== 'scanning'
 
   // Forces the "затухание + сдвиг на 10px, 320мс, var(--ease)" step
   // transition (section 5) to replay on every visually distinct state, not
@@ -236,226 +236,210 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        {showBrandMark ? (
-          <>
-            <div aria-hidden className={styles.brandMark}>
-              <div className={styles.brandCell} />
-              <div className={styles.brandCellDim} />
-              <div className={styles.brandCellDim} />
-              <div className={styles.brandCell} />
-            </div>
-            <div className={styles.brandLabel}>myboard</div>
-          </>
-        ) : null}
+    <div key={stepKey} className={styles.stepContent}>
+      {mode === 'choose' ? (
+        <>
+          <h1 className={styles.heading}>Добавить это устройство</h1>
+          <p className={styles.description}>
+            Отсканируйте QR-код или введите код с другого устройства
+          </p>
 
-        <div key={stepKey} className={styles.stepContent}>
-          {mode === 'choose' ? (
-            <>
-              <h1 className={styles.heading}>Добавить это устройство</h1>
-              <p className={styles.description}>
-                Отсканируйте QR-код или введите код с другого устройства
+          <Button
+            type="button"
+            className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
+            onClick={goToScan}
+          >
+            <Camera size={18} strokeWidth={2} aria-hidden />
+            Сканировать QR-код
+          </Button>
+
+          <div className={styles.divider}>
+            <div className={styles.dividerLine} />
+            <span className={styles.dividerLabel}>или</span>
+            <div className={styles.dividerLine} />
+          </div>
+
+          <div className={styles.codeField}>
+            <Input
+              type="text"
+              placeholder="____ – ____"
+              aria-label="Код с другого устройства"
+              aria-invalid={Boolean(error)}
+              value={manualValue}
+              className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput}`}
+              onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+              onPaste={handleCodePaste}
+              onKeyDown={handleCodeKeyDown}
+            />
+            {error ? (
+              <p role="alert" className={styles.codeErrorRow}>
+                <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+                {error}
               </p>
+            ) : null}
+          </div>
 
-              <Button
-                type="button"
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
-                onClick={goToScan}
-              >
-                <Camera size={18} strokeWidth={2} aria-hidden />
-                Сканировать QR-код
-              </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 w-full rounded-[13px] font-semibold"
+            onClick={() => submitCode(manualValue)}
+          >
+            Продолжить
+          </Button>
 
-              <div className={styles.divider}>
-                <div className={styles.dividerLine} />
-                <span className={styles.dividerLabel}>или</span>
-                <div className={styles.dividerLine} />
-              </div>
+          <div className={shellStyles.footerNote}>
+            <Lock size={12} strokeWidth={2} aria-hidden />
+            Защищено passkey на этом устройстве
+          </div>
+        </>
+      ) : null}
 
-              <div className={styles.codeField}>
-                <Input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput}`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
-                {error ? (
-                  <p role="alert" className={styles.codeErrorRow}>
-                    <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                    {error}
-                  </p>
-                ) : null}
-              </div>
+      {cameraDenied ? (
+        <>
+          <div className={styles.cameraDeniedIcon}>
+            <Camera size={24} strokeWidth={2} aria-hidden />
+            <svg
+              className={styles.cameraDeniedSlash}
+              width="52"
+              height="52"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                d="M4 4l16 16"
+                stroke="var(--destructive)"
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+          <h1 className={styles.statusHeading}>Нет доступа к камере</h1>
+          <p className={styles.statusDescription}>{CAMERA_DENIED_MESSAGE}</p>
+          <Button
+            type="button"
+            variant="link"
+            className="mt-4 h-auto p-0 text-sm font-semibold"
+            onClick={goToManual}
+          >
+            Ввести код вручную
+          </Button>
+        </>
+      ) : null}
 
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full rounded-[13px] font-semibold"
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </Button>
+      {mode === 'manual' ? (
+        <>
+          <h1 className={styles.manualHeading}>Введите код с другого устройства</h1>
 
-              <div className={styles.footerNote}>
-                <Lock size={12} strokeWidth={2} aria-hidden />
-                Защищено passkey на этом устройстве
-              </div>
-            </>
-          ) : null}
-
-          {cameraDenied ? (
-            <>
-              <div className={styles.cameraDeniedIcon}>
-                <Camera size={24} strokeWidth={2} aria-hidden />
-                <svg
-                  className={styles.cameraDeniedSlash}
-                  width="52"
-                  height="52"
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    d="M4 4l16 16"
-                    stroke="var(--destructive)"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              <h1 className={styles.statusHeading}>Нет доступа к камере</h1>
-              <p className={styles.statusDescription}>{CAMERA_DENIED_MESSAGE}</p>
-              <Button
-                type="button"
-                variant="link"
-                className="mt-4 h-auto p-0 text-sm font-semibold"
-                onClick={goToManual}
-              >
-                Ввести код вручную
-              </Button>
-            </>
-          ) : null}
-
-          {mode === 'manual' ? (
-            <>
-              <h1 className={styles.manualHeading}>Введите код с другого устройства</h1>
-
-              <div className={`${styles.codeField} ${styles.codeFieldWithMargin}`}>
-                <Input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  disabled={isExpiredError}
-                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput} ${
-                    isExpiredError ? styles.codeInputExpired : ''
-                  }`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
-                {error ? (
-                  <p role="alert" className={styles.codeErrorRow}>
-                    <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                    {error}
-                  </p>
-                ) : null}
-              </div>
-
-              <Button
-                type="button"
-                disabled={isExpiredError}
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonManualGap}`}
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </Button>
-            </>
-          ) : null}
-
-          {mode === 'registering' ? (
-            <>
-              <h1 className={styles.registerHeading}>
-                {ownerName
-                  ? `Добавить устройство в аккаунт «${ownerName}»?`
-                  : 'Добавить устройство в аккаунт?'}
-              </h1>
-              <p className={styles.description}>Создайте passkey, чтобы завершить</p>
-
-              <Button
-                type="button"
-                disabled={showRegisterLoading}
-                aria-busy={showRegisterLoading}
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
-                onClick={createPasskey}
-              >
-                {passkeyButtonContent(showRegisterLoading)}
-              </Button>
-
-              {error ? (
-                <p role="alert" className={styles.codeErrorRow}>
-                  <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                  {error}
-                </p>
-              ) : null}
-
-              <div className={styles.footerNote}>
-                <Lock size={12} strokeWidth={2} aria-hidden />
-                Защищено passkey на этом устройстве
-              </div>
-            </>
-          ) : null}
-
-          {mode === 'waiting' ? (
-            <>
-              <span aria-hidden className={styles.spinnerLarge} />
-              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
-                Ожидаем подтверждения
-              </h1>
-              <p className={styles.statusDescription}>
-                Подтвердите это устройство на основном устройстве
+          <div className={`${styles.codeField} ${styles.codeFieldWithMargin}`}>
+            <Input
+              type="text"
+              placeholder="____ – ____"
+              aria-label="Код с другого устройства"
+              aria-invalid={Boolean(error)}
+              value={manualValue}
+              disabled={isExpiredError}
+              className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput} ${
+                isExpiredError ? styles.codeInputExpired : ''
+              }`}
+              onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+              onPaste={handleCodePaste}
+              onKeyDown={handleCodeKeyDown}
+            />
+            {error ? (
+              <p role="alert" className={styles.codeErrorRow}>
+                <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+                {error}
               </p>
-            </>
+            ) : null}
+          </div>
+
+          <Button
+            type="button"
+            disabled={isExpiredError}
+            className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonManualGap}`}
+            onClick={() => submitCode(manualValue)}
+          >
+            Продолжить
+          </Button>
+        </>
+      ) : null}
+
+      {mode === 'registering' ? (
+        <>
+          <h1 className={styles.registerHeading}>
+            {ownerName
+              ? `Добавить устройство в аккаунт «${ownerName}»?`
+              : 'Добавить устройство в аккаунт?'}
+          </h1>
+          <p className={styles.description}>Создайте passkey, чтобы завершить</p>
+
+          <Button
+            type="button"
+            disabled={showRegisterLoading}
+            aria-busy={showRegisterLoading}
+            className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
+            onClick={createPasskey}
+          >
+            {passkeyButtonContent(showRegisterLoading)}
+          </Button>
+
+          {error ? (
+            <p role="alert" className={styles.codeErrorRow}>
+              <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+              {error}
+            </p>
           ) : null}
 
-          {mode === 'done' ? (
-            <>
-              <div className={`${styles.statusIcon} ${styles.statusIconSuccess}`}>
-                <Check size={24} strokeWidth={2.4} aria-hidden />
-              </div>
-              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
-                Готово. Перенаправляем…
-              </h1>
-            </>
-          ) : null}
+          <div className={shellStyles.footerNote}>
+            <Lock size={12} strokeWidth={2} aria-hidden />
+            Защищено passkey на этом устройстве
+          </div>
+        </>
+      ) : null}
 
-          {mode === 'rejected' ? (
-            <>
-              <div className={`${styles.statusIcon} ${styles.statusIconDanger}`}>
-                <X size={24} strokeWidth={2} aria-hidden />
-              </div>
-              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
-                Запрос отклонён
-              </h1>
-              <p className={styles.statusDescription}>Основное устройство отклонило подключение</p>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full rounded-[13px] font-semibold"
-                onClick={goToChoose}
-              >
-                Попробовать снова
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </div>
+      {mode === 'waiting' ? (
+        <>
+          <span aria-hidden className={styles.spinnerLarge} />
+          <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+            Ожидаем подтверждения
+          </h1>
+          <p className={styles.statusDescription}>
+            Подтвердите это устройство на основном устройстве
+          </p>
+        </>
+      ) : null}
+
+      {mode === 'done' ? (
+        <>
+          <div className={`${styles.statusIcon} ${styles.statusIconSuccess}`}>
+            <Check size={24} strokeWidth={2.4} aria-hidden />
+          </div>
+          <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+            Готово. Перенаправляем…
+          </h1>
+        </>
+      ) : null}
+
+      {mode === 'rejected' ? (
+        <>
+          <div className={`${styles.statusIcon} ${styles.statusIconDanger}`}>
+            <X size={24} strokeWidth={2} aria-hidden />
+          </div>
+          <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+            Запрос отклонён
+          </h1>
+          <p className={styles.statusDescription}>Основное устройство отклонило подключение</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 w-full rounded-[13px] font-semibold"
+            onClick={goToChoose}
+          >
+            Попробовать снова
+          </Button>
+        </>
+      ) : null}
     </div>
   )
 }, 'AddDeviceScreen')
