@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import type { AuthConfig } from './config'
 import { PendingTicketInvalidError } from './errors'
-import { PENDING_TTL_MS, issuePendingTicket, readPendingTicket } from './pending-tickets'
+import {
+  PENDING_TTL_MS,
+  consumePendingTicket,
+  issuePendingTicket,
+  readPendingTicket,
+} from './pending-tickets'
 
 const MINUTE = 60_000
 
@@ -93,6 +98,75 @@ describe('issuePendingTicket / readPendingTicket', () => {
 
     const result = await readPendingTicket(ops, config, clock.now, undefined)
 
+    expect(result).toBeInstanceOf(PendingTicketInvalidError)
+  })
+})
+
+describe('consumePendingTicket', () => {
+  it('deletes and returns the record; a follow-up read no longer finds it', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+
+    const { ticketId, cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-1',
+      accountId: 'acc-1',
+    })
+    const header = cookieHeaderFor(cookie)
+
+    const consumed = await consumePendingTicket(ops, config, clock.now, header)
+    expect(consumed).not.toBeInstanceOf(Error)
+    if (consumed instanceof Error) throw consumed
+    expect(consumed).toEqual({
+      ticketId,
+      credentialId: 'cred-1',
+      accountId: 'acc-1',
+      expiresAt: PENDING_TTL_MS,
+    })
+
+    const afterRead = await readPendingTicket(ops, config, clock.now, header)
+    expect(afterRead).toBeInstanceOf(PendingTicketInvalidError)
+  })
+
+  it('is single-use: a second consume returns PendingTicketInvalidError', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-1',
+      accountId: 'acc-1',
+    })
+    const header = cookieHeaderFor(cookie)
+
+    const first = await consumePendingTicket(ops, config, clock.now, header)
+    expect(first).not.toBeInstanceOf(Error)
+
+    const second = await consumePendingTicket(ops, config, clock.now, header)
+    expect(second).toBeInstanceOf(PendingTicketInvalidError)
+  })
+
+  it('returns PendingTicketInvalidError once the ticket has expired', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+
+    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+      credentialId: 'cred-1',
+      accountId: 'acc-1',
+    })
+    clock.set(PENDING_TTL_MS + 1)
+
+    const result = await consumePendingTicket(ops, config, clock.now, cookieHeaderFor(cookie))
+    expect(result).toBeInstanceOf(PendingTicketInvalidError)
+  })
+
+  it('returns PendingTicketInvalidError when the cookie header is missing', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+
+    const result = await consumePendingTicket(ops, config, clock.now, undefined)
     expect(result).toBeInstanceOf(PendingTicketInvalidError)
   })
 })
