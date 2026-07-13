@@ -195,99 +195,111 @@
 }
 
 /* ---------- (b) / (b2) scanner ---------- */
-.scanHeading {
-  margin: 0;
-  width: 100%;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  color: var(--foreground);
-  text-align: center;
+
+/* Full-screen camera overlay (replaces the old in-card scanner). Rendered by
+   AddDeviceScreen's own early return, not inside .card, so it fills the
+   viewport above the activation card chrome. */
+.scannerOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
 }
 
-.scannerViewport {
-  position: relative;
-  width: 100%;
-  height: 230px;
-  margin-top: 20px;
-  overflow: hidden;
-  background: #1b1b20;
-  border-radius: 16px;
-}
-.scannerVideo {
+.scannerOverlayVideo {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.scannerCorner {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  border-color: var(--primary);
-  border-style: solid;
-  border-width: 0;
-}
-.scannerCornerTl {
-  top: 24px;
-  left: 24px;
-  border-top-width: 3px;
-  border-left-width: 3px;
-  border-radius: 6px 0 0 0;
-}
-.scannerCornerTr {
-  top: 24px;
-  right: 24px;
-  border-top-width: 3px;
-  border-right-width: 3px;
-  border-radius: 0 6px 0 0;
-}
-.scannerCornerBl {
-  bottom: 24px;
-  left: 24px;
-  border-bottom-width: 3px;
-  border-left-width: 3px;
-  border-radius: 0 0 0 6px;
-}
-.scannerCornerBr {
-  bottom: 24px;
-  right: 24px;
-  border-bottom-width: 3px;
-  border-right-width: 3px;
-  border-radius: 0 0 6px 0;
-}
-/* "Живая демонстрация" (section 5) scanline, applied to the real scanner
-   viewport at panel 4(b)'s own 24px inset. */
-.scannerLine {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  height: 2px;
-  background: var(--primary);
-  box-shadow: 0 0 8px 1px var(--primary);
-  animation: scanline 1.6s ease-in-out infinite;
-}
-@keyframes scanline {
-  0% {
-    top: 10%;
-    opacity: 0.2;
-  }
-  50% {
-    top: 88%;
-    opacity: 1;
-  }
-  100% {
-    top: 10%;
-    opacity: 0.2;
-  }
+
+.scannerFrame {
+  position: relative;
+  width: 250px;
+  height: 250px;
+  border-radius: 20px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
 }
 
-.scannerHint {
-  margin: 16px 0 0;
+.scannerCorner {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+}
+.scannerCornerTl {
+  top: -2px;
+  left: -2px;
+  border-top: 3px solid #fff;
+  border-left: 3px solid #fff;
+  border-top-left-radius: 16px;
+}
+.scannerCornerTr {
+  top: -2px;
+  right: -2px;
+  border-top: 3px solid #fff;
+  border-right: 3px solid #fff;
+  border-top-right-radius: 16px;
+}
+.scannerCornerBl {
+  bottom: -2px;
+  left: -2px;
+  border-bottom: 3px solid #fff;
+  border-left: 3px solid #fff;
+  border-bottom-left-radius: 16px;
+}
+.scannerCornerBr {
+  bottom: -2px;
+  right: -2px;
+  border-bottom: 3px solid #fff;
+  border-right: 3px solid #fff;
+  border-bottom-right-radius: 16px;
+}
+
+.scannerTopBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 20px;
+}
+.scannerTitle {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+}
+.scannerClose {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+}
+
+.scannerOverlayHint {
+  position: absolute;
+  bottom: 56px;
+  left: 24px;
+  right: 24px;
+  margin: 0;
+  text-align: center;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--muted-foreground);
-  text-align: center;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  text-wrap: pretty;
 }
 
 .cameraDeniedIcon {

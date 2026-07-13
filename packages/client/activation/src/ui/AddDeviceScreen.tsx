@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 import { type AddDeviceModel, createAddDeviceModel } from '../model/add-device-model'
+import { navigateInApp } from '../model/router'
 
 import styles from './AddDeviceScreen.module.css'
 
@@ -59,39 +60,48 @@ function passkeyButtonContent(loading: boolean) {
   )
 }
 
-type ScannerProps = {
+type ScannerOverlayProps = {
   onDecode: (rawValue: string) => void
   onCameraError: () => void
+  onClose: () => void
 }
 
-// A separate component (not a conditionally-skipped branch inside
-// AddDeviceScreen) so `useZxing` -- and the barcode-detector wasm engine it
-// eagerly loads as soon as it's called, regardless of any `paused` option --
-// only ever mounts once the user actually picks "Сканировать QR-код".
-// Mounting it unconditionally in AddDeviceScreen would start that wasm fetch
-// on every visit to this screen (even for manual-code-only users) and
-// crashes under jsdom (no real network/WebAssembly streaming there), which
-// is exactly what an earlier draft of this component hit in
-// AddDeviceScreen.test.tsx.
-function Scanner({ onDecode, onCameraError }: ScannerProps) {
+// Full-screen camera overlay from Activate.dc.html. A separate component (not a
+// branch inside AddDeviceScreen) so `useZxing` — and the wasm barcode engine it
+// eagerly loads — only mounts once the user actually reaches the scanner.
+function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProps) {
   const { ref: videoRef } = useZxing({
     onDecodeResult: (result) => onDecode(result.rawValue),
     onError: onCameraError,
   })
 
   return (
-    <>
-      <h1 className={styles.scanHeading}>Сканирование</h1>
-      <div className={styles.scannerViewport}>
-        <video ref={videoRef} muted playsInline className={styles.scannerVideo} />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Сканирование QR-кода"
+      className={styles.scannerOverlay}
+    >
+      <video ref={videoRef} muted playsInline className={styles.scannerOverlayVideo} />
+      <div aria-hidden className={styles.scannerFrame}>
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTl}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTr}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerBl}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerBr}`} />
-        <div className={styles.scannerLine} />
       </div>
-      <p className={styles.scannerHint}>Наведите камеру на QR-код</p>
-    </>
+      <div className={styles.scannerTopBar}>
+        <div className={styles.scannerTitle}>Сканирование QR-кода</div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Закрыть сканер"
+          className={styles.scannerClose}
+        >
+          <X size={17} strokeWidth={2.2} aria-hidden />
+        </button>
+      </div>
+      <p className={styles.scannerOverlayHint}>Наведите камеру на QR-код активации</p>
+    </div>
   )
 }
 
@@ -110,6 +120,23 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   // the ceremony automatically, and the scan path's own "Создать passkey"
   // button, which starts it directly).
   const [ceremonyPending, setCeremonyPending] = useState(false)
+
+  // True when this screen mounted straight into scanning (activation card →
+  // /add-device?scan=1). Its close ✕ returns to the activation card; a scanner
+  // entered from the add-device `choose` screen returns to `choose` instead.
+  const [enteredScanDirectly] = useState(() => model.mode() === 'scanning')
+
+  function closeScanner() {
+    if (enteredScanDirectly) {
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        window.history.back()
+      } else {
+        navigateInApp('/activate')
+      }
+      return
+    }
+    goToChoose()
+  }
 
   const scanning = mode === 'scanning'
   const cameraDenied = scanning && error != null
@@ -184,6 +211,16 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
     isExpiredError ? 'expired' : '',
   ].join('|')
 
+  if (scanning && !cameraDenied) {
+    return (
+      <ScannerOverlay
+        onDecode={handleDecode}
+        onCameraError={handleCameraError}
+        onClose={closeScanner}
+      />
+    )
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.card}>
@@ -256,10 +293,6 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
                 Защищено passkey на этом устройстве
               </div>
             </>
-          ) : null}
-
-          {scanning && !cameraDenied ? (
-            <Scanner onDecode={handleDecode} onCameraError={handleCameraError} />
           ) : null}
 
           {cameraDenied ? (
