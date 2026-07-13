@@ -42,5 +42,15 @@ catalog:
 onlyBuiltDependencies:
   - esbuild
 
+# reatomComponent's mount() subscribed via useEffect, which runs after the
+# microtask queue drains -- a route loader with no real I/O (pure microtask
+# resolution) could finish and update the Reatom graph before the
+# subscription existed, permanently missing the change (component stuck on
+# its first render forever). Patched to useLayoutEffect, which runs
+# synchronously during commit, before microtasks get a chance to run. Not
+# version-ranged: if @reatom/react's dist output changes shape on upgrade,
+# `pnpm install` fails loudly (patch context mismatch) instead of silently
+# dropping the fix -- re-verify (and drop this patch if fixed upstream) on
+# any @reatom/react version bump.
 patchedDependencies:
   '@reatom/react': patches/@reatom__react.patch
