@@ -41,6 +41,10 @@ export interface AddDeviceStorage {
 
 export interface AddDeviceDeps {
   token: string | null
+  // True when the activation card routed here via `/add-device?scan=1` to open
+  // the camera straight away, skipping the `choose` screen and its redundant
+  // second "Сканировать QR-код" tap.
+  scan: boolean
   // The origin `extractAddCode` trusts a scanned/pasted `/add-device?token=...`
   // URL to match. Defaults to `location.origin` -- the running app's own
   // origin, which is exactly the host the server embeds in the QR/invite URL
@@ -62,6 +66,11 @@ export interface AddDeviceDeps {
 function readTokenFromLocation(): string | null {
   if (typeof location === 'undefined') return null
   return new URLSearchParams(location.search).get('token')
+}
+
+function readScanFromLocation(): boolean {
+  if (typeof location === 'undefined') return false
+  return new URLSearchParams(location.search).get('scan') === '1'
 }
 
 function defaultOrigin(): string {
@@ -190,6 +199,7 @@ export interface AddDeviceModel {
 export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
   const deps: AddDeviceDeps = {
     token: overrides.token ?? readTokenFromLocation(),
+    scan: overrides.scan ?? readScanFromLocation(),
     currentOrigin: overrides.currentOrigin ?? defaultOrigin(),
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
     storage: overrides.storage ?? defaultStorage(),
@@ -200,7 +210,7 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   }
 
   const token = atom<string | null>(deps.token, 'addDevice.token')
-  const mode = atom<AddDeviceMode>('choose', 'addDevice.mode')
+  const mode = atom<AddDeviceMode>(deps.scan ? 'scanning' : 'choose', 'addDevice.mode')
   const error = atom<string | null>(null, 'addDevice.error')
   const ownerName = atom<string | null>(null, 'addDevice.ownerName')
 

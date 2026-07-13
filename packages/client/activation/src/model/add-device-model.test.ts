@@ -64,6 +64,25 @@ describe('extractAddCode', () => {
   })
 })
 
+describe('initial mode', () => {
+  it('starts in scanning mode when scan is requested', () => {
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      scan: true,
+      http: makeScriptedHttp({}).http,
+    })
+    expect(model.mode()).toBe('scanning')
+  })
+
+  it('starts in choose mode by default', () => {
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http: makeScriptedHttp({}).http,
+    })
+    expect(model.mode()).toBe('choose')
+  })
+})
+
 describe('submitManual', () => {
   it('sets an error and never calls fetch when the input is not a valid code', async () => {
     const { http, calls } = makeScriptedHttp({})
