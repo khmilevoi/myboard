@@ -54,12 +54,46 @@ test('invite activation registers a passkey, reaches the board, and survives rel
   expect(spentOptions.status()).toBe(409)
   expect(await spentOptions.json()).toEqual({ code: 'invite_consumed', canLogin: true })
 
-  // The activation screen reflects the same spent-invite state by falling
-  // back to the login affordance instead of the registration form.
+  // The activation screen reflects the same spent-invite state by showing the
+  // dedicated "Приглашение уже использовано" screen with a login affordance
+  // instead of the registration form.
   await activate.gotoActivate(token)
   await activate.fillName('Second Attempt')
   await activate.submitRegister()
 
+  await expect(activate.usedHeading).toBeVisible()
   await expect(activate.signInButton).toBeVisible()
   await expect(activate.createPasskeyButton).toHaveCount(0)
+})
+
+test('login landing signs in with an existing passkey after logout', async ({ page, request }) => {
+  const { token } = await seedInvite(request)
+  await enableVirtualAuthenticator(page)
+
+  const activate = new ActivatePage(page)
+
+  // Register a passkey (this stores the credential hint in localStorage).
+  await activate.gotoActivate(token)
+  await activate.fillName('Returning User')
+  await activate.submitRegister()
+  await activate.waitForBoardRedirect()
+
+  // Log out: the server session is cleared, but the credential + hint remain on
+  // this device.
+  const logout = await page.request.post('/api/auth/logout', {
+    headers: { 'X-Requested-With': 'MyBoard' },
+  })
+  expect(logout.status()).toBe(204)
+
+  // The login landing (no token) offers passkey sign-in, not registration.
+  await activate.gotoHome()
+  await expect(activate.homeHeading).toBeVisible()
+  await expect(activate.createPasskeyButton).toHaveCount(0)
+
+  await activate.submitLogin()
+  await activate.waitForBoardRedirect()
+  expect(new URL(page.url()).pathname).toBe('/')
+
+  const session = await page.request.get('/api/auth/session')
+  expect(session.status()).toBe(200)
 })
