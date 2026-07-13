@@ -55,16 +55,6 @@ export interface AddDeviceDeps {
   startRegistrationCeremony: typeof browserStartRegistration
 }
 
-function readTokenFromLocation(): string | null {
-  if (typeof location === 'undefined') return null
-  return new URLSearchParams(location.search).get('token')
-}
-
-function readScanFromLocation(): boolean {
-  if (typeof location === 'undefined') return false
-  return new URLSearchParams(location.search).get('scan') === '1'
-}
-
 function defaultOrigin(): string {
   return typeof location === 'undefined' ? '' : location.origin
 }
@@ -209,8 +199,8 @@ export interface AddDeviceModel {
 
 export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
   const deps: AddDeviceDeps = {
-    token: overrides.token ?? readTokenFromLocation(),
-    scan: overrides.scan ?? readScanFromLocation(),
+    token: overrides.token ?? null,
+    scan: overrides.scan ?? false,
     currentOrigin: overrides.currentOrigin ?? defaultOrigin(),
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
     storage: overrides.storage ?? defaultStorage(),

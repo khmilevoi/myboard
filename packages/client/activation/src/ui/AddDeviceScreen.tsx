@@ -1,24 +1,20 @@
 import { AlertCircle, Camera, Check, Loader2, Lock, ShieldCheck, X } from 'lucide-react'
 import type { ClipboardEvent, KeyboardEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useZxing } from 'react-zxing'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { type AddDeviceModel, makeAddDeviceModel } from '../model/add-device-model'
-import { navigateInApp } from '../model/router'
+import { type AddDeviceModel } from '../model/add-device-model'
+import { activateRoute } from '../model/routes'
 
 import styles from './AddDeviceScreen.module.css'
 import shellStyles from './shell.module.css'
 
 export type AddDeviceScreenProps = {
-  // Optional so the real route (App.tsx) can mount `<AddDeviceScreen />` with
-  // no props (one model instance per mount, mirroring ActivateScreen's own
-  // `useState(() => createActivationModel())`) while a test can still inject
-  // a fake/spy-wrapped model instance.
-  model?: AddDeviceModel
+  model: AddDeviceModel
 }
 
 // react-zxing's `onError` fires when getUserMedia itself fails (permission
@@ -106,8 +102,7 @@ function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProp
   )
 }
 
-export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: injectedModel }) => {
-  const [model] = useState(() => injectedModel ?? makeAddDeviceModel())
+export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   const mode = model.mode()
   const error = model.error()
   const ownerName = model.ownerName()
@@ -128,23 +123,14 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   // entered from the add-device `choose` screen returns to `choose` instead.
   const [enteredScanDirectly] = useState(() => model.mode() === 'scanning')
 
-  // Auto-validate a code embedded in the activation link (/add-device?token=...)
-  // once on mount: `init` is a no-op unless the URL carried a valid code, and is
-  // idempotent so StrictMode's double-invoked mount effect is harmless. While it
-  // runs, `model.validating()` keeps the passkey button in its loading state
-  // (see `showRegisterLoading`), so the ceremony can't start before the code is
-  // confirmed.
-  useEffect(() => {
-    void model.init()
-  }, [model])
-
   function closeScanner() {
     if (enteredScanDirectly) {
-      if (typeof window !== 'undefined' && window.history.length > 1) {
-        window.history.back()
-      } else {
-        navigateInApp('/activate')
-      }
+      // Deterministic: always return to the activation card, replacing the
+      // /add-device?scan=1 history entry (replace = true) so browser Back
+      // does not reopen the scanner. No window.history.back()/length
+      // heuristic -- that could exit the app when /add-device?scan=1 was
+      // opened directly from an external QR link (no /activate behind it).
+      activateRoute.go({}, true)
       return
     }
     goToChoose()

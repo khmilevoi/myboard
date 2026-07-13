@@ -1,25 +1,20 @@
 import { notify } from '@reatom/core'
 import { bindField } from '@reatom/react'
 import { AlertCircle, AlertTriangle, Loader2, Lock, QrCode, ShieldCheck } from 'lucide-react'
-import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { type ActivationModel, makeActivationModel } from '../model/activation-model'
-import { navigateInApp } from '../model/router'
+import { type ActivationModel } from '../model/activation-model'
+import { addDeviceRoute } from '../model/routes'
 
 import styles from './ActivateScreen.module.css'
 import shellStyles from './shell.module.css'
 
-const SCAN_PATH = '/add-device?scan=1'
-
 export type ActivateScreenProps = {
-  // Both optional so App.tsx mounts `<ActivateScreen />` with a fresh internal
-  // model + the real router, while tests inject a preset model and a navigate spy.
-  model?: ActivationModel
-  navigate?: (path: string) => void
+  model: ActivationModel
+  onScan?: () => void
 }
 
 function passkeyButtonContent(loading: boolean, idleLabel: string, loadingLabel: string) {
@@ -40,8 +35,7 @@ function passkeyButtonContent(loading: boolean, idleLabel: string, loadingLabel:
 }
 
 export const ActivateScreen = reatomMemo<ActivateScreenProps>(
-  ({ model: injectedModel, navigate = navigateInApp }) => {
-    const [model] = useState(() => injectedModel ?? makeActivationModel())
+  ({ model, onScan = () => addDeviceRoute.go({ scan: '1' }) }) => {
     const screen = model.screen()
     const error = model.error()
     const loading = model.loading()
@@ -65,7 +59,7 @@ export const ActivateScreen = reatomMemo<ActivateScreenProps>(
         type="button"
         variant="outline"
         disabled={loading}
-        onClick={() => navigate(SCAN_PATH)}
+        onClick={onScan}
         className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.secondaryButtonGap}`}
       >
         <QrCode size={18} strokeWidth={2} aria-hidden />
@@ -150,7 +144,7 @@ export const ActivateScreen = reatomMemo<ActivateScreenProps>(
             </p>
             <Button
               type="button"
-              onClick={() => navigate(SCAN_PATH)}
+              onClick={onScan}
               className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonStandalone}`}
             >
               <QrCode size={18} strokeWidth={2} aria-hidden />

@@ -49,11 +49,6 @@ export interface ActivationDeps {
   startAuthenticationCeremony: typeof browserStartAuthentication
 }
 
-function readTokenFromLocation(): string | null {
-  if (typeof location === 'undefined') return null
-  return new URLSearchParams(location.search).get('token')
-}
-
 // home = no invite in the URL; activate-no-code = the `?token=` param is present
 // but empty/whitespace (a malformed activation link); activate = a real token.
 function initialScreen(token: string | null): ActivationScreen {
@@ -108,7 +103,7 @@ export interface ActivationModel {
 
 export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): ActivationModel {
   const deps: ActivationDeps = {
-    token: overrides.token ?? readTokenFromLocation(),
+    token: overrides.token ?? null,
     navigate: overrides.navigate ?? ((path) => window.location.assign(path)),
     storage: overrides.storage ?? defaultStorage(),
     http: overrides.http ?? new HttpClient(),
