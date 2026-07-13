@@ -75,7 +75,7 @@ import { reatomRoute, type RouteChild } from '@reatom/core'
 import { z } from 'zod'
 
 import { makeActivationModel } from './activation-model'
-import { createAddDeviceModel } from './add-device-model'
+import { makeAddDeviceModel } from './add-device-model'
 import { ActivateScreen } from '../ui/ActivateScreen'
 import { AddDeviceScreen } from '../ui/AddDeviceScreen'
 import { LoadingCard } from '../ui/LoadingCard'
@@ -107,7 +107,7 @@ export const addDeviceRoute = rootRoute.reatomRoute(
     path: 'add-device',
     search: z.object({ token: z.string().optional(), scan: z.literal('1').optional() }),
     async loader({ token, scan }) {
-      const model = createAddDeviceModel({ token: token ?? null, scan: scan === '1' })
+      const model = makeAddDeviceModel({ token: token ?? null, scan: scan === '1' })
       await model.init() // init() wraps its own awaits → loader's abort covers it
       return { model }
     },
@@ -221,6 +221,8 @@ crutch is removed (the overlay hides the shell regardless).
 
 `add-device-model.ts`:
 
+- Rename the factory `createAddDeviceModel` → `makeAddDeviceModel` (repo
+  `make*`-over-`create*` convention) and update all call sites.
 - `token` / `scan` come from the loader; remove `readTokenFromLocation()` and
   `readScanFromLocation()` helpers and their default wiring.
 - `currentOrigin` **keeps** its `location.origin` default — it is the app's own
@@ -228,9 +230,9 @@ crutch is removed (the overlay hides the shell regardless).
 - Remove the `validating` atom and its member on `AddDeviceModel`; the loader's
   `ready()` now represents "embedded code is being validated". `init()` no longer
   sets `validating`.
-- Remove the `initialized` re-entrancy guard in `init()` — its sole reason
-  (React StrictMode double-invoking the mount `useEffect`) is gone now that the
-  loader (called once per activation) drives `init`. `init` remains a plain action
+- **Keep** the `initialized` re-entrancy guard in `init()`. Its original reason
+  (React StrictMode double-invoking the mount `useEffect`) is gone, but it stays
+  defensive and its idempotency test stays green. `init` remains a plain action
   whose awaits are `wrap`ped.
 - `AddDeviceScreen` view-local logic that read `validating` (`showRegisterLoading`)
   now depends only on `ceremonyPending`.
@@ -243,9 +245,13 @@ In-app navigation (only `/activate` ↔ `/add-device`) goes through route `.go()
   call with `addDeviceRoute.go({ scan: '1' })`. For test isolation the screen
   exposes `onScan?: () => void` defaulting to `() => addDeviceRoute.go({ scan: '1' })`
   (replaces the old `navigate?: (path: string) => void` prop).
-- `AddDeviceScreen.closeScanner` (entered scanner directly): keep
-  `window.history.back()` (reatom's `urlAtom` listens to `popstate`); the fallback
-  `navigateInApp('/activate')` becomes `activateRoute.go({})`.
+- `AddDeviceScreen.closeScanner` (entered scanner directly): replace the
+  `window.history.back()` + `history.length` heuristic with a deterministic
+  `activateRoute.go({}, true)` (replace navigation). It always lands on `/activate`
+  and browser Back does not reopen the scanner — and it can't accidentally exit the
+  app the way `history.back()` could when `/add-device?scan=1` was opened directly
+  from an external QR link. The `enteredScanDirectly` branch stays (scanner opened
+  from `choose` still returns to `choose` via internal state).
 - `deps.navigate('/')` on success — **unchanged** (hard load to the board bundle).
 
 The `SCAN_PATH` string constant and the `navigate` prop plumbing are removed.
@@ -323,7 +329,7 @@ Reading `rootRoute.render()` reactively subscribes `App` to route changes; the
 | `src/ui/AddDeviceScreen.module.css` | drop shared shell classes; keep scanner + body |
 | `src/ui/ThemeTogglePill.tsx` | import own module |
 | `src/model/activation-model.ts` | `token` from loader; drop `readTokenFromLocation` |
-| `src/model/add-device-model.ts` | `token`/`scan` from loader; drop `validating`, location readers, `initialized` guard |
+| `src/model/add-device-model.ts` | rename factory → `makeAddDeviceModel`; `token`/`scan` from loader; drop `validating` + location readers (keep `initialized` guard) |
 | `src/model/activation-model.test.ts` | drop location-reader tests; token via arg |
 | `src/model/add-device-model.test.ts` | drop `validating`/location-reader tests |
 | `src/ui/AddDeviceScreen.test.tsx` | model via prop; deep-link/init tests → route/model level |
@@ -356,8 +362,11 @@ Full gate: `pnpm --filter client test`, `pnpm typecheck`, `pnpm lint`,
 `/add-device` (choose/manual/scan), `/add-device?scan=1`, `/add-device?token=CODE`,
 and back/forward navigation.
 
-## Optional cleanups (out of scope unless requested)
+## Decisions folded in
 
-- Rename `createAddDeviceModel` → `makeAddDeviceModel` to match the repo's
-  "prefer `make*` over `create*`" convention (touches its test file). Not part of
-  this change unless requested.
+- **Factory rename** `createAddDeviceModel` → `makeAddDeviceModel` is included
+  (repo `make*`-over-`create*` convention).
+- **`closeScanner`** uses `activateRoute.go({}, true)` (replace navigation) instead
+  of `window.history.back()` — deterministic and can't exit the app on a direct
+  external `/add-device?scan=1` open.
+- **`initialized` guard kept** (defensive; its idempotency test stays green).

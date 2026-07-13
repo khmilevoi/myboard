@@ -4,7 +4,7 @@
 
 **Goal:** Replace the activation SPA's hand-written router with Reatom's `reatomRoute`, using a `rootRoute` layout + `outlet()` for the shared card shell, route `loader`s to build/initialize page models, route `render` to mount screens, and zod `search` schemas for `token`/`scan`.
 
-**Architecture:** Four tasks. (1) Add the `RouteChild` type augmentation and extract the duplicated card chrome into a shared `Shell` + `LoadingCard`. (2) Render both screens as card *bodies* inside that `Shell`, still on the old router (low-risk CSS/structure dedup). (3) Swap the hand-written router for `reatomRoute` — routes, loaders, render, authoritative `token`/`scan` from search, screens receive the model by prop. (4) Delete the now-dead `validating` atom, whose role `loader.ready()` took over.
+**Architecture:** Five tasks. (1) Rename the add-device model factory to `make*`. (2) Add the `RouteChild` type augmentation and extract the duplicated card chrome into a shared `Shell` + `LoadingCard`. (3) Render both screens as card *bodies* inside that `Shell`, still on the old router (low-risk CSS/structure dedup). (4) Swap the hand-written router for `reatomRoute` — routes, loaders, render, authoritative `token`/`scan` from search, screens receive the model by prop. (5) Delete the now-dead `validating` atom, whose role `loader.ready()` took over.
 
 **Tech Stack:** `@reatom/core@1001.1.0` (`reatomRoute`, `urlAtom`, `RouteChild`), `@reatom/react` (`reatomMemo` via `widget-sdk`), `zod@^4.4.3`, React 19, Vite, Vitest + `@testing-library/react`, CSS modules.
 
@@ -23,7 +23,71 @@ All paths below are relative to `packages/client/activation/`.
 
 ---
 
-### Task 1: Shared shell + LoadingCard + RouteChild typing
+### Task 1: Rename `createAddDeviceModel` → `makeAddDeviceModel`
+
+Pure mechanical rename to satisfy the repo's "factories are `make*`, not `create*`" convention. No behavior change; the existing suite stays green. Done first so every later task references the new name.
+
+**Files:**
+- Modify: `src/model/add-device-model.ts` (the exported factory)
+- Modify: `src/model/add-device-model.test.ts` (import + all call sites)
+- Modify: `src/ui/AddDeviceScreen.tsx` (import + `useState` fallback)
+- Modify: `src/ui/AddDeviceScreen.test.tsx` (import + call site)
+
+**Interfaces:**
+- Produces: `makeAddDeviceModel(overrides?: Partial<AddDeviceDeps>): AddDeviceModel` — replaces `createAddDeviceModel`, identical signature. The `AddDeviceModel` type name is unchanged.
+
+- [ ] **Step 1: Rename the factory export**
+
+In `src/model/add-device-model.ts`, change:
+
+```tsx
+export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
+```
+
+to:
+
+```tsx
+export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
+```
+
+- [ ] **Step 2: Update every usage**
+
+Replace `createAddDeviceModel` with `makeAddDeviceModel` everywhere it appears in:
+- `src/model/add-device-model.test.ts` — the `import { createAddDeviceModel } from './add-device-model'` and every `createAddDeviceModel({ ... })` call.
+- `src/ui/AddDeviceScreen.tsx` — `import { type AddDeviceModel, createAddDeviceModel } from '../model/add-device-model'` and `useState(() => injectedModel ?? createAddDeviceModel())`.
+- `src/ui/AddDeviceScreen.test.tsx` — `import { createAddDeviceModel } from '../model/add-device-model'` and the `createAddDeviceModel({ ... })` call.
+
+Confirm none remain:
+
+Run: `rg -n "createAddDeviceModel" packages/client/activation`
+Expected: no matches.
+
+- [ ] **Step 3: Run the activation suite + typecheck**
+
+Run: `pnpm --filter client exec vitest run activation/src`
+Expected: PASS (pure rename; behavior unchanged).
+
+Run: `pnpm typecheck`
+Expected: PASS.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add packages/client/activation/src/model/add-device-model.ts \
+  packages/client/activation/src/model/add-device-model.test.ts \
+  packages/client/activation/src/ui/AddDeviceScreen.tsx \
+  packages/client/activation/src/ui/AddDeviceScreen.test.tsx
+git commit -m "$(cat <<'EOF'
+refactor(activation): rename createAddDeviceModel to makeAddDeviceModel
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+### Task 2: Shared shell + LoadingCard + RouteChild typing
 
 Additive only — nothing consumes the new pieces yet, so the suite stays green. Moves the duplicated card chrome and the theme-toggle styles into dedicated modules.
 
@@ -344,7 +408,7 @@ EOF
 
 ---
 
-### Task 2: Render screens as card bodies inside the shared Shell
+### Task 3: Render screens as card bodies inside the shared Shell
 
 Wrap the current pathname-branched output in `Shell`, and reduce both screens to card *bodies* (they stop emitting `.page` / `.card` / brand mark / theme toggle). Still on the hand-written router — no routing behavior changes. The theme toggle now appears on both screens (via `Shell`), an accepted change.
 
@@ -356,7 +420,7 @@ Wrap the current pathname-branched output in `Shell`, and reduce both screens to
 - Modify: `src/ui/AddDeviceScreen.module.css` (drop shared shell classes)
 
 **Interfaces:**
-- Consumes: `Shell` (Task 1), `shell.module.css` `.footerNote` (Task 1).
+- Consumes: `Shell` (Task 2), `shell.module.css` `.footerNote` (Task 2).
 - Produces: `ActivateScreen` / `AddDeviceScreen` render only card-body content (a fragment), no outer chrome. Props unchanged this task (`ActivateScreen` keeps `model` + `navigate`; `AddDeviceScreen` keeps `model`).
 
 - [ ] **Step 1: Wrap App output in `Shell`**
@@ -529,7 +593,7 @@ EOF
 
 ---
 
-### Task 3: Replace the hand-written router with reatomRouter
+### Task 4: Replace the hand-written router with reatomRouter
 
 Create the route tree, wire loaders/render, make `token`/`scan` authoritative from the route search, pass the model to each screen by prop, and delete the old router. This is the actual migration.
 
@@ -548,7 +612,7 @@ Create the route tree, wire loaders/render, make `token`/`scan` authoritative fr
 - Modify: `src/ui/ActivateScreen.test.tsx` (`navigate` → `onScan`)
 
 **Interfaces:**
-- Consumes: `makeActivationModel`, `ActivationModel` (`src/model/activation-model.ts`); `createAddDeviceModel`, `AddDeviceModel` (`src/model/add-device-model.ts`); `Shell`, `LoadingCard` (Task 1); `ActivateScreen`, `AddDeviceScreen` (Task 2).
+- Consumes: `makeActivationModel`, `ActivationModel` (`src/model/activation-model.ts`); `makeAddDeviceModel`, `AddDeviceModel` (`src/model/add-device-model.ts`); `Shell`, `LoadingCard` (Task 2); `ActivateScreen`, `AddDeviceScreen` (Task 3).
 - Produces:
   - `rootRoute` — layout route rendering `<Shell>{outlet}</Shell>`.
   - `activateRoute` — path `activate`, `search { token? }`, sync loader `{ model: ActivationModel }`.
@@ -578,7 +642,7 @@ In `src/model/activation-model.ts`:
 In `src/model/add-device-model.ts`:
 
 1. Delete the `readTokenFromLocation` and `readScanFromLocation` functions.
-2. In `createAddDeviceModel`, change:
+2. In `makeAddDeviceModel`, change:
 
    ```tsx
    token: overrides.token ?? readTokenFromLocation(),
@@ -643,7 +707,7 @@ In `src/ui/ActivateScreen.tsx`:
 
 In `src/ui/AddDeviceScreen.tsx`:
 
-1. Change imports: remove `import { navigateInApp } from '../model/router'`; remove `createAddDeviceModel` from the model import (keep the `AddDeviceModel` type); add `import { activateRoute } from '../model/routes'`. Remove `useEffect` from the React import (keep `useState`).
+1. Change imports: remove `import { navigateInApp } from '../model/router'`; remove `makeAddDeviceModel` from the model import (keep the `AddDeviceModel` type); add `import { activateRoute } from '../model/routes'`. Remove `useEffect` from the React import (keep `useState`).
 2. Change the prop type + signature. From:
 
    ```tsx
@@ -652,7 +716,7 @@ In `src/ui/AddDeviceScreen.tsx`:
    }
 
    export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: injectedModel }) => {
-     const [model] = useState(() => injectedModel ?? createAddDeviceModel())
+     const [model] = useState(() => injectedModel ?? makeAddDeviceModel())
    ```
 
    to:
@@ -673,16 +737,17 @@ In `src/ui/AddDeviceScreen.tsx`:
    }, [model])
    ```
 
-4. In `closeScanner`, replace the `navigateInApp('/activate')` fallback with `activateRoute.go({})`:
+4. In `closeScanner`, replace the whole `window.history.back()` / `history.length` block with a single deterministic `activateRoute.go({}, true)` (replace navigation — always lands on `/activate`, and browser Back does not reopen the scanner):
 
    ```tsx
    function closeScanner() {
      if (enteredScanDirectly) {
-       if (typeof window !== 'undefined' && window.history.length > 1) {
-         window.history.back()
-       } else {
-         activateRoute.go({})
-       }
+       // Deterministic: always return to the activation card, replacing the
+       // /add-device?scan=1 history entry (replace = true) so browser Back
+       // does not reopen the scanner. No window.history.back()/length
+       // heuristic -- that could exit the app when /add-device?scan=1 was
+       // opened directly from an external QR link (no /activate behind it).
+       activateRoute.go({}, true)
        return
      }
      goToChoose()
@@ -701,7 +766,7 @@ import { ActivateScreen } from '../ui/ActivateScreen'
 import { AddDeviceScreen } from '../ui/AddDeviceScreen'
 import { LoadingCard } from '../ui/LoadingCard'
 import { Shell } from '../ui/Shell'
-import { createAddDeviceModel } from './add-device-model'
+import { makeAddDeviceModel } from './add-device-model'
 import { makeActivationModel } from './activation-model'
 
 // Pathless layout: renders the shared card shell and composes the active page
@@ -740,7 +805,7 @@ export const addDeviceRoute = rootRoute.reatomRoute(
     path: 'add-device',
     search: z.object({ token: z.string().optional(), scan: z.literal('1').optional() }),
     async loader({ token, scan }) {
-      const model = createAddDeviceModel({ token: token ?? null, scan: scan === '1' })
+      const model = makeAddDeviceModel({ token: token ?? null, scan: scan === '1' })
       await model.init()
       return { model }
     },
@@ -942,7 +1007,7 @@ EOF
 
 ---
 
-### Task 4: Drop the `validating` atom (superseded by `loader.ready()`)
+### Task 5: Drop the `validating` atom (superseded by `loader.ready()`)
 
 `await model.init()` in the add-device loader means the screen only renders once validation is done, so `validating` is always false at render time. Remove it. The `initialized` re-entrancy guard in `init()` **stays** (defensive; its idempotency test stays green).
 
@@ -952,7 +1017,7 @@ EOF
 - Modify: `src/model/add-device-model.test.ts`
 
 **Interfaces:**
-- Consumes: `AddDeviceModel` (Task 3).
+- Consumes: `AddDeviceModel` (Task 4).
 - Produces: `AddDeviceModel` without the `validating: Atom<boolean>` member; `init()` no longer touches `validating`.
 
 - [ ] **Step 1: Remove the two `validating` tests**
@@ -985,7 +1050,7 @@ In `src/model/add-device-model.ts`:
    }, 'addDevice.init')
    ```
 
-4. Remove `validating` from the returned object at the end of `createAddDeviceModel`.
+4. Remove `validating` from the returned object at the end of `makeAddDeviceModel`.
 
 - [ ] **Step 4: Remove `validating` usage from `AddDeviceScreen`**
 
@@ -1052,4 +1117,4 @@ Verify each surface renders and the theme toggle is present on both:
 ## Notes / deviations from the spec
 
 - **`initialized` guard kept** (spec listed it for removal): it is defensive and its idempotency test stays green — removing it would break that test for no real benefit. Only `validating` is removed.
-- **`createAddDeviceModel` not renamed.** The spec flagged the `make*`-over-`create*` convention as an optional, out-of-scope cleanup; this plan leaves the name as-is.
+- **`closeScanner` uses `activateRoute.go({}, true)`** (replace navigation) instead of the spec's `window.history.back()` + `history.length` fallback — deterministic and can't accidentally exit the app when `/add-device?scan=1` was opened from an external link.
