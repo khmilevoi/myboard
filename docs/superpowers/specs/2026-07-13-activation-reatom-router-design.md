@@ -94,8 +94,10 @@ export const activateRoute = rootRoute.reatomRoute(
     path: 'activate',
     search: z.object({ token: z.string().optional() }),
     loader: ({ token }) => ({ model: makeActivationModel({ token: token ?? null }) }),
-    render: (self): RouteChild =>
-      self.loader.ready() ? <ActivateScreen model={self.loader.data().model} /> : <LoadingCard />,
+    render: (self): RouteChild => {
+      const data = self.loader.data()
+      return data ? <ActivateScreen model={data.model} /> : <LoadingCard />
+    },
   },
   'activateRoute',
 )
@@ -109,8 +111,10 @@ export const addDeviceRoute = rootRoute.reatomRoute(
       await model.init() // init() wraps its own awaits → loader's abort covers it
       return { model }
     },
-    render: (self): RouteChild =>
-      self.loader.ready() ? <AddDeviceScreen model={self.loader.data().model} /> : <LoadingCard />,
+    render: (self): RouteChild => {
+      const data = self.loader.data()
+      return data ? <AddDeviceScreen model={data.model} /> : <LoadingCard />
+    },
   },
   'addDeviceRoute',
 )
@@ -120,10 +124,13 @@ Notes:
 
 - `render` must return a `RouteChild` (never `null`): when a route is not
   matched/exact the framework itself yields `null` and does not call `render`. The
-  `!ready()` branch therefore returns a `<LoadingCard />` element, not `null`.
-- `activateRoute`'s loader is synchronous, so `ready()` is effectively immediate;
-  its `LoadingCard` branch is a type-satisfying fallback that does not visibly
-  render in practice.
+  fallback branch therefore returns a `<LoadingCard />` element, not `null`.
+- `loader.data()` is typed `Payload | undefined` (undefined until the first
+  successful load), so `render` narrows via the value (`const data = self.loader.data()`)
+  rather than `self.loader.ready()` — this also type-narrows `data.model`.
+- `activateRoute`'s loader is synchronous, so `data()` is populated almost
+  immediately; its `LoadingCard` branch is a type-satisfying fallback that does
+  not visibly render in practice.
 - No `effect` wrapper is needed: the add-device loader `await`s `init()`, so the
   loader's own async context is the abort scope (documented "loaders are
   automatically aborted on navigation"). There is no detached side-effect to
