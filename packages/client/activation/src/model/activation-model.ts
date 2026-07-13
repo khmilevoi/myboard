@@ -283,7 +283,9 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
     'activation.loading',
   )
 
-  const goHome = action(() => screen.set('home'), 'activation.goHome')
+  const goHome = action(() => {
+    screen.set('home')
+  }, 'activation.goHome')
 
   return { screen, loading, error, registrationForm, startRegistration, startLogin, goHome }
 }
