@@ -7,7 +7,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { ThemeMode } from '@/shared/theme/types'
 import { themeMode } from '@/theme/model/theme-model'
 
-import styles from './ActivateScreen.module.css'
+import styles from './ThemeTogglePill.module.css'
 
 // Pixel dimensions here (34x34 items, gap 3, padding 4) come straight from
 // Activate.dc.html and differ from the board host's own ThemeToggle, so this
