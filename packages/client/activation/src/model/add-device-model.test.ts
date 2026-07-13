@@ -83,6 +83,154 @@ describe('initial mode', () => {
   })
 })
 
+describe('init (auto-submit a code embedded in the activation link)', () => {
+  it('starts on registering and ignores scan=1 when a valid code is present in the URL', () => {
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      // scan=1 is explicitly requested but must be ignored: a present code wins,
+      // so we never open the camera.
+      scan: true,
+      http: makeScriptedHttp({}).http,
+    })
+
+    expect(model.mode()).toBe('registering')
+    expect(model.token()).toBe('K7QP3M9X')
+  })
+
+  it('flags validating while the URL code is being checked, then clears it', async () => {
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'c', user: { displayName: 'A' } } } },
+      ],
+    })
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      http,
+    })
+
+    // The button must be gated from first paint so a click can't race the
+    // background validation (which would otherwise revert a later 'waiting').
+    expect(model.validating()).toBe(true)
+
+    await model.init()
+
+    expect(model.validating()).toBe(false)
+  })
+
+  it('never flags validating when there is no URL code', () => {
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http: makeScriptedHttp({}).http,
+    })
+
+    expect(model.validating()).toBe(false)
+  })
+
+  it('auto-validates the URL code and lands on registering with the owner name', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        {
+          status: 200,
+          body: {
+            options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+          },
+        },
+      ],
+    })
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      http,
+    })
+
+    await model.init()
+
+    expect(model.token()).toBe('K7QP3M9X')
+    expect(model.mode()).toBe('registering')
+    expect(model.error()).toBeNull()
+    expect(model.ownerName()).toBe('Анна Ковалёва')
+    expect(calls.filter((c) => c.url === '/api/auth/devices/register/options')).toHaveLength(1)
+  })
+
+  it('falls back to manual entry with an error when the server rejects the URL code', async () => {
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
+    })
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      http,
+    })
+
+    await model.init()
+
+    expect(model.mode()).toBe('manual')
+    expect(model.error()).not.toBeNull()
+  })
+
+  it('is idempotent: a second init call (e.g. StrictMode double-invoke) does not re-fetch', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'c', user: { displayName: 'A' } } } },
+      ],
+    })
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      http,
+    })
+
+    await model.init()
+    await model.init()
+
+    expect(calls.filter((c) => c.url === '/api/auth/devices/register/options')).toHaveLength(1)
+  })
+
+  it('does nothing on init when the URL has no code, leaving the choose flow untouched', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http,
+    })
+
+    expect(model.mode()).toBe('choose')
+    await model.init()
+
+    expect(model.mode()).toBe('choose')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('keeps scanning on init when scan=1 is requested and there is no URL code', async () => {
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      scan: true,
+      http: makeScriptedHttp({}).http,
+    })
+
+    expect(model.mode()).toBe('scanning')
+    await model.init()
+
+    expect(model.mode()).toBe('scanning')
+  })
+
+  it('ignores a malformed (non-normalizable) URL code, keeping the choose flow', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'not-a-real-code',
+      http,
+    })
+
+    expect(model.mode()).toBe('choose')
+    await model.init()
+
+    expect(model.mode()).toBe('choose')
+    expect(calls).toHaveLength(0)
+  })
+})
+
 describe('submitManual', () => {
   it('sets an error and never calls fetch when the input is not a valid code', async () => {
     const { http, calls } = makeScriptedHttp({})

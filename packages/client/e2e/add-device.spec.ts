@@ -103,15 +103,14 @@ test('device B registers via a minted code, owner approves over SSE, device B cl
   await enableVirtualAuthenticator(pageB)
 
   const addDeviceB = new AddDeviceActivatePage(pageB)
+  // Open the activation link with the code already embedded: on mount the code
+  // is auto-applied and server-validated (no manual typing), landing straight
+  // on the "Создать passkey" step. The virtual authenticator can't run without
+  // a real gesture, so the passkey button is the only remaining tap. Waiting
+  // for that button (its label flips from the "Создаём passkey…" loading state)
+  // also guarantees the background validation has finished before we click.
   await addDeviceB.gotoAddDevice(code)
-  await addDeviceB.enterCode(code)
-  // Typing a code + "Продолжить" goes through `submitManual`, which -- unlike
-  // the scan path's `stageScannedCode` -- runs the WebAuthn ceremony inline
-  // as part of this same call (see add-device-model.ts's own doc comment on
-  // `submitManual`/`startRegistration`), so there is no separate "Создать
-  // passkey" click to make here: the click above already resolves through
-  // 'registering' straight into 'waiting'.
-  await addDeviceB.submitCode()
+  await addDeviceB.createPasskey()
   await expect(addDeviceB.waitingHeading).toBeVisible()
 
   // Device A's already-open "Добавить устройство" modal flips in place to
@@ -173,12 +172,12 @@ test('an invalid add-device code shows an error instead of registering', async (
   await enableVirtualAuthenticator(pageB)
 
   const addDeviceB = new AddDeviceActivatePage(pageB)
+  // Open a link carrying a bad code: it is auto-validated on mount and rejected
+  // by the server, dropping straight to manual entry with an error -- the
+  // passkey step is never reached, and no manual typing is needed to surface it.
   await addDeviceB.gotoAddDevice(NEVER_MINTED_CODE)
-  await addDeviceB.enterCode(NEVER_MINTED_CODE)
-  await addDeviceB.submitCode()
 
   await expect(addDeviceB.errorText).toBeVisible()
-  // Still on the manual/choose step, never reached the passkey ceremony.
   await expect(addDeviceB.createPasskeyButton).toHaveCount(0)
 
   await contextB.close()
@@ -201,7 +200,11 @@ test('a denied device shows "Запрос отклонён" on the joining devic
   await enableVirtualAuthenticator(pageB)
 
   const addDeviceB = new AddDeviceActivatePage(pageB)
-  await addDeviceB.gotoAddDevice(code)
+  // Manual-entry path (no code in the link): open the bare /add-device screen,
+  // type the code and continue. "Продолжить" runs the ceremony inline via
+  // submitManual, so this keeps coverage of hand-typed codes alongside the
+  // auto-applied-link path exercised by the happy-path test above.
+  await addDeviceB.gotoAddDevice()
   await addDeviceB.enterCode(code)
   await addDeviceB.submitCode()
   await expect(addDeviceB.waitingHeading).toBeVisible()

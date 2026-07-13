@@ -1,6 +1,6 @@
 import { AlertCircle, Camera, Check, Loader2, Lock, ShieldCheck, X } from 'lucide-react'
 import type { ClipboardEvent, KeyboardEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useZxing } from 'react-zxing'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
@@ -110,6 +110,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   const mode = model.mode()
   const error = model.error()
   const ownerName = model.ownerName()
+  const validating = model.validating()
   const [manualValue, setManualValue] = useState('')
   // Tracks whether the WebAuthn *ceremony itself* is currently in flight,
   // distinguishing panel 4(d1) "ready to create a passkey" from 4(d2)
@@ -125,6 +126,16 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   // /add-device?scan=1). Its close ✕ returns to the activation card; a scanner
   // entered from the add-device `choose` screen returns to `choose` instead.
   const [enteredScanDirectly] = useState(() => model.mode() === 'scanning')
+
+  // Auto-validate a code embedded in the activation link (/add-device?token=...)
+  // once on mount: `init` is a no-op unless the URL carried a valid code, and is
+  // idempotent so StrictMode's double-invoked mount effect is harmless. While it
+  // runs, `model.validating()` keeps the passkey button in its loading state
+  // (see `showRegisterLoading`), so the ceremony can't start before the code is
+  // confirmed.
+  useEffect(() => {
+    void model.init()
+  }, [model])
 
   function closeScanner() {
     if (enteredScanDirectly) {
@@ -197,7 +208,10 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
   }
 
   const isExpiredError = mode === 'manual' && error != null && error.toLowerCase().includes('истёк')
-  const showRegisterLoading = mode === 'registering' && ceremonyPending
+  // `validating` covers the auto-validation of a code from the activation link;
+  // `ceremonyPending` covers the passkey ceremony started by a click. Either
+  // keeps the button disabled + spinning on the 'registering' step.
+  const showRegisterLoading = mode === 'registering' && (ceremonyPending || validating)
   const showBrandMark = mode !== 'scanning'
 
   // Forces the "затухание + сдвиг на 10px, 320мс, var(--ease)" step

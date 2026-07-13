@@ -180,6 +180,12 @@ export interface AddDeviceModel {
   // "Добавить устройство в аккаунт «Имя»?" heading once we reach
   // 'registering'. Null before the first successful options fetch.
   ownerName: Atom<string | null>
+  // True from first paint through the end of `init` when the activation link
+  // carried a code (`/add-device?token=...`): the code is being server-validated
+  // in the background. The UI keeps the "Создать passkey" button in a disabled
+  // loading state while this is true, so a click can't race the validation and
+  // clobber a later 'waiting' mode. Always false when the URL has no code.
+  validating: Atom<boolean>
   extractAddCode: (text: string) => string | null
   submitManual: Action<[string], Promise<void>>
   // Validates a *scanned* code against the server without running the
@@ -191,6 +197,14 @@ export interface AddDeviceModel {
   stageScannedCode: Action<[string], Promise<void>>
   startRegistration: Action<[], Promise<void>>
   pollPendingStatus: Action<[], Promise<void>>
+  // Called once on mount. When the activation link already carries a code
+  // (`/add-device?token=...`), auto-validates it against the server and lands
+  // on 'registering' -- the same server-validation-only path as a scanned QR
+  // (`stageScannedCode`), stopping at the "Создать passkey" button because
+  // `navigator.credentials.create()` still needs a real user gesture. A no-op
+  // when the URL has no (valid) code. Idempotent, so React StrictMode's
+  // double-invoked mount effect can call it twice safely.
+  init: Action<[], Promise<void>>
 }
 
 export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddDeviceModel {
@@ -204,10 +218,20 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     startRegistrationCeremony: overrides.startRegistrationCeremony ?? browserStartRegistration,
   }
 
-  const token = atom<string | null>(deps.token, 'addDevice.token')
-  const mode = atom<AddDeviceMode>(deps.scan ? 'scanning' : 'choose', 'addDevice.mode')
+  // A code embedded in the activation link (`/add-device?token=...`). Normalized
+  // up front so both the initial `token`/`mode` and the auto-validation in `init`
+  // agree on the exact 8-char code. A present code overrides `scan=1`: we open
+  // straight into the code-registration path instead of the camera.
+  const urlCode = deps.token != null ? normalizeAddCode(deps.token) : null
+
+  const token = atom<string | null>(urlCode ?? deps.token, 'addDevice.token')
+  const mode = atom<AddDeviceMode>(
+    urlCode ? 'registering' : deps.scan ? 'scanning' : 'choose',
+    'addDevice.mode',
+  )
   const error = atom<string | null>(null, 'addDevice.error')
   const ownerName = atom<string | null>(null, 'addDevice.ownerName')
+  const validating = atom(Boolean(urlCode), 'addDevice.validating')
 
   let pollIntervalId: ReturnType<typeof window.setInterval> | undefined
   let pollTicks = 0
@@ -477,15 +501,35 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     await wrap(startRegistration())
   }, 'addDevice.submitManual')
 
+  // Guards against a double run: React StrictMode double-invokes the mount
+  // effect in dev, and we must validate the URL code exactly once (a second
+  // pass would consume a second register/options round-trip for nothing).
+  let initialized = false
+
+  const init = action(async () => {
+    if (initialized) return
+    initialized = true
+    if (!urlCode) return
+    // Reuse the QR path verbatim: server-validate the code, then land on
+    // 'registering' (initial `mode` already put us there, so a valid code shows
+    // no flash) -- or fall back to 'manual' with an error on rejection.
+    // `stageScannedCode` never throws (it maps failures to error/mode), so a
+    // single unconditional clear afterwards covers both outcomes.
+    await wrap(stageScannedCode(urlCode))
+    validating.set(false)
+  }, 'addDevice.init')
+
   return {
     token,
     mode,
     error,
     ownerName,
+    validating,
     extractAddCode,
     submitManual,
     stageScannedCode,
     startRegistration,
     pollPendingStatus,
+    init,
   }
 }
