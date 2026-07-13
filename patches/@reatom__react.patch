@@ -1,0 +1,13 @@
+diff --git a/dist/index.js b/dist/index.js
+index 72eb58d06c6dcd0314ad6c2897c4a062042662cf..64c18253b8660a34d990ed52cc0c59d69cfa83a4 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -59,7 +59,7 @@ let reatomComponent = (Component, options) => {
+ 			name,
+ 			abortOnUnmount
+ 		}), [frame, ...deps.map((dep) => props[dep])]);
+-		React.useEffect(mount, [mount, ...deps.map((dep) => props[dep])]);
++		React.useLayoutEffect(mount, [mount, ...deps.map((dep) => props[dep])]);
+ 		let { result } = render(props);
+ 		if (isSuspense(result)) {
+ 			if (React.use && result instanceof Promise) React.use(result);

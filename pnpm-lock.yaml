@@ -88,6 +88,11 @@ catalogs:
       specifier: ^4.4.3
       version: 4.4.3
 
+patchedDependencies:
+  '@reatom/react':
+    hash: d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9
+    path: patches/@reatom__react.patch
+
 importers:
 
   .:
@@ -173,7 +178,7 @@ importers:
         version: 1001.1.0
       '@reatom/react':
         specifier: 'catalog:'
-        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 1001.0.0(patch_hash=d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9)(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@simplewebauthn/browser':
         specifier: ^13.3.0
         version: 13.3.0
@@ -350,7 +355,7 @@ importers:
         version: 1001.1.0
       '@reatom/react':
         specifier: 'catalog:'
-        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 1001.0.0(patch_hash=d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9)(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       dexie:
         specifier: 'catalog:'
         version: 4.4.4
@@ -390,7 +395,7 @@ importers:
         version: 1001.1.0
       '@reatom/react':
         specifier: 'catalog:'
-        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 1001.0.0(patch_hash=d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9)(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
@@ -454,7 +459,7 @@ importers:
         version: 1001.1.0
       '@reatom/react':
         specifier: 'catalog:'
-        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 1001.0.0(patch_hash=d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9)(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       errore:
         specifier: 'catalog:'
         version: 0.14.1
@@ -509,7 +514,7 @@ importers:
         version: 1001.1.0
       '@reatom/react':
         specifier: 'catalog:'
-        version: 1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 1001.0.0(patch_hash=d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9)(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       errore:
         specifier: 'catalog:'
         version: 0.14.1
@@ -8545,7 +8550,7 @@ snapshots:
     optionalDependencies:
       idb-keyval: 6.2.5
 
-  '@reatom/react@1001.0.0(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@reatom/react@1001.0.0(patch_hash=d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9)(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@reatom/core': 1001.1.0
       react: 19.2.7
