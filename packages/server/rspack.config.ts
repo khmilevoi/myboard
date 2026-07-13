@@ -14,6 +14,7 @@ export default defineConfig({
     'scripts/revoke-invite': './scripts/revoke-invite.cli.ts',
     'scripts/revoke-account': './scripts/revoke-account.cli.ts',
     'scripts/mint-add-device-token': './scripts/mint-add-device-token.cli.ts',
+    'scripts/prune-invites': './scripts/prune-invites.cli.ts',
   },
   output: {
     path: path.resolve(import.meta.dirname, 'dist'),
