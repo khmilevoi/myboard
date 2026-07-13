@@ -52,8 +52,16 @@ service = "server"
 run = "node dist/scripts/revoke-device.cjs"
 service = "server"
 
+[commands.revoke-devices]
+run = "node dist/scripts/revoke-devices.cjs"
+service = "server"
+
 [commands.revoke-invite]
 run = "node dist/scripts/revoke-invite.cjs"
+service = "server"
+
+[commands.prune-invites]
+run = "node dist/scripts/prune-invites.cjs"
 service = "server"
 
 [commands.revoke-account]
