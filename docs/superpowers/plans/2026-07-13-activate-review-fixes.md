@@ -25,6 +25,7 @@
 ### Task 1: Server — atomic single-use consume via `GETDEL`
 
 **Files:**
+
 - Modify: `packages/server/src/storage/valkey.ts` (add `getdel` to `ValkeyOps` type + `buildOps`)
 - Modify: `packages/server/src/test/memory-ops.ts` (add `getdel` to the in-memory ops)
 - Modify: `packages/server/src/auth/records.ts` (add `getdelJson` helper)
@@ -32,6 +33,7 @@
 - Test: `packages/server/src/auth/pending-tickets.test.ts` (add a concurrent-consume case)
 
 **Interfaces:**
+
 - Consumes: existing `PendingTicketRecordSchema`, `pendingKey`, `parseCookies`, `PendingTicketInvalidError`.
 - Produces:
   - `ValkeyOps.getdel(key: string): Promise<string | null>`
@@ -43,27 +45,27 @@
 Append inside the existing `describe('consumePendingTicket', ...)` block in `packages/server/src/auth/pending-tickets.test.ts` (the helpers `makeOps`, `makeClock`, `makeConfig`, `cookieHeaderFor` already exist at the top of that file):
 
 ```ts
-  it('single-use under concurrency: two simultaneous consumes yield exactly one record', async () => {
-    const ops = makeOps()
-    const clock = makeClock(0)
-    const config = makeConfig()
+it('single-use under concurrency: two simultaneous consumes yield exactly one record', async () => {
+  const ops = makeOps()
+  const clock = makeClock(0)
+  const config = makeConfig()
 
-    const { cookie } = await issuePendingTicket(ops, config, clock.now, {
-      credentialId: 'cred-1',
-      accountId: 'acc-1',
-    })
-    const header = cookieHeaderFor(cookie)
-
-    const [a, b] = await Promise.all([
-      consumePendingTicket(ops, config, clock.now, header),
-      consumePendingTicket(ops, config, clock.now, header),
-    ])
-
-    const records = [a, b].filter((r) => !(r instanceof Error))
-    const invalid = [a, b].filter((r) => r instanceof PendingTicketInvalidError)
-    expect(records).toHaveLength(1)
-    expect(invalid).toHaveLength(1)
+  const { cookie } = await issuePendingTicket(ops, config, clock.now, {
+    credentialId: 'cred-1',
+    accountId: 'acc-1',
   })
+  const header = cookieHeaderFor(cookie)
+
+  const [a, b] = await Promise.all([
+    consumePendingTicket(ops, config, clock.now, header),
+    consumePendingTicket(ops, config, clock.now, header),
+  ])
+
+  const records = [a, b].filter((r) => !(r instanceof Error))
+  const invalid = [a, b].filter((r) => r instanceof PendingTicketInvalidError)
+  expect(records).toHaveLength(1)
+  expect(invalid).toHaveLength(1)
+})
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -193,10 +195,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task 2: Client — `scanReturn` atom + `closeScan` in routes
 
 **Files:**
+
 - Modify: `packages/client/activation/src/model/routes.tsx` (add `scanReturn`, `recordScanReturn`, `closeScan`)
 - Test: `packages/client/activation/src/model/routes.test.tsx` (add coverage)
 
 **Interfaces:**
+
 - Consumes: existing `activateRoute`, `addDeviceRoute`, and `urlAtom` from `@reatom/core`.
 - Produces:
   - `scanReturn: Atom<{ path: string } | null>` (named `activation.scanReturn`)
@@ -300,10 +304,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task 3: Client — wire scan entry/close to `scanReturn`
 
 **Files:**
+
 - Modify: `packages/client/activation/src/ui/ActivateScreen.tsx` (default `onScan` records the return target)
 - Modify: `packages/client/activation/src/ui/AddDeviceScreen.tsx` (`closeScanner` delegates to `closeScan`)
 
 **Interfaces:**
+
 - Consumes: `recordScanReturn`, `closeScan` (Task 2); existing `addDeviceRoute` (ActivateScreen).
 - Produces: nothing new. All three scan buttons funnel through `ActivateScreen`'s single `onScan` prop, so recording in the default handler covers home / activate / no-code.
 
@@ -338,18 +344,18 @@ import { closeScan } from '../model/routes'
 Replace the `closeScanner` function body (currently the `activateRoute.go({}, true); notify()` branch) with:
 
 ```tsx
-  function closeScanner() {
-    if (enteredScanDirectly) {
-      // Return to wherever the scanner was opened from (recorded in
-      // scanReturn), replacing the /add-device?scan=1 history entry so browser
-      // Back does not reopen the scanner. Falls back to the home card only for
-      // a true external deep-link with no in-app screen behind it.
-      closeScan()
-      notify()
-      return
-    }
-    goToChoose()
+function closeScanner() {
+  if (enteredScanDirectly) {
+    // Return to wherever the scanner was opened from (recorded in
+    // scanReturn), replacing the /add-device?scan=1 history entry so browser
+    // Back does not reopen the scanner. Falls back to the home card only for
+    // a true external deep-link with no in-app screen behind it.
+    closeScan()
+    notify()
+    return
   }
+  goToChoose()
+}
 ```
 
 - [ ] **Step 3: Typecheck + run the affected component suites**
@@ -374,11 +380,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task 4: Client — review the manual `notify()` calls
 
 **Files:**
+
 - Modify (conditionally): `packages/client/activation/src/ui/ActivateScreen.tsx`, `packages/client/activation/src/ui/AddDeviceScreen.tsx`
 
 **Interfaces:** none changed. This is an investigation with a deterministic decision rule, not a predetermined edit.
 
-**Background:** The kept `@reatom/react` patch (finding #3) fixed subscription timing at *mount*. The hand-placed `notify()` after `set()` / `route.go()` in raw DOM handlers addresses a different concern (synchronous flush after a write made outside `useAction`), so the default expectation is that they stay. The call sites are: `ActivateScreen` default `onScan` (line ~42), `ActivateScreen.goHome` (line ~61), and `AddDeviceScreen.closeScanner` (from Task 3).
+**Background:** The kept `@reatom/react` patch (finding #3) fixed subscription timing at _mount_. The hand-placed `notify()` after `set()` / `route.go()` in raw DOM handlers addresses a different concern (synchronous flush after a write made outside `useAction`), so the default expectation is that they stay. The call sites are: `ActivateScreen` default `onScan` (line ~42), `ActivateScreen.goHome` (line ~61), and `AddDeviceScreen.closeScanner` (from Task 3).
 
 - [ ] **Step 1: Remove the three `notify()` calls and drop the now-unused import**
 
@@ -388,15 +395,17 @@ In `ActivateScreen.tsx`, remove `notify()` from both `onScan` and `goHome`. In `
 
 Run: `pnpm --filter client exec vitest run activation/src/ui/ActivateScreen.test.tsx activation/src/App.test.tsx activation/src/model/routes.test.tsx`
 Expected: one of two outcomes —
-  - **All green** → the `notify()` calls were redundant. Keep them removed. Proceed to Step 3 to confirm the real-browser transition, then commit.
-  - **A test fails** on a synchronous assertion after a screen switch / navigation (e.g. a heading not yet swapped) → the flush is still required. Revert this task's edits (`rtk git checkout -- packages/client/activation/src/ui/ActivateScreen.tsx packages/client/activation/src/ui/AddDeviceScreen.tsx`), leaving the `notify()` calls in place, and record the finding in the commit-or-skip note below. This task then makes no code change.
+
+- **All green** → the `notify()` calls were redundant. Keep them removed. Proceed to Step 3 to confirm the real-browser transition, then commit.
+- **A test fails** on a synchronous assertion after a screen switch / navigation (e.g. a heading not yet swapped) → the flush is still required. Revert this task's edits (`rtk git checkout -- packages/client/activation/src/ui/ActivateScreen.tsx packages/client/activation/src/ui/AddDeviceScreen.tsx`), leaving the `notify()` calls in place, and record the finding in the commit-or-skip note below. This task then makes no code change.
 
 - [ ] **Step 3: Real-browser smoke (only if Step 2 was all-green)**
 
 Use the `run` (or `verify`) skill to launch the activation app (`pnpm dev`, open the `/activate/` dev URL) and confirm each in-place transition still happens without a visible one-frame lag:
+
 - ACTIVATE cross-link "Уже активировано? Войти с passkey" → HOME switches immediately.
 - HOME/ACTIVATE "Сканировать QR-код" → scanner opens; ✕ returns to the origin screen immediately.
-If any transition visibly lags or fails, treat as the "flush still required" outcome: revert (as in Step 2) and make no code change.
+  If any transition visibly lags or fails, treat as the "flush still required" outcome: revert (as in Step 2) and make no code change.
 
 - [ ] **Step 4: Commit (only if `notify()` was actually removed)**
 
@@ -450,6 +459,7 @@ Expected: the diff includes the atomic `GETDEL` consume, the `scanReturn`/`close
 ## Self-Review
 
 **Spec coverage:**
+
 - #2 (invite token lost on scanner close) → Tasks 2–3 (in-memory `scanReturn` / `closeScan`, wired into all scan entry points and the close ✕). ✅
 - #4 (cross-instance double-mint) → Task 1 (`GETDEL` atomic consume, `runExclusive` removed). ✅
 - #5 (manual `notify()` review) → Task 4 (deterministic remove-or-keep with test + browser verification). ✅
