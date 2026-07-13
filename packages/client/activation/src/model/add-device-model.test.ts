@@ -225,7 +225,7 @@ describe('startRegistration ceremony/verify failures', () => {
 })
 
 describe('registration + polling flow', () => {
-  it('goes registering -> waiting -> done, logs in, and navigates on approval', async () => {
+  it('goes registering -> waiting -> done, claims a session, and navigates on approval', async () => {
     vi.useFakeTimers()
 
     const { http, calls } = makeScriptedHttp({
@@ -237,13 +237,11 @@ describe('registration + polling flow', () => {
         { status: 200, body: { status: 'pending' } },
         { status: 200, body: { status: 'approved' } },
       ],
-      '/api/auth/login/options': [
-        { status: 200, body: { options: { challenge: 'login-challenge' } } },
+      '/api/auth/devices/claim-session': [
+        { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
       ],
-      '/api/auth/login/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
     })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b', rawId: 'raw' })
-    const startAuthenticationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
     const navigate = vi.fn()
     const storage = createStorage()
 
@@ -251,7 +249,6 @@ describe('registration + polling flow', () => {
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
-      startAuthenticationCeremony,
       navigate,
       storage,
     })
@@ -259,41 +256,27 @@ describe('registration + polling flow', () => {
     await model.submitManual('K7QP-3M9X')
 
     expect(model.token()).toBe('K7QP3M9X')
-    expect(calls[0]).toEqual({
-      method: 'POST',
-      url: '/api/auth/devices/register/options',
-      json: { token: 'K7QP3M9X' },
-    })
     expect(startRegistrationCeremony).toHaveBeenCalledWith({
       optionsJSON: { challenge: 'add-device-challenge' },
-    })
-    expect(calls[1]).toEqual({
-      method: 'POST',
-      url: '/api/auth/devices/register/verify',
-      json: { token: 'K7QP3M9X', attestationResponse: { id: 'cred-b', rawId: 'raw' } },
     })
     expect(model.mode()).toBe('waiting')
 
     // First poll tick: still pending.
     await vi.advanceTimersByTimeAsync(2_000)
-    expect(calls[2]).toEqual({
-      method: 'GET',
-      url: '/api/auth/devices/pending-status',
-      json: undefined,
-    })
     expect(model.mode()).toBe('waiting')
 
-    // Second poll tick: approved -> runs a normal login, then navigates.
+    // Second poll tick: approved -> claim-session mints the session, then navigate.
     await vi.advanceTimersByTimeAsync(2_000)
 
-    expect(calls[4]).toEqual({
+    const claimCall = calls.find((c) => c.url === '/api/auth/devices/claim-session')
+    expect(claimCall).toEqual({
       method: 'POST',
-      url: '/api/auth/login/options',
-      json: { credentialIdHint: 'cred-b' },
+      url: '/api/auth/devices/claim-session',
+      json: undefined,
     })
-    expect(startAuthenticationCeremony).toHaveBeenCalledWith({
-      optionsJSON: { challenge: 'login-challenge' },
-    })
+    // No second WebAuthn ceremony: the login endpoints are never touched.
+    expect(calls.some((c) => c.url === '/api/auth/login/options')).toBe(false)
+    expect(calls.some((c) => c.url === '/api/auth/login/verify')).toBe(false)
     expect(storage.set).toHaveBeenCalledWith('cred-b')
     expect(model.mode()).toBe('done')
     expect(navigate).toHaveBeenCalledWith('/')
@@ -302,6 +285,78 @@ describe('registration + polling flow', () => {
     const callsAfterDone = calls.length
     await vi.advanceTimersByTimeAsync(10_000)
     expect(calls.length).toBe(callsAfterDone)
+  })
+
+  it('keeps waiting and surfaces an error when the claim fails, then resumes polling', async () => {
+    vi.useFakeTimers()
+
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+      ],
+      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+      // First poll: approved -> claim fails (500). Later poll: pending again.
+      '/api/auth/devices/pending-status': [
+        { status: 200, body: { status: 'approved' } },
+        { status: 200, body: { status: 'pending' } },
+      ],
+      '/api/auth/devices/claim-session': [{ status: 500, body: {} }],
+    })
+    const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
+    const navigate = vi.fn()
+
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http,
+      startRegistrationCeremony,
+      navigate,
+      storage: createStorage(),
+    })
+
+    await model.submitManual('K7QP-3M9X')
+    expect(model.mode()).toBe('waiting')
+
+    // Approved poll -> claim 500 -> stay on waiting with an error, do not navigate.
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(model.mode()).toBe('waiting')
+    expect(model.error()).not.toBeNull()
+    expect(navigate).not.toHaveBeenCalled()
+
+    // Polling resumed: the next (pending) tick recovers and clears the error.
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(model.mode()).toBe('waiting')
+    expect(model.error()).toBeNull()
+  })
+
+  it('single-flights the claim so two overlapping approved polls claim at most once', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/pending-status': [
+        { status: 200, body: { status: 'approved' } },
+        { status: 200, body: { status: 'approved' } },
+      ],
+      '/api/auth/devices/claim-session': [
+        { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
+      ],
+    })
+    const navigate = vi.fn()
+    const storage = createStorage()
+
+    const model = createAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http,
+      navigate,
+      storage,
+    })
+    model.mode.set('waiting')
+
+    // Two poll passes fired concurrently (models a slow GET overlapping the next
+    // tick): both see 'approved', but the single-flight guard admits one claim.
+    await Promise.all([model.pollPendingStatus(), model.pollPendingStatus()])
+
+    const claimCalls = calls.filter((c) => c.url === '/api/auth/devices/claim-session')
+    expect(claimCalls).toHaveLength(1)
+    expect(storage.set).toHaveBeenCalledWith('cred-b')
+    expect(navigate).toHaveBeenCalledWith('/')
   })
 
   it('transitions to rejected when a poll reports the device was denied', async () => {

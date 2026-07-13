@@ -1,14 +1,8 @@
 import { action, type Action, atom, type Atom, wrap } from '@reatom/core'
 import { HttpClient, type HttpLike } from '@shared/http/client'
 import type { Navigate } from '@shared/navigation'
-import type {
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-} from '@simplewebauthn/browser'
-import {
-  startAuthentication as browserStartAuthentication,
-  startRegistration as browserStartRegistration,
-} from '@simplewebauthn/browser'
+import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser'
+import { startRegistration as browserStartRegistration } from '@simplewebauthn/browser'
 import * as errore from 'errore'
 
 // Duplicated from packages/client/activation/src/model/activation-model.ts's own
@@ -55,12 +49,10 @@ export interface AddDeviceDeps {
   navigate: Navigate
   storage: AddDeviceStorage
   http: HttpLike
-  // Matches the real @simplewebauthn/browser signatures exactly (both take a
-  // single `{ optionsJSON }` object), mirroring activation-model.ts's
-  // ActivationDeps so a test double stays call-compatible with the real
-  // ceremony.
+  // Matches the real @simplewebauthn/browser signature exactly (takes a single
+  // `{ optionsJSON }` object), mirroring activation-model.ts's ActivationDeps so
+  // a test double stays call-compatible with the real ceremony.
   startRegistrationCeremony: typeof browserStartRegistration
-  startAuthenticationCeremony: typeof browserStartAuthentication
 }
 
 function readTokenFromLocation(): string | null {
@@ -95,6 +87,11 @@ function defaultStorage(): AddDeviceStorage {
 }
 
 type JsonResult = { status: number; body: Record<string, unknown> }
+
+type ClaimOutcome =
+  | { status: 'approved'; credentialId: string }
+  | { status: 'pending' }
+  | { status: 'denied' }
 
 // Mirrors activation-model.ts's own `postJson` helper, generalized to also
 // support the GET used by pending-status polling. Deliberately a plain
@@ -205,8 +202,6 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     storage: overrides.storage ?? defaultStorage(),
     http: overrides.http ?? new HttpClient(),
     startRegistrationCeremony: overrides.startRegistrationCeremony ?? browserStartRegistration,
-    startAuthenticationCeremony:
-      overrides.startAuthenticationCeremony ?? browserStartAuthentication,
   }
 
   const token = atom<string | null>(deps.token, 'addDevice.token')
@@ -214,13 +209,12 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
   const error = atom<string | null>(null, 'addDevice.error')
   const ownerName = atom<string | null>(null, 'addDevice.ownerName')
 
-  // The just-registered device's own credentialId, captured after a
-  // successful register/verify -- used as the login hint once the owner
-  // approves it. Plain closure state (not exposed/reactive), same idiom as
-  // account/model/add-device-model.ts's `generation`/`lastPendingCredentialId`.
-  let registeredCredentialId: string | null = null
   let pollIntervalId: ReturnType<typeof window.setInterval> | undefined
   let pollTicks = 0
+  // Single-flight guard: with the post-approval ceremony gone, an overlapping
+  // duplicate claim is already harmless, but this also stops a second claim from
+  // hitting an already-consumed (single-use) ticket.
+  let claiming = false
 
   function stopPolling(): void {
     if (pollIntervalId !== undefined) {
@@ -234,51 +228,32 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
     return extractAddCodeFrom(text, deps.currentOrigin)
   }
 
-  // A single normal login attempt (options -> ceremony -> verify), run once
-  // the owner approves this device -- the pending ticket issued at
-  // register/verify only proves *this* device was allowed to keep polling,
-  // it is not itself a session cookie. Mirrors activation-model.ts's own
-  // `attemptLogin` shape (a plain async helper, not a reatom action itself;
-  // each of its own awaited external promises is still individually
-  // `wrap()`ed, matching that file's convention).
-  async function completeLoginAfterApproval(
-    hint: string | null,
-  ): Promise<AddDeviceError | { credentialId: string }> {
-    const optionsResult = await wrap(
-      postJson(deps.http, '/api/auth/login/options', hint ? { credentialIdHint: hint } : {}),
-    )
-    if (optionsResult instanceof Error) return optionsResult
-    if (optionsResult.status !== 200) {
-      return new AddDeviceError({
-        reason: `не удалось получить параметры входа (код ${optionsResult.status})`,
-      })
+  // Claims the joining device's session once the owner approves it: a single
+  // POST authenticated by the pending-ticket cookie. No WebAuthn assertion and
+  // no authenticator credential selection — the server already holds everything
+  // needed to mint the session (valid pending ticket + device now active). A
+  // plain async helper (not a reatom action); its awaited fetch is wrap()ed
+  // internally and the caller wrap()s the whole call, matching this file's
+  // convention.
+  async function claimSession(): Promise<AddDeviceError | ClaimOutcome> {
+    const result = await wrap(postJson(deps.http, '/api/auth/devices/claim-session', undefined))
+    if (result instanceof Error) return result
+    if (result.status !== 200) {
+      return new AddDeviceError({ reason: `не удалось получить сессию (код ${result.status})` })
     }
 
-    const { options } = optionsResult.body as { options: PublicKeyCredentialRequestOptionsJSON }
-
-    // `.catch()` chains onto the raw ceremony promise BEFORE it's passed to
-    // `wrap(...)`, not onto `wrap(...)`'s result -- chaining after `wrap()`
-    // would run the catch continuation (and everything awaited after it)
-    // outside the action's own reatom frame.
-    const authenticationResponse = await wrap(
-      deps
-        .startAuthenticationCeremony({ optionsJSON: options })
-        .catch((cause) => new AddDeviceError({ reason: 'сбой процедуры входа', cause })),
-    )
-    if (authenticationResponse instanceof Error) return authenticationResponse
-
-    const verifyResult = await wrap(
-      postJson(deps.http, '/api/auth/login/verify', { authenticationResponse }),
-    )
-    if (verifyResult instanceof Error) return verifyResult
-    if (verifyResult.status !== 200) {
-      return new AddDeviceError({
-        reason: `не удалось подтвердить вход (код ${verifyResult.status})`,
-      })
+    const body = result.body as {
+      status?: 'approved' | 'pending' | 'denied'
+      credentialId?: string
     }
-
-    const { credentialId } = verifyResult.body as { credentialId: string }
-    return { credentialId }
+    if (body.status === 'approved') {
+      if (!body.credentialId) {
+        return new AddDeviceError({ reason: 'сервер не вернул идентификатор устройства' })
+      }
+      return { status: 'approved', credentialId: body.credentialId }
+    }
+    if (body.status === 'denied') return { status: 'denied' }
+    return { status: 'pending' }
   }
 
   const pollPendingStatus = action(async () => {
@@ -292,10 +267,10 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
       return
     }
 
-    // A successful response clears any stale error left behind by an
-    // earlier transient failure (mirrors `startRegistration`/`submitManual`
-    // clearing `error` at entry) -- otherwise a one-off network blip's error
-    // message would stay on screen indefinitely even after polling recovers.
+    // A successful response clears any stale error left behind by an earlier
+    // transient failure (mirrors startRegistration/submitManual clearing `error`
+    // at entry) -- otherwise a one-off blip's message would linger after
+    // polling recovers.
     error.set(null)
 
     const { status } = result.body as { status: 'approved' | 'pending' | 'denied' }
@@ -308,15 +283,37 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
       return
     }
 
-    const loginResult = await wrap(
-      completeLoginAfterApproval(registeredCredentialId ?? deps.storage.get()),
-    )
-    if (loginResult instanceof Error) {
-      error.set(loginResult.message)
+    // status === 'approved': mint the session with one server round-trip. The
+    // single-flight guard means two overlapping approved polls (a GET slower
+    // than the 2s interval) claim at most once.
+    if (claiming) return
+    claiming = true
+
+    const claim = await wrap(claimSession())
+    if (claim instanceof Error) {
+      claiming = false
+      error.set(claim.message)
+      // Retry affordance: resume polling so a later approved tick re-attempts
+      // the claim (the single-use ticket is untouched on a failed claim).
+      beginPolling()
       return
     }
 
-    deps.storage.set(loginResult.credentialId)
+    if (claim.status === 'denied') {
+      mode.set('rejected')
+      return
+    }
+
+    if (claim.status === 'pending') {
+      // Defensive: an `approved` poll should not see the device un-approved on
+      // the claim. Resume polling rather than get stuck.
+      claiming = false
+      beginPolling()
+      return
+    }
+
+    // claim.status === 'approved'
+    deps.storage.set(claim.credentialId)
     mode.set('done')
     deps.navigate('/')
   }, 'addDevice.pollPendingStatus')
@@ -461,8 +458,6 @@ export function createAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): Ad
       return
     }
 
-    const { credentialId } = verifyResult.body as { credentialId: string }
-    registeredCredentialId = credentialId
     mode.set('waiting')
     beginPolling()
   }, 'addDevice.startRegistration')
