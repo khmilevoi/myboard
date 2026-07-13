@@ -6,6 +6,7 @@ import {
   type PendingTicketRecord,
   PendingTicketRecordSchema,
   getJson,
+  getdelJson,
   pendingKey,
   setJson,
 } from './records'
@@ -46,6 +47,27 @@ export async function readPendingTicket(
   const ticketId = parseCookies(cookieHeader)[config.pendingCookieName]
   if (!ticketId) return new PendingTicketInvalidError()
   const record = await getJson(ops, pendingKey(ticketId), PendingTicketRecordSchema)
+  if (record instanceof Error) return record
+  if (record === null || now() >= record.expiresAt) return new PendingTicketInvalidError()
+  return record
+}
+
+// Atomic, single-use claim of a pending ticket via Valkey GETDEL: the
+// get-and-delete is one atomic server-side op, so two concurrent claims (two
+// overlapping "approved" polls from the same device) can never both consume it
+// — even across separate server instances. The loser's GETDEL finds the key
+// already gone and returns PendingTicketInvalidError. readPendingTicket stays
+// the non-consuming peek used by the status check.
+export async function consumePendingTicket(
+  ops: ValkeyOps,
+  config: AuthConfig,
+  now: () => number,
+  cookieHeader: string | undefined,
+): Promise<PendingTicketRecord | PendingTicketInvalidError | Error> {
+  const ticketId = parseCookies(cookieHeader)[config.pendingCookieName]
+  if (!ticketId) return new PendingTicketInvalidError()
+
+  const record = await getdelJson(ops, pendingKey(ticketId), PendingTicketRecordSchema)
   if (record instanceof Error) return record
   if (record === null || now() >= record.expiresAt) return new PendingTicketInvalidError()
   return record

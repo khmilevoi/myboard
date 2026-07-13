@@ -193,3 +193,35 @@ export async function listAllInvites(ops: ValkeyOps): Promise<InviteRecord[]> {
   }
   return records
 }
+
+export type InvitePruneResult = {
+  pruned: Array<{ id: string; status: InviteStatus }>
+  kept: number
+}
+
+/** Ops-script path: deletes invites whose status is no longer 'active'. */
+export async function pruneInvites(
+  ops: ValkeyOps,
+  now: () => number,
+  { dryRun = false }: { dryRun?: boolean } = {},
+): Promise<InvitePruneResult> {
+  const keys = await ops.scanKeys(INVITE_KEY_PREFIX)
+  const pruned: Array<{ id: string; status: InviteStatus }> = []
+  let kept = 0
+
+  for (const key of keys) {
+    const record = await getJson(ops, key, InviteRecordSchema)
+    if (record instanceof Error || record === null) continue
+
+    const status = inviteStatus(record, now)
+    if (status === 'active') {
+      kept++
+      continue
+    }
+
+    pruned.push({ id: record.id, status })
+    if (!dryRun) await ops.del(key)
+  }
+
+  return { pruned, kept }
+}

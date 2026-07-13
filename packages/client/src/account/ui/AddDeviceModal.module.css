@@ -44,7 +44,7 @@
 
 .heading {
   margin: 8px 0 0;
-  font: 700 22px/1.25 'Hanken Grotesk';
+  font: 700 22px/1.25 var(--font-sans);
   letter-spacing: -0.01em;
   color: var(--foreground);
   text-align: center;
@@ -58,7 +58,7 @@
 
 .description {
   margin: 10px 0 0;
-  font: 400 15px/1.5 'Hanken Grotesk';
+  font: 400 15px/1.5 var(--font-sans);
   color: var(--muted-foreground);
   text-wrap: pretty;
 }
@@ -92,7 +92,7 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  font: 600 15px 'Hanken Grotesk';
+  font: 600 15px var(--font-sans);
   color: var(--primary-foreground);
   background: var(--primary);
   border: none;
@@ -143,7 +143,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font: 600 14px 'Hanken Grotesk';
+  font: 600 14px var(--font-sans);
   color: var(--foreground);
   background: transparent;
   border: 1px solid var(--border);
@@ -155,7 +155,7 @@
 }
 .countdown {
   margin-top: 14px;
-  font: 500 12.5px 'Hanken Grotesk';
+  font: 500 12.5px var(--font-sans);
   color: var(--muted-foreground);
 }
 
@@ -184,7 +184,7 @@
   box-shadow: var(--shadow-card);
 }
 .approvalLabel {
-  font: 600 14px 'Hanken Grotesk';
+  font: 600 14px var(--font-sans);
   color: var(--foreground);
 }
 .approvalActions {
@@ -196,7 +196,7 @@
 .approveButton {
   flex: 1;
   height: 46px;
-  font: 600 14px 'Hanken Grotesk';
+  font: 600 14px var(--font-sans);
   border-radius: 13px;
   cursor: pointer;
 }
@@ -242,7 +242,7 @@
   background: var(--destructive-soft);
   border: 1px solid var(--destructive);
   border-radius: 12px;
-  font: 500 13px/1.45 'Hanken Grotesk';
+  font: 500 13px/1.45 var(--font-sans);
   color: var(--destructive);
 }
 .errorIcon {

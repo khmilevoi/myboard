@@ -4,6 +4,7 @@ export type ValkeyOps = {
   get(key: string): Promise<string | null>
   set(key: string, value: string, ttlMs?: number): Promise<void>
   del(key: string): Promise<void>
+  getdel(key: string): Promise<string | null>
   scanKeys(matchPrefix: string): Promise<string[]>
   publish(channel: string, message: string): Promise<void>
 }
@@ -19,6 +20,9 @@ function buildOps(client: Valkey): ValkeyOps {
     },
     async del(key) {
       await client.del(key)
+    },
+    async getdel(key) {
+      return client.getdel(key)
     },
     async scanKeys(matchPrefix) {
       const escaped = matchPrefix.replace(/[*?[\]\\]/g, '\\$&')

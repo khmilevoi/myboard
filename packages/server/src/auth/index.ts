@@ -13,6 +13,7 @@ import {
   postAddToken,
   postAddTokenOptions,
   postApproveDevice,
+  postClaimSession,
   postDenyDevice,
   postDeviceRegisterOptions,
   postDeviceRegisterVerify,
@@ -133,6 +134,14 @@ export function registerAuthRoutes(deps: RegisterAuthRoutesDeps): void {
     '/api/auth/devices/pending-status',
     async (req: IncomingMessage, res: ServerResponse) => {
       sendAuth(res, await getPendingStatus(authDeps, req))
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/auth/devices/claim-session',
+    async (req: IncomingMessage, res: ServerResponse) => {
+      sendAuth(res, await postClaimSession(authDeps, req))
     },
   )
 

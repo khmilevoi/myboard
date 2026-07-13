@@ -16,6 +16,7 @@ function mockOps(overrides: Partial<ValkeyOps> = {}): ValkeyOps {
     get: vi.fn(async () => null),
     set: vi.fn(async () => {}),
     del: vi.fn(async () => {}),
+    getdel: vi.fn(async () => null),
     scanKeys: vi.fn(async () => []),
     publish: vi.fn(async () => {}),
     ...overrides,

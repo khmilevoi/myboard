@@ -11,6 +11,7 @@ import {
   consumeInvite,
   createInvite,
   lookupInvite,
+  pruneInvites,
   recordInviteFailure,
   releaseInvite,
   revokeInviteById,
@@ -267,5 +268,72 @@ describe('revokeInviteById', () => {
   it('returns false when no invite has that id', async () => {
     const ops = makeOps()
     expect(await revokeInviteById(ops, 'missing')).toBe(false)
+  })
+})
+
+describe('pruneInvites', () => {
+  it('deletes expired, consumed, and locked invites but keeps active ones', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+
+    const { record: activeRecord } = await createInvite(ops, clock.now, { ttlMs: 60_000 })
+
+    const { token: consumedToken, record: consumedRecord } = await createInvite(ops, clock.now, {
+      ttlMs: 60_000,
+      maxUses: 1,
+    })
+    await consumeInvite(ops, clock.now, consumedToken)
+
+    const { token: lockedToken, record: lockedRecord } = await createInvite(ops, clock.now, {
+      ttlMs: 60_000,
+    })
+    for (let i = 0; i < 10; i++) {
+      await recordInviteFailure(ops, clock.now, lockedToken)
+    }
+
+    // ttlMs 1_000 means expiresAt = 2_000; the fake store never purges on its
+    // own TTL (see the recordInviteFailure tests above), so this stays present
+    // past its application-level expiry for pruneInvites to find.
+    const { record: expiredRecord } = await createInvite(ops, clock.now, { ttlMs: 1_000 })
+
+    clock.set(5_000)
+    const result = await pruneInvites(ops, clock.now)
+
+    const prunedIds = result.pruned.map((p) => p.id).sort()
+    expect(prunedIds).toEqual([consumedRecord.id, expiredRecord.id, lockedRecord.id].sort())
+    expect(result.pruned.find((p) => p.id === consumedRecord.id)?.status).toBe('consumed')
+    expect(result.pruned.find((p) => p.id === lockedRecord.id)?.status).toBe('locked')
+    expect(result.pruned.find((p) => p.id === expiredRecord.id)?.status).toBe('expired')
+    expect(result.kept).toBe(1)
+
+    expect(await lookupInvite(ops, clock.now, consumedToken)).toBeInstanceOf(Error)
+    expect(await lookupInvite(ops, clock.now, lockedToken)).toBeInstanceOf(Error)
+    const remaining = await ops.scanKeys('invite:')
+    expect(remaining).toHaveLength(1)
+    void activeRecord
+  })
+
+  it('dry-run reports prunable invites without deleting them', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    const { token, record } = await createInvite(ops, clock.now, { ttlMs: 60_000, maxUses: 1 })
+    await consumeInvite(ops, clock.now, token)
+
+    const result = await pruneInvites(ops, clock.now, { dryRun: true })
+
+    expect(result).toEqual({ pruned: [{ id: record.id, status: 'consumed' }], kept: 0 })
+    const remaining = await ops.scanKeys('invite:')
+    expect(remaining).toHaveLength(1)
+  })
+
+  it('returns an empty prune list and correct kept count on an all-active store', async () => {
+    const ops = makeOps()
+    const clock = makeClock(1_000)
+    await createInvite(ops, clock.now, { ttlMs: 60_000 })
+    await createInvite(ops, clock.now, { ttlMs: 60_000 })
+
+    const result = await pruneInvites(ops, clock.now)
+
+    expect(result).toEqual({ pruned: [], kept: 2 })
   })
 })

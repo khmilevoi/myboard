@@ -40,6 +40,11 @@ export function createMemoryOps(pubsub: MemoryPubSub): MemoryOps {
     async del(key) {
       store.delete(key)
     },
+    async getdel(key) {
+      const value = store.has(key) ? (store.get(key) as string) : null
+      store.delete(key)
+      return value
+    },
     async scanKeys(matchPrefix) {
       return [...store.keys()].filter((key) => key.startsWith(matchPrefix))
     },

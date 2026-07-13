@@ -1,3 +1,4 @@
+import { notify } from '@reatom/core'
 import { AlertCircle, Camera, Check, Loader2, Lock, ShieldCheck, X } from 'lucide-react'
 import type { ClipboardEvent, KeyboardEvent } from 'react'
 import { useState } from 'react'
@@ -7,16 +8,14 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { type AddDeviceModel, createAddDeviceModel } from '../model/add-device-model'
+import { type AddDeviceModel } from '../model/add-device-model'
+import { activateRoute, closeScan } from '../model/routes'
 
 import styles from './AddDeviceScreen.module.css'
+import shellStyles from './shell.module.css'
 
 export type AddDeviceScreenProps = {
-  // Optional so the real route (App.tsx) can mount `<AddDeviceScreen />` with
-  // no props (one model instance per mount, mirroring ActivateScreen's own
-  // `useState(() => createActivationModel())`) while a test can still inject
-  // a fake/spy-wrapped model instance.
-  model?: AddDeviceModel
+  model: AddDeviceModel
 }
 
 // react-zxing's `onError` fires when getUserMedia itself fails (permission
@@ -26,8 +25,7 @@ export type AddDeviceScreenProps = {
 // field and `error` is already the shared "something went wrong for the
 // current mode" slot (mirrors how it's reused across manual/registering/
 // waiting failures).
-const CAMERA_DENIED_MESSAGE =
-  'Разрешите доступ к камере в настройках браузера или введите код вручную'
+const CAMERA_DENIED_MESSAGE = 'Разрешите доступ к камере в настройках браузера или вернитесь назад'
 
 // View-only formatting for the manual code field (uppercase, strip
 // separators, group as XXXX-XXXX) -- distinct from the model's
@@ -59,85 +57,102 @@ function passkeyButtonContent(loading: boolean) {
   )
 }
 
-type ScannerProps = {
+type ScannerOverlayProps = {
   onDecode: (rawValue: string) => void
   onCameraError: () => void
+  onClose: () => void
 }
 
-// A separate component (not a conditionally-skipped branch inside
-// AddDeviceScreen) so `useZxing` -- and the barcode-detector wasm engine it
-// eagerly loads as soon as it's called, regardless of any `paused` option --
-// only ever mounts once the user actually picks "Сканировать QR-код".
-// Mounting it unconditionally in AddDeviceScreen would start that wasm fetch
-// on every visit to this screen (even for manual-code-only users) and
-// crashes under jsdom (no real network/WebAssembly streaming there), which
-// is exactly what an earlier draft of this component hit in
-// AddDeviceScreen.test.tsx.
-function Scanner({ onDecode, onCameraError }: ScannerProps) {
+// Full-screen camera overlay from Activate.dc.html. A separate component (not a
+// branch inside AddDeviceScreen) so `useZxing` — and the wasm barcode engine it
+// eagerly loads — only mounts once the user actually reaches the scanner.
+function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProps) {
   const { ref: videoRef } = useZxing({
     onDecodeResult: (result) => onDecode(result.rawValue),
     onError: onCameraError,
   })
 
   return (
-    <>
-      <h1 className={styles.scanHeading}>Сканирование</h1>
-      <div className={styles.scannerViewport}>
-        <video ref={videoRef} muted playsInline className={styles.scannerVideo} />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Сканирование QR-кода"
+      className={styles.scannerOverlay}
+    >
+      <video ref={videoRef} muted playsInline className={styles.scannerOverlayVideo} />
+      <div aria-hidden className={styles.scannerFrame}>
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTl}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTr}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerBl}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerBr}`} />
-        <div className={styles.scannerLine} />
       </div>
-      <p className={styles.scannerHint}>Наведите камеру на QR-код</p>
-    </>
+      <div className={styles.scannerTopBar}>
+        <div className={styles.scannerTitle}>Сканирование QR-кода</div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Закрыть сканер"
+          className={styles.scannerClose}
+        >
+          <X size={17} strokeWidth={2.2} aria-hidden />
+        </button>
+      </div>
+      <p className={styles.scannerOverlayHint}>Наведите камеру на QR-код активации</p>
+    </div>
   )
 }
 
-export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: injectedModel }) => {
-  const [model] = useState(() => injectedModel ?? createAddDeviceModel())
+export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   const mode = model.mode()
   const error = model.error()
   const ownerName = model.ownerName()
+  // Whether the WebAuthn ceremony is in flight (panel 4(d1) "ready" vs 4(d2)
+  // "creating…"). Sourced from the model's `startRegistration` withAsync status
+  // (see model.ceremonyPending) rather than tracked as React state here.
+  const ceremonyPending = model.ceremonyPending()
   const [manualValue, setManualValue] = useState('')
-  // Tracks whether the WebAuthn *ceremony itself* is currently in flight,
-  // distinguishing panel 4(d1) "ready to create a passkey" from 4(d2)
-  // "creating…" -- add-device-model.ts's `startRegistration` action has no
-  // exposed pending flag of its own (unlike activation-model.ts's `loading`
-  // computed), so this is plain view-local state around the two call sites
-  // that trigger it (the manual/paste path's `submitManual`, which starts
-  // the ceremony automatically, and the scan path's own "Создать passkey"
-  // button, which starts it directly).
-  const [ceremonyPending, setCeremonyPending] = useState(false)
+
+  // True when this screen mounted straight into scanning (activation card →
+  // /add-device?scan=1). Its close ✕ returns to the activation card; a scanner
+  // entered from the add-device `choose` screen returns to `choose` instead.
+  const [enteredScanDirectly] = useState(() => model.mode() === 'scanning')
+
+  function closeScanner() {
+    if (enteredScanDirectly) {
+      // Return to wherever the scanner was opened from (recorded in
+      // scanReturn), replacing the /add-device?scan=1 history entry so browser
+      // Back does not reopen the scanner. Falls back to the home card only for
+      // a true external deep-link with no in-app screen behind it.
+      closeScan()
+      notify()
+      return
+    }
+    goToChoose()
+  }
 
   const scanning = mode === 'scanning'
   const cameraDenied = scanning && error != null
 
-  function goToScan() {
-    model.error.set(null)
-    model.mode.set('scanning')
-  }
-
-  function goToManual() {
-    model.error.set(null)
-    model.mode.set('manual')
-  }
-
   function goToChoose() {
-    model.error.set(null)
+    model.goToChoose()
     setManualValue('')
-    model.mode.set('choose')
   }
 
   function submitCode(value: string) {
-    setCeremonyPending(true)
-    void model.submitManual(value).finally(() => setCeremonyPending(false))
+    void model.submitManual(value)
   }
 
   function createPasskey() {
-    setCeremonyPending(true)
-    void model.startRegistration().finally(() => setCeremonyPending(false))
+    void model.startRegistration()
+  }
+
+  // "Уже вошли на этом устройстве? Войти с passkey" -- lets someone who landed
+  // on the registering step (e.g. a stale/foreign add-device link) bail to the
+  // ordinary login card instead of the only other option being to register a
+  // brand-new device for that account.
+  function goToLogin() {
+    activateRoute.go({}, true)
+    notify()
   }
 
   function handleCodeKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -171,7 +186,6 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
 
   const isExpiredError = mode === 'manual' && error != null && error.toLowerCase().includes('истёк')
   const showRegisterLoading = mode === 'registering' && ceremonyPending
-  const showBrandMark = mode !== 'scanning'
 
   // Forces the "затухание + сдвиг на 10px, 320мс, var(--ease)" step
   // transition (section 5) to replay on every visually distinct state, not
@@ -184,231 +198,237 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model: inject
     isExpiredError ? 'expired' : '',
   ].join('|')
 
+  if (scanning && !cameraDenied) {
+    return (
+      <ScannerOverlay
+        onDecode={handleDecode}
+        onCameraError={handleCameraError}
+        onClose={closeScanner}
+      />
+    )
+  }
+
+  // Connect the status poller only while the waiting screen is shown. Reading
+  // `poll` here subscribes this component to it; the interval's lifetime is
+  // bound to that connection (model.poll / withConnectHook), so leaving
+  // 'waiting' or unmounting stops polling automatically.
+  if (mode === 'waiting') model.poll()
+
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        {showBrandMark ? (
-          <>
-            <div aria-hidden className={styles.brandMark}>
-              <div className={styles.brandCell} />
-              <div className={styles.brandCellDim} />
-              <div className={styles.brandCellDim} />
-              <div className={styles.brandCell} />
-            </div>
-            <div className={styles.brandLabel}>myboard</div>
-          </>
-        ) : null}
+    <div key={stepKey} className={styles.stepContent}>
+      {mode === 'choose' ? (
+        <>
+          <h1 className={styles.heading}>Добавить это устройство</h1>
+          <p className={styles.description}>
+            Отсканируйте QR-код или введите код с другого устройства
+          </p>
 
-        <div key={stepKey} className={styles.stepContent}>
-          {mode === 'choose' ? (
-            <>
-              <h1 className={styles.heading}>Добавить это устройство</h1>
-              <p className={styles.description}>
-                Отсканируйте QR-код или введите код с другого устройства
+          <Button
+            type="button"
+            className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
+            onClick={model.goToScan}
+          >
+            <Camera size={18} strokeWidth={2} aria-hidden />
+            Сканировать QR-код
+          </Button>
+
+          <div className={styles.divider}>
+            <div className={styles.dividerLine} />
+            <span className={styles.dividerLabel}>или</span>
+            <div className={styles.dividerLine} />
+          </div>
+
+          <div className={styles.codeField}>
+            <Input
+              type="text"
+              placeholder="____ – ____"
+              aria-label="Код с другого устройства"
+              aria-invalid={Boolean(error)}
+              value={manualValue}
+              className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput}`}
+              onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+              onPaste={handleCodePaste}
+              onKeyDown={handleCodeKeyDown}
+            />
+            {error ? (
+              <p role="alert" className={styles.codeErrorRow}>
+                <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+                {error}
               </p>
+            ) : null}
+          </div>
 
-              <Button
-                type="button"
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
-                onClick={goToScan}
-              >
-                <Camera size={18} strokeWidth={2} aria-hidden />
-                Сканировать QR-код
-              </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className={`h-12 w-full rounded-[13px] font-semibold ${styles.primaryButtonManualGap}`}
+            onClick={() => submitCode(manualValue)}
+          >
+            Продолжить
+          </Button>
 
-              <div className={styles.divider}>
-                <div className={styles.dividerLine} />
-                <span className={styles.dividerLabel}>или</span>
-                <div className={styles.dividerLine} />
-              </div>
+          <div className={shellStyles.footerNote}>
+            <Lock size={12} strokeWidth={2} aria-hidden />
+            Защищено passkey на этом устройстве
+          </div>
+        </>
+      ) : null}
 
-              <div className={styles.codeField}>
-                <Input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput}`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
-                {error ? (
-                  <p role="alert" className={styles.codeErrorRow}>
-                    <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                    {error}
-                  </p>
-                ) : null}
-              </div>
+      {cameraDenied ? (
+        <>
+          <div className={styles.cameraDeniedIcon}>
+            <Camera size={24} strokeWidth={2} aria-hidden />
+            <svg
+              className={styles.cameraDeniedSlash}
+              width="52"
+              height="52"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                d="M4 4l16 16"
+                stroke="var(--destructive)"
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+          <h1 className={styles.statusHeading}>Нет доступа к камере</h1>
+          <p className={styles.statusDescription}>{CAMERA_DENIED_MESSAGE}</p>
+          <Button
+            type="button"
+            variant="link"
+            className="mt-4 h-auto p-0 text-sm font-semibold"
+            onClick={closeScanner}
+          >
+            Назад
+          </Button>
+        </>
+      ) : null}
 
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full rounded-[13px] font-semibold"
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </Button>
+      {mode === 'manual' ? (
+        <>
+          <h1 className={styles.manualHeading}>Введите код с другого устройства</h1>
 
-              <div className={styles.footerNote}>
-                <Lock size={12} strokeWidth={2} aria-hidden />
-                Защищено passkey на этом устройстве
-              </div>
-            </>
-          ) : null}
-
-          {scanning && !cameraDenied ? (
-            <Scanner onDecode={handleDecode} onCameraError={handleCameraError} />
-          ) : null}
-
-          {cameraDenied ? (
-            <>
-              <div className={styles.cameraDeniedIcon}>
-                <Camera size={24} strokeWidth={2} aria-hidden />
-                <svg
-                  className={styles.cameraDeniedSlash}
-                  width="52"
-                  height="52"
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    d="M4 4l16 16"
-                    stroke="var(--destructive)"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              <h1 className={styles.statusHeading}>Нет доступа к камере</h1>
-              <p className={styles.statusDescription}>{CAMERA_DENIED_MESSAGE}</p>
-              <Button
-                type="button"
-                variant="link"
-                className="mt-4 h-auto p-0 text-sm font-semibold"
-                onClick={goToManual}
-              >
-                Ввести код вручную
-              </Button>
-            </>
-          ) : null}
-
-          {mode === 'manual' ? (
-            <>
-              <h1 className={styles.manualHeading}>Введите код с другого устройства</h1>
-
-              <div className={`${styles.codeField} ${styles.codeFieldWithMargin}`}>
-                <Input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  disabled={isExpiredError}
-                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput} ${
-                    isExpiredError ? styles.codeInputExpired : ''
-                  }`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
-                {error ? (
-                  <p role="alert" className={styles.codeErrorRow}>
-                    <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                    {error}
-                  </p>
-                ) : null}
-              </div>
-
-              <Button
-                type="button"
-                disabled={isExpiredError}
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonManualGap}`}
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </Button>
-            </>
-          ) : null}
-
-          {mode === 'registering' ? (
-            <>
-              <h1 className={styles.registerHeading}>
-                {ownerName
-                  ? `Добавить устройство в аккаунт «${ownerName}»?`
-                  : 'Добавить устройство в аккаунт?'}
-              </h1>
-              <p className={styles.description}>Создайте passkey, чтобы завершить</p>
-
-              <Button
-                type="button"
-                disabled={showRegisterLoading}
-                aria-busy={showRegisterLoading}
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
-                onClick={createPasskey}
-              >
-                {passkeyButtonContent(showRegisterLoading)}
-              </Button>
-
-              {error ? (
-                <p role="alert" className={styles.codeErrorRow}>
-                  <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
-                  {error}
-                </p>
-              ) : null}
-
-              <div className={styles.footerNote}>
-                <Lock size={12} strokeWidth={2} aria-hidden />
-                Защищено passkey на этом устройстве
-              </div>
-            </>
-          ) : null}
-
-          {mode === 'waiting' ? (
-            <>
-              <span aria-hidden className={styles.spinnerLarge} />
-              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
-                Ожидаем подтверждения
-              </h1>
-              <p className={styles.statusDescription}>
-                Подтвердите это устройство на основном устройстве
+          <div className={`${styles.codeField} ${styles.codeFieldWithMargin}`}>
+            <Input
+              type="text"
+              placeholder="____ – ____"
+              aria-label="Код с другого устройства"
+              aria-invalid={Boolean(error)}
+              value={manualValue}
+              disabled={isExpiredError}
+              className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput} ${
+                isExpiredError ? styles.codeInputExpired : ''
+              }`}
+              onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+              onPaste={handleCodePaste}
+              onKeyDown={handleCodeKeyDown}
+            />
+            {error ? (
+              <p role="alert" className={styles.codeErrorRow}>
+                <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+                {error}
               </p>
-            </>
+            ) : null}
+          </div>
+
+          <Button
+            type="button"
+            disabled={isExpiredError}
+            className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonManualGap}`}
+            onClick={() => submitCode(manualValue)}
+          >
+            Продолжить
+          </Button>
+        </>
+      ) : null}
+
+      {mode === 'registering' ? (
+        <>
+          <h1 className={styles.registerHeading}>
+            {ownerName
+              ? `Добавить устройство в аккаунт «${ownerName}»?`
+              : 'Добавить устройство в аккаунт?'}
+          </h1>
+          <p className={styles.description}>Создайте passkey, чтобы завершить</p>
+
+          <Button
+            type="button"
+            disabled={showRegisterLoading}
+            aria-busy={showRegisterLoading}
+            className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
+            onClick={createPasskey}
+          >
+            {passkeyButtonContent(showRegisterLoading)}
+          </Button>
+
+          {error ? (
+            <p role="alert" className={styles.codeErrorRow}>
+              <AlertCircle size={13} strokeWidth={2.2} aria-hidden />
+              {error}
+            </p>
           ) : null}
 
-          {mode === 'done' ? (
-            <>
-              <div className={`${styles.statusIcon} ${styles.statusIconSuccess}`}>
-                <Check size={24} strokeWidth={2.4} aria-hidden />
-              </div>
-              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
-                Готово. Перенаправляем…
-              </h1>
-            </>
-          ) : null}
+          <button
+            type="button"
+            disabled={showRegisterLoading}
+            onClick={goToLogin}
+            className={styles.crossLink}
+          >
+            Уже вошли на этом устройстве?{' '}
+            <span className={styles.crossLinkAccent}>Войти с passkey</span>
+          </button>
 
-          {mode === 'rejected' ? (
-            <>
-              <div className={`${styles.statusIcon} ${styles.statusIconDanger}`}>
-                <X size={24} strokeWidth={2} aria-hidden />
-              </div>
-              <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
-                Запрос отклонён
-              </h1>
-              <p className={styles.statusDescription}>Основное устройство отклонило подключение</p>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full rounded-[13px] font-semibold"
-                onClick={goToChoose}
-              >
-                Попробовать снова
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </div>
+          <div className={shellStyles.footerNote}>
+            <Lock size={12} strokeWidth={2} aria-hidden />
+            Защищено passkey на этом устройстве
+          </div>
+        </>
+      ) : null}
+
+      {mode === 'waiting' ? (
+        <>
+          <span aria-hidden className={styles.spinnerLarge} />
+          <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+            Ожидаем подтверждения
+          </h1>
+          <p className={styles.statusDescription}>
+            Подтвердите это устройство на основном устройстве
+          </p>
+        </>
+      ) : null}
+
+      {mode === 'done' ? (
+        <>
+          <div className={`${styles.statusIcon} ${styles.statusIconSuccess}`}>
+            <Check size={24} strokeWidth={2.4} aria-hidden />
+          </div>
+          <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+            Готово. Перенаправляем…
+          </h1>
+        </>
+      ) : null}
+
+      {mode === 'rejected' ? (
+        <>
+          <div className={`${styles.statusIcon} ${styles.statusIconDanger}`}>
+            <X size={24} strokeWidth={2} aria-hidden />
+          </div>
+          <h1 className={`${styles.statusHeading} ${styles.statusHeadingLoose}`}>
+            Запрос отклонён
+          </h1>
+          <p className={styles.statusDescription}>Основное устройство отклонило подключение</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 w-full rounded-[13px] font-semibold"
+            onClick={goToChoose}
+          >
+            Попробовать снова
+          </Button>
+        </>
+      ) : null}
     </div>
   )
 }, 'AddDeviceScreen')

@@ -27,13 +27,13 @@
 }
 .title {
   margin: 0;
-  font: 700 25px/1.2 'Hanken Grotesk';
+  font: 700 25px/1.2 var(--font-sans);
   letter-spacing: -0.01em;
   color: var(--foreground);
 }
 .subtitle {
   margin-top: 6px;
-  font: 400 15px 'Hanken Grotesk';
+  font: 400 15px var(--font-sans);
   color: var(--muted-foreground);
 }
 .close {
@@ -56,9 +56,7 @@
 
 .sectionLabel {
   margin: 22px 0 10px;
-  font:
-    600 11px 'JetBrains Mono',
-    monospace;
+  font: 600 11px var(--font-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-3);
@@ -112,19 +110,17 @@
   gap: 8px;
 }
 .rowLabel {
-  font: 600 14px 'Hanken Grotesk';
+  font: 600 14px var(--font-sans);
   color: var(--foreground);
 }
 .rowSub {
   margin-top: 2px;
-  font: 400 12.5px 'Hanken Grotesk';
+  font: 400 12.5px var(--font-sans);
   color: var(--muted-foreground);
 }
 .chip {
   padding: 3px 8px;
-  font:
-    600 10.5px 'JetBrains Mono',
-    monospace;
+  font: 600 10.5px var(--font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--secondary-foreground);
@@ -139,7 +135,7 @@
 .confirmRevokeButton {
   height: 36px;
   padding: 0 13px;
-  font: 600 12.5px 'Hanken Grotesk';
+  font: 600 12.5px var(--font-sans);
   border-radius: 9px;
   cursor: pointer;
 }
@@ -213,7 +209,7 @@
   background: var(--card);
 }
 .confirmText {
-  font: 500 13px/1.4 'Hanken Grotesk';
+  font: 500 13px/1.4 var(--font-sans);
   color: var(--destructive);
 }
 .confirmActions {
@@ -246,7 +242,7 @@
   color: var(--muted-foreground);
 }
 .limitNote span {
-  font: 500 12.5px 'Hanken Grotesk';
+  font: 500 12.5px var(--font-sans);
   color: var(--muted-foreground);
 }
 
@@ -258,7 +254,7 @@
   height: 48px;
   margin-top: 20px;
   gap: 9px;
-  font: 600 15px 'Hanken Grotesk';
+  font: 600 15px var(--font-sans);
   color: var(--primary-foreground);
   background: var(--primary);
   border: none;

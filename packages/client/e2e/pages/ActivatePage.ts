@@ -4,17 +4,28 @@ export class ActivatePage {
   readonly nameInput: Locator
   readonly createPasskeyButton: Locator
   readonly signInButton: Locator
+  readonly scanButton: Locator
+  readonly homeHeading: Locator
+  readonly usedHeading: Locator
   readonly errorText: Locator
 
   constructor(readonly page: Page) {
     this.nameInput = page.getByLabel('Ваше имя')
-    this.createPasskeyButton = page.getByRole('button', { name: /Создать ключ доступа/ })
-    this.signInButton = page.getByRole('button', { name: /Войти с ключом доступа/ })
+    this.createPasskeyButton = page.getByRole('button', { name: /Создать passkey/ })
+    this.signInButton = page.getByRole('button', { name: /Войти с passkey/ })
+    this.scanButton = page.getByRole('button', { name: /Сканировать QR-код/ })
+    this.homeHeading = page.getByRole('heading', { name: 'Вход в myboard' })
+    this.usedHeading = page.getByRole('heading', { name: 'Приглашение уже использовано' })
     this.errorText = page.locator('.text-destructive')
   }
 
   async gotoActivate(token: string): Promise<void> {
     await this.page.goto(`/activate?token=${token}`)
+  }
+
+  /** The login landing (no invite token). */
+  async gotoHome(): Promise<void> {
+    await this.page.goto('/activate')
   }
 
   async fillName(name: string): Promise<void> {

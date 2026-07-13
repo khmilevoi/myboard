@@ -3,7 +3,7 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createAddDeviceModel } from './add-device-model'
+import { makeAddDeviceModel } from './add-device-model'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -27,47 +27,184 @@ const CURRENT_ORIGIN = 'https://host'
 
 describe('extractAddCode', () => {
   it('accepts a full URL with a bare token and normalizes it', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://host/add-device?token=K7QP3M9X')).toBe('K7QP3M9X')
   })
 
   it('accepts a bare dashed code with no URL', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('K7QP-3M9X')).toBe('K7QP3M9X')
   })
 
   it('accepts a full URL with a dashed token and normalizes it', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://host/add-device?token=K7QP-3M9X')).toBe('K7QP3M9X')
   })
 
   it('rejects a URL on a different origin', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://evil.example/add-device?token=K7QP3M9X')).toBeNull()
   })
 
   it('rejects a URL on the right origin but the wrong path', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('https://host/other-path?token=K7QP3M9X')).toBeNull()
   })
 
   it('rejects junk text that is not a URL or a valid code', () => {
-    const model = createAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN })
 
     expect(model.extractAddCode('not a real code!!')).toBeNull()
     expect(model.extractAddCode('')).toBeNull()
   })
 })
 
+describe('initial mode', () => {
+  it('starts in scanning mode when scan is requested', () => {
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      scan: true,
+      http: makeScriptedHttp({}).http,
+    })
+    expect(model.mode()).toBe('scanning')
+  })
+
+  it('starts in choose mode by default', () => {
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http: makeScriptedHttp({}).http,
+    })
+    expect(model.mode()).toBe('choose')
+  })
+})
+
+describe('init (auto-submit a code embedded in the activation link)', () => {
+  it('starts on registering and ignores scan=1 when a valid code is present in the URL', () => {
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      // scan=1 is explicitly requested but must be ignored: a present code wins,
+      // so we never open the camera.
+      scan: true,
+      http: makeScriptedHttp({}).http,
+    })
+
+    expect(model.mode()).toBe('registering')
+    expect(model.token()).toBe('K7QP3M9X')
+  })
+
+  it('auto-validates the URL code and lands on registering with the owner name', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        {
+          status: 200,
+          body: {
+            options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+          },
+        },
+      ],
+    })
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      http,
+    })
+
+    await model.init()
+
+    expect(model.token()).toBe('K7QP3M9X')
+    expect(model.mode()).toBe('registering')
+    expect(model.error()).toBeNull()
+    expect(model.ownerName()).toBe('Анна Ковалёва')
+    expect(calls.filter((c) => c.url === '/api/auth/devices/register/options')).toHaveLength(1)
+  })
+
+  it('falls back to manual entry with an error when the server rejects the URL code', async () => {
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
+    })
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      http,
+    })
+
+    await model.init()
+
+    expect(model.mode()).toBe('manual')
+    expect(model.error()).not.toBeNull()
+  })
+
+  it('is idempotent: a second init call (e.g. StrictMode double-invoke) does not re-fetch', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'c', user: { displayName: 'A' } } } },
+      ],
+    })
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'K7QP-3M9X',
+      http,
+    })
+
+    await model.init()
+    await model.init()
+
+    expect(calls.filter((c) => c.url === '/api/auth/devices/register/options')).toHaveLength(1)
+  })
+
+  it('does nothing on init when the URL has no code, leaving the choose flow untouched', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http,
+    })
+
+    expect(model.mode()).toBe('choose')
+    await model.init()
+
+    expect(model.mode()).toBe('choose')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('keeps scanning on init when scan=1 is requested and there is no URL code', async () => {
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      scan: true,
+      http: makeScriptedHttp({}).http,
+    })
+
+    expect(model.mode()).toBe('scanning')
+    await model.init()
+
+    expect(model.mode()).toBe('scanning')
+  })
+
+  it('ignores a malformed (non-normalizable) URL code, keeping the choose flow', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      token: 'not-a-real-code',
+      http,
+    })
+
+    expect(model.mode()).toBe('choose')
+    await model.init()
+
+    expect(model.mode()).toBe('choose')
+    expect(calls).toHaveLength(0)
+  })
+})
+
 describe('submitManual', () => {
   it('sets an error and never calls fetch when the input is not a valid code', async () => {
     const { http, calls } = makeScriptedHttp({})
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -81,11 +218,9 @@ describe('submitManual', () => {
 
   it('returns to manual mode with an error when the server rejects a well-formed code (invalid/expired/exhausted token), instead of stranding the user on registering', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        { status: 404, body: { code: 'add_token_invalid' } },
-      ],
+      '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -102,12 +237,14 @@ describe('submitManual', () => {
       '/api/auth/devices/register/options': [
         {
           status: 200,
-          body: { options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } } },
+          body: {
+            options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+          },
         },
       ],
       '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
@@ -126,11 +263,13 @@ describe('stageScannedCode', () => {
       '/api/auth/devices/register/options': [
         {
           status: 200,
-          body: { options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } } },
+          body: {
+            options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+          },
         },
       ],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -145,11 +284,9 @@ describe('stageScannedCode', () => {
 
   it('returns to manual mode with an error when the server rejects the scanned code, instead of stranding the user on registering', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        { status: 404, body: { code: 'add_token_invalid' } },
-      ],
+      '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
     })
@@ -164,10 +301,12 @@ describe('stageScannedCode', () => {
 describe('startRegistration ceremony/verify failures', () => {
   it('keeps mode on registering (not manual) when the WebAuthn ceremony fails, so the existing in-place error row can be used to retry', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [{ status: 200, body: { options: { challenge: 'c' } } }],
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'c' } } },
+      ],
     })
     const startRegistrationCeremony = vi.fn().mockRejectedValue(new Error('user cancelled'))
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -188,10 +327,12 @@ describe('startRegistration ceremony/verify failures', () => {
 
   it('keeps mode on registering (not manual) when register/verify is rejected by the server', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [{ status: 200, body: { options: { challenge: 'c' } } }],
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'c' } } },
+      ],
       '/api/auth/devices/register/verify': [{ status: 409, body: {} }],
     })
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony: vi.fn().mockResolvedValue({ id: 'cred-b' }),
@@ -206,7 +347,7 @@ describe('startRegistration ceremony/verify failures', () => {
 })
 
 describe('registration + polling flow', () => {
-  it('goes registering -> waiting -> done, logs in, and navigates on approval', async () => {
+  it('goes registering -> waiting -> done, claims a session, and navigates on approval', async () => {
     vi.useFakeTimers()
 
     const { http, calls } = makeScriptedHttp({
@@ -218,21 +359,18 @@ describe('registration + polling flow', () => {
         { status: 200, body: { status: 'pending' } },
         { status: 200, body: { status: 'approved' } },
       ],
-      '/api/auth/login/options': [
-        { status: 200, body: { options: { challenge: 'login-challenge' } } },
+      '/api/auth/devices/claim-session': [
+        { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
       ],
-      '/api/auth/login/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
     })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b', rawId: 'raw' })
-    const startAuthenticationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
     const navigate = vi.fn()
     const storage = createStorage()
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
-      startAuthenticationCeremony,
       navigate,
       storage,
     })
@@ -240,41 +378,31 @@ describe('registration + polling flow', () => {
     await model.submitManual('K7QP-3M9X')
 
     expect(model.token()).toBe('K7QP3M9X')
-    expect(calls[0]).toEqual({
-      method: 'POST',
-      url: '/api/auth/devices/register/options',
-      json: { token: 'K7QP3M9X' },
-    })
     expect(startRegistrationCeremony).toHaveBeenCalledWith({
       optionsJSON: { challenge: 'add-device-challenge' },
     })
-    expect(calls[1]).toEqual({
-      method: 'POST',
-      url: '/api/auth/devices/register/verify',
-      json: { token: 'K7QP3M9X', attestationResponse: { id: 'cred-b', rawId: 'raw' } },
-    })
     expect(model.mode()).toBe('waiting')
+
+    // Connect the poller the way the mounted 'waiting' screen does; the interval
+    // only runs while `poll` is connected (withConnectHook).
+    model.poll.subscribe(() => {})
 
     // First poll tick: still pending.
     await vi.advanceTimersByTimeAsync(2_000)
-    expect(calls[2]).toEqual({
-      method: 'GET',
-      url: '/api/auth/devices/pending-status',
-      json: undefined,
-    })
     expect(model.mode()).toBe('waiting')
 
-    // Second poll tick: approved -> runs a normal login, then navigates.
+    // Second poll tick: approved -> claim-session mints the session, then navigate.
     await vi.advanceTimersByTimeAsync(2_000)
 
-    expect(calls[4]).toEqual({
+    const claimCall = calls.find((c) => c.url === '/api/auth/devices/claim-session')
+    expect(claimCall).toEqual({
       method: 'POST',
-      url: '/api/auth/login/options',
-      json: { credentialIdHint: 'cred-b' },
+      url: '/api/auth/devices/claim-session',
+      json: undefined,
     })
-    expect(startAuthenticationCeremony).toHaveBeenCalledWith({
-      optionsJSON: { challenge: 'login-challenge' },
-    })
+    // No second WebAuthn ceremony: the login endpoints are never touched.
+    expect(calls.some((c) => c.url === '/api/auth/login/options')).toBe(false)
+    expect(calls.some((c) => c.url === '/api/auth/login/verify')).toBe(false)
     expect(storage.set).toHaveBeenCalledWith('cred-b')
     expect(model.mode()).toBe('done')
     expect(navigate).toHaveBeenCalledWith('/')
@@ -283,6 +411,79 @@ describe('registration + polling flow', () => {
     const callsAfterDone = calls.length
     await vi.advanceTimersByTimeAsync(10_000)
     expect(calls.length).toBe(callsAfterDone)
+  })
+
+  it('keeps waiting and surfaces an error when the claim fails, then resumes polling', async () => {
+    vi.useFakeTimers()
+
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+      ],
+      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+      // First poll: approved -> claim fails (500). Later poll: pending again.
+      '/api/auth/devices/pending-status': [
+        { status: 200, body: { status: 'approved' } },
+        { status: 200, body: { status: 'pending' } },
+      ],
+      '/api/auth/devices/claim-session': [{ status: 500, body: {} }],
+    })
+    const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
+    const navigate = vi.fn()
+
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http,
+      startRegistrationCeremony,
+      navigate,
+      storage: createStorage(),
+    })
+
+    await model.submitManual('K7QP-3M9X')
+    expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
+
+    // Approved poll -> claim 500 -> stay on waiting with an error, do not navigate.
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(model.mode()).toBe('waiting')
+    expect(model.error()).not.toBeNull()
+    expect(navigate).not.toHaveBeenCalled()
+
+    // Polling resumed: the next (pending) tick recovers and clears the error.
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(model.mode()).toBe('waiting')
+    expect(model.error()).toBeNull()
+  })
+
+  it('single-flights the claim so two overlapping approved polls claim at most once', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/pending-status': [
+        { status: 200, body: { status: 'approved' } },
+        { status: 200, body: { status: 'approved' } },
+      ],
+      '/api/auth/devices/claim-session': [
+        { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
+      ],
+    })
+    const navigate = vi.fn()
+    const storage = createStorage()
+
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      http,
+      navigate,
+      storage,
+    })
+    model.mode.set('waiting')
+
+    // Two poll passes fired concurrently (models a slow GET overlapping the next
+    // tick): both see 'approved', but the single-flight guard admits one claim.
+    await Promise.all([model.pollPendingStatus(), model.pollPendingStatus()])
+
+    const claimCalls = calls.filter((c) => c.url === '/api/auth/devices/claim-session')
+    expect(claimCalls).toHaveLength(1)
+    expect(storage.set).toHaveBeenCalledWith('cred-b')
+    expect(navigate).toHaveBeenCalledWith('/')
   })
 
   it('transitions to rejected when a poll reports the device was denied', async () => {
@@ -298,7 +499,7 @@ describe('registration + polling flow', () => {
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
     const navigate = vi.fn()
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -308,6 +509,7 @@ describe('registration + polling flow', () => {
 
     await model.submitManual('K7QP-3M9X')
     expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
 
     await vi.advanceTimersByTimeAsync(2_000)
 
@@ -336,7 +538,7 @@ describe('registration + polling flow', () => {
     })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -345,6 +547,7 @@ describe('registration + polling flow', () => {
 
     await model.submitManual('K7QP-3M9X')
     expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
 
     await vi.advanceTimersByTimeAsync(2_000)
     expect(model.error()).not.toBeNull()
@@ -374,7 +577,7 @@ describe('registration + polling flow', () => {
     })
     const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
 
-    const model = createAddDeviceModel({
+    const model = makeAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
       http,
       startRegistrationCeremony,
@@ -383,6 +586,7 @@ describe('registration + polling flow', () => {
 
     await model.submitManual('K7QP-3M9X')
     expect(model.mode()).toBe('waiting')
+    model.poll.subscribe(() => {})
 
     // 300 real polls fit inside the 10-minute window (2s * 300 = 600_000ms);
     // give-up is only decided at the next (301st) tick, so the window has to

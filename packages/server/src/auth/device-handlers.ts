@@ -7,6 +7,7 @@ import type {
 } from '@simplewebauthn/server'
 
 import { readJsonBody } from '../http/body'
+import { clientIp } from '../http/client-ip'
 import { runExclusive } from '../storage/key-lock'
 import { formatZodError } from '../storage/schemas'
 import { addDeviceToAccount, getAccount } from './accounts'
@@ -36,9 +37,15 @@ import {
   LastActiveDeviceError,
   NotAuthorizedError,
 } from './errors'
-import { clearedChallengeCookie, deviceLabelFromUa, toAuthResult } from './handlers'
+import {
+  clearedChallengeCookie,
+  clearedPendingCookie,
+  deviceLabelFromUa,
+  sessionCookieFor,
+  toAuthResult,
+} from './handlers'
 import type { AuthDeps, AuthResult } from './handlers'
-import { issuePendingTicket, readPendingTicket } from './pending-tickets'
+import { consumePendingTicket, issuePendingTicket, readPendingTicket } from './pending-tickets'
 import { type DeviceRecord, deviceKey } from './records'
 import {
   AddDeviceRegisterOptionsBodySchema,
@@ -46,6 +53,7 @@ import {
   AddTokenVerifyBodySchema,
 } from './schemas'
 import { isAuthResult, requireSession } from './session-guard'
+import { issueSession } from './sessions'
 import { randomId } from './tokens'
 import {
   buildAuthenticationOptions,
@@ -433,4 +441,51 @@ export async function getPendingStatus(deps: AuthDeps, req: IncomingMessage): Pr
   if (device instanceof Error) return toAuthResult(device)
 
   return { status: 200, body: { status: device.status === 'active' ? 'approved' : 'pending' } }
+}
+
+// Mint the joining device's session directly from its pending ticket once the
+// owner has approved it — no second WebAuthn ceremony. The response mirrors
+// getPendingStatus's discriminator so the client parses one shape regardless of
+// outcome; only 'approved' sets cookies and returns credentialId.
+export async function postClaimSession(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+  const emit = auditFor(deps, req)
+
+  // Peek (non-consuming): a not-yet-approved device must keep its ticket so the
+  // client can keep polling.
+  const ticket = await readPendingTicket(deps.ops, deps.config, deps.now, req.headers.cookie)
+  if (ticket instanceof Error) return toAuthResult(ticket)
+
+  const device = await getDevice(deps.ops, ticket.credentialId)
+  // A missing device record means the owner denied the join request: denying
+  // deletes the pending device (see postDenyDevice / revokeDevice).
+  if (device instanceof DeviceNotFoundError) return { status: 200, body: { status: 'denied' } }
+  if (device instanceof Error) return toAuthResult(device)
+  // Not yet approved — leave the ticket intact and let the client keep polling.
+  if (device.status !== 'active') return { status: 200, body: { status: 'pending' } }
+
+  // Approved. Consume the single-use ticket atomically before minting a session
+  // so a racing second claim (two overlapping approved polls) finds it already
+  // gone and fails cleanly here instead of minting a second session.
+  const consumed = await consumePendingTicket(deps.ops, deps.config, deps.now, req.headers.cookie)
+  if (consumed instanceof Error) return toAuthResult(consumed)
+
+  const session = await issueSession(deps.ops, deps.config, deps.now, {
+    accountId: device.accountId,
+    credentialId: device.credentialId,
+    ...(clientIp(req) ? { ip: clientIp(req) as string } : {}),
+    ...(req.headers['user-agent'] ? { ua: req.headers['user-agent'] } : {}),
+  })
+
+  emit('login', { accountId: device.accountId, credentialId: device.credentialId })
+
+  return {
+    status: 200,
+    body: { status: 'approved', credentialId: device.credentialId },
+    headers: {
+      'Set-Cookie': [
+        sessionCookieFor(deps.config, session.sessionId, deps.config.sessionTtlSlidingMs),
+        clearedPendingCookie(deps.config),
+      ],
+    },
+  }
 }
