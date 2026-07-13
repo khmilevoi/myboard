@@ -100,9 +100,7 @@ describe('submitManual', () => {
 
   it('returns to manual mode with an error when the server rejects a well-formed code (invalid/expired/exhausted token), instead of stranding the user on registering', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        { status: 404, body: { code: 'add_token_invalid' } },
-      ],
+      '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
     })
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
@@ -121,7 +119,9 @@ describe('submitManual', () => {
       '/api/auth/devices/register/options': [
         {
           status: 200,
-          body: { options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } } },
+          body: {
+            options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+          },
         },
       ],
       '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
@@ -145,7 +145,9 @@ describe('stageScannedCode', () => {
       '/api/auth/devices/register/options': [
         {
           status: 200,
-          body: { options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } } },
+          body: {
+            options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
+          },
         },
       ],
     })
@@ -164,9 +166,7 @@ describe('stageScannedCode', () => {
 
   it('returns to manual mode with an error when the server rejects the scanned code, instead of stranding the user on registering', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        { status: 404, body: { code: 'add_token_invalid' } },
-      ],
+      '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
     })
     const model = createAddDeviceModel({
       currentOrigin: CURRENT_ORIGIN,
@@ -183,7 +183,9 @@ describe('stageScannedCode', () => {
 describe('startRegistration ceremony/verify failures', () => {
   it('keeps mode on registering (not manual) when the WebAuthn ceremony fails, so the existing in-place error row can be used to retry', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [{ status: 200, body: { options: { challenge: 'c' } } }],
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'c' } } },
+      ],
     })
     const startRegistrationCeremony = vi.fn().mockRejectedValue(new Error('user cancelled'))
     const model = createAddDeviceModel({
@@ -207,7 +209,9 @@ describe('startRegistration ceremony/verify failures', () => {
 
   it('keeps mode on registering (not manual) when register/verify is rejected by the server', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [{ status: 200, body: { options: { challenge: 'c' } } }],
+      '/api/auth/devices/register/options': [
+        { status: 200, body: { options: { challenge: 'c' } } },
+      ],
       '/api/auth/devices/register/verify': [{ status: 409, body: {} }],
     })
     const model = createAddDeviceModel({
