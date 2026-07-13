@@ -73,7 +73,7 @@ async function mintAddDeviceCode(
   return { modal, code: formatted.replace('-', '') }
 }
 
-test('device B registers via a minted code, owner approves over SSE, device B auto-logs in', async ({
+test('device B registers via a minted code, owner approves over SSE, device B claims a session (no second ceremony)', async ({
   browser,
   request,
 }) => {
@@ -92,6 +92,14 @@ test('device B registers via a minted code, owner approves over SSE, device B au
   // its own virtual authenticator, simulating a second, unrelated device.
   const contextB = await browser.newContext()
   const pageB = await contextB.newPage()
+
+  // Record device B's POST paths so we can prove it obtains its session via
+  // claim-session and never runs a second login ceremony (login/verify).
+  const deviceBPosts: string[] = []
+  pageB.on('request', (req) => {
+    if (req.method() === 'POST') deviceBPosts.push(new URL(req.url()).pathname)
+  })
+
   await enableVirtualAuthenticator(pageB)
 
   const addDeviceB = new AddDeviceActivatePage(pageB)
@@ -119,6 +127,9 @@ test('device B registers via a minted code, owner approves over SSE, device B au
 
   const sessionB = await pageB.request.get('/api/auth/session')
   expect(sessionB.status()).toBe(200)
+
+  expect(deviceBPosts).toContain('/api/auth/devices/claim-session')
+  expect(deviceBPosts).not.toContain('/api/auth/login/verify')
 
   await contextA.close()
   await contextB.close()
