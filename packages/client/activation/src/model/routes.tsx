@@ -1,4 +1,4 @@
-import { reatomRoute, type RouteChild } from '@reatom/core'
+import { atom, reatomRoute, type RouteChild, urlAtom } from '@reatom/core'
 import { z } from 'zod'
 
 import { ActivateScreen } from '../ui/ActivateScreen'
@@ -7,6 +7,33 @@ import { LoadingCard } from '../ui/LoadingCard'
 import { Shell } from '../ui/Shell'
 import { makeActivationModel } from './activation-model'
 import { makeAddDeviceModel } from './add-device-model'
+
+// In-memory return target for the QR scanner. The activation app is a single
+// JS context (SPA), so the screen the scanner was opened from is remembered
+// here rather than via history.back() (fragile on external deep-links) or a
+// URL param (would leak the invite token into the add-device route). null means
+// the scanner was reached directly (external QR to /add-device?scan=1) with no
+// in-app screen behind it.
+export const scanReturn = atom<{ path: string } | null>(null, 'activation.scanReturn')
+
+// Snapshot the current in-app location before navigating into the scanner.
+// Called by every "Сканировать QR-код" entry point (home / activate / no-code).
+export function recordScanReturn(): void {
+  scanReturn.set({ path: urlAtom().pathname + urlAtom().search })
+}
+
+// Close the scanner: return to the recorded screen (replace, so browser Back
+// does not reopen the scanner), clearing the one-shot target. With nothing
+// recorded (external deep-link), fall back to the home login card.
+export function closeScan(): void {
+  const target = scanReturn()
+  if (target) {
+    scanReturn.set(null)
+    urlAtom.go(target.path, true)
+    return
+  }
+  activateRoute.go({}, true)
+}
 
 // Pathless layout: renders the shared card shell and composes the active page
 // through `outlet()`. Always active. See the design spec for why the shell
