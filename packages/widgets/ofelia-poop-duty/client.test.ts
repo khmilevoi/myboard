@@ -21,4 +21,23 @@ describe('ofeliaWidget tiers', () => {
 
     expect(resolveTier(defaultFootprintPx, ofeliaWidget.tiers!)).toBe('standard')
   })
+
+  it('loads the component when the browser has no native Temporal', async () => {
+    const temporalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'Temporal')
+
+    try {
+      Reflect.deleteProperty(globalThis, 'Temporal')
+
+      const componentModule = await ofeliaWidget.loadComponent()
+
+      expect(typeof globalThis.Temporal.PlainDate.from).toBe('function')
+      expect(componentModule.default).toBeDefined()
+    } finally {
+      if (temporalDescriptor) {
+        Object.defineProperty(globalThis, 'Temporal', temporalDescriptor)
+      } else {
+        Reflect.deleteProperty(globalThis, 'Temporal')
+      }
+    }
+  })
 })

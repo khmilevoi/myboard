@@ -11,6 +11,7 @@ allowBuilds:
   esbuild: true
 
 catalog:
+  '@js-temporal/polyfill': ^0.5.1
   '@module-federation/vite': ^1.16.12
   '@reatom/core': ^1001.1.0
   '@reatom/react': ^1001.0.0
