@@ -47,7 +47,12 @@ function clearTypecheckCache(): void {
 function timeCommand(label: string, command: string): number {
   log(`START ${label}: ${command}`)
   const start = process.hrtime.bigint()
-  execSync(command, { cwd: REPO_ROOT, stdio: 'inherit' })
+  try {
+    execSync(command, { cwd: REPO_ROOT, stdio: 'inherit' })
+  } catch (error) {
+    log(`FAILED ${label}: ${error instanceof Error ? error.message : String(error)}`)
+    throw error
+  }
   const end = process.hrtime.bigint()
   const seconds = Number(end - start) / 1e9
   log(`DONE  ${label}: ${seconds.toFixed(2)}s`)
