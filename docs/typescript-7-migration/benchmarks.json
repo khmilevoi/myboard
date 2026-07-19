@@ -1,0 +1,21 @@
+{
+  "before": {
+    "typescript": "6.0.3",
+    "node": "v24.13.0",
+    "typecheck": {
+      "coldSeconds": 18.8377377,
+      "warmRunsSeconds": [
+        15.8761821,
+        17.5169955
+      ],
+      "warmMedianSeconds": 16.6965888
+    },
+    "build": {
+      "runsSeconds": [
+        16.5915061,
+        15.2345954
+      ],
+      "medianSeconds": 15.91305075
+    }
+  }
+}
