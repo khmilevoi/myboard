@@ -47,9 +47,9 @@ numbers show.
   use anywhere in the repo, and no build tool in this workspace declares a `peerDependencies` range
   on `typescript`. First-party code doesn't import the TypeScript Compiler API directly; the one
   transitive consumer in the dependency graph, `@module-federation/dts-plugin` (pulled in via
-  `@module-federation/vite`), is unaffected here because `federation()` in
-  `packages/client/vite.config.ts` is called without the `dts` option — confirmed empirically since
-  the client build (which would fail if that plugin's TS7 compatibility were broken) passes.
+  `@module-federation/vite`), never exercises its Compiler-API path here because `federation()` in
+  `packages/client/vite.config.ts` is called without the `dts` option — its own TS7 compatibility
+  is therefore untested by this migration, it's simply not on the path the client build takes.
 - `pnpm run typecheck` and `pnpm run build` passing under TS7 is self-verified by this branch's own
   artifacts: `docs/typescript-7-migration/benchmarks.json`'s `after` key could only exist if both
   commands exited 0 (the benchmark script throws and writes no JSON on failure). The full `pnpm
