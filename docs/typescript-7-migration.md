@@ -3,7 +3,8 @@
 Migrated `typescript` from `6.0.3` to `7.0.2` (native Go-ported compiler, the "TypeScript Native
 Preview" / `tsgo` lineage that became `typescript@7.x` at its 7.0 RC/GA). Measured with
 `scripts/bench-typecheck-build.ts` on Node `v24.13.0`, running the exact commands developers
-already use (`pnpm run typecheck`, `pnpm run build`) against this repo's 9-package pnpm workspace.
+already use (`pnpm run typecheck`, `pnpm run build`) against this repo's pnpm workspace (8 packages
+under `packages/`, of which 7 declare a `typecheck` script — `shared` has none).
 
 ## `pnpm run typecheck`
 
@@ -26,9 +27,10 @@ already use (`pnpm run typecheck`, `pnpm run build`) against this repo's 9-packa
 
 The build number moves less than typecheck because `pnpm run build` only invokes `tsc` via the
 `pnpm --filter client typecheck` step that runs concurrently with the widget builds (two `tsc`
-calls — `tsconfig.json` then `tsconfig.node.json` — versus the 8-package sweep the standalone
-`typecheck` command runs) — the rest of build time is Rspack/Vite/rolldown bundling, which doesn't
-touch the TypeScript compiler at all.
+calls — `tsconfig.json` then `tsconfig.node.json` — versus the standalone `typecheck` command's
+full sweep, which runs `tsc` across all 7 packages that declare the script, 8 invocations total
+since `client` itself contributes two) — the rest of build time is Rspack/Vite/rolldown bundling,
+which doesn't touch the TypeScript compiler at all.
 The type-checking portion of that number still improved the same way the standalone `typecheck`
 numbers show.
 
@@ -42,10 +44,20 @@ numbers show.
   identical across both TypeScript versions and cancels out in the comparison, but it means the
   absolute numbers include a fixed constant overhead beyond just type checking.
 - Migration required zero source or `tsconfig.*.json` changes: no removed compiler option was in
-  use anywhere in the repo, no code imports the TypeScript Compiler API directly, and no build
-  tool in this workspace declares a `peerDependencies` range on `typescript` — `pnpm run typecheck`,
-  `pnpm run build`, and the full `pnpm test` suite all passed with zero new errors and identical
-  test counts to the pre-migration baseline.
+  use anywhere in the repo, and no build tool in this workspace declares a `peerDependencies` range
+  on `typescript`. First-party code doesn't import the TypeScript Compiler API directly; the one
+  transitive consumer in the dependency graph, `@module-federation/dts-plugin` (pulled in via
+  `@module-federation/vite`), is unaffected here because `federation()` in
+  `packages/client/vite.config.ts` is called without the `dts` option — confirmed empirically since
+  the client build (which would fail if that plugin's TS7 compatibility were broken) passes.
+- `pnpm run typecheck` and `pnpm run build` passing under TS7 is self-verified by this branch's own
+  artifacts: `docs/typescript-7-migration/benchmarks.json`'s `after` key could only exist if both
+  commands exited 0 (the benchmark script throws and writes no JSON on failure). The full `pnpm
+  test` suite was additionally run twice against this migration — once during the version bump and
+  once on this branch's final commit — both times exiting 0 with test counts identical to the
+  pre-migration baseline (66/33/74(+2 skipped)/318(+3 skipped)/95/23/6/153/239 across the 9
+  `test`-scripted workspace projects). Re-running `pnpm test` in CI before merge is still the right
+  gate — this is a manual confirmation, not a committed CI artifact.
 - Raw data: `docs/typescript-7-migration/benchmarks.json`.
 - Known caveat, out of scope for this benchmark: Zed's `vtsls` `tsdk` setting (`.zed/settings.json`)
   targets the classic `tsserver.js` language service. TS7's native compiler has a different, still
