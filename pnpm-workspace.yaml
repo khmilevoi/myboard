@@ -35,7 +35,7 @@ catalog:
   react-dom: ^19.2.7
   tailwind-merge: ^3.6.0
   tsx: ^4.20.6
-  typescript: ^6.0.3
+  typescript: ^7.0.2
   vite: ^8.1.2
   vitest: ^4.1.9
   zod: ^4.4.3
