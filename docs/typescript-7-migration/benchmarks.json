@@ -17,5 +17,24 @@
       ],
       "medianSeconds": 15.91305075
     }
+  },
+  "after": {
+    "typescript": "7.0.2",
+    "node": "v24.13.0",
+    "typecheck": {
+      "coldSeconds": 5.8104797,
+      "warmRunsSeconds": [
+        5.3155857,
+        6.4034804
+      ],
+      "warmMedianSeconds": 5.85953305
+    },
+    "build": {
+      "runsSeconds": [
+        12.874053,
+        12.7017076
+      ],
+      "medianSeconds": 12.787880300000001
+    }
   }
 }
