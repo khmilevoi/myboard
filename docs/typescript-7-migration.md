@@ -24,9 +24,11 @@ already use (`pnpm run typecheck`, `pnpm run build`) against this repo's 9-packa
 
 - Median delta: **-3.13s (-19.6%)** — TS7 is **1.24x** faster.
 
-The build number moves less than typecheck because `pnpm run build` only runs `tsc` once (the
-`pnpm --filter client typecheck` step that runs concurrently with the widget builds) — the rest of
-build time is Rspack/Vite/rolldown bundling, which doesn't touch the TypeScript compiler at all.
+The build number moves less than typecheck because `pnpm run build` only invokes `tsc` via the
+`pnpm --filter client typecheck` step that runs concurrently with the widget builds (two `tsc`
+calls — `tsconfig.json` then `tsconfig.node.json` — versus the 8-package sweep the standalone
+`typecheck` command runs) — the rest of build time is Rspack/Vite/rolldown bundling, which doesn't
+touch the TypeScript compiler at all.
 The type-checking portion of that number still improved the same way the standalone `typecheck`
 numbers show.
 
