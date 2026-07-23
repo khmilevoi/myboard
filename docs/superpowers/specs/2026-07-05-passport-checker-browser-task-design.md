@@ -239,30 +239,38 @@ A cross-origin redirect or non-success response without positive challenge
 evidence is an upstream error, not a session-required error.
 
 Navigation challenges already occupy the visible page and are retained directly.
-If the same-origin POST returns a confirmed challenge, page-context code returns
-only the `session_required` discriminator; it does not return the challenge body
-to Node. Before retention, the handler navigates the visible tab back to the
-checker URL with GET so the browser-attention surface is present without
-automatically repeating the document POST. The operator or later embedded
-recovery client works in that retained tab, and only an explicit caller retry
-submits the document again.
+For the same-origin POST, page-context code returns only the safe evidence
+fields described below (see Page-Context Response Boundary), not the challenge
+body itself; Node runs the shared classifier against those fields to decide
+whether the POST was challenged. Before retention, the handler navigates the
+visible tab back to the checker URL with GET so the browser-attention surface
+is present without automatically repeating the document POST. The operator or
+later embedded recovery client works in that retained tab, and only an
+explicit caller retry submits the document again.
 
 ## Page-Context Response Boundary
 
 The page-context submission returns exactly one of these internal outcomes:
 
 ```text
-success(data)
-session_required
-upstream_error(status)
-invalid_json
+network_error
+response(evidence, ok, body)
 ```
 
-For a success response, only the parsed JSON value crosses the Playwright
-boundary and is then validated in Node. For error responses, the body is
-inspected only inside the remote page as needed for challenge classification and
-is discarded. Raw HTML, invalid JSON text, request bodies, response bodies, and
-passport values are never returned from `page.evaluate` or placed in an error.
+`evidence` is a closed set of safe scalar fields, not a bare discriminator: the
+response `url`, HTTP `status`, `server` and `cf-ray` headers, a bounded title
+(trimmed and capped at ~200 characters), and three challenge-marker booleans
+(`hasChallengeForm`, `hasChallengePlatform`, `hasChallengeContent`). A pure
+`evidenceFromResponseText` function derives these fields from the response text
+and headers entirely inside the page; Node then runs the same challenge
+classifier against them that navigation evidence uses. `body` is either the
+already-parsed JSON value or an `invalid_json` marker.
+
+For a success response, only that parsed JSON value and the evidence fields
+cross the Playwright boundary and are then validated in Node. Raw HTML,
+invalid JSON text, request bodies, response bodies, header objects, and
+`Response` instances are never returned from `page.evaluate` or placed in an
+error; passport values only ever cross as the validated submission arguments.
 
 Failures of `page.goto`, `page.evaluate`, or browser `fetch` are converted at the
 lowest uncontrolled boundary to typed errors with their original cause. The
