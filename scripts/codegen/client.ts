@@ -9,7 +9,6 @@ import {
   BANNER,
   CodegenIoError,
   discoverWidgetDirs,
-  MissingWidgetEntrypointError,
   InvalidPortsConfigError,
   isJavaScriptIdentifier,
   stableJson,
@@ -93,6 +92,9 @@ export const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { ${icons.join('
 export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | GeneratedOutput[]> {
   const widgetDirs = discoverWidgetDirs(paths.widgetsDir)
   if (widgetDirs instanceof Error) return widgetDirs
+  const clientWidgetDirs = widgetDirs.filter((dir) =>
+    fs.existsSync(path.resolve(paths.widgetsDir, dir, 'client.ts')),
+  )
   const portsText = fs.existsSync(paths.portsFile)
     ? errore.try(() => fs.readFileSync(paths.portsFile, 'utf8'))
     : '{}'
@@ -104,12 +106,13 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
     return new CodegenIoError({ operation: 'parse', path: paths.portsFile, cause: currentPorts })
   }
   if (!isPortsConfig(currentPorts)) return new InvalidPortsConfigError({ path: paths.portsFile })
+  const clientWidgetDirSet = new Set(clientWidgetDirs)
+  const clientPorts = Object.fromEntries(
+    Object.entries(currentPorts).filter(([widgetId]) => clientWidgetDirSet.has(widgetId)),
+  )
   const metas: WidgetMeta[] = []
-  for (const dir of widgetDirs) {
+  for (const dir of clientWidgetDirs) {
     const entrypoint = path.resolve(paths.widgetsDir, dir, 'client.ts')
-    if (!fs.existsSync(entrypoint)) {
-      return new MissingWidgetEntrypointError({ side: 'client', widgetId: dir, path: entrypoint })
-    }
     const imported = await import(pathToFileURL(entrypoint).href).catch(
       (cause) => new WidgetClientImportError({ widgetId: dir, cause }),
     )
@@ -121,7 +124,7 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
     }
     metas.push(meta)
   }
-  const ports = assignPorts(widgetDirs, currentPorts)
+  const ports = assignPorts(clientWidgetDirs, clientPorts)
   if (ports instanceof Error) return ports
   return [
     { file: paths.portsFile, content: `${stableJson(ports)}\n` },

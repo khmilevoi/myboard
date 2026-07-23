@@ -20,7 +20,6 @@ import {
   identifierFromDirectory,
   InvalidCodegenTargetError,
   InvalidPortsConfigError,
-  MissingWidgetEntrypointError,
   parseCodegenTarget,
   PortAllocationError,
   writeGeneratedOutputs,
@@ -147,10 +146,29 @@ describe('codegen generation', () => {
     expect(readFileSync(serverListFile, 'utf8')).toContain('@widgets/probe/server')
   })
 
-  it('fails client codegen when client.ts is missing', async () => {
-    const paths = createTempCodegenPaths('missing-client')
-    writeFileSync(join(paths.widgetsDir, 'probe', 'server.ts'), 'export default {}')
-    expect(await generateClient(paths)).toBeInstanceOf(MissingWidgetEntrypointError)
+  it('omits browser-only packages from client outputs and port allocation', async () => {
+    const paths = createTempCodegenPaths('browser-only-client-codegen')
+    const widgetDir = join(paths.widgetsDir, 'probe')
+    writeFileSync(join(widgetDir, 'browser.ts'), 'export default {}')
+
+    const result = await generateClient(paths)
+
+    expect(result).not.toBeInstanceOf(Error)
+    expect(JSON.parse(readFileSync(paths.portsFile, 'utf8'))).toEqual({})
+    expect(readFileSync(paths.clientCatalogFile, 'utf8')).not.toContain('probe')
+    expect(readFileSync(paths.clientIconsFile, 'utf8')).toContain(
+      'export type WidgetIconName = never',
+    )
+  })
+
+  it('prunes stale ports when a package no longer has client.ts', async () => {
+    const paths = createTempCodegenPaths('stale-browser-only-port')
+    writeFileSync(paths.portsFile, '{"probe":5180}')
+
+    const result = await generateClient(paths)
+
+    expect(result).not.toBeInstanceOf(Error)
+    expect(JSON.parse(readFileSync(paths.portsFile, 'utf8'))).toEqual({})
   })
 
   it('omits widgets without server.ts from server codegen', () => {
@@ -280,6 +298,10 @@ describe('codegen generation', () => {
   it('propagates port allocation exhaustion from client generation', async () => {
     const paths = createTempCodegenPaths('ports-exhausted')
     writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), validClientDefinition())
+    const existingDir = join(paths.widgetsDir, 'existing')
+    mkdirSync(existingDir, { recursive: true })
+    writeFileSync(join(existingDir, 'package.json'), '{"name":"widgets-existing"}')
+    writeFileSync(join(existingDir, 'client.ts'), validClientDefinition())
     writeFileSync(paths.portsFile, '{"existing":65535}')
     expect(await generateClient(paths)).toBeInstanceOf(PortAllocationError)
   })
