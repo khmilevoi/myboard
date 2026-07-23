@@ -15,6 +15,17 @@ import {
   UpstreamResponseError,
 } from './errors'
 
+// These callbacks are serialized into Chromium by page.evaluate, so the browser
+// globals exist at runtime. Declaring them module-locally keeps the DOM lib out of
+// the Node-only browser-automation tsconfig, which compiles this file through the
+// generated task registry (see packages/browser-automation/src/diagnostics.ts).
+declare const window: { location: { href: string } }
+declare const document: {
+  title: string
+  documentElement: { innerHTML: string }
+  querySelector(selectors: string): unknown
+}
+
 const ukrainianPassportSeries = /^[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ]{2}$/u
 const passportNumber = /^[0-9]{6}$/
 
