@@ -1,12 +1,7 @@
+import { BrowserTaskError } from '@shared/browser-automation/task-errors'
 import * as errore from 'errore'
 
-export class BrowserTaskError extends Error {
-  code = 'internal'
-  publicMessage = 'Browser task failed'
-  get publicMeta(): Record<string, unknown> | undefined {
-    return undefined
-  }
-}
+export { BrowserTaskError } from '@shared/browser-automation/task-errors'
 
 export class UnknownBrowserTaskError extends errore.createTaggedError({
   name: 'UnknownBrowserTaskError',

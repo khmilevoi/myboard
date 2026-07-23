@@ -1,3 +1,4 @@
+import { BrowserTaskError } from '@shared/browser-automation/task-errors'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -7,6 +8,14 @@ import {
   UnknownBrowserTaskError,
   toEnvelopeError,
 } from './errors'
+
+class WidgetOwnedTaskError extends BrowserTaskError {
+  code = 'widget_owned'
+  publicMessage = 'Widget-owned failure'
+  get publicMeta(): Record<string, unknown> {
+    return { phase: 'fixture' }
+  }
+}
 
 describe('browser task errors', () => {
   it('serializes a public task error to its code and safe message', () => {
@@ -46,5 +55,13 @@ describe('browser task errors', () => {
     const error = new BrowserServiceUnavailableError({ state: 'draining' })
     expect(error).toBeInstanceOf(BrowserServiceUnavailableError)
     expect(error.state).toBe('draining')
+  })
+
+  it('serializes a widget-owned subclass of the shared task-error base', () => {
+    expect(toEnvelopeError(new WidgetOwnedTaskError('private detail'))).toEqual({
+      code: 'widget_owned',
+      message: 'Widget-owned failure',
+      meta: { phase: 'fixture' },
+    })
   })
 })
