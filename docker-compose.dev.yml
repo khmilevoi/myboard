@@ -29,6 +29,7 @@ x-workspace-volumes: &workspace-volumes
   - widget_sdk_node_modules:/app/packages/widget-sdk/node_modules
   - widgets_clock_node_modules:/app/packages/widgets/clock/node_modules
   - widgets_ofelia_poop_duty_node_modules:/app/packages/widgets/ofelia-poop-duty/node_modules
+  - widgets_passport_checker_node_modules:/app/packages/widgets/passport-checker/node_modules
 
 services:
   valkey:
@@ -151,6 +152,7 @@ volumes:
   widget_sdk_node_modules:
   widgets_clock_node_modules:
   widgets_ofelia_poop_duty_node_modules:
+  widgets_passport_checker_node_modules:
   redisinsight:
   browser_profile_dev:
 
