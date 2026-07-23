@@ -57,4 +57,24 @@ describe('passport checker browser contracts', () => {
       message: 'Passport checker returned an unexpected response',
     })
   })
+
+  it('omits meta entirely for a session-required error with no sshTarget (the dev-stack default)', () => {
+    // toStrictEqual, not toEqual: toEqual treats an explicit `meta: undefined`
+    // key as equivalent to an absent key, so it would not catch a regression
+    // where publicMeta's `? {...} : undefined` collapsed to always returning
+    // an object. toStrictEqual distinguishes "key absent" from "key present
+    // with an undefined value".
+    expect(toEnvelopeError(new BrowserSessionRequiredError({ sshTarget: null }))).toStrictEqual({
+      code: 'browser_session_required',
+      message: 'The browser session requires attention',
+    })
+  })
+
+  it('reports meta as exactly { phase } for an upstream error with no status', () => {
+    expect(toEnvelopeError(new UpstreamResponseError({ phase: 'navigation' }))).toStrictEqual({
+      code: 'upstream_response',
+      message: 'Passport checker is temporarily unavailable',
+      meta: { phase: 'navigation' },
+    })
+  })
 })
