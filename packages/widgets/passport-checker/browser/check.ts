@@ -1,4 +1,5 @@
 import type { BrowserTaskContext, WidgetSecrets } from 'browser-automation/task-context'
+import * as errore from 'errore'
 import type { Response } from 'playwright'
 
 import {
@@ -20,8 +21,18 @@ const passportNumber = /^[0-9]{6}$/
 export type PassportIdentity = { series: string; number: string }
 
 export function readPassportIdentity(secrets: WidgetSecrets) {
-  const series = secrets.read('series')
-  const number = secrets.read('number')
+  const series = errore.try({
+    try: () => secrets.read('series'),
+    catch: () => new BrowserConfigurationError(),
+  })
+  if (series instanceof Error) return series
+
+  const number = errore.try({
+    try: () => secrets.read('number'),
+    catch: () => new BrowserConfigurationError(),
+  })
+  if (number instanceof Error) return number
+
   if (!series || !number) return new BrowserConfigurationError()
   if (!ukrainianPassportSeries.test(series)) return new BrowserConfigurationError()
   if (!passportNumber.test(number)) return new BrowserConfigurationError()
@@ -29,11 +40,13 @@ export function readPassportIdentity(secrets: WidgetSecrets) {
 }
 
 type SubmitOutcome =
-  | { kind: 'success'; data: unknown }
-  | { kind: 'session_required' }
-  | { kind: 'upstream_error'; status: number }
-  | { kind: 'invalid_json' }
   | { kind: 'network_error' }
+  | {
+      kind: 'response'
+      evidence: ChallengeEvidence
+      ok: boolean
+      body: { kind: 'json'; data: unknown } | { kind: 'invalid_json' }
+    }
 
 export type PassportCheckHandlerOptions = {
   checkerUrl: string
@@ -95,28 +108,32 @@ async function submitPassport(
       if (response === null) return { kind: 'network_error' } as const
 
       const text = await response.text().catch(() => null)
-      if (text === null) return { kind: 'invalid_json' } as const
+      const titleMatch = text === null ? null : /<title[^>]*>([^<]*)</i.exec(text)
 
-      const lower = text.toLowerCase()
-      const cloudflareHeader =
-        response.headers.get('server')?.toLowerCase().includes('cloudflare') === true ||
-        response.headers.has('cf-ray')
-      const challengeMarker =
-        lower.includes('/cdn-cgi/challenge-platform/') ||
-        lower.includes('id="challenge-form"') ||
-        lower.includes('<title>just a moment')
-      const challengeShapedContent = lower.includes('cf-chl-')
-      if (
-        challengeMarker ||
-        ([403, 503].includes(response.status) && cloudflareHeader && challengeShapedContent)
-      ) {
-        return { kind: 'session_required' } as const
+      const evidence = {
+        url: response.url,
+        title: titleMatch ? titleMatch[1] : '',
+        status: response.status,
+        server: response.headers.get('server'),
+        cfRay: response.headers.get('cf-ray'),
+        hasChallengeForm:
+          text !== null &&
+          (/id=["']challenge-form["']/i.test(text) ||
+            /<form[^>]+action=["'][^"']*challenge[^"']*["']/i.test(text)),
+        hasChallengePlatform:
+          text !== null &&
+          /<script[^>]+src=["'][^"']*\/cdn-cgi\/challenge-platform\/[^"']*["']/i.test(text),
+        hasChallengeContent: text !== null && /cf-chl-|challenge-platform/i.test(text),
       }
-      if (!response.ok) return { kind: 'upstream_error', status: response.status } as const
 
-      return Promise.resolve(text)
-        .then((value) => ({ kind: 'success', data: JSON.parse(value) as unknown }) as const)
+      const body = await Promise.resolve(text)
+        .then((value) => {
+          if (value === null) return { kind: 'invalid_json' } as const
+          return { kind: 'json', data: JSON.parse(value) as unknown } as const
+        })
         .catch(() => ({ kind: 'invalid_json' }) as const)
+
+      return { kind: 'response', evidence, ok: response.ok, body } as const
     }, identity)
     .catch((cause) => new UpstreamResponseError({ phase: 'submission', cause }))
 }
@@ -143,7 +160,10 @@ export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
 
     const outcome = await submitPassport(context, identity)
     if (outcome instanceof Error) return outcome
-    if (outcome.kind === 'session_required') {
+    if (outcome.kind === 'network_error') {
+      return new UpstreamResponseError({ phase: 'submission' })
+    }
+    if (isCloudflareChallenge(outcome.evidence)) {
       const prepared = await context.page
         .goto(options.checkerUrl, { waitUntil: 'domcontentloaded' })
         .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
@@ -152,15 +172,15 @@ export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
       context.retainPageForRecovery()
       return new BrowserSessionRequiredError({ sshTarget: options.recoverySshTarget })
     }
-    if (outcome.kind === 'network_error') {
-      return new UpstreamResponseError({ phase: 'submission' })
+    if (!outcome.ok) {
+      return new UpstreamResponseError({
+        phase: 'submission',
+        status: outcome.evidence.status ?? undefined,
+      })
     }
-    if (outcome.kind === 'upstream_error') {
-      return new UpstreamResponseError({ phase: 'submission', status: outcome.status })
-    }
-    if (outcome.kind === 'invalid_json') return new InvalidCheckerResponseError()
+    if (outcome.body.kind === 'invalid_json') return new InvalidCheckerResponseError()
 
-    const parsed = passportCheckResultSchema.safeParse(outcome.data)
+    const parsed = passportCheckResultSchema.safeParse(outcome.body.data)
     if (!parsed.success) return new InvalidCheckerResponseError()
     if (containsIdentity(parsed.data, identity)) return new InvalidCheckerResponseError()
     return parsed.data

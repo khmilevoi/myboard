@@ -50,6 +50,17 @@ describe('passport identity', () => {
       number: '123456',
     })
   })
+
+  it('treats a throwing secret read as a configuration error, not an unhandled rejection', () => {
+    const throwingSecrets: WidgetSecrets = {
+      read: () => {
+        throw new Error('read failed')
+      },
+      has: () => false,
+    }
+    const result = readPassportIdentity(throwingSecrets)
+    expect(result).toBeInstanceOf(BrowserConfigurationError)
+  })
 })
 
 describe('Cloudflare challenge classifier', () => {
@@ -81,19 +92,25 @@ describe('Cloudflare challenge classifier', () => {
   })
 })
 
+type SubmitScenario =
+  | { kind: 'network_error' }
+  | {
+      kind: 'response'
+      evidence?: Partial<ChallengeEvidence>
+      ok?: boolean
+      body?: { kind: 'json'; data: unknown } | { kind: 'invalid_json' }
+    }
+
 type PageScenario = {
   navigationError?: Error
   submissionError?: Error
   navigationStatus?: number
   navigationHeaders?: Record<string, string>
   evidence?: Partial<ChallengeEvidence>
-  submit?:
-    | { kind: 'success'; data: unknown }
-    | { kind: 'session_required' }
-    | { kind: 'upstream_error'; status: number }
-    | { kind: 'invalid_json' }
-    | { kind: 'network_error' }
+  submit?: SubmitScenario
 }
+
+const defaultSubmitBody = { kind: 'json', data: { status: 1, send_status_msg: 'ok' } } as const
 
 function makeContext(scenario: PageScenario) {
   const retainPageForRecovery = vi.fn()
@@ -109,12 +126,19 @@ function makeContext(scenario: PageScenario) {
   const evaluate = vi.fn(async (_fn: unknown, arg?: unknown) => {
     if (arg === undefined) return { ...baseEvidence, ...scenario.evidence }
     if (scenario.submissionError) throw scenario.submissionError
-    return (
-      scenario.submit ?? {
-        kind: 'success',
-        data: { status: 1, send_status_msg: 'ok' },
-      }
-    )
+
+    const submit: SubmitScenario = scenario.submit ?? {
+      kind: 'response',
+      ok: true,
+      body: defaultSubmitBody,
+    }
+    if (submit.kind === 'network_error') return submit
+    return {
+      kind: 'response',
+      evidence: { ...baseEvidence, ...submit.evidence },
+      ok: submit.ok ?? true,
+      body: submit.body ?? defaultSubmitBody,
+    }
   })
   const context: BrowserTaskContext = {
     page: { goto, evaluate } as unknown as Page,
@@ -128,8 +152,9 @@ describe('passport check handler', () => {
   it('returns only the validated checker result after one submission', async () => {
     const { context, evaluate } = makeContext({
       submit: {
-        kind: 'success',
-        data: { status: 2, send_status_msg: 'valid', ignored: true },
+        kind: 'response',
+        ok: true,
+        body: { kind: 'json', data: { status: 2, send_status_msg: 'valid', ignored: true } },
       },
     })
     const result = await makePassportCheckHandler({
@@ -156,8 +181,11 @@ describe('passport check handler', () => {
   })
 
   it.each([
-    [{ kind: 'upstream_error', status: 502 } as const, UpstreamResponseError],
-    [{ kind: 'invalid_json' } as const, InvalidCheckerResponseError],
+    [{ kind: 'response', ok: false, evidence: { status: 502 } } as const, UpstreamResponseError],
+    [
+      { kind: 'response', ok: true, body: { kind: 'invalid_json' } } as const,
+      InvalidCheckerResponseError,
+    ],
     [{ kind: 'network_error' } as const, UpstreamResponseError],
   ])('maps safe submission outcomes to domain errors', async (submit, ErrorType) => {
     const { context } = makeContext({ submit })
@@ -180,12 +208,33 @@ describe('passport check handler', () => {
     expect(result).toBeInstanceOf(UpstreamResponseError)
   })
 
+  it('classifies a POST challenge with the shared classifier, retains the page, and never re-submits', async () => {
+    const { context, evaluate, goto, retainPageForRecovery } = makeContext({
+      submit: {
+        kind: 'response',
+        ok: false,
+        evidence: { hasChallengeForm: true },
+      },
+    })
+    const result = await makePassportCheckHandler({
+      checkerUrl: 'http://fixture.local/solutions/checker',
+      recoverySshTarget: 'pi@myboard.local',
+    })({}, context)
+
+    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
+    expect(retainPageForRecovery).toHaveBeenCalledOnce()
+    expect(goto).toHaveBeenCalledTimes(2)
+    expect(evaluate).toHaveBeenCalledTimes(2)
+  })
+
   it('rejects schema mismatches and responses that echo document identity', async () => {
     for (const data of [
       { status: '1', send_status_msg: 'bad' },
       { status: 1, send_status_msg: 'passport АБ 123456' },
     ]) {
-      const { context } = makeContext({ submit: { kind: 'success', data } })
+      const { context } = makeContext({
+        submit: { kind: 'response', ok: true, body: { kind: 'json', data } },
+      })
       const result = await makePassportCheckHandler({
         checkerUrl: 'http://fixture.local/solutions/checker',
         recoverySshTarget: null,
