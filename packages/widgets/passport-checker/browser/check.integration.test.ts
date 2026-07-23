@@ -23,6 +23,7 @@ type FixtureMode =
   | 'success'
   | 'navigation-challenge'
   | 'post-challenge'
+  | 'recovery-navigation-failure'
   | 'upstream-error'
   | 'invalid-json'
   | 'invalid-schema'
@@ -47,6 +48,7 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
   let browser: BrowserContext
   let server: http.Server
   let checkerUrl = ''
+  let profileDir = ''
   let mode: FixtureMode = 'success'
   let receivedForm: FormData | null = null
   let receivedContentType = ''
@@ -63,8 +65,17 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
       }
       requests.push({ method: request.method ?? '', url: request.url ?? '' })
       if (request.method === 'GET') {
+        // The post-challenge recovery navigation: kill the connection instead
+        // of responding, so the browser's goto() rejects at the network level
+        // (mirrors a real dropped connection during recovery).
+        if (mode === 'recovery-navigation-failure' && receivedForm !== null) {
+          request.socket.destroy()
+          return
+        }
         const challenged =
-          mode === 'navigation-challenge' || (mode === 'post-challenge' && receivedForm !== null)
+          mode === 'navigation-challenge' ||
+          ((mode === 'post-challenge' || mode === 'recovery-navigation-failure') &&
+            receivedForm !== null)
         return handleGet(response, challenged)
       }
       if (request.method === 'POST') {
@@ -76,10 +87,8 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     })
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     checkerUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/solutions/checker`
-    browser = await chromium.launchPersistentContext(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'passport-checker-it-profile-')),
-      { headless: false },
-    )
+    profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'passport-checker-it-profile-'))
+    browser = await chromium.launchPersistentContext(profileDir, { headless: false })
   })
 
   beforeEach(() => {
@@ -92,12 +101,22 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
   afterAll(async () => {
     await browser?.close()
     await new Promise<void>((resolve) => server?.close(() => resolve()))
+    if (profileDir) {
+      try {
+        fs.rmSync(profileDir, { recursive: true, force: true })
+      } catch {
+        // Chromium or the OS may still hold a brief lock on profile files
+        // right after context.close(), especially on Windows; a leaked temp
+        // dir here is a nuisance, not a test failure.
+      }
+    }
   })
 
   async function runCheck() {
     const page = await browser.newPage()
     const browserRequests: string[] = []
     page.on('request', (request) => browserRequests.push(request.url()))
+    const evaluateSpy = vi.spyOn(page, 'evaluate')
     const retainPageForRecovery = vi.fn()
     const definition = makePassportCheckerBrowser({ checkerUrl, recoverySshTarget: null })
     const context: BrowserTaskContext = {
@@ -107,7 +126,7 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     }
     const result = await definition.handlers.check({}, context)
     if (!retainPageForRecovery.mock.calls.length) await page.close()
-    return { browserRequests, page, result, retainPageForRecovery }
+    return { browserRequests, evaluateSpy, page, result, retainPageForRecovery }
   }
 
   it('submits exact browser-generated multipart fields and returns validated data', async () => {
@@ -159,20 +178,42 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     ['upstream-error', UpstreamResponseError],
     ['invalid-json', InvalidCheckerResponseError],
     ['invalid-schema', InvalidCheckerResponseError],
-  ] as const)('maps %s without leaking identity', async (fixtureMode, ErrorType) => {
-    mode = fixtureMode
+  ] as const)(
+    'maps %s to a typed error whose serialized result omits identity',
+    async (fixtureMode, ErrorType) => {
+      mode = fixtureMode
+
+      const { result } = await runCheck()
+
+      expect(result).toBeInstanceOf(ErrorType)
+      expect(JSON.stringify(result)).not.toContain(fakeSeries)
+      expect(JSON.stringify(result)).not.toContain(fakeNumber)
+    },
+  )
+
+  it('logs a redacted recovery-navigation failure without repeating the POST', async () => {
+    mode = 'recovery-navigation-failure'
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
-    const { result } = await runCheck()
+    const { evaluateSpy, page, result, retainPageForRecovery } = await runCheck()
 
-    expect(result).toBeInstanceOf(ErrorType)
-    expect(JSON.stringify(result)).not.toContain(fakeSeries)
-    expect(JSON.stringify(result)).not.toContain(fakeNumber)
+    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
+    expect(retainPageForRecovery).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledOnce()
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(fakeSeries)
     expect(JSON.stringify(warn.mock.calls)).not.toContain(fakeNumber)
-    expect(JSON.stringify(error.mock.calls)).not.toContain(fakeNumber)
+    // page.evaluate is the transport for both the navigation-evidence probe
+    // and the multipart POST; a connection-reset retry by Chromium repeats
+    // the raw GET at the socket level (untracked here), but it never routes
+    // back through evaluate, so this count staying at 2 is what proves the
+    // POST itself was not repeated.
+    expect(evaluateSpy).toHaveBeenCalledTimes(2)
+    expect(requests.filter((request) => request.method === 'POST')).toEqual([
+      { method: 'POST', url: '/solutions/checker' },
+    ])
+
     warn.mockRestore()
-    error.mockRestore()
+    await page.close()
   })
 })
 
@@ -192,7 +233,9 @@ function handleGet(response: ServerResponse, challenged: boolean) {
 }
 
 function handlePost(response: ServerResponse, mode: FixtureMode) {
-  if (mode === 'post-challenge') return challenge(response)
+  if (mode === 'post-challenge' || mode === 'recovery-navigation-failure') {
+    return challenge(response)
+  }
   if (mode === 'upstream-error') return response.writeHead(502).end('unavailable')
   if (mode === 'invalid-json') {
     return response.writeHead(200, { 'content-type': 'application/json' }).end('{broken')
