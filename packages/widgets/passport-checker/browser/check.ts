@@ -7,7 +7,11 @@ import {
   type PassportCheckPayload,
   type PassportCheckResult,
 } from '../types'
-import { isCloudflareChallenge, type ChallengeEvidence } from './challenge'
+import {
+  evidenceFromResponseText,
+  isCloudflareChallenge,
+  type ChallengeEvidence,
+} from './challenge'
 import {
   BrowserConfigurationError,
   BrowserSessionRequiredError,
@@ -100,52 +104,60 @@ function containsIdentity(result: PassportCheckResult, identity: PassportIdentit
   )
 }
 
+// Playwright serializes a page.evaluate callback by source text alone — it
+// cannot close over a Node-side import (see the docstring on
+// evidenceFromResponseText in browser/challenge.ts). Passing the composed
+// source as a *string* pageFunction does not work either: verified
+// empirically against this Playwright version, a string pageFunction is only
+// ever evaluated as a bare expression and the `arg` is never applied to it, so
+// a function-typed completion value structured-clones to `undefined` instead
+// of being called. Building a real, closure-free Function object with
+// `new Function` here — entirely in Node, never inside the browser, so there
+// is no page-CSP exposure — and handing Playwright *that* function object
+// uses the same proven function+arg serialization path every other
+// page.evaluate call in this file already relies on.
+const submitPassportInPage = new Function(
+  `return (async ({ series, number }) => {
+    const evidenceFromResponseText = ${evidenceFromResponseText.toString()}
+
+    const formData = new FormData()
+    formData.set('service', '1')
+    formData.set('doc_1_select', '1')
+    formData.set('doc_1_series', series)
+    formData.set('doc_1_number6', number)
+
+    const response = await fetch('/solutions/checker', {
+      method: 'POST',
+      body: formData,
+    }).catch(() => null)
+    if (response === null) return { kind: 'network_error' }
+
+    const text = await response.text().catch(() => null)
+    const evidence = evidenceFromResponseText({
+      url: response.url,
+      status: response.status,
+      server: response.headers.get('server'),
+      cfRay: response.headers.get('cf-ray'),
+      text,
+    })
+
+    const body = await Promise.resolve(text)
+      .then((value) => {
+        if (value === null) return { kind: 'invalid_json' }
+        return { kind: 'json', data: JSON.parse(value) }
+      })
+      .catch(() => ({ kind: 'invalid_json' }))
+
+    return { kind: 'response', evidence, ok: response.ok, body }
+  })`,
+)() as (identity: PassportIdentity) => Promise<SubmitOutcome>
+
 async function submitPassport(
   context: BrowserTaskContext,
   identity: PassportIdentity,
 ): Promise<UpstreamResponseError | SubmitOutcome> {
   return context.page
-    .evaluate(async ({ series, number }) => {
-      const formData = new FormData()
-      formData.set('service', '1')
-      formData.set('doc_1_select', '1')
-      formData.set('doc_1_series', series)
-      formData.set('doc_1_number6', number)
-
-      const response = await fetch('/solutions/checker', {
-        method: 'POST',
-        body: formData,
-      }).catch(() => null)
-      if (response === null) return { kind: 'network_error' } as const
-
-      const text = await response.text().catch(() => null)
-      const titleMatch = text === null ? null : /<title[^>]*>([^<]*)</i.exec(text)
-
-      const evidence = {
-        url: response.url,
-        title: titleMatch ? titleMatch[1] : '',
-        status: response.status,
-        server: response.headers.get('server'),
-        cfRay: response.headers.get('cf-ray'),
-        hasChallengeForm:
-          text !== null &&
-          (/id=["']challenge-form["']/i.test(text) ||
-            /<form[^>]+action=["'][^"']*challenge[^"']*["']/i.test(text)),
-        hasChallengePlatform:
-          text !== null &&
-          /<script[^>]+src=["'][^"']*\/cdn-cgi\/challenge-platform\/[^"']*["']/i.test(text),
-        hasChallengeContent: text !== null && /cf-chl-|challenge-platform/i.test(text),
-      }
-
-      const body = await Promise.resolve(text)
-        .then((value) => {
-          if (value === null) return { kind: 'invalid_json' } as const
-          return { kind: 'json', data: JSON.parse(value) as unknown } as const
-        })
-        .catch(() => ({ kind: 'invalid_json' }) as const)
-
-      return { kind: 'response', evidence, ok: response.ok, body } as const
-    }, identity)
+    .evaluate<SubmitOutcome, PassportIdentity>(submitPassportInPage, identity)
     .catch((cause) => new UpstreamResponseError({ phase: 'submission', cause }))
 }
 
