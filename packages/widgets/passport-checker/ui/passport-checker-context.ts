@@ -1,9 +1,11 @@
 import { createContext, useContext } from 'react'
 
 import type { PassportCheckModel } from '../model/check-model'
+import type { RecoveryModel } from '../model/recovery-model'
 
 export type PassportCheckerContextValue = {
   checkModel: PassportCheckModel
+  recoveryModel: RecoveryModel
 }
 
 export const passportCheckerContext = createContext<PassportCheckerContextValue | null>(null)

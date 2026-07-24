@@ -4,9 +4,13 @@ import type { WidgetTier } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { makePassportCheckModel } from '../model/check-model'
+import { makeRecoveryModel } from '../model/recovery-model'
+import { makeRecoveryTransport } from '../model/recovery-transport'
+import { makeNoVncRfb } from '../model/rfb'
 import type { PassportCheckerEvents } from '../types'
 import { passportCheckerContext } from './passport-checker-context'
 import type { PassportCheckerContextValue } from './passport-checker-context'
+import { RecoveryModal } from './RecoveryModal'
 import { StandardTier } from './tiers/StandardTier'
 import { TinyTier } from './tiers/TinyTier'
 
@@ -18,15 +22,28 @@ export function isStandardLayout(tier: WidgetTier): boolean {
 }
 
 export const PassportChecker = reatomMemo(() => {
-  const { tier, api } = useWidgetContext<PassportCheckerEvents>()
+  const { tier, typeId, api } = useWidgetContext<PassportCheckerEvents>()
   const checkModel = useMemo(() => makePassportCheckModel({ api }), [api])
-  const value = useMemo<PassportCheckerContextValue>(() => ({ checkModel }), [checkModel])
+  const recoveryModel = useMemo(
+    () =>
+      makeRecoveryModel({
+        widgetId: typeId,
+        transport: makeRecoveryTransport(),
+        makeRfb: makeNoVncRfb,
+      }),
+    [typeId],
+  )
+  const value = useMemo<PassportCheckerContextValue>(
+    () => ({ checkModel, recoveryModel }),
+    [checkModel, recoveryModel],
+  )
 
   return (
     <passportCheckerContext.Provider value={value}>
       <div className={styles.widget} data-tier={tier}>
         {isStandardLayout(tier) ? <StandardTier /> : <TinyTier />}
       </div>
+      {checkModel.recoveryOpen() && <RecoveryModal />}
     </passportCheckerContext.Provider>
   )
 }, 'PassportChecker')
