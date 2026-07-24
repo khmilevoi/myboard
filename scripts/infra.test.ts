@@ -24,6 +24,7 @@ const serverDockerfile = readFileSync(resolve(root, 'packages/server/Dockerfile'
 const ports = JSON.parse(
   readFileSync(resolve(root, 'packages/widgets/.ports.json'), 'utf8'),
 ) as Record<string, number>
+const nginxConf = readFileSync(resolve(root, 'packages/client/nginx.conf'), 'utf8')
 
 it('exposes each root client definition as the remote client entrypoint', () => {
   expect(widgetViteConfig).toContain("exposes: { './client': './client.ts' }")
@@ -240,6 +241,34 @@ describe('browser-automation service wiring', () => {
     expect(devServerBlock).toContain("BROWSER_AUTOMATION_TIMEOUT_MS: '100000'")
     const devDependsOnBlock = devServerBlock.slice(devServerBlock.indexOf('    depends_on:'))
     expect(devDependsOnBlock).not.toContain('browser-automation:')
+  })
+})
+
+describe('recovery websocket ingress', () => {
+  const prodCompose = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
+  const location = nginxConf.slice(
+    nginxConf.indexOf('location = /api/browser/recovery/socket'),
+    nginxConf.indexOf('# ---- gated: board statics'),
+  )
+
+  it('gates the recovery socket behind the auth subrequest', () => {
+    expect(nginxConf).toContain('location = /api/browser/recovery/socket')
+    expect(location).toContain('auth_request /internal/auth;')
+  })
+
+  it('forwards the websocket upgrade headers', () => {
+    expect(location).toContain('proxy_set_header Upgrade $http_upgrade;')
+    expect(location).toContain('proxy_set_header Connection "upgrade";')
+  })
+
+  it('outlives the maximum recovery session', () => {
+    expect(location).toContain('proxy_read_timeout 960s;')
+    expect(location).toContain('proxy_send_timeout 960s;')
+  })
+
+  it('keeps the vnc bridge on the pi loopback only', () => {
+    expect(prodCompose).toContain("- '127.0.0.1:6080:6080'")
+    expect(nginxConf).not.toContain('6080')
   })
 })
 
