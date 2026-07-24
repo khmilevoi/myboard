@@ -4,6 +4,8 @@ import { createServer, type Server, type ServerResponse } from 'node:http'
 import Router from 'find-my-way'
 import { z } from 'zod'
 
+import { PublicWidgetError } from '@shared/widgets/public-error'
+
 import { registerAuthRoutes } from './auth'
 import { addDeviceToAccount, createAccount } from './auth/accounts'
 import { makeAuditLogger, type AuditLogger } from './auth/audit'
@@ -134,9 +136,13 @@ export function createApp(deps: AppDeps): App {
   function sendWidgetError(res: ServerResponse, error: PublicWidgetDispatchError): void {
     if (error.status === 500) console.error(error)
     res.writeHead(error.status, { 'content-type': 'application/json' })
+    const meta = error instanceof PublicWidgetError ? error.meta : undefined
     res.end(
       JSON.stringify({
-        error: { code: error.code, message: error.publicMessage },
+        error:
+          meta === undefined
+            ? { code: error.code, message: error.publicMessage }
+            : { code: error.code, message: error.publicMessage, meta },
       }),
     )
   }

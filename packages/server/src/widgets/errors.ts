@@ -1,3 +1,4 @@
+import { PublicWidgetError } from '@shared/widgets/public-error'
 import * as errore from 'errore'
 
 class WidgetDispatchError extends Error {
@@ -60,4 +61,4 @@ export class WidgetRequestBodyError extends errore.createTaggedError({
   extends: WidgetDispatchError,
 }) {}
 
-export type PublicWidgetDispatchError = WidgetDispatchError
+export type PublicWidgetDispatchError = WidgetDispatchError | PublicWidgetError

@@ -10,6 +10,7 @@ import {
   toRuntimeWidgetServerDefinition,
   type RuntimeWidgetServerDefinition,
 } from '@shared/widgets/contracts'
+import { PublicWidgetError } from '@shared/widgets/public-error'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -42,6 +43,14 @@ const schemas = {
     payload: z.object({ value: z.string() }),
     result: z.object({ kind: z.string(), code: z.string().nullable() }),
   },
+  publicReject: {
+    payload: z.object({}),
+    result: z.object({ ok: z.boolean() }),
+  },
+  publicThrow: {
+    payload: z.object({}),
+    result: z.object({ ok: z.boolean() }),
+  },
 } as const
 
 const definition = defineWidgetServer({
@@ -57,6 +66,17 @@ const definition = defineWidgetServer({
       }
       if (result instanceof Error) return { kind: result._tag, code: null }
       return { kind: 'success', code: null }
+    },
+    publicReject() {
+      return new PublicWidgetError({
+        status: 409,
+        code: 'browser_session_required',
+        publicMessage: 'The browser session requires attention',
+        meta: { sshTarget: 'admin@pi' },
+      })
+    },
+    async publicThrow(): Promise<{ ok: boolean }> {
+      throw new PublicWidgetError({ code: 'x', publicMessage: 'x' })
     },
   },
 })
@@ -142,6 +162,23 @@ describe('dispatchWidgetEvent', () => {
     expect(await dispatch({ registry: failingRegistry, typeId: 'failing-widget' })).toBeInstanceOf(
       WidgetHandlerError,
     )
+  })
+
+  it('returns a PublicWidgetError from a handler unchanged', async () => {
+    const result = await dispatch({ event: 'publicReject', payload: {} })
+
+    expect(result).toBeInstanceOf(PublicWidgetError)
+    if (!(result instanceof PublicWidgetError)) throw new Error('expected PublicWidgetError')
+    expect(result.status).toBe(409)
+    expect(result.code).toBe('browser_session_required')
+    expect(result.publicMessage).toBe('The browser session requires attention')
+    expect(result.meta).toEqual({ sshTarget: 'admin@pi' })
+  })
+
+  it('still wraps a thrown PublicWidgetError as WidgetHandlerError', async () => {
+    // Passthrough is a return-value contract (errore style); throwing stays internal.
+    const result = await dispatch({ event: 'publicThrow', payload: {} })
+    expect(result).toBeInstanceOf(WidgetHandlerError)
   })
 
   it.each([

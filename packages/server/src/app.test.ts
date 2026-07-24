@@ -2,7 +2,8 @@ import type { AddressInfo } from 'node:net'
 
 import { defineWidgetBrowserTasks } from '@shared/widgets/browser-contracts'
 import { defineWidgetServer, toRuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { PublicWidgetError } from '@shared/widgets/public-error'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { createApp, type App } from './app'
@@ -73,6 +74,14 @@ const testWidget = defineWidgetServer({
       payload: z.object({ value: z.string() }),
       result: z.object({ echoed: z.string() }),
     },
+    publicReject: {
+      payload: z.object({}),
+      result: z.object({ ok: z.boolean() }),
+    },
+    publicRejectNoMeta: {
+      payload: z.object({}),
+      result: z.object({ ok: z.boolean() }),
+    },
   },
   handlers: {
     echo(payload, context) {
@@ -80,6 +89,21 @@ const testWidget = defineWidgetServer({
     },
     async browserEcho(payload, context) {
       return context.api.browser.invoke(browserTasks.check, payload)
+    },
+    publicReject() {
+      return new PublicWidgetError({
+        status: 409,
+        code: 'browser_session_required',
+        publicMessage: 'The browser session requires attention',
+        meta: { sshTarget: 'admin@pi' },
+      })
+    },
+    publicRejectNoMeta() {
+      return new PublicWidgetError({
+        code: 'browser_configuration',
+        publicMessage: 'Passport checker is not configured',
+        status: 500,
+      })
     },
   },
 })
@@ -236,6 +260,41 @@ describe('createApp', () => {
     })
     expect(res.status).toBe(422)
     expect(await res.json()).toMatchObject({ error: { code: 'payload_invalid' } })
+  })
+
+  it('serializes a PublicWidgetError with its code, status and meta', async () => {
+    const res = await fetch(`${base}/api/widgets/test-widget/publicReject`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
+      body: JSON.stringify({ instanceId: 'placement-1', payload: {} }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      error: {
+        code: 'browser_session_required',
+        message: 'The browser session requires attention',
+        meta: { sshTarget: 'admin@pi' },
+      },
+    })
+  })
+
+  it('omits meta from the envelope when a PublicWidgetError has none', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await fetch(`${base}/api/widgets/test-widget/publicRejectNoMeta`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
+        body: JSON.stringify({ instanceId: 'placement-1', payload: {} }),
+      })
+
+      expect(res.status).toBe(500)
+      expect(await res.json()).toEqual({
+        error: { code: 'browser_configuration', message: 'Passport checker is not configured' },
+      })
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('invokes a widget-scoped browser task through normal widget RPC', async () => {
