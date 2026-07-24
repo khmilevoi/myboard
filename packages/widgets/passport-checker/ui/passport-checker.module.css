@@ -1,0 +1,277 @@
+.widget {
+  --pc-warning-bg: oklch(0.96 0.05 80);
+  --pc-warning-border: oklch(0.85 0.1 80);
+  --pc-warning-icon: oklch(0.58 0.13 70);
+  --pc-success: var(--success, oklch(0.55 0.13 155));
+  --pc-success-soft: var(--success-soft, oklch(0.95 0.05 155));
+  --pc-success-border: oklch(0.86 0.08 155);
+  --pc-error: var(--destructive, oklch(0.55 0.21 27));
+  --pc-error-soft: var(--destructive-soft, oklch(0.968 0.028 27));
+  --pc-error-border: oklch(0.88 0.07 27);
+
+  height: 100%;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  color: var(--text, #22232a);
+}
+
+.standard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card, #fff);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card, 0 1px 2px rgba(20, 22, 40, 0.05));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconChip {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft, oklch(0.955 0.032 285));
+  color: var(--primary, oklch(0.55 0.17 281));
+}
+
+.iconChipMuted {
+  background: var(--secondary, #eceef1);
+  color: var(--text-dim, #9396a0);
+}
+
+.title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.description {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-dim, #5b5e69);
+}
+
+.pendingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 2px solid var(--border, #e3e4e8);
+  border-top-color: var(--primary, oklch(0.55 0.17 281));
+  border-radius: 50%;
+  animation: pc-spin 0.8s linear infinite;
+}
+
+.spinnerLarge {
+  width: 26px;
+  height: 26px;
+}
+
+@keyframes pc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.primaryButton,
+.secondaryButton,
+.tinyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.primaryButton {
+  height: 40px;
+  background: var(--primary, oklch(0.55 0.17 281));
+  color: var(--primary-foreground, #fff);
+}
+
+.primaryButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.secondaryButton {
+  height: 38px;
+  background: var(--card, #fff);
+  border-color: var(--border, #e3e4e8);
+  color: var(--text, #22232a);
+}
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.bannerBody {
+  min-width: 0;
+}
+
+.bannerIcon {
+  flex: none;
+}
+
+.bannerTitle {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.bannerMeta {
+  margin-top: 4px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: var(--text-dim, #5b5e69);
+}
+
+.bannerHint {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-dim, #5b5e69);
+}
+
+.bannerSuccess {
+  background: var(--pc-success-soft);
+  border-color: var(--pc-success-border);
+}
+
+.bannerSuccess .bannerIcon,
+.tinySuccessIcon {
+  color: var(--pc-success);
+}
+
+.bannerError {
+  background: var(--pc-error-soft);
+  border-color: var(--pc-error-border);
+}
+
+.bannerError .bannerIcon,
+.tinyErrorIcon {
+  color: var(--pc-error);
+}
+
+.bannerMuted {
+  background: var(--secondary, #f5f6f8);
+  border-color: var(--border, #eceef1);
+}
+
+.bannerWarning {
+  background: var(--pc-warning-bg);
+  border-color: var(--pc-warning-border);
+}
+
+.bannerWarning .bannerIcon {
+  color: var(--pc-warning-icon);
+}
+
+.footerNote {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--text-3, #9396a0);
+}
+
+.tiny {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  text-align: center;
+  background: var(--card, #fff);
+  border-radius: 14px;
+}
+
+.tinyWarning {
+  background: var(--pc-warning-bg);
+}
+
+.tinyChip {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft, oklch(0.955 0.032 285));
+  color: var(--primary, oklch(0.55 0.17 281));
+}
+
+.tinyChipWarning {
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  color: var(--pc-warning-icon);
+}
+
+.tinyChipMuted {
+  background: var(--secondary, #eceef1);
+  color: var(--text-dim, #9396a0);
+}
+
+.tinyTitle {
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.tinyLabel {
+  font-weight: 600;
+  font-size: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tinyMono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.tinyStatusChip {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 999px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  background: var(--pc-success-soft);
+  color: var(--pc-success);
+}
+
+.tinyButton {
+  height: 36px;
+  background: var(--primary, oklch(0.55 0.17 281));
+  color: var(--primary-foreground, #fff);
+  font-size: 12.5px;
+}
+
+.tinyButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
