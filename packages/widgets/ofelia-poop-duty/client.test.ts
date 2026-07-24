@@ -22,7 +22,10 @@ describe('ofeliaWidget tiers', () => {
     expect(resolveTier(defaultFootprintPx, ofeliaWidget.tiers!)).toBe('standard')
   })
 
-  it('loads the component when the browser has no native Temporal', async () => {
+  // The dynamic import below pulls the whole UI chunk plus the Temporal
+  // polyfill; under a full-workspace `pnpm -r test` run the machine is busy
+  // enough that it can exceed vitest's default 5s per-test timeout.
+  it('loads the component when the browser has no native Temporal', { timeout: 30_000 }, async () => {
     const temporalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'Temporal')
 
     try {
