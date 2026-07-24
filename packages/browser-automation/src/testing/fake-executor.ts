@@ -9,6 +9,7 @@ export type FakeExecutorState = {
   lastSignal: AbortSignal | null
   lastWidgetId: string | null
   acquireError: Error | null
+  retainedWidgetIds: Set<string>
 }
 
 export function makeFakeExecutor(): {
@@ -22,6 +23,7 @@ export function makeFakeExecutor(): {
     lastSignal: null,
     lastWidgetId: null,
     acquireError: null,
+    retainedWidgetIds: new Set<string>(),
   }
   const executor: BrowserExecutor<FakeContext> = {
     async acquire(signal, widgetId) {
@@ -33,6 +35,9 @@ export function makeFakeExecutor(): {
     },
     async release() {
       state.released += 1
+    },
+    hasRetainedPage(widgetId) {
+      return state.retainedWidgetIds.has(widgetId)
     },
     async shutdown() {
       state.shutdowns += 1

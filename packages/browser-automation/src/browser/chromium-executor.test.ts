@@ -15,6 +15,7 @@ type FakePage = {
   closeCalls: number
   closed: boolean
   close: () => Promise<void>
+  isClosed: () => boolean
 }
 
 type FakeContext = {
@@ -59,6 +60,7 @@ function makeFakeContext(options?: { newPage?: () => Promise<FakePage> }): FakeC
           if (page.closed) return
           page.closed = true
         },
+        isClosed: () => page.closed,
       }
       context.pages.push(page)
       return page
@@ -179,6 +181,7 @@ describe('makeChromiumExecutor', () => {
         if (page.closed) return
         page.closed = true
       },
+      isClosed: () => page.closed,
     }
     const context = makeFakeContext({
       newPage: async () => {
@@ -402,5 +405,35 @@ describe('makeChromiumExecutor', () => {
 
     expect(created[0].closed).toBe(true)
     expect(created[0].pages[0].closed).toBe(true)
+  })
+
+  it('reports a retained page only while it is open', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+
+    expect(executor.hasRetainedPage('passport-checker')).toBe(false)
+
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+    context.retainPageForRecovery()
+    await executor.release(context)
+
+    expect(executor.hasRetainedPage('passport-checker')).toBe(true)
+    expect(executor.hasRetainedPage('other-widget')).toBe(false)
+  })
+
+  it('forgets a retained page that Chromium closed on its own', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+    context.retainPageForRecovery()
+    await executor.release(context)
+    await created[0].pages[0].close()
+
+    expect(executor.hasRetainedPage('passport-checker')).toBe(false)
+    // The stale entry is dropped, so a later acquire has nothing to close.
+    expect(created[0].pages[0].closeCalls).toBe(1)
   })
 })
