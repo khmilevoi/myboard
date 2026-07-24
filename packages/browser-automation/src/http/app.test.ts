@@ -113,4 +113,19 @@ describe('makeBrowserHttpApp', () => {
     })
     expect(res.status).toBe(400)
   })
+
+  it('answers the recovery state query', async () => {
+    service.markReady()
+    const response = await fetch(`${base}/recovery/demo`)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ retained: false })
+  })
+
+  it('refuses the recovery state query before the service is ready', async () => {
+    const response = await fetch(`${base}/recovery/demo`)
+
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ status: 'starting' })
+  })
 })

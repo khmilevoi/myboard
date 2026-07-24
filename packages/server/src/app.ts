@@ -19,6 +19,11 @@ import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
 import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
+import { makeRecoveryCapabilityStore } from './recovery/capability'
+import { recoveryCookieName } from './recovery/cookie'
+import { handleRecoveryIssue } from './recovery/handlers'
+import { makeRecoveryRevokingClient } from './recovery/revoking-client'
+import { makeRecoveryTunnel } from './recovery/tunnel'
 import {
   handleGet,
   handlePut,
@@ -71,6 +76,11 @@ export type AppDeps = {
   widgetRegistry: WidgetServerRegistry
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
+  recovery: {
+    tokenTtlMs: number
+    maxSessionMs: number
+    upstreamUrl: string
+  }
   testControls?: TestControls
   audit?: AuditLogger
 }
@@ -86,6 +96,14 @@ export function createApp(deps: AppDeps): App {
   const registry = new SseRegistry()
   const audit = deps.audit ?? makeAuditLogger()
   const authDeps = { ops, config: deps.authConfig, now, audit }
+  const recoveryStore = makeRecoveryCapabilityStore({
+    now,
+    tokenTtlMs: deps.recovery.tokenTtlMs,
+  })
+  const browserClient = makeRecoveryRevokingClient({
+    client: deps.browserClient,
+    store: recoveryStore,
+  })
 
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
@@ -302,7 +320,7 @@ export function createApp(deps: AppDeps): App {
     const result = await dispatchWidgetEvent({
       registry: deps.widgetRegistry,
       ops,
-      browserClient: deps.browserClient,
+      browserClient,
       typeId: decodeURIComponent(params.typeId as string),
       event: decodeURIComponent(params.event as string),
       instanceId: body.data.instanceId,
@@ -317,6 +335,33 @@ export function createApp(deps: AppDeps): App {
 
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify(result))
+  })
+
+  router.on('POST', '/api/browser/recovery/:widgetId', async (req, res, params) => {
+    const session = await requireSession(authDeps, req)
+    if (isAuthResult(session)) {
+      res.writeHead(session.status, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(session.body))
+      return
+    }
+
+    const result = await handleRecoveryIssue(
+      {
+        store: recoveryStore,
+        client: browserClient,
+        secureCookies: deps.authConfig.secureCookies,
+        tokenTtlMs: deps.recovery.tokenTtlMs,
+      },
+      {
+        widgetId: decodeURIComponent(params.widgetId as string),
+        sessionId: session.sessionId,
+      },
+    )
+
+    const headers: Record<string, string | string[]> = { 'content-type': 'application/json' }
+    if (result.cookie) headers['set-cookie'] = [result.cookie]
+    res.writeHead(result.status, headers)
+    res.end(JSON.stringify(result.body))
   })
 
   if (deps.testControls) {
@@ -455,8 +500,24 @@ export function createApp(deps: AppDeps): App {
     })
   })
 
+  const recoveryTunnel = makeRecoveryTunnel({
+    store: recoveryStore,
+    upstreamUrl: deps.recovery.upstreamUrl,
+    maxSessionMs: deps.recovery.maxSessionMs,
+    cookieName: recoveryCookieName(deps.authConfig.secureCookies),
+    resolveSession: async (req) => {
+      const session = await requireSession(authDeps, req)
+      return isAuthResult(session) ? null : { sessionId: session.sessionId }
+    },
+  })
+
+  server.on('upgrade', (req, socket, head) => {
+    void recoveryTunnel(req, socket, head).catch(() => socket.destroy())
+  })
+
   const close = async (): Promise<void> => {
     unsubscribe()
+    recoveryStore.revokeAll()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
 

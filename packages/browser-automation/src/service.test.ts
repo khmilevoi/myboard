@@ -121,6 +121,23 @@ describe('makeBrowserService', () => {
     expect(state.shutdowns).toBe(1)
   })
 
+  it('reports recovery state only while ready', () => {
+    const { executor, state } = makeFakeExecutor()
+    const service = makeBrowserService({
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      config,
+    })
+
+    expect(service.recoveryState('demo')).toBeInstanceOf(BrowserServiceUnavailableError)
+
+    service.markReady()
+    expect(service.recoveryState('demo')).toEqual({ retained: false })
+
+    state.retainedWidgetIds.add('demo')
+    expect(service.recoveryState('demo')).toEqual({ retained: true })
+  })
+
   it('logs only redacted fields for internal failures', async () => {
     const { executor } = makeFakeExecutor()
     const warn = vi.fn()

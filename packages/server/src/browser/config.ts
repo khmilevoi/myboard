@@ -4,6 +4,11 @@ import { z } from 'zod'
 export type BrowserGatewayConfig = {
   baseUrl: string
   timeoutMs: number
+  recovery: {
+    upstreamUrl: string
+    tokenTtlMs: number
+    maxSessionMs: number
+  }
 }
 
 export class BrowserGatewayConfigError extends errore.createTaggedError({
@@ -29,6 +34,12 @@ const ConfigSchema = z.object({
     urlSchema,
   ),
   BROWSER_AUTOMATION_TIMEOUT_MS: positiveIntEnv(100_000),
+  BROWSER_RECOVERY_URL: z.preprocess(
+    (value) => (value === undefined || value === '' ? 'http://browser-automation:6080' : value),
+    urlSchema,
+  ),
+  BROWSER_RECOVERY_TOKEN_TTL_MS: positiveIntEnv(60_000),
+  BROWSER_RECOVERY_MAX_SESSION_MS: positiveIntEnv(900_000),
 })
 
 export function loadBrowserGatewayConfig(
@@ -42,5 +53,10 @@ export function loadBrowserGatewayConfig(
   return {
     baseUrl: parsed.data.BROWSER_AUTOMATION_URL,
     timeoutMs: parsed.data.BROWSER_AUTOMATION_TIMEOUT_MS,
+    recovery: {
+      upstreamUrl: parsed.data.BROWSER_RECOVERY_URL,
+      tokenTtlMs: parsed.data.BROWSER_RECOVERY_TOKEN_TTL_MS,
+      maxSessionMs: parsed.data.BROWSER_RECOVERY_MAX_SESSION_MS,
+    },
   }
 }

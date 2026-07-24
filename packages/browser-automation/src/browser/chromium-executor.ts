@@ -176,6 +176,15 @@ export function makeChromiumExecutor(deps: {
     async release(context) {
       await releaseManagedContext(context as ManagedBrowserTaskContext)
     },
+    hasRetainedPage(widgetId) {
+      const page = retainedPages.get(widgetId)
+      if (!page) return false
+      if (page.isClosed()) {
+        retainedPages.delete(widgetId)
+        return false
+      }
+      return true
+    },
     async shutdown() {
       if (shutdownPromise) return shutdownPromise
       if (!persistentContext && !launching) return

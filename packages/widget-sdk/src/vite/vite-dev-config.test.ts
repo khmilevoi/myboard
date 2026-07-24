@@ -11,4 +11,15 @@ describe('apiProxy', () => {
   it('honours an explicit target override', () => {
     expect(apiProxy('http://example.test:9000')['/api'].target).toBe('http://example.test:9000')
   })
+
+  it('proxies the recovery websocket upgrade', () => {
+    const proxy = apiProxy('http://localhost:8787')
+
+    expect(proxy['/api/browser/recovery/socket']).toEqual({
+      target: 'http://localhost:8787',
+      changeOrigin: true,
+      ws: true,
+    })
+    expect(proxy['/api']).toEqual({ target: 'http://localhost:8787', changeOrigin: true })
+  })
 })

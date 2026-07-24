@@ -10,6 +10,13 @@ export function apiProxy(
     'http://localhost:8787',
 ) {
   return {
+    // Vite only proxies an upgrade when `ws` is set, and the generic /api entry
+    // must stay non-ws so SSE and plain requests are untouched.
+    '/api/browser/recovery/socket': {
+      target,
+      changeOrigin: true,
+      ws: true,
+    },
     '/api': {
       target,
       changeOrigin: true,
