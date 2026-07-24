@@ -53,7 +53,8 @@ This subproject excludes:
 2. **The main server proxies raw bytes.** The upgrade is tunneled: the server
    validates the handshake, opens a TCP connection to websockify, replays the
    upgrade request, and pipes sockets. It never parses WebSocket frames and adds
-   no WebSocket dependency.
+   no runtime WebSocket dependency; `ws` is a test-only devDependency used to
+   drive real handshakes.
 3. **The internal leg terminates at websockify, not at RFB.** `x11vnc` runs with
    `-localhost`, so port 5900 exists only inside the browser container;
    `browser-automation:6080` is the only reachable hop.
@@ -322,14 +323,17 @@ generic `/api` entry.
 
 ## Error Model
 
-All failures are errore tagged errors returned as values.
+Nothing throws for control flow. The capability store returns a tagged
+`RecoveryCapabilityError`; the issue handler returns a typed result carrying the
+status and public code, since its outcomes never propagate past the route.
+Gateway failures arrive as the existing `@shared/widgets/browser-errors` values.
 
-| Error | Cause | Public surface |
+| Outcome | Cause | Public surface |
 | --- | --- | --- |
-| `RecoveryUnavailableError` | unknown widget, or no retained page | `404 recovery_unavailable` |
-| `RecoveryBusyError` | a recovery connection is already active | `409 recovery_busy` |
+| unavailable | unsafe widget id, or no retained page | `404 recovery_unavailable` |
+| busy | a recovery connection is already active | `409 recovery_busy` |
 | `RecoveryCapabilityError` | missing, expired, burned, or foreign-session token | `401` on upgrade |
-| `RecoveryUpstreamError` | websockify unreachable or the availability query failed | `503 automation_unavailable` |
+| gateway error | websockify unreachable or the availability query failed | `503 automation_unavailable` |
 
 No error message includes the token, the session id, or upstream response bodies.
 Logs record `widgetId` and the error tag only.
@@ -371,8 +375,9 @@ variant with the stripped prefix.
 
 ### Tunnel integration tests
 
-A real `createApp` server plus a fake upstream TCP server standing in for
-websockify, with no browser involved:
+A real HTTP server carrying the tunnel plus a real `ws` server standing in for
+websockify, driven by a real `ws` client so the handshake and binary frames are
+genuine, with no browser involved:
 
 - a `101` handshake passes through and bytes flow verbatim in both directions;
 - the replayed upgrade request carries no `Cookie` or `Authorization` header;
