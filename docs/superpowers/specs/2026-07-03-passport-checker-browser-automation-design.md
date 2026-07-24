@@ -593,6 +593,8 @@ is not reachable directly from the LAN, and SSH fallback remains operational.
 
 **Slug:** `passport-checker-widget`
 
+**Design:** [Passport Checker Widget Design](./2026-07-24-passport-checker-widget-design.md)
+
 **Objective:** Deliver the user-facing widget and its normal widget RPC handler
 against the stable browser gateway and passport task contract.
 
