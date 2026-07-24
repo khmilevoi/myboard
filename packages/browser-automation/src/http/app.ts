@@ -22,6 +22,17 @@ export function makeBrowserHttpApp(service: BrowserService): BrowserHttpApp {
     sendJson(res, health.healthy ? 200 : 503, { status: health.status })
   })
 
+  router.on('GET', '/recovery/:widgetId', (_req, res, params) => {
+    const outcome = service.recoveryState(decodeURIComponent(params.widgetId as string))
+    if (outcome instanceof BrowserServiceUnavailableError) {
+      // Unlike the task route this reports the real state: a caller deciding
+      // whether recovery is possible benefits from starting vs draining.
+      sendJson(res, 503, { status: outcome.state })
+      return
+    }
+    sendJson(res, 200, outcome)
+  })
+
   router.on('POST', '/tasks/:widgetId/:taskId', async (req, res, params) => {
     let raw: unknown
     try {

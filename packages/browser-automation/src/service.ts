@@ -9,6 +9,7 @@ export type ServiceState = 'starting' | 'ready' | 'draining'
 export type BrowserService = {
   invoke(args: { widgetId: string; taskId: string; payload: unknown }): Promise<Error | unknown>
   health(): { status: ServiceState; healthy: boolean }
+  recoveryState(widgetId: string): BrowserServiceUnavailableError | { retained: boolean }
   markReady(): void
   shutdown(): Promise<void>
 }
@@ -55,6 +56,13 @@ export function makeBrowserService<Context>(deps: BrowserServiceDeps<Context>): 
     return { status: state, healthy: state === 'ready' }
   }
 
+  function recoveryState(widgetId: string) {
+    if (state !== 'ready') return new BrowserServiceUnavailableError({ state })
+    // Deliberately not queued: the point is to inspect a page a finished task
+    // left behind, which must stay answerable while the single lane is busy.
+    return { retained: deps.executor.hasRetainedPage(widgetId) }
+  }
+
   function markReady() {
     if (state === 'starting') state = 'ready'
   }
@@ -67,5 +75,5 @@ export function makeBrowserService<Context>(deps: BrowserServiceDeps<Context>): 
     await deps.executor.shutdown()
   }
 
-  return { invoke, health, markReady, shutdown }
+  return { invoke, health, recoveryState, markReady, shutdown }
 }

@@ -19,3 +19,6 @@ export const HealthResponseSchema = z.object({
   status: z.enum(['starting', 'ready', 'draining']),
 })
 export type HealthResponse = z.infer<typeof HealthResponseSchema>
+
+export const RecoveryStateResponseSchema = z.object({ retained: z.boolean() })
+export type RecoveryStateResponse = z.infer<typeof RecoveryStateResponseSchema>
