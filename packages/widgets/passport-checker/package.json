@@ -32,6 +32,7 @@
     "@vitejs/plugin-react": "catalog:",
     "browser-automation": "workspace:*",
     "playwright": "1.61.0",
+    "radix-ui": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

@@ -6,6 +6,10 @@
   place-items: center;
   background: rgba(20, 22, 40, 0.45);
   backdrop-filter: blur(2px);
+  /* A Radix modal layer underneath sets `pointer-events: none` on
+     document.body; as a body child the overlay inherits it and goes
+     mouse-dead. Re-enable input for the modal and everything inside it. */
+  pointer-events: auto;
 }
 
 .dialog {

@@ -72,6 +72,7 @@ export function makeRecoveryModel({
     const dropConnection = wrap(() => {
       disposeSession()
       state.set({ kind: 'disconnected' })
+      remainingMs.set(0)
     })
 
     const issued = await transport.issue(widgetId)

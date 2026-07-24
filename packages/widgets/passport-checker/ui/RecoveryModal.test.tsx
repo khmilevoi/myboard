@@ -128,16 +128,16 @@ describe('RecoveryModal', () => {
     expect(rfbs[0]?.disconnectCalls).toBe(1)
   })
 
-  it('closes on backdrop click but not on dialog click', async () => {
+  it('closes on backdrop pointerdown but not inside the dialog', async () => {
     const { checkModel } = setup([{ expiresInMs: 60_000 }])
     const dialog = await screen.findByRole('dialog')
 
-    fireEvent.click(dialog)
+    fireEvent.pointerDown(dialog)
     expect(checkModel.recoveryOpen()).toBe(true)
 
     const overlay = dialog.parentElement
     if (!overlay) throw new Error('expected the overlay element')
-    fireEvent.click(overlay)
+    fireEvent.pointerDown(overlay)
     expect(checkModel.recoveryOpen()).toBe(false)
   })
 
@@ -149,7 +149,6 @@ describe('RecoveryModal', () => {
 
     expect(checkModel.recoveryOpen()).toBe(false)
     expect(rfbs[0]?.disconnectCalls).toBe(1)
-    expect(invoke).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1))
   })
 

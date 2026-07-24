@@ -130,6 +130,7 @@ describe('makeRecoveryModel', () => {
     await context.start(async () => {
       const model = makeModel(fakes)
       const read = wrap(() => model.state())
+      const readRemaining = wrap(() => model.remainingMs())
       const start = wrap((el: HTMLElement) => model.start(el))
       const target = document.createElement('div')
 
@@ -137,6 +138,7 @@ describe('makeRecoveryModel', () => {
       fakes.rfbs[0]?.emit('connect')
       fakes.rfbs[0]?.emit('disconnect')
       expect(read()).toEqual({ kind: 'disconnected' })
+      expect(readRemaining()).toBe(0)
       expect(fakes.rfbs[0]?.disconnectCalls).toBe(1)
 
       await start(target)

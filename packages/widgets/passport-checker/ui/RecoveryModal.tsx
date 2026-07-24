@@ -1,7 +1,6 @@
 import { wrap } from '@reatom/core'
 import { AppWindow, Check, X } from 'lucide-react'
 import { useRef } from 'react'
-import type { MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { reatomMemo } from 'widget-sdk'
 
@@ -25,9 +24,6 @@ export const RecoveryModal = reatomMemo(() => {
 
   const close = wrap(() => recoveryFlow.closeRecovery())
   const retry = wrap(() => recoveryFlow.retryCheck())
-  const onBackdrop = wrap((event: MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) close()
-  })
 
   useModalIsolation(rootRef, close)
 
@@ -36,7 +32,7 @@ export const RecoveryModal = reatomMemo(() => {
   const remaining = recoveryModel.remainingMs()
 
   return createPortal(
-    <div ref={rootRef} className={styles.overlay} onClick={onBackdrop}>
+    <div ref={rootRef} className={styles.overlay}>
       <div
         className={styles.dialog}
         role="dialog"
