@@ -122,6 +122,15 @@ export default defineConfig(({ command }) => ({
             shared: federationShared(),
             dev: { remoteHmr: true },
             manifest: false,
+            // @module-federation/dts-plugin drives federation type generation
+            // through the legacy TypeScript compiler API (ts.sys,
+            // ts.readConfigFile, ts.createProgram), which typescript@7 no
+            // longer exposes -- its dev worker dies on `ts.sys.readFile` with
+            // an uncaught "Cannot read properties of undefined" that takes the
+            // whole dev server down. Widget remotes already opt out
+            // (widget-sdk/vite); the host has to as well. Remote types come
+            // from the workspace packages, not from @mf-types archives.
+            dts: false,
           }),
         ]),
     react(),

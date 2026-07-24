@@ -14,6 +14,7 @@ const widgetViteConfig = readFileSync(
   resolve(root, 'packages/widget-sdk/src/vite/widget-vite-config.ts'),
   'utf8',
 )
+const clientViteConfig = readFileSync(resolve(root, 'packages/client/vite.config.ts'), 'utf8')
 const rootPackage = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
 }
@@ -29,6 +30,16 @@ const nginxConf = readFileSync(resolve(root, 'packages/client/nginx.conf'), 'utf
 it('exposes each root client definition as the remote client entrypoint', () => {
   expect(widgetViteConfig).toContain("exposes: { './client': './client.ts' }")
   expect(widgetViteConfig).not.toContain("'./ui': './ui/expose.ts'")
+})
+
+// @module-federation/dts-plugin generates federation types through the legacy
+// TypeScript compiler API (ts.sys, ts.readConfigFile, ts.createProgram), none
+// of which typescript@7 ships any more. Leaving DTS on kills the dev server
+// with "Cannot read properties of undefined (reading 'readFile')", so every
+// federation() call site -- host and remotes -- must opt out.
+it('keeps federation DTS generation off on every federation call site', () => {
+  expect(widgetViteConfig).toContain('dts: false')
+  expect(clientViteConfig).toContain('dts: false')
 })
 
 it('routes local commands to the narrowest codegen target', () => {
