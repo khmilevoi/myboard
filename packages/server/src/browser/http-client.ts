@@ -116,13 +116,20 @@ export function createHttpBrowserAutomationClient({
         method: 'GET',
         signal: controller.signal,
       }).catch((cause) => new BrowserAutomationUnavailableError({ operation: 'fetch', cause }))
-      clearDeadline()
-      if (errore.isAbortError(response)) return deadline
-      if (response instanceof BrowserAutomationUnavailableError) return response
+      if (errore.isAbortError(response)) {
+        clearDeadline()
+        return deadline
+      }
+      if (response instanceof BrowserAutomationUnavailableError) {
+        clearDeadline()
+        return response
+      }
       if (response.status === 503) {
+        clearDeadline()
         return new BrowserAutomationUnavailableError({ operation: 'service' })
       }
       if (response.status !== 200) {
+        clearDeadline()
         return new BrowserAutomationProtocolError({
           phase: `http-${response.status}`,
           widgetId,
@@ -139,6 +146,7 @@ export function createHttpBrowserAutomationClient({
             cause,
           }),
       )
+      clearDeadline()
       if (raw instanceof BrowserAutomationProtocolError) return raw
       const parsed = RecoveryStateResponseSchema.safeParse(raw)
       if (!parsed.success) {

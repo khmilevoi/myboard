@@ -4,6 +4,7 @@ import {
   BrowserAutomationUnavailableError,
   BrowserTaskRejectedError,
 } from '@shared/widgets/browser-errors'
+import * as errore from 'errore'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createHttpBrowserAutomationClient } from './http-client'
@@ -185,5 +186,39 @@ describe('createHttpBrowserAutomationClient', () => {
     expect(await client.recoveryState({ widgetId: 'passport-checker' })).toBeInstanceOf(
       BrowserAutomationProtocolError,
     )
+  })
+
+  it('keeps the short recovery deadline armed through a hanging body read', async () => {
+    vi.useFakeTimers()
+    // Headers arrive immediately, but the body stream never enqueues or
+    // closes on its own -- it only settles when the abort signal fires.
+    // If clearDeadline() ran right after fetch resolved (the bug), the
+    // timer below would never fire and this test would hang forever.
+    const fetchImpl = vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+      const stream = new ReadableStream({
+        start(controller) {
+          init?.signal?.addEventListener(
+            'abort',
+            () => controller.error(init.signal?.reason),
+            { once: true },
+          )
+        },
+      })
+      return Promise.resolve(new Response(stream, { status: 200 }))
+    }) as unknown as typeof fetch
+
+    const client = createHttpBrowserAutomationClient({
+      // A large task timeout: the recovery liveness check must still be
+      // bounded by Math.min(timeoutMs, 5000), not the full 30s.
+      baseUrl: 'http://automation:8788',
+      timeoutMs: 30_000,
+      fetchImpl,
+    })
+
+    const pending = client.recoveryState({ widgetId: 'passport-checker' })
+    await vi.advanceTimersByTimeAsync(5_001)
+    const result = await pending
+
+    expect(errore.isAbortError(result)).toBe(true)
   })
 })
