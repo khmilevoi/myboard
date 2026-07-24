@@ -47,5 +47,11 @@ packages/browser-automation/src/tasks/widget-browser-list.generated.ts
 packages/browser-automation/.dev-profile/
 packages/browser-automation/.dev-secrets/
 
+# passport-checker widget secrets: real values are local-only and delivered to
+# the Pi via `rpi secrets send` ([secrets].files in rpi.toml); only the
+# .example placeholder templates are tracked.
+packages/widgets/passport-checker/secrets/*
+!packages/widgets/passport-checker/secrets/*.example
+
 # Looper loop scratch/observability (local only, not part of the deliverable)
 looper-output/

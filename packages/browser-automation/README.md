@@ -6,29 +6,43 @@ network; no public route. See the design specs under `docs/superpowers/specs/`.
 
 ## Provisioning secrets (Raspberry Pi)
 
-Passport identity and the SSH target are provisioned through the `pi` CLI's
-deployment `.env` (never committed). Note: as of this writing `rpi.toml` does
-not yet declare an `[env]` section; provisioning still flows through the
-`pi env send` mechanism described below, but the `.env` wiring in `rpi.toml`
-itself is pending and should be added before relying on this in production.
+The passport series and number live as plain-value files under the widget
+package, not in the deployment `.env`:
 
 ```
-PASSPORT_SERIES=<two Ukrainian Cyrillic uppercase letters>
-PASSPORT_NUMBER=<six digits>
-AUTOMATION_SSH_TARGET=<ssh target for the Pi>
+packages/widgets/passport-checker/secrets/series
+packages/widgets/passport-checker/secrets/number
 ```
 
-Send them, restarting the running stack when needed:
+Both are git-ignored; only `series.example`/`number.example` (placeholder
+values) are committed, so an operator can see the expected shape without ever
+seeing the real values. Fill in the two real files locally (a trailing
+newline is fine — the scoped secret reader trims):
+
+```
+packages/widgets/passport-checker/secrets/series   # two Ukrainian Cyrillic uppercase letters
+packages/widgets/passport-checker/secrets/number   # six digits
+```
+
+`AUTOMATION_SSH_TARGET` stays non-secret operational config in the deployment
+`.env` (`rpi.toml`'s `[secrets]` still declares `env = ".env"`).
+
+`rpi.toml`'s `[secrets]` section also lists both files under `files`, so `rpi`
+delivers them to the Pi verbatim at the same repo-relative path on every
+deploy. Send them, restarting the running stack when needed:
 
 ```bash
-pi env send            # stage values for the next deploy
-pi env send --apply    # send and restart the running stack
+rpi secrets send            # stage the .env values and the two secret files
+rpi secrets send --apply    # send and restart the running stack
 ```
 
-Compose (`docker-compose.yml`) exposes `PASSPORT_SERIES`/`PASSPORT_NUMBER` as
-**runtime secrets**, mounted only into `browser-automation` as
-`/run/secrets/passport-checker_series` and `/run/secrets/passport-checker_number`.
-They never appear in the container environment, image layers, or logs.
+Compose (`docker-compose.yml`) declares `passport_series`/`passport_number` as
+file-backed **runtime secrets** sourced from those same paths, mounted only
+into `browser-automation` as `/run/secrets/passport-checker_series` and
+`/run/secrets/passport-checker_number`. They never appear in the container
+environment, image layers, or logs — and being outside the Docker build
+context (`.dockerignore` excludes the whole `secrets/` directory), they never
+appear in an image layer even transiently during build.
 
 ## Cloudflare recovery over SSH
 
@@ -88,10 +102,12 @@ files under `.dev-secrets/` (e.g. `.dev-secrets/__diagnostics___probe`) as neede
 ## Docker development
 
 The dev browser service is behind the `browser` Compose profile so it does not
-slow the default board dev stack:
+slow the default board dev stack. Passport secrets are file-backed and default
+to the committed `packages/widgets/passport-checker/secrets/*.example`
+placeholders, so no passport env vars are needed to bring it up:
 
 ```bash
-PASSPORT_SERIES=АА PASSPORT_NUMBER=123456 DIAGNOSTICS_PROBE=ok \
+DIAGNOSTICS_PROBE=ok \
   docker compose -f docker-compose.dev.yml --profile browser up --build browser-automation
 ```
 

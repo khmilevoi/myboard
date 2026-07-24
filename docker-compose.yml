@@ -116,6 +116,6 @@ networks:
 
 secrets:
   passport_series:
-    environment: PASSPORT_SERIES
+    file: ./packages/widgets/passport-checker/secrets/series
   passport_number:
-    environment: PASSPORT_NUMBER
+    file: ./packages/widgets/passport-checker/secrets/number

@@ -158,8 +158,8 @@ volumes:
 
 secrets:
   dev_passport_series:
-    environment: PASSPORT_SERIES
+    file: ./packages/widgets/passport-checker/secrets/series.example
   dev_passport_number:
-    environment: PASSPORT_NUMBER
+    file: ./packages/widgets/passport-checker/secrets/number.example
   dev_diagnostics_probe:
     environment: DIAGNOSTICS_PROBE
