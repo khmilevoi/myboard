@@ -149,4 +149,41 @@ describe('createHttpBrowserAutomationClient', () => {
     await client.invoke({ widgetId: 'demo', taskId: 'check', payload: {} })
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
+
+  it('returns the retained recovery state', async () => {
+    const client = createHttpBrowserAutomationClient({
+      baseUrl: 'http://automation:8788',
+      timeoutMs: 1000,
+      fetchImpl: async (input) => {
+        expect(String(input)).toBe('http://automation:8788/recovery/passport-checker')
+        return new Response(JSON.stringify({ retained: true }), { status: 200 })
+      },
+    })
+
+    expect(await client.recoveryState({ widgetId: 'passport-checker' })).toEqual({ retained: true })
+  })
+
+  it('maps a draining service to an unavailable error', async () => {
+    const client = createHttpBrowserAutomationClient({
+      baseUrl: 'http://automation:8788',
+      timeoutMs: 1000,
+      fetchImpl: async () => new Response(JSON.stringify({ status: 'draining' }), { status: 503 }),
+    })
+
+    expect(await client.recoveryState({ widgetId: 'passport-checker' })).toBeInstanceOf(
+      BrowserAutomationUnavailableError,
+    )
+  })
+
+  it('rejects a malformed recovery state payload', async () => {
+    const client = createHttpBrowserAutomationClient({
+      baseUrl: 'http://automation:8788',
+      timeoutMs: 1000,
+      fetchImpl: async () => new Response(JSON.stringify({ retained: 'yes' }), { status: 200 }),
+    })
+
+    expect(await client.recoveryState({ widgetId: 'passport-checker' })).toBeInstanceOf(
+      BrowserAutomationProtocolError,
+    )
+  })
 })

@@ -1,4 +1,4 @@
-import { BrowserAutomationUnavailableError } from '@shared/widgets/browser-errors'
+import { BrowserAutomationUnavailableError, type BrowserGatewayError } from '@shared/widgets/browser-errors'
 
 import type {
   BrowserAutomationClient,
@@ -12,10 +12,17 @@ export function makeFakeBrowserAutomationClient() {
     operation: 'fake',
   })
 
+  const recoveryCalls: string[] = []
+  let recovery: BrowserGatewayError | { retained: boolean } = { retained: false }
+
   const client: BrowserAutomationClient = {
     async invoke(args) {
       calls.push(args)
       return result
+    },
+    async recoveryState({ widgetId }) {
+      recoveryCalls.push(widgetId)
+      return recovery
     },
   }
 
@@ -24,6 +31,10 @@ export function makeFakeBrowserAutomationClient() {
     calls,
     setResult(next: BrowserAutomationClientResult) {
       result = next
+    },
+    recoveryCalls,
+    setRecoveryState(next: BrowserGatewayError | { retained: boolean }) {
+      recovery = next
     },
   }
 }

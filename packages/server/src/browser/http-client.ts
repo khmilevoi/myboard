@@ -1,4 +1,4 @@
-import { TaskResponseSchema } from '@shared/browser-automation/protocol'
+import { RecoveryStateResponseSchema, TaskResponseSchema } from '@shared/browser-automation/protocol'
 import {
   BrowserAutomationDeadlineError,
   BrowserAutomationProtocolError,
@@ -99,6 +99,56 @@ export function createHttpBrowserAutomationClient({
         })
       }
       return { result: envelope.data.result }
+    },
+
+    async recoveryState({ widgetId }) {
+      // A liveness question, not a task: never make the operator wait out the
+      // full task deadline before the panel can say "nothing to recover".
+      const recoveryTimeoutMs = Math.min(timeoutMs, 5_000)
+      const deadline = new BrowserAutomationDeadlineError({ timeoutMs: recoveryTimeoutMs })
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(deadline), recoveryTimeoutMs)
+      timeout.unref?.()
+      const clearDeadline = () => clearTimeout(timeout)
+
+      const url = `${normalizedBaseUrl}/recovery/${encodeURIComponent(widgetId)}`
+      const response: Response | BrowserAutomationUnavailableError = await fetchImpl(url, {
+        method: 'GET',
+        signal: controller.signal,
+      }).catch((cause) => new BrowserAutomationUnavailableError({ operation: 'fetch', cause }))
+      clearDeadline()
+      if (errore.isAbortError(response)) return deadline
+      if (response instanceof BrowserAutomationUnavailableError) return response
+      if (response.status === 503) {
+        return new BrowserAutomationUnavailableError({ operation: 'service' })
+      }
+      if (response.status !== 200) {
+        return new BrowserAutomationProtocolError({
+          phase: `http-${response.status}`,
+          widgetId,
+          taskId: 'recovery',
+        })
+      }
+
+      const raw: unknown = await (response.json() as Promise<unknown>).catch(
+        (cause) =>
+          new BrowserAutomationProtocolError({
+            phase: 'response-json',
+            widgetId,
+            taskId: 'recovery',
+            cause,
+          }),
+      )
+      if (raw instanceof BrowserAutomationProtocolError) return raw
+      const parsed = RecoveryStateResponseSchema.safeParse(raw)
+      if (!parsed.success) {
+        return new BrowserAutomationProtocolError({
+          phase: 'recovery-state',
+          widgetId,
+          taskId: 'recovery',
+        })
+      }
+      return parsed.data
     },
   }
 }
