@@ -22,6 +22,7 @@ import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
 import { makeRecoveryCapabilityStore } from './recovery/capability'
 import { recoveryCookieName } from './recovery/cookie'
 import { handleRecoveryIssue } from './recovery/handlers'
+import { makeRecoveryRevokingClient } from './recovery/revoking-client'
 import { makeRecoveryTunnel } from './recovery/tunnel'
 import {
   handleGet,
@@ -98,6 +99,10 @@ export function createApp(deps: AppDeps): App {
   const recoveryStore = makeRecoveryCapabilityStore({
     now,
     tokenTtlMs: deps.recovery.tokenTtlMs,
+  })
+  const browserClient = makeRecoveryRevokingClient({
+    client: deps.browserClient,
+    store: recoveryStore,
   })
 
   const unsubscribe = deps.subscribe((message) => {
@@ -315,7 +320,7 @@ export function createApp(deps: AppDeps): App {
     const result = await dispatchWidgetEvent({
       registry: deps.widgetRegistry,
       ops,
-      browserClient: deps.browserClient,
+      browserClient,
       typeId: decodeURIComponent(params.typeId as string),
       event: decodeURIComponent(params.event as string),
       instanceId: body.data.instanceId,
@@ -343,7 +348,7 @@ export function createApp(deps: AppDeps): App {
     const result = await handleRecoveryIssue(
       {
         store: recoveryStore,
-        client: deps.browserClient,
+        client: browserClient,
         secureCookies: deps.authConfig.secureCookies,
         tokenTtlMs: deps.recovery.tokenTtlMs,
       },
