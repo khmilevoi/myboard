@@ -15,14 +15,14 @@ import { authAccountKey } from './auth/records'
 import { isAuthResult, requireSession } from './auth/session-guard'
 import { issueSession } from './auth/sessions'
 import type { BrowserAutomationClient } from './browser/client'
-import { makeRecoveryCapabilityStore } from './browser/recovery/capability'
-import { recoveryCookieName } from './browser/recovery/cookie'
-import { handleRecoveryIssue } from './browser/recovery/handlers'
-import { makeRecoveryTunnel } from './browser/recovery/tunnel'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
 import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
+import { makeRecoveryCapabilityStore } from './recovery/capability'
+import { recoveryCookieName } from './recovery/cookie'
+import { handleRecoveryIssue } from './recovery/handlers'
+import { makeRecoveryTunnel } from './recovery/tunnel'
 import {
   handleGet,
   handlePut,

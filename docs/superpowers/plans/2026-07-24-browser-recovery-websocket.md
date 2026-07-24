@@ -560,8 +560,8 @@ git commit -m "feat(server): configure the browser recovery transport"
 
 **Files:**
 
-- Create: `packages/server/src/browser/recovery/capability.ts`
-- Create: `packages/server/src/browser/recovery/capability.test.ts`
+- Create: `packages/server/src/recovery/capability.ts`
+- Create: `packages/server/src/recovery/capability.test.ts`
 
 **Interfaces:**
 
@@ -574,7 +574,7 @@ git commit -m "feat(server): configure the browser recovery transport"
 
 - [ ] **Step 1: Write the failing test**
 
-Create `packages/server/src/browser/recovery/capability.test.ts`:
+Create `packages/server/src/recovery/capability.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -680,12 +680,12 @@ describe('makeRecoveryCapabilityStore', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/capability.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/capability.test.ts`
 Expected: FAIL — cannot resolve `./capability`.
 
 - [ ] **Step 3: Implement the store**
 
-Create `packages/server/src/browser/recovery/capability.ts`:
+Create `packages/server/src/recovery/capability.ts`:
 
 ```ts
 import { randomBytes } from 'node:crypto'
@@ -787,13 +787,13 @@ export function makeRecoveryCapabilityStore(deps: {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/capability.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/capability.test.ts`
 Expected: PASS — 6 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/server/src/browser/recovery/capability.ts packages/server/src/browser/recovery/capability.test.ts
+git add packages/server/src/recovery/capability.ts packages/server/src/recovery/capability.test.ts
 git commit -m "feat(server): add the single-use browser recovery capability store"
 ```
 
@@ -803,9 +803,9 @@ git commit -m "feat(server): add the single-use browser recovery capability stor
 
 **Files:**
 
-- Create: `packages/server/src/browser/recovery/cookie.ts`
-- Create: `packages/server/src/browser/recovery/handlers.ts`
-- Create: `packages/server/src/browser/recovery/handlers.test.ts`
+- Create: `packages/server/src/recovery/cookie.ts`
+- Create: `packages/server/src/recovery/handlers.ts`
+- Create: `packages/server/src/recovery/handlers.test.ts`
 - Modify: `packages/server/src/app.ts`
 - Test: `packages/server/src/app.test.ts`
 
@@ -821,7 +821,7 @@ git commit -m "feat(server): add the single-use browser recovery capability stor
 
 - [ ] **Step 1: Write the failing cookie + handler tests**
 
-Create `packages/server/src/browser/recovery/handlers.test.ts`:
+Create `packages/server/src/recovery/handlers.test.ts`:
 
 ```ts
 import { BrowserAutomationUnavailableError } from '@shared/widgets/browser-errors'
@@ -939,12 +939,12 @@ describe('handleRecoveryIssue', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/handlers.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/handlers.test.ts`
 Expected: FAIL — cannot resolve `./cookie` and `./handlers`.
 
 - [ ] **Step 3: Implement the cookie helpers**
 
-Create `packages/server/src/browser/recovery/cookie.ts`:
+Create `packages/server/src/recovery/cookie.ts`:
 
 ```ts
 import { serializeCookie } from '../../auth/cookies'
@@ -979,7 +979,7 @@ export function serializeRecoveryCookie(args: {
 
 - [ ] **Step 4: Implement the handler**
 
-Create `packages/server/src/browser/recovery/handlers.ts`:
+Create `packages/server/src/recovery/handlers.ts`:
 
 ```ts
 import type { BrowserAutomationClient } from '../client'
@@ -1037,7 +1037,7 @@ export async function handleRecoveryIssue(
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/handlers.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/handlers.test.ts`
 Expected: PASS — 7 tests.
 
 - [ ] **Step 6: Write the failing route test**
@@ -1148,7 +1148,7 @@ Expected: PASS — including the two new app tests.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add packages/server/src/browser/recovery packages/server/src/app.ts packages/server/src/app.test.ts packages/server/src/index.ts packages/server/src/test-server.ts
+git add packages/server/src/recovery packages/server/src/app.ts packages/server/src/app.test.ts packages/server/src/index.ts packages/server/src/test-server.ts
 git commit -m "feat(server): issue single-use browser recovery capabilities"
 ```
 
@@ -1158,8 +1158,8 @@ git commit -m "feat(server): issue single-use browser recovery capabilities"
 
 **Files:**
 
-- Create: `packages/server/src/browser/recovery/tunnel.ts`
-- Create: `packages/server/src/browser/recovery/tunnel.test.ts`
+- Create: `packages/server/src/recovery/tunnel.ts`
+- Create: `packages/server/src/recovery/tunnel.test.ts`
 - Modify: `packages/server/src/app.ts`
 - Modify: `packages/server/package.json` (devDependency `ws`, `@types/ws`)
 
@@ -1181,7 +1181,7 @@ Expected: `packages/server/package.json` gains both under `devDependencies`. The
 
 - [ ] **Step 2: Write the failing tunnel test**
 
-Create `packages/server/src/browser/recovery/tunnel.test.ts`:
+Create `packages/server/src/recovery/tunnel.test.ts`:
 
 ```ts
 import type { AddressInfo } from 'node:net'
@@ -1355,12 +1355,12 @@ describe('makeRecoveryTunnel', () => {
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/tunnel.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/tunnel.test.ts`
 Expected: FAIL — cannot resolve `./tunnel`.
 
 - [ ] **Step 4: Implement the tunnel**
 
-Create `packages/server/src/browser/recovery/tunnel.ts`:
+Create `packages/server/src/recovery/tunnel.ts`:
 
 ```ts
 import type { IncomingMessage } from 'node:http'
@@ -1480,7 +1480,7 @@ export function makeRecoveryTunnel(deps: RecoveryTunnelDeps) {
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/tunnel.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/tunnel.test.ts`
 Expected: PASS — 6 tests.
 
 - [ ] **Step 6: Wire the tunnel into the app**
@@ -1544,7 +1544,7 @@ Expected: PASS.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add packages/server/src/browser/recovery/tunnel.ts packages/server/src/browser/recovery/tunnel.test.ts packages/server/src/app.ts packages/server/src/app.test.ts packages/server/package.json pnpm-lock.yaml
+git add packages/server/src/recovery/tunnel.ts packages/server/src/recovery/tunnel.test.ts packages/server/src/app.ts packages/server/src/app.test.ts packages/server/package.json pnpm-lock.yaml
 git commit -m "feat(server): tunnel the recovery websocket to internal websockify"
 ```
 
@@ -1554,8 +1554,8 @@ git commit -m "feat(server): tunnel the recovery websocket to internal websockif
 
 **Files:**
 
-- Create: `packages/server/src/browser/recovery/revoking-client.ts`
-- Create: `packages/server/src/browser/recovery/revoking-client.test.ts`
+- Create: `packages/server/src/recovery/revoking-client.ts`
+- Create: `packages/server/src/recovery/revoking-client.test.ts`
 - Modify: `packages/server/src/app.ts`
 
 **Interfaces:**
@@ -1565,7 +1565,7 @@ git commit -m "feat(server): tunnel the recovery websocket to internal websockif
 
 - [ ] **Step 1: Write the failing test**
 
-Create `packages/server/src/browser/recovery/revoking-client.test.ts`:
+Create `packages/server/src/recovery/revoking-client.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -1620,12 +1620,12 @@ describe('makeRecoveryRevokingClient', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/revoking-client.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/revoking-client.test.ts`
 Expected: FAIL — cannot resolve `./revoking-client`.
 
 - [ ] **Step 3: Implement the wrapper**
 
-Create `packages/server/src/browser/recovery/revoking-client.ts`:
+Create `packages/server/src/recovery/revoking-client.ts`:
 
 ```ts
 import type { BrowserAutomationClient } from '../client'
@@ -1654,7 +1654,7 @@ export function makeRecoveryRevokingClient(deps: {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/revoking-client.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/revoking-client.test.ts`
 Expected: PASS — 3 tests.
 
 - [ ] **Step 5: Use the wrapper in the app**
@@ -1678,7 +1678,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/server/src/browser/recovery/revoking-client.ts packages/server/src/browser/recovery/revoking-client.test.ts packages/server/src/app.ts
+git add packages/server/src/recovery/revoking-client.ts packages/server/src/recovery/revoking-client.test.ts packages/server/src/app.ts
 git commit -m "feat(server): revoke recovery sessions before browser task dispatch"
 ```
 
@@ -1831,7 +1831,7 @@ git commit -m "feat(client): route the gated recovery websocket through the ingr
 
 **Files:**
 
-- Create: `packages/server/src/browser/recovery/recovery-stack.integration.test.ts`
+- Create: `packages/server/src/recovery/recovery-stack.integration.test.ts`
 - Modify: `packages/browser-automation/README.md` (or the operator doc that already documents the SSH fallback — locate it with `rg -l "AUTOMATION_SSH_TARGET" --glob '*.md'` and extend that file)
 
 **Interfaces:**
@@ -1841,7 +1841,7 @@ git commit -m "feat(client): route the gated recovery websocket through the ingr
 
 - [ ] **Step 1: Write the opt-in stack test**
 
-Create `packages/server/src/browser/recovery/recovery-stack.integration.test.ts`:
+Create `packages/server/src/recovery/recovery-stack.integration.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -1892,7 +1892,7 @@ describe.skipIf(!enabled)('recovery transport against the assembled stack', () =
 
 - [ ] **Step 2: Verify the test is skipped by default**
 
-Run: `pnpm --filter server exec vitest run src/browser/recovery/recovery-stack.integration.test.ts`
+Run: `pnpm --filter server exec vitest run src/recovery/recovery-stack.integration.test.ts`
 Expected: PASS with the suite reported as skipped (no stack required).
 
 - [ ] **Step 3: Document the operator flow**
@@ -1912,7 +1912,7 @@ Expected: lint, format, typecheck, and every workspace test pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/server/src/browser/recovery/recovery-stack.integration.test.ts packages/browser-automation/README.md
+git add packages/server/src/recovery/recovery-stack.integration.test.ts packages/browser-automation/README.md
 git commit -m "docs(browser-automation): document embedded recovery and add the opt-in stack check"
 ```
 

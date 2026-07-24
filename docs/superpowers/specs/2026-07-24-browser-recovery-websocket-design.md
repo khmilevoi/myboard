@@ -126,9 +126,9 @@ New and changed files:
   over the existing `retainedPages` map;
 - `packages/browser-automation/src/service.ts` — `recoveryState(widgetId)`;
 - `packages/browser-automation/src/http/app.ts` — `GET /recovery/:widgetId`;
-- `packages/server/src/browser/recovery/capability.ts` — capability store;
-- `packages/server/src/browser/recovery/tunnel.ts` — upgrade handler;
-- `packages/server/src/browser/recovery/handlers.ts` — issue endpoint;
+- `packages/server/src/recovery/capability.ts` — capability store;
+- `packages/server/src/recovery/tunnel.ts` — upgrade handler;
+- `packages/server/src/recovery/handlers.ts` — issue endpoint;
 - `packages/server/src/browser/config.ts` — recovery configuration;
 - `packages/server/src/browser/client.ts` + `http-client.ts` — availability query
   and revoke-before-invoke wiring;

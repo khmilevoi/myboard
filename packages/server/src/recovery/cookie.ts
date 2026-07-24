@@ -1,4 +1,4 @@
-import { serializeCookie } from '../../auth/cookies'
+import { serializeCookie } from '../auth/cookies'
 
 // `__Host-` is unavailable here: it demands Path=/, and this cookie is
 // deliberately scoped to the recovery routes. `__Secure-` allows a narrow path

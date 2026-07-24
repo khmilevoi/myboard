@@ -1,7 +1,7 @@
 import { BrowserAutomationUnavailableError } from '@shared/widgets/browser-errors'
 import { describe, expect, it } from 'vitest'
 
-import { makeFakeBrowserAutomationClient } from '../testing/fake-client'
+import { makeFakeBrowserAutomationClient } from '../browser/testing/fake-client'
 import { makeRecoveryCapabilityStore } from './capability'
 import { recoveryCookieName, serializeRecoveryCookie } from './cookie'
 import { handleRecoveryIssue } from './handlers'

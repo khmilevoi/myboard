@@ -2,7 +2,7 @@ import type { IncomingMessage } from 'node:http'
 import { connect as connectTcp } from 'node:net'
 import type { Duplex } from 'node:stream'
 
-import { parseCookies } from '../../auth/cookies'
+import { parseCookies } from '../auth/cookies'
 import type { RecoveryCapabilityStore, RecoveryConnection } from './capability'
 
 export const RECOVERY_SOCKET_PATH = '/api/browser/recovery/socket'

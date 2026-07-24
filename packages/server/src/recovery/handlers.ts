@@ -1,4 +1,4 @@
-import type { BrowserAutomationClient } from '../client'
+import type { BrowserAutomationClient } from '../browser/client'
 import type { RecoveryCapabilityStore } from './capability'
 import { serializeRecoveryCookie } from './cookie'
 
