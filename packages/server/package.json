@@ -24,7 +24,9 @@
     "@rspack/core": "catalog:",
     "@types/node": "catalog:",
     "@types/qrcode-terminal": "^0.12.2",
+    "@types/ws": "^8.18.1",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "^8.21.1"
   }
 }

@@ -408,6 +408,20 @@ describe('createApp', () => {
     expect(response.status).toBe(401)
   })
 
+  it('closes the app even with a live recovery socket', async () => {
+    const { session } = await seedAccountWithSession(ops, now, 'cred-recovery-close')
+    browserFake.setRecoveryState({ retained: true })
+    const issued = await fetch(`${base}/api/browser/recovery/passport-checker`, {
+      method: 'POST',
+      headers: { cookie: `session=${session.sessionId}`, 'x-requested-with': 'MyBoard' },
+    })
+    expect(issued.status).toBe(200)
+
+    // No upstream is listening in this suite, so the upgrade is refused; the
+    // point is that app.close() resolves regardless.
+    await expect(app.close()).resolves.toBeUndefined()
+  })
+
   it('POST /api/test/seed-invite is absent (404) when testControls is undefined', async () => {
     const pubsub = createMemoryPubSub()
     const noControlsOps = createMemoryOps(pubsub)

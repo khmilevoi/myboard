@@ -16,7 +16,9 @@ import { isAuthResult, requireSession } from './auth/session-guard'
 import { issueSession } from './auth/sessions'
 import type { BrowserAutomationClient } from './browser/client'
 import { makeRecoveryCapabilityStore } from './browser/recovery/capability'
+import { recoveryCookieName } from './browser/recovery/cookie'
 import { handleRecoveryIssue } from './browser/recovery/handlers'
+import { makeRecoveryTunnel } from './browser/recovery/tunnel'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
@@ -493,8 +495,24 @@ export function createApp(deps: AppDeps): App {
     })
   })
 
+  const recoveryTunnel = makeRecoveryTunnel({
+    store: recoveryStore,
+    upstreamUrl: deps.recovery.upstreamUrl,
+    maxSessionMs: deps.recovery.maxSessionMs,
+    cookieName: recoveryCookieName(deps.authConfig.secureCookies),
+    resolveSession: async (req) => {
+      const session = await requireSession(authDeps, req)
+      return isAuthResult(session) ? null : { sessionId: session.sessionId }
+    },
+  })
+
+  server.on('upgrade', (req, socket, head) => {
+    void recoveryTunnel(req, socket, head)
+  })
+
   const close = async (): Promise<void> => {
     unsubscribe()
+    recoveryStore.revokeAll()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
 
