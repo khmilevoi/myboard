@@ -29,7 +29,7 @@
 
 (Собраны из кода; проверять повторно не нужно, но если реальность разойдётся — реальность важнее плана.)
 
-- `dispatchWidgetEvent` (`packages/server/src/widgets/dispatch.ts`) wraps every **returned** error and every **async** throw/rejection into `WidgetHandlerError` (500 / `internal_error` / `'Widget event failed'`); a *synchronous* throw escapes `Promise.resolve(handler(...)).catch(...)` and rejects dispatch itself — handlers must never throw synchronously. `sendWidgetError` lives in `packages/server/src/app.ts` and serializes `{ error: { code, message } }`.
+- `dispatchWidgetEvent` (`packages/server/src/widgets/dispatch.ts`) wraps every **returned** error and every **async** throw/rejection into `WidgetHandlerError` (500 / `internal_error` / `'Widget event failed'`); a _synchronous_ throw escapes `Promise.resolve(handler(...)).catch(...)` and rejects dispatch itself — handlers must never throw synchronously. `sendWidgetError` lives in `packages/server/src/app.ts` and serializes `{ error: { code, message } }`.
 - `PublicWidgetDispatchError` is currently `type PublicWidgetDispatchError = WidgetDispatchError` in `packages/server/src/widgets/errors.ts`; `WidgetDispatchError` is a plain (non-tagged) base class with `status = 500`, `code = 'internal_error'`, `publicMessage = 'Widget event failed'`.
 - Server codegen (`scripts/codegen/server.ts`) auto-discovers `packages/widgets/<dir>/server.ts` (package-root file) and emits `packages/server/src/widgets/widget-server-list.generated.ts` (gitignored) importing the **default export** via `@widgets/<dir>/server` and wrapping it with `toRuntimeWidgetServerDefinition({ typeId: '<dir>', definition })`. `packages/server/tsconfig.json` already maps `@widgets/*` → `../widgets/*`; rspack aliases it too. Command: `rtk pnpm codegen:server` (also runs inside `pnpm dev:server`, `pnpm test`, `pnpm typecheck`, `pnpm check`).
 - `defineWidgetServer` returns `{ schemas, handlers }` verbatim; handler signature is `(payload, context: WidgetServerContext) => Awaitable<Error | z.input<result>>`; `context.api.browser.invoke(task, payload)` returns `Promise<BrowserGatewayError | z.output<ResultSchema>>`.
@@ -68,6 +68,7 @@ Tasks 1, 2, 3 can run in parallel (disjoint files). Tasks 4, 5, 6 can run in par
 ### Task 1: `PublicWidgetError` — shared class, dispatch passthrough, envelope `meta`
 
 **Files:**
+
 - Create: `packages/shared/widgets/public-error.ts`
 - Modify: `packages/server/src/widgets/errors.ts` (extend the `PublicWidgetDispatchError` type)
 - Modify: `packages/server/src/widgets/dispatch.ts` (passthrough before the generic wrap)
@@ -76,6 +77,7 @@ Tasks 1, 2, 3 can run in parallel (disjoint files). Tasks 4, 5, 6 can run in par
 - Test: `packages/server/src/app.test.ts` (add cases)
 
 **Interfaces:**
+
 - Consumes: existing `WidgetDispatchError` base (`status`/`code`/`publicMessage` fields), `dispatchWidgetEvent`, `sendWidgetError`.
 - Produces: `class PublicWidgetError extends Error` with `readonly status: number` (default 400), `readonly code: string`, `readonly publicMessage: string`, `readonly meta: Record<string, unknown> | undefined`, constructor `new PublicWidgetError({ code, publicMessage, status?, meta?, cause? })`, exported from `@shared/widgets/public-error`. Later tasks (4) construct it in handlers; the wire envelope gains an optional `meta`.
 
@@ -190,15 +192,15 @@ import { PublicWidgetError } from '@shared/widgets/public-error'
 ```
 
 ```ts
-  if (handlerResult instanceof WidgetHandlerError) return handlerResult
-  if (handlerResult instanceof PublicWidgetError) return handlerResult
-  if (handlerResult instanceof Error) {
-    return new WidgetHandlerError({
-      typeId: options.typeId,
-      event: options.event,
-      cause: handlerResult,
-    })
-  }
+if (handlerResult instanceof WidgetHandlerError) return handlerResult
+if (handlerResult instanceof PublicWidgetError) return handlerResult
+if (handlerResult instanceof Error) {
+  return new WidgetHandlerError({
+    typeId: options.typeId,
+    event: options.event,
+    cause: handlerResult,
+  })
+}
 ```
 
 - [ ] **Step 5: Run the dispatch tests to verify they pass**
@@ -283,10 +285,12 @@ rtk git commit -m "feat(server): pass PublicWidgetError through widget dispatch 
 ### Task 2: structural `code`/`meta` on the client `WidgetApiError`
 
 **Files:**
+
 - Modify: `packages/widget-runtime/src/widget-api.ts`
 - Test: `packages/widget-runtime/src/widget-api.test.ts` (add cases)
 
 **Interfaces:**
+
 - Consumes: existing `makeWidgetApi`, `WidgetApiEnvelopeSchema`, `makeScriptedHttp` test helper.
 - Produces: `WidgetApiError` gains `readonly code: string` (**required** — every construction site sets one; synthetic codes are `'network'` and `'invalid_response'`) and `readonly meta: Record<string, unknown> | undefined`. Constructor: `new WidgetApiError({ reason, code, meta?, cause? })`. The envelope schema's error branch gains `meta: z.record(z.string(), z.unknown()).optional()` (zod v4 — two-argument `z.record`). Task 5's model narrows on `err.code` and reads `err.meta.sshTarget`.
 
@@ -407,31 +411,31 @@ export class WidgetApiError extends errore.createTaggedError({
 and update the four construction sites inside `invoke`:
 
 ```ts
-      const response = await http.post(url, { json: { instanceId, payload } })
-      if (response instanceof Error) {
-        return new WidgetApiError({ reason: 'network request failed', code: 'network', cause: response })
-      }
+const response = await http.post(url, { json: { instanceId, payload } })
+if (response instanceof Error) {
+  return new WidgetApiError({ reason: 'network request failed', code: 'network', cause: response })
+}
 
-      const envelope = WidgetApiEnvelopeSchema.safeParse(response.body)
-      if (!envelope.success) {
-        return new WidgetApiError({
-          reason: 'response envelope is invalid',
-          code: 'invalid_response',
-          cause: envelope.error,
-        })
-      }
-      if ('error' in envelope.data) {
-        return new WidgetApiError({
-          reason: `${envelope.data.error.code}: ${envelope.data.error.message}`,
-          code: envelope.data.error.code,
-          meta: envelope.data.error.meta,
-        })
-      }
-      if (!response.ok) {
-        return new WidgetApiError({ reason: `HTTP ${response.status}`, code: 'invalid_response' })
-      }
+const envelope = WidgetApiEnvelopeSchema.safeParse(response.body)
+if (!envelope.success) {
+  return new WidgetApiError({
+    reason: 'response envelope is invalid',
+    code: 'invalid_response',
+    cause: envelope.error,
+  })
+}
+if ('error' in envelope.data) {
+  return new WidgetApiError({
+    reason: `${envelope.data.error.code}: ${envelope.data.error.message}`,
+    code: envelope.data.error.code,
+    meta: envelope.data.error.meta,
+  })
+}
+if (!response.ok) {
+  return new WidgetApiError({ reason: `HTTP ${response.status}`, code: 'invalid_response' })
+}
 
-      return envelope.data.data as Events[Event]['result']
+return envelope.data.data as Events[Event]['result']
 ```
 
 - [ ] **Step 4: Run the widget-runtime suite and typecheck**
@@ -451,6 +455,7 @@ rtk git commit -m "feat(widget-runtime): expose structural code and meta on Widg
 ### Task 3: widget package scaffolding — deps, configs, `client.ts`, dev harness, codegen
 
 **Files:**
+
 - Modify: `packages/widgets/passport-checker/package.json`
 - Modify: `packages/widgets/passport-checker/tsconfig.json`
 - Modify: `packages/widgets/passport-checker/vitest.config.ts`
@@ -466,6 +471,7 @@ rtk git commit -m "feat(widget-runtime): expose structural code and meta on Widg
 - Modify (via codegen): `packages/widgets/.ports.json`
 
 **Interfaces:**
+
 - Consumes: `defineWidgetClient` (`widget-sdk/define-widget-client`), `InferWidgetEvents` (`@shared/widgets/contracts`), `passportCheckerBrowserSchemas` (`./types`), `defineWidgetViteConfig`/`defineWidgetVitestConfig` (`widget-sdk/vite`), `makeHostRuntime`/`WidgetRuntimeContext`/`resolveTier` (`widget-runtime`).
 - Produces: `export type PassportCheckerEvents = InferWidgetEvents<typeof passportCheckerBrowserSchemas>` (in `types.ts` — Tasks 5/8 import it); `passportCheckerWidget` client definition (default export of `client.ts`); a jsdom-by-default vitest config; ambient types for `@novnc/novnc` (Tasks 6/9 import `RFB`); a stub `PassportChecker` component export (named export `PassportChecker`, same signature Task 8 keeps).
 
@@ -851,25 +857,27 @@ rtk git commit -m "feat(passport-checker): scaffold the widget client package"
 ### Task 4: passport widget `server.ts` — gateway-error → public-code mapping
 
 **Files:**
+
 - Create: `packages/widgets/passport-checker/server.ts`
 - Test: `packages/widgets/passport-checker/server.test.ts`
 
 **Interfaces:**
+
 - Consumes: `defineWidgetServer`, `WidgetServerContext` (`@shared/widgets/contracts`), `PublicWidgetError` (`@shared/widgets/public-error`, Task 1), the gateway error family (`@shared/widgets/browser-errors`), `passportCheckerBrowserSchemas` + `passportCheckerBrowserTasks` (`./types`).
 - Produces: default export `WidgetServerDefinition` with one `check` handler; exported `makePassportCheckerServer()` factory and `mapRejectedTask(error: BrowserTaskRejectedError): PublicWidgetError` (unit-tested directly). Discovered by `codegen:server` as typeId `passport-checker`.
 
 Error mapping contract (the client narrows on `code`; statuses are for ops/logs — 500 triggers server-side `console.error` in `sendWidgetError`, deliberately used for admin-actionable misconfiguration):
 
-| Gateway result | status | code | meta |
-|---|---|---|---|
-| `BrowserTaskRejectedError` `browser_session_required` | 409 | `browser_session_required` | `{ sshTarget }` only when `meta.sshTarget` is a string |
-| `BrowserTaskRejectedError` `browser_configuration` | 500 | `browser_configuration` | — |
-| `BrowserTaskRejectedError` `upstream_response` | 502 | `upstream_response` | — |
-| `BrowserTaskRejectedError` `invalid_checker_response` | 502 | `invalid_checker_response` | — |
-| `BrowserTaskRejectedError` any other code | 502 | passthrough of `error.code` | — |
-| `BrowserAutomationUnavailableError` | 503 | `browser_unavailable` | — |
-| `BrowserAutomationDeadlineError` | 504 | `automation_timeout` | — |
-| `BrowserAutomationProtocolError` | 502 | `automation_protocol` | — |
+| Gateway result                                        | status | code                        | meta                                                   |
+| ----------------------------------------------------- | ------ | --------------------------- | ------------------------------------------------------ |
+| `BrowserTaskRejectedError` `browser_session_required` | 409    | `browser_session_required`  | `{ sshTarget }` only when `meta.sshTarget` is a string |
+| `BrowserTaskRejectedError` `browser_configuration`    | 500    | `browser_configuration`     | —                                                      |
+| `BrowserTaskRejectedError` `upstream_response`        | 502    | `upstream_response`         | —                                                      |
+| `BrowserTaskRejectedError` `invalid_checker_response` | 502    | `invalid_checker_response`  | —                                                      |
+| `BrowserTaskRejectedError` any other code             | 502    | passthrough of `error.code` | —                                                      |
+| `BrowserAutomationUnavailableError`                   | 503    | `browser_unavailable`       | —                                                      |
+| `BrowserAutomationDeadlineError`                      | 504    | `automation_timeout`        | —                                                      |
+| `BrowserAutomationProtocolError`                      | 502    | `automation_protocol`       | —                                                      |
 
 `publicMessage` passes through from `BrowserTaskRejectedError.publicMessage` (already safe by construction — it comes from the task's public copy); the three automation errors get static English messages. Meta is **filtered to exactly `sshTarget`** — no other key is ever copied (the upstream task also puts `phase`/`status` into meta for other codes; those must not leak).
 
@@ -935,16 +943,35 @@ describe('passport checker server', () => {
   })
 
   it.each([
-    [rejected('browser_session_required', { sshTarget: 'admin@pi' }), 409, 'browser_session_required', { sshTarget: 'admin@pi' }],
+    [
+      rejected('browser_session_required', { sshTarget: 'admin@pi' }),
+      409,
+      'browser_session_required',
+      { sshTarget: 'admin@pi' },
+    ],
     [rejected('browser_session_required'), 409, 'browser_session_required', undefined],
     [rejected('browser_configuration'), 500, 'browser_configuration', undefined],
-    [rejected('upstream_response', { phase: 'submission', status: 502 }), 502, 'upstream_response', undefined],
+    [
+      rejected('upstream_response', { phase: 'submission', status: 502 }),
+      502,
+      'upstream_response',
+      undefined,
+    ],
     [rejected('invalid_checker_response'), 502, 'invalid_checker_response', undefined],
     [rejected('some_future_code'), 502, 'some_future_code', undefined],
-    [new BrowserAutomationUnavailableError({ operation: 'invoke' }), 503, 'browser_unavailable', undefined],
+    [
+      new BrowserAutomationUnavailableError({ operation: 'invoke' }),
+      503,
+      'browser_unavailable',
+      undefined,
+    ],
     [new BrowserAutomationDeadlineError({ timeoutMs: 1000 }), 504, 'automation_timeout', undefined],
     [
-      new BrowserAutomationProtocolError({ phase: 'result', widgetId: 'passport-checker', taskId: 'check' }),
+      new BrowserAutomationProtocolError({
+        phase: 'result',
+        widgetId: 'passport-checker',
+        taskId: 'check',
+      }),
       502,
       'automation_protocol',
       undefined,
@@ -1094,10 +1121,12 @@ rtk git commit -m "feat(passport-checker): add the widget server check handler"
 ### Task 5: `check-model.ts` — async check action, deadline, view-state mapping
 
 **Files:**
+
 - Create: `packages/widgets/passport-checker/model/check-model.ts`
 - Test: `packages/widgets/passport-checker/model/check-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: `WidgetApi` (`@shared/widgets/contracts`), `WidgetApiError` (class, from `widget-runtime` — Task 2 shape: `code: string`, `meta?`), `PassportCheckerEvents` (`../types`, Task 3).
 - Produces (Task 8 consumes all of it):
   - `type ViewState = { kind: 'idle' } | { kind: 'pending' } | { kind: 'success'; status: number; message: string; checkedAtLabel: string } | { kind: 'retryable'; message: string } | { kind: 'invalidConfig' } | { kind: 'sessionRequired'; sshTarget: string | null }`
@@ -1106,8 +1135,9 @@ rtk git commit -m "feat(passport-checker): add the widget server check handler"
   - `mapCheckError(error): ViewState`, `RETRYABLE_MESSAGES`, `GENERIC_RETRYABLE_MESSAGE`, `CHECK_DEADLINE_MS = 25_000`, `CheckDeadlineError`.
 
 Design notes (deliberate, do not "fix" during implementation):
+
 - The model is an explicit state machine on one `viewState` atom rather than `withAsync` status atoms: `api.invoke` returns errors **as values** (errore), so `withAsync`'s thrown-error tracking would never see them, and the client deadline race needs a single settle point anyway.
-- Duplicate submits are prevented in the model (`if (viewState().kind === 'pending') return`) *and* the UI disables the button while pending (spec: button stays enabled otherwise for native focus).
+- Duplicate submits are prevented in the model (`if (viewState().kind === 'pending') return`) _and_ the UI disables the button while pending (spec: button stays enabled otherwise for native focus).
 - `wrap()`ed continuations are created **inside the action, before the first `await`** — never hoisted to module scope (repo pitfalls: post-await writes hit the global context; a hoisted wrap aborts after `context.reset()`).
 - The client-side deadline maps to the same view as the server's `automation_timeout` (spec).
 
@@ -1131,7 +1161,10 @@ import {
 type CheckResult = { status: number; send_status_msg: string }
 
 function makeApi() {
-  const invoke = vi.fn<(event: 'check', payload: Record<string, never>) => Promise<WidgetApiError | CheckResult>>()
+  const invoke =
+    vi.fn<
+      (event: 'check', payload: Record<string, never>) => Promise<WidgetApiError | CheckResult>
+    >()
   const api = { invoke } as unknown as WidgetApi<PassportCheckerEvents, WidgetApiError>
   return { api, invoke }
 }
@@ -1355,7 +1388,9 @@ function withDeadline<T>(
       (cause: unknown) => {
         clearTimeout(timer)
         // invoke returns errors as values; a rejection here is an unexpected bug.
-        resolve(new WidgetApiError({ reason: 'invoke rejected unexpectedly', code: 'network', cause }))
+        resolve(
+          new WidgetApiError({ reason: 'invoke rejected unexpectedly', code: 'network', cause }),
+        )
       },
     )
   })
@@ -1421,11 +1456,13 @@ rtk git commit -m "feat(passport-checker): add the check model with deadline and
 ### Task 6: recovery adapters — `recovery-transport.ts` and `rfb.ts`
 
 **Files:**
+
 - Create: `packages/widgets/passport-checker/model/recovery-transport.ts`
 - Create: `packages/widgets/passport-checker/model/recovery-transport.test.ts`
 - Create: `packages/widgets/passport-checker/model/rfb.ts` (no unit test — see note)
 
 **Interfaces:**
+
 - Consumes: Subproject 6 endpoint (`POST /api/browser/recovery/:widgetId`), `@novnc/novnc` (typed by Task 3's `novnc.d.ts`).
 - Produces (Task 7 injects both, tests fake them):
   - `type RecoveryIssue = { expiresInMs: number }`
@@ -1633,10 +1670,12 @@ rtk git commit -m "feat(passport-checker): add recovery transport and noVNC adap
 ### Task 7: `recovery-model.ts` — capability lifecycle state machine
 
 **Files:**
+
 - Create: `packages/widgets/passport-checker/model/recovery-model.ts`
 - Test: `packages/widgets/passport-checker/model/recovery-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RecoveryTransport`/`RecoveryIssueError` (Task 6), `MakeRfb`/`RfbLike` (Task 6).
 - Produces (Task 9 consumes):
   - `type RecoveryState = { kind: 'issuing' } | { kind: 'connecting'; expiresInMs: number } | { kind: 'connected'; expiresInMs: number } | { kind: 'disconnected' } | { kind: 'expired' } | { kind: 'unavailable' } | { kind: 'busy' } | { kind: 'automationDown' }`
@@ -1646,6 +1685,7 @@ rtk git commit -m "feat(passport-checker): add recovery transport and noVNC adap
   - `RECOVERY_TICK_MS = 500`
 
 Design decisions (deliberate):
+
 - **Reconnect = `start` again.** The Subproject 6 capability is single-use and dies at the first `consume` regardless of outcome — every attempt does a fresh `POST` (never reuse).
 - **The countdown keeps running after `connect` and tears the session down at 0** (literal spec: the pill is "driven by `expiresInMs`", the `expired` frame is drawn from the live view, and the SSH note says «тот же одноразовый срок доступа»). The server's separate 15-min session cap arrives as a plain `disconnect` → `disconnected` → one-click reconnect. If the default 60s window proves too tight operationally, raise `BROWSER_RECOVERY_TOKEN_TTL_MS` on the deployment — do not soften it client-side.
 - **Teardown runs exactly once per connection**: the session handle is non-reactive (`let session`), its `dispose` is idempotent, and listeners are removed **before** `rfb.disconnect()` so the RFB's own disconnect event cannot re-enter the state machine during teardown.
@@ -1661,7 +1701,11 @@ Create `packages/widgets/passport-checker/model/recovery-model.test.ts`:
 import { context, wrap } from '@reatom/core'
 
 import { makeRecoveryModel, recoverySocketUrl } from './recovery-model'
-import { RecoveryIssueError, type RecoveryIssue, type RecoveryTransport } from './recovery-transport'
+import {
+  RecoveryIssueError,
+  type RecoveryIssue,
+  type RecoveryTransport,
+} from './recovery-transport'
 import type { RfbLike } from './rfb'
 
 class FakeRfb implements RfbLike {
@@ -2045,6 +2089,7 @@ rtk git commit -m "feat(passport-checker): add the recovery capability state mac
 ### Task 8: tier UI — root component, StandardTier, TinyTier, StatusBanner, styles
 
 **Files:**
+
 - Create: `packages/widgets/passport-checker/ui/passport-checker-context.ts`
 - Replace: `packages/widgets/passport-checker/ui/PassportChecker.tsx` (Task 3 stub → real root)
 - Create: `packages/widgets/passport-checker/ui/tiers/StandardTier.tsx`
@@ -2054,6 +2099,7 @@ rtk git commit -m "feat(passport-checker): add the recovery capability state mac
 - Test: `packages/widgets/passport-checker/ui/PassportChecker.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `makePassportCheckModel`/`ViewState` (Task 5), `useWidgetContext` + `PassportCheckerEvents`, `reatomMemo`/`cn` (`widget-sdk`), lucide icons `IdCard`, `Check`, `RefreshCw`, `TriangleAlert`, `CircleCheck`, `CircleAlert`, `AppWindow`.
 - Produces: `PassportChecker` (root, same export name as the Task 3 stub), `isStandardLayout(tier)`, `passportCheckerContext`/`usePassportChecker` (Task 9 extends the context value with `recoveryModel`; in this task the value is `{ checkModel }` — declare the type with `recoveryModel` **optional absent** — no: declare only `checkModel` here, Task 9 adds the field and updates both providers/consumers in the same commit).
 - Every exported component is `reatomMemo`-wrapped; every event handler that touches Reatom goes through `wrap()` created during render (RTM-C02); atoms are read lazily inside render (RTM-C01).
@@ -2115,10 +2161,7 @@ describe('PassportChecker / standard tier', () => {
   })
 
   it('disables the button and shows the pending row while checking', async () => {
-    renderWidget(
-      'standard',
-      () => new Promise<never>(() => {}),
-    )
+    renderWidget('standard', () => new Promise<never>(() => {}))
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
@@ -2158,7 +2201,9 @@ describe('PassportChecker / standard tier', () => {
   })
 
   it('renders sessionRequired with the open-recovery action', async () => {
-    renderWidget('standard', async () => apiError('browser_session_required', { sshTarget: 'admin@pi' }))
+    renderWidget('standard', async () =>
+      apiError('browser_session_required', { sshTarget: 'admin@pi' }),
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
@@ -2191,10 +2236,7 @@ describe('PassportChecker / tiny tier', () => {
   })
 
   it('renders the compact pending state', async () => {
-    renderWidget(
-      'compact',
-      () => new Promise<never>(() => {}),
-    )
+    renderWidget('compact', () => new Promise<never>(() => {}))
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
@@ -2395,9 +2437,7 @@ export const StandardTier = reatomMemo(() => {
         <span className={styles.title}>Паспорт</span>
       </header>
 
-      {view.kind === 'idle' && (
-        <p className={styles.description}>Проверка статуса паспорта</p>
-      )}
+      {view.kind === 'idle' && <p className={styles.description}>Проверка статуса паспорта</p>}
       {view.kind === 'pending' && (
         <div className={styles.pendingRow} role="status">
           <span className={styles.spinner} aria-hidden />
@@ -2828,6 +2868,7 @@ rtk git commit -m "feat(passport-checker): render the check flow across both tie
 ### Task 9: recovery modal — portal, noVNC frame, SSH fallback, a11y
 
 **Files:**
+
 - Create: `packages/widgets/passport-checker/ui/use-modal-isolation.ts`
 - Create: `packages/widgets/passport-checker/ui/parts/NoVncCanvas.tsx`
 - Create: `packages/widgets/passport-checker/ui/parts/SshFallback.tsx`
@@ -2839,11 +2880,13 @@ rtk git commit -m "feat(passport-checker): render the check flow across both tie
 - Test: `packages/widgets/passport-checker/ui/recovery-flow.test.tsx` (root-level a11y round-trip)
 
 **Interfaces:**
+
 - Consumes: `makeRecoveryModel`/`RecoveryModel`/`RecoveryState` (Task 7), `makeRecoveryTransport` (Task 6), `makeNoVncRfb` (Task 6), `usePassportChecker` (Task 8), lucide `AppWindow`, `Check`, `Copy`, `Unlink`, `X`.
 - Produces: `RecoveryModal` (portal to `document.body`), `useModalIsolation(rootRef, onClose)`, `formatAccessCountdown(ms): string` (`M:SS`), `NoVncCanvas`, `SshFallback`. Context value becomes `{ checkModel, recoveryModel }` (update the type, the root provider, and Task 8's consumers compile unchanged — they only read `checkModel`).
 
 Design notes (deliberate):
-- **Isolation instead of the Radix ref-dance.** The modal may stack above Radix layers the widget cannot patch (the board's `FullscreenOverlay` is itself a Radix Dialog). The spec's "modal open ref cleared one tick late" pattern requires cooperation from the *underlying* dialog — unavailable from a widget. `useModalIsolation` achieves the same guarantee at the source: a capture-phase document `keydown` handles Esc first and stops propagation (Radix's bubble-phase escape listener never fires), and `pointerdown`/`focusin` events born inside the modal stop propagating before document-level `DismissableLayer`/`FocusScope` listeners see them, so the underlying dialog's deferred outside-dismiss check is never even queued.
+
+- **Isolation instead of the Radix ref-dance.** The modal may stack above Radix layers the widget cannot patch (the board's `FullscreenOverlay` is itself a Radix Dialog). The spec's "modal open ref cleared one tick late" pattern requires cooperation from the _underlying_ dialog — unavailable from a widget. `useModalIsolation` achieves the same guarantee at the source: a capture-phase document `keydown` handles Esc first and stops propagation (Radix's bubble-phase escape listener never fires), and `pointerdown`/`focusin` events born inside the modal stop propagating before document-level `DismissableLayer`/`FocusScope` listeners see them, so the underlying dialog's deferred outside-dismiss check is never even queued.
 - Focus: moves to the first focusable in the dialog on mount; Tab/Shift+Tab cycle inside; on unmount focus returns to the previously-focused element (the «Открыть восстановление» tile button). The noVNC canvas has `tabIndex=-1` (RFB's own) — reachable by click, skipped by Tab, and Esc still works from it because the document capture listener sees it first.
 - «Повторить проверку» tears down, closes, and re-invokes `checkPassport`; if the checker is still challenged the widget lands back on `sessionRequired`.
 - The «Переподключиться» button appears in every non-live frame (`disconnected`, `expired`, `unavailable`, `busy`, `automationDown`) — the spec draws it for the first two; extending it to the issue-error frames is deliberate (each retry is a fresh single-use `POST`).
@@ -2860,7 +2903,11 @@ import type { WidgetApi } from '@shared/widgets/contracts'
 
 import { makePassportCheckModel } from '../model/check-model'
 import { makeRecoveryModel } from '../model/recovery-model'
-import { RecoveryIssueError, type RecoveryIssue, type RecoveryTransport } from '../model/recovery-transport'
+import {
+  RecoveryIssueError,
+  type RecoveryIssue,
+  type RecoveryTransport,
+} from '../model/recovery-transport'
 import type { RfbLike } from '../model/rfb'
 import type { PassportCheckerEvents } from '../types'
 import { passportCheckerContext } from './passport-checker-context'
@@ -2891,8 +2938,13 @@ class FakeRfb implements RfbLike {
   }
 }
 
-function setup(issueResults: Array<RecoveryIssueError | RecoveryIssue>, sshTarget: string | null = 'admin@pi') {
-  const invoke = vi.fn(async () => new WidgetApiError({ reason: 'x', code: 'browser_session_required' }))
+function setup(
+  issueResults: Array<RecoveryIssueError | RecoveryIssue>,
+  sshTarget: string | null = 'admin@pi',
+) {
+  const invoke = vi.fn(
+    async () => new WidgetApiError({ reason: 'x', code: 'browser_session_required' }),
+  )
   const checkModel = makePassportCheckModel({
     api: { invoke } as unknown as WidgetApi<PassportCheckerEvents, WidgetApiError>,
   })
@@ -3009,7 +3061,10 @@ describe('RecoveryModal', () => {
   })
 
   it.each([
-    [new RecoveryIssueError({ code: 'recovery_unavailable' }), 'Нет активной сессии для восстановления'],
+    [
+      new RecoveryIssueError({ code: 'recovery_unavailable' }),
+      'Нет активной сессии для восстановления',
+    ],
     [new RecoveryIssueError({ code: 'recovery_busy' }), 'Восстановление уже идёт'],
     [new RecoveryIssueError({ code: 'automation_unavailable' }), 'Сервис автоматизации недоступен'],
   ])('renders the issue-error frame: %s', async (error, copy) => {
@@ -3064,13 +3119,17 @@ import type { WidgetRuntimeProps } from 'widget-runtime'
 import { PassportChecker } from './PassportChecker'
 
 function renderSessionRequired() {
-  vi.stubGlobal('fetch', vi.fn(() => new Promise<never>(() => {})))
-  const invoke = vi.fn(async () =>
-    new WidgetApiError({
-      reason: 'x',
-      code: 'browser_session_required',
-      meta: { sshTarget: 'admin@pi' },
-    }),
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => new Promise<never>(() => {})),
+  )
+  const invoke = vi.fn(
+    async () =>
+      new WidgetApiError({
+        reason: 'x',
+        code: 'browser_session_required',
+        meta: { sshTarget: 'admin@pi' },
+      }),
   )
   const props: WidgetRuntimeProps = {
     instanceId: 'inst-passport',
@@ -3269,10 +3328,7 @@ export const NoVncCanvas = reatomMemo(() => {
         </>
       )}
       {state.kind !== 'connected' && (
-        <div
-          className={cn(styles.frameOverlay, broken && styles.frameOverlayError)}
-          role="status"
-        >
+        <div className={cn(styles.frameOverlay, broken && styles.frameOverlayError)} role="status">
           {spinning && <span className={styles.frameSpinner} aria-hidden />}
           {broken && <Unlink size={22} aria-hidden />}
           <div className={styles.frameTitle}>{FRAME_COPY[state.kind].title}</div>

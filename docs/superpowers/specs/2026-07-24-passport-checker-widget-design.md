@@ -204,15 +204,15 @@ The handler:
 3. on a `BrowserGatewayError`, maps it to a `PublicWidgetError` with a stable
    code and safe meta:
 
-| Gateway error | code | meta | UI view |
-|---|---|---|---|
+| Gateway error                                              | code                       | meta                           | UI view         |
+| ---------------------------------------------------------- | -------------------------- | ------------------------------ | --------------- |
 | `BrowserTaskRejectedError` code `browser_session_required` | `browser_session_required` | `{ sshTarget }` (when present) | sessionRequired |
-| `BrowserTaskRejectedError` code `browser_configuration` | `browser_configuration` | — | invalidConfig |
-| `BrowserTaskRejectedError` code `upstream_response` | `upstream_response` | — | retryable error |
-| `BrowserTaskRejectedError` code `invalid_checker_response` | `invalid_checker_response` | — | retryable error |
-| `BrowserAutomationUnavailableError` | `browser_unavailable` | — | retryable error |
-| `BrowserAutomationDeadlineError` | `automation_timeout` | — | retryable error |
-| `BrowserAutomationProtocolError` | `automation_protocol` | — | retryable error |
+| `BrowserTaskRejectedError` code `browser_configuration`    | `browser_configuration`    | —                              | invalidConfig   |
+| `BrowserTaskRejectedError` code `upstream_response`        | `upstream_response`        | —                              | retryable error |
+| `BrowserTaskRejectedError` code `invalid_checker_response` | `invalid_checker_response` | —                              | retryable error |
+| `BrowserAutomationUnavailableError`                        | `browser_unavailable`      | —                              | retryable error |
+| `BrowserAutomationDeadlineError`                           | `automation_timeout`       | —                              | retryable error |
+| `BrowserAutomationProtocolError`                           | `automation_protocol`      | —                              | retryable error |
 
 `browser_configuration` maps to the **non-retryable** invalidConfig view; every
 other non-session error is retryable. The handler never returns raw causes; meta
@@ -339,17 +339,17 @@ code, the access timer, and the SSH command.
 
 ### Tokens (from the visual design)
 
-| Role | Value |
-|---|---|
-| Accent (primary) | `oklch(0.55 0.17 281)` |
-| Accent soft (icon chip bg) | `oklch(0.955 0.032 285)` |
-| Success / soft / border | `oklch(0.55 0.13 155)` / `oklch(0.95 0.05 155)` / `oklch(0.86 0.08 155)` |
-| Error (retryable) icon / soft / border | `oklch(0.55 0.21 27)` / `oklch(0.968 0.028 27)` / `oklch(0.88 0.07 27)` (`--destructive-soft`) |
-| sessionRequired (amber) bg / border / icon | `oklch(0.96 0.05 80)` / `oklch(0.85 0.1 80)` / `oklch(0.58 0.13 70)` |
-| Text / secondary / muted | `#22232a` / `#5b5e69` / `#9396a0` |
-| Borders | `#e3e4e8` / `#eceef1` |
-| Surfaces | tile `#fff`, panel `#f5f6f8`, board `#e6e7ea` |
-| noVNC frame | bg `#16171d`, border `#2a2c36` |
+| Role                                       | Value                                                                                          |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Accent (primary)                           | `oklch(0.55 0.17 281)`                                                                         |
+| Accent soft (icon chip bg)                 | `oklch(0.955 0.032 285)`                                                                       |
+| Success / soft / border                    | `oklch(0.55 0.13 155)` / `oklch(0.95 0.05 155)` / `oklch(0.86 0.08 155)`                       |
+| Error (retryable) icon / soft / border     | `oklch(0.55 0.21 27)` / `oklch(0.968 0.028 27)` / `oklch(0.88 0.07 27)` (`--destructive-soft`) |
+| sessionRequired (amber) bg / border / icon | `oklch(0.96 0.05 80)` / `oklch(0.85 0.1 80)` / `oklch(0.58 0.13 70)`                           |
+| Text / secondary / muted                   | `#22232a` / `#5b5e69` / `#9396a0`                                                              |
+| Borders                                    | `#e3e4e8` / `#eceef1`                                                                          |
+| Surfaces                                   | tile `#fff`, panel `#f5f6f8`, board `#e6e7ea`                                                  |
+| noVNC frame                                | bg `#16171d`, border `#2a2c36`                                                                 |
 
 Spacing scale: `6–8` (icon↔text, in-row buttons), `10–12` (banner internals,
 footer gaps), `14–16` (standard tile / modal body padding), `18–22` (modal
