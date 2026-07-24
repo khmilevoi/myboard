@@ -1,4 +1,7 @@
-import { BrowserAutomationUnavailableError, type BrowserGatewayError } from '@shared/widgets/browser-errors'
+import {
+  BrowserAutomationUnavailableError,
+  type BrowserGatewayError,
+} from '@shared/widgets/browser-errors'
 
 import type {
   BrowserAutomationClient,

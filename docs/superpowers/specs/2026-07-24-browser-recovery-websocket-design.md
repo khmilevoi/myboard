@@ -278,11 +278,11 @@ and only then lets the task travel.
 
 Added to `loadBrowserGatewayConfig`:
 
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `BROWSER_RECOVERY_URL` | `http://browser-automation:6080` | websockify origin for the internal leg |
-| `BROWSER_RECOVERY_TOKEN_TTL_MS` | `60000` | issue → connect window |
-| `BROWSER_RECOVERY_MAX_SESSION_MS` | `900000` | maximum length of one recovery session |
+| Variable                          | Default                          | Meaning                                |
+| --------------------------------- | -------------------------------- | -------------------------------------- |
+| `BROWSER_RECOVERY_URL`            | `http://browser-automation:6080` | websockify origin for the internal leg |
+| `BROWSER_RECOVERY_TOKEN_TTL_MS`   | `60000`                          | issue → connect window                 |
+| `BROWSER_RECOVERY_MAX_SESSION_MS` | `900000`                         | maximum length of one recovery session |
 
 `docker-compose.yml` keeps `127.0.0.1:6080:6080` on `browser-automation`, so the
 documented SSH fallback is unchanged, and the service stays on the
@@ -328,12 +328,12 @@ Nothing throws for control flow. The capability store returns a tagged
 status and public code, since its outcomes never propagate past the route.
 Gateway failures arrive as the existing `@shared/widgets/browser-errors` values.
 
-| Outcome | Cause | Public surface |
-| --- | --- | --- |
-| unavailable | unsafe widget id, or no retained page | `404 recovery_unavailable` |
-| busy | a recovery connection is already active | `409 recovery_busy` |
-| `RecoveryCapabilityError` | missing, expired, burned, or foreign-session token | `401` on upgrade |
-| gateway error | websockify unreachable or the availability query failed | `503 automation_unavailable` |
+| Outcome                   | Cause                                                   | Public surface               |
+| ------------------------- | ------------------------------------------------------- | ---------------------------- |
+| unavailable               | unsafe widget id, or no retained page                   | `404 recovery_unavailable`   |
+| busy                      | a recovery connection is already active                 | `409 recovery_busy`          |
+| `RecoveryCapabilityError` | missing, expired, burned, or foreign-session token      | `401` on upgrade             |
+| gateway error             | websockify unreachable or the availability query failed | `503 automation_unavailable` |
 
 No error message includes the token, the session id, or upstream response bodies.
 Logs record `widgetId` and the error tag only.

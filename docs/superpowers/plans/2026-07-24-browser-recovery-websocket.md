@@ -43,35 +43,35 @@
 Add to `packages/browser-automation/src/browser/chromium-executor.test.ts`, inside the existing top-level `describe`, next to the other retention tests:
 
 ```ts
-  it('reports a retained page only while it is open', async () => {
-    const created: FakeContext[] = []
-    const executor = makeChromiumExecutor(makeDeps(created))
+it('reports a retained page only while it is open', async () => {
+  const created: FakeContext[] = []
+  const executor = makeChromiumExecutor(makeDeps(created))
 
-    expect(executor.hasRetainedPage('passport-checker')).toBe(false)
+  expect(executor.hasRetainedPage('passport-checker')).toBe(false)
 
-    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
-    if (context instanceof Error) throw context
-    context.retainPageForRecovery()
-    await executor.release(context)
+  const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+  if (context instanceof Error) throw context
+  context.retainPageForRecovery()
+  await executor.release(context)
 
-    expect(executor.hasRetainedPage('passport-checker')).toBe(true)
-    expect(executor.hasRetainedPage('other-widget')).toBe(false)
-  })
+  expect(executor.hasRetainedPage('passport-checker')).toBe(true)
+  expect(executor.hasRetainedPage('other-widget')).toBe(false)
+})
 
-  it('forgets a retained page that Chromium closed on its own', async () => {
-    const created: FakeContext[] = []
-    const executor = makeChromiumExecutor(makeDeps(created))
+it('forgets a retained page that Chromium closed on its own', async () => {
+  const created: FakeContext[] = []
+  const executor = makeChromiumExecutor(makeDeps(created))
 
-    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
-    if (context instanceof Error) throw context
-    context.retainPageForRecovery()
-    await executor.release(context)
-    await created[0].pages[0].close()
+  const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+  if (context instanceof Error) throw context
+  context.retainPageForRecovery()
+  await executor.release(context)
+  await created[0].pages[0].close()
 
-    expect(executor.hasRetainedPage('passport-checker')).toBe(false)
-    // The stale entry is dropped, so a later acquire has nothing to close.
-    expect(created[0].pages[0].closeCalls).toBe(1)
-  })
+  expect(executor.hasRetainedPage('passport-checker')).toBe(false)
+  // The stale entry is dropped, so a later acquire has nothing to close.
+  expect(created[0].pages[0].closeCalls).toBe(1)
+})
 ```
 
 The fake page in that file has no `isClosed`. Extend the fake so it mirrors Playwright's `Page`:
@@ -172,22 +172,22 @@ git commit -m "feat(browser-automation): expose retained recovery page availabil
 Add to `packages/browser-automation/src/service.test.ts`:
 
 ```ts
-  it('reports recovery state only while ready', () => {
-    const { executor, state } = makeFakeExecutor()
-    const service = makeBrowserService({
-      registry: buildRegistry(),
-      executor,
-      config: { queueWaitMs: 1000, executionMs: 1000 },
-    })
-
-    expect(service.recoveryState('demo')).toBeInstanceOf(BrowserServiceUnavailableError)
-
-    service.markReady()
-    expect(service.recoveryState('demo')).toEqual({ retained: false })
-
-    state.retainedWidgetIds.add('demo')
-    expect(service.recoveryState('demo')).toEqual({ retained: true })
+it('reports recovery state only while ready', () => {
+  const { executor, state } = makeFakeExecutor()
+  const service = makeBrowserService({
+    registry: buildRegistry(),
+    executor,
+    config: { queueWaitMs: 1000, executionMs: 1000 },
   })
+
+  expect(service.recoveryState('demo')).toBeInstanceOf(BrowserServiceUnavailableError)
+
+  service.markReady()
+  expect(service.recoveryState('demo')).toEqual({ retained: false })
+
+  state.retainedWidgetIds.add('demo')
+  expect(service.recoveryState('demo')).toEqual({ retained: true })
+})
 ```
 
 Reuse whatever registry helper that file already defines; if it builds the registry inline, copy that inline construction instead of inventing `buildRegistry()`. Import `BrowserServiceUnavailableError` from `./errors` if it is not imported yet.
@@ -197,20 +197,20 @@ Reuse whatever registry helper that file already defines; if it builds the regis
 Add to `packages/browser-automation/src/http/app.test.ts`:
 
 ```ts
-  it('answers the recovery state query', async () => {
-    service.markReady()
-    const response = await fetch(`${base}/recovery/demo`)
+it('answers the recovery state query', async () => {
+  service.markReady()
+  const response = await fetch(`${base}/recovery/demo`)
 
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ retained: false })
-  })
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ retained: false })
+})
 
-  it('refuses the recovery state query before the service is ready', async () => {
-    const response = await fetch(`${base}/recovery/demo`)
+it('refuses the recovery state query before the service is ready', async () => {
+  const response = await fetch(`${base}/recovery/demo`)
 
-    expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ status: 'starting' })
-  })
+  expect(response.status).toBe(503)
+  expect(await response.json()).toEqual({ status: 'starting' })
+})
 ```
 
 - [ ] **Step 3: Run both tests to verify they fail**
@@ -229,12 +229,12 @@ In `packages/browser-automation/src/service.ts`, add to the `BrowserService` typ
 and to `makeBrowserService`, before the returned object:
 
 ```ts
-  function recoveryState(widgetId: string) {
-    if (state !== 'ready') return new BrowserServiceUnavailableError({ state })
-    // Deliberately not queued: the point is to inspect a page a finished task
-    // left behind, which must stay answerable while the single lane is busy.
-    return { retained: deps.executor.hasRetainedPage(widgetId) }
-  }
+function recoveryState(widgetId: string) {
+  if (state !== 'ready') return new BrowserServiceUnavailableError({ state })
+  // Deliberately not queued: the point is to inspect a page a finished task
+  // left behind, which must stay answerable while the single lane is busy.
+  return { retained: deps.executor.hasRetainedPage(widgetId) }
+}
 ```
 
 Return `recoveryState` from the factory alongside `invoke`, `health`, `markReady`, and `shutdown`.
@@ -244,16 +244,16 @@ Return `recoveryState` from the factory alongside `invoke`, `health`, `markReady
 In `packages/browser-automation/src/http/app.ts`, register after the `/health` route:
 
 ```ts
-  router.on('GET', '/recovery/:widgetId', (_req, res, params) => {
-    const outcome = service.recoveryState(decodeURIComponent(params.widgetId as string))
-    if (outcome instanceof BrowserServiceUnavailableError) {
-      // Unlike the task route this reports the real state: a caller deciding
-      // whether recovery is possible benefits from starting vs draining.
-      sendJson(res, 503, { status: outcome.state })
-      return
-    }
-    sendJson(res, 200, outcome)
-  })
+router.on('GET', '/recovery/:widgetId', (_req, res, params) => {
+  const outcome = service.recoveryState(decodeURIComponent(params.widgetId as string))
+  if (outcome instanceof BrowserServiceUnavailableError) {
+    // Unlike the task route this reports the real state: a caller deciding
+    // whether recovery is possible benefits from starting vs draining.
+    sendJson(res, 503, { status: outcome.state })
+    return
+  }
+  sendJson(res, 200, outcome)
+})
 ```
 
 `BrowserServiceUnavailableError` is already imported in that file.
@@ -300,42 +300,42 @@ git commit -m "feat(browser-automation): serve retained recovery state over http
 Add to `packages/server/src/browser/http-client.test.ts` (match the file's existing fetch-stub idiom; the snippets below assume a `fetchImpl` stub is passed to `createHttpBrowserAutomationClient` exactly as the existing tests do):
 
 ```ts
-  it('returns the retained recovery state', async () => {
-    const client = createHttpBrowserAutomationClient({
-      baseUrl: 'http://automation:8788',
-      timeoutMs: 1000,
-      fetchImpl: async (input) => {
-        expect(String(input)).toBe('http://automation:8788/recovery/passport-checker')
-        return new Response(JSON.stringify({ retained: true }), { status: 200 })
-      },
-    })
-
-    expect(await client.recoveryState({ widgetId: 'passport-checker' })).toEqual({ retained: true })
+it('returns the retained recovery state', async () => {
+  const client = createHttpBrowserAutomationClient({
+    baseUrl: 'http://automation:8788',
+    timeoutMs: 1000,
+    fetchImpl: async (input) => {
+      expect(String(input)).toBe('http://automation:8788/recovery/passport-checker')
+      return new Response(JSON.stringify({ retained: true }), { status: 200 })
+    },
   })
 
-  it('maps a draining service to an unavailable error', async () => {
-    const client = createHttpBrowserAutomationClient({
-      baseUrl: 'http://automation:8788',
-      timeoutMs: 1000,
-      fetchImpl: async () => new Response(JSON.stringify({ status: 'draining' }), { status: 503 }),
-    })
+  expect(await client.recoveryState({ widgetId: 'passport-checker' })).toEqual({ retained: true })
+})
 
-    expect(await client.recoveryState({ widgetId: 'passport-checker' })).toBeInstanceOf(
-      BrowserAutomationUnavailableError,
-    )
+it('maps a draining service to an unavailable error', async () => {
+  const client = createHttpBrowserAutomationClient({
+    baseUrl: 'http://automation:8788',
+    timeoutMs: 1000,
+    fetchImpl: async () => new Response(JSON.stringify({ status: 'draining' }), { status: 503 }),
   })
 
-  it('rejects a malformed recovery state payload', async () => {
-    const client = createHttpBrowserAutomationClient({
-      baseUrl: 'http://automation:8788',
-      timeoutMs: 1000,
-      fetchImpl: async () => new Response(JSON.stringify({ retained: 'yes' }), { status: 200 }),
-    })
+  expect(await client.recoveryState({ widgetId: 'passport-checker' })).toBeInstanceOf(
+    BrowserAutomationUnavailableError,
+  )
+})
 
-    expect(await client.recoveryState({ widgetId: 'passport-checker' })).toBeInstanceOf(
-      BrowserAutomationProtocolError,
-    )
+it('rejects a malformed recovery state payload', async () => {
+  const client = createHttpBrowserAutomationClient({
+    baseUrl: 'http://automation:8788',
+    timeoutMs: 1000,
+    fetchImpl: async () => new Response(JSON.stringify({ retained: 'yes' }), { status: 200 }),
   })
+
+  expect(await client.recoveryState({ widgetId: 'passport-checker' })).toBeInstanceOf(
+    BrowserAutomationProtocolError,
+  )
+})
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -419,19 +419,19 @@ In `packages/server/src/browser/http-client.ts`, import `RecoveryStateResponseSc
 In `packages/server/src/browser/testing/fake-client.ts`:
 
 ```ts
-  const recoveryCalls: string[] = []
-  let recovery: BrowserGatewayError | { retained: boolean } = { retained: false }
+const recoveryCalls: string[] = []
+let recovery: BrowserGatewayError | { retained: boolean } = { retained: false }
 
-  const client: BrowserAutomationClient = {
-    async invoke(args) {
-      calls.push(args)
-      return result
-    },
-    async recoveryState({ widgetId }) {
-      recoveryCalls.push(widgetId)
-      return recovery
-    },
-  }
+const client: BrowserAutomationClient = {
+  async invoke(args) {
+    calls.push(args)
+    return result
+  },
+  async recoveryState({ widgetId }) {
+    recoveryCalls.push(widgetId)
+    return recovery
+  },
+}
 ```
 
 and expose `recoveryCalls` plus `setRecoveryState(next: BrowserGatewayError | { retained: boolean }) { recovery = next }` from the returned object. Import `BrowserGatewayError` as a type from `@shared/widgets/browser-errors`.
@@ -467,37 +467,37 @@ git commit -m "feat(server): query retained recovery state through the browser g
 Add to `packages/server/src/browser/config.test.ts`:
 
 ```ts
-  it('defaults the recovery transport configuration', () => {
-    const config = loadBrowserGatewayConfig({})
-    if (config instanceof Error) throw config
+it('defaults the recovery transport configuration', () => {
+  const config = loadBrowserGatewayConfig({})
+  if (config instanceof Error) throw config
 
-    expect(config.recovery).toEqual({
-      upstreamUrl: 'http://browser-automation:6080',
-      tokenTtlMs: 60_000,
-      maxSessionMs: 900_000,
-    })
+  expect(config.recovery).toEqual({
+    upstreamUrl: 'http://browser-automation:6080',
+    tokenTtlMs: 60_000,
+    maxSessionMs: 900_000,
   })
+})
 
-  it('reads the recovery transport configuration from the environment', () => {
-    const config = loadBrowserGatewayConfig({
-      BROWSER_RECOVERY_URL: 'http://vnc:6080/',
-      BROWSER_RECOVERY_TOKEN_TTL_MS: '5000',
-      BROWSER_RECOVERY_MAX_SESSION_MS: '60000',
-    })
-    if (config instanceof Error) throw config
-
-    expect(config.recovery).toEqual({
-      upstreamUrl: 'http://vnc:6080',
-      tokenTtlMs: 5_000,
-      maxSessionMs: 60_000,
-    })
+it('reads the recovery transport configuration from the environment', () => {
+  const config = loadBrowserGatewayConfig({
+    BROWSER_RECOVERY_URL: 'http://vnc:6080/',
+    BROWSER_RECOVERY_TOKEN_TTL_MS: '5000',
+    BROWSER_RECOVERY_MAX_SESSION_MS: '60000',
   })
+  if (config instanceof Error) throw config
 
-  it('rejects a non-http recovery url', () => {
-    expect(loadBrowserGatewayConfig({ BROWSER_RECOVERY_URL: 'ws://vnc:6080' })).toBeInstanceOf(
-      BrowserGatewayConfigError,
-    )
+  expect(config.recovery).toEqual({
+    upstreamUrl: 'http://vnc:6080',
+    tokenTtlMs: 5_000,
+    maxSessionMs: 60_000,
   })
+})
+
+it('rejects a non-http recovery url', () => {
+  expect(loadBrowserGatewayConfig({ BROWSER_RECOVERY_URL: 'ws://vnc:6080' })).toBeInstanceOf(
+    BrowserGatewayConfigError,
+  )
+})
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -1045,33 +1045,33 @@ Expected: PASS — 7 tests.
 `createApp` currently takes no recovery configuration. Add to `packages/server/src/app.test.ts`, using the file's existing `seedAccountWithSession` helper and app bootstrap (the snippet assumes the file's existing `app`, `base`, `ops`, and `fakeBrowser` fixtures — reuse them verbatim; `nowMs` is whatever clock value that file already pins):
 
 ```ts
-  it('issues a recovery capability for a retained page', async () => {
-    const { session } = await seedAccountWithSession(ops, nowMs, 'cred-recovery')
-    fakeBrowser.setRecoveryState({ retained: true })
+it('issues a recovery capability for a retained page', async () => {
+  const { session } = await seedAccountWithSession(ops, nowMs, 'cred-recovery')
+  fakeBrowser.setRecoveryState({ retained: true })
 
-    const response = await fetch(`${base}/api/browser/recovery/passport-checker`, {
-      method: 'POST',
-      headers: {
-        cookie: `session=${session.sessionId}`,
-        'x-requested-with': 'MyBoard',
-      },
-    })
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ expiresInMs: 60_000 })
-    expect(response.headers.getSetCookie().join(';')).toContain('mb_recovery=')
+  const response = await fetch(`${base}/api/browser/recovery/passport-checker`, {
+    method: 'POST',
+    headers: {
+      cookie: `session=${session.sessionId}`,
+      'x-requested-with': 'MyBoard',
+    },
   })
 
-  it('refuses to issue a recovery capability without a session', async () => {
-    fakeBrowser.setRecoveryState({ retained: true })
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ expiresInMs: 60_000 })
+  expect(response.headers.getSetCookie().join(';')).toContain('mb_recovery=')
+})
 
-    const response = await fetch(`${base}/api/browser/recovery/passport-checker`, {
-      method: 'POST',
-      headers: { 'x-requested-with': 'MyBoard' },
-    })
+it('refuses to issue a recovery capability without a session', async () => {
+  fakeBrowser.setRecoveryState({ retained: true })
 
-    expect(response.status).toBe(401)
+  const response = await fetch(`${base}/api/browser/recovery/passport-checker`, {
+    method: 'POST',
+    headers: { 'x-requested-with': 'MyBoard' },
   })
+
+  expect(response.status).toBe(401)
+})
 ```
 
 If the existing suite creates its app through a local helper, extend that helper to pass the new `recovery` dependency described in Step 7 rather than duplicating the bootstrap.
@@ -1083,51 +1083,51 @@ In `packages/server/src/app.ts`:
 1. add to `AppDeps`:
 
 ```ts
-  recovery: {
-    tokenTtlMs: number
-    maxSessionMs: number
-    upstreamUrl: string
-  }
+recovery: {
+  tokenTtlMs: number
+  maxSessionMs: number
+  upstreamUrl: string
+}
 ```
 
 2. import the store, handler, and cookie helpers, and build the store next to `authDeps`:
 
 ```ts
-  const recoveryStore = makeRecoveryCapabilityStore({
-    now,
-    tokenTtlMs: deps.recovery.tokenTtlMs,
-  })
+const recoveryStore = makeRecoveryCapabilityStore({
+  now,
+  tokenTtlMs: deps.recovery.tokenTtlMs,
+})
 ```
 
 3. register the route after the widget dispatch route:
 
 ```ts
-  router.on('POST', '/api/browser/recovery/:widgetId', async (req, res, params) => {
-    const session = await requireSession(authDeps, req)
-    if (isAuthResult(session)) {
-      res.writeHead(session.status, { 'content-type': 'application/json' })
-      res.end(JSON.stringify(session.body))
-      return
-    }
+router.on('POST', '/api/browser/recovery/:widgetId', async (req, res, params) => {
+  const session = await requireSession(authDeps, req)
+  if (isAuthResult(session)) {
+    res.writeHead(session.status, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(session.body))
+    return
+  }
 
-    const result = await handleRecoveryIssue(
-      {
-        store: recoveryStore,
-        client: deps.browserClient,
-        secureCookies: deps.authConfig.secureCookies,
-        tokenTtlMs: deps.recovery.tokenTtlMs,
-      },
-      {
-        widgetId: decodeURIComponent(params.widgetId as string),
-        sessionId: session.sessionId,
-      },
-    )
+  const result = await handleRecoveryIssue(
+    {
+      store: recoveryStore,
+      client: deps.browserClient,
+      secureCookies: deps.authConfig.secureCookies,
+      tokenTtlMs: deps.recovery.tokenTtlMs,
+    },
+    {
+      widgetId: decodeURIComponent(params.widgetId as string),
+      sessionId: session.sessionId,
+    },
+  )
 
-    const headers: Record<string, string | string[]> = { 'content-type': 'application/json' }
-    if (result.cookie) headers['set-cookie'] = [result.cookie]
-    res.writeHead(result.status, headers)
-    res.end(JSON.stringify(result.body))
-  })
+  const headers: Record<string, string | string[]> = { 'content-type': 'application/json' }
+  if (result.cookie) headers['set-cookie'] = [result.cookie]
+  res.writeHead(result.status, headers)
+  res.end(JSON.stringify(result.body))
+})
 ```
 
 4. pass `recovery: browserConfig.recovery` at both production call sites: `packages/server/src/index.ts` and `packages/server/src/test-server.ts` (both already load `browserConfig`).
@@ -1488,30 +1488,30 @@ Expected: PASS — 6 tests.
 In `packages/server/src/app.ts`, after `const server = createServer(...)`:
 
 ```ts
-  const recoveryTunnel = makeRecoveryTunnel({
-    store: recoveryStore,
-    upstreamUrl: deps.recovery.upstreamUrl,
-    maxSessionMs: deps.recovery.maxSessionMs,
-    cookieName: recoveryCookieName(deps.authConfig.secureCookies),
-    resolveSession: async (req) => {
-      const session = await requireSession(authDeps, req)
-      return isAuthResult(session) ? null : { sessionId: session.sessionId }
-    },
-  })
+const recoveryTunnel = makeRecoveryTunnel({
+  store: recoveryStore,
+  upstreamUrl: deps.recovery.upstreamUrl,
+  maxSessionMs: deps.recovery.maxSessionMs,
+  cookieName: recoveryCookieName(deps.authConfig.secureCookies),
+  resolveSession: async (req) => {
+    const session = await requireSession(authDeps, req)
+    return isAuthResult(session) ? null : { sessionId: session.sessionId }
+  },
+})
 
-  server.on('upgrade', (req, socket, head) => {
-    void recoveryTunnel(req, socket, head)
-  })
+server.on('upgrade', (req, socket, head) => {
+  void recoveryTunnel(req, socket, head)
+})
 ```
 
 and destroy the live connection in `close` before the server closes, so a pending socket cannot keep the process alive:
 
 ```ts
-  const close = async (): Promise<void> => {
-    unsubscribe()
-    recoveryStore.revokeAll()
-    await new Promise<void>((resolve) => server.close(() => resolve()))
-  }
+const close = async (): Promise<void> => {
+  unsubscribe()
+  recoveryStore.revokeAll()
+  await new Promise<void>((resolve) => server.close(() => resolve()))
+}
 ```
 
 - [ ] **Step 7: Add the app-level shutdown test**
@@ -1519,19 +1519,19 @@ and destroy the live connection in `close` before the server closes, so a pendin
 Add to `packages/server/src/app.test.ts` (reusing the suite's app fixtures):
 
 ```ts
-  it('closes the app even with a live recovery socket', async () => {
-    const { session } = await seedAccountWithSession(ops, nowMs, 'cred-recovery-close')
-    fakeBrowser.setRecoveryState({ retained: true })
-    const issued = await fetch(`${base}/api/browser/recovery/passport-checker`, {
-      method: 'POST',
-      headers: { cookie: `session=${session.sessionId}`, 'x-requested-with': 'MyBoard' },
-    })
-    expect(issued.status).toBe(200)
-
-    // No upstream is listening in this suite, so the upgrade is refused; the
-    // point is that app.close() resolves regardless.
-    await expect(app.close()).resolves.toBeUndefined()
+it('closes the app even with a live recovery socket', async () => {
+  const { session } = await seedAccountWithSession(ops, nowMs, 'cred-recovery-close')
+  fakeBrowser.setRecoveryState({ retained: true })
+  const issued = await fetch(`${base}/api/browser/recovery/passport-checker`, {
+    method: 'POST',
+    headers: { cookie: `session=${session.sessionId}`, 'x-requested-with': 'MyBoard' },
   })
+  expect(issued.status).toBe(200)
+
+  // No upstream is listening in this suite, so the upgrade is refused; the
+  // point is that app.close() resolves regardless.
+  await expect(app.close()).resolves.toBeUndefined()
+})
 ```
 
 Place it last in the file or in its own `describe` so it does not close the shared app before other tests run; if the suite tears the app down in `afterEach`, recreate it in that block.
@@ -1662,10 +1662,10 @@ Expected: PASS — 3 tests.
 In `packages/server/src/app.ts`, right after `recoveryStore` is created:
 
 ```ts
-  const browserClient = makeRecoveryRevokingClient({
-    client: deps.browserClient,
-    store: recoveryStore,
-  })
+const browserClient = makeRecoveryRevokingClient({
+  client: deps.browserClient,
+  store: recoveryStore,
+})
 ```
 
 and replace every later use of `deps.browserClient` (the widget dispatch call and the recovery issue handler) with `browserClient`.
@@ -1703,16 +1703,16 @@ git commit -m "feat(server): revoke recovery sessions before browser task dispat
 Add to `packages/widget-sdk/src/vite/vite-dev-config.test.ts`:
 
 ```ts
-  it('proxies the recovery websocket upgrade', () => {
-    const proxy = apiProxy('http://localhost:8787')
+it('proxies the recovery websocket upgrade', () => {
+  const proxy = apiProxy('http://localhost:8787')
 
-    expect(proxy['/api/browser/recovery/socket']).toEqual({
-      target: 'http://localhost:8787',
-      changeOrigin: true,
-      ws: true,
-    })
-    expect(proxy['/api']).toEqual({ target: 'http://localhost:8787', changeOrigin: true })
+  expect(proxy['/api/browser/recovery/socket']).toEqual({
+    target: 'http://localhost:8787',
+    changeOrigin: true,
+    ws: true,
   })
+  expect(proxy['/api']).toEqual({ target: 'http://localhost:8787', changeOrigin: true })
+})
 ```
 
 - [ ] **Step 2: Write the failing infrastructure assertions**

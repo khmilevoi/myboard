@@ -44,11 +44,24 @@ environment, image layers, or logs — and being outside the Docker build
 context (`.dockerignore` excludes the whole `secrets/` directory), they never
 appear in an image layer even transiently during build.
 
-## Cloudflare recovery over SSH
+## Browser recovery: embedded panel and SSH fallback
 
-When a task reports that browser attention is required, complete the challenge in
-the already-running session through an SSH-tunnelled noVNC (the port is bound to
-the Pi loopback only):
+When a task reports that browser attention is required, the normal path is
+embedded recovery from the board itself: opening the widget's recovery panel
+mints a single-use capability valid for about 60 seconds and opens one
+same-origin WebSocket straight to the retained page. No SSH tunnel, no
+separate noVNC tab.
+
+Only one recovery session may be active service-wide at a time. A session ends
+whenever any of the following happens first: 15 minutes elapse, the operator
+disconnects, or the widget runs its task again (a retry revokes the session and
+tears down the socket before the new task is dispatched, so a connected
+operator never has the page pulled out from under them mid-view — the retry
+simply wins).
+
+The VNC port is still published only on the Pi loopback (`127.0.0.1:6080`), so
+the SSH fallback is unchanged and remains available for when the board itself
+is unreachable:
 
 ```bash
 ssh -L 6080:127.0.0.1:6080 $AUTOMATION_SSH_TARGET
@@ -57,6 +70,11 @@ ssh -L 6080:127.0.0.1:6080 $AUTOMATION_SSH_TARGET
 
 Press Retry in the widget afterward. The same browser process and profile stay
 active throughout.
+
+A recovery session — embedded or over the SSH-tunnelled noVNC — controls the
+entire shared X display, not a per-widget view. Anyone who opens one can see
+and drive every page in the persistent Chromium profile, not just the widget
+that requested recovery.
 
 ## Profile volume
 

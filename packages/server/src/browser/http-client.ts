@@ -1,4 +1,7 @@
-import { RecoveryStateResponseSchema, TaskResponseSchema } from '@shared/browser-automation/protocol'
+import {
+  RecoveryStateResponseSchema,
+  TaskResponseSchema,
+} from '@shared/browser-automation/protocol'
 import {
   BrowserAutomationDeadlineError,
   BrowserAutomationProtocolError,

@@ -197,11 +197,9 @@ describe('createHttpBrowserAutomationClient', () => {
     const fetchImpl = vi.fn((_input: string | URL | Request, init?: RequestInit) => {
       const stream = new ReadableStream({
         start(controller) {
-          init?.signal?.addEventListener(
-            'abort',
-            () => controller.error(init.signal?.reason),
-            { once: true },
-          )
+          init?.signal?.addEventListener('abort', () => controller.error(init.signal?.reason), {
+            once: true,
+          })
         },
       })
       return Promise.resolve(new Response(stream, { status: 200 }))
