@@ -20,18 +20,11 @@ export function formatAccessCountdown(ms: number): string {
 }
 
 export const RecoveryModal = reatomMemo(() => {
-  const { checkModel, recoveryModel } = usePassportChecker()
+  const { checkModel, recoveryModel, recoveryFlow } = usePassportChecker()
   const rootRef = useRef<HTMLDivElement | null>(null)
 
-  const close = wrap(() => {
-    recoveryModel.teardown()
-    checkModel.recoveryOpen.set(false)
-  })
-  const retry = wrap(() => {
-    recoveryModel.teardown()
-    checkModel.recoveryOpen.set(false)
-    void checkModel.checkPassport()
-  })
+  const close = wrap(() => recoveryFlow.closeRecovery())
+  const retry = wrap(() => recoveryFlow.retryCheck())
   const onBackdrop = wrap((event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) close()
   })

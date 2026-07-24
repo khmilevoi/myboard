@@ -4,6 +4,7 @@ import type { WidgetTier } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { makePassportCheckModel } from '../model/check-model'
+import { makeRecoveryFlow } from '../model/recovery-flow'
 import { makeRecoveryModel } from '../model/recovery-model'
 import { makeRecoveryTransport } from '../model/recovery-transport'
 import { makeNoVncRfb } from '../model/rfb'
@@ -33,9 +34,13 @@ export const PassportChecker = reatomMemo(() => {
       }),
     [typeId],
   )
-  const value = useMemo<PassportCheckerContextValue>(
-    () => ({ checkModel, recoveryModel }),
+  const recoveryFlow = useMemo(
+    () => makeRecoveryFlow({ checkModel, recoveryModel }),
     [checkModel, recoveryModel],
+  )
+  const value = useMemo<PassportCheckerContextValue>(
+    () => ({ checkModel, recoveryModel, recoveryFlow }),
+    [checkModel, recoveryModel, recoveryFlow],
   )
 
   return (

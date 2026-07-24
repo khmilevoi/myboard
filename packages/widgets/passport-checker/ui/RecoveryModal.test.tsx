@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { WidgetApiError } from 'widget-runtime'
 
 import { makePassportCheckModel } from '../model/check-model'
+import { makeRecoveryFlow } from '../model/recovery-flow'
 import { makeRecoveryModel } from '../model/recovery-model'
 import {
   RecoveryIssueError,
@@ -75,8 +76,10 @@ function setup(
     location: { protocol: 'https:', host: 'board.test' },
   })
 
+  const recoveryFlow = makeRecoveryFlow({ checkModel, recoveryModel })
+
   render(
-    <passportCheckerContext.Provider value={{ checkModel, recoveryModel }}>
+    <passportCheckerContext.Provider value={{ checkModel, recoveryModel, recoveryFlow }}>
       <RecoveryModal />
     </passportCheckerContext.Provider>,
   )
