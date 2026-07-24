@@ -82,13 +82,3 @@ Every exported React function component in `packages/client/src` and `packages/w
 ## Deployment
 
 `pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release.
-
-## Agent routing with Superpowers
-
-Three roles, three models. Opus orchestrates, Sonnet implements, Codex GPT-5.5 reviews.
-
-| Role         | Model         | How it is invoked                                                    |
-| ------------ | ------------- | -------------------------------------------------------------------- |
-| Orchestrator | Opus          | the main session (`model: opus`)                                     |
-| Implementer  | Sonnet        | `Agent` tool → `sonnet-superpowers-implementer` subagent             |
-| Reviewer     | Codex GPT-5.5 | `codex exec review` via `Bash` (external CLI, not a Claude subagent) |
