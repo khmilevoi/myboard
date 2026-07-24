@@ -108,6 +108,7 @@ describe('createApp', () => {
       widgetRegistry: testWidgetRegistry,
       browserClient: browserFake.client,
       authConfig: testAuthConfig,
+      recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
       testControls: {
         setNow: (ms) => {
           now = ms
@@ -379,6 +380,34 @@ describe('createApp', () => {
     expect((await fetch(`${base}/api/auth/session`, { headers: { cookie } })).status).toBe(401)
   })
 
+  it('issues a recovery capability for a retained page', async () => {
+    const { session } = await seedAccountWithSession(ops, now, 'cred-recovery')
+    browserFake.setRecoveryState({ retained: true })
+
+    const response = await fetch(`${base}/api/browser/recovery/passport-checker`, {
+      method: 'POST',
+      headers: {
+        cookie: `session=${session.sessionId}`,
+        'x-requested-with': 'MyBoard',
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ expiresInMs: 60_000 })
+    expect(response.headers.getSetCookie().join(';')).toContain('mb_recovery=')
+  })
+
+  it('refuses to issue a recovery capability without a session', async () => {
+    browserFake.setRecoveryState({ retained: true })
+
+    const response = await fetch(`${base}/api/browser/recovery/passport-checker`, {
+      method: 'POST',
+      headers: { 'x-requested-with': 'MyBoard' },
+    })
+
+    expect(response.status).toBe(401)
+  })
+
   it('POST /api/test/seed-invite is absent (404) when testControls is undefined', async () => {
     const pubsub = createMemoryPubSub()
     const noControlsOps = createMemoryOps(pubsub)
@@ -389,6 +418,7 @@ describe('createApp', () => {
       widgetRegistry: testWidgetRegistry,
       browserClient: browserFake.client,
       authConfig: testAuthConfig,
+      recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
     })
     await new Promise<void>((resolve) => noControlsApp.server.listen(0, resolve))
     const noControlsBase = `http://localhost:${(noControlsApp.server.address() as AddressInfo).port}`

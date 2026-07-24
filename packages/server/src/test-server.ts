@@ -40,6 +40,7 @@ const { server } = createApp({
   widgetRegistry: productionWidgetServerRegistry,
   browserClient,
   authConfig,
+  recovery: browserConfig.recovery,
   testControls: {
     setNow: (ms) => {
       currentNow = ms

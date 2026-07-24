@@ -15,6 +15,8 @@ import { authAccountKey } from './auth/records'
 import { isAuthResult, requireSession } from './auth/session-guard'
 import { issueSession } from './auth/sessions'
 import type { BrowserAutomationClient } from './browser/client'
+import { makeRecoveryCapabilityStore } from './browser/recovery/capability'
+import { handleRecoveryIssue } from './browser/recovery/handlers'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
@@ -71,6 +73,11 @@ export type AppDeps = {
   widgetRegistry: WidgetServerRegistry
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
+  recovery: {
+    tokenTtlMs: number
+    maxSessionMs: number
+    upstreamUrl: string
+  }
   testControls?: TestControls
   audit?: AuditLogger
 }
@@ -86,6 +93,10 @@ export function createApp(deps: AppDeps): App {
   const registry = new SseRegistry()
   const audit = deps.audit ?? makeAuditLogger()
   const authDeps = { ops, config: deps.authConfig, now, audit }
+  const recoveryStore = makeRecoveryCapabilityStore({
+    now,
+    tokenTtlMs: deps.recovery.tokenTtlMs,
+  })
 
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
@@ -317,6 +328,33 @@ export function createApp(deps: AppDeps): App {
 
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify(result))
+  })
+
+  router.on('POST', '/api/browser/recovery/:widgetId', async (req, res, params) => {
+    const session = await requireSession(authDeps, req)
+    if (isAuthResult(session)) {
+      res.writeHead(session.status, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(session.body))
+      return
+    }
+
+    const result = await handleRecoveryIssue(
+      {
+        store: recoveryStore,
+        client: deps.browserClient,
+        secureCookies: deps.authConfig.secureCookies,
+        tokenTtlMs: deps.recovery.tokenTtlMs,
+      },
+      {
+        widgetId: decodeURIComponent(params.widgetId as string),
+        sessionId: session.sessionId,
+      },
+    )
+
+    const headers: Record<string, string | string[]> = { 'content-type': 'application/json' }
+    if (result.cookie) headers['set-cookie'] = [result.cookie]
+    res.writeHead(result.status, headers)
+    res.end(JSON.stringify(result.body))
   })
 
   if (deps.testControls) {

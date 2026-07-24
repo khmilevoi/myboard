@@ -30,6 +30,7 @@ const { server } = createApp({
   widgetRegistry: productionWidgetServerRegistry,
   browserClient,
   authConfig,
+  recovery: browserConfig.recovery,
   ...(testSetup ? { testControls: testSetup.controls } : {}),
 })
 
