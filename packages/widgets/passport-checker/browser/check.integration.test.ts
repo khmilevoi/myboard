@@ -1,3 +1,4 @@
+// @vitest-environment node
 import fs from 'node:fs'
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'

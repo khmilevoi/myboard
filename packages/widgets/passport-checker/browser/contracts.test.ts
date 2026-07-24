@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 // oxlint-disable-next-line no-restricted-imports -- browser-automation only exports ./task-context; this reaches its toEnvelopeError helper directly, as the brief specifies.

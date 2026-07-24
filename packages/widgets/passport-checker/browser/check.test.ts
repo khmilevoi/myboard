@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { BrowserTaskContext, WidgetSecrets } from 'browser-automation/task-context'
 import type { Page, Response } from 'playwright'
 import { describe, expect, it, vi } from 'vitest'
