@@ -226,6 +226,47 @@ describe('evidenceFromResponseText', () => {
   })
 })
 
+describe('evidenceFromResponseText spliced into a page callback', () => {
+  // browser/check.ts never calls evidenceFromResponseText by reference: it
+  // splices its *source text* (via Function.prototype.toString()) into a
+  // `new Function(...)` that runs inside Chromium via page.evaluate — see the
+  // docstring on evidenceFromResponseText in browser/challenge.ts and the
+  // comment above submitPassportInPage in browser/check.ts. Every other test
+  // in this file calls evidenceFromResponseText directly, which still
+  // resolves free identifiers (a hoisted module-scope regex, an imported
+  // helper, ...) against this test module's scope and would pass even if the
+  // function were no longer self-contained. Reconstructing it exactly the
+  // way production does has no such scope to fall back on: a free identifier
+  // makes this throw ReferenceError instead of silently succeeding. Do NOT
+  // simplify this back into a direct call — that would stop guarding the
+  // actual page-callback splice production ships.
+  const reconstructed = new Function(
+    `return ${evidenceFromResponseText.toString()}`,
+  )() as typeof evidenceFromResponseText
+
+  it('reconstructs identically to the direct call for a real challenge body', () => {
+    const input = {
+      url: 'https://pasport.org.ua/solutions/checker',
+      status: 503,
+      server: 'cloudflare',
+      cfRay: 'fixture-ray',
+      text: '<!doctype html><title>Just a moment...</title><div id="challenge-form" class="cf-chl-widget"></div>',
+    }
+    expect(reconstructed(input)).toEqual(evidenceFromResponseText(input))
+  })
+
+  it('reconstructs identically to the direct call for a plain success body', () => {
+    const input = {
+      url: 'https://pasport.org.ua/solutions/checker',
+      status: 200,
+      server: null,
+      cfRay: null,
+      text: '{"status":1,"send_status_msg":"ok"}',
+    }
+    expect(reconstructed(input)).toEqual(evidenceFromResponseText(input))
+  })
+})
+
 type SubmitScenario =
   | { kind: 'network_error' }
   | {
