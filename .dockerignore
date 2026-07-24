@@ -16,3 +16,9 @@ playwright-report
 .pnpm-store
 .worktrees
 docs
+
+# passport-checker secret values (real files, gitignored). Compose reads
+# file:-backed secrets from the host filesystem at container start, not from
+# the build context, so excluding this directory does not break anything —
+# it only guarantees passport values can never land in an image layer.
+packages/widgets/passport-checker/secrets

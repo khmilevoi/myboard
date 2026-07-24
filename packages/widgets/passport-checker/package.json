@@ -1,0 +1,21 @@
+{
+  "name": "widgets-passport-checker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "errore": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "browser-automation": "workspace:*",
+    "playwright": "1.61.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

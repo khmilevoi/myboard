@@ -186,9 +186,9 @@ describe('browser-automation service wiring', () => {
     expect(prod).toContain('target: passport-checker_number')
   })
 
-  it('sources runtime secrets from the deployment environment', () => {
-    expect(prod).toContain('environment: PASSPORT_SERIES')
-    expect(prod).toContain('environment: PASSPORT_NUMBER')
+  it('sources runtime secrets from file-backed paths under the widget package', () => {
+    expect(prod).toContain('file: ./packages/widgets/passport-checker/secrets/series')
+    expect(prod).toContain('file: ./packages/widgets/passport-checker/secrets/number')
   })
 
   it('keeps the browser profile in a named volume', () => {

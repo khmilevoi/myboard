@@ -215,31 +215,46 @@ the origin, session, and Cloudflare state before the request.
 
 ## Secret Provisioning
 
-The passport series and number are configured once in the deployment `.env`
-used by the `pi` CLI:
+The passport series and number are configured as plain-value files under the
+widget package rather than in the deployment `.env`:
 
 ```text
-PASSPORT_SERIES=<two-letter series>
-PASSPORT_NUMBER=<six-digit number>
+packages/widgets/passport-checker/secrets/series   # two-letter series
+packages/widgets/passport-checker/secrets/number   # six-digit number
+```
+
+Only `series.example`/`number.example` are committed, with obviously-fake
+placeholder values; the real files are git-ignored and filled in locally by the
+operator. `AUTOMATION_SSH_TARGET` stays non-secret operational configuration in
+the deployment `.env`:
+
+```text
 AUTOMATION_SSH_TARGET=<existing SSH target for the Raspberry Pi>
 ```
 
-`rpi.toml` declares `[env] file = ".env"`. The operator provisions or updates
-the values with `pi env send`, using `pi env send --apply` when the running stack
-must be restarted.
+`rpi.toml` declares `[secrets]` with `env = ".env"` (for `AUTOMATION_SSH_TARGET`)
+and `files = [...]` naming both passport secret paths. `[env]` is not a valid
+`rpi.toml` section; `[secrets]` (`env` + `files`) replaced it. The operator
+provisions or updates values with `rpi secrets send`, using
+`rpi secrets send --apply` when the running stack must be restarted. `rpi`
+delivers each `files` entry to the Pi verbatim at the same repo-relative path
+on every deploy.
 
-The Compose file declares runtime secrets whose source is the deployment
-environment and grants them only to `browser-automation`. Compose mounts them as
-files under `/run/secrets`; they are not included in the browser container's
-environment. The task accesses them through scoped names and reads them only for
-the duration of an invocation.
+The Compose file declares runtime secrets whose source is `file:` pointing at
+those same widget-package paths, and grants them only to `browser-automation`.
+Compose mounts them as files under `/run/secrets`; they are not included in the
+browser container's environment, and — because `.dockerignore` excludes the
+widget's `secrets/` directory from the build context — they never appear in an
+image layer either. The task accesses them through scoped names and reads them
+only for the duration of an invocation.
 
 `AUTOMATION_SSH_TARGET` is non-secret operational configuration. Compose passes
 it to `browser-automation`, which includes it only in the safe public metadata of
 a `BrowserSessionRequiredError`; the passport secret files are never included in
 that response.
 
-`.env` remains ignored. The repository contains only non-secret example keys and
+`.env` remains ignored, and so do the two real secret files under the widget
+package; the repository contains only non-secret `.example` placeholders and
 operator documentation. Passport values must not appear in image layers,
 build arguments, Compose command lines, logs, test fixtures, screenshots, traces,
 or error serialization.

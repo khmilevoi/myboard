@@ -27,6 +27,10 @@ timeout = "60s"
 
 [secrets]
 env = ".env"
+files = [
+  "packages/widgets/passport-checker/secrets/series",
+  "packages/widgets/passport-checker/secrets/number",
+]
 
 # The Pi builds every widget remote, assembles the client PWA/nginx image, and
 # builds the server image in one Compose release. Keep at least five minutes of

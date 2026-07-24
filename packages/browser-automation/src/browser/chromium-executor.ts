@@ -23,7 +23,9 @@ class BrowserAcquireAbortedError extends errore.createTaggedError({
 type ManagedBrowserTaskContext = BrowserTaskContext & {
   abortListener: () => void
   released: boolean
+  retained: boolean
   signal: AbortSignal
+  widgetId: string
 }
 
 async function launchPersistentChromium(profileDir: string) {
@@ -62,11 +64,20 @@ export function makeChromiumExecutor(deps: {
   let shutdownPromise: Promise<void> | null = null
   let activeTaskCount = 0
   let inFlightAcquireCount = 0
+  const retainedPages = new Map<string, Page>()
 
   const resetPersistentContext = () => {
     persistentContext = null
     launching = null
     shutdownPromise = null
+    retainedPages.clear()
+  }
+
+  async function closeRetainedPage(widgetId: string) {
+    const page = retainedPages.get(widgetId)
+    if (!page) return
+    retainedPages.delete(widgetId)
+    await closePage(page)
   }
 
   async function getPersistentContext() {
@@ -95,6 +106,12 @@ export function makeChromiumExecutor(deps: {
     context.released = true
     activeTaskCount -= 1
     context.signal.removeEventListener('abort', context.abortListener)
+    if (context.retained && !context.signal.aborted) {
+      const previous = retainedPages.get(context.widgetId)
+      retainedPages.set(context.widgetId, context.page)
+      if (previous && previous !== context.page) await closePage(previous)
+      return
+    }
     await closePage(context.page)
   }
 
@@ -119,6 +136,8 @@ export function makeChromiumExecutor(deps: {
           if (waitsForInitialLaunch) await closeUnclaimedPersistentContext(context)
           return toAbortError(signal)
         }
+        await closeRetainedPage(widgetId)
+        if (signal.aborted) return toAbortError(signal)
 
         const page = await context
           .newPage()
@@ -132,9 +151,14 @@ export function makeChromiumExecutor(deps: {
             void releaseManagedContext(managedContext)
           },
           released: false,
+          retained: false,
           page,
           secrets: makeWidgetSecrets(widgetId, deps.secretsDir),
           signal,
+          widgetId,
+          retainPageForRecovery() {
+            managedContext.retained = true
+          },
         }
 
         activeTaskCount += 1

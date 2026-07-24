@@ -69,6 +69,7 @@ function makeFakeContext(options?: { newPage?: () => Promise<FakePage> }): FakeC
     },
     async close() {
       context.closeCalls += 1
+      await Promise.all(context.pages.map((page) => page.close()))
       context.emitClose()
     },
   }
@@ -340,5 +341,66 @@ describe('makeChromiumExecutor', () => {
     const result = await executor.acquire(new AbortController().signal, 'demo')
 
     expect(result).toBeInstanceOf(BrowserLaunchError)
+  })
+
+  it('retains a marked page until the same widget acquires again', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+
+    const first = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (first instanceof Error) throw first
+    first.retainPageForRecovery()
+    await executor.release(first)
+
+    expect(created[0].pages[0].closed).toBe(false)
+
+    const retry = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (retry instanceof Error) throw retry
+    expect(created[0].pages[0].closed).toBe(true)
+    expect(created[0].pages[1].closed).toBe(false)
+    await executor.release(retry)
+  })
+
+  it('does not discard another widget recovery page', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+
+    const recovery = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (recovery instanceof Error) throw recovery
+    recovery.retainPageForRecovery()
+    await executor.release(recovery)
+
+    const diagnostics = await executor.acquire(new AbortController().signal, '__diagnostics__')
+    if (diagnostics instanceof Error) throw diagnostics
+    expect(created[0].pages[0].closed).toBe(false)
+    await executor.release(diagnostics)
+  })
+
+  it('abort closes a page even after it was marked for recovery', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+    const controller = new AbortController()
+    const context = await executor.acquire(controller.signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    context.retainPageForRecovery()
+    controller.abort()
+
+    await vi.waitFor(() => expect(created[0].pages[0].closed).toBe(true))
+    await executor.release(context)
+  })
+
+  it('shutdown closes a retained recovery page with its persistent context', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    context.retainPageForRecovery()
+    await executor.release(context)
+    await executor.shutdown()
+
+    expect(created[0].closed).toBe(true)
+    expect(created[0].pages[0].closed).toBe(true)
   })
 })
