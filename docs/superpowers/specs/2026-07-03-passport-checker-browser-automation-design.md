@@ -277,12 +277,23 @@ noVNC only on the Raspberry Pi loopback interface:
 > frames or keyboard/pointer input. The VNC port remains unavailable directly on
 > the LAN, and SSH forwarding remains the operational fallback.
 
+> **Amendment (2026-07-24, Subproject 6 brainstorming):** the board is no longer
+> LAN-only. It is published through cloudflared, and every `/api/` route, board
+> asset, and the SPA shell sit behind the WebAuthn device gate enforced by
+> `auth_request` in `packages/client/nginx.conf`. The recovery WebSocket
+> therefore lives under the gated `/api/` prefix, and the capability became a
+> second layer that scopes one session to one widget's retained page rather than
+> the only barrier. The SSE recovery-state requirement below is dropped as YAGNI:
+> a retained page is closed only by a retry the client itself initiates, so
+> availability is answered request/response. See
+> [Tokenized Browser Recovery Transport Design](./2026-07-24-browser-recovery-websocket-design.md).
+
 For the primary flow, `BrowserSessionRequiredError` tells the widget that a
 retained challenge page is available. The later recovery transport issues a
 short-lived single-use capability, proxies one noVNC WebSocket to the internal
 VNC bridge, and invalidates the capability on use, expiry, disconnect, or retry.
-The board is intentionally LAN-only; the capability limits accidental exposure
-and replay but does not replace user authentication.
+The capability limits accidental exposure and replay on top of the session gate;
+it does not replace user authentication.
 
 The SSH fallback uses the configured `AUTOMATION_SSH_TARGET`:
 
@@ -554,15 +565,17 @@ errors, and absence of document data from logs and serialized errors.
 
 **Slug:** `browser-recovery-websocket`
 
-**Objective:** Expose a retained challenge page inside the trusted-LAN board
+**Design:** [Tokenized Browser Recovery Transport Design](./2026-07-24-browser-recovery-websocket-design.md)
+
+**Objective:** Expose a retained challenge page inside the session-gated board
 without publishing the VNC port or requiring an SSH tunnel for the normal flow.
 
 **Includes:**
 
-- short-lived, single-use in-memory recovery capabilities;
+- a retained-page availability query in the browser automation service;
+- short-lived, single-use in-memory recovery capabilities bound to one session;
 - a same-origin WebSocket proxy from the board ingress to internal websockify;
 - noVNC/RFB binary transport for frames, keyboard, and pointer input;
-- recovery availability/state events over the existing SSE channel;
 - connection expiry, disconnect, retry, and shutdown cleanup;
 - direct-port, replay, and invalid-token rejection tests;
 - continued SSH/noVNC fallback through the loopback binding.
