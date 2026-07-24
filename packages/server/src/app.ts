@@ -512,7 +512,7 @@ export function createApp(deps: AppDeps): App {
   })
 
   server.on('upgrade', (req, socket, head) => {
-    void recoveryTunnel(req, socket, head)
+    void recoveryTunnel(req, socket, head).catch(() => socket.destroy())
   })
 
   const close = async (): Promise<void> => {

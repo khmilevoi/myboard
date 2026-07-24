@@ -164,4 +164,43 @@ describe('makeRecoveryTunnel', () => {
     })
     expect(String(await opened(ws))).toContain('404')
   })
+
+  it('refuses cleanly and never rejects when resolveSession throws', async () => {
+    const flakyStore = makeRecoveryCapabilityStore({ now: () => nowMs, tokenTtlMs: 60_000 })
+    const flakyTunnel = makeRecoveryTunnel({
+      store: flakyStore,
+      upstreamUrl: upstream.url,
+      maxSessionMs: 60_000,
+      cookieName: 'mb_recovery',
+      resolveSession: async () => {
+        throw new Error('valkey down')
+      },
+    })
+    const flakyServer = createServer((_req, res) => {
+      res.writeHead(404)
+      res.end()
+    })
+    // Deliberately no `.catch` here: this proves the tunnel handler itself
+    // never rejects, not that app.ts's defense-in-depth catch saves us.
+    flakyServer.on('upgrade', (req, socket, head) => {
+      void flakyTunnel(req, socket, head)
+    })
+    await new Promise<void>((resolve) => flakyServer.listen(0, resolve))
+    const flakyBase = `ws://127.0.0.1:${(flakyServer.address() as AddressInfo).port}`
+
+    try {
+      const { token } = flakyStore.issue({ widgetId: 'passport-checker', sessionId: 's-1' })
+      const ws = new WebSocket(`${flakyBase}${RECOVERY_SOCKET_PATH}`, {
+        headers: { cookie: `session=good; mb_recovery=${token}` },
+      })
+      const result = await opened(ws)
+
+      expect(result).toBeInstanceOf(Error)
+      expect(String(result)).toContain('500')
+      expect(flakyStore.isBusy()).toBe(false)
+    } finally {
+      flakyStore.revokeAll()
+      await new Promise<void>((resolve) => flakyServer.close(() => resolve()))
+    }
+  })
 })
