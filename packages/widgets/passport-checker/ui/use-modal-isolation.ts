@@ -27,6 +27,11 @@ export function useModalIsolation(rootRef: RefObject<HTMLElement | null>, onClos
       document.activeElement instanceof HTMLElement ? document.activeElement : null
 
     const focusables = () => Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+
+    const stop = (event: Event) => event.stopPropagation()
+    root.addEventListener('pointerdown', stop)
+    root.addEventListener('focusin', stop)
+
     focusables()[0]?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -53,10 +58,6 @@ export function useModalIsolation(rootRef: RefObject<HTMLElement | null>, onClos
       }
     }
     document.addEventListener('keydown', onKeyDown, true)
-
-    const stop = (event: Event) => event.stopPropagation()
-    root.addEventListener('pointerdown', stop)
-    root.addEventListener('focusin', stop)
 
     return () => {
       document.removeEventListener('keydown', onKeyDown, true)

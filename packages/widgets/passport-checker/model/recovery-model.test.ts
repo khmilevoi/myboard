@@ -29,6 +29,7 @@ class FakeRfb implements RfbLike {
   }
 
   emit(type: string) {
+    // oxlint-disable-next-line unicorn/no-useless-spread -- snapshot listeners before invoking them so a handler that (un)registers a listener mid-emit can't mutate the set we're iterating.
     for (const listener of [...(this.listeners.get(type) ?? [])]) listener(new Event(type))
   }
 }

@@ -1,5 +1,5 @@
 import type { WidgetApi } from '@shared/widgets/contracts'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { WidgetApiError } from 'widget-runtime'
 
 import { makePassportCheckModel } from '../model/check-model'
@@ -35,6 +35,7 @@ class FakeRfb implements RfbLike {
   }
 
   emit(type: string) {
+    // oxlint-disable-next-line unicorn/no-useless-spread -- snapshot listeners before invoking them so a handler that (un)registers a listener mid-emit can't mutate the set we're iterating.
     for (const listener of [...(this.listeners.get(type) ?? [])]) listener(new Event(type))
   }
 }
@@ -146,6 +147,7 @@ describe('RecoveryModal', () => {
     expect(checkModel.recoveryOpen()).toBe(false)
     expect(rfbs[0]?.disconnectCalls).toBe(1)
     expect(invoke).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1))
   })
 
   it('reconnect after a disconnect re-issues a fresh capability', async () => {
