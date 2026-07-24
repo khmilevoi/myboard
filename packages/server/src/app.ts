@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type Server, type ServerResponse } from 'node:http'
 
+import { PublicWidgetError } from '@shared/widgets/public-error'
 import Router from 'find-my-way'
 import { z } from 'zod'
-
-import { PublicWidgetError } from '@shared/widgets/public-error'
 
 import { registerAuthRoutes } from './auth'
 import { addDeviceToAccount, createAccount } from './auth/accounts'
