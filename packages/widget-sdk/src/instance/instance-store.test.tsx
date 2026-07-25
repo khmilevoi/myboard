@@ -125,24 +125,27 @@ describe('makeWidgetInstanceStore', () => {
     expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
   })
 
-  it('disposes a value read outside any subscription instead of leaking it forever', async () => {
+  it('leaks a value read outside any subscription (documented limitation: nothing ever subscribes to release it)', async () => {
     const { store, make, stats } = setup()
 
-    // A bare read with no component ever mounting: nothing ever subscribes.
+    // A bare read with no component ever mounting: nothing ever subscribes,
+    // so nothing ever disconnects either. Disposal is intentionally driven
+    // only by Reatom's real connect/disconnect lifecycle (see the module
+    // doc comment) — a timer-based guess at "orphaned" would risk disposing
+    // a value out from under a real mount whose subscribe hasn't landed yet.
     const handle = store('a', make)
     handle()
 
     await settle()
 
     expect(stats().built).toBe(1)
-    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+    expect(stats().disposed).toEqual([])
 
-    // The evicted handle must not be handed out again — a later lookup for
-    // the same key builds a fresh value instead of resurrecting the leaked
-    // one.
+    // The un-disposed handle is still what a later lookup for the same key
+    // returns — it was never evicted.
     const next = store('a', make)
-    expect(next).not.toBe(handle)
-    expect(next()).toEqual({ id: 2 })
+    expect(next).toBe(handle)
+    expect(next()).toEqual({ id: 1 })
   })
 
   it('does not let a stale reconnect of an already-disposed handle poison future lookups', async () => {

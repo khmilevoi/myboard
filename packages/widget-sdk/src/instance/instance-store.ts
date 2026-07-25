@@ -27,12 +27,18 @@ export type MakeWidgetInstanceStoreOptions<Value> = {
  * atom inside a `reatomMemo` component is what subscribes that mount, so
  * there is nothing to release by hand.
  *
- * Reading it OUTSIDE a subscribed context (e.g. a bare `store(instanceId,
- * make)()` call from an action, with no component ever mounting) still
- * builds a value eagerly, same as above — but the store gives that build one
- * microtask to be claimed by a real subscriber. If nothing has subscribed by
- * then, the value is disposed and the handle is evicted, so an orphaned read
- * can't pin a `make()` result — or its `handles` entry — forever.
+ * Disposal is driven ONLY by Reatom's real connect/disconnect lifecycle
+ * (`withConnectHook`'s cleanup), never by a timer of our own: a render's
+ * plain read and its `useLayoutEffect` subscribe can legitimately land in
+ * different tasks (e.g. a `React.lazy` + `Suspense` retry lane resumes via
+ * the scheduler, not synchronously after render), so any fixed window for
+ * "did a subscriber show up yet" would eventually dispose a value a live
+ * mount is still about to read. The tradeoff: reading the atom OUTSIDE a
+ * subscribed context (e.g. a bare `store(instanceId, make)()` call from an
+ * action, with no component ever mounting) still builds a value, and since
+ * nothing ever subscribes to it, nothing ever disconnects it either — that
+ * build and its `handles` entry are never released. Only call a store from
+ * inside a component that actually reads it during render.
  *
  * This is a factory, not a shared registry: the map belongs to the store the
  * widget created, so widget-sdk stays stateless and one widget's instances are
@@ -55,11 +61,14 @@ export function makeWidgetInstanceStore<Value>({
 
     let current: { value: Value } | null = null
 
-    // Shared by both the eager "built on a bare read" path and the
-    // connect-hook's real disposal path. Guarded by `current`, so whichever
-    // one runs first performs the teardown and the other is a no-op — never
-    // a double dispose.
-    const teardownIfOrphaned = () => {
+    // The store's ONLY disposal path — invoked from the connect hook's
+    // cleanup, which Reatom calls when the atom actually loses its last
+    // subscriber. Nothing else schedules a teardown: a timer keyed off
+    // "built but not yet connected" cannot tell an orphaned read apart from
+    // a real mount whose subscribe just hasn't landed yet (see the module
+    // doc comment), so build and dispose are governed purely by Reatom's own
+    // reference count.
+    const teardownIfDisconnected = () => {
       if (isConnected(handle)) return
       // Only remove the map entry if it still points at THIS handle — a
       // stale teardown must never evict a newer, currently-connected handle
@@ -71,20 +80,7 @@ export function makeWidgetInstanceStore<Value>({
     }
 
     const handle: Computed<Value> = computed(() => {
-      const isFirstBuild = current === null
       current ??= { value: make() }
-      if (isFirstBuild) {
-        // A plain read (no subscriber yet) can come from a real mount whose
-        // effect subscribes synchronously right after this render commits,
-        // or from a bare call with no component ever mounting. Both look
-        // identical here, so give it one microtask — enough for a real
-        // mount's connect to land, since only the deferred *callback* of
-        // `withConnectHook` is queued that way, not the synchronous
-        // subscribe() that flips `isConnected`. If nothing claimed it by
-        // then, it was an orphaned read: dispose it instead of leaking the
-        // built value and the map entry forever.
-        queueMicrotask(teardownIfOrphaned)
-      }
       return current.value
     }, `${name}#${key}`).extend(
       withConnectHook(() => {
@@ -102,7 +98,7 @@ export function makeWidgetInstanceStore<Value>({
           // subscriber is already connected. Disposing then would kill a
           // value a live mount is still rendering, so only tear down once
           // nothing is connected.
-          teardownIfOrphaned()
+          teardownIfDisconnected()
         }
       }),
     )
