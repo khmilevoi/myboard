@@ -98,4 +98,30 @@ describe('makeWidgetInstanceStore', () => {
     expect(screen.getByTestId('two')).toHaveTextContent('2')
     expect(stats().built).toBe(2)
   })
+
+  it('does not dispose a value that a same-tick resubscribe is still holding onto', async () => {
+    const { store, make, stats } = setup()
+
+    const handle = store('a', make)
+    const unsubscribeFirst = handle.subscribe(() => {})
+    await settle()
+    expect(stats().built).toBe(1)
+
+    // Unsubscribe and resubscribe the SAME key before the deferred disconnect
+    // cleanup ever runs, in one synchronous flush — this is what React
+    // StrictMode's double-invoked effects (and any same-commit unmount +
+    // remount) do on every widget mount.
+    unsubscribeFirst()
+    const unsubscribeSecond = store('a', make).subscribe(() => {})
+    await settle()
+
+    // The value the still-connected second subscriber holds must survive,
+    // and the map entry must still point at the live handle.
+    expect(stats().disposed).toEqual([])
+    expect(store('a', make)).toBe(handle)
+
+    unsubscribeSecond()
+    await settle()
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+  })
 })

@@ -1,4 +1,4 @@
-import { computed, withDisconnectHook } from '@reatom/core'
+import { computed, isConnected, withConnectHook } from '@reatom/core'
 import type { Computed } from '@reatom/core'
 
 export type WidgetInstanceStore<Value> = (key: string, make: () => Value) => Computed<Value>
@@ -18,10 +18,18 @@ export type MakeWidgetInstanceStoreOptions<Value> = {
  * store at module scope, keys it by `instanceId`, and every mount reads the
  * same atom.
  *
- * Reatom's connection lifetime is the reference count: the value is built for
- * the first subscriber and disposed when the last one disconnects. Reading the
- * atom inside a `reatomMemo` component is what subscribes that mount, so there
- * is nothing to release by hand.
+ * `make` runs lazily on first read (a component's initial render reads the
+ * value before its effect subscribes, so it can't wait for a connection) and
+ * is cached for every later read of the same key. Disposal is what the
+ * connection lifetime actually governs: `dispose` runs once the last
+ * subscriber disconnects, and the same connect/disconnect pair also rebuilds
+ * the value if the atom is ever reconnected after a disposal. Reading the
+ * atom inside a `reatomMemo` component is what subscribes that mount, so
+ * there is nothing to release by hand. Reading it OUTSIDE a subscribed
+ * context (e.g. a bare `store(instanceId, make)()` call from an action, with
+ * no component ever mounting) still builds a value, but since no subscriber
+ * ever connects, `dispose` never runs for it — keep this store's reads
+ * confined to `reatomMemo` components.
  *
  * This is a factory, not a shared registry: the map belongs to the store the
  * widget created, so widget-sdk stays stateless and one widget's instances are
@@ -43,18 +51,36 @@ export function makeWidgetInstanceStore<Value>({
     if (cached) return cached
 
     let current: { value: Value } | null = null
-    const handle = computed(() => {
-      current = { value: make() }
+    const handle: Computed<Value> = computed(() => {
+      current ??= { value: make() }
       return current.value
     }, `${name}#${key}`).extend(
-      withDisconnectHook(() => {
-        // A computed's cache survives disconnection, so the handle has to go
-        // with the value: keeping it would hand the next mount a disposed
-        // value instead of rebuilding one.
-        handles.delete(key)
-        const held = current
-        current = null
-        if (held) dispose?.(held.value, key)
+      withConnectHook(() => {
+        // The compute function above already builds eagerly on first read, but
+        // connect is still the value's canonical lifecycle owner: it rebuilds
+        // here too so a reconnect after a real disposal gets a fresh value
+        // instead of resurrecting a disposed one, and it re-registers the
+        // handle in case a stale disconnect (see below) had evicted it.
+        current ??= { value: make() }
+        handles.set(key, handle)
+
+        return () => {
+          // Reatom defers disconnect cleanup to a microtask, so an unsubscribe
+          // immediately followed by a resubscribe of the same key (React
+          // StrictMode's double-invoked effects, a same-commit re-key, a
+          // suspense retry) can still have this cleanup queued when a new
+          // subscriber is already connected. Disposing then would kill a
+          // value a live mount is still rendering, so only tear down once
+          // nothing is connected.
+          if (isConnected(handle)) return
+          // Only remove the map entry if it still points at THIS handle —
+          // a stale disconnect must never evict a newer, currently-connected
+          // handle for the same key.
+          if (handles.get(key) === handle) handles.delete(key)
+          const held = current
+          current = null
+          if (held) dispose?.(held.value, key)
+        }
       }),
     )
     handles.set(key, handle)
