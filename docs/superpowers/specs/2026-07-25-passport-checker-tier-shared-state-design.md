@@ -56,11 +56,13 @@ Two further findings constrain the fix:
 
 ## Non-goals
 
-- No host-level (`widget-runtime` / `widget-host`) per-instance state slot. A
-  shared store owned by the host would be the general answer for every widget;
-  only this widget needs one today.
-- No reusable helper in `widget-sdk`. The store stays widget-local until a
-  second widget needs it.
+- No host-owned instance lifetime. The generic store ships in `widget-sdk` as a
+  factory each widget instantiates on its own module scope, not as state inside
+  the `widget-runtime` federation singleton, and neither `widget-host` nor the
+  board creates or disposes entries.
+- No migration of the other widgets. `clock` holds no state and
+  `ofelia-poop-duty` keeps its state in storage, which already survives a tier
+  switch; they adopt the helper only if they ever need in-memory state.
 - No persistence of check results. Results remain in memory and still disappear
   on reload, per the master spec's secret-audit requirements.
 - No change to the recovery transport, capability lifecycle, server handler, or
@@ -68,54 +70,83 @@ Two further findings constrain the fix:
 
 ## Design
 
-### 1. Per-instance model store
+### 1. Generic instance store in `widget-sdk`
 
-`packages/widgets/passport-checker/model/instance-store.ts` owns a module-level
-`Map<string, Entry>` keyed by `instanceId`, where
-`Entry = { models: PassportInstanceModels; refs: number }` and
-`PassportInstanceModels = { checkModel, recoveryModel, recoveryFlow }`.
+Nothing about sharing one model graph across a widget's mounts is
+passport-specific — it follows from how the board mounts widgets — so the
+mechanism ships as a reusable helper in
+`packages/widget-sdk/src/instance/instance-store.ts`, exported from the package
+root:
 
 ```ts
-export type PassportInstanceLease = {
-  models: PassportInstanceModels
-  release: () => void
+export type InstanceLease<Value> = { value: Value; release: () => void }
+
+export type WidgetInstanceStore<Value> = {
+  acquire: (key: string, make: () => Value) => InstanceLease<Value>
 }
 
-export function acquirePassportInstance(
-  key: string,
-  make: () => PassportInstanceModels,
-): PassportInstanceLease
+export function makeWidgetInstanceStore<Value>(options?: {
+  dispose?: (value: Value, key: string) => void
+}): WidgetInstanceStore<Value>
 ```
 
-- `acquire` creates the entry on first use, increments `refs`, and returns a
-  lease.
-- `release` is idempotent per lease: a lease decrements `refs` at most once, no
-  matter how many times it is called.
-- When `refs` reaches zero the entry is deleted from the map and
-  `recoveryModel.teardown()` runs — a safety net in case the modal outlived the
-  widget.
+`widget-sdk` stays stateless: it exports a **factory**, and each widget creates
+its own store at module scope, so one widget's entries are never visible to
+another and nothing lives in the `widget-runtime` federation singleton.
 
-`make` is invoked only on the first acquire, so `api` and `typeId` are captured
-from whichever mount arrived first. That is safe: `makeWidgetApi` is a stateless
-wrapper over the shared http port (`host-runtime.ts:64`), so both mounts' `api`
-objects are interchangeable.
+Each store owns a `Map<string, { value: Value; refs: number }>`:
 
-### 2. Lease hook
+- `acquire` builds the value on first use, increments `refs`, returns a lease;
+- `release` is idempotent per lease — one lease decrements `refs` at most once,
+  however many times it is called;
+- reaching zero references deletes the entry and calls the store's `dispose`.
 
-`packages/widgets/passport-checker/ui/use-passport-instance.ts`:
+`make` is passed per call because the value depends on runtime props, but it is
+invoked only on the first acquire for a key. Later mounts reuse the first
+mount's value, so a widget must only pass a `make` whose captured inputs are
+interchangeable between mounts.
+
+### 2. Lease hook in `widget-sdk`
+
+`packages/widget-sdk/src/instance/use-widget-instance.ts` exports
+`useWidgetInstance(store, key, make)`, which:
 
 - takes the lease during render, guarded by a `useRef` so a repeated render of
   the same fiber does not take a second one;
 - releases in effect cleanup;
-- on an `instanceId` change, releases the old lease and takes a new one.
+- on a key change, releases the old lease and takes a new one.
 
-Accepted risk: a render React discards before commit (the widget mounts under
-`lazy` + `Suspense` in `WidgetFrame`) leaks one lease. Degradation is soft —
+### 3. Passport binding
+
+`packages/widgets/passport-checker/model/instance-store.ts` shrinks to the
+widget's own typing and disposal policy:
+
+```ts
+export type PassportInstanceModels = {
+  checkModel: PassportCheckModel
+  recoveryModel: RecoveryModel
+  recoveryFlow: RecoveryFlow
+}
+
+export const passportInstances = makeWidgetInstanceStore<PassportInstanceModels>({
+  dispose: (models) => models.recoveryModel.teardown(),
+})
+```
+
+Disposal tears the recovery session down as a safety net in case the modal
+outlived the widget. The `make` passed at each mount captures `api` and
+`typeId`; capturing them from whichever mount arrives first is safe, because
+`makeWidgetApi` is a stateless wrapper over the shared http port
+(`host-runtime.ts:64`) and `typeId` is identical for both mounts.
+
+Accepted risk of leasing during render: a render React discards before commit
+(widgets mount under `lazy` + `Suspense` in `WidgetFrame`) leaks one lease.
+For this widget the degradation is soft —
 disposal never runs, and by then the entry holds no live resource, because the
 RFB socket and the countdown interval belong to `NoVncCanvas`'s effect
 (`NoVncCanvas.tsx:45-51`). Dead atoms remain until the page reloads.
 
-### 3. StrictMode removal
+### 4. StrictMode removal
 
 `packages/client/src/app/main.tsx` drops the `<StrictMode>` wrapper.
 
@@ -129,7 +160,7 @@ non-idempotent mounts and missing cleanups across the whole client.
 A comment replaces the wrapper explaining why it is absent, so it is not
 reinstated without also making the store tolerate double mounting.
 
-### 4. Modal ownership
+### 5. Modal ownership
 
 `PassportChecker.tsx` renders the modal only from the non-fullscreen mount:
 
@@ -142,10 +173,10 @@ With shared state both mounts would otherwise render one modal each. `tier` is
 passes `tier="fullscreen"` as an override (`FullscreenOverlay.tsx:50`); every
 other tier is resolved from size and belongs to the board tile or a dev harness.
 
-### 5. Fullscreen collapse and restore
+### 6. Fullscreen collapse and restore
 
-`model/recovery-flow.ts` owns the transition and gains a `restoreFullscreen`
-atom meaning "we collapsed fullscreen to show recovery":
+`model/recovery-flow.ts` owns the transition and gains a `restorePending` atom
+meaning "we collapsed fullscreen to show recovery":
 
 - `openRecovery({ fromFullscreen, collapse })` — sets the atom, sets
   `checkModel.recoveryOpen`, and calls `collapse()` when `fromFullscreen`;
@@ -174,7 +205,7 @@ fullscreen mount and renders the modal under the tile in a single commit.
 Retrying restores fullscreen as well; the check runs on the shared model and its
 result is visible in whichever tier is on screen.
 
-### 6. Focus containment
+### 7. Focus containment
 
 `ui/use-modal-isolation.ts` gains a window-capture `focusin` listener: while the
 modal is open, focus landing outside the root returns to the modal's first
@@ -190,7 +221,7 @@ root (`use-modal-isolation.ts:53`) and never reaches `document`, so Radix's
 `handleFocusIn` never sees it. No recursion: our own capture listener does
 nothing for targets already inside the root.
 
-### 7. Focusout guard stays broad
+### 8. Focusout guard stays broad
 
 The guard keeps swallowing every `focusout` whose `relatedTarget` is inside the
 root, with a comment recording why the narrower form is wrong (Radix's
@@ -199,9 +230,13 @@ swallowed too). The missing regression test is added instead.
 
 ## Testing
 
-- `model/instance-store.test.ts` — one key returns the same models; `release` is
-  idempotent; reaching zero references removes the entry, calls
-  `recoveryModel.teardown()`, and a later acquire builds a fresh entry.
+- `widget-sdk/src/instance/instance-store.test.ts` — one key returns the same
+  value and calls `make` once; separate keys stay separate; `release` is
+  idempotent; reaching zero references calls `dispose` once and a later acquire
+  builds a fresh value; separate stores never see each other's keys.
+- `widget-sdk/src/instance/use-widget-instance.test.tsx` — two components
+  mounted with the same key get the same value; unmounting one keeps it alive;
+  unmounting the last disposes it; changing the key swaps the lease.
 - `ui/PassportChecker.test.tsx` — two mounts sharing an `instanceId` share
   state (a check started in one is visible in the other); the fullscreen mount
   renders no modal while the tile mount does; opening recovery from the
@@ -218,8 +253,9 @@ swallowed too). The missing regression test is added instead.
   cleanup (`globals: true` in `defineWidgetVitestConfig`) unmounts after each
   test, which drops references to zero and disposes the entry.
 
-Gate: `pnpm --filter passport-checker test`, then `pnpm --filter client test`
-(mandatory — StrictMode was removed), then `pnpm check`.
+Gate: `pnpm --filter widget-sdk test`, `pnpm --filter widgets-passport-checker
+test`, then `pnpm --filter client test` (mandatory — StrictMode was removed),
+then `pnpm check`.
 
 ## Formatting debt
 
@@ -247,9 +283,10 @@ is 18 commits ahead of `main` and behind by none, so no rebase is required.
 
 ## Decision Summary
 
-The widget's models move into a reference-counted per-instance store so both
-mounts of one placed widget share one object graph; `StrictMode` is removed
-because it is incompatible with reference counting and only runs in development.
+`widget-sdk` gains a generic reference-counted instance-store factory and its
+lease hook; the passport widget instantiates one so both mounts of one placed
+widget share a single model graph. `StrictMode` is removed because it is
+incompatible with reference counting and only runs in development.
 The tile mount owns the recovery modal, opening recovery from fullscreen
 collapses it through `requestClose`, and closing or retrying restores it through
 `requestFullscreen`. The modal gains focus containment to absorb Radix's

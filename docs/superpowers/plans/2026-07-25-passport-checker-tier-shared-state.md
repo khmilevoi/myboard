@@ -4,7 +4,7 @@
 
 **Goal:** Make one placed passport widget share a single model graph across its board-tile and fullscreen mounts, so recovery can collapse fullscreen instead of stacking a modal over a Radix dialog.
 
-**Architecture:** The three per-widget models move out of `useMemo` into a reference-counted module store keyed by `instanceId`, leased by a hook. `StrictMode` is removed because reference counting cannot survive its development-only double mount. The board-tile mount becomes the sole owner of the recovery modal; opening recovery from fullscreen collapses it through `requestClose`, closing or retrying restores it through `requestFullscreen`. The modal gains focus containment so Radix's deferred unmount focus restore cannot pull focus out.
+**Architecture:** `widget-sdk` gains a generic reference-counted instance-store factory and its lease hook; the passport widget instantiates one store at module scope and the three models move out of `useMemo` into it, keyed by `instanceId`. `StrictMode` is removed because reference counting cannot survive its development-only double mount. The board-tile mount becomes the sole owner of the recovery modal; opening recovery from fullscreen collapses it through `requestClose`, closing or retrying restores it through `requestFullscreen`. The modal gains focus containment so Radix's deferred unmount focus restore cannot pull focus out.
 
 **Tech Stack:** TypeScript, React 19, Reatom v1001 (`@reatom/core`), Vitest + jsdom + Testing Library, radix-ui, oxlint/oxfmt.
 
@@ -16,7 +16,8 @@
 - Business logic, derived state and cross-model transitions live in `model/`; `ui/` keeps refs, DOM interop and view glue.
 - `wrap()` closures are created fresh per call — never hoisted to module scope or memoized across contexts.
 - Errors are values (errore); nothing in this plan throws for control flow.
-- Widget tests run with `pnpm --filter widgets-passport-checker exec vitest run <path>`; client tests with `pnpm --filter client test`.
+- Widget tests run with `pnpm --filter widgets-passport-checker exec vitest run <path>`; SDK tests with `pnpm --filter widget-sdk exec vitest run <path>`; client tests with `pnpm --filter client test`.
+- New `widget-sdk` modules are exported from the package root (`src/index.ts`), which is what widgets import as `widget-sdk`.
 - Commit messages use conventional-commit prefixes and end with the trailer `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
 - User-visible Russian copy is never changed by this plan.
 
@@ -67,99 +68,118 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Reference-counted per-instance model store
+### Task 2: Generic instance store and lease hook in `widget-sdk`
+
+Nothing about sharing one value across a widget's mounts is passport-specific — it follows from how the board mounts widgets — so the mechanism is a reusable `widget-sdk` helper. It ships as a **factory**: `widget-sdk` stays stateless and each widget creates its own store at module scope, so one widget's entries are invisible to another and nothing lands in the `widget-runtime` federation singleton.
 
 **Files:**
-- Create: `packages/widgets/passport-checker/model/instance-store.ts`
-- Test: `packages/widgets/passport-checker/model/instance-store.test.ts`
+- Create: `packages/widget-sdk/src/instance/instance-store.ts`
+- Create: `packages/widget-sdk/src/instance/use-widget-instance.ts`
+- Modify: `packages/widget-sdk/src/index.ts:1-4`
+- Test: `packages/widget-sdk/src/instance/instance-store.test.ts`
+- Test: `packages/widget-sdk/src/instance/use-widget-instance.test.tsx`
 
 **Interfaces:**
-- Consumes: `PassportCheckModel` (`model/check-model.ts`), `RecoveryModel` (`model/recovery-model.ts`), `RecoveryFlow` (`model/recovery-flow.ts`).
-- Produces:
-  - `type PassportInstanceModels = { checkModel: PassportCheckModel; recoveryModel: RecoveryModel; recoveryFlow: RecoveryFlow }`
-  - `type PassportInstanceLease = { models: PassportInstanceModels; release: () => void }`
-  - `acquirePassportInstance(key: string, make: () => PassportInstanceModels): PassportInstanceLease`
+- Consumes: nothing.
+- Produces, all exported from the `widget-sdk` package root:
+  - `type InstanceLease<Value> = { value: Value; release: () => void }`
+  - `type WidgetInstanceStore<Value> = { acquire: (key: string, make: () => Value) => InstanceLease<Value> }`
+  - `type MakeWidgetInstanceStoreOptions<Value> = { dispose?: (value: Value, key: string) => void }`
+  - `makeWidgetInstanceStore<Value>(options?: MakeWidgetInstanceStoreOptions<Value>): WidgetInstanceStore<Value>`
+  - `useWidgetInstance<Value>(store: WidgetInstanceStore<Value>, key: string, make: () => Value): Value`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing store test**
 
-Create `packages/widgets/passport-checker/model/instance-store.test.ts`:
+Create `packages/widget-sdk/src/instance/instance-store.test.ts`:
 
 ```ts
-import { acquirePassportInstance } from './instance-store'
-import type { PassportInstanceModels } from './instance-store'
+import { makeWidgetInstanceStore } from './instance-store'
 
-function fakeModels(teardown: () => void = () => {}): PassportInstanceModels {
-  return {
-    checkModel: {},
-    recoveryModel: { teardown },
-    recoveryFlow: {},
-  } as unknown as PassportInstanceModels
-}
+type Value = { id: string }
 
-describe('acquirePassportInstance', () => {
-  it('returns the same models for the same key', () => {
-    const make = vi.fn(() => fakeModels())
+describe('makeWidgetInstanceStore', () => {
+  it('builds one value per key and reuses it', () => {
+    const store = makeWidgetInstanceStore<Value>()
+    const make = vi.fn(() => ({ id: 'a' }))
 
-    const first = acquirePassportInstance('inst-a', make)
-    const second = acquirePassportInstance('inst-a', make)
+    const first = store.acquire('inst-a', make)
+    const second = store.acquire('inst-a', make)
 
-    expect(second.models).toBe(first.models)
+    expect(second.value).toBe(first.value)
     expect(make).toHaveBeenCalledTimes(1)
 
     first.release()
     second.release()
   })
 
-  it('keeps separate entries per key', () => {
-    const first = acquirePassportInstance('inst-a', () => fakeModels())
-    const second = acquirePassportInstance('inst-b', () => fakeModels())
+  it('keeps separate keys separate', () => {
+    const store = makeWidgetInstanceStore<Value>()
 
-    expect(second.models).not.toBe(first.models)
+    const first = store.acquire('inst-a', () => ({ id: 'a' }))
+    const second = store.acquire('inst-b', () => ({ id: 'b' }))
+
+    expect(second.value).not.toBe(first.value)
 
     first.release()
     second.release()
   })
 
   it('disposes only when the last lease is released', () => {
-    const teardown = vi.fn()
-    const make = () => fakeModels(teardown)
+    const dispose = vi.fn()
+    const store = makeWidgetInstanceStore<Value>({ dispose })
 
-    const first = acquirePassportInstance('inst-c', make)
-    const second = acquirePassportInstance('inst-c', make)
+    const first = store.acquire('inst-c', () => ({ id: 'first' }))
+    const second = store.acquire('inst-c', () => ({ id: 'second' }))
 
     first.release()
-    expect(teardown).not.toHaveBeenCalled()
+    expect(dispose).not.toHaveBeenCalled()
 
     second.release()
-    expect(teardown).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledWith({ id: 'first' }, 'inst-c')
   })
 
   it('ignores repeated releases of the same lease', () => {
-    const teardown = vi.fn()
-    const make = () => fakeModels(teardown)
+    const dispose = vi.fn()
+    const store = makeWidgetInstanceStore<Value>({ dispose })
 
-    const first = acquirePassportInstance('inst-d', make)
-    const second = acquirePassportInstance('inst-d', make)
+    const first = store.acquire('inst-d', () => ({ id: 'a' }))
+    const second = store.acquire('inst-d', () => ({ id: 'a' }))
 
     first.release()
     first.release()
     first.release()
-    expect(teardown).not.toHaveBeenCalled()
+    expect(dispose).not.toHaveBeenCalled()
 
     second.release()
-    expect(teardown).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
   })
 
-  it('builds a fresh entry after the key was disposed', () => {
-    const make = vi.fn(() => fakeModels())
+  it('builds a fresh value after the key was disposed', () => {
+    const store = makeWidgetInstanceStore<Value>()
+    const make = vi.fn(() => ({ id: 'a' }))
 
-    const first = acquirePassportInstance('inst-e', make)
+    const first = store.acquire('inst-e', make)
     first.release()
-    const second = acquirePassportInstance('inst-e', make)
+    const second = store.acquire('inst-e', make)
 
-    expect(second.models).not.toBe(first.models)
+    expect(second.value).not.toBe(first.value)
     expect(make).toHaveBeenCalledTimes(2)
 
+    second.release()
+  })
+
+  it('never shares a key between two stores', () => {
+    const one = makeWidgetInstanceStore<Value>()
+    const other = makeWidgetInstanceStore<Value>()
+
+    const first = one.acquire('same', () => ({ id: 'one' }))
+    const second = other.acquire('same', () => ({ id: 'other' }))
+
+    expect(first.value.id).toBe('one')
+    expect(second.value.id).toBe('other')
+
+    first.release()
     second.release()
   })
 })
@@ -167,60 +187,71 @@ describe('acquirePassportInstance', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `pnpm --filter widgets-passport-checker exec vitest run model/instance-store.test.ts`
+Run: `pnpm --filter widget-sdk exec vitest run src/instance/instance-store.test.ts`
 Expected: FAIL — `Failed to resolve import "./instance-store"`.
 
-- [ ] **Step 3: Write the implementation**
+- [ ] **Step 3: Write the store**
 
-Create `packages/widgets/passport-checker/model/instance-store.ts`:
+Create `packages/widget-sdk/src/instance/instance-store.ts`:
 
 ```ts
-import type { PassportCheckModel } from './check-model'
-import type { RecoveryFlow } from './recovery-flow'
-import type { RecoveryModel } from './recovery-model'
-
-export type PassportInstanceModels = {
-  checkModel: PassportCheckModel
-  recoveryModel: RecoveryModel
-  recoveryFlow: RecoveryFlow
-}
-
-export type PassportInstanceLease = {
-  models: PassportInstanceModels
+export type InstanceLease<Value> = {
+  value: Value
   release: () => void
 }
 
-type Entry = { models: PassportInstanceModels; refs: number }
+export type WidgetInstanceStore<Value> = {
+  acquire: (key: string, make: () => Value) => InstanceLease<Value>
+}
+
+export type MakeWidgetInstanceStoreOptions<Value> = {
+  dispose?: (value: Value, key: string) => void
+}
+
+type Entry<Value> = { value: Value; refs: number }
 
 /**
- * One model graph per placed widget, shared by every mount of that instance.
- * The board renders a tile for every instance and the fullscreen overlay
- * renders a SECOND frame for the expanded one, so a widget that kept its state
- * in `useMemo` would lose it on every tier switch — and collapsing fullscreen
- * to escape the Radix stack would destroy the recovery flow mid-use.
+ * Reference-counted values shared by every mount of one widget instance.
+ *
+ * The board renders a tile for every placed widget and the fullscreen overlay
+ * renders a SECOND frame for the expanded one, so anything a widget keeps in
+ * `useMemo` is built twice and lost on every tier switch. A widget creates one
+ * store at module scope, keys it by `instanceId`, and every mount leases the
+ * same value.
+ *
+ * This is a factory, not a shared registry: the map belongs to the store the
+ * widget created, so widget-sdk itself stays stateless and one widget's entries
+ * are invisible to another.
+ *
+ * `make` is per call because the value depends on runtime props, but it runs
+ * only for the first lease of a key — pass a `make` whose captured inputs are
+ * interchangeable between mounts.
  */
-const entries = new Map<string, Entry>()
+export function makeWidgetInstanceStore<Value>({
+  dispose,
+}: MakeWidgetInstanceStoreOptions<Value> = {}): WidgetInstanceStore<Value> {
+  const entries = new Map<string, Entry<Value>>()
 
-export function acquirePassportInstance(
-  key: string,
-  make: () => PassportInstanceModels,
-): PassportInstanceLease {
-  const entry = entries.get(key) ?? { models: make(), refs: 0 }
-  entry.refs += 1
-  entries.set(key, entry)
-
-  let released = false
   return {
-    models: entry.models,
-    release: () => {
-      // Idempotent per lease: the lease hook releases in render on an id change
-      // and again from the matching effect cleanup.
-      if (released) return
-      released = true
-      entry.refs -= 1
-      if (entry.refs > 0) return
-      if (entries.get(key) === entry) entries.delete(key)
-      entry.models.recoveryModel.teardown()
+    acquire: (key, make) => {
+      const entry = entries.get(key) ?? { value: make(), refs: 0 }
+      entry.refs += 1
+      entries.set(key, entry)
+
+      let released = false
+      return {
+        value: entry.value,
+        release: () => {
+          // Idempotent per lease: useWidgetInstance releases in render on a key
+          // change and again from the matching effect cleanup.
+          if (released) return
+          released = true
+          entry.refs -= 1
+          if (entry.refs > 0) return
+          if (entries.get(key) === entry) entries.delete(key)
+          dispose?.(entry.value, key)
+        },
+      }
     },
   }
 }
@@ -228,14 +259,161 @@ export function acquirePassportInstance(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `pnpm --filter widgets-passport-checker exec vitest run model/instance-store.test.ts`
-Expected: PASS, 5 tests.
+Run: `pnpm --filter widget-sdk exec vitest run src/instance/instance-store.test.ts`
+Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Write the failing hook test**
+
+Create `packages/widget-sdk/src/instance/use-widget-instance.test.tsx`:
+
+```tsx
+import { render, screen } from '@testing-library/react'
+
+import { makeWidgetInstanceStore } from './instance-store'
+import type { WidgetInstanceStore } from './instance-store'
+import { useWidgetInstance } from './use-widget-instance'
+
+type Value = { id: string }
+
+function Probe({
+  store,
+  instanceKey,
+  make,
+  testId,
+}: {
+  store: WidgetInstanceStore<Value>
+  instanceKey: string
+  make: () => Value
+  testId: string
+}) {
+  const value = useWidgetInstance(store, instanceKey, make)
+  return <span data-testid={testId}>{value.id}</span>
+}
+
+describe('useWidgetInstance', () => {
+  it('gives both mounts of one key the same value', () => {
+    const store = makeWidgetInstanceStore<Value>()
+    let built = 0
+    const make = () => ({ id: `v${(built += 1)}` })
+
+    render(
+      <>
+        <Probe store={store} instanceKey="a" make={make} testId="one" />
+        <Probe store={store} instanceKey="a" make={make} testId="two" />
+      </>,
+    )
+
+    expect(screen.getByTestId('one')).toHaveTextContent('v1')
+    expect(screen.getByTestId('two')).toHaveTextContent('v1')
+    expect(built).toBe(1)
+  })
+
+  it('disposes only after the last mount is gone', () => {
+    const dispose = vi.fn()
+    const store = makeWidgetInstanceStore<Value>({ dispose })
+    const make = () => ({ id: 'v' })
+
+    const view = render(
+      <>
+        <Probe store={store} instanceKey="a" make={make} testId="one" />
+        <Probe store={store} instanceKey="a" make={make} testId="two" />
+      </>,
+    )
+
+    view.rerender(<Probe store={store} instanceKey="a" make={make} testId="one" />)
+    expect(dispose).not.toHaveBeenCalled()
+
+    view.unmount()
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('swaps the lease when the key changes', () => {
+    const dispose = vi.fn()
+    const store = makeWidgetInstanceStore<Value>({ dispose })
+    let built = 0
+    const make = () => ({ id: `v${(built += 1)}` })
+
+    const view = render(<Probe store={store} instanceKey="a" make={make} testId="one" />)
+    expect(screen.getByTestId('one')).toHaveTextContent('v1')
+
+    view.rerender(<Probe store={store} instanceKey="b" make={make} testId="one" />)
+
+    expect(screen.getByTestId('one')).toHaveTextContent('v2')
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+})
+```
+
+- [ ] **Step 6: Run it to verify it fails**
+
+Run: `pnpm --filter widget-sdk exec vitest run src/instance/use-widget-instance.test.tsx`
+Expected: FAIL — `Failed to resolve import "./use-widget-instance"`.
+
+- [ ] **Step 7: Write the hook and export both modules**
+
+Create `packages/widget-sdk/src/instance/use-widget-instance.ts`:
+
+```ts
+import { useEffect, useRef } from 'react'
+
+import type { InstanceLease, WidgetInstanceStore } from './instance-store'
+
+type Held<Value> = { key: string; lease: InstanceLease<Value> }
+
+/**
+ * Leases this widget instance's shared value for the lifetime of the mount.
+ * The lease is taken during render — a ref guard keeps a repeated render of the
+ * same fiber from taking a second one — and released from effect cleanup.
+ *
+ * A render React discards before commit leaks one lease, which only delays
+ * disposal to the next page load. Stores whose values own live resources should
+ * tie those resources to an effect rather than to disposal alone.
+ */
+export function useWidgetInstance<Value>(
+  store: WidgetInstanceStore<Value>,
+  key: string,
+  make: () => Value,
+): Value {
+  const held = useRef<Held<Value> | null>(null)
+
+  if (held.current?.key !== key) {
+    held.current?.lease.release()
+    held.current = { key, lease: store.acquire(key, make) }
+  }
+  const current = held.current
+
+  useEffect(() => {
+    return () => {
+      current.lease.release()
+      if (held.current === current) held.current = null
+    }
+  }, [current])
+
+  return current.lease.value
+}
+```
+
+Add both to `packages/widget-sdk/src/index.ts`:
+
+```ts
+export * from './instance/instance-store'
+export * from './instance/use-widget-instance'
+```
+
+- [ ] **Step 8: Run the whole widget-sdk suite**
+
+Run: `pnpm --filter widget-sdk test`
+Expected: PASS, including the new store and hook tests.
+
+- [ ] **Step 9: Commit**
 
 ```bash
-git add packages/widgets/passport-checker/model/instance-store.ts packages/widgets/passport-checker/model/instance-store.test.ts
-git commit -m "feat(passport-checker): add a reference-counted per-instance model store
+git add packages/widget-sdk/src/instance packages/widget-sdk/src/index.ts
+git commit -m "feat(widget-sdk): add a reference-counted widget instance store
+
+The board mounts a placed widget twice while fullscreen is open — once as a
+tile, once in the overlay — so per-mount useMemo state is built twice and lost
+on every tier switch. Widgets can now lease one value per instanceId instead.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
@@ -247,14 +425,16 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 After this task both mounts of one placed widget share state, and only the non-fullscreen mount renders the recovery modal.
 
 **Files:**
-- Create: `packages/widgets/passport-checker/ui/use-passport-instance.ts`
+- Create: `packages/widgets/passport-checker/model/instance-store.ts`
 - Modify: `packages/widgets/passport-checker/ui/PassportChecker.tsx:25-54`
 - Modify: `packages/client/src/app/main.tsx:1-20`
 - Test: `packages/widgets/passport-checker/ui/PassportChecker.test.tsx` (append a new `describe`)
 
 **Interfaces:**
-- Consumes: `acquirePassportInstance`, `PassportInstanceLease`, `PassportInstanceModels` from Task 2.
-- Produces: `usePassportInstance(instanceId: string, make: () => PassportInstanceModels): PassportInstanceModels`.
+- Consumes: `makeWidgetInstanceStore` and `useWidgetInstance` from Task 2, exported from `widget-sdk`; `PassportCheckModel`, `RecoveryModel`, `RecoveryFlow` from the widget's `model/`.
+- Produces:
+  - `type PassportInstanceModels = { checkModel: PassportCheckModel; recoveryModel: RecoveryModel; recoveryFlow: RecoveryFlow }`
+  - `passportInstances: WidgetInstanceStore<PassportInstanceModels>`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -353,71 +533,59 @@ function makeProps(
 Run: `pnpm --filter widgets-passport-checker exec vitest run ui/PassportChecker.test.tsx`
 Expected: FAIL — the first new test finds one `Готово`, not two, because each mount still builds its own models; the third finds two dialogs.
 
-- [ ] **Step 3: Write the lease hook**
+- [ ] **Step 3: Write the widget's store binding**
 
-Create `packages/widgets/passport-checker/ui/use-passport-instance.ts`:
+Create `packages/widgets/passport-checker/model/instance-store.ts` — the widget owns only its typing and its disposal policy:
 
 ```ts
-import { useEffect, useRef } from 'react'
+import { makeWidgetInstanceStore } from 'widget-sdk'
 
-// oxlint-disable-next-line no-restricted-imports -- ui/ sits beside model/ in the same package.
-import { acquirePassportInstance } from '../model/instance-store'
-import type { PassportInstanceLease, PassportInstanceModels } from '../model/instance-store'
+import type { PassportCheckModel } from './check-model'
+import type { RecoveryFlow } from './recovery-flow'
+import type { RecoveryModel } from './recovery-model'
 
-type Held = { key: string; lease: PassportInstanceLease }
+export type PassportInstanceModels = {
+  checkModel: PassportCheckModel
+  recoveryModel: RecoveryModel
+  recoveryFlow: RecoveryFlow
+}
 
 /**
- * Leases this instance's shared models. The lease is taken during render — a
- * ref guard keeps a repeated render of the same fiber from taking a second one
- * — and released from effect cleanup. A render React discards before commit
- * leaks one lease, which only delays disposal to the next page load: by then
- * the entry holds no live resource, because the RFB socket and the countdown
- * interval belong to the recovery canvas effect.
+ * One model graph per placed passport widget, leased by both the board tile and
+ * the fullscreen overlay. Disposal tears the recovery session down as a safety
+ * net in case the modal outlived the widget; in the normal flow the recovery
+ * canvas effect has already done it.
  */
-export function usePassportInstance(
-  instanceId: string,
-  make: () => PassportInstanceModels,
-): PassportInstanceModels {
-  const held = useRef<Held | null>(null)
-
-  if (held.current?.key !== instanceId) {
-    held.current?.lease.release()
-    held.current = { key: instanceId, lease: acquirePassportInstance(instanceId, make) }
-  }
-  const current = held.current
-
-  useEffect(() => {
-    return () => {
-      current.lease.release()
-      if (held.current === current) held.current = null
-    }
-  }, [current])
-
-  return current.lease.models
-}
+export const passportInstances = makeWidgetInstanceStore<PassportInstanceModels>({
+  dispose: (models) => models.recoveryModel.teardown(),
+})
 ```
 
-- [ ] **Step 4: Wire the widget to the hook**
+- [ ] **Step 4: Wire the widget to the store**
 
-Rewrite the body of `packages/widgets/passport-checker/ui/PassportChecker.tsx` (keep `isStandardLayout` and the imports it needs; add `usePassportInstance`, drop the three model `useMemo`s):
+Rewrite the body of `packages/widgets/passport-checker/ui/PassportChecker.tsx` (keep `isStandardLayout` and the imports it needs; import `useWidgetInstance` from `widget-sdk` and `passportInstances` from `../model/instance-store`, drop the three model `useMemo`s):
 
 ```tsx
 export const PassportChecker = reatomMemo(() => {
   const { tier, typeId, instanceId, api } = useWidgetContext<PassportCheckerEvents>()
 
-  const { checkModel, recoveryModel, recoveryFlow } = usePassportInstance(instanceId, () => {
-    const checkModel = makePassportCheckModel({ api })
-    const recoveryModel = makeRecoveryModel({
-      widgetId: typeId,
-      transport: makeRecoveryTransport(),
-      makeRfb: makeNoVncRfb,
-    })
-    return {
-      checkModel,
-      recoveryModel,
-      recoveryFlow: makeRecoveryFlow({ checkModel, recoveryModel }),
-    }
-  })
+  const { checkModel, recoveryModel, recoveryFlow } = useWidgetInstance(
+    passportInstances,
+    instanceId,
+    () => {
+      const checkModel = makePassportCheckModel({ api })
+      const recoveryModel = makeRecoveryModel({
+        widgetId: typeId,
+        transport: makeRecoveryTransport(),
+        makeRfb: makeNoVncRfb,
+      })
+      return {
+        checkModel,
+        recoveryModel,
+        recoveryFlow: makeRecoveryFlow({ checkModel, recoveryModel }),
+      }
+    },
+  )
 
   const value = useMemo<PassportCheckerContextValue>(
     () => ({ checkModel, recoveryModel, recoveryFlow }),
@@ -450,10 +618,10 @@ In `packages/client/src/app/main.tsx`, drop the `StrictMode` import and wrapper:
 ```tsx
 // StrictMode is deliberately absent. It double-invokes render and runs
 // mount -> unmount -> mount on every effect in development only, which breaks
-// reference-counted per-instance stores (packages/widgets/passport-checker/
-// model/instance-store.ts): the first cleanup disposes the entry while the
+// reference-counted widget instance stores (widget-sdk's
+// makeWidgetInstanceStore): the first cleanup disposes the entry while the
 // component still renders against it, and nothing re-acquires. Reinstating it
-// requires making those stores tolerate double mounting first.
+// requires making that store tolerate double mounting first.
 createRoot(document.getElementById('root')!).render(<App />)
 ```
 
@@ -468,7 +636,7 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add packages/widgets/passport-checker/ui/use-passport-instance.ts packages/widgets/passport-checker/ui/PassportChecker.tsx packages/widgets/passport-checker/ui/PassportChecker.test.tsx packages/client/src/app/main.tsx
+git add packages/widgets/passport-checker/model/instance-store.ts packages/widgets/passport-checker/ui/PassportChecker.tsx packages/widgets/passport-checker/ui/PassportChecker.test.tsx packages/client/src/app/main.tsx
 git commit -m "feat(passport-checker): share one model graph across widget mounts
 
 The board tile and the fullscreen overlay mount the same instance twice, so
@@ -1170,7 +1338,7 @@ Then update the PR #23 description: the "Known limitations (fullscreen stack onl
 
 ## Notes for the implementer
 
-- **Why the store is not in `widget-sdk`:** only this widget needs shared per-mount state today. Extract it when a second widget does.
+- **Why the store is a factory in `widget-sdk` and not state in `widget-runtime`:** `widget-runtime` is a strict federation singleton for host contracts and connections; a factory keeps `widget-sdk` stateless, gives each widget its own map, and keeps widget state out of the singleton. `clock` and `ofelia-poop-duty` are not migrated — one holds no state, the other keeps its state in storage, which already survives a tier switch.
 - **Why `api` is captured from whichever mount arrives first:** `makeWidgetApi` is a stateless wrapper over the shared http port (`packages/widget-runtime/src/host-runtime.ts:64`), so the two mounts' `api` objects are interchangeable.
 - **Why test isolation needs no reset hook:** Testing Library's automatic cleanup (`globals: true` in `defineWidgetVitestConfig`) unmounts after every test, which drops the reference count to zero and disposes the entry.
-- **What is deliberately out of scope:** a host-level per-instance state slot in `widget-runtime`, persistence of check results, and any change to the recovery transport, capability lifecycle, server handler or browser task.
+- **What is deliberately out of scope:** host-owned instance lifetime (the board never creates or disposes entries), persistence of check results, and any change to the recovery transport, capability lifecycle, server handler or browser task.
