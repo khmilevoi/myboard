@@ -15,6 +15,10 @@ export const StandardTier = reatomMemo(({ onOpenRecovery }: StandardTierProps) =
   const check = wrap(() => {
     void checkModel.checkPassport()
   })
+  // Wrapped here, not in PassportChecker: this component re-renders on its
+  // own viewState() changes independently of the parent, so the closure must
+  // be bound to THIS render's frame or it goes stale (see PassportChecker.tsx).
+  const openRecovery = wrap(onOpenRecovery)
 
   return (
     <div className={styles.standard}>
@@ -58,7 +62,7 @@ export const StandardTier = reatomMemo(({ onOpenRecovery }: StandardTierProps) =
         </button>
       )}
       {view.kind === 'sessionRequired' && (
-        <button type="button" className={styles.primaryButton} onClick={onOpenRecovery}>
+        <button type="button" className={styles.primaryButton} onClick={openRecovery}>
           <AppWindow size={16} aria-hidden /> Открыть восстановление
         </button>
       )}

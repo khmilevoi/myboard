@@ -14,6 +14,10 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   const check = wrap(() => {
     void checkModel.checkPassport()
   })
+  // Wrapped here, not in PassportChecker: this component re-renders on its
+  // own viewState() changes independently of the parent, so the closure must
+  // be bound to THIS render's frame or it goes stale (see PassportChecker.tsx).
+  const openRecovery = wrap(onOpenRecovery)
 
   if (view.kind === 'sessionRequired') {
     return (
@@ -22,7 +26,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
           <TriangleAlert size={18} />
         </span>
         <span className={styles.tinyLabel}>Требуется вход в браузер</span>
-        <button type="button" className={styles.tinyButton} onClick={onOpenRecovery}>
+        <button type="button" className={styles.tinyButton} onClick={openRecovery}>
           Открыть
         </button>
       </div>

@@ -1,4 +1,3 @@
-import { wrap } from '@reatom/core'
 import { useMemo } from 'react'
 import { useWidgetContext } from 'widget-runtime'
 import type { WidgetTier } from 'widget-runtime'
@@ -47,9 +46,15 @@ export const PassportChecker = reatomMemo(() => {
     [checkModel, recoveryModel, recoveryFlow],
   )
 
-  const openRecovery = wrap(() =>
-    recoveryFlow.openRecovery({ fromFullscreen: tier === 'fullscreen', collapse: requestClose }),
-  )
+  // Plain (unwrapped) on purpose: StandardTier/TinyTier only re-render when
+  // their own viewState() changes, independently of PassportChecker's own
+  // render. A wrap() built here would bind to this component's render frame
+  // and go stale the next time a tier re-renders without PassportChecker
+  // re-rendering alongside it — the button would then silently do nothing.
+  // Each tier wraps this in its own render instead (mirrors the `check`
+  // handler each tier already builds for its own "Проверить" button).
+  const openRecovery = () =>
+    recoveryFlow.openRecovery({ fromFullscreen: tier === 'fullscreen', collapse: requestClose })
 
   return (
     <passportCheckerContext.Provider value={value}>

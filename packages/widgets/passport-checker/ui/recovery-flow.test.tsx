@@ -135,4 +135,35 @@ describe('recovery flow across tiers', () => {
     expect(requestClose).not.toHaveBeenCalled()
     expect(requestFullscreen).not.toHaveBeenCalled()
   })
+
+  // The flow model is module-scoped and keyed by instanceId (Task 3), so a
+  // `restorePending` set by opening recovery from a fullscreen mount is
+  // still visible when a later mount for the SAME instanceId (the tile,
+  // after the host collapses the fullscreen overlay) renders the modal.
+  // This is the only test that asserts the actual handoff: that closing the
+  // modal from the tile calls the TILE's requestFullscreen, not a no-op.
+  it('restores fullscreen through the tile mount after recovery opened from the fullscreen mount', async () => {
+    const instanceId = 'inst-passport-tier-handoff'
+    const fullscreenMount = renderSessionRequiredIn('fullscreen', instanceId)
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+    expect(fullscreenMount.requestClose).toHaveBeenCalledTimes(1)
+
+    // Mirrors what the host does when requestClose collapses the fullscreen
+    // overlay: the fullscreen mount goes away and the tile mount (same
+    // instanceId, tier 'standard') takes over.
+    fullscreenMount.view.unmount()
+
+    const tileMount = renderSessionRequiredIn('standard', instanceId)
+    // recoveryOpen was already true on the shared model, so the modal
+    // renders immediately — no need to click through sessionRequired again.
+    await screen.findByRole('dialog')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    expect(tileMount.requestFullscreen).toHaveBeenCalledTimes(1)
+    expect(fullscreenMount.requestFullscreen).not.toHaveBeenCalled()
+  })
 })
