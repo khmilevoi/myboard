@@ -8,7 +8,10 @@ services:
     volumes:
       - valkey_data:/data
     ports:
-      - '127.0.0.1:6379:6379'
+      # Host port is variable so a second stack (rpi deploy --env dev) can run
+      # on the same Pi without fighting production for the bind. The default
+      # keeps `pnpm start:docker` and the local tooling on 6379.
+      - '127.0.0.1:${VALKEY_HOST_PORT:-6379}:6379'
     healthcheck:
       test: ['CMD', 'valkey-cli', 'ping']
       interval: 10s
@@ -27,10 +30,16 @@ services:
       BROWSER_AUTOMATION_TIMEOUT_MS: '100000'
       # WebAuthn / device-invite auth gate (Task 1.1). No secrets here;
       # credentials/sessions live in Valkey.
-      RP_ID: board.iiskelo.com
-      RP_NAME: MyBoard
-      PUBLIC_APP_URL: https://board.iiskelo.com
-      EXPECTED_ORIGIN: https://board.iiskelo.com
+      #
+      # Host-dependent: WebAuthn verifies the assertion origin against
+      # EXPECTED_ORIGIN and scopes credentials to RP_ID, so a stack served on a
+      # different hostname MUST override these or the gate rejects every
+      # ceremony. Defaults are production; `rpi deploy --env dev` supplies the
+      # dev hostname through .env.dev.
+      RP_ID: ${RP_ID:-board.iiskelo.com}
+      RP_NAME: ${RP_NAME:-MyBoard}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://board.iiskelo.com}
+      EXPECTED_ORIGIN: ${EXPECTED_ORIGIN:-https://board.iiskelo.com}
       SESSION_TTL_SLIDING: 30d
       SESSION_TTL_ABSOLUTE: 90d
       TRUST_CF_CONNECTING_IP: '1'
@@ -62,7 +71,11 @@ services:
       server:
         condition: service_healthy
     ports:
-      - '127.0.0.1:8080:80'
+      # rpi publishes its own allocated host port for the ingress service on top
+      # of this one; this entry exists for local `pnpm start:docker` and
+      # `pnpm test:e2e:nginx`, which expect a predictable 8080. Variable so a
+      # second stack on the same Pi can move it off production's bind.
+      - '127.0.0.1:${CLIENT_HOST_PORT:-8080}:80'
     restart: unless-stopped
 
   browser-automation:
@@ -83,7 +96,9 @@ services:
       - '8788'
     ports:
       # noVNC only on the Raspberry Pi loopback; SSH is the access boundary.
-      - '127.0.0.1:6080:6080'
+      # The loopback bind is the invariant; the host port itself is variable so
+      # a second stack on the same Pi gets its own.
+      - '127.0.0.1:${NOVNC_HOST_PORT:-6080}:6080'
     volumes:
       - browser_profile:/profile
     healthcheck:

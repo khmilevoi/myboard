@@ -42,8 +42,55 @@ correctly refuses to attach that cookie to a plain-`http` local origin such
 as `http://localhost:8080`, so running `pnpm test:e2e:nginx` against an
 unmodified `docker-compose.yml` fails every test that depends on a session
 cookie actually being sent, with no obvious error pointing at the cause. For
-a local or CI run, override the `server` service's `RP_ID`/`PUBLIC_APP_URL`/
-`EXPECTED_ORIGIN` to an `http` origin matching `playwright.nginx.config.ts`'s
-`baseURL` (e.g. `http://localhost:8080`) via a local, untracked
-`docker-compose.override.yml` or an equivalent environment override before
-starting the stack.
+a local or CI run, point those three at an `http` origin matching
+`playwright.nginx.config.ts`'s `baseURL` (e.g. `http://localhost:8080`)
+before starting the stack. They read from the environment with the production
+values as defaults, so a local, untracked `.env` is enough:
+
+```dotenv
+RP_ID=localhost
+PUBLIC_APP_URL=http://localhost:8080
+EXPECTED_ORIGIN=http://localhost:8080
+```
+
+## Deployments
+
+`rpi.toml` deploys production from `main` to `board.iiskelo.com`. `rpi.dev.toml`
+is an overlay that deploys the `dev` branch to `board-dev.iiskelo.com` as the
+separate project `myboard--dev` — its own containers, network and volumes, so
+its Valkey data is fully independent of production and starts empty.
+
+```bash
+cp .env.dev.example .env.dev   # once
+rpi secrets send --env dev     # after every .env.dev change
+rpi deploy --env dev
+rpi config show --env dev      # resolved base + overlay, without touching the agent
+```
+
+`rpi.dev.toml` inherits `rpi.toml`'s `[secrets].files` unchanged, so `rpi secrets
+send --env dev` also needs the passport-checker widget's two plain-value files
+present locally — same paths and setup as production, see
+`packages/browser-automation/README.md#provisioning-secrets`. They are not part
+of `.env.dev`.
+
+Everything not repeated in the overlay is inherited, so `rpi command` works the
+same way with `--env dev`. A fresh dev stack has no devices — mint its own
+invite before the gate lets anyone in:
+
+```bash
+rpi command create-invite --env dev -- --label "dev laptop" --ttl 7d
+```
+
+Two things must stay in sync when changing the dev host (`scripts/infra.test.ts`
+enforces both):
+
+- `RP_ID`/`PUBLIC_APP_URL`/`EXPECTED_ORIGIN` in `.env.dev` must match
+  `ingress.hostname`. A mismatch does not fail the deploy — it silently breaks
+  every WebAuthn ceremony.
+- `CLIENT_HOST_PORT`/`VALKEY_HOST_PORT`/`NOVNC_HOST_PORT` must differ from the
+  production defaults (8080/6379/6080) and stay outside 8000-8999, the range rpi
+  allocates ingress host ports from.
+
+Tear down with `rpi env destroy dev` (stack, volumes, ingress, DNS, secrets), or
+`rpi env reset-data dev` to wipe only its data. The overlay sets no TTL, so the
+agent's reaper never removes it on its own.

@@ -30,6 +30,7 @@
     "**/.worktrees/**",
     "**/looper-output/**",
     "**/.superpowers/**",
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "docs/**"
   ]
 }

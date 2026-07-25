@@ -21,6 +21,8 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+# secrets bundle of the `dev` rpi environment (see .env.dev.example)
+.env.dev
 
 # editor / os
 .DS_Store

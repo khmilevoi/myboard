@@ -185,7 +185,9 @@ describe('browser-automation service wiring', () => {
   const prod = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
 
   it('binds novnc to the pi loopback only', () => {
-    expect(prod).toContain('127.0.0.1:6080:6080')
+    // The host port is variable so a second stack (rpi --env dev) gets its own;
+    // the loopback bind and the 6080 container port are the invariant.
+    expect(prod).toContain('127.0.0.1:${NOVNC_HOST_PORT:-6080}:6080')
   })
 
   it('exposes the internal api port without publishing it', () => {
@@ -278,8 +280,52 @@ describe('recovery websocket ingress', () => {
   })
 
   it('keeps the vnc bridge on the pi loopback only', () => {
-    expect(prodCompose).toContain("- '127.0.0.1:6080:6080'")
+    expect(prodCompose).toContain("- '127.0.0.1:${NOVNC_HOST_PORT:-6080}:6080'")
     expect(nginxConf).not.toContain('6080')
+  })
+})
+
+describe('rpi dev environment overlay', () => {
+  const devOverlay = readFileSync(resolve(root, 'rpi.dev.toml'), 'utf8')
+  const devEnvExample = readFileSync(resolve(root, '.env.dev.example'), 'utf8')
+  const prodCompose = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
+
+  const hostname = /hostname = "([^"]+)"/.exec(devOverlay)?.[1]
+  const envValue = (key: string) =>
+    new RegExp(`^${key}=(.+)$`, 'm').exec(devEnvExample)?.[1]?.trim()
+
+  it('deploys the dev branch under its own hostname', () => {
+    expect(/branch = "dev"/.test(devOverlay)).toBe(true)
+    // rpi rejects an environment whose hostname collides with the base project.
+    expect(hostname).toBeDefined()
+    expect(hostname).not.toBe('board.iiskelo.com')
+  })
+
+  it('scopes the webauthn gate to the dev hostname', () => {
+    // A mismatch here does not fail the deploy — it silently breaks every
+    // registration and login ceremony on the dev host.
+    expect(envValue('RP_ID')).toBe(hostname)
+    expect(envValue('PUBLIC_APP_URL')).toBe(`https://${hostname}`)
+    expect(envValue('EXPECTED_ORIGIN')).toBe(`https://${hostname}`)
+  })
+
+  it('keeps dev host ports off production binds and out of the rpi allocator range', () => {
+    const prodDefault = (key: string) =>
+      Number(new RegExp(`\\$\\{${key}:-(\\d+)\\}`).exec(prodCompose)?.[1])
+
+    for (const key of ['CLIENT_HOST_PORT', 'VALKEY_HOST_PORT', 'NOVNC_HOST_PORT']) {
+      const devPort = Number(envValue(key))
+      expect(devPort, `${key} must be set in .env.dev.example`).toBeGreaterThan(0)
+      expect(devPort, `${key} must not reuse the production bind`).not.toBe(prodDefault(key))
+      // rpi allocates the ingress host port from 8000-8999; a fixed bind in
+      // that window can collide with a project deployed later.
+      expect(devPort < 8000 || devPort > 8999, `${key}=${devPort} sits in 8000-8999`).toBe(true)
+    }
+  })
+
+  it('keeps the untracked dev secrets bundle out of git', () => {
+    expect(gitignore).toContain('.env.dev')
+    expect(devOverlay).toContain('env = ".env.dev"')
   })
 })
 
