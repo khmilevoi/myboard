@@ -4,6 +4,7 @@ import type { WidgetTier } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { makePassportCheckModel } from '../model/check-model'
+import { passportInstance } from '../model/instance-store'
 import { makeRecoveryFlow } from '../model/recovery-flow'
 import { makeRecoveryModel } from '../model/recovery-model'
 import { makeRecoveryTransport } from '../model/recovery-transport'
@@ -23,21 +24,22 @@ export function isStandardLayout(tier: WidgetTier): boolean {
 }
 
 export const PassportChecker = reatomMemo(() => {
-  const { tier, typeId, api } = useWidgetContext<PassportCheckerEvents>()
-  const checkModel = useMemo(() => makePassportCheckModel({ api }), [api])
-  const recoveryModel = useMemo(
-    () =>
-      makeRecoveryModel({
-        widgetId: typeId,
-        transport: makeRecoveryTransport(),
-        makeRfb: makeNoVncRfb,
-      }),
-    [typeId],
-  )
-  const recoveryFlow = useMemo(
-    () => makeRecoveryFlow({ checkModel, recoveryModel }),
-    [checkModel, recoveryModel],
-  )
+  const { tier, typeId, instanceId, api } = useWidgetContext<PassportCheckerEvents>()
+
+  const { checkModel, recoveryModel, recoveryFlow } = passportInstance(instanceId, () => {
+    const checkModel = makePassportCheckModel({ api })
+    const recoveryModel = makeRecoveryModel({
+      widgetId: typeId,
+      transport: makeRecoveryTransport(),
+      makeRfb: makeNoVncRfb,
+    })
+    return {
+      checkModel,
+      recoveryModel,
+      recoveryFlow: makeRecoveryFlow({ checkModel, recoveryModel }),
+    }
+  })()
+
   const value = useMemo<PassportCheckerContextValue>(
     () => ({ checkModel, recoveryModel, recoveryFlow }),
     [checkModel, recoveryModel, recoveryFlow],
@@ -48,7 +50,10 @@ export const PassportChecker = reatomMemo(() => {
       <div className={styles.widget} data-tier={tier}>
         {isStandardLayout(tier) ? <StandardTier /> : <TinyTier />}
       </div>
-      {checkModel.recoveryOpen() && <RecoveryModal />}
+      {/* The fullscreen mount never owns the modal: recovery collapses
+          fullscreen, and with shared state both mounts would otherwise render
+          one modal each. */}
+      {tier !== 'fullscreen' && checkModel.recoveryOpen() && <RecoveryModal />}
     </passportCheckerContext.Provider>
   )
 }, 'PassportChecker')

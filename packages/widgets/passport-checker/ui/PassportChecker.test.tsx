@@ -6,9 +6,13 @@ import { PassportChecker } from './PassportChecker'
 
 type InvokeResult = WidgetApiError | { status: number; send_status_msg: string }
 
-function makeProps(tier: WidgetRuntimeProps['tier'], invoke: () => Promise<InvokeResult>) {
+function makeProps(
+  tier: WidgetRuntimeProps['tier'],
+  invoke: () => Promise<InvokeResult>,
+  instanceId = 'inst-passport',
+) {
   const props: WidgetRuntimeProps = {
-    instanceId: 'inst-passport',
+    instanceId,
     typeId: 'passport-checker',
     mode: 'small',
     tier,
@@ -17,10 +21,7 @@ function makeProps(tier: WidgetRuntimeProps['tier'], invoke: () => Promise<Invok
     requestClose: vi.fn(),
     requestDelete: vi.fn(),
     reportError: vi.fn(),
-    storage: makeHostRuntime().makeWidgetStorage({
-      instanceId: 'inst-passport',
-      typeId: 'passport-checker',
-    }),
+    storage: makeHostRuntime().makeWidgetStorage({ instanceId, typeId: 'passport-checker' }),
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
   }
   return props
@@ -165,5 +166,68 @@ describe('PassportChecker / tiny tier', () => {
 
     expect(await screen.findByText('Не настроен')).toBeInTheDocument()
     expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('PassportChecker / shared instance state', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function renderPair(
+    tiers: [WidgetRuntimeProps['tier'], WidgetRuntimeProps['tier']],
+    invoke: () => Promise<InvokeResult>,
+    ids: [string, string] = ['inst-passport', 'inst-passport'],
+  ) {
+    return render(
+      <>
+        <WidgetRuntimeContext.Provider value={makeProps(tiers[0], invoke, ids[0])}>
+          <PassportChecker />
+        </WidgetRuntimeContext.Provider>
+        <WidgetRuntimeContext.Provider value={makeProps(tiers[1], invoke, ids[1])}>
+          <PassportChecker />
+        </WidgetRuntimeContext.Provider>
+      </>,
+    )
+  }
+
+  it('shares one model graph between the tile and fullscreen mounts', async () => {
+    const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
+    renderPair(['standard', 'fullscreen'], invoke)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
+
+    // One check, one result, rendered by BOTH mounts.
+    expect(await screen.findAllByText('Готово')).toHaveLength(2)
+    expect(invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives separate instance ids separate state', async () => {
+    const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
+    renderPair(['standard', 'standard'], invoke, ['inst-one', 'inst-two'])
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
+
+    expect(await screen.findAllByText('Готово')).toHaveLength(1)
+  })
+
+  it('renders the recovery modal from the tile mount, never from fullscreen', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<never>(() => {})),
+    )
+    const invoke = vi.fn(async () =>
+      apiError('browser_session_required', { sshTarget: 'admin@pi' }),
+    )
+    renderPair(['standard', 'fullscreen'], invoke)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
+    const openButtons = await screen.findAllByRole('button', { name: /Открыть восстановление/ })
+    expect(openButtons).toHaveLength(2)
+
+    fireEvent.click(openButtons[0])
+
+    // Exactly one modal, even though two mounts observe recoveryOpen.
+    expect(await screen.findAllByRole('dialog')).toHaveLength(1)
   })
 })
