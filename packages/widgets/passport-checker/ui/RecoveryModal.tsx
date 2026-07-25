@@ -18,12 +18,14 @@ export function formatAccessCountdown(ms: number): string {
   return `${minutes}:${seconds}`
 }
 
-export const RecoveryModal = reatomMemo(() => {
+export type RecoveryModalProps = { restoreFullscreen: () => void }
+
+export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalProps) => {
   const { checkModel, recoveryModel, recoveryFlow } = usePassportChecker()
   const rootRef = useRef<HTMLDivElement | null>(null)
 
-  const close = wrap(() => recoveryFlow.closeRecovery())
-  const retry = wrap(() => recoveryFlow.retryCheck())
+  const close = wrap(() => recoveryFlow.closeRecovery({ restore: restoreFullscreen }))
+  const retry = wrap(() => recoveryFlow.retryCheck({ restore: restoreFullscreen }))
 
   useModalIsolation(rootRef, close)
 

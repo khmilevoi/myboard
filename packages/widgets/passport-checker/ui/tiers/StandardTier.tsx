@@ -7,13 +7,14 @@ import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
 
-export const StandardTier = reatomMemo(() => {
+export type StandardTierProps = { onOpenRecovery: () => void }
+
+export const StandardTier = reatomMemo(({ onOpenRecovery }: StandardTierProps) => {
   const { checkModel } = usePassportChecker()
   const view = checkModel.viewState()
   const check = wrap(() => {
     void checkModel.checkPassport()
   })
-  const openRecovery = wrap(() => checkModel.recoveryOpen.set(true))
 
   return (
     <div className={styles.standard}>
@@ -57,7 +58,7 @@ export const StandardTier = reatomMemo(() => {
         </button>
       )}
       {view.kind === 'sessionRequired' && (
-        <button type="button" className={styles.primaryButton} onClick={openRecovery}>
+        <button type="button" className={styles.primaryButton} onClick={onOpenRecovery}>
           <AppWindow size={16} aria-hidden /> Открыть восстановление
         </button>
       )}

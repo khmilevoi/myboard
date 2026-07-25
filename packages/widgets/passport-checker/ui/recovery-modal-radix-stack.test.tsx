@@ -88,7 +88,7 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
           <Dialog.Title>underlying surface</Dialog.Title>
           <button type="button">inside radix</button>
           <passportCheckerContext.Provider value={value}>
-            <RecoveryModal />
+            <RecoveryModal restoreFullscreen={vi.fn()} />
           </passportCheckerContext.Provider>
         </Dialog.Content>
       </Dialog.Portal>

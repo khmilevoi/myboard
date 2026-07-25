@@ -65,3 +65,74 @@ describe('recovery flow from the tile', () => {
     await waitFor(() => expect(document.activeElement).toBe(openButton))
   })
 })
+
+// The model graph is module-scoped and keyed by instanceId (Task 3), and
+// Reatom's disposal is a microtask — so each call below needs its own id, or
+// a live model from one test (recoveryOpen/restorePending still true) leaks
+// into the next. The id must match between the props and the storage below.
+function renderSessionRequiredIn(tier: WidgetRuntimeProps['tier'], instanceId: string) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => new Promise<never>(() => {})),
+  )
+  const invoke = vi.fn(
+    async () =>
+      new WidgetApiError({
+        reason: 'x',
+        code: 'browser_session_required',
+        meta: { sshTarget: 'admin@pi' },
+      }),
+  )
+  const requestClose = vi.fn()
+  const requestFullscreen = vi.fn()
+  const props: WidgetRuntimeProps = {
+    instanceId,
+    typeId: 'passport-checker',
+    mode: 'large',
+    tier,
+    theme: 'light',
+    requestFullscreen,
+    requestClose,
+    requestDelete: vi.fn(),
+    reportError: vi.fn(),
+    storage: makeHostRuntime().makeWidgetStorage({
+      instanceId,
+      typeId: 'passport-checker',
+    }),
+    api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
+  }
+  const view = render(
+    <WidgetRuntimeContext.Provider value={props}>
+      <PassportChecker />
+    </WidgetRuntimeContext.Provider>,
+  )
+  return { view, requestClose, requestFullscreen }
+}
+
+describe('recovery flow across tiers', () => {
+  it('collapses fullscreen when recovery opens from the fullscreen mount', async () => {
+    const { requestClose } = renderSessionRequiredIn('fullscreen', 'inst-passport-tier-fullscreen')
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+
+    expect(requestClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not collapse when recovery opens from the tile', async () => {
+    const { requestClose, requestFullscreen } = renderSessionRequiredIn(
+      'standard',
+      'inst-passport-tier-standard',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+    await screen.findByRole('dialog')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    expect(requestClose).not.toHaveBeenCalled()
+    expect(requestFullscreen).not.toHaveBeenCalled()
+  })
+})

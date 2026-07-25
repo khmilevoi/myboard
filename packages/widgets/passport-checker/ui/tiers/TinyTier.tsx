@@ -6,13 +6,14 @@ import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
 
-export const TinyTier = reatomMemo(() => {
+export type TinyTierProps = { onOpenRecovery: () => void }
+
+export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   const { checkModel } = usePassportChecker()
   const view = checkModel.viewState()
   const check = wrap(() => {
     void checkModel.checkPassport()
   })
-  const openRecovery = wrap(() => checkModel.recoveryOpen.set(true))
 
   if (view.kind === 'sessionRequired') {
     return (
@@ -21,7 +22,7 @@ export const TinyTier = reatomMemo(() => {
           <TriangleAlert size={18} />
         </span>
         <span className={styles.tinyLabel}>Требуется вход в браузер</span>
-        <button type="button" className={styles.tinyButton} onClick={openRecovery}>
+        <button type="button" className={styles.tinyButton} onClick={onOpenRecovery}>
           Открыть
         </button>
       </div>

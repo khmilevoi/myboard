@@ -1,3 +1,4 @@
+import { wrap } from '@reatom/core'
 import { useMemo } from 'react'
 import { useWidgetContext } from 'widget-runtime'
 import type { WidgetTier } from 'widget-runtime'
@@ -24,7 +25,8 @@ export function isStandardLayout(tier: WidgetTier): boolean {
 }
 
 export const PassportChecker = reatomMemo(() => {
-  const { tier, typeId, instanceId, api } = useWidgetContext<PassportCheckerEvents>()
+  const { tier, typeId, instanceId, api, requestClose, requestFullscreen } =
+    useWidgetContext<PassportCheckerEvents>()
 
   const { checkModel, recoveryModel, recoveryFlow } = passportInstance(instanceId, () => {
     const checkModel = makePassportCheckModel({ api })
@@ -45,15 +47,26 @@ export const PassportChecker = reatomMemo(() => {
     [checkModel, recoveryModel, recoveryFlow],
   )
 
+  const openRecovery = wrap(() =>
+    recoveryFlow.openRecovery({ fromFullscreen: tier === 'fullscreen', collapse: requestClose }),
+  )
+
   return (
     <passportCheckerContext.Provider value={value}>
       <div className={styles.widget} data-tier={tier}>
-        {isStandardLayout(tier) ? <StandardTier /> : <TinyTier />}
+        {isStandardLayout(tier) ? (
+          <StandardTier onOpenRecovery={openRecovery} />
+        ) : (
+          <TinyTier onOpenRecovery={openRecovery} />
+        )}
       </div>
-      {/* The fullscreen mount never owns the modal: recovery collapses
-          fullscreen, and with shared state both mounts would otherwise render
-          one modal each. */}
-      {tier !== 'fullscreen' && checkModel.recoveryOpen() && <RecoveryModal />}
+      {/* The fullscreen mount never owns the modal: opening recovery from it
+          collapses fullscreen via requestClose, so only the tile mount is ever
+          left rendering this modal, and closing/retrying restores fullscreen
+          via requestFullscreen. */}
+      {tier !== 'fullscreen' && checkModel.recoveryOpen() && (
+        <RecoveryModal restoreFullscreen={requestFullscreen} />
+      )}
     </passportCheckerContext.Provider>
   )
 }, 'PassportChecker')
