@@ -79,42 +79,57 @@ mechanism ships as a reusable helper in
 root:
 
 ```ts
-export type InstanceLease<Value> = { value: Value; release: () => void }
+export type WidgetInstanceStore<Value> = (key: string, make: () => Value) => Computed<Value>
 
-export type WidgetInstanceStore<Value> = {
-  acquire: (key: string, make: () => Value) => InstanceLease<Value>
+export type MakeWidgetInstanceStoreOptions<Value> = {
+  name: string
+  dispose?: (value: Value, key: string) => void
 }
 
-export function makeWidgetInstanceStore<Value>(options?: {
-  dispose?: (value: Value, key: string) => void
-}): WidgetInstanceStore<Value>
+export function makeWidgetInstanceStore<Value>(
+  options: MakeWidgetInstanceStoreOptions<Value>,
+): WidgetInstanceStore<Value>
 ```
 
 `widget-sdk` stays stateless: it exports a **factory**, and each widget creates
 its own store at module scope, so one widget's entries are never visible to
 another and nothing lives in the `widget-runtime` federation singleton.
 
-Each store owns a `Map<string, { value: Value; refs: number }>`:
+**Reatom's connection lifetime is the reference count.** A store keeps a
+`Map<string, Computed<Value>>` of memoized instance atoms; each atom is named
+`${name}#${key}` and carries `withDisconnectHook`. `withConnectHook` fires on
+the first subscriber and its cleanup on the last, which is exactly the counting
+we would otherwise hand-roll. Measured against `@reatom/core@1001.1.0` with two
+`reatomComponent` mounts reading one key: both read one value, unmounting one
+does not dispose, unmounting the last disposes once, and the next mount builds
+a fresh value.
 
-- `acquire` builds the value on first use, increments `refs`, returns a lease;
-- `release` is idempotent per lease — one lease decrements `refs` at most once,
-  however many times it is called;
-- reaching zero references deletes the entry and calls the store's `dispose`.
+`@reatom/core@1001.1.0` has no keyed atom family to lean on instead — `computed`
+takes no parameters (`Computed<State> extends AtomLike<State, []>`), `withParams`
+only transforms call arguments, `memoKey` is scoped to a host atom's lifetime,
+and `withCache` is an async request cache. The keyed `Map` is also what upstream
+prescribes for model collections, so it stays hand-written by design.
 
-`make` is passed per call because the value depends on runtime props, but it is
-invoked only on the first acquire for a key. Later mounts reuse the first
-mount's value, so a widget must only pass a `make` whose captured inputs are
-interchangeable between mounts.
+**The handle must be dropped on disconnect.** A `computed`'s cache survives
+disconnection, so reusing the same atom after disposal resurrects a torn-down
+value — measured: with the handle retained, a remount returned the disposed
+object instead of rebuilding. The disconnect hook therefore deletes the atom
+from the map, and the next mount builds a new atom and a new value.
 
-### 2. Lease hook in `widget-sdk`
+`make` is passed per call because the value depends on runtime props, but it
+runs only for the first mount of a key, so a widget must pass a `make` whose
+captured inputs are interchangeable between mounts. It must also not read atoms
+reactively: the instance atom is a `computed`, and a reactive dependency would
+silently rebuild the whole value when it changes.
 
-`packages/widget-sdk/src/instance/use-widget-instance.ts` exports
-`useWidgetInstance(store, key, make)`, which:
+### 2. Reading an instance in a component
 
-- takes the lease during render, guarded by a `useRef` so a repeated render of
-  the same fiber does not take a second one;
-- releases in effect cleanup;
-- on a key change, releases the old lease and takes a new one.
+There is no React hook. A `reatomMemo` component reads the instance atom in its
+body — `passportInstance(instanceId, make)()` — and that read is what subscribes
+the mount, so the component's lifetime and the store's reference count are the
+same thing. No `useRef` bookkeeping, no `useEffect` cleanup, and an orphaned
+atom from a render React discards before commit is cleaned up by the first real
+connect/disconnect cycle rather than pinning a counter forever.
 
 ### 3. Passport binding
 
@@ -128,37 +143,41 @@ export type PassportInstanceModels = {
   recoveryFlow: RecoveryFlow
 }
 
-export const passportInstances = makeWidgetInstanceStore<PassportInstanceModels>({
+export const passportInstance = makeWidgetInstanceStore<PassportInstanceModels>({
+  name: 'passport.instance',
   dispose: (models) => models.recoveryModel.teardown(),
 })
 ```
 
 Disposal tears the recovery session down as a safety net in case the modal
-outlived the widget. The `make` passed at each mount captures `api` and
-`typeId`; capturing them from whichever mount arrives first is safe, because
-`makeWidgetApi` is a stateless wrapper over the shared http port
-(`host-runtime.ts:64`) and `typeId` is identical for both mounts.
+outlived the widget; in the normal flow the recovery canvas effect already did
+it. The `make` passed at each mount captures `api` and `typeId`; capturing them
+from whichever mount arrives first is safe, because `makeWidgetApi` is a
+stateless wrapper over the shared http port (`host-runtime.ts:64`) and `typeId`
+is identical for both mounts.
 
-Accepted risk of leasing during render: a render React discards before commit
-(widgets mount under `lazy` + `Suspense` in `WidgetFrame`) leaks one lease.
-For this widget the degradation is soft —
-disposal never runs, and by then the entry holds no live resource, because the
-RFB socket and the countdown interval belong to `NoVncCanvas`'s effect
-(`NoVncCanvas.tsx:45-51`). Dead atoms remain until the page reloads.
+The store creator keeps the repository's `make*` factory naming rather than
+Reatom's `reatom*` convention for atom factories: it creates a store, and the
+per-key accessor it returns is memoized rather than a fresh factory per call.
+The atoms it builds are named, which is what that convention protects.
 
 ### 4. StrictMode removal
 
 `packages/client/src/app/main.tsx` drops the `<StrictMode>` wrapper.
 
-Reference counting is incompatible with StrictMode's development-only
-mount → unmount → mount effect cycle: the first cleanup would drop `refs` to
-zero and dispose the entry while the component still renders against it, and
-nothing re-acquires. StrictMode does not run in production builds, so this
-changes no runtime behavior — it gives up a development-time detector of
-non-idempotent mounts and missing cleanups across the whole client.
+Connection-owned lifetime is incompatible with StrictMode's development-only
+mount → unmount → mount effect cycle. Measured with two components mounted
+under `<StrictMode>`: the cycle empties the subscriber set, the disconnect hook
+disposes the value and drops the handle, and the store ends up empty while both
+components are still mounted and rendering the disposed value. A hand-rolled
+reference count fails the same way for the same reason.
+
+StrictMode does not run in production builds, so this changes no runtime
+behavior — it gives up a development-time detector of non-idempotent mounts and
+missing cleanups across the whole client.
 
 A comment replaces the wrapper explaining why it is absent, so it is not
-reinstated without also making the store tolerate double mounting.
+reinstated without also making instance stores tolerate double mounting.
 
 ### 5. Modal ownership
 
@@ -230,13 +249,11 @@ swallowed too). The missing regression test is added instead.
 
 ## Testing
 
-- `widget-sdk/src/instance/instance-store.test.ts` — one key returns the same
-  value and calls `make` once; separate keys stay separate; `release` is
-  idempotent; reaching zero references calls `dispose` once and a later acquire
-  builds a fresh value; separate stores never see each other's keys.
-- `widget-sdk/src/instance/use-widget-instance.test.tsx` — two components
-  mounted with the same key get the same value; unmounting one keeps it alive;
-  unmounting the last disposes it; changing the key swaps the lease.
+- `widget-sdk/src/instance/instance-store.test.tsx` — one key returns the same
+  atom and calls `make` once; separate keys and separate stores stay separate;
+  two mounted components share one value; unmounting one keeps it alive;
+  unmounting the last disposes it exactly once; a later mount builds a fresh
+  value rather than resurrecting the disposed one.
 - `ui/PassportChecker.test.tsx` — two mounts sharing an `instanceId` share
   state (a check started in one is visible in the other); the fullscreen mount
   renders no modal while the tile mount does; opening recovery from the
@@ -251,7 +268,8 @@ swallowed too). The missing regression test is added instead.
   intentionally untested is removed, because the behavior now exists.
 - Test isolation needs no production reset hook: Testing Library's automatic
   cleanup (`globals: true` in `defineWidgetVitestConfig`) unmounts after each
-  test, which drops references to zero and disposes the entry.
+  test, which disconnects the instance atom and disposes it. Disconnection is
+  not synchronous with unmount, so lifecycle assertions await it.
 
 Gate: `pnpm --filter widget-sdk test`, `pnpm --filter widgets-passport-checker
 test`, then `pnpm --filter client test` (mandatory — StrictMode was removed),
@@ -283,10 +301,11 @@ is 18 commits ahead of `main` and behind by none, so no rebase is required.
 
 ## Decision Summary
 
-`widget-sdk` gains a generic reference-counted instance-store factory and its
-lease hook; the passport widget instantiates one so both mounts of one placed
-widget share a single model graph. `StrictMode` is removed because it is
-incompatible with reference counting and only runs in development.
+`widget-sdk` gains a generic instance-store factory whose reference counting is
+Reatom's own connection lifetime; the passport widget instantiates one so both
+mounts of one placed widget share a single model graph. `StrictMode` is removed
+because its development-only remount cycle disposes a value that is still
+mounted, and it never runs in production.
 The tile mount owns the recovery modal, opening recovery from fullscreen
 collapses it through `requestClose`, and closing or retrying restores it through
 `requestFullscreen`. The modal gains focus containment to absorb Radix's

@@ -4,7 +4,7 @@
 
 **Goal:** Make one placed passport widget share a single model graph across its board-tile and fullscreen mounts, so recovery can collapse fullscreen instead of stacking a modal over a Radix dialog.
 
-**Architecture:** `widget-sdk` gains a generic reference-counted instance-store factory and its lease hook; the passport widget instantiates one store at module scope and the three models move out of `useMemo` into it, keyed by `instanceId`. `StrictMode` is removed because reference counting cannot survive its development-only double mount. The board-tile mount becomes the sole owner of the recovery modal; opening recovery from fullscreen collapses it through `requestClose`, closing or retrying restores it through `requestFullscreen`. The modal gains focus containment so Radix's deferred unmount focus restore cannot pull focus out.
+**Architecture:** `widget-sdk` gains a generic instance-store factory whose reference counting is Reatom's own connection lifetime; the passport widget instantiates one store at module scope and the three models move out of `useMemo` into it, keyed by `instanceId`. `StrictMode` is removed because its development-only remount cycle disposes a value that is still mounted. The board-tile mount becomes the sole owner of the recovery modal; opening recovery from fullscreen collapses it through `requestClose`, closing or retrying restores it through `requestFullscreen`. The modal gains focus containment so Radix's deferred unmount focus restore cannot pull focus out.
 
 **Tech Stack:** TypeScript, React 19, Reatom v1001 (`@reatom/core`), Vitest + jsdom + Testing Library, radix-ui, oxlint/oxfmt.
 
@@ -68,126 +68,133 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Generic instance store and lease hook in `widget-sdk`
+### Task 2: Generic instance store in `widget-sdk`
 
 Nothing about sharing one value across a widget's mounts is passport-specific — it follows from how the board mounts widgets — so the mechanism is a reusable `widget-sdk` helper. It ships as a **factory**: `widget-sdk` stays stateless and each widget creates its own store at module scope, so one widget's entries are invisible to another and nothing lands in the `widget-runtime` federation singleton.
 
+The reference counting is Reatom's, not ours: `withConnectHook` fires on an atom's first subscriber and its cleanup on the last, so a `reatomMemo` component that reads the instance atom *is* the reference. There is no React hook and no manual counter. `@reatom/core@1001.1.0` has no keyed atom family to use instead — `computed` takes no parameters, `withParams` only transforms call arguments, `memoKey` is scoped to a host atom, and `withCache` is an async request cache — so the keyed `Map` stays hand-written, which is also what upstream prescribes for model collections.
+
+**The one non-obvious invariant:** a `computed`'s cache survives disconnection. If the disconnect hook kept the atom in the map, the next mount would return the disposed value instead of rebuilding. The hook therefore deletes the handle, and Step 1's last test pins exactly that.
+
 **Files:**
 - Create: `packages/widget-sdk/src/instance/instance-store.ts`
-- Create: `packages/widget-sdk/src/instance/use-widget-instance.ts`
 - Modify: `packages/widget-sdk/src/index.ts:1-4`
-- Test: `packages/widget-sdk/src/instance/instance-store.test.ts`
-- Test: `packages/widget-sdk/src/instance/use-widget-instance.test.tsx`
+- Test: `packages/widget-sdk/src/instance/instance-store.test.tsx`
 
 **Interfaces:**
-- Consumes: nothing.
-- Produces, all exported from the `widget-sdk` package root:
-  - `type InstanceLease<Value> = { value: Value; release: () => void }`
-  - `type WidgetInstanceStore<Value> = { acquire: (key: string, make: () => Value) => InstanceLease<Value> }`
-  - `type MakeWidgetInstanceStoreOptions<Value> = { dispose?: (value: Value, key: string) => void }`
-  - `makeWidgetInstanceStore<Value>(options?: MakeWidgetInstanceStoreOptions<Value>): WidgetInstanceStore<Value>`
-  - `useWidgetInstance<Value>(store: WidgetInstanceStore<Value>, key: string, make: () => Value): Value`
+- Consumes: `computed`, `withDisconnectHook`, `type Computed` from `@reatom/core`.
+- Produces, exported from the `widget-sdk` package root:
+  - `type WidgetInstanceStore<Value> = (key: string, make: () => Value) => Computed<Value>`
+  - `type MakeWidgetInstanceStoreOptions<Value> = { name: string; dispose?: (value: Value, key: string) => void }`
+  - `makeWidgetInstanceStore<Value>(options: MakeWidgetInstanceStoreOptions<Value>): WidgetInstanceStore<Value>`
 
-- [ ] **Step 1: Write the failing store test**
+- [ ] **Step 1: Write the failing test**
 
-Create `packages/widget-sdk/src/instance/instance-store.test.ts`:
+Create `packages/widget-sdk/src/instance/instance-store.test.tsx`:
 
-```ts
+```tsx
+import { reatomComponent } from '@reatom/react'
+import { render, screen, waitFor } from '@testing-library/react'
+
 import { makeWidgetInstanceStore } from './instance-store'
 
-type Value = { id: string }
+type Value = { id: number }
+
+/** Disconnection is not synchronous with unmount; let Reatom's queue drain. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
+
+function setup() {
+  let built = 0
+  const disposed: Array<[Value, string]> = []
+  const store = makeWidgetInstanceStore<Value>({
+    name: 'probe.instance',
+    dispose: (value, key) => disposed.push([value, key]),
+  })
+  const make = () => {
+    built += 1
+    return { id: built }
+  }
+
+  const Probe = reatomComponent(
+    ({ instanceKey, testId }: { instanceKey: string; testId: string }) => (
+      <span data-testid={testId}>{store(instanceKey, make)().id}</span>
+    ),
+    'Probe',
+  )
+
+  return { store, make, Probe, stats: () => ({ built, disposed }) }
+}
 
 describe('makeWidgetInstanceStore', () => {
-  it('builds one value per key and reuses it', () => {
-    const store = makeWidgetInstanceStore<Value>()
-    const make = vi.fn(() => ({ id: 'a' }))
+  it('returns the same atom for the same key and builds the value once', () => {
+    const { store, make } = setup()
 
-    const first = store.acquire('inst-a', make)
-    const second = store.acquire('inst-a', make)
-
-    expect(second.value).toBe(first.value)
-    expect(make).toHaveBeenCalledTimes(1)
-
-    first.release()
-    second.release()
-  })
-
-  it('keeps separate keys separate', () => {
-    const store = makeWidgetInstanceStore<Value>()
-
-    const first = store.acquire('inst-a', () => ({ id: 'a' }))
-    const second = store.acquire('inst-b', () => ({ id: 'b' }))
-
-    expect(second.value).not.toBe(first.value)
-
-    first.release()
-    second.release()
-  })
-
-  it('disposes only when the last lease is released', () => {
-    const dispose = vi.fn()
-    const store = makeWidgetInstanceStore<Value>({ dispose })
-
-    const first = store.acquire('inst-c', () => ({ id: 'first' }))
-    const second = store.acquire('inst-c', () => ({ id: 'second' }))
-
-    first.release()
-    expect(dispose).not.toHaveBeenCalled()
-
-    second.release()
-    expect(dispose).toHaveBeenCalledTimes(1)
-    expect(dispose).toHaveBeenCalledWith({ id: 'first' }, 'inst-c')
-  })
-
-  it('ignores repeated releases of the same lease', () => {
-    const dispose = vi.fn()
-    const store = makeWidgetInstanceStore<Value>({ dispose })
-
-    const first = store.acquire('inst-d', () => ({ id: 'a' }))
-    const second = store.acquire('inst-d', () => ({ id: 'a' }))
-
-    first.release()
-    first.release()
-    first.release()
-    expect(dispose).not.toHaveBeenCalled()
-
-    second.release()
-    expect(dispose).toHaveBeenCalledTimes(1)
-  })
-
-  it('builds a fresh value after the key was disposed', () => {
-    const store = makeWidgetInstanceStore<Value>()
-    const make = vi.fn(() => ({ id: 'a' }))
-
-    const first = store.acquire('inst-e', make)
-    first.release()
-    const second = store.acquire('inst-e', make)
-
-    expect(second.value).not.toBe(first.value)
-    expect(make).toHaveBeenCalledTimes(2)
-
-    second.release()
+    expect(store('a', make)).toBe(store('a', make))
+    expect(store('a', make)).not.toBe(store('b', make))
   })
 
   it('never shares a key between two stores', () => {
-    const one = makeWidgetInstanceStore<Value>()
-    const other = makeWidgetInstanceStore<Value>()
+    const one = makeWidgetInstanceStore<Value>({ name: 'one' })
+    const other = makeWidgetInstanceStore<Value>({ name: 'other' })
 
-    const first = one.acquire('same', () => ({ id: 'one' }))
-    const second = other.acquire('same', () => ({ id: 'other' }))
+    expect(one('same', () => ({ id: 1 }))).not.toBe(other('same', () => ({ id: 2 })))
+  })
 
-    expect(first.value.id).toBe('one')
-    expect(second.value.id).toBe('other')
+  it('gives both mounts of one key the same value', () => {
+    const { Probe, stats } = setup()
 
-    first.release()
-    second.release()
+    render(
+      <>
+        <Probe instanceKey="a" testId="one" />
+        <Probe instanceKey="a" testId="two" />
+      </>,
+    )
+
+    expect(screen.getByTestId('one')).toHaveTextContent('1')
+    expect(screen.getByTestId('two')).toHaveTextContent('1')
+    expect(stats().built).toBe(1)
+  })
+
+  it('disposes only after the last mount is gone', async () => {
+    const { Probe, stats } = setup()
+
+    const view = render(
+      <>
+        <Probe instanceKey="a" testId="one" />
+        <Probe instanceKey="a" testId="two" />
+      </>,
+    )
+
+    view.rerender(<Probe instanceKey="a" testId="one" />)
+    await settle()
+    expect(stats().disposed).toEqual([])
+
+    view.unmount()
+    await settle()
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+  })
+
+  it('builds a fresh value on the next mount instead of resurrecting the disposed one', async () => {
+    const { Probe, stats } = setup()
+
+    const first = render(<Probe instanceKey="a" testId="one" />)
+    first.unmount()
+    await settle()
+
+    render(<Probe instanceKey="a" testId="two" />)
+    await waitFor(() => expect(screen.getByTestId('two')).toBeInTheDocument())
+
+    // A computed's cache survives disconnection, so this only holds because the
+    // disconnect hook drops the handle and the next read builds a new atom.
+    expect(screen.getByTestId('two')).toHaveTextContent('2')
+    expect(stats().built).toBe(2)
   })
 })
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `pnpm --filter widget-sdk exec vitest run src/instance/instance-store.test.ts`
+Run: `pnpm --filter widget-sdk exec vitest run src/instance/instance-store.test.tsx`
 Expected: FAIL — `Failed to resolve import "./instance-store"`.
 
 - [ ] **Step 3: Write the store**
@@ -195,232 +202,105 @@ Expected: FAIL — `Failed to resolve import "./instance-store"`.
 Create `packages/widget-sdk/src/instance/instance-store.ts`:
 
 ```ts
-export type InstanceLease<Value> = {
-  value: Value
-  release: () => void
-}
+import { computed, withDisconnectHook } from '@reatom/core'
+import type { Computed } from '@reatom/core'
 
-export type WidgetInstanceStore<Value> = {
-  acquire: (key: string, make: () => Value) => InstanceLease<Value>
-}
+export type WidgetInstanceStore<Value> = (key: string, make: () => Value) => Computed<Value>
 
 export type MakeWidgetInstanceStoreOptions<Value> = {
+  /** Atom name prefix; each instance is named `${name}#${key}`. */
+  name: string
   dispose?: (value: Value, key: string) => void
 }
 
-type Entry<Value> = { value: Value; refs: number }
-
 /**
- * Reference-counted values shared by every mount of one widget instance.
+ * One value per widget instance, shared by every mount of that instance.
  *
  * The board renders a tile for every placed widget and the fullscreen overlay
  * renders a SECOND frame for the expanded one, so anything a widget keeps in
  * `useMemo` is built twice and lost on every tier switch. A widget creates one
- * store at module scope, keys it by `instanceId`, and every mount leases the
- * same value.
+ * store at module scope, keys it by `instanceId`, and every mount reads the
+ * same atom.
+ *
+ * Reatom's connection lifetime is the reference count: the value is built for
+ * the first subscriber and disposed when the last one disconnects. Reading the
+ * atom inside a `reatomMemo` component is what subscribes that mount, so there
+ * is nothing to release by hand.
  *
  * This is a factory, not a shared registry: the map belongs to the store the
- * widget created, so widget-sdk itself stays stateless and one widget's entries
- * are invisible to another.
+ * widget created, so widget-sdk stays stateless and one widget's instances are
+ * invisible to another.
  *
- * `make` is per call because the value depends on runtime props, but it runs
- * only for the first lease of a key — pass a `make` whose captured inputs are
- * interchangeable between mounts.
+ * `make` runs only for the first mount of a key. Pass one whose captured inputs
+ * are interchangeable between mounts, and do NOT read atoms inside it — the
+ * instance is a `computed`, so a reactive dependency would silently rebuild the
+ * whole value when it changes.
  */
 export function makeWidgetInstanceStore<Value>({
+  name,
   dispose,
-}: MakeWidgetInstanceStoreOptions<Value> = {}): WidgetInstanceStore<Value> {
-  const entries = new Map<string, Entry<Value>>()
+}: MakeWidgetInstanceStoreOptions<Value>): WidgetInstanceStore<Value> {
+  const handles = new Map<string, Computed<Value>>()
 
-  return {
-    acquire: (key, make) => {
-      const entry = entries.get(key) ?? { value: make(), refs: 0 }
-      entry.refs += 1
-      entries.set(key, entry)
+  return (key, make) => {
+    const cached = handles.get(key)
+    if (cached) return cached
 
-      let released = false
-      return {
-        value: entry.value,
-        release: () => {
-          // Idempotent per lease: useWidgetInstance releases in render on a key
-          // change and again from the matching effect cleanup.
-          if (released) return
-          released = true
-          entry.refs -= 1
-          if (entry.refs > 0) return
-          if (entries.get(key) === entry) entries.delete(key)
-          dispose?.(entry.value, key)
-        },
-      }
-    },
+    let current: { value: Value } | null = null
+    const handle = computed(() => {
+      current = { value: make() }
+      return current.value
+    }, `${name}#${key}`).extend(
+      withDisconnectHook(() => {
+        // A computed's cache survives disconnection, so the handle has to go
+        // with the value: keeping it would hand the next mount a disposed
+        // value instead of rebuilding one.
+        handles.delete(key)
+        const held = current
+        current = null
+        if (held) dispose?.(held.value, key)
+      }),
+    )
+    handles.set(key, handle)
+    return handle
   }
 }
+```
+
+Add it to `packages/widget-sdk/src/index.ts`:
+
+```ts
+export * from './instance/instance-store'
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `pnpm --filter widget-sdk exec vitest run src/instance/instance-store.test.ts`
-Expected: PASS, 6 tests.
+Run: `pnpm --filter widget-sdk exec vitest run src/instance/instance-store.test.tsx`
+Expected: PASS, 5 tests.
 
-- [ ] **Step 5: Write the failing hook test**
-
-Create `packages/widget-sdk/src/instance/use-widget-instance.test.tsx`:
-
-```tsx
-import { render, screen } from '@testing-library/react'
-
-import { makeWidgetInstanceStore } from './instance-store'
-import type { WidgetInstanceStore } from './instance-store'
-import { useWidgetInstance } from './use-widget-instance'
-
-type Value = { id: string }
-
-function Probe({
-  store,
-  instanceKey,
-  make,
-  testId,
-}: {
-  store: WidgetInstanceStore<Value>
-  instanceKey: string
-  make: () => Value
-  testId: string
-}) {
-  const value = useWidgetInstance(store, instanceKey, make)
-  return <span data-testid={testId}>{value.id}</span>
-}
-
-describe('useWidgetInstance', () => {
-  it('gives both mounts of one key the same value', () => {
-    const store = makeWidgetInstanceStore<Value>()
-    let built = 0
-    const make = () => ({ id: `v${(built += 1)}` })
-
-    render(
-      <>
-        <Probe store={store} instanceKey="a" make={make} testId="one" />
-        <Probe store={store} instanceKey="a" make={make} testId="two" />
-      </>,
-    )
-
-    expect(screen.getByTestId('one')).toHaveTextContent('v1')
-    expect(screen.getByTestId('two')).toHaveTextContent('v1')
-    expect(built).toBe(1)
-  })
-
-  it('disposes only after the last mount is gone', () => {
-    const dispose = vi.fn()
-    const store = makeWidgetInstanceStore<Value>({ dispose })
-    const make = () => ({ id: 'v' })
-
-    const view = render(
-      <>
-        <Probe store={store} instanceKey="a" make={make} testId="one" />
-        <Probe store={store} instanceKey="a" make={make} testId="two" />
-      </>,
-    )
-
-    view.rerender(<Probe store={store} instanceKey="a" make={make} testId="one" />)
-    expect(dispose).not.toHaveBeenCalled()
-
-    view.unmount()
-    expect(dispose).toHaveBeenCalledTimes(1)
-  })
-
-  it('swaps the lease when the key changes', () => {
-    const dispose = vi.fn()
-    const store = makeWidgetInstanceStore<Value>({ dispose })
-    let built = 0
-    const make = () => ({ id: `v${(built += 1)}` })
-
-    const view = render(<Probe store={store} instanceKey="a" make={make} testId="one" />)
-    expect(screen.getByTestId('one')).toHaveTextContent('v1')
-
-    view.rerender(<Probe store={store} instanceKey="b" make={make} testId="one" />)
-
-    expect(screen.getByTestId('one')).toHaveTextContent('v2')
-    expect(dispose).toHaveBeenCalledTimes(1)
-  })
-})
-```
-
-- [ ] **Step 6: Run it to verify it fails**
-
-Run: `pnpm --filter widget-sdk exec vitest run src/instance/use-widget-instance.test.tsx`
-Expected: FAIL — `Failed to resolve import "./use-widget-instance"`.
-
-- [ ] **Step 7: Write the hook and export both modules**
-
-Create `packages/widget-sdk/src/instance/use-widget-instance.ts`:
-
-```ts
-import { useEffect, useRef } from 'react'
-
-import type { InstanceLease, WidgetInstanceStore } from './instance-store'
-
-type Held<Value> = { key: string; lease: InstanceLease<Value> }
-
-/**
- * Leases this widget instance's shared value for the lifetime of the mount.
- * The lease is taken during render — a ref guard keeps a repeated render of the
- * same fiber from taking a second one — and released from effect cleanup.
- *
- * A render React discards before commit leaks one lease, which only delays
- * disposal to the next page load. Stores whose values own live resources should
- * tie those resources to an effect rather than to disposal alone.
- */
-export function useWidgetInstance<Value>(
-  store: WidgetInstanceStore<Value>,
-  key: string,
-  make: () => Value,
-): Value {
-  const held = useRef<Held<Value> | null>(null)
-
-  if (held.current?.key !== key) {
-    held.current?.lease.release()
-    held.current = { key, lease: store.acquire(key, make) }
-  }
-  const current = held.current
-
-  useEffect(() => {
-    return () => {
-      current.lease.release()
-      if (held.current === current) held.current = null
-    }
-  }, [current])
-
-  return current.lease.value
-}
-```
-
-Add both to `packages/widget-sdk/src/index.ts`:
-
-```ts
-export * from './instance/instance-store'
-export * from './instance/use-widget-instance'
-```
-
-- [ ] **Step 8: Run the whole widget-sdk suite**
+- [ ] **Step 5: Run the whole widget-sdk suite**
 
 Run: `pnpm --filter widget-sdk test`
-Expected: PASS, including the new store and hook tests.
+Expected: PASS. `src/package-entrypoints.test.ts` imports `./index` in a node environment; the new module pulls in `@reatom/core` only, so it stays green.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add packages/widget-sdk/src/instance packages/widget-sdk/src/index.ts
-git commit -m "feat(widget-sdk): add a reference-counted widget instance store
+git commit -m "feat(widget-sdk): add a connection-scoped widget instance store
 
 The board mounts a placed widget twice while fullscreen is open — once as a
 tile, once in the overlay — so per-mount useMemo state is built twice and lost
-on every tier switch. Widgets can now lease one value per instanceId instead.
+on every tier switch. Widgets can now share one value per instanceId, built for
+the first subscriber and disposed when the last one disconnects.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
+
 ---
 
-### Task 3: Lease the store from the widget and drop StrictMode
+### Task 3: Read the shared instance in the widget and drop StrictMode
 
 After this task both mounts of one placed widget share state, and only the non-fullscreen mount renders the recovery modal.
 
@@ -431,10 +311,10 @@ After this task both mounts of one placed widget share state, and only the non-f
 - Test: `packages/widgets/passport-checker/ui/PassportChecker.test.tsx` (append a new `describe`)
 
 **Interfaces:**
-- Consumes: `makeWidgetInstanceStore` and `useWidgetInstance` from Task 2, exported from `widget-sdk`; `PassportCheckModel`, `RecoveryModel`, `RecoveryFlow` from the widget's `model/`.
+- Consumes: `makeWidgetInstanceStore` from Task 2, exported from `widget-sdk`; `PassportCheckModel`, `RecoveryModel`, `RecoveryFlow` from the widget's `model/`.
 - Produces:
   - `type PassportInstanceModels = { checkModel: PassportCheckModel; recoveryModel: RecoveryModel; recoveryFlow: RecoveryFlow }`
-  - `passportInstances: WidgetInstanceStore<PassportInstanceModels>`
+  - `passportInstance: WidgetInstanceStore<PassportInstanceModels>`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -551,26 +431,26 @@ export type PassportInstanceModels = {
 }
 
 /**
- * One model graph per placed passport widget, leased by both the board tile and
+ * One model graph per placed passport widget, read by both the board tile and
  * the fullscreen overlay. Disposal tears the recovery session down as a safety
  * net in case the modal outlived the widget; in the normal flow the recovery
  * canvas effect has already done it.
  */
-export const passportInstances = makeWidgetInstanceStore<PassportInstanceModels>({
+export const passportInstance = makeWidgetInstanceStore<PassportInstanceModels>({
+  name: 'passport.instance',
   dispose: (models) => models.recoveryModel.teardown(),
 })
 ```
 
 - [ ] **Step 4: Wire the widget to the store**
 
-Rewrite the body of `packages/widgets/passport-checker/ui/PassportChecker.tsx` (keep `isStandardLayout` and the imports it needs; import `useWidgetInstance` from `widget-sdk` and `passportInstances` from `../model/instance-store`, drop the three model `useMemo`s):
+Rewrite the body of `packages/widgets/passport-checker/ui/PassportChecker.tsx` (keep `isStandardLayout` and the imports it needs; import `passportInstance` from `../model/instance-store`, drop the three model `useMemo`s). The component is already a `reatomMemo`, so reading the instance atom in its body is what subscribes this mount:
 
 ```tsx
 export const PassportChecker = reatomMemo(() => {
   const { tier, typeId, instanceId, api } = useWidgetContext<PassportCheckerEvents>()
 
-  const { checkModel, recoveryModel, recoveryFlow } = useWidgetInstance(
-    passportInstances,
+  const { checkModel, recoveryModel, recoveryFlow } = passportInstance(
     instanceId,
     () => {
       const checkModel = makePassportCheckModel({ api })
@@ -585,7 +465,7 @@ export const PassportChecker = reatomMemo(() => {
         recoveryFlow: makeRecoveryFlow({ checkModel, recoveryModel }),
       }
     },
-  )
+  )()
 
   const value = useMemo<PassportCheckerContextValue>(
     () => ({ checkModel, recoveryModel, recoveryFlow }),
@@ -616,12 +496,12 @@ Expected: PASS, including the three new tests.
 In `packages/client/src/app/main.tsx`, drop the `StrictMode` import and wrapper:
 
 ```tsx
-// StrictMode is deliberately absent. It double-invokes render and runs
-// mount -> unmount -> mount on every effect in development only, which breaks
-// reference-counted widget instance stores (widget-sdk's
-// makeWidgetInstanceStore): the first cleanup disposes the entry while the
-// component still renders against it, and nothing re-acquires. Reinstating it
-// requires making that store tolerate double mounting first.
+// StrictMode is deliberately absent. In development only, it runs
+// mount -> unmount -> mount on every effect, which empties the subscriber set
+// of widget instance stores (widget-sdk's makeWidgetInstanceStore): Reatom
+// disconnects, the store disposes the value and drops its handle, and the
+// still-mounted components keep rendering a disposed one. Reinstating it
+// requires making those stores tolerate double mounting first.
 createRoot(document.getElementById('root')!).render(<App />)
 ```
 
@@ -640,11 +520,12 @@ git add packages/widgets/passport-checker/model/instance-store.ts packages/widge
 git commit -m "feat(passport-checker): share one model graph across widget mounts
 
 The board tile and the fullscreen overlay mount the same instance twice, so
-per-mount useMemo models lost every result on a tier switch. Lease the shared
-store instead, and let only the non-fullscreen mount own the recovery modal.
+per-mount useMemo models lost every result on a tier switch. Read one shared
+instance instead, and let only the non-fullscreen mount own the recovery modal.
 
-StrictMode is removed: its development-only double mount is incompatible with
-reference counting, and it never runs in production.
+StrictMode is removed: its development-only remount cycle empties the
+subscriber set and disposes a value that is still mounted, and it never runs in
+production.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
@@ -879,7 +760,7 @@ In `packages/widgets/passport-checker/ui/PassportChecker.tsx`, build both callba
 const { tier, typeId, instanceId, api, requestClose, requestFullscreen } =
   useWidgetContext<PassportCheckerEvents>()
 
-// …lease + context value as in Task 3…
+// …instance read + context value as in Task 3…
 
 const openRecovery = wrap(() =>
   recoveryFlow.openRecovery({ fromFullscreen: tier === 'fullscreen', collapse: requestClose }),
@@ -1339,6 +1220,8 @@ Then update the PR #23 description: the "Known limitations (fullscreen stack onl
 ## Notes for the implementer
 
 - **Why the store is a factory in `widget-sdk` and not state in `widget-runtime`:** `widget-runtime` is a strict federation singleton for host contracts and connections; a factory keeps `widget-sdk` stateless, gives each widget its own map, and keeps widget state out of the singleton. `clock` and `ofelia-poop-duty` are not migrated — one holds no state, the other keeps its state in storage, which already survives a tier switch.
+- **Why the store creator is `make*` and not `reatom*`:** Reatom's review guidance names atom factories `reatom*`, but this creates a store whose per-key accessor is memoized rather than a fresh factory per call, and the repository's own model factories (`makePassportCheckModel`, `makeRecoveryModel`) already use `make*`. What that convention protects — named, traceable atoms — is satisfied by `${name}#${key}`.
+- **Why `make` must not read atoms:** the instance is a `computed`, so a reactive dependency inside `make` would silently rebuild the entire value when it changes.
 - **Why `api` is captured from whichever mount arrives first:** `makeWidgetApi` is a stateless wrapper over the shared http port (`packages/widget-runtime/src/host-runtime.ts:64`), so the two mounts' `api` objects are interchangeable.
-- **Why test isolation needs no reset hook:** Testing Library's automatic cleanup (`globals: true` in `defineWidgetVitestConfig`) unmounts after every test, which drops the reference count to zero and disposes the entry.
+- **Why test isolation needs no reset hook:** Testing Library's automatic cleanup (`globals: true` in `defineWidgetVitestConfig`) unmounts after every test, which disconnects the instance atom and disposes it. Disconnection is not synchronous with unmount, so any test asserting on disposal has to await it.
 - **What is deliberately out of scope:** host-owned instance lifetime (the board never creates or disposes entries), persistence of check results, and any change to the recovery transport, capability lifecycle, server handler or browser task.
