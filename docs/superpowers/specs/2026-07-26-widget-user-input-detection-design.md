@@ -110,8 +110,6 @@ export type DetectUserInputOptions = {
 - `src/config.ts` — parses and validates `AUTOMATION_SSH_TARGET`;
   `normalizeRecoverySshTarget`'s regex moves here.
 - `src/index.ts` — passes `config.recoverySshTarget` to the executor.
-- `src/testing/fake-executor.ts` — same context shape, with a recording
-  `detectUserInput` for widget tests.
 - `packages/browser-automation/package.json` — new export subpaths
   `./user-input` and `./user-input/cloudflare`.
 
@@ -258,8 +256,18 @@ Platform (`packages/browser-automation`):
   `prepare` ran before retention; `prepare` failure → escalation happens anyway;
   `prepare` not called when the detector did not match.
 - `chromium-executor.test.ts` — `detectUserInput` actually raises the flag, and
-  `hasRetainedPage` reports `true` after release.
-- `testing/fake-executor.ts` — recording `detectUserInput` for widget tests.
+  `hasRetainedPage` reports `true` after release. Its six existing
+  `context.retainPageForRecovery()` call sites become
+  `await context.detectUserInput(async () => true)`.
+- `diagnostics.test.ts` — its three `BrowserTaskContext` literals swap
+  `retainPageForRecovery: () => undefined` for `detectUserInput: async () => null`.
+
+`src/testing/fake-executor.ts` needs no change: `makeFakeExecutor` returns a
+`BrowserExecutor<FakeContext>` where `FakeContext = { id, signal }`. It fakes the
+executor, never a `BrowserTaskContext`, so the context shape does not reach it.
+The only places that build a `BrowserTaskContext` literal are `diagnostics.test.ts`
+and the widget's two browser test files, each of which stubs `detectUserInput`
+inline.
 
 Widget (`packages/widgets/passport-checker`):
 
