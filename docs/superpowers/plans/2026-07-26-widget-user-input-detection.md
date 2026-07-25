@@ -402,11 +402,15 @@ a broken check from a negative one."
 
 ## Task 3: Cloudflare helper in the platform
 
-Copies (does not yet delete) the widget's `browser/challenge.ts`, adds the probe that currently lives in `check.ts`, and moves its tests. The widget keeps using its own copy until Task 5, so the tree stays green.
+Moves the widget's `browser/challenge.ts` into the platform and reunites it with the DOM probe that was left behind in `check.ts`. This is a move, not a copy: the widget switches to the new import in this same task, so the classifier never exists in two places. The widget's own escalation code still calls it by hand — that changes in Task 5.
 
 **Files:**
 - Create: `packages/browser-automation/src/user-input/cloudflare.ts`
 - Test: `packages/browser-automation/src/user-input/cloudflare.test.ts`
+- Delete: `packages/widgets/passport-checker/browser/challenge.ts`
+- Modify: `packages/widgets/passport-checker/browser/check.ts` (import path only)
+- Modify: `packages/widgets/passport-checker/browser/check.test.ts` (move three describes out)
+- Modify: `packages/widgets/passport-checker/package.json`
 
 **Interfaces:**
 - Consumes: `UserInputDetector` from `./detector`.
@@ -902,24 +906,47 @@ export function makeCloudflareEvidenceDetector(evidence: ChallengeEvidence): Use
 Run: `pnpm --filter browser-automation exec vitest run src/user-input/cloudflare.test.ts`
 Expected: PASS, 26 tests.
 
-- [ ] **Step 5: Run the package suite and typecheck**
+- [ ] **Step 5: Move the widget off its own copy**
 
-Run: `pnpm --filter browser-automation test && pnpm --filter browser-automation typecheck`
-Expected: PASS, typecheck silent.
+Delete `packages/widgets/passport-checker/browser/challenge.ts`.
 
-- [ ] **Step 6: Commit**
+In `packages/widgets/passport-checker/browser/check.ts`, change only the import — the handler body stays exactly as it is in this task:
+
+```ts
+import {
+  evidenceFromResponseText,
+  isCloudflareChallenge,
+  type ChallengeEvidence,
+} from 'browser-automation/user-input/cloudflare'
+```
+
+In `packages/widgets/passport-checker/package.json`, move `"browser-automation": "workspace:*"` from `devDependencies` to `dependencies`: `check.ts` now imports runtime values from it, not only types.
+
+In `packages/widgets/passport-checker/browser/check.test.ts`, delete the three describes that now live in the platform suite — `'Cloudflare challenge classifier'`, `'evidenceFromResponseText'` and `'evidenceFromResponseText spliced into a page callback'` — and retarget the remaining imports, keeping `baseEvidence` and everything else in the file:
+
+```ts
+import type { ChallengeEvidence } from 'browser-automation/user-input/cloudflare'
+```
+
+- [ ] **Step 6: Run both suites and both typechecks**
+
+Run: `pnpm --filter browser-automation test && pnpm --filter browser-automation typecheck && pnpm --filter widgets-passport-checker test && pnpm --filter widgets-passport-checker typecheck`
+Expected: all PASS, typechecks silent. The widget suite loses the 15 tests that moved to the platform and gains none.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add packages/browser-automation
-git commit -m "feat(browser-automation): add a reusable Cloudflare challenge detector
+git add packages/browser-automation packages/widgets/passport-checker
+git commit -m "feat(browser-automation): move Cloudflare detection into the platform
 
-Copies the passport-checker widget's challenge classifier into the platform and
-reunites it with the DOM probe that had been left behind in the widget's check
-handler, so the reusable unit is the whole check rather than half of it. Ships
-two detector factories: one that probes the live page, one that classifies
-evidence already derived inside the page from a fetch response.
+The classifier lived in the passport-checker widget while the DOM probe feeding
+it lived in that widget's check handler, so the only reusable half was the half
+without the probe. Both now sit in browser-automation behind two detector
+factories: one that probes the live page, one that classifies evidence already
+derived inside the page from a fetch response.
 
-The widget still uses its own copy; it switches over in a later commit."
+The widget imports the moved module rather than keeping a copy; it still calls
+the classifier by hand, which the next commit changes."
 ```
 
 ---
@@ -1339,9 +1366,7 @@ degrades to null rather than failing config loading and killing the service."
 
 - [ ] **Step 1: Rewrite the handler tests**
 
-In `packages/widgets/passport-checker/browser/check.test.ts`:
-
-Delete the three describes that moved to the platform in Task 3 — `'Cloudflare challenge classifier'`, `'evidenceFromResponseText'` and `'evidenceFromResponseText spliced into a page callback'` — and drop the now-unused `evidenceFromResponseText` / `isCloudflareChallenge` imports. Keep `baseEvidence`, now imported from the platform:
+In `packages/widgets/passport-checker/browser/check.test.ts` — Task 3 already moved the three Cloudflare describes out and retargeted the `ChallengeEvidence` import, so this task only rewrites the handler tests. The import block becomes:
 
 ```ts
 // @vitest-environment node
@@ -1612,8 +1637,6 @@ Expected: PASS.
 
 - [ ] **Step 5: Delete the widget's leftovers**
 
-Delete `packages/widgets/passport-checker/browser/challenge.ts`.
-
 In `packages/widgets/passport-checker/browser/errors.ts`, delete `BrowserSessionRequiredErrorOptions` and the whole `BrowserSessionRequiredError` class.
 
 In `packages/widgets/passport-checker/browser/check.integration.test.ts`, change the error import to take the escalation type from the platform:
@@ -1650,8 +1673,6 @@ This suite builds its `BrowserTaskContext` by hand around a real Playwright page
 Then in the three tests that destructure `retainPageForRecovery` from `runCheck()` — `'retains a visible navigation challenge without POST'`, `'maps a POST challenge and prepares recovery without repeating POST'`, and the recovery-navigation-failure test — rename the destructured binding to `retain` and change `expect(retainPageForRecovery).toHaveBeenCalledOnce()` to `expect(retain).toHaveBeenCalledOnce()`.
 
 The recovery-navigation-failure test asserts `expect(warn).toHaveBeenCalledOnce()`. It still holds: the prepare failure is now logged by `makeDetectUserInput` under a different message, still exactly once, and still with the raw cause — so the neighbouring assertion that the log does not contain the passport series stays meaningful.
-
-In `packages/widgets/passport-checker/package.json`, move `"browser-automation": "workspace:*"` from `devDependencies` to `dependencies`: `check.ts` now imports runtime values from it, not only types.
 
 - [ ] **Step 6: Add the new error message**
 
