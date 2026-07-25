@@ -10,6 +10,7 @@ describe('loadBrowserServiceConfig', () => {
       executionMs: 60_000,
       profileDir: '/profile',
       secretsDir: '/run/secrets',
+      recoverySshTarget: null,
     })
   })
 
@@ -25,8 +26,30 @@ describe('loadBrowserServiceConfig', () => {
       executionMs: 15000,
       profileDir: '/profile',
       secretsDir: '/run/secrets',
+      recoverySshTarget: null,
     })
   })
+
+  it('normalizes a usable AUTOMATION_SSH_TARGET', () => {
+    expect(loadBrowserServiceConfig({ AUTOMATION_SSH_TARGET: ' pi@myboard.local ' })).toMatchObject(
+      { recoverySshTarget: 'pi@myboard.local' },
+    )
+    expect(loadBrowserServiceConfig({ AUTOMATION_SSH_TARGET: '192.168.1.10' })).toMatchObject({
+      recoverySshTarget: '192.168.1.10',
+    })
+  })
+
+  // The value is public recovery metadata the UI shows, and config failures
+  // reach process.exit(1) in index.ts. A typo in .env must cost the SSH hint,
+  // never the whole automation service.
+  it.each(['pi@host; shutdown', '', 'pi@host/../etc'])(
+    'degrades an unusable AUTOMATION_SSH_TARGET to null instead of failing the config',
+    (value) => {
+      const config = loadBrowserServiceConfig({ AUTOMATION_SSH_TARGET: value })
+      expect(config).not.toBeInstanceOf(BrowserServiceConfigError)
+      expect(config).toMatchObject({ recoverySshTarget: null })
+    },
+  )
 
   it('reads profile and secrets directory overrides', () => {
     const config = loadBrowserServiceConfig({

@@ -124,6 +124,7 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
       page,
       secrets: fixtureSecrets(),
       retainPageForRecovery,
+      detectUserInput: async () => null,
     }
     const result = await definition.handlers.check({}, context)
     if (!retainPageForRecovery.mock.calls.length) await page.close()

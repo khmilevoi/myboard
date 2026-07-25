@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import * as errore from 'errore'
-import type { BrowserContext } from 'playwright'
+import type { BrowserContext, Page } from 'playwright'
 import { describe, expect, it, vi } from 'vitest'
 
+import { UserInputProbeError, UserInputRequiredError, type UserInputDetector } from '../user-input'
 import {
   BrowserLaunchError,
   makeChromiumExecutor,
@@ -505,5 +506,125 @@ describe('makeChromiumExecutor', () => {
     expect(executor.hasRetainedPage('passport-checker')).toBe(false)
     // The stale entry is dropped, so a later acquire has nothing to close.
     expect(created[0].pages[0].closeCalls).toBe(1)
+  })
+
+  it('returns null and leaves the page unretained when the detector declines', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    expect(await context.detectUserInput(async () => false)).toBeNull()
+    await executor.release(context)
+
+    expect(executor.hasRetainedPage('passport-checker')).toBe(false)
+  })
+
+  it('retains the page and returns the canonical error when the detector matches', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor({
+      ...makeDeps(created),
+      recoverySshTarget: 'pi@myboard.local',
+    })
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    const escalation = await context.detectUserInput(async () => true)
+    expect(escalation).toBeInstanceOf(UserInputRequiredError)
+    expect((escalation as UserInputRequiredError).sshTarget).toBe('pi@myboard.local')
+
+    await executor.release(context)
+    expect(executor.hasRetainedPage('passport-checker')).toBe(true)
+  })
+
+  it('reports a null ssh target when none is configured', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    const escalation = await context.detectUserInput(async () => true)
+    expect((escalation as UserInputRequiredError).sshTarget).toBeNull()
+    await executor.release(context)
+  })
+
+  it('hands the acquired page to the detector', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    const detector = vi.fn(async () => false)
+    await context.detectUserInput(detector)
+    expect(detector).toHaveBeenCalledWith(context.page)
+    await executor.release(context)
+  })
+
+  // An undecidable check is not the same as "no challenge": nobody knows whether
+  // a human could act on this page, so pinning it open for a recovery that will
+  // never happen is worse than failing the task.
+  it.each<[string, UserInputDetector]>([
+    ['returned an Error', async () => new Error('probe failed')],
+    ['rejected with an Error', () => Promise.reject(new Error('probe threw'))],
+    ['rejected with a non-Error', () => Promise.reject('target closed')],
+  ])(
+    'wraps a detector that %s as a probe error and leaves the page unretained',
+    async (_kind, detector) => {
+      const created: FakeContext[] = []
+      const executor = makeChromiumExecutor(makeDeps(created))
+      const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+      if (context instanceof Error) throw context
+
+      const result = await context.detectUserInput(detector)
+      expect(result).toBeInstanceOf(UserInputProbeError)
+
+      await executor.release(context)
+      expect(executor.hasRetainedPage('passport-checker')).toBe(false)
+    },
+  )
+
+  it('runs prepare before retaining, and only when the detector matched', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+
+    const declined = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (declined instanceof Error) throw declined
+    const skippedPrepare = vi.fn(async () => undefined)
+    await declined.detectUserInput(async () => false, { prepare: skippedPrepare })
+    expect(skippedPrepare).not.toHaveBeenCalled()
+    await executor.release(declined)
+
+    const matched = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (matched instanceof Error) throw matched
+    // The explicit parameter is what makes toHaveBeenCalledWith below type-check:
+    // an inferred zero-argument mock accepts no expected arguments.
+    const prepare = vi.fn(async (_page: Page) => {
+      expect(executor.hasRetainedPage('passport-checker')).toBe(false)
+    })
+    await matched.detectUserInput(async () => true, { prepare })
+    expect(prepare).toHaveBeenCalledOnce()
+    expect(prepare).toHaveBeenCalledWith(matched.page)
+    await executor.release(matched)
+    expect(executor.hasRetainedPage('passport-checker')).toBe(true)
+  })
+
+  it('escalates even when prepare fails, and says so in the log', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    const escalation = await context.detectUserInput(async () => true, {
+      prepare: async () => {
+        throw new Error('prepare failed')
+      },
+    })
+    expect(escalation).toBeInstanceOf(UserInputRequiredError)
+    expect(warn).toHaveBeenCalled()
+
+    await executor.release(context)
+    expect(executor.hasRetainedPage('passport-checker')).toBe(true)
+    warn.mockRestore()
   })
 })

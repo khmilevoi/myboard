@@ -116,6 +116,7 @@ function makeContext(scenario: PageScenario) {
     page: { goto, evaluate } as unknown as Page,
     secrets: secrets('АБ', '123456'),
     retainPageForRecovery,
+    detectUserInput: async () => null,
   }
   return { context, evaluate, goto, retainPageForRecovery }
 }

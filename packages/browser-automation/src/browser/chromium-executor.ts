@@ -6,6 +6,7 @@ import { chromium, type BrowserContext, type Page } from 'playwright'
 
 import { BrowserTaskError } from '../errors'
 import type { BrowserExecutor } from '../executor'
+import { makeDetectUserInput } from '../user-input'
 import { type BrowserTaskContext } from './context'
 import { makeWidgetSecrets } from './secrets'
 
@@ -89,6 +90,8 @@ function toAbortError(signal: AbortSignal) {
 export function makeChromiumExecutor(deps: {
   profileDir: string
   secretsDir: string
+  /** Public SSH fallback hint put into escalation error meta. */
+  recoverySshTarget?: string | null
   launch?: LaunchPersistentContext
 }): BrowserExecutor<BrowserTaskContext> {
   const launch = deps.launch ?? launchPersistentChromium
@@ -200,6 +203,13 @@ export function makeChromiumExecutor(deps: {
           retainPageForRecovery() {
             managedContext.retained = true
           },
+          detectUserInput: makeDetectUserInput({
+            page,
+            recoverySshTarget: deps.recoverySshTarget ?? null,
+            retain: () => {
+              managedContext.retained = true
+            },
+          }),
         }
 
         activeTaskCount += 1
