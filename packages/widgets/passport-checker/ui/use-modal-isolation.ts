@@ -60,6 +60,19 @@ export function useModalIsolation(rootRef: RefObject<HTMLElement | null>, onClos
     }
     window.addEventListener('focusout', onFocusOut, true)
 
+    // Focus containment. Radix's FocusScope restores focus on unmount from a
+    // setTimeout(…, 0), so collapsing the board's fullscreen dialog to show
+    // this modal would otherwise hand focus to the board one tick after we
+    // mounted. Pull it back instead. No ping-pong with a Radix layer beneath:
+    // focusin raised inside the modal is stopped at the root below and never
+    // reaches document, so its FocusScope never sees our focus.
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target
+      if (target instanceof Node && root.contains(target)) return
+      focusables()[0]?.focus()
+    }
+    window.addEventListener('focusin', onFocusIn, true)
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -88,6 +101,7 @@ export function useModalIsolation(rootRef: RefObject<HTMLElement | null>, onClos
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
       window.removeEventListener('focusout', onFocusOut, true)
+      window.removeEventListener('focusin', onFocusIn, true)
       root.removeEventListener('pointerdown', onPointerDown)
       root.removeEventListener('focusin', stop)
       previouslyFocused?.focus()

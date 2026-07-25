@@ -78,13 +78,13 @@ function setup(
 
   const recoveryFlow = makeRecoveryFlow({ checkModel, recoveryModel })
 
-  render(
+  const view = render(
     <passportCheckerContext.Provider value={{ checkModel, recoveryModel, recoveryFlow }}>
       <RecoveryModal restoreFullscreen={vi.fn()} />
     </passportCheckerContext.Provider>,
   )
 
-  return { checkModel, recoveryModel, invoke, issueCalls, rfbs }
+  return { ...view, checkModel, recoveryModel, invoke, issueCalls, rfbs }
 }
 
 describe('formatAccessCountdown', () => {
@@ -210,5 +210,34 @@ describe('RecoveryModal', () => {
     fireEvent.keyDown(document, { key: 'Tab' })
     expect(dialog.contains(document.activeElement)).toBe(true)
     expect(document.activeElement).not.toBe(last)
+  })
+})
+
+describe('RecoveryModal focus containment', () => {
+  it('pulls focus back when something outside steals it', async () => {
+    setup([{ expiresInMs: 60_000 }])
+    const dialog = await screen.findByRole('dialog')
+
+    const outside = document.createElement('button')
+    outside.textContent = 'outside'
+    document.body.append(outside)
+    outside.focus()
+
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    outside.remove()
+  })
+
+  it('leaves focus alone once the modal is gone', async () => {
+    const view = setup([{ expiresInMs: 60_000 }])
+    await screen.findByRole('dialog')
+
+    const outside = document.createElement('button')
+    document.body.append(outside)
+
+    view.unmount()
+
+    outside.focus()
+    expect(document.activeElement).toBe(outside)
+    outside.remove()
   })
 })

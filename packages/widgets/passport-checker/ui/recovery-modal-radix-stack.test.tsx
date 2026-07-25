@@ -109,16 +109,6 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
 }
 
 describe('RecoveryModal nested under a modal Radix dialog', () => {
-  // NOTE: the spec's first assertion — "on mount, focus lands INSIDE our modal
-  // despite the trapped FocusScope underneath" — is intentionally NOT tested
-  // here. Our portal is a document.body sibling of the Radix content, and
-  // Radix's FocusScope mount-autofocus is a PARENT effect that runs after our
-  // (child) mount focus, so it legitimately re-steals focus to its own content.
-  // The focusout guard only defends focus moving INTO our modal (the second
-  // test below), not the initial mount hand-off; winning mount focus would need
-  // an out-of-scope fix beyond the three proven isolation axes. Documented as
-  // dropped rather than asserted vacuously.
-
   it('Escape closes ONLY our modal, not the underlying Radix dialog', async () => {
     const { checkModel, onOpenChange, ourDialog } = renderNested()
     await waitFor(() => expect(ourDialog()).toBeInTheDocument())
@@ -129,17 +119,11 @@ describe('RecoveryModal nested under a modal Radix dialog', () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 
-  it('holds focus in our modal when refocused after Radix content held it', async () => {
+  it('pulls focus back when the underlying Radix content takes it', () => {
     const { ourDialog } = renderNested()
     const dialog = ourDialog()
 
-    const insideRadix = screen.getByRole('button', { name: 'inside radix' })
-    insideRadix.focus()
-    expect(document.activeElement).toBe(insideRadix)
-
-    const ourButton = dialog.querySelector('button')
-    if (!(ourButton instanceof HTMLElement)) throw new Error('expected a button in our modal')
-    ourButton.focus()
+    screen.getByRole('button', { name: 'inside radix' }).focus()
 
     expect(dialog.contains(document.activeElement)).toBe(true)
   })
