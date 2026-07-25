@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./task-context": "./src/browser/context.ts"
+    "./task-context": "./src/browser/context.ts",
+    "./user-input": "./src/user-input/index.ts",
+    "./user-input/cloudflare": "./src/user-input/cloudflare.ts"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
