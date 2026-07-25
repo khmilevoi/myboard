@@ -1,5 +1,6 @@
 import { reatomComponent } from '@reatom/react'
 import { render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 
 import { makeWidgetInstanceStore } from './instance-store'
 
@@ -173,5 +174,76 @@ describe('makeWidgetInstanceStore', () => {
 
     staleResubscribe()
     await settle()
+  })
+})
+
+describe('makeWidgetInstanceStore under StrictMode', () => {
+  it('gives both mounts of one key the same value, built once, disposing nothing while both are mounted', async () => {
+    const { Probe, stats } = setup()
+
+    render(
+      <StrictMode>
+        <Probe instanceKey="a" testId="one" />
+        <Probe instanceKey="a" testId="two" />
+      </StrictMode>,
+    )
+    await settle()
+
+    expect(screen.getByTestId('one')).toHaveTextContent('1')
+    expect(screen.getByTestId('two')).toHaveTextContent('1')
+    expect(stats().built).toBe(1)
+    expect(stats().disposed).toEqual([])
+  })
+
+  it('builds exactly two values across mount -> unmount -> mount, same as the non-StrictMode baseline', async () => {
+    const { Probe, stats } = setup()
+
+    const first = render(
+      <StrictMode>
+        <Probe instanceKey="a" testId="one" />
+      </StrictMode>,
+    )
+    await settle()
+    expect(stats().built).toBe(1)
+
+    first.unmount()
+    await settle()
+
+    render(
+      <StrictMode>
+        <Probe instanceKey="a" testId="two" />
+      </StrictMode>,
+    )
+    await waitFor(() => expect(screen.getByTestId('two')).toBeInTheDocument())
+
+    expect(screen.getByTestId('two')).toHaveTextContent('2')
+    expect(stats().built).toBe(2)
+  })
+
+  it('disposes exactly once after a real unmount, and the next mount builds a fresh value instead of resurrecting the disposed one', async () => {
+    const { Probe, stats } = setup()
+
+    const view = render(
+      <StrictMode>
+        <Probe instanceKey="a" testId="one" />
+      </StrictMode>,
+    )
+    await settle()
+
+    view.unmount()
+    await settle()
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+
+    render(
+      <StrictMode>
+        <Probe instanceKey="a" testId="two" />
+      </StrictMode>,
+    )
+    await waitFor(() => expect(screen.getByTestId('two')).toBeInTheDocument())
+
+    expect(screen.getByTestId('two')).toHaveTextContent('2')
+    // Still exactly one disposal — the second mount's own eventual teardown
+    // is not part of this assertion.
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
   })
 })
