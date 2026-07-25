@@ -4,21 +4,23 @@ import type { WidgetRuntimeProps } from 'widget-runtime'
 
 import { PassportChecker } from './PassportChecker'
 
-// Root-caused (task-4-report.md, Fix round 3): the two tests below that open
-// the modal and then close it with Escape used to hang for the full test
-// budget in roughly 1 in 15-40 runs, reproducing solo with no whole-suite
-// contention required. `findByRole('dialog')` resolves as soon as the
-// dialog's DOM node commits, but `useModalIsolation`'s mount effect — which
-// attaches the Escape listener — is a passive effect that can still be
-// pending a tick later. Firing Escape into that gap dispatches into a
-// document with no listener yet, so the dialog never closes and the
-// `waitFor` below spins until it times out. Each test now waits for that
-// effect's other, synchronous side effect (moving focus into the dialog)
-// before dispatching Escape, which proves the same effect has also run and
+// Root-caused (task-4-report.md, Fix round 3; extended to the first test in
+// this file in Task 5 fix round 1): every test below that opens the modal
+// and then closes it with Escape used to hang for the full test budget in
+// roughly 1 in 15-40 runs, reproducing solo with no whole-suite contention
+// required. `findByRole('dialog')` resolves as soon as the dialog's DOM node
+// commits, but `useModalIsolation`'s mount effect — which attaches the
+// Escape listener — is a passive effect that can still be pending a tick
+// later. Firing Escape into that gap dispatches into a document with no
+// listener yet, so the dialog never closes and the `waitFor` below spins
+// until it times out. Each Escape-closing test now waits for that effect's
+// other, synchronous side effect (moving focus into the dialog) before
+// dispatching Escape, which proves the same effect has also run and
 // attached the listener. `ROUND_TRIP_TIMEOUT_MS` stays as a modest safety
-// margin for ordinary whole-suite worker contention (the other two tests in
-// this file, which never reach this Escape-close path, keep the shared
-// default and would still fail fast if they ever regressed).
+// margin for the two multi-mount tests below under ordinary whole-suite
+// worker contention (the one test in this file that never reaches the
+// Escape-close path — "collapses fullscreen…" — keeps the shared default
+// and would still fail fast if it ever regressed).
 const ROUND_TRIP_TIMEOUT_MS = 10_000
 
 function renderSessionRequired() {
@@ -73,7 +75,12 @@ describe('recovery flow from the tile', () => {
     openButton.focus()
     fireEvent.click(openButton)
     const dialog = await screen.findByRole('dialog')
-    expect(dialog.contains(document.activeElement)).toBe(true)
+    // See the file-level comment: findByRole resolves on DOM commit alone,
+    // but useModalIsolation's mount effect (which attaches the Escape
+    // listener and moves focus in) is passive and can still be pending a
+    // tick later. Wait for the synchronous side effect of that same effect
+    // — focus landing inside the dialog — before dispatching Escape below.
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
 
     fireEvent.keyDown(document, { key: 'Escape' })
     // Reatom flushes subscribers on a microtask, so the unmount (and the

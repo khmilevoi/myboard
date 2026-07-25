@@ -228,16 +228,34 @@ describe('RecoveryModal focus containment', () => {
   })
 
   it('leaves focus alone once the modal is gone', async () => {
+    // A behavioral assert alone (activeElement stays on `outside` after
+    // unmount) can't distinguish "the containment listener was removed"
+    // from "the listener leaked but is now a no-op on the detached dialog
+    // tree" — both leave `outside` focused in jsdom. Pin the actual cleanup
+    // contract directly: the exact `focusin` listener `useModalIsolation`
+    // registers on window must be the one removed on unmount.
+    const addSpy = vi.spyOn(window, 'addEventListener')
+    const removeSpy = vi.spyOn(window, 'removeEventListener')
+
     const view = setup([{ expiresInMs: 60_000 }])
     await screen.findByRole('dialog')
+
+    const [, onFocusIn] =
+      addSpy.mock.calls.find(([type, , options]) => type === 'focusin' && options === true) ?? []
+    if (typeof onFocusIn !== 'function') throw new Error('expected a captured focusin listener')
 
     const outside = document.createElement('button')
     document.body.append(outside)
 
     view.unmount()
 
+    expect(removeSpy).toHaveBeenCalledWith('focusin', onFocusIn, true)
+
     outside.focus()
     expect(document.activeElement).toBe(outside)
     outside.remove()
+
+    addSpy.mockRestore()
+    removeSpy.mockRestore()
   })
 })
