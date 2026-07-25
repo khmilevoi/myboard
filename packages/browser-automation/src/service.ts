@@ -1,10 +1,33 @@
 import { dispatchBrowserTask } from './dispatch'
-import { BrowserServiceUnavailableError, BrowserTaskError } from './errors'
+import { BrowserExecutorError, BrowserServiceUnavailableError, BrowserTaskError } from './errors'
 import type { BrowserExecutor } from './executor'
 import { makeSingleLaneQueue } from './queue'
 import type { WidgetBrowserRegistry } from './tasks/registry'
 
 export type ServiceState = 'starting' | 'ready' | 'draining'
+
+// An error name is normally a class identifier. Nothing stops foreign code from
+// putting free text there, so anything that is not identifier-shaped is dropped
+// instead of logged.
+const ERROR_NAME = /^[A-Za-z][A-Za-z0-9_$]{0,63}$/
+
+/**
+ * The names of an error and of every error in its `cause` chain — nothing else.
+ * Deliberately omits `message`, `stack`, and any other property, because those
+ * are where foreign error text (and with it task data) lives.
+ */
+function redactedErrorChain(error: Error) {
+  const names: string[] = []
+  const seen = new Set<unknown>()
+  let current: unknown = error
+  // `seen` breaks cyclic chains; the length bound keeps one log line bounded.
+  while (current instanceof Error && !seen.has(current) && names.length < 16) {
+    seen.add(current)
+    names.push(ERROR_NAME.test(current.name) ? current.name : '<redacted>')
+    current = current.cause
+  }
+  return names
+}
 
 export type BrowserService = {
   invoke(args: { widgetId: string; taskId: string; payload: unknown }): Promise<Error | unknown>
@@ -43,14 +66,36 @@ export function makeBrowserService<Context>(deps: BrowserServiceDeps<Context>): 
     )
 
     if (outcome instanceof BrowserTaskError && outcome.code === 'internal') {
-      // `internal` is all the client is told, so the cause chain has to reach
-      // the container log or the real failure is invisible. `toEnvelopeError`
-      // keeps the response redacted.
+      // `internal` is all the client is told, so something has to reach the
+      // container log or the real failure is invisible. How much depends on
+      // whether the error can have touched task data.
+      //
+      // `BrowserExecutorError` cannot: `dispatch.ts` raises it only when
+      // `executor.acquire(...)` fails, and acquire runs before the handler and
+      // is passed neither the payload nor the widget secrets, so its cause
+      // chain is Chromium/Playwright launch detail only. That is also the
+      // failure we could not previously diagnose (a stale Chromium singleton
+      // lock), so it stays logged in full.
+      //
+      // Every other internal failure — `BrowserTaskHandlerError` above all —
+      // wraps whatever the handler threw or returned. Playwright quotes
+      // `page.evaluate` arguments into its messages, and the passport widget
+      // passes the secret identity as one, so the cause `message`/`stack` can
+      // carry it (the wrapper's own stack repeats it under `Caused by:`). The
+      // design spec forbids logging that: see
+      // docs/superpowers/specs/2026-07-03-passport-checker-browser-automation-design.md
+      // :350-353 (raw Playwright/network/Zod detail is logged only after
+      // redaction, bodies never) and :684 (logs redact payloads and secrets).
+      // Those failures are reduced to their chain of error names.
+      const detail =
+        outcome instanceof BrowserExecutorError
+          ? { error: outcome }
+          : { errorChain: redactedErrorChain(outcome) }
       logger.warn('[browser-automation] task failed', {
         widgetId: args.widgetId,
         taskId: args.taskId,
         code: outcome.code,
-        error: outcome,
+        ...detail,
       })
     }
     return outcome

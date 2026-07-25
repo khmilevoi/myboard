@@ -5,7 +5,12 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import { BrowserServiceUnavailableError, BrowserTaskError, UnknownBrowserTaskError } from './errors'
+import {
+  BrowserExecutorError,
+  BrowserServiceUnavailableError,
+  BrowserTaskError,
+  UnknownBrowserTaskError,
+} from './errors'
 import { makeBrowserService } from './service'
 import { makeWidgetBrowserRegistry, type WidgetBrowserRegistry } from './tasks/registry'
 import { makeFakeExecutor, type FakeContext } from './testing/fake-executor'
@@ -138,13 +143,51 @@ describe('makeBrowserService', () => {
     expect(service.recoveryState('demo')).toEqual({ retained: true })
   })
 
-  it('logs the failing error with its cause chain for internal failures', async () => {
+  it('logs an executor failure in full, cause chain included', async () => {
+    const { executor, state } = makeFakeExecutor()
+    const warn = vi.fn()
+    // Acquire runs before the handler, so it never sees the payload or the
+    // widget secrets: its cause chain is Chromium launch detail only.
+    const cause = new Error('SingletonLock: chromium is already running')
+    state.acquireError = cause
+    const service = makeBrowserService({
+      registry: registryWith((p) => ({ echoed: p.value })),
+      executor,
+      config,
+      logger: { warn },
+    })
+    service.markReady()
+    const outcome = await service.invoke({
+      widgetId: 'demo',
+      taskId: 'check',
+      payload: { value: 'x' },
+    })
+    expect(outcome).toBeInstanceOf(BrowserExecutorError)
+    expect(warn).toHaveBeenCalledWith('[browser-automation] task failed', {
+      widgetId: 'demo',
+      taskId: 'check',
+      code: 'internal',
+      error: outcome,
+    })
+    // The launch detail has to survive serialisation, or the container log
+    // still shows a bare `internal` and the failure stays invisible.
+    const [, fields] = warn.mock.calls[0]
+    expect(JSON.stringify(fields)).toContain('SingletonLock')
+    // Only the log carries the cause; `toEnvelopeError` still answers the
+    // client with the redacted `internal` code (see errors.test.ts).
+    const logged = (fields as { error: Error }).error
+    expect(logged.cause).toBe(cause)
+  })
+
+  it('keeps handler-failure cause text out of the logged payload', async () => {
     const { executor } = makeFakeExecutor()
     const warn = vi.fn()
-    const cause = new Error('launch failed')
+    // Playwright quotes `page.evaluate` arguments into its error messages, and
+    // the passport widget passes the secret identity as one.
+    const secret = '{"series":"AB","number":"123456"}'
     const service = makeBrowserService({
       registry: registryWith(() => {
-        throw cause
+        throw new Error(`page.evaluate failed: ${secret}`)
       }),
       executor,
       config,
@@ -156,15 +199,20 @@ describe('makeBrowserService', () => {
       taskId: 'check',
       payload: { value: 'x' },
     })
-    expect(warn).toHaveBeenCalledWith('[browser-automation] task failed', {
-      widgetId: 'demo',
-      taskId: 'check',
-      code: 'internal',
-      error: outcome,
-    })
-    // Only the log carries the cause; `toEnvelopeError` still answers the
-    // client with the redacted `internal` code (see errors.test.ts).
-    const logged = (warn.mock.calls[0][1] as { error: Error }).error
-    expect(logged.cause).toBe(cause)
+
+    // The leak is real: serialising the outcome itself exposes the identity,
+    // via both `cause.message` and the wrapper's own `Caused by:` stack.
+    expect(JSON.stringify(outcome)).toContain('123456')
+
+    const [message, fields] = warn.mock.calls[0]
+    expect(message).toBe('[browser-automation] task failed')
+    expect(fields).toMatchObject({ widgetId: 'demo', taskId: 'check', code: 'internal' })
+
+    const serialised = JSON.stringify(fields)
+    expect(serialised).not.toContain('123456')
+    expect(serialised).not.toContain('series')
+    expect(serialised).not.toContain('page.evaluate')
+    // Redacted does not mean useless: the failure is still identifiable.
+    expect(serialised).toContain('BrowserTaskHandlerError')
   })
 })
