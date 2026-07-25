@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest'
 
 import browser, {
-  isForcedRecoveryEnabled,
   makePassportCheckerBrowser,
   normalizeRecoverySshTarget,
   PASSPORT_CHECKER_URL,
@@ -21,13 +20,6 @@ describe('passport checker browser definition', () => {
     expect(normalizeRecoverySshTarget('pi@host; shutdown')).toBeNull()
     expect(normalizeRecoverySshTarget('')).toBeNull()
     expect(normalizeRecoverySshTarget(undefined)).toBeNull()
-  })
-
-  it('enables the forced recovery lever only for an exact "1"', () => {
-    expect(isForcedRecoveryEnabled('1')).toBe(true)
-    for (const value of [undefined, '', '0', 'true', ' 1 ', 'yes', 'on', '11']) {
-      expect(isForcedRecoveryEnabled(value)).toBe(false)
-    }
   })
 
   it('creates a fixture definition without exposing URL as task input', () => {

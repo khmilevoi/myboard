@@ -66,22 +66,6 @@ type SubmitOutcome =
 export type PassportCheckHandlerOptions = {
   checkerUrl: string
   recoverySshTarget: string | null
-  /**
-   * Testing lever (PASSPORT_FORCE_RECOVERY=1), never on in production.
-   *
-   * The recovery path — retain the page, issue a single-use capability, stream
-   * the live browser over noVNC, let a human solve the challenge, retry — has
-   * never been exercised on real hardware, because it only triggers when
-   * pasport.org.ua actually serves a Cloudflare challenge, and every smoke test
-   * on the Raspberry Pi has come back with a normal result. Subproject 8
-   * (`passport-checker-rpi-integration` in
-   * docs/superpowers/specs/2026-07-03-passport-checker-browser-automation-design.md)
-   * lists "embedded noVNC Cloudflare recovery, SSH fallback, and real checker
-   * smoke test on the Raspberry Pi" as an acceptance item and has no way to
-   * reach it on demand. This flag is that way: it makes the first check after a
-   * service start take the recovery branch deliberately.
-   */
-  forceRecovery?: boolean
 }
 
 async function collectNavigationEvidence(context: BrowserTaskContext, response: Response | null) {
@@ -178,12 +162,6 @@ async function submitPassport(
 }
 
 export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
-  // One-shot latch for options.forceRecovery (see its doc comment for why the
-  // lever exists at all). It lives in this closure rather than at module scope
-  // so each constructed handler owns its own latch and unit tests stay
-  // isolated; in the service there is exactly one handler per process, so
-  // "once per handler" is "once per service start".
-  let forcedRecoveryArmed = options.forceRecovery === true
   return async (_payload: PassportCheckPayload, context: BrowserTaskContext) => {
     const identity = readPassportIdentity(context.secrets)
     if (identity instanceof Error) return identity
@@ -195,23 +173,6 @@ export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
 
     const evidence = await collectNavigationEvidence(context, navigation)
     if (evidence instanceof Error) return evidence
-
-    // Fires here, after a successful goto and after the evidence probe, so the
-    // retained page is the real checker page with the site's own UI loaded — a
-    // human must be able to click the site's buttons in the noVNC stream. It
-    // returns exactly the pair the genuine Cloudflare branch below returns, so
-    // everything downstream (capability issuance, noVNC, retry) is
-    // byte-identical to a real challenge. Deliberate choice: the latch is
-    // consumed only when the forced path actually fires, so a failed
-    // navigation (or a failed evidence probe) returns its own error untouched
-    // and leaves the lever armed for the next attempt — an infrastructure
-    // hiccup must not silently burn the single forced run an operator is
-    // waiting on.
-    if (forcedRecoveryArmed) {
-      forcedRecoveryArmed = false
-      context.retainPageForRecovery()
-      return new BrowserSessionRequiredError({ sshTarget: options.recoverySshTarget })
-    }
 
     if (isCloudflareChallenge(evidence)) {
       context.retainPageForRecovery()

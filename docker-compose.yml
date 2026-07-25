@@ -87,12 +87,6 @@ services:
       PORT: '8788'
       # Non-secret operational config; Subproject 5 includes it in safe error meta.
       AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET:-}
-      # Testing lever, NEVER set in production. `1` is the only enabling value
-      # (anything else, including `true`, is off); unset stays off. It makes the
-      # first passport check after a service start take the Cloudflare recovery
-      # path deliberately, so the noVNC recovery round trip can be exercised on
-      # the Raspberry Pi without waiting for a real challenge (Subproject 8).
-      PASSPORT_FORCE_RECOVERY: ${PASSPORT_FORCE_RECOVERY:-}
     secrets:
       - source: passport_series
         target: passport-checker_series
