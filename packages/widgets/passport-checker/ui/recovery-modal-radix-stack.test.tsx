@@ -124,23 +124,32 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
   return { checkModel, onOpenChange, ourDialog }
 }
 
-// Radix's FocusScope defers its unmount focus-restore to a real
-// setTimeout(0) (@radix-ui/react-focus-scope's mount-effect cleanup calls
-// `container.dispatchEvent`/`focus(...)` from inside a `setTimeout`, not
-// synchronously). Testing-library's auto `cleanup()` — registered as a side
-// effect of the `@testing-library/react` import above — unmounts
-// synchronously but never waits for that deferred timer, so without an
-// explicit flush it can fire during the NEXT test and silently move
-// `document.activeElement`. Confirmed by instrumentation: forcing one real
-// event-loop tick between tests reliably surfaces both a stray
-// `focus(document.body)` call left over from the PRIOR test's Radix dialog
-// and an unawaited NoVncCanvas state update from that same prior test's
-// async recovery flow — a genuine cross-test leak, present for any suite
-// that mounts+unmounts a trapped Radix FocusScope, not something
-// `renderNested`'s two-pass mount introduced. Flushing one real tick after
-// each test's cleanup lets any such deferred work finish before the next
-// test starts, closing the isolation gap instead of racing it.
-afterEach(async () => {
+// Radix's FocusScope defers its unmount focus-restore to a real setTimeout(0):
+// the mount effect's cleanup does not restore focus itself, it schedules
+// `focus(previouslyFocusedElement ?? document.body)` for the next macrotask
+// (@radix-ui/react-focus-scope@1.1.10, dist/index.mjs:87-99). Testing-library's
+// auto `cleanup()` unmounts synchronously and never waits for that timer, so it
+// is still queued when the NEXT test begins.
+//
+// This drain has to be a `beforeEach`, not an `afterEach`. Vitest resolves
+// `sequence.hooks` to "stack", under which same-suite `afterEach` hooks run in
+// REVERSE registration order — and testing-library's `cleanup()` is registered
+// first, at setupFiles import time. A file-level `afterEach` added here would
+// therefore run BEFORE the unmount that schedules the timer and could not
+// possibly drain it. Every `beforeEach` runs after every `afterEach` of the
+// previous test regardless of hook-order mode, which makes this placement
+// correct by construction rather than by registration luck.
+//
+// Measured on this file by instrumenting `setTimeout` and logging hook
+// boundaries: at `beforeEach` entry one (later two) FocusScope timer is
+// pending; after this tick, zero. Scope of the claim: this closes a scheduling
+// leak, not an observed failure. The restore is focus-neutral in this fixture
+// today — the `previouslyFocusedElement` it captured is either `document.body`
+// (which jsdom refuses to focus, so the call is a no-op) or an already-detached
+// node — and the tests below did not fail in 30 consecutive file runs or 6
+// whole-package runs without it. What it buys is that a test which awaits
+// cannot inherit the previous test's queued focus work.
+beforeEach(async () => {
   await new Promise((resolve) => setTimeout(resolve, 0))
 })
 
