@@ -124,4 +124,51 @@ describe('makeWidgetInstanceStore', () => {
     await settle()
     expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
   })
+
+  it('disposes a value read outside any subscription instead of leaking it forever', async () => {
+    const { store, make, stats } = setup()
+
+    // A bare read with no component ever mounting: nothing ever subscribes.
+    const handle = store('a', make)
+    handle()
+
+    await settle()
+
+    expect(stats().built).toBe(1)
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+
+    // The evicted handle must not be handed out again — a later lookup for
+    // the same key builds a fresh value instead of resurrecting the leaked
+    // one.
+    const next = store('a', make)
+    expect(next).not.toBe(handle)
+    expect(next()).toEqual({ id: 2 })
+  })
+
+  it('does not let a stale reconnect of an already-disposed handle poison future lookups', async () => {
+    const { store, make, stats } = setup()
+
+    const handle = store('a', make)
+    const unsubscribeFirst = handle.subscribe(() => {})
+    await settle()
+    expect(stats().built).toBe(1)
+
+    unsubscribeFirst()
+    await settle()
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+
+    // A stale reference to the now-disposed handle gets reconnected directly
+    // (e.g. a Suspense boundary re-showing without the component ever going
+    // back through `store()`), bypassing the map entirely.
+    const staleResubscribe = handle.subscribe(() => {})
+
+    // A brand-new lookup for the same key must not observe that stale
+    // reconnection — it gets its own fresh handle and value.
+    const fresh = store('a', make)
+    expect(fresh).not.toBe(handle)
+    expect(fresh()).not.toEqual(handle())
+
+    staleResubscribe()
+    await settle()
+  })
 })

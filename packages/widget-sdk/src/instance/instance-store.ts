@@ -25,11 +25,14 @@ export type MakeWidgetInstanceStoreOptions<Value> = {
  * subscriber disconnects, and the same connect/disconnect pair also rebuilds
  * the value if the atom is ever reconnected after a disposal. Reading the
  * atom inside a `reatomMemo` component is what subscribes that mount, so
- * there is nothing to release by hand. Reading it OUTSIDE a subscribed
- * context (e.g. a bare `store(instanceId, make)()` call from an action, with
- * no component ever mounting) still builds a value, but since no subscriber
- * ever connects, `dispose` never runs for it — keep this store's reads
- * confined to `reatomMemo` components.
+ * there is nothing to release by hand.
+ *
+ * Reading it OUTSIDE a subscribed context (e.g. a bare `store(instanceId,
+ * make)()` call from an action, with no component ever mounting) still
+ * builds a value eagerly, same as above — but the store gives that build one
+ * microtask to be claimed by a real subscriber. If nothing has subscribed by
+ * then, the value is disposed and the handle is evicted, so an orphaned read
+ * can't pin a `make()` result — or its `handles` entry — forever.
  *
  * This is a factory, not a shared registry: the map belongs to the store the
  * widget created, so widget-sdk stays stateless and one widget's instances are
@@ -51,18 +54,45 @@ export function makeWidgetInstanceStore<Value>({
     if (cached) return cached
 
     let current: { value: Value } | null = null
+
+    // Shared by both the eager "built on a bare read" path and the
+    // connect-hook's real disposal path. Guarded by `current`, so whichever
+    // one runs first performs the teardown and the other is a no-op — never
+    // a double dispose.
+    const teardownIfOrphaned = () => {
+      if (isConnected(handle)) return
+      // Only remove the map entry if it still points at THIS handle — a
+      // stale teardown must never evict a newer, currently-connected handle
+      // for the same key.
+      if (handles.get(key) === handle) handles.delete(key)
+      const held = current
+      current = null
+      if (held) dispose?.(held.value, key)
+    }
+
     const handle: Computed<Value> = computed(() => {
+      const isFirstBuild = current === null
       current ??= { value: make() }
+      if (isFirstBuild) {
+        // A plain read (no subscriber yet) can come from a real mount whose
+        // effect subscribes synchronously right after this render commits,
+        // or from a bare call with no component ever mounting. Both look
+        // identical here, so give it one microtask — enough for a real
+        // mount's connect to land, since only the deferred *callback* of
+        // `withConnectHook` is queued that way, not the synchronous
+        // subscribe() that flips `isConnected`. If nothing claimed it by
+        // then, it was an orphaned read: dispose it instead of leaking the
+        // built value and the map entry forever.
+        queueMicrotask(teardownIfOrphaned)
+      }
       return current.value
     }, `${name}#${key}`).extend(
       withConnectHook(() => {
-        // The compute function above already builds eagerly on first read, but
-        // connect is still the value's canonical lifecycle owner: it rebuilds
-        // here too so a reconnect after a real disposal gets a fresh value
-        // instead of resurrecting a disposed one, and it re-registers the
-        // handle in case a stale disconnect (see below) had evicted it.
+        // The compute function above already builds eagerly on first read,
+        // but connect is still the value's canonical lifecycle owner: it
+        // rebuilds here too so a reconnect after a real disposal gets a
+        // fresh value instead of resurrecting a disposed one.
         current ??= { value: make() }
-        handles.set(key, handle)
 
         return () => {
           // Reatom defers disconnect cleanup to a microtask, so an unsubscribe
@@ -72,14 +102,7 @@ export function makeWidgetInstanceStore<Value>({
           // subscriber is already connected. Disposing then would kill a
           // value a live mount is still rendering, so only tear down once
           // nothing is connected.
-          if (isConnected(handle)) return
-          // Only remove the map entry if it still points at THIS handle —
-          // a stale disconnect must never evict a newer, currently-connected
-          // handle for the same key.
-          if (handles.get(key) === handle) handles.delete(key)
-          const held = current
-          current = null
-          if (held) dispose?.(held.value, key)
+          teardownIfOrphaned()
         }
       }),
     )
