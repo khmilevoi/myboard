@@ -122,6 +122,14 @@ export default defineConfig(({ command }) => ({
             shared: federationShared(),
             dev: { remoteHmr: true },
             manifest: false,
+            // Widgets are consumed dynamically (loadRemote + the codegen'd
+            // catalog), never through a typed remote import, so there is
+            // nothing to generate types for; manifest: false above also means
+            // the DTS plugin has no remote manifest to retrieve a tsconfig
+            // from, which without this flag throws a caught-but-noisy
+            // "Cannot read properties of undefined (reading 'readFile')" on
+            // every build.
+            dts: false,
           }),
         ]),
     react(),

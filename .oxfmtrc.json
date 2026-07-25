@@ -15,6 +15,7 @@
     "**/.superpowers/**",
     "pnpm-lock.yaml",
     "**/node_modules/**",
-    "**/*.generated.ts"
+    "**/*.generated.ts",
+    "docs/**"
   ]
 }
