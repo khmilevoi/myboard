@@ -37,3 +37,37 @@ problem rather than centralising the workaround.
 
 **Trigger.** A second widget needs a modal, or a `radix-ui` upgrade breaks the
 stack test.
+
+## Two simultaneously-mounted `useModalIsolation` modals ping-pong focus
+
+**Today.** `packages/widgets/passport-checker/ui/use-modal-isolation.ts`
+registers its focus-containment `focusin` handler on `window` in the CAPTURE
+phase (`use-modal-isolation.ts:76`), while the `stopPropagation()` that keeps a
+modal's own `focusin` off `document` sits on the modal root
+(`use-modal-isolation.ts:55`) — far later on the same capture path. Two mounted
+modals therefore each see the other's `focusin` first, find the target outside
+their own root, and pull focus back into themselves, each move re-triggering the
+other. Measured in jsdom 29.1.1 with two `useModalIsolation` roots mounted at
+once: a single modal performs 1 focus pull on mount, while two mounted together
+run away without settling — a hard test guard at 400 pulls had to stop them (402
+recorded, and the true count is unbounded).
+
+**Why it is tolerable.** It is not reachable through the UI. The passport
+checker is the only owner of a `useModalIsolation` modal, and it renders at most
+one: `<RecoveryModal />` is rendered only from the non-fullscreen mount
+(`PassportChecker.tsx:72`). A second one cannot be opened over the first either
+— the overlay is `position: fixed; inset: 0` with `pointer-events: auto`
+(`recovery-modal.module.css:1-13`) and its `pointerdown` handler closes the
+modal on any press that starts on the overlay
+(`use-modal-isolation.ts:50-53`), so nothing behind it can be clicked.
+
+**Shape to consider.** A module-level stack of active modal roots: each
+`useModalIsolation` effect pushes its root on mount and pops it on cleanup, and
+the containment handler returns immediately unless its own root is the topmost
+entry. Only the top modal contains focus, so there is no second handler left to
+pull against. This also generalises cleanly to the shared modal primitive the
+entry above describes.
+
+**Trigger.** A second widget adopts `useModalIsolation`, or the passport checker
+ever renders two of its modals at once (e.g. the fullscreen-mount guard at
+`PassportChecker.tsx:72` is relaxed, or a second modal surface is added).
