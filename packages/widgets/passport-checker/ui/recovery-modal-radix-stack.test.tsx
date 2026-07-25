@@ -124,6 +124,26 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
   return { checkModel, onOpenChange, ourDialog }
 }
 
+// Radix's FocusScope defers its unmount focus-restore to a real
+// setTimeout(0) (@radix-ui/react-focus-scope's mount-effect cleanup calls
+// `container.dispatchEvent`/`focus(...)` from inside a `setTimeout`, not
+// synchronously). Testing-library's auto `cleanup()` — registered as a side
+// effect of the `@testing-library/react` import above — unmounts
+// synchronously but never waits for that deferred timer, so without an
+// explicit flush it can fire during the NEXT test and silently move
+// `document.activeElement`. Confirmed by instrumentation: forcing one real
+// event-loop tick between tests reliably surfaces both a stray
+// `focus(document.body)` call left over from the PRIOR test's Radix dialog
+// and an unawaited NoVncCanvas state update from that same prior test's
+// async recovery flow — a genuine cross-test leak, present for any suite
+// that mounts+unmounts a trapped Radix FocusScope, not something
+// `renderNested`'s two-pass mount introduced. Flushing one real tick after
+// each test's cleanup lets any such deferred work finish before the next
+// test starts, closing the isolation gap instead of racing it.
+afterEach(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 0))
+})
+
 describe('RecoveryModal nested under a modal Radix dialog', () => {
   it('Escape closes ONLY our modal, not the underlying Radix dialog', async () => {
     const { checkModel, onOpenChange, ourDialog } = renderNested()
