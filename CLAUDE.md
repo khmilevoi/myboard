@@ -11,6 +11,55 @@ Before editing this repo, load the `reatom` and `errore` skills (referenced in A
 - **Reatom**: used for all atoms, actions, async flows, and React integration in `packages/client/`.
 - **errore**: used for TypeScript errors-as-values (tagged errors, `instanceof` narrowing, no throwing) across both `packages/client/` and `packages/server/`.
 
+## Feature workflow
+
+`main` is production (`rpi.toml`, deployed with `rpi deploy`). `dev` is the integration branch backed by the dev stack at `board-dev.iiskelo.com` (`rpi.dev.toml`, `rpi deploy --env dev`). Feature work never lands directly on either — it goes branch → PR into `dev` → dev deploy → PR from `dev` into `main`.
+
+1. **Branch off `dev` in its own worktree** under `./.worktrees/<short-name>`; the main checkout stays on `dev` and is not edited while feature work is open.
+
+   ```bash
+   git fetch origin
+   git worktree add .worktrees/<short-name> -b feat/<short-name> origin/dev
+   cd .worktrees/<short-name>
+   pnpm install
+   ```
+
+   Branch names use the same Conventional Commit prefixes as commits: `feat/`, `fix/`, `chore/`.
+
+2. **Implement and commit inside that worktree.** Keep commits focused and imperative.
+
+3. **Run the full gate before opening the PR**, from the worktree: `pnpm check` (lint + format:check + deps:check + typecheck + tests), plus `pnpm test:e2e:docker` when the change touches browser-facing behavior. There is no CI on this repo — these local runs *are* the gate.
+
+4. **Open the PR against `dev`**, never against `main`:
+
+   ```bash
+   git push -u origin feat/<short-name>
+   gh pr create --base dev
+   ```
+
+   Summarize scope, list the verification commands actually run, and attach screenshots or a short recording for UI changes.
+
+5. **Clean up as soon as the PR is merged** — the worktree and the branch are not kept around for the release:
+
+   ```bash
+   git worktree remove .worktrees/<short-name>
+   git branch -d feat/<short-name>
+   git push origin --delete feat/<short-name>   # unless GitHub already deleted it on merge
+   ```
+
+6. **Deploy and test on dev.** Nothing about the deploy is automatic:
+
+   ```bash
+   rpi secrets send --env dev   # only after .env.dev changed
+   rpi deploy --env dev
+   ```
+
+   The dev environment runs under the project key `myboard--dev` with its own compose project, network and Valkey volume, so its data starts empty, and WebAuthn is scoped to `board-dev.iiskelo.com` — it needs its own device invite (`rpi command create-invite --env dev`).
+
+7. **Release.** Once dev is verified, open a PR from `dev` into `main`, merge it, and deploy production with `rpi deploy`. Keep `dev` a fast-forward ahead of `main`; do not cherry-pick individual commits into `main`.
+
+If dev testing turns up a defect, branch off `dev` again from step 1 — never patch `main` directly.
+
 ## Commands
 
 Run from the repo root with pnpm unless noted.
