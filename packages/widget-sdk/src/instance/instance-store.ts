@@ -22,10 +22,11 @@ export type MakeWidgetInstanceStoreOptions<Value> = {
  * value before its effect subscribes, so it can't wait for a connection) and
  * is cached for every later read of the same key. Disposal is what the
  * connection lifetime actually governs: `dispose` runs once the last
- * subscriber disconnects, and the same connect/disconnect pair also rebuilds
- * the value if the atom is ever reconnected after a disposal. Reading the
- * atom inside a `reatomMemo` component is what subscribes that mount, so
- * there is nothing to release by hand.
+ * subscriber disconnects, and that same cleanup drops the handle from the
+ * map, so the next `store()` lookup builds a fresh atom and a fresh value
+ * instead of returning the disposed one. Reading the atom inside a
+ * `reatomMemo` component is what subscribes that mount, so there is nothing
+ * to release by hand.
  *
  * Disposal is driven ONLY by Reatom's real connect/disconnect lifecycle
  * (`withConnectHook`'s cleanup), never by a timer of our own: a render's
@@ -45,9 +46,15 @@ export type MakeWidgetInstanceStoreOptions<Value> = {
  * invisible to another.
  *
  * `make` runs only for the first mount of a key. Pass one whose captured inputs
- * are interchangeable between mounts, and do NOT read atoms inside it — the
- * instance is a `computed`, so a reactive dependency would silently rebuild the
- * whole value when it changes.
+ * are interchangeable between mounts, and do NOT read atoms inside it: the
+ * instance is a `computed`, so whatever `make` reads on its one run becomes a
+ * dependency of the instance atom. The cost is a pointless dependency edge, not
+ * lost state — measured against `@reatom/core@1001.1.0` with a `make` that
+ * reads an atom: after that atom changes, the compute function re-runs once
+ * (`current ??=` short-circuits it, so `make` does not re-run — `built` stayed
+ * at 1 and the read returned the identical object, and no subscriber was
+ * notified), and because that re-run never reads the atom again the edge is
+ * dropped and further changes recompute nothing.
  */
 export function makeWidgetInstanceStore<Value>({
   name,
@@ -76,6 +83,12 @@ export function makeWidgetInstanceStore<Value>({
       if (handles.get(key) === handle) handles.delete(key)
       const held = current
       current = null
+      // `if (held)` is the double-dispose guard, and it is load-bearing: a
+      // handle already torn down by an earlier teardown, then reconnected and
+      // disconnected again, reaches this line holding nothing, because connect
+      // builds nothing. Measured — replacing this with an unconditional
+      // `dispose?.(held?.value, key)` makes the store report a second teardown
+      // of the same key as `[undefined, key]`.
       if (held) dispose?.(held.value, key)
     }
 
@@ -84,12 +97,17 @@ export function makeWidgetInstanceStore<Value>({
       return current.value
     }, `${name}#${key}`).extend(
       withConnectHook(() => {
-        // The compute function above already builds eagerly on first read,
-        // but connect is still the value's canonical lifecycle owner: it
-        // rebuilds here too so a reconnect after a real disposal gets a
-        // fresh value instead of resurrecting a disposed one.
-        current ??= { value: make() }
-
+        // Connect deliberately builds NOTHING. Reconnecting a stale handle —
+        // one whose value the cleanup below already disposed — hands out that
+        // same disposed value, because a dependency-free `computed` never
+        // recomputes and its cached result is what every later read returns
+        // (measured against @reatom/core@1001.1.0). Rebuilding here would not
+        // change that read; it would only construct a second value nobody can
+        // reach and then feed it to `dispose` a second time. A fresh value
+        // comes only from a new `store()` lookup, which is what every real
+        // caller does — it calls `store()` during render, and the cleanup
+        // below has already evicted the stale handle from the map, so that
+        // lookup builds a new atom and a new value.
         return () => {
           // Reatom defers disconnect cleanup to a microtask, so an unsubscribe
           // immediately followed by a resubscribe of the same key (React

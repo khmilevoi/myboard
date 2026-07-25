@@ -175,6 +175,33 @@ describe('makeWidgetInstanceStore', () => {
     staleResubscribe()
     await settle()
   })
+
+  it('disposes a key exactly once even when a stale handle reconnects and disconnects again', async () => {
+    const { store, make, stats } = setup()
+
+    const handle = store('a', make)
+    const unsubscribeFirst = handle.subscribe(() => {})
+    await settle()
+
+    unsubscribeFirst()
+    await settle()
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+
+    // Reconnecting the already-disposed handle builds nothing: the connect
+    // hook does not build, and a dependency-free `computed` never recomputes.
+    // So this second disconnect reaches the teardown holding NOTHING — which
+    // is exactly what the `if (held)` guard is there for. Without it the
+    // teardown forwards `undefined` to `dispose` as a phantom second teardown
+    // of the same key.
+    const staleResubscribe = handle.subscribe(() => {})
+    await settle()
+    expect(stats().built).toBe(1)
+
+    staleResubscribe()
+    await settle()
+
+    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+  })
 })
 
 describe('makeWidgetInstanceStore under StrictMode', () => {
