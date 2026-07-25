@@ -1,25 +1,57 @@
 .widget {
+  /* Status hues live here rather than in the host token set: the board only
+     ships --success/--destructive (no *-soft pairs, and dark --success is a
+     surface green, not an icon green). Same pattern as ofelia-poop-duty. */
   --pc-warning-bg: oklch(0.96 0.05 80);
   --pc-warning-border: oklch(0.85 0.1 80);
   --pc-warning-icon: oklch(0.58 0.13 70);
-  --pc-success: var(--success, oklch(0.55 0.13 155));
-  --pc-success-soft: var(--success-soft, oklch(0.95 0.05 155));
+  --pc-warning-text: oklch(0.42 0.09 62);
+  --pc-warning-chip-bg: oklch(0.9 0.09 80);
+  --pc-warning-chip-fg: oklch(0.5 0.13 68);
+  --pc-success: oklch(0.55 0.13 155);
+  --pc-success-fg: #fff;
+  --pc-success-soft: oklch(0.95 0.05 155);
   --pc-success-border: oklch(0.86 0.08 155);
-  --pc-error: var(--destructive, oklch(0.55 0.21 27));
-  --pc-error-soft: var(--destructive-soft, oklch(0.968 0.028 27));
+  --pc-success-text: oklch(0.4 0.12 155);
+  --pc-success-meta: oklch(0.5 0.1 155);
+  --pc-success-chip-fg: oklch(0.45 0.1 155);
+  --pc-error-soft: oklch(0.968 0.028 27);
   --pc-error-border: oklch(0.88 0.07 27);
+  --pc-error-icon: oklch(0.55 0.21 27);
+  --pc-error-text: oklch(0.42 0.16 27);
+  --pc-error-hint: oklch(0.5 0.11 27);
 
   height: 100%;
   font-family: var(--font-ui, system-ui, sans-serif);
   color: var(--text, #22232a);
 }
 
+:root[data-theme='dark'] .widget {
+  --pc-warning-bg: oklch(0.3 0.07 80);
+  --pc-warning-border: oklch(0.38 0.09 80);
+  --pc-warning-icon: oklch(0.82 0.13 80);
+  --pc-warning-text: oklch(0.87 0.1 80);
+  --pc-warning-chip-bg: oklch(0.38 0.09 80);
+  --pc-warning-chip-fg: oklch(0.87 0.12 80);
+  --pc-success: oklch(0.74 0.15 152);
+  --pc-success-fg: oklch(0.24 0.06 152);
+  --pc-success-soft: oklch(0.28 0.07 155);
+  --pc-success-border: oklch(0.36 0.09 155);
+  --pc-success-text: oklch(0.85 0.1 155);
+  --pc-success-meta: oklch(0.68 0.09 155);
+  --pc-success-chip-fg: oklch(0.8 0.11 155);
+  --pc-error-soft: oklch(0.3 0.08 27);
+  --pc-error-border: oklch(0.38 0.1 27);
+  --pc-error-icon: oklch(0.78 0.15 27);
+  --pc-error-text: oklch(0.85 0.11 27);
+  --pc-error-hint: oklch(0.68 0.09 27);
+}
+
 .standard {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  padding: 16px 18px;
   background: var(--card, #fff);
   border-radius: 14px;
   box-shadow: var(--shadow-card, 0 1px 2px rgba(20, 22, 40, 0.05));
@@ -28,13 +60,14 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .iconChip {
   width: 30px;
   height: 30px;
-  border-radius: 9px;
+  flex: none;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   background: var(--accent-soft, oklch(0.955 0.032 285));
@@ -43,7 +76,7 @@
 
 .iconChipMuted {
   background: var(--secondary, #eceef1);
-  color: var(--text-dim, #9396a0);
+  color: var(--text-3, #9396a0);
 }
 
 .title {
@@ -51,33 +84,51 @@
   font-size: 15px;
 }
 
+/* The single flexible row between the header and the action: it soaks up the
+   tile's spare height so the action always sits on the bottom edge. */
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.bodyTop {
+  align-items: flex-start;
+}
+
 .description {
   margin: 0;
   font-size: 13.5px;
+  line-height: 1.45;
   color: var(--text-dim, #5b5e69);
+  text-wrap: pretty;
 }
 
 .pendingRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 11px;
   font-weight: 500;
   font-size: 14px;
+  color: var(--text-dim, #5b5e69);
 }
 
 .spinner {
   width: 18px;
   height: 18px;
   flex: none;
-  border: 2px solid var(--border, #e3e4e8);
-  border-top-color: var(--primary, oklch(0.55 0.17 281));
+  border: 2.2px solid var(--primary, oklch(0.55 0.17 281));
+  border-right-color: transparent;
   border-radius: 50%;
-  animation: pc-spin 0.8s linear infinite;
+  animation: pc-spin 0.7s linear infinite;
 }
 
 .spinnerLarge {
   width: 26px;
   height: 26px;
+  border-width: 2.6px;
 }
 
 @keyframes pc-spin {
@@ -88,53 +139,86 @@
 
 .primaryButton,
 .secondaryButton,
-.tinyButton {
+.tinyButton,
+.tinySecondaryButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
+  flex: none;
   border: 1px solid transparent;
   border-radius: 11px;
   font: inherit;
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
   cursor: pointer;
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.tinyButton:focus-visible,
+.tinySecondaryButton:focus-visible {
+  outline: 2px solid var(--ring, var(--primary, oklch(0.55 0.17 281)));
+  outline-offset: 2px;
 }
 
 .primaryButton {
   height: 40px;
   background: var(--primary, oklch(0.55 0.17 281));
   color: var(--primary-foreground, #fff);
+  box-shadow: 0 1px 2px rgba(20, 22, 40, 0.06);
 }
 
-.primaryButton:disabled {
+.primaryButton:hover:not(:disabled),
+.tinyButton:hover:not(:disabled) {
+  background: var(--primary-hover, color-mix(in oklch, var(--primary), black 12%));
+}
+
+.primaryButton:disabled,
+.tinyButton:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
 .secondaryButton {
-  height: 38px;
+  height: 40px;
   background: var(--card, #fff);
   border-color: var(--border, #e3e4e8);
   color: var(--text, #22232a);
+}
+
+.secondaryButton:hover,
+.tinySecondaryButton:hover {
+  background: var(--secondary, #f5f6f8);
 }
 
 .banner {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 11px;
   border: 1px solid transparent;
 }
 
+.bannerCentered {
+  align-items: center;
+}
+
 .bannerBody {
+  flex: 1;
   min-width: 0;
 }
 
 .bannerIcon {
   flex: none;
+  margin-top: 1px;
+}
+
+.bannerCentered .bannerIcon {
+  margin-top: 0;
 }
 
 .bannerTitle {
@@ -143,26 +227,45 @@
 }
 
 .bannerMeta {
-  margin-top: 4px;
+  margin-top: 3px;
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11.5px;
-  color: var(--text-dim, #5b5e69);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.02em;
 }
 
 .bannerHint {
   margin-top: 2px;
   font-size: 12px;
-  color: var(--text-dim, #5b5e69);
+  line-height: 1.4;
+  text-wrap: pretty;
 }
 
 .bannerSuccess {
+  gap: 11px;
   background: var(--pc-success-soft);
   border-color: var(--pc-success-border);
 }
 
-.bannerSuccess .bannerIcon,
-.tinySuccessIcon {
-  color: var(--pc-success);
+.bannerSuccess .bannerTitle {
+  font-size: 15px;
+  color: var(--pc-success-text);
+}
+
+.bannerSuccess .bannerMeta {
+  color: var(--pc-success-meta);
+}
+
+/* Filled disc, not an outline glyph: the one solid status mark on the tile. */
+.successBadge {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--pc-success);
+  color: var(--pc-success-fg);
 }
 
 .bannerError {
@@ -170,14 +273,29 @@
   border-color: var(--pc-error-border);
 }
 
-.bannerError .bannerIcon,
-.tinyErrorIcon {
-  color: var(--pc-error);
+.bannerError .bannerIcon {
+  color: var(--pc-error-icon);
+}
+
+.bannerError .bannerTitle {
+  color: var(--pc-error-text);
+}
+
+.bannerError .bannerHint {
+  color: var(--pc-error-hint);
 }
 
 .bannerMuted {
   background: var(--secondary, #f5f6f8);
-  border-color: var(--border, #eceef1);
+  border-color: var(--border, #e3e4e8);
+}
+
+.bannerMuted .bannerIcon {
+  color: var(--text-3, #9396a0);
+}
+
+.bannerMuted .bannerHint {
+  color: var(--text-3, #9396a0);
 }
 
 .bannerWarning {
@@ -189,10 +307,27 @@
   color: var(--pc-warning-icon);
 }
 
+.bannerWarning .bannerTitle {
+  color: var(--pc-warning-text);
+}
+
 .footerNote {
-  margin-top: auto;
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  /* Matches the action buttons' 40px so every state shares a baseline, but the
+     copy here is longer than the design's and must be allowed to wrap. */
+  min-height: 40px;
+  flex: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--text-3, #9396a0);
+}
+
+.footerNoteIcon {
+  flex: none;
 }
 
 .tiny {
@@ -200,12 +335,29 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
   padding: 14px;
   text-align: center;
   background: var(--card, #fff);
   border-radius: 14px;
+}
+
+.tinyCentered {
+  justify-content: center;
+  gap: 11px;
+}
+
+.tinyBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.tinyBodyPending {
+  gap: 12px;
 }
 
 .tinyWarning {
@@ -215,7 +367,8 @@
 .tinyChip {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  flex: none;
+  border-radius: 11px;
   display: grid;
   place-items: center;
   background: var(--accent-soft, oklch(0.955 0.032 285));
@@ -225,13 +378,33 @@
 .tinyChipWarning {
   width: 34px;
   height: 34px;
-  background: transparent;
-  color: var(--pc-warning-icon);
+  border-radius: 9px;
+  background: var(--pc-warning-chip-bg);
+  color: var(--pc-warning-chip-fg);
 }
 
 .tinyChipMuted {
   background: var(--secondary, #eceef1);
-  color: var(--text-dim, #9396a0);
+  color: var(--text-3, #9396a0);
+}
+
+.tinyBadge {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.tinyBadgeSuccess {
+  background: var(--pc-success);
+  color: var(--pc-success-fg);
+}
+
+.tinyBadgeError {
+  background: var(--pc-error-soft);
+  color: var(--pc-error-icon);
 }
 
 .tinyTitle {
@@ -241,37 +414,74 @@
 
 .tinyLabel {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+.tinyLabelSuccess {
+  color: var(--pc-success-text);
+}
+
+.tinyLabelWarning {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--pc-warning-text);
+}
+
+.tinyMutedLabel {
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-3, #9396a0);
+}
+
 .tinyMono {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-weight: 500;
   font-size: 11px;
+  color: var(--text-3, #9396a0);
+}
+
+.tinyMonoError {
+  font-size: 10.5px;
+  color: var(--pc-error-hint);
 }
 
 .tinyStatusChip {
   width: 100%;
-  padding: 4px 6px;
-  border-radius: 999px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10.5px;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
   background: var(--pc-success-soft);
-  color: var(--pc-success);
+  color: var(--pc-success-chip-fg);
 }
 
 .tinyButton {
   height: 36px;
+  gap: 6px;
+  border-radius: 10px;
   background: var(--primary, oklch(0.55 0.17 281));
   color: var(--primary-foreground, #fff);
-  font-size: 12.5px;
+  font-size: 13px;
+  box-shadow: 0 1px 2px rgba(20, 22, 40, 0.06);
 }
 
-.tinyButton:disabled {
-  opacity: 0.4;
-  cursor: default;
+.tinySecondaryButton {
+  height: 36px;
+  gap: 5px;
+  border-radius: 10px;
+  background: var(--card, #fff);
+  border-color: var(--border, #e3e4e8);
+  color: var(--text, #22232a);
+  font-size: 12.5px;
 }

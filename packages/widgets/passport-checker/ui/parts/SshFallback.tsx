@@ -1,6 +1,6 @@
-import { Copy } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleAlert, Copy } from 'lucide-react'
 import { useState } from 'react'
-import { reatomMemo } from 'widget-sdk'
+import { cn, reatomMemo } from 'widget-sdk'
 
 import styles from '../recovery-modal.module.css'
 
@@ -19,11 +19,16 @@ export const SshFallback = reatomMemo<{ sshTarget: string | null }>(({ sshTarget
     <section className={styles.ssh}>
       <button
         type="button"
-        className={styles.sshToggle}
+        className={cn(styles.sshToggle, expanded && styles.sshToggleExpanded)}
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
-        <span>Запасной вход по SSH</span>
+        {expanded ? (
+          <ChevronDown className={styles.sshChevron} size={15} aria-hidden />
+        ) : (
+          <ChevronRight className={styles.sshChevron} size={15} aria-hidden />
+        )}
+        <span className={styles.sshLabel}>Запасной вход по SSH</span>
         <span className={styles.sshTag}>для продвинутых</span>
       </button>
       {expanded && (
@@ -32,18 +37,23 @@ export const SshFallback = reatomMemo<{ sshTarget: string | null }>(({ sshTarget
             Если встроенное окно не работает, пробросьте noVNC по SSH и откройте
             http://localhost:6080 в браузере.
           </p>
-          <div className={styles.sshCommandRow}>
-            <code className={styles.sshCommand}>{command}</code>
+          <div className={styles.sshCommandBlock}>
+            <code className={styles.sshCommand}>
+              <span className={styles.sshPrompt}>$ </span>
+              {command}
+            </code>
             <button
               type="button"
               className={styles.copyButton}
               onClick={copy}
+              title="Скопировать"
               aria-label="Скопировать команду"
             >
-              <Copy size={14} aria-hidden />
+              <Copy size={13} aria-hidden />
             </button>
           </div>
           <p className={styles.sshNote}>
+            <CircleAlert className={styles.sshNoteIcon} size={12} aria-hidden />
             ssh-цель из конфигурации виджета · тот же одноразовый срок доступа
           </p>
         </div>

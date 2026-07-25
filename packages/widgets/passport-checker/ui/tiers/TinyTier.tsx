@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { CircleAlert, CircleCheck, IdCard, TriangleAlert } from 'lucide-react'
+import { Check, CircleAlert, IdCard, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn, reatomMemo } from 'widget-sdk'
 
 import { usePassportChecker } from '../passport-checker-context'
@@ -22,10 +22,14 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'sessionRequired') {
     return (
       <div className={cn(styles.tiny, styles.tinyWarning)}>
-        <span className={cn(styles.tinyChip, styles.tinyChipWarning)} aria-hidden>
-          <TriangleAlert size={18} />
-        </span>
-        <span className={styles.tinyLabel}>Требуется вход в браузер</span>
+        <div className={styles.tinyBody}>
+          <span className={cn(styles.tinyChip, styles.tinyChipWarning)} aria-hidden>
+            <TriangleAlert size={19} />
+          </span>
+          <span className={cn(styles.tinyLabel, styles.tinyLabelWarning)}>
+            Требуется вход в браузер
+          </span>
+        </div>
         <button type="button" className={styles.tinyButton} onClick={openRecovery}>
           Открыть
         </button>
@@ -34,19 +38,21 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   }
   if (view.kind === 'invalidConfig') {
     return (
-      <div className={styles.tiny}>
+      <div className={cn(styles.tiny, styles.tinyCentered)}>
         <span className={cn(styles.tinyChip, styles.tinyChipMuted)} aria-hidden>
           <IdCard size={20} />
         </span>
-        <span className={styles.tinyLabel}>Не настроен</span>
+        <span className={styles.tinyMutedLabel}>Не настроен</span>
       </div>
     )
   }
   if (view.kind === 'pending') {
     return (
       <div className={styles.tiny} role="status">
-        <span className={cn(styles.spinner, styles.spinnerLarge)} aria-hidden />
-        <span className={styles.tinyMono}>Проверяем…</span>
+        <div className={cn(styles.tinyBody, styles.tinyBodyPending)}>
+          <span className={cn(styles.spinner, styles.spinnerLarge)} aria-hidden />
+          <span className={styles.tinyMono}>Проверяем…</span>
+        </div>
         <button type="button" className={styles.tinyButton} disabled>
           Проверить
         </button>
@@ -56,8 +62,12 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'success') {
     return (
       <div className={styles.tiny}>
-        <CircleCheck className={styles.tinySuccessIcon} size={40} aria-hidden />
-        <span className={styles.tinyLabel}>{view.message}</span>
+        <div className={styles.tinyBody}>
+          <span className={cn(styles.tinyBadge, styles.tinyBadgeSuccess)} aria-hidden>
+            <Check size={21} strokeWidth={2.6} />
+          </span>
+          <span className={cn(styles.tinyLabel, styles.tinyLabelSuccess)}>{view.message}</span>
+        </div>
         <span className={styles.tinyStatusChip}>СТАТУС {view.status}</span>
       </div>
     )
@@ -65,20 +75,26 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'retryable') {
     return (
       <div className={styles.tiny}>
-        <CircleAlert className={styles.tinyErrorIcon} size={40} aria-hidden />
-        <span className={styles.tinyMono}>ошибка</span>
-        <button type="button" className={styles.tinyButton} onClick={check}>
-          Повторить
+        <div className={styles.tinyBody}>
+          <span className={cn(styles.tinyBadge, styles.tinyBadgeError)} aria-hidden>
+            <CircleAlert size={21} />
+          </span>
+          <span className={cn(styles.tinyMono, styles.tinyMonoError)}>ошибка</span>
+        </div>
+        <button type="button" className={styles.tinySecondaryButton} onClick={check}>
+          <RefreshCw size={13} aria-hidden /> Повторить
         </button>
       </div>
     )
   }
   return (
     <div className={styles.tiny}>
-      <span className={styles.tinyChip} aria-hidden>
-        <IdCard size={20} />
-      </span>
-      <span className={styles.tinyTitle}>Паспорт</span>
+      <div className={styles.tinyBody}>
+        <span className={styles.tinyChip} aria-hidden>
+          <IdCard size={21} />
+        </span>
+        <span className={styles.tinyTitle}>Паспорт</span>
+      </div>
       <button type="button" className={styles.tinyButton} onClick={check}>
         Проверить
       </button>

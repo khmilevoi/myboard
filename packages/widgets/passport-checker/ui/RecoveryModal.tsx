@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { AppWindow, Check, X } from 'lucide-react'
+import { Check, Monitor, X } from 'lucide-react'
 import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { reatomMemo } from 'widget-sdk'
@@ -43,7 +43,7 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
       >
         <header className={styles.header}>
           <span className={styles.headerChip} aria-hidden>
-            <AppWindow size={16} />
+            <Monitor size={16} />
           </span>
           <div className={styles.headerText}>
             <div id="passport-recovery-title" className={styles.headerTitle}>
@@ -52,6 +52,7 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
             <div className={styles.headerSubtitle}>Пройдите проверку в живом окне Chromium</div>
           </div>
           <span className={styles.accessPill} aria-label="Оставшееся время доступа">
+            <span className={styles.accessDot} aria-hidden />
             доступ · {formatAccessCountdown(remaining)}
           </span>
           <button
@@ -61,7 +62,7 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
             aria-label="Закрыть"
             onClick={close}
           >
-            <X size={16} aria-hidden />
+            <X size={15} aria-hidden />
           </button>
         </header>
         <div className={styles.body}>
@@ -73,7 +74,7 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
             Закрыть
           </button>
           <button type="button" className={styles.primaryButton} onClick={retry}>
-            <Check size={16} aria-hidden /> Повторить проверку
+            <Check size={15} strokeWidth={2.2} aria-hidden /> Повторить проверку
           </button>
         </footer>
       </div>

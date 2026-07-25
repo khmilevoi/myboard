@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { Unlink } from 'lucide-react'
+import { CircleAlert, Clock, RefreshCw, Unlink } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { cn, reatomMemo } from 'widget-sdk'
 
@@ -14,7 +14,7 @@ const FRAME_COPY: Record<RecoveryState['kind'], { title: string; hint?: string }
   connecting: { title: 'Подключение…', hint: 'устанавливаем WebSocket к noVNC' },
   connected: { title: '' },
   disconnected: { title: 'Соединение разорвано' },
-  expired: { title: 'Срок доступа истёк' },
+  expired: { title: 'Срок доступа истёк', hint: 'одноразовая ссылка доступа использована' },
   unavailable: { title: 'Нет активной сессии для восстановления' },
   busy: { title: 'Восстановление уже идёт' },
   automationDown: { title: 'Сервис автоматизации недоступен' },
@@ -51,28 +51,52 @@ export const NoVncCanvas = reatomMemo(() => {
   }, [])
 
   const spinning = state.kind === 'issuing' || state.kind === 'connecting'
-  const broken = state.kind === 'disconnected' || state.kind === 'expired'
+  const expired = state.kind === 'expired'
+  // Everything that is neither live, loading nor timed out: the frame gets the
+  // red bezel, expiry only gets a scrim over the last painted frame.
+  const failed = !spinning && !expired && state.kind !== 'connected'
 
   return (
     <div className={styles.frame}>
       <div ref={containerRef} className={styles.canvas} />
       {state.kind === 'connected' && (
         <>
-          <span className={styles.liveBadge}>LIVE · 1280×720</span>
-          <span className={styles.scaleCaption}>масштаб по ширине</span>
+          <span className={styles.liveBadge}>
+            <span className={styles.liveDot} aria-hidden />
+            LIVE · 1280×720
+          </span>
+          <span className={styles.scaleCaption}>масштаб по ширине · letterbox по высоте</span>
         </>
       )}
       {state.kind !== 'connected' && (
-        <div className={cn(styles.frameOverlay, broken && styles.frameOverlayError)} role="status">
+        <div
+          className={cn(
+            styles.frameOverlay,
+            failed && styles.frameOverlayError,
+            expired && styles.frameOverlayExpired,
+          )}
+          role="status"
+        >
           {spinning && <span className={styles.frameSpinner} aria-hidden />}
-          {broken && <Unlink size={22} aria-hidden />}
-          <div className={styles.frameTitle}>{FRAME_COPY[state.kind].title}</div>
+          {expired && (
+            <span className={cn(styles.frameBadge, styles.frameBadgeExpired)} aria-hidden>
+              <Clock size={20} />
+            </span>
+          )}
+          {failed && (
+            <span className={cn(styles.frameBadge, styles.frameBadgeError)} aria-hidden>
+              {state.kind === 'disconnected' ? <Unlink size={20} /> : <CircleAlert size={20} />}
+            </span>
+          )}
+          <div className={cn(styles.frameTitle, spinning && styles.frameTitleMono)}>
+            {FRAME_COPY[state.kind].title}
+          </div>
           {FRAME_COPY[state.kind].hint && (
             <div className={styles.frameHint}>{FRAME_COPY[state.kind].hint}</div>
           )}
           {RECONNECT_KINDS.has(state.kind) && (
             <button type="button" className={styles.reconnectButton} onClick={reconnect}>
-              Переподключиться
+              <RefreshCw size={12} aria-hidden /> Переподключиться
             </button>
           )}
         </div>

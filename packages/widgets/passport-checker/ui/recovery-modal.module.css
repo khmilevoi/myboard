@@ -1,4 +1,8 @@
 .overlay {
+  /* The modal is portalled to document.body, outside .widget, so it cannot
+     inherit the widget's status hues — it declares the one it needs itself. */
+  --pc-live: oklch(0.55 0.13 155);
+
   position: fixed;
   inset: 0;
   z-index: 120;
@@ -12,12 +16,17 @@
   pointer-events: auto;
 }
 
+:root[data-theme='dark'] .overlay {
+  --pc-live: oklch(0.74 0.15 152);
+}
+
 .dialog {
   display: flex;
   flex-direction: column;
   width: 920px;
   max-width: 92vw;
   max-height: min(620px, 90vh);
+  border: 1px solid var(--border, #e3e4e8);
   border-radius: 18px;
   overflow: hidden;
   background: var(--card, #fff);
@@ -29,8 +38,9 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 22px;
+  gap: 12px;
+  flex: none;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--border, #e3e4e8);
 }
 
@@ -38,7 +48,7 @@
   width: 30px;
   height: 30px;
   flex: none;
-  border-radius: 9px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   background: var(--accent-soft, oklch(0.955 0.032 285));
@@ -56,19 +66,33 @@
 }
 
 .headerSubtitle {
+  margin-top: 1px;
   font-size: 12px;
   color: var(--text-dim, #5b5e69);
 }
 
 .accessPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   flex: none;
   padding: 5px 10px;
   border-radius: 999px;
   border: 1px solid var(--border, #e3e4e8);
+  background: var(--secondary, #f5f6f8);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-variant-numeric: tabular-nums;
-  font-size: 11.5px;
+  font-weight: 600;
+  font-size: 12px;
   color: var(--text-dim, #5b5e69);
+}
+
+.accessDot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pc-live);
 }
 
 .closeButton {
@@ -84,19 +108,26 @@
   cursor: pointer;
 }
 
+.closeButton:hover {
+  background: var(--secondary, #f5f6f8);
+}
+
 .body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 14px;
+  padding: 16px 18px;
   background: var(--secondary, #f5f6f8);
 }
 
+/* The remote screen is a video surface, not chrome: it stays dark in both
+   themes so the letterboxing reads as bezel rather than a broken background. */
 .frame {
   position: relative;
+  flex: none;
   aspect-ratio: 16 / 9;
   border-radius: 12px;
   overflow: hidden;
@@ -113,12 +144,26 @@
   position: absolute;
   top: 10px;
   left: 10px;
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  color: #e6e7ea;
   font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 600;
   font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: oklch(0.65 0.18 145);
   animation: pc-pulse 1.6s ease-in-out infinite;
 }
 
@@ -130,11 +175,11 @@
 
 .scaleCaption {
   position: absolute;
-  bottom: 8px;
-  right: 10px;
+  bottom: 10px;
+  right: 12px;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.55);
+  color: #7c7f8c;
 }
 
 .frameOverlay {
@@ -144,22 +189,27 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  color: #d7d9e2;
-  text-align: center;
+  gap: 12px;
   padding: 16px;
+  text-align: center;
 }
 
 .frameOverlayError {
-  border: 1px solid oklch(0.55 0.21 27 / 0.6);
+  border: 1px solid oklch(0.4 0.12 27);
   border-radius: 12px;
 }
 
+/* Expired keeps the last frame visible but unusable behind a scrim. */
+.frameOverlayExpired {
+  background: rgba(22, 23, 29, 0.4);
+  backdrop-filter: blur(1px);
+}
+
 .frameSpinner {
-  width: 22px;
-  height: 22px;
-  border: 2px solid #2a2c36;
-  border-top-color: #d7d9e2;
+  width: 30px;
+  height: 30px;
+  border: 3px solid #3a3d49;
+  border-top-color: oklch(0.72 0.15 285);
   border-radius: 50%;
   animation: pc-frame-spin 0.8s linear infinite;
 }
@@ -170,32 +220,67 @@
   }
 }
 
+.frameBadge {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.frameBadgeError {
+  background: oklch(0.32 0.1 27);
+  color: oklch(0.8 0.13 27);
+}
+
+.frameBadgeExpired {
+  background: oklch(0.32 0.06 80);
+  color: oklch(0.82 0.11 80);
+}
+
 .frameTitle {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: #c9ccd6;
+}
+
+.frameTitleMono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: #9a9dab;
 }
 
 .frameHint {
-  font-size: 12px;
-  color: #9396a0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: #7c7f8c;
 }
 
 .reconnectButton {
-  margin-top: 6px;
-  padding: 8px 14px;
-  border: 1px solid #2a2c36;
-  border-radius: 10px;
-  background: #22232a;
-  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #3a3d49;
+  border-radius: 9px;
+  background: #22242c;
+  color: #e6e7ea;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
 
+.reconnectButton:hover {
+  background: #2b2e38;
+}
+
 .ssh {
+  flex: none;
   border: 1px solid var(--border, #e3e4e8);
   border-radius: 12px;
+  overflow: hidden;
   background: var(--card, #fff);
 }
 
@@ -203,75 +288,117 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 9px;
+  padding: 12px 14px;
   border: 0;
   background: none;
+  color: inherit;
   font: inherit;
   font-weight: 600;
   font-size: 13px;
+  text-align: left;
   cursor: pointer;
 }
 
+.sshToggleExpanded {
+  border-bottom: 1px solid var(--border, #e3e4e8);
+}
+
+.sshChevron {
+  flex: none;
+  color: var(--text-3, #9396a0);
+}
+
+.sshLabel {
+  flex: 1;
+  min-width: 0;
+}
+
 .sshTag {
-  font-weight: 400;
+  flex: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 500;
   font-size: 11px;
   color: var(--text-3, #9396a0);
 }
 
 .sshBody {
-  padding: 0 12px 12px;
+  padding: 14px 16px;
 }
 
 .sshHint {
-  margin: 0 0 8px;
-  font-size: 12px;
+  margin: 0 0 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--text-dim, #5b5e69);
+  text-wrap: pretty;
 }
 
-.sshCommandRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.sshCommandBlock {
+  position: relative;
+  padding: 14px 16px;
+  padding-right: 48px;
+  border: 1px solid #2a2c36;
+  border-radius: 10px;
+  background: #16171d;
 }
 
 .sshCommand {
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #16171d;
-  color: #d7d9e2;
+  display: block;
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
-  white-space: nowrap;
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #c9ccd6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sshPrompt {
+  color: #6a6d7a;
+  user-select: none;
 }
 
 .copyButton {
-  width: 34px;
-  height: 34px;
-  flex: none;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--border, #e3e4e8);
-  border-radius: 9px;
-  background: var(--card, #fff);
+  border: 1px solid #2a2c36;
+  border-radius: 7px;
+  background: #22242c;
+  color: #9a9dab;
   cursor: pointer;
 }
 
+.copyButton:hover {
+  color: #e6e7ea;
+}
+
 .sshNote {
-  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 11px;
   color: var(--text-3, #9396a0);
 }
 
+.sshNoteIcon {
+  flex: none;
+}
+
 .footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 22px;
+  gap: 9px;
+  flex: none;
+  padding: 14px 18px;
   border-top: 1px solid var(--border, #e3e4e8);
   background: var(--card, #fff);
 }
@@ -280,9 +407,8 @@
 .secondaryButton {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 16px;
+  gap: 8px;
+  height: 40px;
   border: 1px solid transparent;
   border-radius: 11px;
   font: inherit;
@@ -292,14 +418,35 @@
 }
 
 .primaryButton {
+  padding: 0 20px;
   background: var(--primary, oklch(0.55 0.17 281));
   color: var(--primary-foreground, #fff);
+  box-shadow: 0 1px 2px rgba(20, 22, 40, 0.06);
+}
+
+.primaryButton:hover {
+  background: var(--primary-hover, color-mix(in oklch, var(--primary), black 12%));
 }
 
 .secondaryButton {
+  padding: 0 18px;
   background: var(--card, #fff);
   border-color: var(--border, #e3e4e8);
   color: var(--text, #22232a);
+}
+
+.secondaryButton:hover {
+  background: var(--secondary, #f5f6f8);
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.closeButton:focus-visible,
+.copyButton:focus-visible,
+.reconnectButton:focus-visible,
+.sshToggle:focus-visible {
+  outline: 2px solid var(--ring, var(--primary, oklch(0.55 0.17 281)));
+  outline-offset: 2px;
 }
 
 @media (max-width: 640px) {
@@ -312,6 +459,7 @@
     max-width: 100vw;
     height: 100dvh;
     max-height: none;
+    border: 0;
     border-radius: 0;
   }
 }

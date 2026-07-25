@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { AppWindow, Check, IdCard, RefreshCw } from 'lucide-react'
+import { AppWindow, Check, CircleAlert, IdCard, RefreshCw } from 'lucide-react'
 import { cn, reatomMemo } from 'widget-sdk'
 
 import { StatusBanner } from '../parts/StatusBanner'
@@ -32,14 +32,18 @@ export const StandardTier = reatomMemo(({ onOpenRecovery }: StandardTierProps) =
         <span className={styles.title}>Паспорт</span>
       </header>
 
-      {view.kind === 'idle' && <p className={styles.description}>Проверка статуса паспорта</p>}
-      {view.kind === 'pending' && (
-        <div className={styles.pendingRow} role="status">
-          <span className={styles.spinner} aria-hidden />
-          Проверяем…
-        </div>
-      )}
-      <StatusBanner view={view} />
+      {/* One flexible row, so every state lands its action on the same baseline:
+          the idle copy hugs the header, everything else centres in the gap. */}
+      <div className={cn(styles.body, view.kind === 'idle' && styles.bodyTop)}>
+        {view.kind === 'idle' && <p className={styles.description}>Проверка статуса паспорта</p>}
+        {view.kind === 'pending' && (
+          <div className={styles.pendingRow} role="status">
+            <span className={styles.spinner} aria-hidden />
+            Проверяем…
+          </div>
+        )}
+        <StatusBanner view={view} />
+      </div>
 
       {(view.kind === 'idle' || view.kind === 'pending') && (
         <button
@@ -48,26 +52,29 @@ export const StandardTier = reatomMemo(({ onOpenRecovery }: StandardTierProps) =
           disabled={view.kind === 'pending'}
           onClick={check}
         >
-          <Check size={16} aria-hidden /> Проверить
+          <Check size={15} strokeWidth={2.2} aria-hidden /> Проверить
         </button>
       )}
       {view.kind === 'success' && (
         <button type="button" className={styles.secondaryButton} onClick={check}>
-          <RefreshCw size={15} aria-hidden /> Проверить снова
+          <RefreshCw size={14} aria-hidden /> Проверить снова
         </button>
       )}
       {view.kind === 'retryable' && (
         <button type="button" className={styles.secondaryButton} onClick={check}>
-          <RefreshCw size={15} aria-hidden /> Повторить
+          <RefreshCw size={14} aria-hidden /> Повторить
         </button>
       )}
       {view.kind === 'sessionRequired' && (
         <button type="button" className={styles.primaryButton} onClick={openRecovery}>
-          <AppWindow size={16} aria-hidden /> Открыть восстановление
+          <AppWindow size={15} aria-hidden /> Открыть восстановление
         </button>
       )}
       {view.kind === 'invalidConfig' && (
-        <div className={styles.footerNote}>действие недоступно · нужна настройка на сервере</div>
+        <div className={styles.footerNote}>
+          <CircleAlert className={styles.footerNoteIcon} size={13} aria-hidden />
+          действие недоступно · нужна настройка на сервере
+        </div>
       )}
     </div>
   )
