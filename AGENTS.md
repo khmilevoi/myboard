@@ -73,6 +73,7 @@ Do not commit `.env` files. Client environment examples live in `packages/client
 
 - For worktrees you should use `./.worktrees` folder
 - Use path aliases for absolute imports like `@/*` or `@shared/*`
+- `BACKLOG.md` holds deliberately deferred follow-ups. Add an entry there instead of leaving a TODO when you knowingly ship a workaround, and check it before starting work that would touch one.
 
 ## Failure Modes to Avoid
 

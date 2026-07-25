@@ -43,7 +43,7 @@ Two further findings constrain the fix:
   schedules `setTimeout(…, 0)` and then calls
   `focus(previouslyFocusedElement ?? document.body)`
   (`@radix-ui/react-focus-scope/dist/index.mjs:87-99`). Collapsing fullscreen
-  therefore hands focus to the board tile one tick *after* the recovery modal
+  therefore hands focus to the board tile one tick _after_ the recovery modal
   mounts and focuses itself. Collapsing alone is not enough; the modal must hold
   focus.
 - **The backlog's proposed focusout tightening is a regression.** Radix's
@@ -183,7 +183,7 @@ reinstated without also making instance stores tolerate double mounting.
 
 `PassportChecker.tsx` renders the modal only from the non-fullscreen mount:
 
-```tsx
+```text
 {tier !== 'fullscreen' && checkModel.recoveryOpen() && <RecoveryModal />}
 ```
 
@@ -292,6 +292,9 @@ repository gate green.
 - The Subproject 7 section of the master spec gains its missing `**Plan:**`
   link; back-linking requires both, and only `**Design:**` is present.
 - `main.tsx` carries the comment explaining the absent `StrictMode`.
+- `BACKLOG.md` records the deferred follow-up this design leaves standing: the
+  widget still owns a hand-rolled modal coupled to Radix internals, and the
+  shared primitive that would replace it is out of scope here.
 
 ## Delivery
 

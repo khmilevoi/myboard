@@ -28,9 +28,11 @@
 `pnpm format:check` is red on 18 files that this branch never touched, which makes the branch's own gate unreadable. Clear it first so every later task's verification is meaningful.
 
 **Files:**
+
 - Modify: nine plans under `docs/superpowers/plans/`, five specs under `docs/superpowers/specs/`, `docs/superpowers/specs/designs/Мультиустройства.dc.html`, `docs/typescript-7-migration.md`, `docs/typescript-7-migration/benchmarks.json`, `scripts/bench-typecheck-build.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: a green `pnpm format:check`, relied on by every later task's gate.
 
@@ -72,16 +74,18 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 Nothing about sharing one value across a widget's mounts is passport-specific — it follows from how the board mounts widgets — so the mechanism is a reusable `widget-sdk` helper. It ships as a **factory**: `widget-sdk` stays stateless and each widget creates its own store at module scope, so one widget's entries are invisible to another and nothing lands in the `widget-runtime` federation singleton.
 
-The reference counting is Reatom's, not ours: `withConnectHook` fires on an atom's first subscriber and its cleanup on the last, so a `reatomMemo` component that reads the instance atom *is* the reference. There is no React hook and no manual counter. `@reatom/core@1001.1.0` has no keyed atom family to use instead — `computed` takes no parameters, `withParams` only transforms call arguments, `memoKey` is scoped to a host atom, and `withCache` is an async request cache — so the keyed `Map` stays hand-written, which is also what upstream prescribes for model collections.
+The reference counting is Reatom's, not ours: `withConnectHook` fires on an atom's first subscriber and its cleanup on the last, so a `reatomMemo` component that reads the instance atom _is_ the reference. There is no React hook and no manual counter. `@reatom/core@1001.1.0` has no keyed atom family to use instead — `computed` takes no parameters, `withParams` only transforms call arguments, `memoKey` is scoped to a host atom, and `withCache` is an async request cache — so the keyed `Map` stays hand-written, which is also what upstream prescribes for model collections.
 
 **The one non-obvious invariant:** a `computed`'s cache survives disconnection. If the disconnect hook kept the atom in the map, the next mount would return the disposed value instead of rebuilding. The hook therefore deletes the handle, and Step 1's last test pins exactly that.
 
 **Files:**
+
 - Create: `packages/widget-sdk/src/instance/instance-store.ts`
 - Modify: `packages/widget-sdk/src/index.ts:1-4`
 - Test: `packages/widget-sdk/src/instance/instance-store.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `computed`, `withDisconnectHook`, `type Computed` from `@reatom/core`.
 - Produces, exported from the `widget-sdk` package root:
   - `type WidgetInstanceStore<Value> = (key: string, make: () => Value) => Computed<Value>`
@@ -297,7 +301,6 @@ the first subscriber and disposed when the last one disconnects.
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
-
 ---
 
 ### Task 3: Read the shared instance in the widget and drop StrictMode
@@ -305,12 +308,14 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 After this task both mounts of one placed widget share state, and only the non-fullscreen mount renders the recovery modal.
 
 **Files:**
+
 - Create: `packages/widgets/passport-checker/model/instance-store.ts`
 - Modify: `packages/widgets/passport-checker/ui/PassportChecker.tsx:25-54`
 - Modify: `packages/client/src/app/main.tsx:1-20`
 - Test: `packages/widgets/passport-checker/ui/PassportChecker.test.tsx` (append a new `describe`)
 
 **Interfaces:**
+
 - Consumes: `makeWidgetInstanceStore` from Task 2, exported from `widget-sdk`; `PassportCheckModel`, `RecoveryModel`, `RecoveryFlow` from the widget's `model/`.
 - Produces:
   - `type PassportInstanceModels = { checkModel: PassportCheckModel; recoveryModel: RecoveryModel; recoveryFlow: RecoveryFlow }`
@@ -368,7 +373,9 @@ describe('PassportChecker / shared instance state', () => {
       'fetch',
       vi.fn(() => new Promise<never>(() => {})),
     )
-    const invoke = vi.fn(async () => apiError('browser_session_required', { sshTarget: 'admin@pi' }))
+    const invoke = vi.fn(async () =>
+      apiError('browser_session_required', { sshTarget: 'admin@pi' }),
+    )
     renderPair(['standard', 'fullscreen'], invoke)
 
     fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
@@ -450,22 +457,19 @@ Rewrite the body of `packages/widgets/passport-checker/ui/PassportChecker.tsx` (
 export const PassportChecker = reatomMemo(() => {
   const { tier, typeId, instanceId, api } = useWidgetContext<PassportCheckerEvents>()
 
-  const { checkModel, recoveryModel, recoveryFlow } = passportInstance(
-    instanceId,
-    () => {
-      const checkModel = makePassportCheckModel({ api })
-      const recoveryModel = makeRecoveryModel({
-        widgetId: typeId,
-        transport: makeRecoveryTransport(),
-        makeRfb: makeNoVncRfb,
-      })
-      return {
-        checkModel,
-        recoveryModel,
-        recoveryFlow: makeRecoveryFlow({ checkModel, recoveryModel }),
-      }
-    },
-  )()
+  const { checkModel, recoveryModel, recoveryFlow } = passportInstance(instanceId, () => {
+    const checkModel = makePassportCheckModel({ api })
+    const recoveryModel = makeRecoveryModel({
+      widgetId: typeId,
+      transport: makeRecoveryTransport(),
+      makeRfb: makeNoVncRfb,
+    })
+    return {
+      checkModel,
+      recoveryModel,
+      recoveryFlow: makeRecoveryFlow({ checkModel, recoveryModel }),
+    }
+  })()
 
   const value = useMemo<PassportCheckerContextValue>(
     () => ({ checkModel, recoveryModel, recoveryFlow }),
@@ -535,6 +539,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 4: Collapse fullscreen on open, restore it on close
 
 **Files:**
+
 - Modify: `packages/widgets/passport-checker/model/recovery-flow.ts:17-30`
 - Modify: `packages/widgets/passport-checker/ui/RecoveryModal.tsx:21-28`
 - Modify: `packages/widgets/passport-checker/ui/tiers/StandardTier.tsx:10-16,59-63`
@@ -546,6 +551,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Test: `packages/widgets/passport-checker/ui/recovery-flow.test.tsx` (append)
 
 **Interfaces:**
+
 - Consumes: `PassportCheckModel`, `RecoveryModel`, and the shared models from Task 3.
 - Produces:
   - `openRecovery({ fromFullscreen: boolean; collapse: () => void }): void`
@@ -787,19 +793,19 @@ return (
 `RecoveryModal.test.tsx` renders the modal without the widget around it, so it must pass the new prop. In its `setup`, change the render call:
 
 ```tsx
-  render(
-    <passportCheckerContext.Provider value={{ checkModel, recoveryModel, recoveryFlow }}>
-      <RecoveryModal restoreFullscreen={vi.fn()} />
-    </passportCheckerContext.Provider>,
-  )
+render(
+  <passportCheckerContext.Provider value={{ checkModel, recoveryModel, recoveryFlow }}>
+    <RecoveryModal restoreFullscreen={vi.fn()} />
+  </passportCheckerContext.Provider>,
+)
 ```
 
 Apply the same one-line change inside `renderNested` in `recovery-modal-radix-stack.test.tsx`:
 
 ```tsx
-          <passportCheckerContext.Provider value={value}>
-            <RecoveryModal restoreFullscreen={vi.fn()} />
-          </passportCheckerContext.Provider>
+<passportCheckerContext.Provider value={value}>
+  <RecoveryModal restoreFullscreen={vi.fn()} />
+</passportCheckerContext.Provider>
 ```
 
 - [ ] **Step 7: Write the failing UI test for the fullscreen round trip**
@@ -902,11 +908,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Radix's `FocusScope` cleanup schedules `setTimeout(…, 0)` and then focuses the element that had focus before the dialog opened (`@radix-ui/react-focus-scope/dist/index.mjs:87-99`). Collapsing fullscreen therefore hands focus to the board one tick after the modal mounted and focused itself.
 
 **Files:**
+
 - Modify: `packages/widgets/passport-checker/ui/use-modal-isolation.ts:38-95`
 - Modify: `packages/widgets/passport-checker/ui/recovery-modal-radix-stack.test.tsx:132-145`
 - Test: `packages/widgets/passport-checker/ui/RecoveryModal.test.tsx` (append)
 
 **Interfaces:**
+
 - Consumes: `useModalIsolation(rootRef, onClose)` — signature unchanged.
 - Produces: no new exports; the modal now returns focus to itself whenever focus lands outside it.
 
@@ -956,24 +964,24 @@ Expected: FAIL on `pulls focus back when something outside steals it` — focus 
 In `packages/widgets/passport-checker/ui/use-modal-isolation.ts`, add the listener next to the existing `focusout` guard, and remove it first in the cleanup so the unmount focus restore is not intercepted:
 
 ```ts
-    // Focus containment. Radix's FocusScope restores focus on unmount from a
-    // setTimeout(…, 0), so collapsing the board's fullscreen dialog to show
-    // this modal would otherwise hand focus to the board one tick after we
-    // mounted. Pull it back instead. No ping-pong with a Radix layer beneath:
-    // focusin raised inside the modal is stopped at the root below and never
-    // reaches document, so its FocusScope never sees our focus.
-    const onFocusIn = (event: FocusEvent) => {
-      const target = event.target
-      if (target instanceof Node && root.contains(target)) return
-      focusables()[0]?.focus()
-    }
-    window.addEventListener('focusin', onFocusIn, true)
+// Focus containment. Radix's FocusScope restores focus on unmount from a
+// setTimeout(…, 0), so collapsing the board's fullscreen dialog to show
+// this modal would otherwise hand focus to the board one tick after we
+// mounted. Pull it back instead. No ping-pong with a Radix layer beneath:
+// focusin raised inside the modal is stopped at the root below and never
+// reaches document, so its FocusScope never sees our focus.
+const onFocusIn = (event: FocusEvent) => {
+  const target = event.target
+  if (target instanceof Node && root.contains(target)) return
+  focusables()[0]?.focus()
+}
+window.addEventListener('focusin', onFocusIn, true)
 ```
 
 and in the returned cleanup, before `previouslyFocused?.focus()`:
 
 ```ts
-      window.removeEventListener('focusin', onFocusIn, true)
+window.removeEventListener('focusin', onFocusIn, true)
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
@@ -986,14 +994,14 @@ Expected: PASS.
 Containment changes what the stacked test asserts: focus can no longer rest on the underlying dialog while our modal is open. In `recovery-modal-radix-stack.test.tsx`, replace the `holds focus in our modal when refocused after Radix content held it` test and delete the `NOTE:` block above `describe`'s first test that says mount autofocus is intentionally untested:
 
 ```tsx
-  it('pulls focus back when the underlying Radix content takes it', () => {
-    const { ourDialog } = renderNested()
-    const dialog = ourDialog()
+it('pulls focus back when the underlying Radix content takes it', () => {
+  const { ourDialog } = renderNested()
+  const dialog = ourDialog()
 
-    screen.getByRole('button', { name: 'inside radix' }).focus()
+  screen.getByRole('button', { name: 'inside radix' }).focus()
 
-    expect(dialog.contains(document.activeElement)).toBe(true)
-  })
+  expect(dialog.contains(document.activeElement)).toBe(true)
+})
 ```
 
 - [ ] **Step 6: Run the widget suite**
@@ -1021,10 +1029,12 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 The backlog proposed narrowing the guard with `&& !root.contains(event.target)`. That is a regression: Radix's `handleFocusOut` inspects only `relatedTarget` and never `event.target` (`@radix-ui/react-focus-scope/dist/index.mjs:44-51`), so a focus move entirely inside our modal has both endpoints outside its container and makes it pull focus to itself. The existing stacked test only exercises focus entering from outside, so the narrowing would have gone green. Add the test that catches it, and record why the guard stays broad.
 
 **Files:**
+
 - Modify: `packages/widgets/passport-checker/ui/use-modal-isolation.ts:57-61`
 - Modify: `packages/widgets/passport-checker/ui/recovery-modal-radix-stack.test.tsx:79-109`
 
 **Interfaces:**
+
 - Consumes: `useModalIsolation` from Task 5.
 - Produces: no new exports.
 
@@ -1085,25 +1095,25 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
 Then add the regression test to the same `describe`:
 
 ```tsx
-  it('keeps focus inside when it moves between two of our own controls', () => {
-    const { ourDialog } = renderNested()
-    const dialog = ourDialog()
+it('keeps focus inside when it moves between two of our own controls', () => {
+  const { ourDialog } = renderNested()
+  const dialog = ourDialog()
 
-    const buttons = dialog.querySelectorAll('button')
-    const first = buttons[0]
-    const last = buttons[buttons.length - 1]
-    if (!(first instanceof HTMLElement) || !(last instanceof HTMLElement)) {
-      throw new Error('expected at least two buttons in our modal')
-    }
-    expect(first).not.toBe(last)
+  const buttons = dialog.querySelectorAll('button')
+  const first = buttons[0]
+  const last = buttons[buttons.length - 1]
+  if (!(first instanceof HTMLElement) || !(last instanceof HTMLElement)) {
+    throw new Error('expected at least two buttons in our modal')
+  }
+  expect(first).not.toBe(last)
 
-    first.focus()
-    last.focus()
+  first.focus()
+  last.focus()
 
-    // Radix's handleFocusOut looks only at relatedTarget, so an intra-modal
-    // move would make it reclaim focus unless our guard swallows the event.
-    expect(document.activeElement).toBe(last)
-  })
+  // Radix's handleFocusOut looks only at relatedTarget, so an intra-modal
+  // move would make it reclaim focus unless our guard swallows the event.
+  expect(document.activeElement).toBe(last)
+})
 ```
 
 - [ ] **Step 2: Run it and confirm it passes against the current broad guard**
@@ -1116,12 +1126,12 @@ Expected: PASS.
 Temporarily narrow the guard in `use-modal-isolation.ts` to the rejected form:
 
 ```ts
-    const onFocusOut = (event: FocusEvent) => {
-      const related = event.relatedTarget
-      if (!(related instanceof Node) || !root.contains(related)) return
-      if (event.target instanceof Node && root.contains(event.target)) return
-      event.stopPropagation()
-    }
+const onFocusOut = (event: FocusEvent) => {
+  const related = event.relatedTarget
+  if (!(related instanceof Node) || !root.contains(related)) return
+  if (event.target instanceof Node && root.contains(event.target)) return
+  event.stopPropagation()
+}
 ```
 
 Run: `pnpm --filter widgets-passport-checker exec vitest run ui/recovery-modal-radix-stack.test.tsx`
@@ -1161,10 +1171,12 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ### Task 7: Documentation and the full gate
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-07-24-passport-checker-widget-design.md` (add an amendment block)
 - Modify: `docs/superpowers/specs/2026-07-03-passport-checker-browser-automation-design.md:592-598`
 
 **Interfaces:**
+
 - Consumes: the spec and plan written for this work.
 - Produces: navigable back-links, as the master spec requires.
 
