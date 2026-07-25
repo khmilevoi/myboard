@@ -43,10 +43,14 @@ export function makeBrowserService<Context>(deps: BrowserServiceDeps<Context>): 
     )
 
     if (outcome instanceof BrowserTaskError && outcome.code === 'internal') {
+      // `internal` is all the client is told, so the cause chain has to reach
+      // the container log or the real failure is invisible. `toEnvelopeError`
+      // keeps the response redacted.
       logger.warn('[browser-automation] task failed', {
         widgetId: args.widgetId,
         taskId: args.taskId,
         code: outcome.code,
+        error: outcome,
       })
     }
     return outcome

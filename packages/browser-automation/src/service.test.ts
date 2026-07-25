@@ -138,24 +138,33 @@ describe('makeBrowserService', () => {
     expect(service.recoveryState('demo')).toEqual({ retained: true })
   })
 
-  it('logs only redacted fields for internal failures', async () => {
+  it('logs the failing error with its cause chain for internal failures', async () => {
     const { executor } = makeFakeExecutor()
     const warn = vi.fn()
+    const cause = new Error('launch failed')
     const service = makeBrowserService({
       registry: registryWith(() => {
-        throw new Error('series=AB number=123456')
+        throw cause
       }),
       executor,
       config,
       logger: { warn },
     })
     service.markReady()
-    await service.invoke({ widgetId: 'demo', taskId: 'check', payload: { value: 'x' } })
+    const outcome = await service.invoke({
+      widgetId: 'demo',
+      taskId: 'check',
+      payload: { value: 'x' },
+    })
     expect(warn).toHaveBeenCalledWith('[browser-automation] task failed', {
       widgetId: 'demo',
       taskId: 'check',
       code: 'internal',
+      error: outcome,
     })
-    expect(JSON.stringify(warn.mock.calls)).not.toContain('123456')
+    // Only the log carries the cause; `toEnvelopeError` still answers the
+    // client with the redacted `internal` code (see errors.test.ts).
+    const logged = (warn.mock.calls[0][1] as { error: Error }).error
+    expect(logged.cause).toBe(cause)
   })
 })
