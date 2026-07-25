@@ -25,10 +25,12 @@ import { PassportChecker } from './PassportChecker'
 // side effect (moving focus into the dialog) before dispatching Escape, which
 // proves the same effect has also run and attached the listener.
 // `ROUND_TRIP_TIMEOUT_MS` stays as a modest safety margin for the two
-// multi-mount tests below under ordinary whole-suite worker contention (the
-// one test in this file that never reaches the Escape-close path —
-// "collapses fullscreen…" — keeps the shared default and would still fail
-// fast if it ever regressed).
+// multi-mount tests below under ordinary whole-suite worker contention. Two
+// tests in this file keep the shared default instead: "opens the modal from
+// sessionRequired, closes on Esc and returns focus" above (a single-mount
+// test, despite firing Escape) and "collapses fullscreen…" below (which never
+// reaches the Escape-close path); both would still fail fast if they ever
+// regressed.
 const ROUND_TRIP_TIMEOUT_MS = 10_000
 
 function renderSessionRequired() {

@@ -44,10 +44,12 @@ stack test.
 registers its focus-containment `focusin` handler on `window` in the CAPTURE
 phase (`use-modal-isolation.ts:76`), while the `stopPropagation()` that keeps a
 modal's own `focusin` off `document` sits on the modal root
-(`use-modal-isolation.ts:55`) — far later on the same capture path. Two mounted
-modals therefore each see the other's `focusin` first, find the target outside
-their own root, and pull focus back into themselves, each move re-triggering the
-other. Measured in jsdom 29.1.1 with two `useModalIsolation` roots mounted at
+(`use-modal-isolation.ts:55`) with no capture flag, so it runs on the BUBBLE
+phase — after every window-capture listener, including the other mounted
+modal's, has already fired. Two mounted modals therefore each see the other's
+`focusin` first, find the target outside their own root, and pull focus back
+into themselves, each move re-triggering the other. Measured in jsdom 29.1.1
+with two `useModalIsolation` roots mounted at
 once: a single modal performs 1 focus pull on mount, while two mounted together
 run away without settling — a hard test guard at 400 pulls had to stop them (402
 recorded, and the true count is unbounded).

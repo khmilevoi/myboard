@@ -123,8 +123,11 @@ from the map, and the next mount builds a new atom and a new value.
 `make` is passed per call because the value depends on runtime props, but it
 runs only for the first mount of a key, so a widget must pass a `make` whose
 captured inputs are interchangeable between mounts. It must also not read atoms
-reactively: the instance atom is a `computed`, and a reactive dependency would
-silently rebuild the whole value when it changes.
+reactively: the instance atom is a `computed`, so whatever `make` reads becomes
+a dependency of the instance atom. Measured: after that atom changes, the
+compute function re-runs once, but `current ??=` makes that re-run a no-op, so
+`make` never re-reads the atom and the dependency edge is dropped afterward.
+The cost is a pointless dependency edge, not a rebuilt value.
 
 ### 2. Reading an instance in a component
 
@@ -254,7 +257,7 @@ loses to the trapped FocusScope" defect, so the modal now holds focus even in
 the degenerate case where collapsing did not happen.
 
 No ping-pong with Radix: `focusin` raised inside the modal is stopped at the
-root (`use-modal-isolation.ts:53`) and never reaches `document`, so Radix's
+root (`use-modal-isolation.ts:55`) and never reaches `document`, so Radix's
 `handleFocusIn` never sees it. No recursion: our own capture listener does
 nothing for targets already inside the root.
 
@@ -282,10 +285,12 @@ swallowed too). The missing regression test is added instead.
   `requestFullscreen` only when recovery was opened from fullscreen; opening
   from the tile restores nothing.
 - `ui/recovery-modal-radix-stack.test.tsx` — the underlying Radix dialog mounts
-  first, in its own render pass, mirroring production; focus moving between two
-  buttons inside our modal stays inside it; focus driven outside the modal is
-  pulled back. The `describe` header note claiming mount autofocus is
-  intentionally untested is removed, because the behavior now exists.
+  first, in its own render pass, mirroring production; focus taken by the
+  underlying Radix content is pulled back into our modal; a `focusout` from a
+  move between two of our own controls never reaches `document`, so Radix's
+  document-level handler cannot see it. The `describe` header note claiming
+  mount autofocus is intentionally untested is removed, because the behavior
+  now exists.
 - Test isolation needs no production reset hook: Testing Library's automatic
   cleanup (`globals: true` in `defineWidgetVitestConfig`) unmounts after each
   test, which disconnects the instance atom and disposes it. Disconnection is
