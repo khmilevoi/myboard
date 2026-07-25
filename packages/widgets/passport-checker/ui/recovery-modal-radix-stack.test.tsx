@@ -80,7 +80,23 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
   const { checkModel, value } = makeValue(overrides)
   const onOpenChange = vi.fn()
 
-  render(
+  // Production mounts the board's fullscreen dialog first and the recovery
+  // modal later. Mirror that here — our listeners sit on window in the capture
+  // phase and Radix's on document, so window still wins whatever the order,
+  // but the fixture should not claim an ordering that never happens.
+  const view = render(
+    <Dialog.Root open onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay />
+        <Dialog.Content aria-describedby={undefined}>
+          <Dialog.Title>underlying surface</Dialog.Title>
+          <button type="button">inside radix</button>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>,
+  )
+
+  view.rerender(
     <Dialog.Root open onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay />
@@ -126,5 +142,42 @@ describe('RecoveryModal nested under a modal Radix dialog', () => {
     screen.getByRole('button', { name: 'inside radix' }).focus()
 
     expect(dialog.contains(document.activeElement)).toBe(true)
+  })
+
+  it('keeps focus inside when it moves between two of our own controls', () => {
+    const { ourDialog } = renderNested()
+    const dialog = ourDialog()
+
+    const buttons = dialog.querySelectorAll('button')
+    const first = buttons[0]
+    const last = buttons[buttons.length - 1]
+    if (!(first instanceof HTMLElement) || !(last instanceof HTMLElement)) {
+      throw new Error('expected at least two buttons in our modal')
+    }
+    expect(first).not.toBe(last)
+    first.focus()
+
+    // A chained `first.focus(); last.focus()` can't observe this: jsdom (like
+    // real browsers) always finishes a `.focus()` call on its OWN target once
+    // its handler stack unwinds, so even if a nested handler yanks focus away
+    // mid-dispatch, the outer call's completion silently overwrites it and
+    // `document.activeElement` settles back on `last` regardless of whether
+    // our guard did its job — verified empirically against this exact guard.
+    // Dispatch the underlying `focusout` event directly instead: that's the
+    // one event both our window-capture guard and Radix's document-level
+    // `handleFocusOut` react to, so seeing whether it reaches `document`
+    // proves whether our guard swallowed it first.
+    const reachedDocument = vi.fn()
+    document.addEventListener('focusout', reachedDocument)
+    try {
+      fireEvent.focusOut(first, { relatedTarget: last })
+
+      // Radix's handleFocusOut looks only at relatedTarget, so an intra-modal
+      // move would reach it and make it reclaim focus unless our guard
+      // swallows the event before it ever gets to document.
+      expect(reachedDocument).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener('focusout', reachedDocument)
+    }
   })
 })

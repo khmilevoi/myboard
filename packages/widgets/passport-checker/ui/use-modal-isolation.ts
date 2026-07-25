@@ -14,10 +14,12 @@ const FOCUSABLE_SELECTOR =
  * - window-capture Esc closes ONLY this modal. `stopPropagation()` there runs
  *   before Radix's own capture-phase `useEscapeKeydown` document listener, so
  *   the underlying dialog never sees the key and cannot also dismiss.
- * - window-capture `focusout` guard: a focusout born INSIDE the underlying
- *   Radix tree (fired as focus moves INTO our modal) is swallowed when its
- *   `relatedTarget` lands inside our root, so Radix's trapped FocusScope never
- *   yanks focus back out of the modal.
+ * - window-capture `focusout` guard: any focusout whose `relatedTarget` lands
+ *   inside our root is swallowed, so Radix's trapped FocusScope never yanks
+ *   focus out of the modal. The guard deliberately does NOT also require the
+ *   event's target to be outside the root: Radix's `handleFocusOut` inspects
+ *   only `relatedTarget`, so a focus move BETWEEN two of our own controls has
+ *   both endpoints outside its container and would make it reclaim focus.
  * - `root` IS the backdrop overlay (the dialog panel is a child), so backdrop
  *   dismissal lives in the native `pointerdown` stopper: any press stops
  *   propagating, and a press that STARTS on the overlay itself (never on the
