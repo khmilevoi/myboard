@@ -1049,17 +1049,14 @@ describe('passport check handler', () => {
   it.each([
     ['navigation', { navigationError: new Error('navigation failed') }],
     ['submission', { submissionError: new Error('submission failed') }],
-  ] as const)(
-    'wraps a Playwright %s rejection as an upstream error',
-    async (_phase, scenario) => {
-      const { context } = makeContext(scenario)
-      const result = await makePassportCheckHandler({
-        checkerUrl: 'http://fixture.local/solutions/checker',
-        recoverySshTarget: null,
-      })({}, context)
-      expect(result).toBeInstanceOf(UpstreamResponseError)
-    },
-  )
+  ] as const)('wraps a Playwright %s rejection as an upstream error', async (_phase, scenario) => {
+    const { context } = makeContext(scenario)
+    const result = await makePassportCheckHandler({
+      checkerUrl: 'http://fixture.local/solutions/checker',
+      recoverySshTarget: null,
+    })({}, context)
+    expect(result).toBeInstanceOf(UpstreamResponseError)
+  })
 
   it('rejects schema mismatches and responses that echo document identity', async () => {
     for (const data of [

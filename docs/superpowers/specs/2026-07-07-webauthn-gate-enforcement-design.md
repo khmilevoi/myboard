@@ -47,7 +47,7 @@ end to end:
   ports **in this plan**: widget-runtime (`http-storage`, `widget-api`,
   `http-time`, SSE subscribe), the client's `devices-http` and the new
   relogin model, and the activation app's two `postJson` copies. `typeof
-  fetch` survives only inside the adapter. The 401 handler reaches
+fetch` survives only inside the adapter. The 401 handler reaches
   widget-runtime as a `makeHostRuntime` option at each host's composition
   root — no global handler slot — see 3.2–3.4.
 
@@ -198,9 +198,10 @@ export type HttpResponse = { status: number; ok: boolean; body: unknown }
 export class HttpTransportError extends errore.createTaggedError(/* … */) {}
 
 export type RequestHook = (ctx: HttpRequestContext) => void | Promise<void>
-export type ResponseHook = (
-  ctx: { response: HttpResponse; retryCount: number },
-) => void | 'retry' | Promise<void | 'retry'>
+export type ResponseHook = (ctx: {
+  response: HttpResponse
+  retryCount: number
+}) => void | 'retry' | Promise<void | 'retry'>
 
 export type HttpClientOptions = {
   baseUrl?: string
@@ -216,9 +217,7 @@ export class HttpClient {
   // put / delete / patch — same shape
 }
 
-export function makeUnauthorizedRetryHook(
-  onUnauthorized: () => Promise<boolean>,
-): ResponseHook // 401 && retryCount === 0 && await onUnauthorized() → 'retry'
+export function makeUnauthorizedRetryHook(onUnauthorized: () => Promise<boolean>): ResponseHook // 401 && retryCount === 0 && await onUnauthorized() → 'retry'
 ```
 
 Semantics:
@@ -297,8 +296,8 @@ the config deeper in a global slot.)
 
 ```ts
 export type HostRuntimeOptions = {
-  serverBaseUrl?: string            // default '/api/storage'
-  http?: HttpClient                 // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
+  serverBaseUrl?: string // default '/api/storage'
+  http?: HttpClient // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
   openEventStream?: OpenEventStream // test seam; default makeEventSourceStream()
 }
 

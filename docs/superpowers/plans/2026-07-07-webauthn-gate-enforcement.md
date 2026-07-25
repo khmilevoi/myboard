@@ -29,6 +29,7 @@
 ### Task 1: Server CSRF guard
 
 **Files:**
+
 - Create: `packages/shared/http/csrf.ts` (the CSRF contract constants — Task 5's `HttpClient` imports them too)
 - Create: `packages/server/src/http/csrf.ts`
 - Create: `packages/server/src/http/csrf.test.ts`
@@ -37,6 +38,7 @@
 - Modify: `packages/client/e2e/auth-activation.spec.ts:50` (add the header)
 
 **Interfaces:**
+
 - Produces: `csrfBlocked(req: Pick<IncomingMessage, 'method' | 'url' | 'headers'>): boolean` — `true` when the request must be rejected with 403.
 
 - [ ] **Step 1: Write the failing test**
@@ -201,6 +203,7 @@ rtk git commit -m "feat(server): CSRF guard - mutating /api requires X-Requested
 ### Task 2: Audit log
 
 **Files:**
+
 - Create: `packages/server/src/auth/audit.ts`
 - Create: `packages/server/src/auth/audit.test.ts`
 - Modify: `packages/server/src/auth/handlers.ts` (AuthDeps + register/login/logout events)
@@ -210,6 +213,7 @@ rtk git commit -m "feat(server): CSRF guard - mutating /api requires X-Requested
 - Modify: `packages/server/src/auth/handlers.test.ts`, `packages/server/src/auth/device-handlers.test.ts` (event assertions)
 
 **Interfaces:**
+
 - Produces:
   - `type AuditEventName = 'register' | 'register_failed' | 'login' | 'login_failed' | 'logout' | 'device_pending' | 'device_approved' | 'device_denied' | 'device_revoked' | 'invite_locked' | 'addtoken_minted'`
   - `type AuditEvent = { event: AuditEventName; accountId?: string; credentialId?: string; inviteId?: string; code?: string; ip?: string | null; ua?: string }`
@@ -273,7 +277,12 @@ describe('auditFor', () => {
     const emit = auditFor({ audit, config: baseConfig }, req)
 
     emit('login', { accountId: 'a1' })
-    expect(audit).toHaveBeenCalledWith({ event: 'login', accountId: 'a1', ip: '10.0.0.9', ua: 'UA' })
+    expect(audit).toHaveBeenCalledWith({
+      event: 'login',
+      accountId: 'a1',
+      ip: '10.0.0.9',
+      ua: 'UA',
+    })
   })
 
   it('omits ua when the request carries none', () => {
@@ -498,11 +507,13 @@ rtk git commit -m "feat(auth): stdout audit log for auth events"
 ### Task 3: Ops scripts — list-devices, revoke-device
 
 **Files:**
+
 - Create: `packages/server/scripts/list-devices.ts`, `packages/server/scripts/list-devices.cli.ts`, `packages/server/scripts/list-devices.test.ts`
 - Create: `packages/server/scripts/revoke-device.ts`, `packages/server/scripts/revoke-device.cli.ts`, `packages/server/scripts/revoke-device.test.ts`
 - Modify: `packages/server/rspack.config.ts` (two new `scripts/*` entries)
 
 **Interfaces:**
+
 - Consumes: `listAllDeviceCredentialIds`, `getDevice`, `revokeDevice` from `../src/auth/devices`; `getAccount` from `../src/auth/accounts`; `createMemoryOps`, `createMemoryPubSub` from `../src/test/memory-ops` (tests).
 - Produces: `runListDevices(ops: ValkeyOps): Promise<DeviceListing[]>` where `DeviceListing = { accountId: string; accountName: string; devices: Array<{ credentialId: string; label: string; status: 'active' | 'pending'; disabled: boolean; createdAt: string; lastSeenAt: string }> }`; `runRevokeDevice(ops: ValkeyOps, credentialId: string): Promise<{ accountId: string } | DeviceNotFoundError | Error>`.
 
@@ -699,7 +710,9 @@ export async function runListDevicesCli(): Promise<void> {
     console.log(`${account.accountName} (${account.accountId})`)
     for (const device of account.devices) {
       const flags = [device.status, device.disabled ? 'disabled' : null].filter(Boolean).join(', ')
-      console.log(`  ${device.credentialId}  ${device.label}  [${flags}]  last seen ${device.lastSeenAt}`)
+      console.log(
+        `  ${device.credentialId}  ${device.label}  [${flags}]  last seen ${device.lastSeenAt}`,
+      )
     }
   }
   process.exit(0)
@@ -777,6 +790,7 @@ rtk git commit -m "feat(server): list-devices and revoke-device ops scripts"
 ### Task 4: Ops scripts — revoke-invite, revoke-account, mint-add-device-token
 
 **Files:**
+
 - Modify: `packages/server/src/auth/invites.ts` (add `revokeInviteById`)
 - Modify: `packages/server/src/auth/invites.test.ts` (its test)
 - Create: `packages/server/scripts/revoke-invite.ts`, `.cli.ts`, `.test.ts`
@@ -785,6 +799,7 @@ rtk git commit -m "feat(server): list-devices and revoke-device ops scripts"
 - Modify: `packages/server/rspack.config.ts` (three new entries)
 
 **Interfaces:**
+
 - Consumes: `mintAddToken`, `formatAddCode` from `../src/auth/add-tokens`; `getAccount`, `listAccountDeviceIds` from `../src/auth/accounts`; `revokeDevice` from `../src/auth/devices`; `accountKey`, `accountDevicesKey`, `inviteKey`, `getJson`, `InviteRecordSchema` from `../src/auth/records`; `parseDuration` from `../src/auth/config`.
 - Produces:
   - `revokeInviteById(ops: ValkeyOps, id: string): Promise<boolean>` (in `invites.ts`) — scans `invite:*`, deletes the record whose `id` matches; `false` if none.
@@ -886,7 +901,9 @@ describe('runMintAddDeviceToken', () => {
     if (result instanceof Error) throw result
 
     expect(result.code).toMatch(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/)
-    expect(result.url).toBe(`https://board.example/add-device?token=${result.code.replace('-', '')}`)
+    expect(result.url).toBe(
+      `https://board.example/add-device?token=${result.code.replace('-', '')}`,
+    )
 
     const record = await lookupAddToken(ops, now, result.code)
     if (record instanceof Error) throw record
@@ -1119,6 +1136,7 @@ rtk git commit -m "feat(server): revoke-invite, revoke-account, mint-add-device-
 ### Task 5: `@shared/http` — HttpClient port (ky adapter), EventStream port, Navigate
 
 **Files:**
+
 - Modify: `packages/shared/package.json` (add `ky`)
 - Create: `packages/shared/http/client.ts`
 - Create: `packages/shared/http/client.test.ts`
@@ -1129,6 +1147,7 @@ rtk git commit -m "feat(server): revoke-invite, revoke-account, mint-add-device-
 - Create: `packages/shared/navigation.ts`
 
 **Interfaces:**
+
 - Consumes: `ky` (new dep in `shared` only — resolved from `packages/shared/node_modules` by every consumer since `@shared/*` is a source alias), `errore` (already a `shared` dep), `CSRF_HEADER`/`CSRF_HEADER_VALUE` from `@shared/http/csrf` (created in Task 1).
 - Produces (all from `@shared/http/client`):
   - `type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'`
@@ -1253,7 +1272,10 @@ describe('makeUnauthorizedRetryHook', () => {
       new Response(null, { status: 401 }),
       new Response(null, { status: 204 }),
     )
-    const http = new HttpClient({ fetch: fetchMock, onResponse: [makeUnauthorizedRetryHook(handler)] })
+    const http = new HttpClient({
+      fetch: fetchMock,
+      onResponse: [makeUnauthorizedRetryHook(handler)],
+    })
 
     const result = await http.post('http://test.local/append', { json: { entry: { x: 1 } } })
     expect(result).toMatchObject({ status: 204 })
@@ -1268,7 +1290,10 @@ describe('makeUnauthorizedRetryHook', () => {
       new Response(null, { status: 401 }),
       new Response(null, { status: 401 }),
     )
-    const http = new HttpClient({ fetch: fetchMock, onResponse: [makeUnauthorizedRetryHook(handler)] })
+    const http = new HttpClient({
+      fetch: fetchMock,
+      onResponse: [makeUnauthorizedRetryHook(handler)],
+    })
     expect(await http.get('http://test.local/x')).toMatchObject({ status: 401 })
     expect(handler).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -1442,9 +1467,7 @@ async function parseBody(raw: Response): Promise<HttpTransportError | { body: un
 }
 
 /** 401 → ask the host to recover the session → replay the request once. */
-export function makeUnauthorizedRetryHook(
-  onUnauthorized: () => Promise<boolean>,
-): ResponseHook {
+export function makeUnauthorizedRetryHook(onUnauthorized: () => Promise<boolean>): ResponseHook {
   return async ({ response, retryCount }) => {
     if (response.status !== 401 || retryCount > 0) return
     const recovered = await onUnauthorized().catch(() => false)
@@ -1682,6 +1705,7 @@ rtk git commit -m "feat(shared): HttpClient port over ky, EventStream port, Navi
 ### Task 6: widget-runtime — `makeHostRuntime` + http-storage/widget-api/http-time on the port
 
 **Files:**
+
 - Create: `packages/widget-runtime/src/host-runtime.ts`
 - Create: `packages/widget-runtime/src/host-runtime.test.ts`
 - Modify: `packages/widget-runtime/src/storage/server/http-storage.ts` (deps-injected rewrite)
@@ -1693,6 +1717,7 @@ rtk git commit -m "feat(shared): HttpClient port over ky, EventStream port, Navi
 - Modify: `packages/widget-runtime/src/index.ts` (`export * from './host-runtime'`)
 
 **Interfaces:**
+
 - Consumes: `HttpClient`, `HttpLike` from `@shared/http/client`; `OpenEventStream`, `makeEventSourceStream` from `@shared/http/event-stream`; `makeScriptedHttp` from `@shared/http/test/scripted-http` (tests).
 - Produces:
   - `makeHostRuntime(options?: HostRuntimeOptions): HostRuntime` with
@@ -1768,7 +1793,9 @@ describe('makeHttpStorage on the HttpClient port', () => {
   })
 
   it('HAS maps 404 to false and 200 to true', async () => {
-    const { storage } = storageWith({ [KEY]: [{ status: 404 }, { status: 200, body: { value: 1 } }] })
+    const { storage } = storageWith({
+      [KEY]: [{ status: 404 }, { status: 200, body: { value: 1 } }],
+    })
     expect(await storage.has('settings')).toBe(false)
     expect(await storage.has('settings')).toBe(true)
   })
@@ -1869,7 +1896,8 @@ export function makeHttpStorage(namespace: string, deps: HttpStorageDeps): Stora
     async keys(prefix?: string): Promise<StorageError | string[]> {
       const fullPrefix = toFullKey(namespace, prefix ?? '')
       const res = await http.get(`${baseUrl}?prefix=${encodeURIComponent(fullPrefix)}`)
-      if (res instanceof Error) return new StorageError({ reason: 'server KEYS failed', cause: res })
+      if (res instanceof Error)
+        return new StorageError({ reason: 'server KEYS failed', cause: res })
       if (!res.ok) return new StorageError({ reason: `server KEYS ${res.status}` })
       const envelope = KeysEnvelopeSchema.safeParse(res.body)
       if (!envelope.success) {
@@ -1920,7 +1948,11 @@ it('invokes the server function and returns data', async () => {
   const { http, calls } = makeScriptedHttp({ [URL_ECHO]: [{ status: 200, body: { data: 42 } }] })
   const api = makeWidgetApi<TestEvents>({ typeId: 't', instanceId: 'i', http })
   expect(await api.invoke('echo', { x: 1 })).toBe(42)
-  expect(calls[0]).toEqual({ method: 'POST', url: URL_ECHO, json: { instanceId: 'i', payload: { x: 1 } } })
+  expect(calls[0]).toEqual({
+    method: 'POST',
+    url: URL_ECHO,
+    json: { instanceId: 'i', payload: { x: 1 } },
+  })
 })
 
 it('maps the error envelope to WidgetApiError', async () => {
@@ -2010,7 +2042,9 @@ Rework `packages/widget-runtime/src/timer/http-time.test.ts` cases onto the scri
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 
 it('returns server epoch ms', async () => {
-  const { http } = makeScriptedHttp({ '/api/time': [{ status: 200, body: { now: 1_700_000_000_000 } }] })
+  const { http } = makeScriptedHttp({
+    '/api/time': [{ status: 200, body: { now: 1_700_000_000_000 } }],
+  })
   expect(await fetchServerTime('/api/time', http)).toBe(1_700_000_000_000)
 })
 ```
@@ -2122,8 +2156,8 @@ import { getSseManager, type SseDeliver } from './storage/server/sse-client'
 import { makeWidgetApi as makeWidgetApiWith, type WidgetApiError } from './widget-api'
 
 export type HostRuntimeOptions = {
-  serverBaseUrl?: string            // default '/api/storage'
-  http?: HttpLike                   // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
+  serverBaseUrl?: string // default '/api/storage'
+  http?: HttpLike // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
   openEventStream?: OpenEventStream // test seam; wired to the SSE manager in Task 7
 }
 
@@ -2243,6 +2277,7 @@ rtk git commit -m "feat(widget-runtime): makeHostRuntime composition root over t
 ### Task 7: SSE manager on the EventStream port + re-auth reconnect + `purgeLocalData`
 
 **Files:**
+
 - Modify: `packages/widget-runtime/src/storage/server/sse-client.ts` (constructor-injected `makeSseManager`; the `getSseManager` module map dies)
 - Modify: `packages/widget-runtime/src/host-runtime.ts` (own the SSE manager lazily)
 - Modify: `packages/widget-runtime/src/storage/test/fakes.ts` (delete `FakeEventSource`/`installFakeEventSource` once unreferenced — the EventStream doubles live in `@shared/http/test/fake-event-stream` since Task 5)
@@ -2252,6 +2287,7 @@ rtk git commit -m "feat(widget-runtime): makeHostRuntime composition root over t
 - Test in: `packages/widget-runtime/src/storage/client/dexie-storage.test.ts` (purge case)
 
 **Interfaces:**
+
 - Consumes: `HttpLike` from `@shared/http/client`; `OpenEventStream`, `EventStream`, `makeEventSourceStream` from `@shared/http/event-stream`.
 - Produces:
   - `makeSseManager(deps: SseManagerDeps): SseManager` with `SseManagerDeps = { baseUrl: string; http: HttpLike; openEventStream: OpenEventStream }` and `SseManager = { add(fullKey, deliver): () => void }`
@@ -2284,7 +2320,13 @@ function makeStubHttp(
   const reject = () => {
     throw new Error('unexpected non-POST call')
   }
-  const http = { get: reject, put: reject, delete: reject, patch: reject, post } as unknown as HttpLike
+  const http = {
+    get: reject,
+    put: reject,
+    delete: reject,
+    patch: reject,
+    post,
+  } as unknown as HttpLike
   return { http, post }
 }
 
@@ -2311,7 +2353,9 @@ describe('makeSseManager', () => {
     await vi.waitFor(() => {
       expect(post).toHaveBeenCalledWith(
         '/api/storage/events/c1',
-        expect.objectContaining({ json: expect.objectContaining({ subscribe: ['w:t:clock:settings'] }) }),
+        expect.objectContaining({
+          json: expect.objectContaining({ subscribe: ['w:t:clock:settings'] }),
+        }),
       )
     })
 
@@ -2372,80 +2416,80 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
 2. Connection lifecycle — extract the current inline `ready`/`message` handler bodies into named `onReady(raw: unknown)` / `onStorageEvent(raw: unknown)` functions (their Zod parsing stays byte-identical; they now receive the already-JSON-parsed value):
 
 ```ts
-  let stream: EventStream | undefined
-  let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+let stream: EventStream | undefined
+let reconnectTimer: ReturnType<typeof setTimeout> | undefined
 
-  function parseFrame(data: string): unknown | Error {
-    try {
-      return JSON.parse(data) as unknown
-    } catch (cause) {
-      return new Error('invalid SSE JSON', { cause })
-    }
+function parseFrame(data: string): unknown | Error {
+  try {
+    return JSON.parse(data) as unknown
+  } catch (cause) {
+    return new Error('invalid SSE JSON', { cause })
   }
+}
 
-  function connect(): void {
-    stream = deps.openEventStream(`${deps.baseUrl}/events`, {
-      events: ['ready'],
-      onMessage: (message) => {
-        const raw = parseFrame(message.data)
-        if (raw instanceof Error) {
-          console.warn('invalid storage SSE frame', raw)
-          return
-        }
-        if (message.event === 'ready') onReady(raw)
-        else onStorageEvent(raw)
-      },
-      onError: () => {
-        // The port only reports fatal closes (e.g. the gate answered 401);
-        // transient blips are retried by EventSource itself.
-        stream?.close()
-        stream = undefined
-        connId = undefined
-        scheduleReconnect()
-      },
-    })
-  }
+function connect(): void {
+  stream = deps.openEventStream(`${deps.baseUrl}/events`, {
+    events: ['ready'],
+    onMessage: (message) => {
+      const raw = parseFrame(message.data)
+      if (raw instanceof Error) {
+        console.warn('invalid storage SSE frame', raw)
+        return
+      }
+      if (message.event === 'ready') onReady(raw)
+      else onStorageEvent(raw)
+    },
+    onError: () => {
+      // The port only reports fatal closes (e.g. the gate answered 401);
+      // transient blips are retried by EventSource itself.
+      stream?.close()
+      stream = undefined
+      connId = undefined
+      scheduleReconnect()
+    },
+  })
+}
 
-  // Fixed 2 s, no backoff, retry forever, no re-auth — deliberate. The
-  // common fatal close is a server deploy/restart (nginx up, upstream down →
-  // non-200 → CLOSED), where fast indefinite retry brings the board back by
-  // itself. The connect attempt IS the session probe: while the session is
-  // dead the gate answers non-200 and the loop just keeps ticking; healing
-  // arrives through the board client's 401 retry hook on the next real
-  // request, and the following tick reconnects. Running a WebAuthn ceremony
-  // from this timer would pop a passkey prompt with no user gesture.
-  function scheduleReconnect(): void {
-    if (reconnectTimer) return
-    reconnectTimer = setTimeout(() => {
-      reconnectTimer = undefined
-      connect()
-    }, RECONNECT_DELAY_MS)
-  }
+// Fixed 2 s, no backoff, retry forever, no re-auth — deliberate. The
+// common fatal close is a server deploy/restart (nginx up, upstream down →
+// non-200 → CLOSED), where fast indefinite retry brings the board back by
+// itself. The connect attempt IS the session probe: while the session is
+// dead the gate answers non-200 and the loop just keeps ticking; healing
+// arrives through the board client's 401 retry hook on the next real
+// request, and the following tick reconnects. Running a WebAuthn ceremony
+// from this timer would pop a passkey prompt with no user gesture.
+function scheduleReconnect(): void {
+  if (reconnectTimer) return
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = undefined
+    connect()
+  }, RECONNECT_DELAY_MS)
+}
 
-  connect()
+connect()
 ```
 
 3. The subscribe POST inside `sync()` goes through the port — replace the `try/catch/finally` around `fetch` with:
 
 ```ts
-    syncInFlight = true
-    const result = await deps.http.post(`${deps.baseUrl}/events/${requestConnId}`, {
-      json: { subscribe, unsubscribe },
-    })
-    syncInFlight = false
+syncInFlight = true
+const result = await deps.http.post(`${deps.baseUrl}/events/${requestConnId}`, {
+  json: { subscribe, unsubscribe },
+})
+syncInFlight = false
 
-    if (connId !== requestConnId) {
-      syncDirty = false
-      scheduleSync()
-      return
-    }
+if (connId !== requestConnId) {
+  syncDirty = false
+  scheduleSync()
+  return
+}
 
-    if (result instanceof Error || !result.ok) {
-      console.warn('storage SSE registration failed', result instanceof Error ? result : result.status)
-      syncDirty = false
-      scheduleRetry()
-      return
-    }
+if (result instanceof Error || !result.ok) {
+  console.warn('storage SSE registration failed', result instanceof Error ? result : result.status)
+  syncDirty = false
+  scheduleRetry()
+  return
+}
 ```
 
 (Everything after — `registered` bookkeeping, `needsResync` — stays unchanged.)
@@ -2460,14 +2504,14 @@ In `host-runtime.ts`, replace the Task 6 transitional `registerKey` (and the `ge
 import { makeEventSourceStream } from '@shared/http/event-stream'
 import { makeSseManager, type SseDeliver, type SseManager } from './storage/server/sse-client'
 // ...inside makeHostRuntime():
-  let sse: SseManager | undefined
-  const getSse = () =>
-    (sse ??= makeSseManager({
-      baseUrl,
-      http,
-      openEventStream: options.openEventStream ?? makeEventSourceStream(),
-    }))
-  const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
+let sse: SseManager | undefined
+const getSse = () =>
+  (sse ??= makeSseManager({
+    baseUrl,
+    http,
+    openEventStream: options.openEventStream ?? makeEventSourceStream(),
+  }))
+const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
 ```
 
 (Lazy: building a runtime must not open an SSE connection until the first subscription — harness pages and unit tests never connect.)
@@ -2544,11 +2588,13 @@ rtk git commit -m "feat(widget-runtime): SSE manager on the EventStream port wit
 ### Task 8: Client relogin model (`ensureSession`)
 
 **Files:**
+
 - Create: `packages/client/src/session/model/relogin.ts`
 - Create: `packages/client/src/session/model/relogin.test.ts`
 - Modify: `packages/client/vite.config.ts` (PWA `navigateFallbackDenylist`)
 
 **Interfaces:**
+
 - Consumes: `startAuthentication` from `@simplewebauthn/browser` (already a client dependency); `HttpClient`, `HttpLike` from `@shared/http/client`; `Navigate` from `@shared/navigation`; Reatom v1001 (`action`, `atom`, `wrap`); Zod; `makeScriptedHttp` (tests).
 - Produces:
   - `makeReloginModel(overrides?: Partial<ReloginDeps>): ReloginModel` with `ReloginDeps = { http: HttpLike; startAuthenticationCeremony: typeof startAuthentication; navigate: Navigate; credHint: { get(): string | null; clear(): void } }` and `ReloginModel = { ensureSession: () => Promise<boolean> }`
@@ -2779,8 +2825,9 @@ export function makeReloginModel(overrides: Partial<ReloginDeps> = {}): ReloginM
 
     const envelope = LoginOptionsEnvelopeSchema.safeParse(optionsRes.body)
     if (!envelope.success) return bail()
-    const options = envelope.data
-      .options as Parameters<typeof startAuthentication>[0]['optionsJSON']
+    const options = envelope.data.options as Parameters<
+      typeof startAuthentication
+    >[0]['optionsJSON']
 
     const assertion = await deps
       .startAuthenticationCeremony({ optionsJSON: options })
@@ -2843,6 +2890,7 @@ rtk git commit -m "feat(client): single-flight ensureSession relogin model; SW d
 ### Task 9: Composition roots — board `runtime.ts`, consumer migration, devices-http on the port, logout purge
 
 **Files:**
+
 - Create: `packages/client/src/runtime.ts` (the board's composition root)
 - Modify: `packages/client/src/widget-host/ui/WidgetFrame.tsx` (use `hostRuntime`)
 - Create: `packages/client/src/board/storage.ts` (the `rootStorage` binding — deliberately **outside** `model/`)
@@ -2859,6 +2907,7 @@ rtk git commit -m "feat(client): single-flight ensureSession relogin model; SW d
 - Modify: `packages/widget-runtime/src/storage/storage.test.ts`, `packages/widget-runtime/src/index.test.ts` (construct via `makeHostRuntime`)
 
 **Interfaces:**
+
 - Consumes: `makeHostRuntime`, `purgeLocalData` from `widget-runtime`; `HttpClient`, `HttpLike`, `makeUnauthorizedRetryHook` from `@shared/http/client`; `makeReloginModel` from `@/session/model/relogin`; `OpenEventStream`, `makeEventSourceStream` from `@shared/http/event-stream`; `makeScriptedHttp`, `makeFakeOpenEventStream` (tests).
 - Produces:
   - `@/runtime`: the board's private relogin instance, `export const http: HttpClient` (the ONE retry-hooked board client), and `export const hostRuntime: HostRuntime` built with `{ http }` — board models (via UI wiring), storage, widget API, and SSE subscribe all share this client, and its retry hook is the app's only session-healing path.
@@ -3171,6 +3220,7 @@ rtk git commit -m "feat(client): composition roots on makeHostRuntime; devices-h
 ### Task 10: Test routes (seed-session / expire-sessions / revoke-device) + prod test mode + compose passthrough
 
 **Files:**
+
 - Modify: `packages/server/src/auth/handlers.ts` (export `sessionCookieFor`)
 - Modify: `packages/server/src/app.ts` (three new `/api/test/*` routes inside the existing `deps.testControls` block)
 - Modify: `packages/server/src/app.test.ts` (route tests)
@@ -3179,6 +3229,7 @@ rtk git commit -m "feat(client): composition roots on makeHostRuntime; devices-h
 - Modify: `docker-compose.yml` (env passthrough)
 
 **Interfaces:**
+
 - Consumes: `createAccount`, `addDeviceToAccount` from `./auth/accounts`; `storeDevice`, `revokeDevice` from `./auth/devices`; `issueSession` from `./auth/sessions`; `sessionCookieFor` from `./auth/handlers` (newly exported).
 - Produces:
   - `POST /api/test/seed-session` → `200 { accountId, credentialId, sessionId }` + `Set-Cookie` with a live session.
@@ -3265,9 +3316,7 @@ router.on('POST', '/api/test/seed-session', async (_req, res) => {
       deps.authConfig.sessionTtlSlidingMs,
     ),
   })
-  res.end(
-    JSON.stringify({ accountId: account.id, credentialId, sessionId: session.sessionId }),
-  )
+  res.end(JSON.stringify({ accountId: account.id, credentialId, sessionId: session.sessionId }))
 })
 
 router.on('POST', '/api/test/expire-sessions', async (_req, res) => {
@@ -3353,9 +3402,9 @@ const { server } = createApp({
 `docker-compose.yml` — in the `server` service `environment` block add:
 
 ```yaml
-      # Test seeding/reset endpoints for the nginx e2e suite. NEVER set in
-      # production; empty/absent keeps them disabled.
-      ALLOW_TEST_DB_RESET: ${ALLOW_TEST_DB_RESET:-}
+# Test seeding/reset endpoints for the nginx e2e suite. NEVER set in
+# production; empty/absent keeps them disabled.
+ALLOW_TEST_DB_RESET: ${ALLOW_TEST_DB_RESET:-}
 ```
 
 - [ ] **Step 4: Run tests**
@@ -3375,10 +3424,12 @@ rtk git commit -m "feat(server): e2e session seeding routes and opt-in test mode
 ### Task 11: The gate — nginx.conf + rpi.toml
 
 **Files:**
+
 - Modify: `packages/client/nginx.conf` (full rewrite below)
 - Modify: `rpi.toml` (hostname + 401 healthcheck + ops `[commands]`)
 
 **Interfaces:**
+
 - Consumes: `GET /api/auth/session` (the Plan-1 verifier — 200/401), the activation build at `/usr/share/nginx/html/activate/`.
 - Produces: the gate contract Tasks 12–13 test: no cookie ⇒ `/` = 401 + activation HTML, assets/API = bare 401, allowlist = reachable; cookie ⇒ everything 200; `/api/auth/*` limited 30 r/min (burst 15), `pending-status` 60 r/min (burst 10).
 
@@ -3603,6 +3654,7 @@ rtk git commit -m "feat(gate): enable nginx auth_request gate, rate limits, 401 
 ### Task 12: nginx suite — config, smoke update, request-level gate tests
 
 **Files:**
+
 - Modify: `packages/client/playwright.nginx.config.ts` (two projects: main specs + a dependent rate-limit project)
 - Create: `packages/client/e2e/support/gate.ts`
 - Modify: `packages/client/e2e/nginx-smoke.spec.ts` (seed a session first)
@@ -3610,6 +3662,7 @@ rtk git commit -m "feat(gate): enable nginx auth_request gate, rate limits, 401 
 - Create: `packages/client/e2e/nginx-rate-limit.spec.ts` (the `limit_req` burst test, isolated in its own last-run project)
 
 **Interfaces:**
+
 - Consumes: `/api/test/seed-session`, `/api/test/expire-sessions`, `/api/test/revoke-device`, `/api/test/seed-invite` (Task 10) through the nginx origin; the stack from Task 11 running with `ALLOW_TEST_DB_RESET=1`.
 - Produces: `seedSession(request): Promise<{ accountId: string; credentialId: string; sessionId: string }>`, `expireSessions(request)`, `revokeDeviceViaGate(request, credentialId)`, `seedInviteViaGate(request): Promise<{ token: string }>` in `e2e/support/gate.ts`.
 
@@ -3679,9 +3732,7 @@ export async function revokeDeviceViaGate(
   if (!response.ok()) throw new Error(`revoke-device failed: ${response.status()}`)
 }
 
-export async function seedInviteViaGate(
-  request: APIRequestContext,
-): Promise<{ token: string }> {
+export async function seedInviteViaGate(request: APIRequestContext): Promise<{ token: string }> {
   const response = await request.post('/api/test/seed-invite', { data: {} })
   if (!response.ok()) throw new Error(`seed-invite failed: ${response.status()}`)
   return (await response.json()) as { token: string }
@@ -3744,7 +3795,11 @@ test.describe('gate: no session', () => {
   })
 
   test('board statics are blocked without the activation fallback', async ({ request }) => {
-    for (const path of ['/assets/anything.js', '/widgets/clock/remoteEntry.js', '/widgets/x/y.js']) {
+    for (const path of [
+      '/assets/anything.js',
+      '/widgets/clock/remoteEntry.js',
+      '/widgets/x/y.js',
+    ]) {
       const res = await request.get(path)
       expect(res.status(), path).toBe(401)
       expect(await res.text(), path).not.toContain('активация')
@@ -3859,9 +3914,11 @@ rtk git commit -m "test(gate): nginx gate request-level matrix and authenticated
 ### Task 13: Gated browser journeys
 
 **Files:**
+
 - Modify: `packages/client/e2e/nginx-gate.spec.ts` (append the three journeys; the rate-limit test lives in its own dependent project since Task 12)
 
 **Interfaces:**
+
 - Consumes: `ActivatePage` (`e2e/pages/ActivatePage.js` — `gotoActivate`, `fillName`, `submitRegister`, `waitForBoardRedirect`, `signInButton`), `HeaderPage.addWidget`, `BoardPage.getCard`, `enableVirtualAuthenticator` (`e2e/support/webauthn.js`), `seedInviteViaGate`, `expireSessions`, `revokeDeviceViaGate` (Task 12). For the logout journey, reuse the account-menu selectors that `add-device.spec.ts` already uses to open the avatar menu.
 
 - [ ] **Step 1: Insert the journeys**
@@ -3964,6 +4021,7 @@ rtk git commit -m "test(gate): gated activation, silent relogin, and revocation 
 ### Task 14: Docs + full verification
 
 **Files:**
+
 - Modify: `README.md` (new "Access control" section)
 - Modify: `CLAUDE.md` (the `test:e2e:nginx` command line note)
 
@@ -3971,7 +4029,7 @@ rtk git commit -m "test(gate): gated activation, silent relogin, and revocation 
 
 Append to the deployment-related part of `README.md`:
 
-```markdown
+````markdown
 ## Access control
 
 The board is private: nginx `auth_request` gates every route, asset, and API
@@ -3993,6 +4051,7 @@ rpi command mint-add-device-token -- --account <accountId>
 # Dated Valkey snapshot into the valkey_data volume (survives FLUSHDB, not volume deletion):
 rpi command backup
 ```
+````
 
 Audit: every register/login/logout/device event is one JSON line in
 `docker compose logs server`.
@@ -4006,7 +4065,8 @@ pnpm test:e2e:nginx
 ```
 
 Never set `ALLOW_TEST_DB_RESET` in production.
-```
+
+````
 
 - [ ] **Step 2: CLAUDE.md command note**
 
@@ -4014,7 +4074,7 @@ Update the `pnpm test:e2e:nginx` line in `CLAUDE.md`'s command list to:
 
 ```markdown
 pnpm test:e2e:nginx            # gate + nginx image tests; needs `ALLOW_TEST_DB_RESET=1 pnpm start:docker` running
-```
+````
 
 - [ ] **Step 3: Full local gate**
 
@@ -4043,11 +4103,13 @@ the public allowlist — nothing here blocks the gate; that is why this task
 runs after Task 14).
 
 **Files:**
+
 - Modify: `packages/client/activation/src/model/activation-model.ts` + `activation-model.test.ts`
 - Modify: `packages/client/activation/src/model/add-device-model.ts` + `add-device-model.test.ts`
 - Modify: `packages/client/activation/src/ui/AddDeviceScreen.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `HttpClient`, `HttpLike` from `@shared/http/client`; `Navigate` from `@shared/navigation`; `makeScriptedHttp` (tests).
 - Produces: `ActivationDeps` / `AddDeviceDeps` swap `fetchImpl: typeof fetch` for `http: HttpLike` (default `new HttpClient()` — bare: activation **is** the login surface, a 401-retry hook here would be circular) and type `navigate` as `Navigate`. Factory names `createActivationModel` / `createAddDeviceModel` stay (pre-existing names are out of scope for the `make*` rule).
 - Deliberate scope note: the local `postJson`/`getJson`/`requestJson` names survive as **4-line adapters over the port** so their ~10 call sites stay untouched; what disappears is the duplicated transport code (headers, CSRF, `credentials`, JSON parsing, network `.catch`) and the `fetchImpl` threading.
@@ -4148,12 +4210,14 @@ jsdom polyfills. This task is deliberately last and independent — cutting it
 loses nothing gate-related.
 
 **Files:**
+
 - Modify: `packages/widget-runtime/src/storage/client/channel.ts`
 - Modify: `packages/widget-runtime/src/storage/test/fakes.ts`
 - Modify: `packages/widget-runtime/src/storage/client/channel.test.ts` + the tests currently calling `installFakeBroadcastChannel` (`dexie-storage.test.ts`, `reatom-storage.test.ts`)
 - Modify: `packages/widget-runtime/vitest.setup.ts` (drop the polyfill if nothing needs it afterwards)
 
 **Interfaces:**
+
 - Produces: `type BroadcastChannelLike = Pick<BroadcastChannel, 'postMessage' | 'addEventListener' | 'close'>`; `setStorageChannelFactory` is NOT introduced (module setters are the disease this plan removes) — instead `channel.ts` exports `makeChannelHub(makeChannel: (name: string) => BroadcastChannelLike)` and keeps one module-level hub built with the native constructor, mirroring the deliberate module-singleton design of `db.ts` (cross-tab fanout is per-document by nature; documented in-code).
 - `registerLocal` / `publishChange` / `notifyLocal` keep their exact signatures — `dexie-storage.ts` and other consumers stay untouched; they delegate to the module hub.
 

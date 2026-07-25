@@ -22,7 +22,7 @@ The activation app is a standalone Vite build (`vite.activation.config.ts`,
 base `/activate/`) with no Module Federation, PWA, or board imports. It reuses
 the shared shadcn leaf primitives and design tokens under `@/…`.
 
-nginx serves the *same* activation shell for three URL shapes:
+nginx serves the _same_ activation shell for three URL shapes:
 
 - `/activate/…` — static activation app (ungated).
 - `/add-device` — `try_files /activate/index.html`.
@@ -64,13 +64,13 @@ with the proper **HOME** login card.
 
 ## Design ↔ code mapping
 
-| Design screen (`Activate.dc.html`) | Trigger | Backing behavior |
-| --- | --- | --- |
-| **HOME** "Вход в myboard" — [Войти с passkey] + [Сканировать QR] + admin hint | no `token` in URL (pathname `/`, `/activate` without token) | existing `startLogin` (usernameless) → `navigate('/')` |
-| **ACTIVATE** "Активация устройства" — name + [Создать passkey] + [Сканировать QR] + "Уже активировано? Войти с passkey" | `token` present, non-empty (design's `?code=`) | existing `startRegistration` |
-| **ACTIVATE-NO-CODE** "Нужен код приглашения" — [Сканировать QR] + "Уже есть passkey? Войти" | `token` param present but empty/whitespace | navigation only |
-| **ACTIVATE-USED** "Приглашение уже использовано" — [Войти с passkey] + "Перейти к входу" | **runtime**: `register/options` → 409 `invite_consumed` (design's `?used` is a preview-only hack) | `startLogin` on this screen; replaces today's inline `mode:'login'` |
-| QR scanner overlay | [Сканировать QR] on any screen | existing `/add-device` scanner + ceremony + polling |
+| Design screen (`Activate.dc.html`)                                                                                      | Trigger                                                                                           | Backing behavior                                                    |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **HOME** "Вход в myboard" — [Войти с passkey] + [Сканировать QR] + admin hint                                           | no `token` in URL (pathname `/`, `/activate` without token)                                       | existing `startLogin` (usernameless) → `navigate('/')`              |
+| **ACTIVATE** "Активация устройства" — name + [Создать passkey] + [Сканировать QR] + "Уже активировано? Войти с passkey" | `token` present, non-empty (design's `?code=`)                                                    | existing `startRegistration`                                        |
+| **ACTIVATE-NO-CODE** "Нужен код приглашения" — [Сканировать QR] + "Уже есть passkey? Войти"                             | `token` param present but empty/whitespace                                                        | navigation only                                                     |
+| **ACTIVATE-USED** "Приглашение уже использовано" — [Войти с passkey] + "Перейти к входу"                                | **runtime**: `register/options` → 409 `invite_consumed` (design's `?used` is a preview-only hack) | `startLogin` on this screen; replaces today's inline `mode:'login'` |
+| QR scanner overlay                                                                                                      | [Сканировать QR] on any screen                                                                    | existing `/add-device` scanner + ceremony + polling                 |
 
 The mock's self-contained theme handling (its own `myboard.activate.theme`
 localStorage key and inline `--accent/--surface/…` tokens) is **not** ported: we
@@ -133,7 +133,7 @@ Add `activation/src/model/router.ts`:
 `ActivateScreen`.
 
 Hard navigation stays for `navigate('/')` after a successful login/activation —
-`/` is the *board* bundle, so nginx must re-auth against the new session cookie
+`/` is the _board_ bundle, so nginx must re-auth against the new session cookie
 and serve a different app. Only `/activate ↔ /add-device` are client-side.
 
 ## Scanner integration
