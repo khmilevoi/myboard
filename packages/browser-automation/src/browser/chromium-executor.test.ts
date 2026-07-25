@@ -1,7 +1,8 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
+import * as errore from 'errore'
 import type { BrowserContext } from 'playwright'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -84,6 +85,24 @@ function makeLaunch(created: FakeContext[]): LaunchPersistentContext {
     const context = makeFakeContext()
     created.push(context)
     return context as unknown as BrowserContext
+  }
+}
+
+const singletonEntryNames = ['SingletonLock', 'SingletonCookie', 'SingletonSocket']
+
+function entryExists(entryPath: string) {
+  // lstat, not exists: the entries Chromium leaves behind are symlinks whose
+  // target never existed on this machine.
+  return lstatSync(entryPath, { throwIfNoEntry: false }) !== undefined
+}
+
+function writeStaleSingletonEntries(profileDir: string) {
+  for (const name of singletonEntryNames) {
+    const entryPath = path.join(profileDir, name)
+    // Chromium writes symlinks; a Windows test user without the symlink
+    // privilege falls back to plain files, which the cleanup handles too.
+    const linked = errore.try(() => symlinkSync('fd4c6e190af9-50', entryPath))
+    if (linked instanceof Error) writeFileSync(entryPath, 'fd4c6e190af9-50')
   }
 }
 
@@ -333,17 +352,68 @@ describe('makeChromiumExecutor', () => {
   })
 
   it('returns BrowserLaunchError from acquire when launch fails', async () => {
+    const failure = new Error('boom')
     const executor = makeChromiumExecutor({
       profileDir: mkdtempSync(path.join(tmpdir(), 'chromium-profile-')),
       secretsDir: mkdtempSync(path.join(tmpdir(), 'chromium-secrets-')),
       launch: async () => {
-        throw new Error('boom')
+        throw failure
       },
     })
 
     const result = await executor.acquire(new AbortController().signal, 'demo')
 
     expect(result).toBeInstanceOf(BrowserLaunchError)
+    // The launch failure must keep its cause, or the service logs an internal
+    // error with nothing to diagnose.
+    expect((result as BrowserLaunchError).cause).toBe(failure)
+  })
+
+  it('removes stale Chromium singleton entries before launching', async () => {
+    const profileDir = mkdtempSync(path.join(tmpdir(), 'chromium-profile-'))
+    writeStaleSingletonEntries(profileDir)
+    expect(singletonEntryNames.filter((name) => entryExists(path.join(profileDir, name)))).toEqual(
+      singletonEntryNames,
+    )
+
+    const seenAtLaunch: string[] = []
+    const executor = makeChromiumExecutor({
+      profileDir,
+      secretsDir: mkdtempSync(path.join(tmpdir(), 'chromium-secrets-')),
+      launch: async (dir) => {
+        seenAtLaunch.push(
+          ...singletonEntryNames.filter((name) => entryExists(path.join(dir, name))),
+        )
+        return makeFakeContext() as unknown as BrowserContext
+      },
+    })
+
+    const context = await executor.acquire(new AbortController().signal, 'demo')
+    if (context instanceof Error) throw context
+
+    expect(seenAtLaunch).toEqual([])
+  })
+
+  it('still launches when a singleton entry cannot be removed', async () => {
+    const profileDir = mkdtempSync(path.join(tmpdir(), 'chromium-profile-'))
+    // A non-empty directory cannot be removed without a recursive delete, which
+    // the cleanup deliberately does not perform.
+    mkdirSync(path.join(profileDir, 'SingletonLock'))
+    writeFileSync(path.join(profileDir, 'SingletonLock', 'child'), 'x')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor({
+      profileDir,
+      secretsDir: mkdtempSync(path.join(tmpdir(), 'chromium-secrets-')),
+      launch: makeLaunch(created),
+    })
+
+    const context = await executor.acquire(new AbortController().signal, 'demo')
+    if (context instanceof Error) throw context
+
+    expect(created).toHaveLength(1)
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
   })
 
   it('retains a marked page until the same widget acquires again', async () => {

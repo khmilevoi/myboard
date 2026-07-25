@@ -83,6 +83,14 @@ It survives image rebuilds and container restarts, preserving the session
 (including `cf_clearance`). Do not delete it to "fix" a problem; surface a
 recovery instead.
 
+Because the volume outlives the container, `SingletonLock`, `SingletonCookie`,
+and `SingletonSocket` can still name the `<hostname>-<pid>` of a container that
+is gone, and Chromium then refuses to start ("The profile appears to be in use
+by another Chromium process ... on another computer"). The executor removes
+those three entries before every launch. That is safe only because the container
+runs a single browser-automation process with one persistent context — never
+point a second Chromium at this volume.
+
 ## Diagnostics probe
 
 Verify the browser after a deploy, from inside the Compose network:

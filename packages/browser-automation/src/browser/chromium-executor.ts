@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
+
 import * as errore from 'errore'
 import { chromium, type BrowserContext, type Page } from 'playwright'
 
@@ -19,6 +22,36 @@ class BrowserAcquireAbortedError extends errore.createTaggedError({
   message: 'Chromium task acquire aborted',
   extends: errore.AbortError,
 }) {}
+
+class ProfileSingletonCleanupError extends errore.createTaggedError({
+  name: 'ProfileSingletonCleanupError',
+  message: 'Failed to remove $entry from the Chromium profile',
+}) {}
+
+// Chromium writes `<hostname>-<pid>` into SingletonLock to guard the profile.
+// In Docker the profile lives on a named volume that outlives the container, so
+// after a redeploy Chromium finds a lock owned by "another computer", cannot
+// check whether that process is alive, and refuses to launch — every redeploy,
+// not once.
+const singletonEntryNames = ['SingletonLock', 'SingletonCookie', 'SingletonSocket']
+
+// Removing them unconditionally is safe here: `getPersistentContext` below is
+// the only caller of `launch` and keeps one context per process, and the image
+// entrypoint runs a single `node dist/index.cjs`, so no second live Chromium
+// can hold this profile directory. Nothing checks for a running Chromium.
+async function removeStaleSingletonEntries(profileDir: string) {
+  const removals = await Promise.all(
+    singletonEntryNames.map((entry) =>
+      fs
+        // The entries are symlinks: `rm` unlinks the link itself instead of
+        // following it, and `force` keeps a fresh profile from failing.
+        .rm(path.join(profileDir, entry), { force: true })
+        .then(() => null)
+        .catch((cause: unknown) => new ProfileSingletonCleanupError({ entry, cause })),
+    ),
+  )
+  return removals.find((removal) => removal instanceof Error) ?? null
+}
 
 type ManagedBrowserTaskContext = BrowserTaskContext & {
   abortListener: () => void
@@ -80,11 +113,19 @@ export function makeChromiumExecutor(deps: {
     await closePage(page)
   }
 
+  async function launchWithCleanProfile() {
+    const cleanup = await removeStaleSingletonEntries(deps.profileDir)
+    if (cleanup instanceof Error) {
+      console.warn('Failed to remove stale Chromium singleton entries', cleanup)
+    }
+    return launch(deps.profileDir)
+  }
+
   async function getPersistentContext() {
     if (persistentContext) return persistentContext
     if (launching) return launching
 
-    launching = launch(deps.profileDir)
+    launching = launchWithCleanProfile()
       .then((context) => {
         persistentContext = context
         launching = null
