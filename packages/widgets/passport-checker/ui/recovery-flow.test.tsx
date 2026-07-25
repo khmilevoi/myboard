@@ -4,14 +4,22 @@ import type { WidgetRuntimeProps } from 'widget-runtime'
 
 import { PassportChecker } from './PassportChecker'
 
-// This file's tests render through Radix's dialog/focus machinery and cross
-// two mounts of the module-scoped model, which occasionally pushes real
-// wall-clock time past the shared 5s default under whole-suite worker
-// contention (never a hang — 20 consecutive whole-suite runs at 30s were
-// timeout-free; 15s was observed to still be too tight under heavy load).
-// Widen only this file's budget rather than the shared vitest config, which
-// every other widget test also inherits.
-vi.setConfig({ testTimeout: 30000 })
+// Root-caused (task-4-report.md, Fix round 3): the two tests below that open
+// the modal and then close it with Escape used to hang for the full test
+// budget in roughly 1 in 15-40 runs, reproducing solo with no whole-suite
+// contention required. `findByRole('dialog')` resolves as soon as the
+// dialog's DOM node commits, but `useModalIsolation`'s mount effect — which
+// attaches the Escape listener — is a passive effect that can still be
+// pending a tick later. Firing Escape into that gap dispatches into a
+// document with no listener yet, so the dialog never closes and the
+// `waitFor` below spins until it times out. Each test now waits for that
+// effect's other, synchronous side effect (moving focus into the dialog)
+// before dispatching Escape, which proves the same effect has also run and
+// attached the listener. `ROUND_TRIP_TIMEOUT_MS` stays as a modest safety
+// margin for ordinary whole-suite worker contention (the other two tests in
+// this file, which never reach this Escape-close path, keep the shared
+// default and would still fail fast if they ever regressed).
+const ROUND_TRIP_TIMEOUT_MS = 10_000
 
 function renderSessionRequired() {
   vi.stubGlobal(
@@ -128,22 +136,35 @@ describe('recovery flow across tiers', () => {
     expect(requestClose).toHaveBeenCalledTimes(1)
   })
 
-  it('does not collapse when recovery opens from the tile', async () => {
-    const { requestClose, requestFullscreen } = renderSessionRequiredIn(
-      'standard',
-      'inst-passport-tier-standard',
-    )
+  it(
+    'does not collapse when recovery opens from the tile',
+    async () => {
+      const { requestClose, requestFullscreen } = renderSessionRequiredIn(
+        'standard',
+        'inst-passport-tier-standard',
+      )
 
-    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
-    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
-    await screen.findByRole('dialog')
+      fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+      const dialog = await screen.findByRole('dialog')
+      // The dialog's DOM node lands on the same commit as useModalIsolation's
+      // mount effect, but that effect (which both moves focus in AND attaches
+      // the Escape listener) is passive and can still be pending a tick after
+      // findByRole resolves on the DOM node alone. Waiting for its other,
+      // synchronous side effect — focus landing inside the dialog — proves
+      // the same effect has also attached the listener Escape needs below;
+      // without this, Escape can fire into a dialog that cannot yet hear it,
+      // and the close assertion below waits out its full timeout for nothing.
+      await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
 
-    fireEvent.keyDown(document, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      fireEvent.keyDown(document, { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
-    expect(requestClose).not.toHaveBeenCalled()
-    expect(requestFullscreen).not.toHaveBeenCalled()
-  })
+      expect(requestClose).not.toHaveBeenCalled()
+      expect(requestFullscreen).not.toHaveBeenCalled()
+    },
+    ROUND_TRIP_TIMEOUT_MS,
+  )
 
   // The flow model is module-scoped and keyed by instanceId (Task 3), so a
   // `restorePending` set by opening recovery from a fullscreen mount is
@@ -151,28 +172,35 @@ describe('recovery flow across tiers', () => {
   // after the host collapses the fullscreen overlay) renders the modal.
   // This is the only test that asserts the actual handoff: that closing the
   // modal from the tile calls the TILE's requestFullscreen, not a no-op.
-  it('restores fullscreen through the tile mount after recovery opened from the fullscreen mount', async () => {
-    const instanceId = 'inst-passport-tier-handoff'
-    const fullscreenMount = renderSessionRequiredIn('fullscreen', instanceId)
+  it(
+    'restores fullscreen through the tile mount after recovery opened from the fullscreen mount',
+    async () => {
+      const instanceId = 'inst-passport-tier-handoff'
+      const fullscreenMount = renderSessionRequiredIn('fullscreen', instanceId)
 
-    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
-    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
-    expect(fullscreenMount.requestClose).toHaveBeenCalledTimes(1)
+      fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+      expect(fullscreenMount.requestClose).toHaveBeenCalledTimes(1)
 
-    // Mirrors what the host does when requestClose collapses the fullscreen
-    // overlay: the fullscreen mount goes away and the tile mount (same
-    // instanceId, tier 'standard') takes over.
-    fullscreenMount.view.unmount()
+      // Mirrors what the host does when requestClose collapses the fullscreen
+      // overlay: the fullscreen mount goes away and the tile mount (same
+      // instanceId, tier 'standard') takes over.
+      fullscreenMount.view.unmount()
 
-    const tileMount = renderSessionRequiredIn('standard', instanceId)
-    // recoveryOpen was already true on the shared model, so the modal
-    // renders immediately — no need to click through sessionRequired again.
-    await screen.findByRole('dialog')
+      const tileMount = renderSessionRequiredIn('standard', instanceId)
+      // recoveryOpen was already true on the shared model, so the modal
+      // renders immediately — no need to click through sessionRequired again.
+      const dialog = await screen.findByRole('dialog')
+      // See the sibling test above: wait for useModalIsolation's mount
+      // effect (focus-in) so we know its Escape listener is attached too.
+      await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
 
-    fireEvent.keyDown(document, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      fireEvent.keyDown(document, { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
-    expect(tileMount.requestFullscreen).toHaveBeenCalledTimes(1)
-    expect(fullscreenMount.requestFullscreen).not.toHaveBeenCalled()
-  })
+      expect(tileMount.requestFullscreen).toHaveBeenCalledTimes(1)
+      expect(fullscreenMount.requestFullscreen).not.toHaveBeenCalled()
+    },
+    ROUND_TRIP_TIMEOUT_MS,
+  )
 })
