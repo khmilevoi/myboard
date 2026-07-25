@@ -595,6 +595,10 @@ is not reachable directly from the LAN, and SSH fallback remains operational.
 
 **Design:** [Passport Checker Widget Design](./2026-07-24-passport-checker-widget-design.md)
 
+**Plan:** [Passport Checker Widget Implementation Plan](../plans/2026-07-24-passport-checker-widget.md)
+
+**Follow-up:** [Passport Checker Tier-Shared State Design](./2026-07-25-passport-checker-tier-shared-state-design.md) · [Plan](../plans/2026-07-25-passport-checker-tier-shared-state.md)
+
 **Objective:** Deliver the user-facing widget and its normal widget RPC handler
 against the stable browser gateway and passport task contract.
 

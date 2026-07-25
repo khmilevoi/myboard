@@ -16,6 +16,13 @@ values, tier layouts, states, and the recovery modal below are transcribed from
 it. Where this spec and the visual mockup disagree, this spec wins (see
 [Reconciliation with the visual design](#reconciliation-with-the-visual-design)).
 
+> **Amendment (2026-07-25):** the fullscreen-stack limitations this widget
+> shipped with — mount autofocus losing to the underlying trapped Radix
+> `FocusScope`, and `hideOthers` marking the portal `aria-hidden` — are removed
+> by collapsing fullscreen instead of stacking over it. That required the
+> widget's models to be shared between the tile and fullscreen mounts. See
+> [Passport Checker Tier-Shared State Design](./2026-07-25-passport-checker-tier-shared-state-design.md).
+
 ## Goal
 
 Deliver the user-facing passport-checker widget and its widget RPC handler on top
