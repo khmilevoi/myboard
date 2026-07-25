@@ -141,8 +141,9 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
 // correct by construction rather than by registration luck.
 //
 // Measured on this file by instrumenting `setTimeout` and logging hook
-// boundaries: at `beforeEach` entry one (later two) FocusScope timer is
-// pending; after this tick, zero. Scope of the claim: this closes a scheduling
+// boundaries: at `beforeEach` entry one FocusScope timer is pending; after
+// this tick, zero. Only that 1 -> 0 transition was recorded — no larger
+// pending count was ever observed. Scope of the claim: this closes a scheduling
 // leak, not an observed failure. The restore is focus-neutral in this fixture
 // today — the `previouslyFocusedElement` it captured is either `document.body`
 // (which jsdom refuses to focus, so the call is a no-op) or an already-detached
@@ -173,7 +174,7 @@ describe('RecoveryModal nested under a modal Radix dialog', () => {
     expect(dialog.contains(document.activeElement)).toBe(true)
   })
 
-  it('keeps focus inside when it moves between two of our own controls', () => {
+  it('swallows the focusout of a move between two of our own controls before it reaches document', () => {
     const { ourDialog } = renderNested()
     const dialog = ourDialog()
 
@@ -186,12 +187,13 @@ describe('RecoveryModal nested under a modal Radix dialog', () => {
     expect(first).not.toBe(last)
     first.focus()
 
-    // A chained `first.focus(); last.focus()` can't observe this: jsdom (like
-    // real browsers) always finishes a `.focus()` call on its OWN target once
-    // its handler stack unwinds, so even if a nested handler yanks focus away
-    // mid-dispatch, the outer call's completion silently overwrites it and
+    // A chained `first.focus(); last.focus()` can't observe this: in jsdom a
+    // `.focus()` call always finishes on its OWN target once its handler stack
+    // unwinds, so even if a nested handler yanks focus away mid-dispatch, the
+    // outer call's completion silently overwrites it and
     // `document.activeElement` settles back on `last` regardless of whether
-    // our guard did its job — verified empirically against this exact guard.
+    // our guard did its job — verified empirically against this exact guard,
+    // in jsdom only; nothing here was measured against a real browser.
     // Dispatch the underlying `focusout` event directly instead: that's the
     // one event both our window-capture guard and Radix's document-level
     // `handleFocusOut` react to, so seeing whether it reaches `document`

@@ -5,22 +5,30 @@ import type { WidgetRuntimeProps } from 'widget-runtime'
 import { PassportChecker } from './PassportChecker'
 
 // Root-caused (task-4-report.md, Fix round 3; extended to the first test in
-// this file in Task 5 fix round 1): every test below that opens the modal
-// and then closes it with Escape used to hang for the full test budget in
-// roughly 1 in 15-40 runs, reproducing solo with no whole-suite contention
-// required. `findByRole('dialog')` resolves as soon as the dialog's DOM node
-// commits, but `useModalIsolation`'s mount effect — which attaches the
-// Escape listener — is a passive effect that can still be pending a tick
-// later. Firing Escape into that gap dispatches into a document with no
-// listener yet, so the dialog never closes and the `waitFor` below spins
-// until it times out. Each Escape-closing test now waits for that effect's
-// other, synchronous side effect (moving focus into the dialog) before
-// dispatching Escape, which proves the same effect has also run and
-// attached the listener. `ROUND_TRIP_TIMEOUT_MS` stays as a modest safety
-// margin for the two multi-mount tests below under ordinary whole-suite
-// worker contention (the one test in this file that never reaches the
-// Escape-close path — "collapses fullscreen…" — keeps the shared default
-// and would still fail fast if it ever regressed).
+// this file in Task 5 fix round 1): a test that opens the modal and then
+// closes it with Escape can hang for the full test budget.
+// `findByRole('dialog')` resolves as soon as the dialog's DOM node commits,
+// but `useModalIsolation`'s mount effect — which attaches the Escape
+// listener — is a passive effect that can still be pending a tick later.
+// Firing Escape into that gap dispatches into a document with no listener
+// yet, so the dialog never closes and the `waitFor` below spins until it
+// times out.
+//
+// Scope of the measurement: "roughly 1 in 15-40 runs, reproducing solo with
+// no whole-suite contention required" was measured for exactly ONE test —
+// 'does not collapse when recovery opens from the tile'. No failure rate was
+// ever measured for the other Escape-closing tests here; they carry the same
+// wait because they have the identical shape and reach the identical race,
+// which is reasoning by inspection, not an observed frequency.
+//
+// Each Escape-closing test now waits for that effect's other, synchronous
+// side effect (moving focus into the dialog) before dispatching Escape, which
+// proves the same effect has also run and attached the listener.
+// `ROUND_TRIP_TIMEOUT_MS` stays as a modest safety margin for the two
+// multi-mount tests below under ordinary whole-suite worker contention (the
+// one test in this file that never reaches the Escape-close path —
+// "collapses fullscreen…" — keeps the shared default and would still fail
+// fast if it ever regressed).
 const ROUND_TRIP_TIMEOUT_MS = 10_000
 
 function renderSessionRequired() {

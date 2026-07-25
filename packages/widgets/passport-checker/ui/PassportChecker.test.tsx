@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { makeHostRuntime, WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
 
@@ -197,8 +197,11 @@ describe('PassportChecker / shared instance state', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
 
-    // One check, one result, rendered by BOTH mounts.
-    expect(await screen.findAllByText('Готово')).toHaveLength(2)
+    // One check, one result, rendered by BOTH mounts. `findAllByText` cannot
+    // express this: it resolves on the first snapshot with >= 1 match, so it
+    // would settle on a single mount's result and never see the second. Only
+    // a re-querying `waitFor` actually retries until both have rendered.
+    await waitFor(() => expect(screen.getAllByText('Готово')).toHaveLength(2))
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
@@ -222,10 +225,12 @@ describe('PassportChecker / shared instance state', () => {
     renderPair(['standard', 'fullscreen'], invoke)
 
     fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
-    const openButtons = await screen.findAllByRole('button', { name: /Открыть восстановление/ })
-    expect(openButtons).toHaveLength(2)
+    // Same reason as above: `findAllByRole` resolves on the first snapshot
+    // with >= 1 match, so it cannot retry its way up to two. Re-query.
+    const openButtonsQuery = () => screen.getAllByRole('button', { name: /Открыть восстановление/ })
+    await waitFor(() => expect(openButtonsQuery()).toHaveLength(2))
 
-    fireEvent.click(openButtons[0])
+    fireEvent.click(openButtonsQuery()[0])
 
     // Exactly one modal, even though two mounts observe recoveryOpen.
     expect(await screen.findAllByRole('dialog')).toHaveLength(1)
