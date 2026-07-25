@@ -4,6 +4,15 @@ import type { WidgetRuntimeProps } from 'widget-runtime'
 
 import { PassportChecker } from './PassportChecker'
 
+// This file's tests render through Radix's dialog/focus machinery and cross
+// two mounts of the module-scoped model, which occasionally pushes real
+// wall-clock time past the shared 5s default under whole-suite worker
+// contention (never a hang — 20 consecutive whole-suite runs at 30s were
+// timeout-free; 15s was observed to still be too tight under heavy load).
+// Widen only this file's budget rather than the shared vitest config, which
+// every other widget test also inherits.
+vi.setConfig({ testTimeout: 30000 })
+
 function renderSessionRequired() {
   vi.stubGlobal(
     'fetch',
