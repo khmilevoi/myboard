@@ -1,4 +1,9 @@
 import type { BrowserTaskContext, WidgetSecrets } from 'browser-automation/task-context'
+import {
+  evidenceFromResponseText,
+  isCloudflareChallenge,
+  type ChallengeEvidence,
+} from 'browser-automation/user-input/cloudflare'
 import * as errore from 'errore'
 import type { Response } from 'playwright'
 
@@ -7,11 +12,6 @@ import {
   type PassportCheckPayload,
   type PassportCheckResult,
 } from '../types'
-import {
-  evidenceFromResponseText,
-  isCloudflareChallenge,
-  type ChallengeEvidence,
-} from './challenge'
 import {
   BrowserConfigurationError,
   BrowserSessionRequiredError,
