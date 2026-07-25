@@ -97,9 +97,13 @@ another and nothing lives in the `widget-runtime` federation singleton.
 
 **Reatom's connection lifetime is the reference count.** A store keeps a
 `Map<string, Computed<Value>>` of memoized instance atoms; each atom is named
-`${name}#${key}` and carries `withDisconnectHook`. `withConnectHook` fires on
-the first subscriber and its cleanup on the last, which is exactly the counting
-we would otherwise hand-roll. Measured against `@reatom/core@1001.1.0` with two
+`${name}#${key}` and carries `withConnectHook`, whose cleanup calls
+`teardownIfDisconnected()`. `withConnectHook` fires on the first subscriber and
+its cleanup on the last, which is exactly the counting we would otherwise
+hand-roll. That cleanup does not tear down blindly: it re-checks `isConnected`
+first and returns if anything is still connected, and it evicts the map entry
+only while that entry still points at the handle being torn down. Measured
+against `@reatom/core@1001.1.0` with two
 `reatomComponent` mounts reading one key: both read one value, unmounting one
 does not dispose, unmounting the last disposes once, and the next mount builds
 a fresh value.
@@ -161,23 +165,37 @@ Reatom's `reatom*` convention for atom factories: it creates a store, and the
 per-key accessor it returns is memoized rather than a fresh factory per call.
 The atoms it builds are named, which is what that convention protects.
 
-### 4. StrictMode removal
+### 4. StrictMode kept, tolerance pinned by test
 
-`packages/client/src/app/main.tsx` drops the `<StrictMode>` wrapper.
+`packages/client/src/app/main.tsx` keeps its `<StrictMode>` wrapper unchanged.
+This design touches no file under `packages/client/` at all.
 
-Connection-owned lifetime is incompatible with StrictMode's development-only
-mount → unmount → mount effect cycle. Measured with two components mounted
-under `<StrictMode>`: the cycle empties the subscriber set, the disconnect hook
-disposes the value and drops the handle, and the store ends up empty while both
-components are still mounted and rendering the disposed value. A hand-rolled
-reference count fails the same way for the same reason.
+The plan called for removing it, reasoning that connection-owned lifetime is
+incompatible with StrictMode's development-only mount → unmount → mount effect
+cycle: the cycle empties the subscriber set, the disconnect cleanup disposes the
+value and drops the handle, and the store ends up empty while both components
+are still mounted and rendering the disposed value.
 
-StrictMode does not run in production builds, so this changes no runtime
-behavior — it gives up a development-time detector of non-idempotent mounts and
-missing cleanups across the whole client.
+That reasoning does not apply to the store as built, because its cleanup is not
+an unconditional teardown. Reatom defers disconnect cleanup to a microtask, so
+the resubscribe of StrictMode's second mount is already connected when the first
+mount's cleanup runs — and the cleanup re-checks `isConnected` and returns
+without touching a value a live mount still holds. It also evicts the map entry
+only while that entry still points at the handle being torn down, so a stale
+cleanup can never unseat the newer handle.
 
-A comment replaces the wrapper explaining why it is absent, so it is not
-reinstated without also making instance stores tolerate double mounting.
+Measured against `@reatom/core@1001.1.0`: two `reatomComponent` mounts of one
+key under `<StrictMode>` read one value, built once, with nothing disposed;
+mount → unmount → mount builds exactly two values, the same as the
+non-StrictMode baseline; and a real unmount disposes exactly once, with the next
+mount building a fresh value rather than resurrecting the disposed one.
+
+`describe('makeWidgetInstanceStore under StrictMode')` in
+`packages/widget-sdk/src/instance/instance-store.test.tsx` pins all three.
+Measured: deleting the `isConnected` re-check from the cleanup turns two of
+those three red (and one non-StrictMode test with them), so the tolerance
+cannot be lost silently — and the client keeps StrictMode's development-time
+detector of non-idempotent mounts and missing cleanups.
 
 ### 5. Modal ownership
 
@@ -253,7 +271,9 @@ swallowed too). The missing regression test is added instead.
   atom and calls `make` once; separate keys and separate stores stay separate;
   two mounted components share one value; unmounting one keeps it alive;
   unmounting the last disposes it exactly once; a later mount builds a fresh
-  value rather than resurrecting the disposed one.
+  value rather than resurrecting the disposed one. A second `describe` repeats
+  the sharing, rebuild-count and single-disposal assertions under
+  `<StrictMode>`, pinning the tolerance that lets the client keep it.
 - `ui/PassportChecker.test.tsx` — two mounts sharing an `instanceId` share
   state (a check started in one is visible in the other); the fullscreen mount
   renders no modal while the tile mount does; opening recovery from the
@@ -272,8 +292,8 @@ swallowed too). The missing regression test is added instead.
   not synchronous with unmount, so lifecycle assertions await it.
 
 Gate: `pnpm --filter widget-sdk test`, `pnpm --filter widgets-passport-checker
-test`, then `pnpm --filter client test` (mandatory — StrictMode was removed),
-then `pnpm check`.
+test`, then `pnpm check`. No separate client run is called for: `packages/client/`
+is untouched, and StrictMode stays.
 
 ## Formatting debt
 
@@ -291,7 +311,6 @@ repository gate green.
 - This spec, linked from an amendment block in the Subproject 7 spec.
 - The Subproject 7 section of the master spec gains its missing `**Plan:**`
   link; back-linking requires both, and only `**Design:**` is present.
-- `main.tsx` carries the comment explaining the absent `StrictMode`.
 - `BACKLOG.md` records the deferred follow-up this design leaves standing: the
   widget still owns a hand-rolled modal coupled to Radix internals, and the
   shared primitive that would replace it is out of scope here.
@@ -306,9 +325,11 @@ is 18 commits ahead of `main` and behind by none, so no rebase is required.
 
 `widget-sdk` gains a generic instance-store factory whose reference counting is
 Reatom's own connection lifetime; the passport widget instantiates one so both
-mounts of one placed widget share a single model graph. `StrictMode` is removed
-because its development-only remount cycle disposes a value that is still
-mounted, and it never runs in production.
+mounts of one placed widget share a single model graph. `StrictMode` stays: the
+plan expected its development-only remount cycle to dispose a value that is
+still mounted, but measurement showed the store survives it, because the
+disconnect cleanup re-checks `isConnected` before tearing anything down — and a
+`StrictMode` `describe` in the store's test pins that tolerance.
 The tile mount owns the recovery modal, opening recovery from fullscreen
 collapses it through `requestClose`, and closing or retrying restores it through
 `requestFullscreen`. The modal gains focus containment to absorb Radix's
