@@ -154,6 +154,13 @@ storage route stays a shared trusted channel inside the board.
 display — records store an `accountId` plus a frozen name, and display resolves through the
 directory so renames and avatars reach old records.
 
+A widget's `server.ts` may also declare `crons: { <name>: { schedule, timeZone, run } }`. The tick
+scheduler in `packages/server/src/widgets/cron-scheduler.ts` runs them on the app's injected clock,
+keeps a cursor per job at `cron:<typeId>:<jobName>` in Valkey, and catches a missed occurrence up
+exactly once — so handlers must be idempotent. A cron context has no `viewer` and no instance
+scope: a background run has no caller, so a job that writes an authored record supplies the author
+itself. In test mode the interval is off and `POST /api/test/cron/tick` drives one pass.
+
 ### Storage system (offline-first + sync)
 
 `packages/widget-runtime/src/storage` owns per-widget instance/shared scopes, Dexie and HTTP backends, SSE/BroadcastChannel fanout, and Reatom bindings. Board and standalone harnesses construct the same `WidgetRuntimeProps`; widgets do not import storage through `packages/client/src`.
