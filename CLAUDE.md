@@ -26,7 +26,7 @@ Always load and follow the `reatom` and `errore` skills before working in this r
 
 2. **Implement and commit inside that worktree.** Keep commits focused and imperative.
 
-3. **Run the full gate before opening the PR**, from the worktree: `pnpm check` (lint + format:check + deps:check + typecheck + tests), plus `pnpm test:e2e:docker` when the change touches browser-facing behavior. There is no CI on this repo — these local runs *are* the gate.
+3. **Run the full gate before opening the PR**, from the worktree: `pnpm check` (lint + format:check + deps:check + typecheck + tests), plus `pnpm test:e2e:docker` when the change touches browser-facing behavior. There is no CI on this repo — these local runs _are_ the gate.
 
 4. **Open the PR against `dev`**, never against `main`:
 

@@ -2,9 +2,6 @@
   "name": "myboard",
   "version": "0.0.0",
   "private": true,
-  "engines": {
-    "node": ">=26"
-  },
   "type": "module",
   "scripts": {
     "codegen": "tsx scripts/codegen.ts all",
@@ -51,6 +48,9 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=26"
   },
   "packageManager": "pnpm@10.28.2"
 }
