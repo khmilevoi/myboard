@@ -86,9 +86,13 @@ export function toHistoryGroups({
         {
           dutyDate,
           current: toView(winner),
+          // Reversed, not sorted by `ts`: the ledger is append-only, so append
+          // order *is* chronological order, and it stays correct when two
+          // records share a `ts` — which `latestOutcomesByDate` treats as a
+          // supported case and the frozen e2e clock produces for every write.
           superseded: dayEntries
             .filter((entry) => entry.id !== winner.id)
-            .toSorted((left, right) => right.ts - left.ts)
+            .reverse()
             .map(toView),
         },
       ]

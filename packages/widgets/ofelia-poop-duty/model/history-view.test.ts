@@ -36,6 +36,17 @@ describe('toHistoryGroups', () => {
     expect(groups[0].superseded.map((view) => view.id)).toEqual(['mid', 'old'])
   })
 
+  it('keeps `superseded` newest first when every record shares a ts', () => {
+    const groups = call([
+      entry({ id: 'old', ts: 7, type: 'cleaned', actor: 'Леша' }),
+      entry({ id: 'mid', ts: 7, type: 'reset', actor: 'Леша' }),
+      entry({ id: 'new', ts: 7, type: 'cleaned', actor: 'Карина' }),
+    ])
+
+    expect(groups[0].current.id).toBe('new')
+    expect(groups[0].superseded.map((view) => view.id)).toEqual(['mid', 'old'])
+  })
+
   it('orders groups newest duty day first', () => {
     const groups = call([
       entry({ id: 'a', ts: 1, date: '2026-06-16' }),
