@@ -423,7 +423,7 @@ describe('makeChromiumExecutor', () => {
 
     const first = await executor.acquire(new AbortController().signal, 'passport-checker')
     if (first instanceof Error) throw first
-    first.retainPageForRecovery()
+    await first.detectUserInput(async () => true)
     await executor.release(first)
 
     expect(created[0].pages[0].closed).toBe(false)
@@ -441,7 +441,7 @@ describe('makeChromiumExecutor', () => {
 
     const recovery = await executor.acquire(new AbortController().signal, 'passport-checker')
     if (recovery instanceof Error) throw recovery
-    recovery.retainPageForRecovery()
+    await recovery.detectUserInput(async () => true)
     await executor.release(recovery)
 
     const diagnostics = await executor.acquire(new AbortController().signal, '__diagnostics__')
@@ -457,7 +457,7 @@ describe('makeChromiumExecutor', () => {
     const context = await executor.acquire(controller.signal, 'passport-checker')
     if (context instanceof Error) throw context
 
-    context.retainPageForRecovery()
+    await context.detectUserInput(async () => true)
     controller.abort()
 
     await vi.waitFor(() => expect(created[0].pages[0].closed).toBe(true))
@@ -470,7 +470,7 @@ describe('makeChromiumExecutor', () => {
     const context = await executor.acquire(new AbortController().signal, 'passport-checker')
     if (context instanceof Error) throw context
 
-    context.retainPageForRecovery()
+    await context.detectUserInput(async () => true)
     await executor.release(context)
     await executor.shutdown()
 
@@ -486,7 +486,7 @@ describe('makeChromiumExecutor', () => {
 
     const context = await executor.acquire(new AbortController().signal, 'passport-checker')
     if (context instanceof Error) throw context
-    context.retainPageForRecovery()
+    await context.detectUserInput(async () => true)
     await executor.release(context)
 
     expect(executor.hasRetainedPage('passport-checker')).toBe(true)
@@ -499,7 +499,7 @@ describe('makeChromiumExecutor', () => {
 
     const context = await executor.acquire(new AbortController().signal, 'passport-checker')
     if (context instanceof Error) throw context
-    context.retainPageForRecovery()
+    await context.detectUserInput(async () => true)
     await executor.release(context)
     await created[0].pages[0].close()
 

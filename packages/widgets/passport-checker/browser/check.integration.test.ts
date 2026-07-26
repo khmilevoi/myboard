@@ -120,10 +120,6 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     const context: BrowserTaskContext = {
       page,
       secrets: fixtureSecrets(),
-      // Unused by this handler now that escalation flows through
-      // detectUserInput below; kept only to satisfy BrowserTaskContext, which
-      // other executors (e.g. the real Chromium one) still rely on directly.
-      retainPageForRecovery: () => undefined,
       detectUserInput: makeDetectUserInput({ page, recoverySshTarget: null, retain }),
     }
     const result = await definition.handlers.check({}, context)

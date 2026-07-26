@@ -200,9 +200,6 @@ export function makeChromiumExecutor(deps: {
           secrets: makeWidgetSecrets(widgetId, deps.secretsDir),
           signal,
           widgetId,
-          retainPageForRecovery() {
-            managedContext.retained = true
-          },
           detectUserInput: makeDetectUserInput({
             page,
             recoverySshTarget: deps.recoverySshTarget ?? null,

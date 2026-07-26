@@ -122,7 +122,6 @@ function makeContext(scenario: PageScenario) {
   const context: BrowserTaskContext = {
     page: { goto, evaluate } as unknown as Page,
     secrets: secrets('АБ', '123456'),
-    retainPageForRecovery: () => undefined,
     detectUserInput,
   }
   return { context, evaluate, goto, detectUserInput }

@@ -7,7 +7,6 @@ export type { DetectUserInputOptions, UserInputDetector } from '../user-input/de
 export type BrowserTaskContext = {
   page: import('playwright').Page
   secrets: WidgetSecrets
-  retainPageForRecovery(): void
   /**
    * Runs `detector` against the page. On a match it prepares the page (if a
    * prepare hook was given), retains it for manual recovery, and returns the

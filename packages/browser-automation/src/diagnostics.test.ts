@@ -31,7 +31,6 @@ describe('diagnostics browser-check', () => {
     const context: BrowserTaskContext = {
       page: fakePage('FakeUA/1.0'),
       secrets: fakeSecrets('present'),
-      retainPageForRecovery: () => undefined,
       detectUserInput: async () => null,
     }
     const result = await handler({}, context)
@@ -42,7 +41,6 @@ describe('diagnostics browser-check', () => {
     const context: BrowserTaskContext = {
       page: fakePage('FakeUA/1.0'),
       secrets: fakeSecrets(undefined),
-      retainPageForRecovery: () => undefined,
       detectUserInput: async () => null,
     }
     const result = await handler({}, context)
@@ -53,7 +51,6 @@ describe('diagnostics browser-check', () => {
     const context: BrowserTaskContext = {
       page: fakePage('FakeUA/1.0'),
       secrets: fakeSecrets('TOP-SECRET'),
-      retainPageForRecovery: () => undefined,
       detectUserInput: async () => null,
     }
     const result = await handler({}, context)
