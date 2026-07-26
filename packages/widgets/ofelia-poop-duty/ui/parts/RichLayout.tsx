@@ -30,8 +30,16 @@ const HistoryColumn = reatomMemo(() => {
 }, 'HistoryColumn')
 
 const CommentsColumn = reatomMemo(() => {
-  const { comments, onSend } = useOfelia()
-  return <CommentThread comments={comments()} onSend={onSend} />
+  const { comments, viewer, today, onSend } = useOfelia()
+  const current = viewer()
+  return (
+    <CommentThread
+      comments={comments()}
+      viewer={current ? { kind: 'account', ...current } : null}
+      today={today()?.toString() ?? null}
+      onSend={onSend}
+    />
+  )
 }, 'CommentsColumn')
 
 export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onClose }) => {

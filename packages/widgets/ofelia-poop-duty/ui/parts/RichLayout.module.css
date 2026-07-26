@@ -62,12 +62,6 @@
   color: var(--text-3);
 }
 
-.headerActions {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
 .headerClose {
   flex: none;
 }
@@ -393,11 +387,8 @@
   .header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      'heading close'
-      'actions actions';
+    grid-template-areas: 'heading close';
     align-items: start;
-    row-gap: 0.5rem;
     column-gap: 0.75rem;
     padding: 0.875rem 1rem;
   }
@@ -406,11 +397,6 @@
     grid-area: heading;
     min-inline-size: 0;
     align-items: flex-start;
-  }
-
-  .headerActions {
-    grid-area: actions;
-    min-inline-size: 0;
   }
 
   .headerClose {

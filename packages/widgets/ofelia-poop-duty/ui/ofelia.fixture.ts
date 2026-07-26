@@ -1,4 +1,5 @@
 import { atom } from '@reatom/core'
+import type { BoardMember } from 'widget-runtime'
 
 import type { Person } from '../domain/roster'
 import type { CommentView } from '../model/ofelia-comments'
@@ -140,6 +141,7 @@ type MakeOfeliaValueOptions = {
   history?: HistoryDayGroup[]
   today?: Temporal.PlainDate
   comments?: CommentView[]
+  viewer?: BoardMember | null
   actions?: Partial<OfeliaActions>
   onSend?: (text: string) => Promise<void>
 }
@@ -153,6 +155,7 @@ export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextVa
       'fixture.today',
     ),
     comments: atom<CommentView[]>(o.comments ?? [], 'fixture.comments'),
+    viewer: atom<BoardMember | null>(o.viewer ?? null, 'fixture.viewer'),
     actions: {
       onConfirm: noop,
       onUndo: noop,

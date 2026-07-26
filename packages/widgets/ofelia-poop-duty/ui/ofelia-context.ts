@@ -1,5 +1,6 @@
 import type { AtomLike } from '@reatom/core'
 import { createContext, useContext } from 'react'
+import type { BoardMember } from 'widget-runtime'
 
 import type { CommentView } from '../model/ofelia-comments'
 import type { HistoryDayGroup } from '../model/ofelia-duty'
@@ -13,6 +14,8 @@ export type OfeliaContextValue = {
   /** The duty-zone calendar day, so history headers can say сегодня / вчера. */
   today: AtomLike<Temporal.PlainDate | null>
   comments: AtomLike<CommentView[]>
+  /** The signed-in account, or null until the members directory arrives. */
+  viewer: AtomLike<BoardMember | null>
   actions: OfeliaActions
   nav: OfeliaWeekNav
   onSend: (text: string) => Promise<void>

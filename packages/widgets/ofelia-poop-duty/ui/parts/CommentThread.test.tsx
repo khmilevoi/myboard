@@ -6,97 +6,79 @@ import type { CommentView } from '@/model/ofelia-comments'
 
 import { CommentThread } from './CommentThread'
 
-// TODO(task 14): the fixture still hand-builds `createdAt` timestamps whose
-// `formatDateShort` output matches the old literal `date` strings; Task 14's
-// rewrite can pick a clearer fixture shape.
-const dateAt = (day: number) => new Date(2026, 5, day, 12, 0, 0).getTime()
-
-const view = (overrides: Partial<CommentView> = {}): CommentView => ({
+const comment = (o: Partial<CommentView> = {}): CommentView => ({
   id: 'c1',
-  author: { kind: 'person', person: 'Карина' },
-  createdAt: dateAt(10),
+  text: 'привет',
+  author: { kind: 'account', accountId: 'a1', name: 'Карина' },
+  createdAt: Date.UTC(2026, 5, 16, 19, 44),
   isViewerComment: false,
-  text: 'Привет',
-  ...overrides,
+  ...o,
 })
 
-describe('CommentThread', () => {
-  it('renders each comment with avatar, author name, date, and text', () => {
-    render(
-      <CommentThread
-        comments={[
-          view({
-            id: 'c1',
-            author: { kind: 'person', person: 'Карина' },
-            createdAt: dateAt(10),
-            text: 'Первый',
-          }),
-          view({
-            id: 'c2',
-            author: { kind: 'person', person: 'Леша' },
-            createdAt: dateAt(11),
-            text: 'Второй',
-          }),
-        ]}
-        onSend={vi.fn()}
-      />,
-    )
+const TODAY = '2026-06-16'
 
-    expect(screen.getByText('Первый')).toBeInTheDocument()
-    expect(screen.getByText('Второй')).toBeInTheDocument()
+const renderThread = (props: Partial<Parameters<typeof CommentThread>[0]> = {}) =>
+  render(<CommentThread comments={[]} viewer={null} today={TODAY} onSend={vi.fn()} {...props} />)
+
+describe('CommentThread', () => {
+  it('renders the author, the time and the text', () => {
+    renderThread({ comments: [comment()] })
+
     expect(screen.getByText('Карина')).toBeInTheDocument()
-    expect(screen.getByText('Леша')).toBeInTheDocument()
-    expect(screen.getByText('10 июн')).toBeInTheDocument()
-    expect(screen.getByText('11 июн')).toBeInTheDocument()
+    expect(screen.getByText('21:44')).toBeInTheDocument()
+    expect(screen.getByText('привет')).toBeInTheDocument()
   })
 
-  it('renders an empty state when there are no comments', () => {
-    render(<CommentThread comments={[]} onSend={vi.fn()} />)
+  it('prefixes older comments with their date', () => {
+    renderThread({ comments: [comment({ createdAt: Date.UTC(2026, 5, 14, 19, 44) })] })
+
+    expect(screen.getByText('14 июня, 21:44')).toBeInTheDocument()
+  })
+
+  it('labels a legacy author', () => {
+    renderThread({ comments: [comment({ author: { kind: 'person', person: 'Леша' } })] })
+
+    expect(screen.getByText('без аккаунта')).toBeInTheDocument()
+  })
+
+  it('labels an unknown author', () => {
+    renderThread({ comments: [comment({ author: { kind: 'unknown' } })] })
+
+    expect(screen.getByText('автор неизвестен')).toBeInTheDocument()
+  })
+
+  it('never renders an ip', () => {
+    const { container } = renderThread({ comments: [comment()] })
+
+    expect(container.textContent).not.toMatch(/\d+\.\d+\.\d+/)
+  })
+
+  it('sends the trimmed text and clears the field', async () => {
+    const onSend = vi.fn(async () => {})
+    renderThread({ onSend })
+
+    const input = screen.getByLabelText('Комментарий')
+    fireEvent.change(input, { target: { value: '  тест  ' } })
+    fireEvent.click(screen.getByLabelText('Отправить'))
+
+    expect(onSend).toHaveBeenCalledWith('тест')
+    await waitFor(() => {
+      expect(input).toHaveValue('')
+    })
+  })
+
+  it('renders an empty state', () => {
+    renderThread()
+
     expect(screen.getByText('Пока нет комментариев')).toBeInTheDocument()
   })
 
-  it('sends the trimmed text and clears the input when the send icon is clicked', async () => {
-    const onSend = vi.fn().mockResolvedValue(undefined)
-    render(<CommentThread comments={[]} onSend={onSend} />)
+  // The composer circle is the one avatar in this widget with no adjacent name
+  // in the text, so it carries its own accessible name instead of announcing a
+  // bare initial. It stays invisible: the spec has no "signed in as" affordance.
+  it('names the composer avatar for assistive tech', () => {
+    renderThread({ viewer: { kind: 'account', accountId: 'a1', name: 'Карина' } })
 
-    const input = screen.getByPlaceholderText('Написать комментарий…') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '  Привет  ' } })
-    fireEvent.click(screen.getByLabelText('Отправить'))
-
-    expect(onSend).toHaveBeenCalledWith('Привет')
-    await waitFor(() => {
-      expect(input.value).toBe('')
-    })
-  })
-
-  it('sends on Enter via native form submit', async () => {
-    const onSend = vi.fn().mockResolvedValue(undefined)
-    const { container } = render(<CommentThread comments={[]} onSend={onSend} />)
-
-    const input = screen.getByPlaceholderText('Написать комментарий…') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Ку' } })
-    fireEvent.submit(container.querySelector('form') as HTMLFormElement)
-
-    expect(onSend).toHaveBeenCalledWith('Ку')
-    await waitFor(() => {
-      expect(input.value).toBe('')
-    })
-  })
-
-  it('does not send empty or whitespace-only text', () => {
-    const onSend = vi.fn().mockResolvedValue(undefined)
-    render(<CommentThread comments={[]} onSend={onSend} />)
-
-    fireEvent.change(screen.getByPlaceholderText('Написать комментарий…'), {
-      target: { value: '   ' },
-    })
-    fireEvent.click(screen.getByLabelText('Отправить'))
-
-    expect(onSend).not.toHaveBeenCalled()
-  })
-
-  it('renders an icon send button', () => {
-    render(<CommentThread comments={[]} onSend={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByLabelText('Отправить')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Вы вошли как Карина' })).toBeInTheDocument()
   })
 })

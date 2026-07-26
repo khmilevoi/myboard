@@ -55,6 +55,7 @@ export const OfeliaPoopDuty = reatomMemo(() => {
       history: dutyModel.historyView,
       today: dutyModel.today,
       comments: commentsModel.commentThread,
+      viewer: identity.viewer,
       actions: {
         onConfirm: wrap(() => {
           const date = targetDate()
@@ -92,7 +93,7 @@ export const OfeliaPoopDuty = reatomMemo(() => {
       },
       onSend: wrap((text: string) => commentsModel.send(text)),
     }
-  }, [dutyModel, commentsModel])
+  }, [dutyModel, commentsModel, identity])
 
   // The loading guard subscribes to just the boolean readiness slice; the first
   // server-time sync flips it to true and the tiers (reading other slices) mount.
