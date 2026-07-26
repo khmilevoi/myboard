@@ -16,7 +16,7 @@
 # lives until `rpi env destroy dev`.
 
 [source]
-branch = "feat/passport-checker-widget"
+branch = "dev"
 
 [ingress]
 # Must differ from the base project's hostname (rpi rejects a collision).
