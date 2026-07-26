@@ -32,12 +32,11 @@ export async function handleAppend(
   ops: ValkeyOps,
   key: string,
   payload: AppendPayload,
-  ip: string | null,
 ): Promise<{ status: number; value: unknown[] }> {
   const raw = await ops.get(key)
   const parsed = raw === null ? [] : safeParse(raw)
   const current: unknown[] = Array.isArray(parsed) ? parsed : []
-  const enriched = { ...payload.entry, id: randomUUID(), ts: Date.now(), ip }
+  const enriched = { ...payload.entry, id: randomUUID(), ts: Date.now() }
 
   current.push(enriched)
 

@@ -1,12 +1,16 @@
-import type { IncomingMessage } from 'node:http'
-import { Readable } from 'node:stream'
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  fakeReq,
+  makeClock,
+  makeConfig,
+  makeOps,
+  type Ops,
+  seedAccountWithDevice,
+} from '../test/auth-fixtures'
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import { addDeviceToAccount, createAccount, listAccountDeviceIds } from './accounts'
 import { lookupAddToken, mintAddToken } from './add-tokens'
-import type { AuthConfig } from './config'
 import { getDevice, storeDevice } from './devices'
 import { AddTokenInvalidError, WebAuthnVerificationError } from './errors'
 import type { AuthDeps } from './handlers'
@@ -46,44 +50,6 @@ import {
 const MINUTE = 60_000
 const ADD_TOKEN_TTL_MS = 5 * MINUTE
 
-function makeOps() {
-  return createMemoryOps(createMemoryPubSub())
-}
-
-function makeClock(start = 0) {
-  let time = start
-  return {
-    now: () => time,
-    set: (value: number) => {
-      time = value
-    },
-  }
-}
-
-function makeConfig(overrides: Partial<AuthConfig> = {}): AuthConfig {
-  return {
-    rpID: 'localhost',
-    rpName: 'Board',
-    expectedOrigin: 'http://localhost',
-    sessionCookieName: 'mb_session',
-    challengeCookieName: 'mb_chal',
-    pendingCookieName: 'mb_pending',
-    sessionTtlSlidingMs: 30 * 24 * 60 * MINUTE,
-    sessionTtlAbsoluteMs: 90 * 24 * 60 * MINUTE,
-    secureCookies: false,
-    trustCfConnectingIp: false,
-    ...overrides,
-  }
-}
-
-function fakeReq(body: unknown, headers: Record<string, string> = {}): IncomingMessage {
-  const chunks = body === undefined ? [] : [Buffer.from(JSON.stringify(body))]
-  const req = Readable.from(chunks) as unknown as IncomingMessage
-  req.headers = headers as IncomingMessage['headers']
-  req.socket = { remoteAddress: '127.0.0.1' } as IncomingMessage['socket']
-  return req
-}
-
 function cookieHeaderFor(setCookie: string): string {
   return setCookie.split('; ')[0]
 }
@@ -92,31 +58,6 @@ function getSetCookies(headers: Record<string, string | string[]> | undefined): 
   const raw = headers?.['Set-Cookie']
   if (!raw) return []
   return Array.isArray(raw) ? raw : [raw]
-}
-
-type Ops = ReturnType<typeof makeOps>
-
-async function seedAccountWithDevice(
-  ops: Ops,
-  now: () => number,
-  credentialId: string,
-  overrides: { status?: 'active' | 'pending'; disabled?: boolean } = {},
-) {
-  const account = await createAccount(ops, now, { name: 'Acc', inviteId: 'inv-1' })
-  await storeDevice(ops, {
-    credentialId,
-    publicKey: 'pk',
-    signCount: 5,
-    label: 'Board device',
-    createdAt: 0,
-    lastSeenAt: 0,
-    disabled: overrides.disabled ?? false,
-    accountId: account.id,
-    status: overrides.status ?? 'active',
-    addedVia: 'invite',
-  })
-  await addDeviceToAccount(ops, account.id, credentialId, { countsAgainstLimit: false })
-  return account
 }
 
 async function readAddTokenFailedAttempts(ops: Ops, code: string): Promise<number> {
