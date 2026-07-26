@@ -198,9 +198,10 @@ describe('ofelia auto-approve cron', () => {
   })
 
   it('returns the storage error instead of throwing', async () => {
-    const { context } = makeCronContext(null)
+    const { context, append } = makeCronContext(null)
     context.api.storage.shared.get = vi.fn(async () => new Error('valkey down') as never)
 
     expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeInstanceOf(Error)
+    expect(append).not.toHaveBeenCalled()
   })
 })

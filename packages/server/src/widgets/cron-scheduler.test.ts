@@ -4,7 +4,7 @@ import type {
   WidgetCronJob,
 } from '@shared/widgets/contracts'
 import { Cron } from 'croner'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { makeFakeBrowserAutomationClient } from '../browser/testing/fake-client'
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
@@ -64,6 +64,10 @@ describe('cron scheduler', () => {
   beforeEach(() => {
     ops = createMemoryOps(createMemoryPubSub())
     nowMs = NOON_0616
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   const makeScheduler = (run: (context: WidgetCronContext) => unknown) =>
@@ -197,5 +201,39 @@ describe('cron scheduler', () => {
     const context = seen as WidgetCronContext | null
     expect(context?.typeId).toBe('test-widget')
     expect(Object.keys(context?.api.storage ?? {})).toEqual(['shared'])
+  })
+
+  it('runs a due job on its own interval through start(), and stop() halts it', async () => {
+    // In production only the setInterval inside start() ever calls tick() --
+    // every test above drives tick() directly. Fake timers let the interval
+    // fire deterministically without a real wall-clock wait.
+    vi.useFakeTimers()
+    const run = vi.fn()
+    const scheduler = makeCronScheduler({
+      registry: makeRegistry(run),
+      ops,
+      browserClient: makeFakeBrowserAutomationClient().client,
+      now: () => nowMs,
+      intervalMs: 50,
+    })
+
+    // Seed the cursor first, exactly like the tick()-driven tests above -- a
+    // "first sight" job never runs on its own tick.
+    await scheduler.tick()
+    nowMs = NOON_0619
+
+    scheduler.start()
+    await vi.advanceTimersByTimeAsync(50)
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(await readCronState(ops, 'test-widget', 'nightly')).toEqual({
+      cursorMs: MIDNIGHT_0619,
+      failures: 0,
+    })
+
+    await scheduler.stop()
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(run).toHaveBeenCalledTimes(1)
   })
 })
