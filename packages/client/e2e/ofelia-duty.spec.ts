@@ -8,16 +8,6 @@ const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
 const LEDGER_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:ledger')}`
 
-// This spec asserts tier-dependent UI, and the grid is a true zoom — a narrower
-// window renders physically smaller cards — so it must pin a viewport wide
-// enough to keep the ofelia card above the widget's own 200px `standard`
-// minHeightPx. At 1920 the measured container is ~1865px (viewport minus the
-// scrollbar gutter and the board's 20px padding), so the scale is ~0.97 and the
-// h:6 card is ~223px tall. At Playwright's default 1280 the scale clamps to 0.75
-// and the card is 172.5px, which drops the widget to a tier that renders no
-// `ofelia-duty-person`.
-test.use({ viewport: { width: 1920, height: 1080 } })
-
 test.beforeEach(async ({ request }) => {
   await request.post('/api/test/reset')
   await request.post('/api/test/time', { data: { iso: PINNED_ISO } })

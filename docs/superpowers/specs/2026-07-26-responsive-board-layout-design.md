@@ -101,7 +101,7 @@ export const resolveGridMetrics = (width: number): GridMetrics => {
     return { isMobile: true, cols: 1, rowHeight: 40, margin: [10, 10] }
   }
 
-  const scale = clamp(width / BASE_WIDTH, 0.75, 2.5)
+  const scale = clamp(width / BASE_WIDTH, 1, 2.5)
   return { isMobile: false, cols: 12, rowHeight: 30 * scale, margin: [10 * scale, 10 * scale] }
 }
 ```
@@ -110,14 +110,20 @@ React Grid Layout computes column width as
 `(width - margin[0] * (cols - 1) - containerPadding[0] * 2) / cols`, and `containerPadding`
 defaults to `margin`. Scaling the margin by the same factor therefore scales the column width by
 that factor too, which is what makes the desktop grid a true zoom rather than a one-axis stretch.
-`BASE_WIDTH` is 1920, so at `scale === 1` the numbers are identical to today's and existing
-1080p boards do not shift by a pixel.
+`BASE_WIDTH` is 1920, so at `scale === 1` the formula reproduces the previous hardcoded constants
+exactly. That is a statement about the metrics, not about what users see: `useContainerWidth`
+attaches its observer from a single mount effect that bailed out on a still-null ref, because the
+measured div sat behind an early empty-state return in `Board.tsx`. The reported width was
+therefore pinned at the hook's 1280 default on *every* screen, and every board has so far been laid
+out as if the window were 1280 px wide. This design fixes that measurement, so boards on wider
+screens legitimately re-flow to use the whole window — the formula reproduces the old constants,
+the measured width deliberately no longer reproduces the old bug.
 
 | Width | cols | scale | Column | `w:3 h:4` card |
 | --- | --- | --- | --- | --- |
 | 3840 | 12 | 2.0 | 298 | 935 x 300 |
 | 1920 | 12 | 1.0 | 149 | 468 x 150 (unchanged) |
-| 1280 | 12 | 0.75 | 98 | 311 x 113 |
+| 1280 | 12 | 1.0 | 96 | 308 x 150 |
 | 390 | 1 | n/a | 370 | 370 x 190 |
 
 Scaling the height also lets cards cross tier thresholds that a fixed `rowHeight` could never
@@ -128,11 +134,18 @@ threshold, and `DEFAULT_TIERS.compact` needs `160` px of height. Accounting for 
 and on `tiers` overrides, but the direction is the point: on a large display widgets start
 rendering their richer layouts, which is what the tier system was built for.
 
-The lower clamp of `0.75` covers the 768-1100 px band, which is a desktop window narrowed to a
-third of a 4K screen. Twelve columns are objectively cramped there at any scale; the clamp only
-keeps cards from collapsing to unreadable heights. This is an accepted compromise, not a
-solution: if the band becomes a problem, a third breakpoint is added. The upper clamp of `2.5`
-never binds on a 4K display and exists as a guard against ultrawide monitors.
+The lower clamp of `1` makes the zoom one-directional: the grid scales up on wide displays and
+never down. The clamp is therefore active across the entire band from `MOBILE_BREAKPOINT` to
+`BASE_WIDTH` — 768 px through 1920 px, which is every laptop screen and most windowed desktops,
+not some narrow edge case — and everything in that band gets exactly the historical metrics
+(`rowHeight: 30`, `margin: [10, 10]`). The alternative, letting `scale` fall below 1, makes cards
+physically smaller than they have ever been and pushes widgets under their own tier thresholds: at
+`scale === 0.75` an `h: 6` card measures 172.5 px instead of 230 px, below `ofelia-poop-duty`'s own
+`minHeightPx: 200`, so it silently degrades to a poorer tier on a 1280/1366/1440 laptop. With the
+clamp at `1` no board shrinks and no widget loses a tier. Twelve columns are still cramped just
+above the breakpoint; that is an accepted compromise, and a third breakpoint is the real fix if it
+becomes a problem. The upper clamp of `2.5` never binds on a 4K display and exists as a guard
+against ultrawide monitors.
 
 Mobile row height is a fixed `40` rather than a scaled value. With one column the column width
 jumps to ~370 px, and the desktop coefficient would make each row step ~74 px — too coarse to
@@ -351,7 +364,8 @@ last-write-wins, so two devices editing at the same time overwrite each other. S
 desktop and mobile layouts into separate fields does not help, because the whole document is the
 unit of writing. This is pre-existing and unchanged by this design.
 
-**The 768-1100 px band is a compromise.** Twelve columns are cramped there and the lower clamp only
-limits the damage. A third breakpoint is the real fix if it becomes a problem in practice.
+**Twelve columns just above the breakpoint are a compromise.** The lower clamp of `1` keeps cards at
+their baseline size there rather than shrinking them, but it cannot make twelve columns readable at
+800 px. A third breakpoint is the real fix if it becomes a problem in practice.
 
 **Long-distance reordering on a phone takes several gestures.** See the mobile editing section.
