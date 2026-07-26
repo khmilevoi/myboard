@@ -1,9 +1,10 @@
-import type { CreatedBy } from './ledger'
+import type { EntryCreatedBy } from './ledger'
 import type { Person } from './roster'
 
 export type EntryAuthor =
   | { kind: 'account'; accountId: string; name: string; avatarUrl?: string }
   | { kind: 'person'; person: Person }
+  | { kind: 'system' }
   | { kind: 'unknown' }
 
 /**
@@ -17,10 +18,12 @@ export type MemberLookup = ReadonlyMap<
 >
 
 export function resolveEntryAuthor(
-  createdBy: CreatedBy | null | undefined,
+  createdBy: EntryCreatedBy | null | undefined,
   legacy: Person | undefined,
   members: MemberLookup,
 ): EntryAuthor {
+  if (createdBy && 'system' in createdBy) return { kind: 'system' }
+
   if (createdBy) {
     const member = members.get(createdBy.accountId)
     return {

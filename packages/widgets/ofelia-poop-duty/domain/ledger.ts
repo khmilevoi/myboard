@@ -16,6 +16,18 @@ export const CreatedBySchema = z.object({
 })
 export type CreatedBy = z.infer<typeof CreatedBySchema>
 
+/**
+ * Records written by the server itself (cron jobs), with no session behind
+ * them. A plain union rather than a discriminated one: the account shape is
+ * already persisted without a discriminator field, and adding a required one
+ * would invalidate every stored record.
+ */
+export const SystemCreatedBySchema = z.object({ system: z.literal(true) })
+export const EntryCreatedBySchema = z.union([CreatedBySchema, SystemCreatedBySchema])
+export type EntryCreatedBy = z.infer<typeof EntryCreatedBySchema>
+
+export const SYSTEM_CREATED_BY: EntryCreatedBy = { system: true }
+
 export const LedgerEntrySchema = z.object({
   id: z.string().describe('Уникальный идентификатор записи в append-only журнале'),
   ts: z
@@ -33,8 +45,8 @@ export const LedgerEntrySchema = z.object({
   onBehalfOf: PersonSchema.optional().describe(
     'Человек, за которого выполнено действие или чей долг изменяется',
   ),
-  createdBy: CreatedBySchema.nullish().describe(
-    'Account that created the record; null when unattributed',
+  createdBy: EntryCreatedBySchema.nullish().describe(
+    'Account that created the record, the server for automatic records, or null when unattributed',
   ),
   by: PersonSchema.optional().describe(
     'LEGACY pre-account signature. Read-only: never written again',

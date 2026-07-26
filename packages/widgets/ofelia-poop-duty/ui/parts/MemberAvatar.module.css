@@ -21,6 +21,12 @@
   color: var(--text-3);
 }
 
+.avatar[data-kind='system'] {
+  border: 1.5px solid var(--border-strong);
+  color: var(--text-3);
+  background: var(--muted);
+}
+
 /* The viewer ring is a spread shadow, so it paints outside the border box and
    is clipped by any scroll/overflow ancestor the avatar sits flush against.
    Every such container reserves `--ofelia-viewer-ring` of inline-start room —

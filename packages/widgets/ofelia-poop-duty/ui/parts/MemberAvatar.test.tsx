@@ -37,4 +37,10 @@ describe('MemberAvatar', () => {
     expect(container.firstElementChild).toHaveAttribute('data-kind', 'unknown')
     expect(screen.getByText('?')).toBeInTheDocument()
   })
+
+  it('marks the system author', () => {
+    const { container } = render(<MemberAvatar author={{ kind: 'system' }} />)
+
+    expect(container.firstElementChild).toHaveAttribute('data-kind', 'system')
+  })
 })
