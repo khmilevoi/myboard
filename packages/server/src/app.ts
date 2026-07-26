@@ -318,6 +318,10 @@ export function createApp(deps: AppDeps): App {
     }
 
     const viewer = await resolveWidgetViewer(authDeps, req)
+    if (viewer instanceof Error) {
+      sendWidgetError(res, viewer)
+      return
+    }
 
     const result = await dispatchWidgetEvent({
       registry: deps.widgetRegistry,
