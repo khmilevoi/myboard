@@ -2,6 +2,7 @@ import { defineWidgetServer, type WidgetServerContext } from '@shared/widgets/co
 import * as errore from 'errore'
 
 import { commentsKey } from './domain/comments'
+import { autoApproveDrafts } from './domain/day-close'
 import {
   makeCleanDraft,
   makeCommentDraft,
@@ -83,6 +84,27 @@ const ofeliaServer = defineWidgetServer({
       const written = await context.api.storage.shared.append(commentsKey(weekStart), draft)
       if (written instanceof Error) return written
       return OK
+    },
+  },
+
+  crons: {
+    // 00:05 rather than midnight: clear of the day boundary and of DST shifts.
+    autoApproveDay: {
+      schedule: '5 0 * * *',
+      timeZone: DUTY_TIME_ZONE,
+      run: async ({ scheduledFor, api }) => {
+        const entries = await api.storage.shared.get(LEDGER_KEY, LedgerEntriesSchema)
+        if (entries instanceof Error) return entries
+
+        // Derived from this fresh read, so a caught-up or retried run cannot
+        // duplicate a day that was closed in the meantime.
+        const drafts = autoApproveDrafts({ entries: entries ?? [], scheduledForMs: scheduledFor })
+
+        for (const draft of drafts) {
+          const appended = await api.storage.shared.append(LEDGER_KEY, draft)
+          if (appended instanceof Error) return appended
+        }
+      },
     },
   },
 })
