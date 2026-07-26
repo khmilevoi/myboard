@@ -1,5 +1,6 @@
-import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
 // @vitest-environment node
+
+import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
 import { describe, expect, it, vi } from 'vitest'
 
 import { LEDGER_KEY } from './domain/ledger'
