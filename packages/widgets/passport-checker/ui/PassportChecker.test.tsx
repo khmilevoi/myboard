@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
+import { makeStaticWidgetIdentity, WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
@@ -36,6 +36,7 @@ function makeProps(
     reportError: vi.fn(),
     storage,
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
+    identity: makeStaticWidgetIdentity(),
   }
   return props
 }
