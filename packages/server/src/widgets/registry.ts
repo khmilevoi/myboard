@@ -1,7 +1,11 @@
 import type { RuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
 import { Cron } from 'croner'
 
-import { DuplicateWidgetTypeError, InvalidCronScheduleError, UnknownWidgetTypeError } from './errors'
+import {
+  DuplicateWidgetTypeError,
+  InvalidCronScheduleError,
+  UnknownWidgetTypeError,
+} from './errors'
 
 export type WidgetServerRegistry = ReadonlyMap<string, RuntimeWidgetServerDefinition>
 
