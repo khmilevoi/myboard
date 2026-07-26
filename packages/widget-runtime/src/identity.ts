@@ -15,7 +15,15 @@ export type WidgetIdentity = {
 export class BoardMembersError extends errore.createTaggedError({
   name: 'BoardMembersError',
   message: 'Could not load the board members directory',
-}) {}
+}) {
+  /**
+   * HTTP status of the failed response, when the failure came from a non-2xx
+   * status. A 401 is the expected shape on an unauthenticated host (a harness,
+   * a logged-out session) and is handled silently; anything else — including a
+   * missing status (transport failure, schema drift) — is unexpected.
+   */
+  status?: number
+}
 
 const AccountsResultSchema = z.object({
   accounts: z.array(
@@ -38,7 +46,11 @@ const EMPTY: ReadonlyMap<string, BoardMember> = new Map()
 async function fetchIdentity(http: HttpLike): Promise<BoardMembersError | IdentityState> {
   const response = await http.get('/api/auth/accounts')
   if (response instanceof Error) return new BoardMembersError({ cause: response })
-  if (!response.ok) return new BoardMembersError()
+  if (!response.ok) {
+    const error = new BoardMembersError()
+    error.status = response.status
+    return error
+  }
 
   const parsed = AccountsResultSchema.safeParse(response.body)
   if (!parsed.success) return new BoardMembersError({ cause: parsed.error })
@@ -60,10 +72,24 @@ export type MakeWidgetIdentityOptions = { http: HttpLike }
 export function makeWidgetIdentity({ http }: MakeWidgetIdentityOptions): WidgetIdentity {
   const state = atom<IdentityState | null>(null, 'identity.state').extend(
     withConnectHook(() => {
-      void wrap(fetchIdentity(http)).then((result) => {
-        if (result instanceof Error) return
-        state.set(result)
-      })
+      void wrap(fetchIdentity(http)).then(
+        (result) => {
+          if (result instanceof Error) {
+            // A 401 is expected on an unauthenticated host and stays silent;
+            // everything else (transport failure, non-401 status, or a
+            // response shape AccountsResultSchema no longer matches) is
+            // unexpected and worth surfacing.
+            if (result.status !== 401) console.warn('[widget-runtime]', result.message, result)
+            return
+          }
+          state.set(result)
+        },
+        // The connect scope aborts — and this promise rejects with an
+        // AbortError — whenever the last subscriber disconnects mid-fetch.
+        // That is expected control flow, not a failure: swallow it instead of
+        // leaving an unhandled rejection on the .then()-derived promise.
+        () => {},
+      )
     }),
   )
 
