@@ -416,16 +416,24 @@ exercised explicitly because of the Node bump.
 
 ## Impact on the widget-server-cron spec
 
-`docs/superpowers/specs/2026-07-26-widget-server-cron-design.md` (approved, not started) overlaps
-this work and needs four edits once this lands:
+`docs/superpowers/specs/2026-07-26-widget-server-cron-design.md` and its 12-task plan
+`docs/superpowers/plans/2026-07-26-widget-server-cron.md` are committed on
+`feat/widget-server-cron` but not implemented. They overlap this work and need revising once this
+lands:
 
-1. **"Prerequisite: align Node on 26"** — done here, drop it.
-2. **"Shared domain module"** and **"Shared draft construction"** — done here, reduce to a reference.
-3. **`by: Person | 'system'`** — `by` is legacy and read-only after this change. A cron-written entry
-   is `createdBy: null` plus an explicit source marker; pick that marker in the cron spec rather
-   than widening `by`.
+1. **"Prerequisite: align Node on 26"** / plan **Task 1** — done here, drop them.
+2. **"Shared domain module"** and **"Shared draft construction"** / plan **Task 7** — done here,
+   reduce to a reference.
+3. **"Ledger schema and UI"** / plan **Task 8** widens `by` to `Person | 'system'`. After this
+   change `by` is legacy and read-only. A cron-written entry is `createdBy: null` plus an explicit
+   source marker; pick that marker there instead of widening `by`.
 4. **"the same slot that holds the IP tail shows an `авто` marker"** — there is no IP slot any more.
    The system marker belongs in the signature line, next to where the account square would be.
+5. Plan **Task 10** ("Ofelia's server definition and its cron") builds `server.ts` from scratch;
+   after this change it extends an existing one.
+
+Landing order is this branch first, then a rebase of `feat/widget-server-cron` onto it. Doing it the
+other way round means implementing Node 26 and the domain split twice.
 
 ## Rollout
 
