@@ -96,6 +96,24 @@ describe('Board', () => {
     expect(screen.getByText('Начните с первого виджета')).toBeInTheDocument()
   })
 
+  it('keeps the measured grid container mounted even with no widgets', async () => {
+    // Regression guard. useContainerWidth attaches its ResizeObserver from a
+    // single mount effect that bails out while the ref is still null and never
+    // re-runs. `activeBoard()` is null on the first render, so rendering the
+    // measured element only once instances exist left the observer unattached
+    // forever, pinning the grid width to the hook's 1280 default and making the
+    // mobile breakpoint unreachable in a real browser.
+    const empty = render(<Board />)
+    expect(screen.getByText('Начните с первого виджета')).toBeInTheDocument()
+    expect(screen.getByTestId('board-grid-container')).toBeInTheDocument()
+    empty.unmount()
+
+    addInstance('clock')
+    render(<Board />)
+    await screen.findByTestId('widget-card')
+    expect(screen.getByTestId('board-grid-container')).toBeInTheDocument()
+  })
+
   it('renders a card for each instance', () => {
     addInstance('clock')
     render(<Board />)
