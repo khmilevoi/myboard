@@ -38,4 +38,8 @@ describe('resolveEntryAuthor', () => {
   it('prefers createdBy over a legacy signature when both are present', () => {
     expect(resolveEntryAuthor({ accountId: 'a1', name: 'x' }, 'Леша', members).kind).toBe('account')
   })
+
+  it('resolves the system author to its own kind', () => {
+    expect(resolveEntryAuthor({ system: true }, undefined, members)).toEqual({ kind: 'system' })
+  })
 })

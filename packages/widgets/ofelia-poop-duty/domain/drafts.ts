@@ -1,6 +1,6 @@
 import type { CommentDraft } from './comments'
 import { foldDebt, getDebtDays } from './debt'
-import type { CreatedBy, LedgerEntry, LedgerEntryDraft } from './ledger'
+import type { CreatedBy, EntryCreatedBy, LedgerEntry, LedgerEntryDraft } from './ledger'
 import { resolveDays } from './ledger'
 import { getOfeliaDutyByDate, otherPerson } from './roster'
 
@@ -8,7 +8,7 @@ export type DraftInput = {
   entries: LedgerEntry[]
   today: Temporal.PlainDate
   target: Temporal.PlainDate
-  createdBy: CreatedBy | null
+  createdBy: EntryCreatedBy | null
 }
 
 function debtDayFor({ entries, today, target }: DraftInput) {

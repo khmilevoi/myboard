@@ -228,4 +228,30 @@ describe('LedgerEntrySchema', () => {
 
     expect(parsed.createdBy).toBeNull()
   })
+
+  it('accepts a system-authored entry', () => {
+    const parsed = LedgerEntrySchema.safeParse({
+      id: 'auto-1',
+      ts: 1,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { system: true },
+    })
+
+    expect(parsed.success).toBe(true)
+  })
+
+  it('still accepts an account-authored entry', () => {
+    const parsed = LedgerEntrySchema.safeParse({
+      id: 'human-1',
+      ts: 1,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { accountId: 'a1', name: 'Карина' },
+    })
+
+    expect(parsed.success).toBe(true)
+  })
 })

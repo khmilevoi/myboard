@@ -146,3 +146,28 @@ test('a confirmed day is written through the widget server event', async ({ page
 
   await expect(ofelia.confirmedPlaque).toBeVisible()
 })
+
+test('auto-approve — a cron-closed day reaches the open board over SSE', async ({
+  page,
+  request,
+}) => {
+  const ofelia = new OfeliaPage(page)
+  await ofelia.seedOfeliaWidget()
+  await expect(ofelia.confirmButton).toBeVisible()
+
+  // The first tick only seeds the job cursor — nothing may change yet.
+  await request.post('/api/test/cron/tick')
+  await expect(ofelia.confirmButton).toBeVisible()
+
+  // Past the next 00:05 Warsaw, so the 2026-06-17 occurrence is due and closes
+  // every unresolved day up to and including 2026-06-16.
+  await request.post('/api/test/time', { data: { iso: '2026-06-17T00:06:00+02:00' } })
+  await request.post('/api/test/cron/tick')
+
+  // No reload: this must arrive through the storage SSE stream. Same assertion
+  // pair the manual "confirm" test uses, so a pass means the cron write is
+  // indistinguishable from a button press as far as the board is concerned.
+  await expect(ofelia.confirmedPlaque).toBeVisible()
+  await expect(ofelia.undoButton).toBeVisible()
+  await expect(ofelia.confirmButton).toHaveCount(0)
+})

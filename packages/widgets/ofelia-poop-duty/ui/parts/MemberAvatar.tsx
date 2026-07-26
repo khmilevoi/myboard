@@ -1,3 +1,4 @@
+import { Clock } from 'lucide-react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import type { EntryAuthor } from '@/domain/author'
@@ -32,6 +33,20 @@ export const MemberAvatar = reatomMemo<MemberAvatarProps>(
           aria-hidden
         >
           ?
+        </span>
+      )
+    }
+
+    if (author.kind === 'system') {
+      return (
+        <span
+          className={styles.avatar}
+          data-kind="system"
+          style={style}
+          title="Закрыто автоматически"
+          aria-hidden
+        >
+          <Clock size={Math.round(px * 0.6)} aria-hidden />
         </span>
       )
     }

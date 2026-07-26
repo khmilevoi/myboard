@@ -78,7 +78,9 @@ const Entry = reatomMemo<{ entry: HistoryEntryView; superseded?: boolean }>(
         <span className={styles.signatureName} data-unknown={entry.recordedBy.kind === 'unknown'}>
           {entry.recordedBy.kind === 'unknown'
             ? 'автор неизвестен'
-            : `отметил(а) ${authorName(entry)}`}
+            : entry.recordedBy.kind === 'system'
+              ? 'закрыто автоматически'
+              : `отметил(а) ${authorName(entry)}`}
         </span>
         {entry.recordedBy.kind === 'person' ? (
           <span className={styles.legacy}>без аккаунта</span>

@@ -123,6 +123,17 @@ describe('HistoryList', () => {
     expect(screen.getByText('автор неизвестен')).toBeInTheDocument()
   })
 
+  it('phrases a system record as an automatic closure', () => {
+    render(
+      <HistoryList
+        groups={[group({ current: view({ recordedBy: { kind: 'system' } }) })]}
+        today="2026-06-16"
+      />,
+    )
+
+    expect(screen.getByText('закрыто автоматически')).toBeInTheDocument()
+  })
+
   it('renders an empty state', () => {
     render(<HistoryList groups={[]} today="2026-06-16" />)
     expect(screen.getByText('Пока нет событий')).toBeInTheDocument()

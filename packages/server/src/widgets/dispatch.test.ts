@@ -98,6 +98,7 @@ const invalidResultDefinition: RuntimeWidgetServerDefinition = {
   handlers: {
     echo: () => ({ echoed: 1, instanceId: 'placement-1' }),
   },
+  crons: {},
 }
 const invalidResultRegistry = createRegistry([invalidResultDefinition])
 
@@ -107,6 +108,7 @@ const failingDefinition: RuntimeWidgetServerDefinition = {
   handlers: {
     echo: () => new Error('handler failed'),
   },
+  crons: {},
 }
 const failingRegistry = createRegistry([failingDefinition])
 
@@ -218,6 +220,7 @@ describe('dispatchWidgetEvent', () => {
           return { ok: true }
         },
       },
+      crons: {},
     }
 
     await dispatch({
@@ -242,6 +245,7 @@ describe('dispatchWidgetEvent', () => {
           return { ok: true }
         },
       },
+      crons: {},
     }
 
     await dispatch({

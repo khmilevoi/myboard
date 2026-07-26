@@ -1,6 +1,10 @@
 // @vitest-environment node
 
-import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
+import type {
+  WidgetCronContext,
+  WidgetServerContext,
+  WidgetServerStorage,
+} from '@shared/widgets/contracts'
 import { describe, expect, it, vi } from 'vitest'
 
 import { LEDGER_KEY } from './domain/ledger'
@@ -151,6 +155,53 @@ describe('ofelia server', () => {
     const { context, append } = makeContext(failure)
 
     expect(await run('clean', { date: '2026-06-16' }, context)).toBe(failure)
+    expect(append).not.toHaveBeenCalled()
+  })
+})
+
+function makeCronContext(
+  stored: unknown = null,
+  scheduledFor = Date.parse('2026-06-17T00:05:00+02:00'),
+) {
+  const append = vi.fn<WidgetServerStorage['append']>(async () => undefined)
+  const shared = {
+    get: vi.fn(async () => stored as never),
+    set: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
+    has: vi.fn(async () => false),
+    keys: vi.fn(async () => []),
+    append,
+  } as unknown as WidgetServerStorage
+
+  const context = {
+    typeId: 'ofelia-poop-duty',
+    now: () => scheduledFor,
+    scheduledFor,
+    api: { storage: { shared }, browser: {} as never },
+  } as unknown as WidgetCronContext
+
+  return { context, append }
+}
+
+describe('ofelia auto-approve cron', () => {
+  it('closes the unresolved window with system-authored entries', async () => {
+    const { context, append } = makeCronContext([])
+
+    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(append).toHaveBeenCalledTimes(7)
+    expect(append).toHaveBeenLastCalledWith(LEDGER_KEY, {
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { system: true },
+    })
+  })
+
+  it('returns the storage error instead of throwing', async () => {
+    const { context, append } = makeCronContext(null)
+    context.api.storage.shared.get = vi.fn(async () => new Error('valkey down') as never)
+
+    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeInstanceOf(Error)
     expect(append).not.toHaveBeenCalled()
   })
 })
