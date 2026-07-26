@@ -68,7 +68,13 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
           </span>
           <span className={cn(styles.tinyLabel, styles.tinyLabelSuccess)}>{view.message}</span>
         </div>
-        <span className={styles.tinyStatusChip}>СТАТУС {view.status}</span>
+        {/* The tiny tile has no room for a second banner line, but a restored
+            result can be days old, so the timestamp rides along in the same
+            chip rather than being dropped (see StandardTier's bannerMeta,
+            which shows the same fact at full size). */}
+        <span className={styles.tinyStatusChip}>
+          СТАТУС {view.status} · {view.checkedAtLabel}
+        </span>
       </div>
     )
   }

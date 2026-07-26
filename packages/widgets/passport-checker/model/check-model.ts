@@ -28,6 +28,12 @@ export type TransientState = Exclude<ViewState, { kind: 'success' }>
 
 export const PASSPORT_LAST_RESULT_KEY = 'lastResult'
 
+// The schema is a persistence contract, same as the key: existing stored
+// values are never migrated when it changes. Any new field must be
+// `.optional()` or carry a `.default()` — a required field added later fails
+// `safeParse` for every value already sitting in Valkey, `withStorageKey`
+// then discards it on read, and every client falls back to `idle` with no
+// way back short of a manual data fix.
 export const lastResultSchema = z.object({
   status: z.number().int(),
   message: z.string(),
@@ -151,8 +157,9 @@ export function makePassportCheckModel({
     // frame-bound writers now (repo wrap rules — never hoist them to module scope).
     const fail = wrap((next: TransientState) => transient.set(next))
     const succeed = wrap((next: StoredCheckResult) => {
-      // Order matters only for readability: the write is what persists, and
-      // clearing `transient` is what lets the computed show it.
+      // Both sets land in one frame — Reatom notifies subscribers only after
+      // the synchronous block finishes — so no subscriber ever observes a gap
+      // between them. Order kept anyway: write-then-reveal reads better.
       lastResult.set(next)
       transient.set({ kind: 'idle' })
     })

@@ -8,6 +8,7 @@ import type { PassportCheckerEvents } from '../types'
 import {
   GENERIC_RETRYABLE_MESSAGE,
   formatCheckedAt,
+  lastResultSchema,
   makePassportCheckModel,
   mapCheckError,
   PASSPORT_LAST_RESULT_KEY,
@@ -202,6 +203,17 @@ async function seed(storage: StorageApi) {
   const result = await storage.set(PASSPORT_LAST_RESULT_KEY, STORED)
   if (result instanceof Error) throw result
 }
+
+describe('lastResultSchema', () => {
+  // Every other test in this file goes through createFakeStorage, which
+  // explicitly skips schema validation (see its fakes), so on the real HTTP
+  // backend this schema is a production-only path. This is the one place it
+  // actually runs, over the exact object shape `succeed` builds in
+  // checkPassport: { status, message, checkedAt }.
+  it('parses the shape a successful check writes', () => {
+    expect(lastResultSchema.safeParse(STORED).success).toBe(true)
+  })
+})
 
 describe('PASSPORT_LAST_RESULT_KEY', () => {
   // Every test in this file reaches storage through the constant, never the
