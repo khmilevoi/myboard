@@ -1,0 +1,60 @@
+# Throwaway environment for whichever feature branch is currently checked out —
+# deploy with:
+#
+#   pnpm deploy:branch              # fills BRANCH_NAME from git for you
+#
+# or by hand:
+#
+#   rpi secrets send --env branch --vars BRANCH_NAME=feat/x   # once, and after every .env.branch change
+#   rpi deploy       --env branch --vars BRANCH_NAME=feat/x
+#
+# `--vars` substitutes `${BRANCH_NAME}` below. Without it the deploy fails
+# validation, which is deliberate: there is no sensible default branch here.
+# BRANCH_NAME is the only variable rpi 0.26 accepts, which is why the hostname
+# is a literal rather than being derived from the branch.
+#
+# Merges onto rpi.toml field by field, so everything not repeated here
+# (build.compose, ingress.service/port/expose, healthcheck, timeouts, commands,
+# secrets.files) is inherited from production.
+#
+# rpi derives the project key from the environment name AND the variables, so
+# each branch gets its own compose project, network and volumes — e.g.
+# `myboard--branch--feat-x`. `[project]` cannot be set here; the CLI owns it.
+#
+# ONE BRANCH STACK AT A TIME. Because the hostname below is fixed while the
+# project key varies per branch, deploying a second branch while the first is
+# still up makes two projects claim the same hostname, which rpi rejects. Tear
+# the old one down first:
+#
+#   rpi env destroy branch --vars BRANCH_NAME=feat/previous
+#
+# `rpi env reset-data branch --vars BRANCH_NAME=...` wipes just the volumes.
+
+[environment]
+# Unlike production and dev, this stack is disposable, so it gets a TTL and the
+# agent's reaper cleans it up — a branch tried once and abandoned should not sit
+# on the Pi holding a hostname and a Valkey volume forever. Everything in it is
+# throwaway by definition: the data starts empty on every fresh deploy and the
+# device invite is specific to this stack.
+#
+# 72h is deliberately generous: long enough to leave a stack up over a weekend
+# and come back to it, short enough that a forgotten branch clears itself before
+# the next one collides on the hostname.
+ttl = "72h"
+
+[source]
+# The only thing that varies per deploy.
+branch = "${BRANCH_NAME}"
+
+[ingress]
+# Must differ from production's and dev's hostnames (rpi rejects a collision).
+# WebAuthn credentials are scoped to this host, hence the RP_ID/origin overrides
+# in .env.branch. Keeping it stable across branches is what lets the test device
+# stay invited when you redeploy from a different branch.
+hostname = "board-branch.iiskelo.com"
+
+[secrets]
+# Separate bundle from production and dev: carries this hostname for the
+# WebAuthn gate plus host-port overrides that keep this stack off the other two
+# stacks' binds. secrets.files is inherited from rpi.toml.
+env = ".env.branch"

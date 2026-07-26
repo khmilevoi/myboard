@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; background: oklch(0.975 0.003 255); }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; }
+  a:hover { color: oklch(0.49 0.17 281); }
+
+  /* ---- semantic tokens · LIGHT (default, also covers stream + system-light) ---- */
+  .act, .act[data-theme="light"] {
+    --bg: oklch(0.975 0.003 255);
+    --text: oklch(0.27 0.02 262);
+    --surface: oklch(1 0 0);
+    --surface-2: oklch(0.972 0.004 255);
+    --text-2: oklch(0.5 0.018 262);
+    --text-3: oklch(0.66 0.012 262);
+    --border: oklch(0.91 0.005 255);
+    --accent: oklch(0.55 0.17 281);
+    --on-accent: #ffffff;
+    --accent-hover: oklch(0.49 0.17 281);
+    --ring: oklch(0.55 0.17 281 / 0.35);
+    --accent-soft: oklch(0.955 0.032 285);
+    --destructive: oklch(0.55 0.21 27);
+    --destructive-soft: oklch(0.968 0.028 27);
+    --shadow-lg: 0 1px 2px rgba(20,22,40,.05), 0 24px 50px -18px rgba(30,32,55,.22);
+    --shadow-seg: 0 1px 2px rgba(20,22,40,.14);
+    --shadow-btn: 0 1px 2px rgba(20,22,40,.06);
+  }
+  /* ---- semantic tokens · DARK ---- */
+  .act[data-theme="dark"] {
+    --bg: oklch(0.185 0.012 268);
+    --text: oklch(0.95 0.006 260);
+    --surface: oklch(0.23 0.013 270);
+    --surface-2: oklch(0.265 0.014 270);
+    --text-2: oklch(0.71 0.013 262);
+    --text-3: oklch(0.56 0.012 262);
+    --border: oklch(0.315 0.014 270);
+    --accent: oklch(0.675 0.155 285);
+    --on-accent: oklch(0.18 0.03 285);
+    --accent-hover: oklch(0.73 0.15 285);
+    --ring: oklch(0.67 0.16 285 / 0.45);
+    --accent-soft: oklch(0.315 0.06 285);
+    --destructive: oklch(0.72 0.17 25);
+    --destructive-soft: oklch(0.3 0.07 25);
+    --shadow-lg: 0 1px 2px rgba(10,12,25,.2), 0 24px 50px -18px rgba(10,12,25,.5);
+    --shadow-seg: 0 1px 2px rgba(0,0,0,.45);
+    --shadow-btn: 0 1px 2px rgba(0,0,0,.35);
+  }
+  @keyframes act-spin { to { transform: rotate(360deg); } }
+  @keyframes act-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+</style>
+</helmet>
+
+<div class="act" data-theme="{{ resolvedTheme }}" style="min-height:100vh;width:100%;background:var(--bg);color:var(--text);font-family:'Hanken Grotesk',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;transition:background .2s;">
+
+  <!-- theme toggle · pill -->
+  <div role="group" aria-label="Тема" style="position:fixed;top:20px;right:20px;display:flex;gap:3px;padding:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;z-index:10;">
+    <button onClick="{{ setLight }}" title="Светлая" aria-label="Светлая тема" style="{{ segLight }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+    <button onClick="{{ setDark }}" title="Тёмная" aria-label="Тёмная тема" style="{{ segDark }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6.5 6.5 0 0 0 9 9 9 9 0 1 1-9-9z"></path></svg></button>
+    <button onClick="{{ setSystem }}" title="Системная" aria-label="Как в системе" style="{{ segSystem }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3.5" width="20" height="13" rx="2"></rect><path d="M8 20.5h8M12 16.5v4"></path></svg></button>
+  </div>
+
+  <!-- card -->
+  <div style="width:100%;max-width:392px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow-lg);padding:36px 34px 30px;display:flex;flex-direction:column;align-items:center;transition:background .2s,border-color .2s;">
+
+    <!-- brand mark: myboard = board of widgets -->
+    <div aria-hidden="true" style="width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:12px;">
+      <div style="border-radius:4px;background:var(--accent);"></div>
+      <div style="border-radius:4px;background:var(--accent);opacity:.5;"></div>
+      <div style="border-radius:4px;background:var(--accent);opacity:.5;"></div>
+      <div style="border-radius:4px;background:var(--accent);"></div>
+    </div>
+    <div style="margin-top:14px;font:600 12px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--text-2);">myboard</div>
+
+    <!-- ============ ACTIVATE (code present in URL) ============ -->
+    <sc-if value="{{ isActivate }}" hint-placeholder-val="{{ true }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;">
+        <h1 style="margin:20px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Активация устройства</h1>
+        <p style="margin:9px 0 0;max-width:290px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Создайте passkey, чтобы завершить настройку этого устройства.</p>
+
+        <div style="width:100%;margin-top:26px;">
+          <input type="text" placeholder="Ваше имя" aria-label="Ваше имя" aria-invalid="{{ hasNameError }}" aria-describedby="{{ nameErrorId }}" value="{{ name }}" onInput="{{ onNameInput }}" onKeyDown="{{ onNewKey }}" onBlur="{{ onNameBlur }}" disabled="{{ loading }}" style="{{ inputStyle }}" style-focus="{{ inputFocusStyle }}" />
+          <div role="alert" id="{{ nameErrorId }}" aria-hidden="{{ notHasNameError }}" style="{{ nameErrorStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg>{{ nameErrorText }}</div>
+        </div>
+
+        <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ onCreatePasskey }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Создать passkey</button>
+        </sc-if>
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <button disabled aria-busy="true" style="{{ loadingBtn }}"><span style="width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:act-spin .7s linear infinite;opacity:.9;"></span>Создание passkey…</button>
+        </sc-if>
+        <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ openScanner }}" style="{{ scanBtn }}" style-hover="{{ scanBtnHover }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7M14 21h.01"></path></svg>Сканировать QR-код</button>
+        </sc-if>
+
+        <button onClick="{{ goHome }}" disabled="{{ loading }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Уже активировано? <span style="color:var(--accent);">Войти с passkey</span></button>
+      </div>
+    </sc-if>
+
+    <!-- ============ HOME (no code in URL — default entry) ============ -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;">
+        <h1 style="margin:20px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Вход в myboard</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Используйте passkey или отсканируйте QR-код с другого устройства, где вы уже вошли.</p>
+
+        <div style="width:100%;margin-top:26px;">
+          <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ onSignIn }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Войти с passkey</button>
+          </sc-if>
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+            <button disabled aria-busy="true" style="{{ loadingBtn }}"><span style="width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:act-spin .7s linear infinite;opacity:.9;"></span>Вход…</button>
+          </sc-if>
+          <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ openScanner }}" style="{{ scanBtn }}" style-hover="{{ scanBtnHover }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7M14 21h.01"></path></svg>Сканировать QR-код</button>
+          </sc-if>
+        </div>
+
+        <div style="margin-top:18px;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;">Новое устройство? Запросите ссылку-приглашение у администратора.</div>
+      </div>
+    </sc-if>
+
+    <!-- ============ ACTIVATE — NO CODE (activation URL missing its code) ============ -->
+    <sc-if value="{{ isNoCode }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;">
+        <h1 style="margin:20px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Нужен код приглашения</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">В этой ссылке нет кода приглашения. Запросите новое приглашение у администратора или отсканируйте QR-код, который он отправил.</p>
+
+        <div style="width:100%;margin-top:26px;">
+          <button onClick="{{ openScanner }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7M14 21h.01"></path></svg>Сканировать QR-код</button>
+        </div>
+
+        <button onClick="{{ goHome }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Уже есть passkey? <span style="color:var(--accent);">Войти</span></button>
+      </div>
+    </sc-if>
+
+    <!-- ============ ACTIVATE — ALREADY USED (invite link already activated) ============ -->
+    <sc-if value="{{ isUsed }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;">
+        <h1 style="margin:20px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Приглашение уже использовано</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Эта ссылка-приглашение уже была активирована на другом устройстве. Запросите новое приглашение у администратора.</p>
+
+        <div style="width:100%;margin-top:26px;">
+          <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ onSignIn }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Войти с passkey</button>
+          </sc-if>
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+            <button disabled aria-busy="true" style="{{ loadingBtn }}"><span style="width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:act-spin .7s linear infinite;opacity:.9;"></span>Вход…</button>
+          </sc-if>
+        </div>
+
+        <button onClick="{{ goHome }}" disabled="{{ loading }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Нет passkey на этом устройстве? <span style="color:var(--accent);">Перейти к входу</span></button>
+      </div>
+    </sc-if>
+
+    <!-- general server / network error -->
+    <sc-if value="{{ hasServerError }}" hint-placeholder-val="{{ false }}">
+      <div role="alert" style="width:100%;margin-top:16px;display:flex;align-items:flex-start;gap:9px;padding:11px 13px;background:var(--destructive-soft);border:1px solid var(--destructive);border-radius:12px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--destructive)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+        <div style="font:500 13px/1.45 'Hanken Grotesk',sans-serif;color:var(--destructive);text-wrap:pretty;">{{ serverError }}</div>
+      </div>
+    </sc-if>
+
+    <div style="margin-top:22px;display:flex;align-items:center;gap:6px;font:400 12px 'Hanken Grotesk',sans-serif;color:var(--text-2);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"></rect><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"></path></svg>Защищено passkey на этом устройстве</div>
+  </div>
+
+  <!-- ============ QR SCANNER OVERLAY ============ -->
+  <sc-if value="{{ scannerOpen }}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-modal="true" aria-label="Сканирование QR-кода" style="position:fixed;inset:0;z-index:60;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+
+      <sc-if value="{{ showVideo }}" hint-placeholder-val="{{ false }}">
+        <video ref="{{ videoRef }}" autoPlay="{{ true }}" playsInline="{{ true }}" muted="{{ true }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
+      </sc-if>
+
+      <sc-if value="{{ showCameraFallback }}" hint-placeholder-val="{{ true }}">
+        <div aria-hidden="true" style="position:absolute;inset:0;background:repeating-linear-gradient(135deg, #141414, #141414 10px, #1b1b1b 10px, #1b1b1b 20px);display:flex;align-items:center;justify-content:center;">
+          <span style="font:500 12px 'JetBrains Mono',monospace;letter-spacing:.05em;color:rgba(255,255,255,.4);">камера</span>
+        </div>
+      </sc-if>
+
+      <!-- scrim with cutout frame -->
+      <div aria-hidden="true" style="width:250px;height:250px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border-radius:20px;position:relative;">
+        <div style="position:absolute;top:-2px;left:-2px;width:34px;height:34px;border-top:3px solid #fff;border-left:3px solid #fff;border-top-left-radius:16px;"></div>
+        <div style="position:absolute;top:-2px;right:-2px;width:34px;height:34px;border-top:3px solid #fff;border-right:3px solid #fff;border-top-right-radius:16px;"></div>
+        <div style="position:absolute;bottom:-2px;left:-2px;width:34px;height:34px;border-bottom:3px solid #fff;border-left:3px solid #fff;border-bottom-left-radius:16px;"></div>
+        <div style="position:absolute;bottom:-2px;right:-2px;width:34px;height:34px;border-bottom:3px solid #fff;border-right:3px solid #fff;border-bottom-right-radius:16px;"></div>
+      </div>
+
+      <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:22px 20px;">
+        <div style="font:600 14.5px 'Hanken Grotesk',sans-serif;color:#fff;">Сканирование QR-кода</div>
+        <button onClick="{{ closeScanner }}" aria-label="Закрыть сканер" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:none;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+
+      <div style="position:absolute;bottom:56px;left:24px;right:24px;text-align:center;font:500 14px/1.5 'Hanken Grotesk',sans-serif;color:rgba(255,255,255,.85);text-wrap:pretty;">
+        <sc-if value="{{ cameraError }}" hint-placeholder-val="{{ false }}">Камера недоступна — наведите устройство с доступом к камере на QR-код активации.</sc-if>
+        <sc-if value="{{ notCameraError }}" hint-placeholder-val="{{ true }}">Наведите камеру на QR-код активации</sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:720},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;auto&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;home&quot;,&quot;activate&quot;,&quot;activate-no-code&quot;,&quot;activate-used&quot;],&quot;tsType&quot;:&quot;'auto' | 'home' | 'activate' | 'activate-no-code' | 'activate-used'&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showServerError&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  state = {
+    themeMode: (() => { try { return localStorage.getItem('myboard.activate.theme') || 'system'; } catch (e) { return 'system'; } })(),
+    systemDark: (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(prefers-color-scheme: dark)').matches : false,
+    name: '',
+    loading: false,
+    nameError: '',
+    scannerOpen: false,
+    cameraReady: false,
+    cameraError: false,
+  };
+
+  componentDidMount() {
+    if (window.matchMedia) {
+      this._mq = window.matchMedia('(prefers-color-scheme: dark)');
+      this._onMq = (e) => this.setState({ systemDark: e.matches });
+      this._mq.addEventListener('change', this._onMq);
+    }
+    this._onKey = (e) => { if (e.key === 'Escape' && this.state.scannerOpen) this.closeScanner(); };
+    document.addEventListener('keydown', this._onKey);
+  }
+  componentWillUnmount() {
+    if (this._mq) this._mq.removeEventListener('change', this._onMq);
+    if (this._t) clearTimeout(this._t);
+    document.removeEventListener('keydown', this._onKey);
+    this.stopCamera();
+  }
+
+  openScanner() {
+    this.setState({ scannerOpen: true, cameraReady: false, cameraError: false });
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+      this.setState({ cameraError: true });
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      .then((stream) => {
+        this._stream = stream;
+        if (this._videoEl) this._videoEl.srcObject = stream;
+        this.setState({ cameraReady: true });
+      })
+      .catch(() => this.setState({ cameraError: true }));
+  }
+
+  closeScanner() {
+    this.stopCamera();
+    this.setState({ scannerOpen: false, cameraReady: false, cameraError: false });
+  }
+
+  stopCamera() {
+    if (this._stream) {
+      this._stream.getTracks().forEach((t) => t.stop());
+      this._stream = null;
+    }
+    this._videoEl = null;
+  }
+
+  setVideoRef(el) {
+    this._videoEl = el;
+    if (el && this._stream) el.srcObject = this._stream;
+  }
+
+  resolved() {
+    const m = this.state.themeMode;
+    if (m === 'light' || m === 'dark') return m;
+    return this.state.systemDark ? 'dark' : 'light';
+  }
+
+  setThemeMode(m) {
+    try { localStorage.setItem('myboard.activate.theme', m); } catch (e) {}
+    this.setState({ themeMode: m });
+  }
+
+  startLoading() {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ loading: true });
+    // WebAuthn ceremony would take over here; auto-reset so the design stays explorable
+    this._t = setTimeout(() => this.setState({ loading: false }), 2600);
+  }
+
+  validateName(name) {
+    const v = name.trim();
+    if (!v) return 'Введите имя, чтобы продолжить.';
+    if (v.length < 2) return 'Имя должно содержать минимум 2 символа.';
+    return '';
+  }
+
+  createPasskey() {
+    const err = this.validateName(this.state.name);
+    if (err) {
+      this.setState({ nameError: err });
+      return;
+    }
+    this.setState({ nameError: '' });
+    this.startLoading();
+  }
+
+  segStyle(active) {
+    return {
+      width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      border: 'none', borderRadius: '999px', cursor: 'pointer', padding: 0,
+      background: active ? 'var(--surface)' : 'transparent',
+      color: active ? 'var(--text)' : 'var(--text-2)',
+      boxShadow: active ? 'var(--shadow-seg)' : 'none',
+      transition: 'background .15s, color .15s, box-shadow .15s',
+    };
+  }
+
+  // screen is derived from the URL: ?code=XYZ -> activate; ?code= (empty) or
+  // ?activate=1 -> activate-no-code; nothing -> home. The "screen" prop can
+  // force a specific state for preview purposes.
+  resolveScreen() {
+    const forced = this.props.screen;
+    if (forced && forced !== 'auto') return forced;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('code')) return params.get('code') ? 'activate' : 'activate-no-code';
+      if (params.has('activate')) return 'activate-no-code';
+      if (params.has('used')) return 'activate-used';
+    } catch (e) {}
+    return 'home';
+  }
+
+  goHome() {
+    if (this._t) clearTimeout(this._t);
+    try {
+      const url = new URL(window.location.href);
+      url.search = '';
+      window.location.href = url.toString();
+    } catch (e) {}
+  }
+
+  renderVals() {
+    const screen = this.resolveScreen();
+    const isActivate = screen === 'activate';
+    const isNoCode = screen === 'activate-no-code';
+    const isUsed = screen === 'activate-used';
+    const isHome = !isActivate && !isNoCode && !isUsed;
+    const loading = this.state.loading;
+    const tm = this.state.themeMode;
+
+    const primaryBtn = {
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
+      width: '100%', height: '48px', marginTop: '16px', border: 'none', borderRadius: '13px',
+      background: 'var(--accent)', color: 'var(--on-accent)',
+      font: "600 15px 'Hanken Grotesk',sans-serif", cursor: 'pointer', boxShadow: 'var(--shadow-btn)',
+      transition: 'background .15s',
+    };
+    const loadingBtn = { ...primaryBtn, cursor: 'default', opacity: 0.85 };
+    const hasNameError = !!this.state.nameError;
+    const inputStyle = {
+      width: '100%', height: '48px', border: hasNameError ? '1px solid var(--destructive)' : '1px solid var(--border)', borderRadius: '13px',
+      background: 'var(--surface)', color: 'var(--text)', font: "400 15px 'Hanken Grotesk',sans-serif",
+      padding: '0 15px', outline: 'none', transition: 'border-color .15s, box-shadow .15s',
+      opacity: loading ? 0.6 : 1,
+    };
+    const inputFocusStyle = hasNameError
+      ? { borderColor: 'var(--destructive)', boxShadow: '0 0 0 3px var(--destructive-soft)' }
+      : { borderColor: 'var(--accent)', boxShadow: '0 0 0 3px var(--ring)' };
+
+    return {
+      resolvedTheme: this.resolved(),
+      setLight: () => this.setThemeMode('light'),
+      setDark: () => this.setThemeMode('dark'),
+      setSystem: () => this.setThemeMode('system'),
+      segLight: this.segStyle(tm === 'light'),
+      segDark: this.segStyle(tm === 'dark'),
+      segSystem: this.segStyle(tm === 'system'),
+
+      isActivate,
+      isNoCode,
+      isUsed,
+      isHome,
+      loading,
+      notLoading: !loading,
+
+      name: this.state.name,
+      onNameInput: (e) => this.setState({ name: e.target.value, nameError: this.state.nameError ? this.validateName(e.target.value) : '' }),
+      onNameBlur: (e) => { const err = this.validateName(e.target.value); if (err) this.setState({ nameError: err }); },
+      onNewKey: (e) => { if (e.key === 'Enter') this.createPasskey(); },
+      nameError: this.state.nameError,
+      nameErrorText: this.state.nameError || '\u00A0',
+      hasNameError,
+      notHasNameError: !hasNameError,
+      nameErrorId: 'act-name-error',
+      nameErrorStyle: {
+        display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px',
+        font: "500 12.5px 'Hanken Grotesk',sans-serif", color: 'var(--destructive)',
+        minHeight: '17px', opacity: hasNameError ? 1 : 0, visibility: hasNameError ? 'visible' : 'hidden',
+        transition: 'opacity .15s ease-out',
+      },
+
+      onCreatePasskey: () => this.createPasskey(),
+      onSignIn: () => this.startLoading(),
+      goHome: () => this.goHome(),
+
+      hasServerError: !!this.props.showServerError,
+      serverError: "Не удалось подключиться к серверу. Проверьте соединение и попробуйте снова.",
+
+      primaryBtn, loadingBtn, inputStyle, inputFocusStyle,
+
+      scanBtn: {
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
+        width: '100%', height: '48px', marginTop: '10px', border: '1px solid var(--border)', borderRadius: '13px',
+        background: 'var(--surface)', color: 'var(--text)',
+        font: "600 15px 'Hanken Grotesk',sans-serif", cursor: 'pointer',
+        transition: 'background .15s, border-color .15s',
+      },
+      scanBtnHover: { background: 'var(--surface-2)' },
+      openScanner: () => this.openScanner(),
+      closeScanner: () => this.closeScanner(),
+      scannerOpen: this.state.scannerOpen,
+      videoRef: (el) => this.setVideoRef(el),
+      showVideo: this.state.cameraReady && !this.state.cameraError,
+      showCameraFallback: !this.state.cameraReady || this.state.cameraError,
+      cameraError: this.state.cameraError,
+      notCameraError: !this.state.cameraError,
+    };
+  }
+}
+</script>
+</body>
+</html>

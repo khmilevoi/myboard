@@ -14,12 +14,24 @@ describe('ofeliaWidget tiers', () => {
   //
   // Fixed by raising `defaultSize` (not lowering the tier thresholds, which
   // would change tier-resolution semantics for anyone who has already resized
-  // the widget). `{ w: 4, h: 6 }` measures at ~413x230px, comfortably inside
-  // `standard`.
+  // the widget).
+  //
+  // Raised again once `tiers.standard` was corrected to the 300px StandardTier
+  // actually needs: at `{ w: 4, h: 6 }` (~413x230px) the tier resolved but the
+  // card clipped its action row, so the default footprint had to clear the
+  // honest threshold. `{ w: 4, h: 8 }` measures at ~413x310px.
   it('resolves to the standard tier at the widget default-placement footprint', () => {
-    const defaultFootprintPx = { width: 413, height: 230 }
+    const defaultFootprintPx = { width: 413, height: 310 }
 
     expect(resolveTier(defaultFootprintPx, ofeliaWidget.tiers!)).toBe('standard')
+  })
+
+  // The threshold exists to keep StandardTier out of cards it would overflow:
+  // the widget card clips, so a tier that does not fit is a truncated tier.
+  it('falls back to compact just below the standard tier height', () => {
+    const tooShortForStandard = { width: 413, height: 299 }
+
+    expect(resolveTier(tooShortForStandard, ofeliaWidget.tiers!)).toBe('compact')
   })
 
   // The dynamic import below pulls the whole UI chunk plus the Temporal

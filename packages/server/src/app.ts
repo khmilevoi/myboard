@@ -50,6 +50,7 @@ import type { ValkeyOps } from './storage/valkey'
 import { dispatchWidgetEvent } from './widgets/dispatch'
 import { WidgetRequestBodyError, type PublicWidgetDispatchError } from './widgets/errors'
 import type { WidgetServerRegistry } from './widgets/registry'
+import { resolveWidgetViewer } from './widgets/viewer'
 
 const HEARTBEAT_MS = 25_000
 const WidgetRequestSchema = z.object({
@@ -278,9 +279,8 @@ export function createApp(deps: AppDeps): App {
     }
 
     const key = decodeURIComponent(params.key as string)
-    const ip = clientIp(req)
     const status = await runExclusive(key, async () => {
-      const result = await handleAppend(ops, key, parsed.data, ip)
+      const result = await handleAppend(ops, key, parsed.data)
       await publishChange(ops, key, result.value)
       return result.status
     })
@@ -322,6 +322,12 @@ export function createApp(deps: AppDeps): App {
       return
     }
 
+    const viewer = await resolveWidgetViewer(authDeps, req)
+    if (viewer instanceof Error) {
+      sendWidgetError(res, viewer)
+      return
+    }
+
     const result = await dispatchWidgetEvent({
       registry: deps.widgetRegistry,
       ops,
@@ -331,6 +337,7 @@ export function createApp(deps: AppDeps): App {
       instanceId: body.data.instanceId,
       payload: body.data.payload,
       ip: clientIp(req),
+      viewer,
       now,
     })
     if (result instanceof Error) {

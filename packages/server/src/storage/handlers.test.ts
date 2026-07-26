@@ -79,25 +79,20 @@ describe('handleAppend', () => {
     })
   }
 
-  it('creates a one-element array and stamps id/ts/ip when the key is missing', async () => {
+  it('creates a one-element array and stamps id/ts when the key is missing', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-20T00:00:00.000Z'))
     const ops = statefulOps()
 
-    const result = await handleAppend(
-      ops,
-      'history:2026-06-15',
-      { entry: { type: 'cleaned' } },
-      '1.2.3.4',
-    )
+    const result = await handleAppend(ops, 'history:2026-06-15', { entry: { type: 'cleaned' } })
 
     expect(result.status).toBe(204)
     expect(result.value).toHaveLength(1)
     expect(result.value[0]).toMatchObject({
       type: 'cleaned',
-      ip: '1.2.3.4',
       ts: Date.parse('2026-06-20T00:00:00.000Z'),
     })
+    expect(result.value[0]).not.toHaveProperty('ip')
     expect(typeof (result.value[0] as { id: unknown }).id).toBe('string')
     expect(ops.set).toHaveBeenCalledWith('history:2026-06-15', JSON.stringify(result.value))
     vi.useRealTimers()
@@ -105,7 +100,7 @@ describe('handleAppend', () => {
 
   it('appends onto an existing array', async () => {
     const ops = statefulOps([{ type: 'forgiven', id: 'old' }])
-    const result = await handleAppend(ops, 'k', { entry: { type: 'cleaned' } }, '1.2.3.4')
+    const result = await handleAppend(ops, 'k', { entry: { type: 'cleaned' } })
     expect(result.value).toHaveLength(2)
     expect(result.value[0]).toMatchObject({ type: 'forgiven', id: 'old' })
     expect(result.value[1]).toMatchObject({ type: 'cleaned' })
@@ -117,7 +112,7 @@ describe('handleAppend', () => {
       set: vi.fn(async () => {}),
     })
 
-    const result = await handleAppend(ops, 'k', { entry: { type: 'cleaned' } }, '1.2.3.4')
+    const result = await handleAppend(ops, 'k', { entry: { type: 'cleaned' } })
 
     expect(result.value).toHaveLength(1)
     expect(result.value[0]).toMatchObject({ type: 'cleaned' })
@@ -126,25 +121,21 @@ describe('handleAppend', () => {
 
   it('caps to the last N entries', async () => {
     const ops = statefulOps([{ n: 1 }, { n: 2 }, { n: 3 }])
-    const result = await handleAppend(ops, 'k', { entry: { n: 4 }, cap: 2 }, '1.2.3.4')
+    const result = await handleAppend(ops, 'k', { entry: { n: 4 }, cap: 2 })
     expect(result.value).toHaveLength(2)
     expect(result.value.map((e) => (e as { n: number }).n)).toEqual([3, 4])
   })
 
-  it('overrides any client-provided id/ts/ip with server values', async () => {
+  it('overrides any client-provided id/ts with server values', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-20T00:00:00.000Z'))
     const ops = statefulOps()
 
-    const result = await handleAppend(
-      ops,
-      'k',
-      { entry: { id: 'fake', ts: 1, ip: 'spoofed', type: 'cleaned' } },
-      '1.2.3.4',
-    )
+    const result = await handleAppend(ops, 'k', {
+      entry: { id: 'fake', ts: 1, type: 'cleaned' },
+    })
 
     expect(result.value[0]).toMatchObject({
-      ip: '1.2.3.4',
       ts: Date.parse('2026-06-20T00:00:00.000Z'),
     })
     expect((result.value[0] as { id: string }).id).not.toBe('fake')

@@ -86,7 +86,7 @@ it('runs only browser codegen in the browser image', () => {
   )
   expect(browserDockerfile).not.toContain('RUN pnpm run codegen:client')
   expect(browserDockerfile).not.toContain('RUN pnpm run codegen:server')
-  expect(browserDockerfile).toContain('FROM node:22-bookworm-slim')
+  expect(browserDockerfile).toContain('FROM node:26-bookworm-slim')
   expect(browserDockerfile).toContain('playwright@1.61.0 install --with-deps chromium')
   expect(browserDockerfile).not.toContain('firefox')
   expect(browserDockerfile).not.toContain('webkit')

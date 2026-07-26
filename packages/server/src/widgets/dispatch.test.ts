@@ -9,6 +9,7 @@ import {
   defineWidgetServer,
   toRuntimeWidgetServerDefinition,
   type RuntimeWidgetServerDefinition,
+  type WidgetViewer,
 } from '@shared/widgets/contracts'
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import { describe, expect, it } from 'vitest'
@@ -128,6 +129,7 @@ function dispatch(overrides: DispatchTestOverrides = {}) {
     instanceId: 'placement-1',
     payload: { value: 'ok' },
     ip: '127.0.0.1',
+    viewer: null,
     now: () => 100,
     ...dispatchOverrides,
   })
@@ -203,5 +205,53 @@ describe('dispatchWidgetEvent', () => {
         code: error instanceof BrowserTaskRejectedError ? error.code : null,
       },
     })
+  })
+
+  it('hands the viewer to the handler', async () => {
+    let seen: WidgetViewer | null | undefined
+    const probeDefinition: RuntimeWidgetServerDefinition = {
+      typeId: 'probe-widget',
+      schemas: { probe: { payload: z.object({}), result: z.object({ ok: z.boolean() }) } },
+      handlers: {
+        probe: (_payload, context) => {
+          seen = context.viewer
+          return { ok: true }
+        },
+      },
+    }
+
+    await dispatch({
+      registry: createRegistry([probeDefinition]),
+      typeId: 'probe-widget',
+      event: 'probe',
+      payload: {},
+      viewer: { accountId: 'a1', name: 'Карина' },
+    })
+
+    expect(seen).toEqual({ accountId: 'a1', name: 'Карина' })
+  })
+
+  it('hands null through when there is no session', async () => {
+    let seen: WidgetViewer | null | undefined
+    const probeDefinition: RuntimeWidgetServerDefinition = {
+      typeId: 'probe-widget',
+      schemas: { probe: { payload: z.object({}), result: z.object({ ok: z.boolean() }) } },
+      handlers: {
+        probe: (_payload, context) => {
+          seen = context.viewer
+          return { ok: true }
+        },
+      },
+    }
+
+    await dispatch({
+      registry: createRegistry([probeDefinition]),
+      typeId: 'probe-widget',
+      event: 'probe',
+      payload: {},
+      viewer: null,
+    })
+
+    expect(seen).toBeNull()
   })
 })

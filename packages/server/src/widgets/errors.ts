@@ -61,4 +61,15 @@ export class WidgetRequestBodyError extends errore.createTaggedError({
   extends: WidgetDispatchError,
 }) {}
 
+/**
+ * The request carried a live session but the account behind it could not be
+ * read. Fails the dispatch instead of writing an unattributable record: the
+ * ledger is append-only, so a lost author cannot be recovered afterwards.
+ */
+export class WidgetViewerLookupError extends errore.createTaggedError({
+  name: 'WidgetViewerLookupError',
+  message: 'Could not resolve the account $accountId behind the session',
+  extends: WidgetDispatchError,
+}) {}
+
 export type PublicWidgetDispatchError = WidgetDispatchError | PublicWidgetError

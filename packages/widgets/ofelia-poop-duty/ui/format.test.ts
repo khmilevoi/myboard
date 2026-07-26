@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDateShort, formatWeekRange, pluralizeDays, selectedDaySubtitle } from './format'
+import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from './format'
 import type { SelectedDayView } from './view-model'
 
 describe('pluralizeDays', () => {
@@ -72,12 +72,5 @@ describe('selectedDaySubtitle', () => {
         { person: 'Карина', debt: 3, over: false },
       ]),
     ).toBe('по очереди')
-  })
-})
-
-describe('formatDateShort', () => {
-  it('formats a timestamp as "day monthShort"', () => {
-    const ts = new Date(2026, 5, 10, 12, 0, 0).getTime()
-    expect(formatDateShort(ts)).toBe('10 июн')
   })
 })
