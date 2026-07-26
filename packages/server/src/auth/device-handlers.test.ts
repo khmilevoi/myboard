@@ -24,6 +24,7 @@ vi.mock('./webauthn', () => ({
 
 import {
   getAccountInfo,
+  getAccounts,
   getDevices,
   getPendingStatus,
   postAddToken,
@@ -675,6 +676,44 @@ describe('getAccountInfo', () => {
 
     expect(result.status).toBe(200)
     expect(result.body).toEqual({ id: account.id, name: 'Acc', deviceLimit: account.deviceLimit })
+  })
+})
+
+describe('getAccounts', () => {
+  it('returns 401 without a session', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+
+    expect((await getAccounts(deps, fakeReq(undefined))).status).toBe(401)
+  })
+
+  it('returns the roster and which account is calling', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    const other = await createAccount(ops, clock.now, { name: 'Карина', inviteId: 'inv-2' })
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+
+    const result = await getAccounts(
+      deps,
+      fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` }),
+    )
+
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({
+      viewerAccountId: account.id,
+      accounts: expect.arrayContaining([
+        { accountId: account.id, name: 'Acc' },
+        { accountId: other.id, name: 'Карина' },
+      ]),
+    })
   })
 })
 

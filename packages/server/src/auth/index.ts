@@ -8,6 +8,7 @@ import { noopAudit, type AuditLogger } from './audit'
 import type { AuthConfig } from './config'
 import {
   getAccountInfo,
+  getAccounts,
   getDevices,
   getPendingStatus,
   postAddToken,
@@ -186,5 +187,9 @@ export function registerAuthRoutes(deps: RegisterAuthRoutesDeps): void {
 
   router.on('GET', '/api/auth/account', async (req: IncomingMessage, res: ServerResponse) => {
     sendAuth(res, await getAccountInfo(authDeps, req))
+  })
+
+  router.on('GET', '/api/auth/accounts', async (req: IncomingMessage, res: ServerResponse) => {
+    sendAuth(res, await getAccounts(authDeps, req))
   })
 }
