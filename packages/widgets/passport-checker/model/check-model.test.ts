@@ -203,6 +203,16 @@ async function seed(storage: StorageApi) {
   if (result instanceof Error) throw result
 }
 
+describe('PASSPORT_LAST_RESULT_KEY', () => {
+  // Every test in this file reaches storage through the constant, never the
+  // literal, so a silent rename here would keep the suite green while
+  // orphaning every deployed user's stored result under the old key (see
+  // CLAUDE.md's storage-keys-are-a-persistence-contract warning).
+  it('is the literal storage key', () => {
+    expect(PASSPORT_LAST_RESULT_KEY).toBe('lastResult')
+  })
+})
+
 describe('makePassportCheckModel persistence', () => {
   it('writes a successful check to the shared key', async () => {
     const { api, invoke } = makeApi()
