@@ -1,53 +1,199 @@
+import { Clock } from 'lucide-react'
+import { Fragment, useEffect, useRef } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import type { HistoryEntryView } from '@/model/ofelia-duty'
+import type { HistoryDayGroup, HistoryEntryView } from '@/model/history-view'
 
-import { personInitial } from '../person'
+import { pluralizeRecords } from '../format'
+import {
+  describeEntry,
+  formatDutyDay,
+  formatRecordedDate,
+  formatTimeOfDay,
+  formatWeekdayShort,
+} from '../history-format'
 import { Avatar } from './Avatar'
+import { MemberAvatar } from './MemberAvatar'
 
 import styles from './HistoryList.module.css'
 
-function badgeLabel(entry: HistoryEntryView): { text: string; tone: 'accent' | 'forgive' } | null {
-  if (entry.type === 'went_into_debt') return { text: 'долг', tone: 'accent' }
-  if (entry.type === 'forgiven') return { text: '−1 день', tone: 'forgive' }
-  if (entry.type === 'cleaned' && entry.onBehalfOf) {
-    return { text: `за ${personInitial(entry.onBehalfOf)}`, tone: 'accent' }
+const authorName = (entry: HistoryEntryView): string => {
+  if (entry.recordedBy.kind === 'account') return entry.recordedBy.name
+  if (entry.recordedBy.kind === 'person') return entry.recordedBy.person
+  return 'автор неизвестен'
+}
+
+// Here the duty circle *is* the subject of the sentence, not an ornament beside a
+// written-out name, and `Avatar` is `aria-hidden`. Without the paired text the
+// column would announce as bare verbs — "убрал(а)", "простил(а) день" — so every
+// circle carries a visually hidden name in the same reading position.
+const Phrase = reatomMemo<{ entry: HistoryEntryView }>(
+  ({ entry }) => (
+    <span className={styles.phrase}>
+      {describeEntry(entry).parts.map((part, index) =>
+        typeof part === 'string' ? (
+          <span key={index}>{part}</span>
+        ) : (
+          <Fragment key={index}>
+            <Avatar person={part.person} px={18} />
+            <span className={styles.srOnly}>{part.person}</span>
+          </Fragment>
+        ),
+      )}
+    </span>
+  ),
+  'HistoryPhrase',
+)
+
+const Entry = reatomMemo<{ entry: HistoryEntryView; superseded?: boolean }>(
+  ({ entry, superseded = false }) => (
+    <div
+      className={styles.entry}
+      data-superseded={superseded}
+      {...(superseded ? { 'data-testid': `history-superseded-${entry.id}` } : {})}
+    >
+      {/* The separating spaces are real text nodes, as in the mock: they keep the
+          chips from running into the phrase both visually and when announced. */}
+      <div className={styles.action}>
+        <Phrase entry={entry} />
+        {entry.debtDelta ? (
+          <Fragment>
+            {' '}
+            <span className={styles.debt} data-sign={entry.debtDelta.amount > 0 ? 'up' : 'down'}>
+              <Avatar person={entry.debtDelta.person} px={13} />
+              <span className={styles.srOnly}>{`${entry.debtDelta.person}: `}</span>
+              {entry.debtDelta.amount > 0 ? '+1 день' : '−1 день'}
+            </span>
+          </Fragment>
+        ) : null}
+        {superseded ? (
+          <Fragment>
+            {' '}
+            <span className={styles.stale}>перекрыто</span>
+          </Fragment>
+        ) : null}
+      </div>
+      <div className={styles.signature}>
+        <MemberAvatar author={entry.recordedBy} isViewer={entry.isViewerRecord} px={18} />
+        <span className={styles.signatureName} data-unknown={entry.recordedBy.kind === 'unknown'}>
+          {entry.recordedBy.kind === 'unknown'
+            ? 'автор неизвестен'
+            : `отметил(а) ${authorName(entry)}`}
+        </span>
+        {entry.recordedBy.kind === 'person' ? (
+          <span className={styles.legacy}>без аккаунта</span>
+        ) : null}
+        {entry.recordedLate ? (
+          <span className={styles.late} title="отметка сделана позже дня дежурства">
+            <Clock size={9} aria-hidden />
+            {formatRecordedDate(entry.recordedAt)}
+          </span>
+        ) : null}
+        <span className={styles.time}>{formatTimeOfDay(entry.recordedAt)}</span>
+      </div>
+    </div>
+  ),
+  'HistoryEntry',
+)
+
+// Do NOT replace the walk below with `element.scrollIntoView()`. That scrolls
+// *every* scroll container in the ancestor chain, and `overflow: hidden` boxes
+// are scroll containers too — they simply have no scrollbar. The widget frame is
+// one of them, so the native call displaces the entire widget by however much it
+// overflows, and the reader has no scrollbar to put it back.
+//
+// So: find the innermost box the reader could have scrolled by hand, and move
+// only that one. When nothing in the chain is scrollable there is nothing to
+// reveal, and the correct behaviour is to leave the layout alone.
+const scrollportOf = (node: HTMLElement): HTMLElement | null => {
+  let current = node.parentElement
+  while (current) {
+    const { overflowY } = getComputedStyle(current)
+    if (/auto|scroll/.test(overflowY) && current.scrollHeight > current.clientHeight) return current
+    current = current.parentElement
   }
-  if (entry.type === 'reset') return { text: 'переоткрыто', tone: 'forgive' }
   return null
 }
 
 export type HistoryListProps = {
-  entries: HistoryEntryView[]
+  groups: HistoryDayGroup[]
+  today: string | null
+  /** Duty day highlighted in the week strip. Changing it scrolls that day's
+   *  group to the top of the column. */
+  selectedDate?: string | null
 }
 
-export const HistoryList = reatomMemo<HistoryListProps>(({ entries }) => {
-  if (entries.length === 0) {
-    return <div className={styles.empty}>Пока нет событий</div>
-  }
+export const HistoryList = reatomMemo<HistoryListProps>(
+  ({ groups, today, selectedDate = null }) => {
+    const groupNodes = useRef(new Map<string, HTMLElement>())
+    const scrolledTo = useRef<string | null>(null)
 
-  return (
-    <ul className={styles.list}>
-      {entries.map((entry) => {
-        const badge = badgeLabel(entry)
-        return (
-          <li key={entry.id} className={styles.item}>
-            <div className={styles.meta}>
-              <span className={styles.date}>{entry.date}</span>
-              {entry.ipTail ? <span className={styles.ip}>{entry.ipTail}</span> : null}
-            </div>
-            <div className={styles.row}>
-              <Avatar person={entry.actor} px={20} />
-              <span className={styles.name}>{entry.actor}</span>
-              {badge ? (
-                <span className={styles.badge} data-tone={badge.tone}>
-                  {badge.text}
+    // Picking a day in the week strip should reveal that day's records instead
+    // of leaving the reader to hunt for them. Pure DOM interop — the selection
+    // itself stays in the model — so it belongs here and not in an atom.
+    //
+    // Only on a *change* of day. The first run just records the mounted
+    // selection: scrolling on mount would be wrong in the mobile layout, where
+    // the scrollport is the whole dialog body and the panel above the history
+    // would be pulled off screen before the reader touched anything.
+    //
+    // `groups` is a dependency because on first load the day is selected before
+    // its group is rendered, so the node the scroll needs does not exist yet.
+    useEffect(() => {
+      if (!selectedDate) return
+      if (scrolledTo.current === selectedDate) return
+      const isFirstRun = scrolledTo.current === null
+      scrolledTo.current = selectedDate
+      if (isFirstRun) return
+
+      const group = groupNodes.current.get(selectedDate)
+      if (!group) return
+      const scrollport = scrollportOf(group)
+      if (!scrollport) return
+
+      // Align the group's top with the scrollport's, which is exactly where the
+      // sticky day header pins.
+      const delta = group.getBoundingClientRect().top - scrollport.getBoundingClientRect().top
+      if (Math.abs(delta) < 1) return
+      scrollport.scrollTo({ top: scrollport.scrollTop + delta, behavior: 'smooth' })
+    }, [selectedDate, groups])
+
+    if (groups.length === 0) return <div className={styles.empty}>Пока нет событий</div>
+
+    return (
+      <div className={styles.list}>
+        {groups.map((group) => (
+          <section
+            key={group.dutyDate}
+            ref={(node) => {
+              if (node) groupNodes.current.set(group.dutyDate, node)
+              else groupNodes.current.delete(group.dutyDate)
+            }}
+            className={styles.group}
+            data-duty-date={group.dutyDate}
+          >
+            <header className={styles.groupHeader}>
+              <span className={styles.groupDay}>{formatDutyDay(group.dutyDate, today)}</span>
+              <span className={styles.groupWeekday}>{formatWeekdayShort(group.dutyDate)}</span>
+              <span className={styles.groupRule} />
+              {group.superseded.length > 0 ? (
+                <span className={styles.groupCount}>
+                  {pluralizeRecords(group.superseded.length + 1)}
                 </span>
               ) : null}
-            </div>
-          </li>
-        )
-      })}
-    </ul>
-  )
-}, 'HistoryList')
+            </header>
+            <Entry entry={group.current} />
+            {group.superseded.length > 0 ? (
+              <div className={styles.supersededRail}>
+                {group.superseded.map((entry) => (
+                  <Entry key={entry.id} entry={entry} superseded />
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ))}
+      </div>
+    )
+  },
+  'HistoryList',
+)

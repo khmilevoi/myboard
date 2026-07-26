@@ -1,7 +1,9 @@
 import { atom } from '@reatom/core'
+import type { BoardMember } from 'widget-runtime'
 
+import type { Person } from '../domain/roster'
 import type { CommentView } from '../model/ofelia-comments'
-import type { HistoryEntryView, Person } from '../model/ofelia-duty'
+import type { HistoryDayGroup } from '../model/ofelia-duty'
 import type { OfeliaContextValue } from './ofelia-context'
 import type {
   DebtBalanceEntry,
@@ -125,6 +127,7 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
     ready: atom(o.ready ?? true, 'fixture.ready'),
     selected: atom<SelectedDayView | null>(selected, 'fixture.selected'),
     selectedPerson: atom<Person | null>(selected?.person ?? null, 'fixture.selectedPerson'),
+    selectedIso: atom<string | null>(selected?.iso ?? null, 'fixture.selectedIso'),
     days: atom<WeekDayView[]>(o.days ?? WEEK, 'fixture.days'),
     balance: atom<DebtBalanceEntry[]>(balance, 'fixture.balance'),
     canForgive: atom(
@@ -136,9 +139,10 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
 
 type MakeOfeliaValueOptions = {
   view?: OfeliaViewModel
-  currentUser?: Person
-  history?: HistoryEntryView[]
+  history?: HistoryDayGroup[]
+  today?: Temporal.PlainDate
   comments?: CommentView[]
+  viewer?: BoardMember | null
   actions?: Partial<OfeliaActions>
   onSend?: (text: string) => Promise<void>
 }
@@ -146,16 +150,19 @@ type MakeOfeliaValueOptions = {
 export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextValue {
   return {
     view: o.view ?? makeOfeliaView(),
-    currentUser: atom<Person>(o.currentUser ?? 'Карина', 'fixture.currentUser'),
-    history: atom<HistoryEntryView[]>(o.history ?? [], 'fixture.history'),
+    history: atom<HistoryDayGroup[]>(o.history ?? [], 'fixture.history'),
+    today: atom<Temporal.PlainDate | null>(
+      o.today ?? Temporal.PlainDate.from('2026-06-16'),
+      'fixture.today',
+    ),
     comments: atom<CommentView[]>(o.comments ?? [], 'fixture.comments'),
+    viewer: atom<BoardMember | null>(o.viewer ?? null, 'fixture.viewer'),
     actions: {
       onConfirm: noop,
       onUndo: noop,
       onDebt: noop,
       onForgive: noop,
       onSelectDay: noop,
-      onSetUser: noop,
       ...o.actions,
     },
     nav: { onPrevWeek: noop, onNextWeek: noop, onCurrentWeek: noop },

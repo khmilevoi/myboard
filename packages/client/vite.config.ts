@@ -299,7 +299,13 @@ export default defineConfig(({ command }) => ({
     setupFiles: ['./src/vitest.setup.ts'],
     testTimeout: 30000,
     exclude: [...configDefaults.exclude, 'e2e/**'],
-    execArgv: ['--harmony-temporal'],
+    // Node 26 ships its own global `localStorage`/`sessionStorage` (Web Storage
+    // API) unflagged; unlike jsdom's simulated storage it requires
+    // --localstorage-file and otherwise resolves to `undefined` on access,
+    // shadowing jsdom's `window.localStorage` for bare-identifier reads in
+    // this jsdom test environment. Disable Node's own globals so jsdom's take
+    // effect.
+    execArgv: ['--no-experimental-webstorage'],
   },
   server: {
     // Inside a Docker bind mount (notably on Windows/macOS) native FS events

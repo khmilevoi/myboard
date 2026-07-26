@@ -62,7 +62,6 @@ export function defineWidgetVitestConfig(widgetDir: string) {
       globals: true,
       environment: 'jsdom',
       setupFiles: ['widget-sdk/test-setup'],
-      execArgv: ['--harmony-temporal'],
     },
   })
 }

@@ -12,7 +12,6 @@ import { CommentThread } from './CommentThread'
 import { HistoryList } from './HistoryList'
 import { MobileTabs } from './MobileTabs'
 import { OfeliaActionControls } from './OfeliaActionControls'
-import { UserToggle } from './UserToggle'
 import { WeekStrip } from './WeekStrip'
 
 import styles from './RichLayout.module.css'
@@ -25,18 +24,35 @@ export type RichLayoutProps = {
 
 // Connected columns: each reads only its own stream atom, so an SSE update to
 // history or comments re-renders just that column — never the selected-day panel.
+// `view.selectedIso` and not `view.selected` on purpose: the column needs to
+// know only *which* day is highlighted, so confirming or forgiving the selected
+// day does not re-render the whole history.
 const HistoryColumn = reatomMemo(() => {
-  const { history } = useOfelia()
-  return <HistoryList entries={history()} />
+  const { history, today, view } = useOfelia()
+  return (
+    <HistoryList
+      groups={history()}
+      today={today()?.toString() ?? null}
+      selectedDate={view.selectedIso()}
+    />
+  )
 }, 'HistoryColumn')
 
 const CommentsColumn = reatomMemo(() => {
-  const { comments, onSend } = useOfelia()
-  return <CommentThread comments={comments()} onSend={onSend} />
+  const { comments, viewer, today, onSend } = useOfelia()
+  const current = viewer()
+  return (
+    <CommentThread
+      comments={comments()}
+      viewer={current ? { kind: 'account', ...current } : null}
+      today={today()?.toString() ?? null}
+      onSend={onSend}
+    />
+  )
 }, 'CommentsColumn')
 
 export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onClose }) => {
-  const { view, currentUser, actions, nav } = useOfelia()
+  const { view, actions, nav } = useOfelia()
   const [tab, setTab] = useState<'history' | 'comments'>('history')
   const selected = view.selected()
   if (!selected) return null
@@ -61,9 +77,6 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
             </div>
             <div className={styles.subtitle}>Кто убирает за Офелией · чередование</div>
           </div>
-        </div>
-        <div className={styles.headerActions}>
-          <UserToggle value={currentUser()} onChange={actions.onSetUser} />
         </div>
         <OfeliaActionControls
           className={styles.headerClose}

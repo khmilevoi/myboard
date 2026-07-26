@@ -20,11 +20,6 @@ describe('StandardTier', () => {
     expect(screen.getByText('гасит долг · 2 дня')).toBeInTheDocument()
   })
 
-  it('does not render UserToggle', () => {
-    withOfelia(makeOfeliaValue(), <StandardTier />)
-    expect(screen.queryByText('Я:')).not.toBeInTheDocument()
-  })
-
   it('shows hint text with other person name', () => {
     withOfelia(makeOfeliaValue(), <StandardTier />)
     // Default fixture has Карина as selected person → other is Леша

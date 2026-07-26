@@ -1,7 +1,8 @@
 import { atom } from '@reatom/core'
 import { describe, expect, it } from 'vitest'
 
-import type { DayResolution, Person } from '../model/ofelia-duty'
+import type { DayResolution } from '../domain/ledger'
+import type { Person } from '../domain/roster'
 import { makeOfeliaViewModel, resolveSelected, toBalance, toWeekDays } from './view-model'
 import type { DutyDay } from './view-model'
 

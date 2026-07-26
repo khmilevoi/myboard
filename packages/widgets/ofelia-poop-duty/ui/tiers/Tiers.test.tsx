@@ -40,12 +40,6 @@ describe('CompactTier', () => {
     expect(screen.getByRole('button', { name: 'Отложить' })).toBeInTheDocument()
   })
 
-  it('does not render UserToggle', () => {
-    withOfelia(makeOfeliaValue(), <CompactTier />)
-    expect(screen.queryByText('Я:')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Леша/ })).not.toBeInTheDocument()
-  })
-
   it('confirms the day through context', () => {
     const onConfirm = vi.fn()
     const value = makeOfeliaValue()
