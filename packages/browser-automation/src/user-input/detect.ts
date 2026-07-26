@@ -29,12 +29,17 @@ export function makeDetectUserInput(deps: {
     if (!detected) return null
 
     if (options?.prepare) {
+      // The outcome is tagged by us rather than inferred from the settled
+      // value, for the same reason the detector branch above tests
+      // `typeof detected`: a rejection can carry anything, including whatever
+      // sentinel a "did it fail?" comparison would have used. Rejecting with
+      // exactly `null` must still be a failure.
       const prepared = await options
         .prepare(deps.page)
-        .then(() => null)
-        .catch((cause: unknown) => cause)
-      if (prepared !== null) {
-        console.warn('Failed to prepare the page for manual recovery', prepared)
+        .then(() => ({ failed: false }) as const)
+        .catch((cause: unknown) => ({ failed: true, cause }) as const)
+      if (prepared.failed) {
+        console.warn('Failed to prepare the page for manual recovery', prepared.cause)
       }
     }
 

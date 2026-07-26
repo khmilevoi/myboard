@@ -103,10 +103,17 @@ it('registers the lightweight browser automation workspace package', () => {
   }
 
   expect(manifest.name).toBe('browser-automation')
+  // build has a second step on purpose: the runtime stage of the browser image
+  // copies only package.json and dist/, so anything rspack leaves external must
+  // resolve from the production node_modules alone. A workspace package cannot
+  // — its exports map points at .ts sources that never reach the image — and no
+  // vitest run can see that, because vitest resolves those specifiers itself
+  // and never looks at the bundle. check-bundle.ts asserts it on the artifact,
+  // chained onto the build the Dockerfile already runs.
   expect(manifest.scripts).toEqual({
     dev: 'tsx watch src/index.ts',
     start: 'tsx src/index.ts',
-    build: 'rspack build',
+    build: 'rspack build && tsx scripts/check-bundle.ts',
     test: 'vitest run',
     typecheck: 'tsc --noEmit -p tsconfig.json',
   })

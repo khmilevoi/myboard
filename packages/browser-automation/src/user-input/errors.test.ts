@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BrowserTaskError } from '../errors'
+import { BrowserTaskError, toEnvelopeError } from '../errors'
 import { UserInputProbeError, UserInputRequiredError } from './errors'
 
 describe('UserInputRequiredError', () => {
@@ -19,6 +19,25 @@ describe('UserInputRequiredError', () => {
     const error = new UserInputRequiredError({ sshTarget: null })
     expect(error.sshTarget).toBeNull()
     expect(error.publicMeta).toBeUndefined()
+  })
+
+  // The envelope is what actually crosses to the widget server and the client,
+  // so the contract is pinned on the serialized form as well as on publicMeta.
+  // toStrictEqual, not toEqual: with no ssh target the `meta` key must be
+  // absent, not present and undefined — the widget client branches on its
+  // presence to decide whether it can offer an SSH fallback.
+  it('serializes to the recovery envelope, with and without an ssh target', () => {
+    expect(
+      toEnvelopeError(new UserInputRequiredError({ sshTarget: 'pi@myboard.local' })),
+    ).toStrictEqual({
+      code: 'browser_session_required',
+      message: 'The browser session requires attention',
+      meta: { sshTarget: 'pi@myboard.local' },
+    })
+    expect(toEnvelopeError(new UserInputRequiredError({ sshTarget: null }))).toStrictEqual({
+      code: 'browser_session_required',
+      message: 'The browser session requires attention',
+    })
   })
 })
 

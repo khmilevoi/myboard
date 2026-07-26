@@ -583,7 +583,12 @@ describe('makeChromiumExecutor', () => {
     },
   )
 
-  it('runs prepare before retaining, and only when the detector matched', async () => {
+  // The prepare-before-retain ordering itself is asserted in
+  // user-input/detect.test.ts, against the two injected callbacks; it cannot be
+  // observed from here, because hasRetainedPage() is only populated at
+  // release(). What this test owns is the wiring the executor supplies: the
+  // acquired page reaches prepare, and a matched detection retains that page.
+  it('gives prepare the acquired page and retains it once the detector matched', async () => {
     const created: FakeContext[] = []
     const executor = makeChromiumExecutor(makeDeps(created))
 
@@ -593,14 +598,13 @@ describe('makeChromiumExecutor', () => {
     await declined.detectUserInput(async () => false, { prepare: skippedPrepare })
     expect(skippedPrepare).not.toHaveBeenCalled()
     await executor.release(declined)
+    expect(executor.hasRetainedPage('passport-checker')).toBe(false)
 
     const matched = await executor.acquire(new AbortController().signal, 'passport-checker')
     if (matched instanceof Error) throw matched
     // The explicit parameter is what makes toHaveBeenCalledWith below type-check:
     // an inferred zero-argument mock accepts no expected arguments.
-    const prepare = vi.fn(async (_page: Page) => {
-      expect(executor.hasRetainedPage('passport-checker')).toBe(false)
-    })
+    const prepare = vi.fn(async (_page: Page) => undefined)
     await matched.detectUserInput(async () => true, { prepare })
     expect(prepare).toHaveBeenCalledOnce()
     expect(prepare).toHaveBeenCalledWith(matched.page)

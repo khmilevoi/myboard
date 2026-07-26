@@ -75,6 +75,26 @@ describe('makeDetectUserInput', () => {
     warn.mockRestore()
   })
 
+  // A rejection carries whatever the caller threw, so no rejected value may be
+  // read as success. null is the one that used to slip through, because the
+  // failure test was a comparison against null.
+  it('treats a prepare that rejects with null as a failure and logs it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const retain = vi.fn()
+    const detectUserInput = makeDetectUserInput({
+      page: fakePage(),
+      recoverySshTarget: null,
+      retain,
+    })
+
+    const result = await detectUserInput(async () => true, { prepare: () => Promise.reject(null) })
+
+    expect(result).toBeInstanceOf(UserInputRequiredError)
+    expect(retain).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledWith('Failed to prepare the page for manual recovery', null)
+    warn.mockRestore()
+  })
+
   it('calls retain and skips prepare when no prepare hook is given', async () => {
     const retain = vi.fn()
     const detectUserInput = makeDetectUserInput({
