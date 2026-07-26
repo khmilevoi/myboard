@@ -80,9 +80,14 @@ const lastResult = atom<StoredCheckResult | null>(null, 'passportCheck.lastResul
 const transient = atom<TransientState>({ kind: 'idle' }, 'passportCheck.transient')
 
 const viewState = computed<ViewState>(() => {
+  // Read `lastResult` unconditionally, before the transient branch. A read
+  // behind `if` would drop the dependency whenever a check is pending or an
+  // error is showing, disconnecting the atom and tearing its storage
+  // subscription down — every check would then re-subscribe (and, on the HTTP
+  // backend, re-GET) when the view returns to idle.
+  const stored = lastResult()
   const current = transient()
   if (current.kind !== 'idle') return current
-  const stored = lastResult()
   if (!stored) return { kind: 'idle' }
   return {
     kind: 'success',
@@ -103,10 +108,13 @@ done by the change hook inside `withStorageKey`; the model never calls
 `storage.set` directly. On failure it sets `transient` to the mapped error and
 leaves the stored success untouched.
 
-The public contract is unchanged: `viewState` stays a readable field of the
-model, and `StandardTier`, `TinyTier` and `RecoveryModal` keep reading it.
-Nothing outside `check-model.ts` writes to `viewState` today, so turning the atom
-into a computed breaks no caller.
+`viewState` stays a readable field of the model, and `StandardTier`, `TinyTier`
+and `RecoveryModal` keep reading it — no production code writes to it. Two test
+files do: `ui/RecoveryModal.test.tsx:54` and
+`ui/recovery-modal-radix-stack.test.tsx:57` seed a `sessionRequired` view with
+`checkModel.viewState.set(...)`. The model therefore also returns `transient`,
+and those two lines move to `checkModel.transient.set(...)` — the same seam,
+now on the atom that actually owns transient state.
 
 ### Time formatting
 
@@ -169,16 +177,23 @@ its model test and moved the equivalent coverage into its UI test; if the connec
 frame turns out not to work here either, these three cases move to
 `PassportChecker.test.tsx` the same way.
 
-UI tests: `ui/PassportChecker.test.tsx` and `ui/recovery-flow.test.tsx` currently
-build a real `makeHostRuntime().makeWidgetStorage(...)`. That was harmless while
-nothing used storage, but `shared.server` would now issue HTTP requests to
-`/api/storage` from jsdom. Both switch to a fake `WidgetStorage` over
-`createFakeStorage()`, mirroring the ofelia UI test. One new case: with the key
-pre-seeded, the widget renders the success banner on mount without a click.
+UI tests: `ui/PassportChecker.test.tsx` builds a real
+`makeHostRuntime().makeWidgetStorage(...)` and does not stub `fetch`. That was
+harmless while nothing used storage, but `shared.server` would now issue HTTP
+requests to `/api/storage` from jsdom, so it switches to a fake `WidgetStorage`
+over `createFakeStorage()`, mirroring the ofelia UI test. Two new cases there:
+with the key pre-seeded the widget renders the success banner on mount without a
+click, and a check run in one placement appears in a second placement that shares
+the storage.
+
+`ui/recovery-flow.test.tsx` also builds a real widget storage but already stubs
+`fetch` with a never-resolving promise in both of its render helpers, so no
+request escapes and it needs no change.
 
 Mechanical updates, no new logic: `model/recovery-flow.test.ts`,
 `ui/RecoveryModal.test.tsx` and `ui/recovery-modal-radix-stack.test.tsx` build the
-model directly and gain the `storage` option.
+model directly and gain the `storage` option; the latter two also move their
+`viewState.set` seed to `transient.set`.
 
 ## Files touched
 
@@ -186,10 +201,10 @@ model directly and gain the `storage` option.
 | --- | --- |
 | `model/check-model.ts` | key, schema, `lastResult`, `transient`, `viewState` computed, `formatCheckedAt` |
 | `ui/PassportChecker.tsx` | pass `storage.shared.server` into the factory |
-| `model/check-model.test.ts` | new persistence and formatting cases |
-| `ui/PassportChecker.test.tsx` | fake storage, restore-on-mount case |
-| `ui/recovery-flow.test.tsx` | fake storage |
-| `model/recovery-flow.test.ts`, `ui/RecoveryModal.test.tsx`, `ui/recovery-modal-radix-stack.test.tsx` | new `storage` option |
+| `model/check-model.test.ts` | `storage` option, new persistence and formatting cases |
+| `ui/PassportChecker.test.tsx` | fake storage, restore-on-mount and cross-placement cases |
+| `model/recovery-flow.test.ts` | new `storage` option |
+| `ui/RecoveryModal.test.tsx`, `ui/recovery-modal-radix-stack.test.tsx` | new `storage` option, `viewState.set` → `transient.set` |
 
 ## Verification
 
