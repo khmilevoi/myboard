@@ -25,6 +25,7 @@ describe('CommentThread', () => {
     renderThread({ comments: [comment()] })
 
     expect(screen.getByText('Карина')).toBeInTheDocument()
+    expect(screen.getByText('Карина')).toHaveAttribute('data-unknown', 'false')
     expect(screen.getByText('21:44')).toBeInTheDocument()
     expect(screen.getByText('привет')).toBeInTheDocument()
   })
@@ -41,10 +42,13 @@ describe('CommentThread', () => {
     expect(screen.getByText('без аккаунта')).toBeInTheDocument()
   })
 
+  // The mock sets `автор неизвестен` in the muted, non-bold treatment a real name
+  // never gets, so the placeholder never reads as somebody's name.
   it('labels an unknown author', () => {
     renderThread({ comments: [comment({ author: { kind: 'unknown' } })] })
 
     expect(screen.getByText('автор неизвестен')).toBeInTheDocument()
+    expect(screen.getByText('автор неизвестен')).toHaveAttribute('data-unknown', 'true')
   })
 
   it('never renders an ip', () => {
@@ -65,6 +69,30 @@ describe('CommentThread', () => {
     await waitFor(() => {
       expect(input).toHaveValue('')
     })
+  })
+
+  it('sends on Enter via native form submit', async () => {
+    const onSend = vi.fn(async () => {})
+    const { container } = renderThread({ onSend })
+
+    const input = screen.getByLabelText('Комментарий')
+    fireEvent.change(input, { target: { value: 'Ку' } })
+    fireEvent.submit(container.querySelector('form') as HTMLFormElement)
+
+    expect(onSend).toHaveBeenCalledWith('Ку')
+    await waitFor(() => {
+      expect(input).toHaveValue('')
+    })
+  })
+
+  it('does not send empty or whitespace-only text', () => {
+    const onSend = vi.fn(async () => {})
+    renderThread({ onSend })
+
+    fireEvent.change(screen.getByLabelText('Комментарий'), { target: { value: '   ' } })
+    fireEvent.click(screen.getByLabelText('Отправить'))
+
+    expect(onSend).not.toHaveBeenCalled()
   })
 
   it('renders an empty state', () => {

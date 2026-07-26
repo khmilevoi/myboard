@@ -32,7 +32,12 @@ const Row = reatomMemo<{ comment: CommentView; today: string | null }>(
       <MemberAvatar author={comment.author} isViewer={comment.isViewerComment} px={22} />
       <div className={styles.body}>
         <div className={styles.meta}>
-          <span className={styles.author}>{authorName(comment.author)}</span>
+          {/* `автор неизвестен` is a placeholder, not a name, so it never gets
+              the emphasis a real name carries — same split as the history
+              signature row. */}
+          <span className={styles.author} data-unknown={comment.author.kind === 'unknown'}>
+            {authorName(comment.author)}
+          </span>
           {comment.author.kind === 'person' ? (
             <span className={styles.legacy}>без аккаунта</span>
           ) : null}

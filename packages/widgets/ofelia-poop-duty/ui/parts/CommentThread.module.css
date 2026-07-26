@@ -47,6 +47,11 @@
   color: var(--text);
 }
 
+.author[data-unknown='true'] {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
 .legacy {
   font-family: var(--font-mono);
   font-size: 0.6rem;
