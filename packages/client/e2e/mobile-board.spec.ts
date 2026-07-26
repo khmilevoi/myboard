@@ -10,26 +10,43 @@ const MOBILE_VIEWPORT = { width: 390, height: 844 }
 // is switched to phone size inside each test.
 test.use({ hasTouch: true, viewport: { width: 1280, height: 800 } })
 
+// Longer than react-grid-layout's 200ms item transition, so "unchanged for this
+// long" means the relayout is genuinely over rather than merely not started.
+const SETTLE_MS = 300
+
 // The board flips `data-mobile` — and therefore reveals the grip — one render
 // BEFORE React Grid Layout applies the new item geometry, and the items then
 // animate for 200ms (react-grid-layout/css/styles.css: `.react-grid-item`).
-// Visibility alone is measured 296.5x112.5, i.e. still the desktop size. So wait
-// for two geometry samples taken further apart than that transition to agree: a
-// relayout that has not started yet still shows up as a difference.
+// Sampled the moment the grip appears, the cards still measure 296.5x112.5, i.e.
+// the desktop size. So poll until every card rect has held still for SETTLE_MS,
+// carrying the previous sample on `window` between polls.
+//
+// The predicate must stay SYNCHRONOUS. waitForFunction tests the truthiness of
+// whatever the predicate returns (playwright-core `coreBundle.js`: `const
+// success = predicate(); if (success) { fulfill(success); return }`), and an
+// async predicate returns an always-truthy Promise — it would resolve on the
+// first call, making `polling` dead code and the wait a fixed sleep.
 async function waitForSettledCards(page: Page): Promise<void> {
-  await page.waitForFunction(
-    async () => {
-      const measure = () =>
-        Array.from(document.querySelectorAll('[data-testid="widget-card"]'))
-          .map((card) => JSON.stringify(card.getBoundingClientRect()))
-          .join('|')
+  await page.evaluate(() => {
+    delete (window as unknown as { __cardSettle?: unknown }).__cardSettle
+  })
 
-      const before = measure()
-      if (before === '') return false
-      await new Promise((resolve) => setTimeout(resolve, 250))
-      return measure() === before
+  await page.waitForFunction(
+    (settleMs: number) => {
+      const holder = window as unknown as { __cardSettle?: { rects: string; since: number } }
+      const rects = Array.from(document.querySelectorAll('[data-testid="widget-card"]'))
+        .map((card) => JSON.stringify(card.getBoundingClientRect()))
+        .join('|')
+
+      if (rects === '') return false
+      if (holder.__cardSettle?.rects !== rects) {
+        holder.__cardSettle = { rects, since: performance.now() }
+        return false
+      }
+
+      return performance.now() - holder.__cardSettle.since > settleMs
     },
-    null,
+    SETTLE_MS,
     { polling: 100 },
   )
 }
