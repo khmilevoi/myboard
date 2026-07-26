@@ -51,6 +51,10 @@ describe('dueOccurrence', () => {
   it('collapses several missed occurrences into the most recent one', () => {
     expect(dueOccurrence(cron, NOON_0616, NOON_0619)).toBe(MIDNIGHT_0619)
   })
+
+  it('never re-fires an occurrence already recorded in the cursor', () => {
+    expect(dueOccurrence(cron, MIDNIGHT_0619, NOON_0619)).toBeNull()
+  })
 })
 
 describe('cron scheduler', () => {

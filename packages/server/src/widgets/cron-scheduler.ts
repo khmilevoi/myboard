@@ -161,9 +161,15 @@ export function makeCronScheduler(options: CronSchedulerOptions): CronScheduler 
     start() {
       if (timer !== null || jobs.length === 0) return
       timer = setInterval(() => {
-        inFlight = tick().catch((cause: unknown) => {
-          console.error('cron tick failed', cause)
-        })
+        // Chained, not replaced: every tick stays in the awaited chain so
+        // stop() cannot return while an earlier tick is still running. A
+        // tick that outlives intervalMs delays the next one rather than
+        // orphaning it — cheap, since runJob short-circuits on `running`.
+        inFlight = inFlight
+          .then(() => tick())
+          .catch((cause: unknown) => {
+            console.error('cron tick failed', cause)
+          })
       }, intervalMs)
     },
     async stop() {
