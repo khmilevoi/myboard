@@ -10,23 +10,28 @@ const MOBILE_VIEWPORT = { width: 390, height: 844 }
 // is switched to phone size inside each test.
 test.use({ hasTouch: true, viewport: { width: 1280, height: 800 } })
 
-// React Grid Layout animates `transform`, `width` and `height` for 200ms
-// (react-grid-layout/css/styles.css: `.react-grid-item`). The grip becomes
-// visible on the very render that STARTS that animation, so visibility alone is
-// not enough to measure against: a boundingBox() taken right after it samples a
-// frame mid-flight, and a tap aimed at those stale coordinates misses the grip.
+// The board flips `data-mobile` — and therefore reveals the grip — one render
+// BEFORE React Grid Layout applies the new item geometry, and the items then
+// animate for 200ms (react-grid-layout/css/styles.css: `.react-grid-item`).
+// Visibility alone is measured 296.5x112.5, i.e. still the desktop size. So wait
+// for two geometry samples taken further apart than that transition to agree: a
+// relayout that has not started yet still shows up as a difference.
 async function waitForSettledCards(page: Page): Promise<void> {
-  await page.waitForFunction(async () => {
-    const cards = Array.from(document.querySelectorAll('[data-testid="widget-card"]'))
-    if (cards.length === 0) return false
-    if (cards.some((card) => card.getAnimations().length > 0)) return false
+  await page.waitForFunction(
+    async () => {
+      const measure = () =>
+        Array.from(document.querySelectorAll('[data-testid="widget-card"]'))
+          .map((card) => JSON.stringify(card.getBoundingClientRect()))
+          .join('|')
 
-    const measure = () =>
-      cards.map((card) => JSON.stringify(card.getBoundingClientRect())).join('|')
-    const before = measure()
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-    return measure() === before
-  })
+      const before = measure()
+      if (before === '') return false
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      return measure() === before
+    },
+    null,
+    { polling: 100 },
+  )
 }
 
 async function seedTwoWidgets(page: Page): Promise<void> {
@@ -70,7 +75,11 @@ test('cards span the full width and stack vertically on a phone', async ({ page 
 
   expect(first.width).toBeGreaterThan(300)
   expect(Math.abs(first.width - second.width)).toBeLessThan(2)
-  expect(second.y).toBeGreaterThanOrEqual(first.y + first.height)
+  // A newly added widget is placed ABOVE the existing ones, so card index order
+  // is not top-to-bottom order. Sort before asserting they stack without
+  // overlapping, which is the property under test.
+  const [upper, lower] = [first, second].sort((a, b) => a.y - b.y)
+  expect(lower.y).toBeGreaterThanOrEqual(upper.y + upper.height)
 })
 
 test('a touch on the card body leaves the page scrollable', async ({ page }) => {
