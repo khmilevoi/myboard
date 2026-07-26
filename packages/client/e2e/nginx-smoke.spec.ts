@@ -21,6 +21,31 @@ test('nginx serves remote entries as JavaScript and never falls back for a missi
   expect(await missing.text()).not.toContain('<div id="root">')
 })
 
+// The host's own entry is the one file whose URL is stable across releases
+// while its contents change — it names the hashed chunk that calls
+// createInstance. Without no-cache an intermediary keeps serving the previous
+// release's copy, whose chunk 404s in the new one, and every loadRemote then
+// fails with "#RUNTIME-009 Please call createInstance first": a board with no
+// widgets at all. Cloudflare did exactly this on 2026-07-26 (cf-cache-status
+// HIT, age 6503, against the default max-age=14400).
+test('nginx marks the host federation entry no-cache so a stale edge copy cannot break init', async ({
+  request,
+}) => {
+  await seedSession(request)
+
+  const entry = await request.get('/remoteEntry.js')
+  expect(entry.status()).toBe(200)
+  expect(entry.headers()['content-type']).toContain('javascript')
+  expect(entry.headers()['cache-control']).toContain('no-cache')
+
+  // It must name a chunk this same release actually ships, or the host cannot
+  // initialise — the failure mode the header exists to prevent.
+  const chunk = /["']([^"']*virtual_mf-REMOTE_ENTRY_ID[^"']*\.js)["']/.exec(await entry.text())
+  expect(chunk).not.toBeNull()
+  const chunkResponse = await request.get(new URL(chunk![1], 'http://localhost/').pathname)
+  expect(chunkResponse.status()).toBe(200)
+})
+
 test('the production nginx image mounts Clock through the same-origin remote', async ({ page }) => {
   await seedSession(page.request)
   await page.goto('/')
