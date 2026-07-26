@@ -2,6 +2,9 @@
   flex: none;
   display: grid;
   place-items: center;
+  /* Same reason as the duty circle: `justify-items` is inert once a caller
+     re-casts this box to `inline-flex`, so the inline axis is named outright. */
+  justify-content: center;
   overflow: hidden;
   font-weight: 600;
   line-height: 1;
@@ -18,10 +21,15 @@
   color: var(--text-3);
 }
 
+/* The viewer ring is a spread shadow, so it paints outside the border box and
+   is clipped by any scroll/overflow ancestor the avatar sits flush against.
+   Every such container reserves `--ofelia-viewer-ring` of inline-start room —
+   keep the width in the token, not inlined here, or the two drift apart and the
+   ring loses its left edge again. */
 .avatar[data-viewer='true'] {
   box-shadow:
     0 0 0 1.5px var(--surface),
-    0 0 0 3px var(--primary);
+    0 0 0 var(--ofelia-viewer-ring) var(--primary);
 }
 
 .avatar[data-tone='k'] {

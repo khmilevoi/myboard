@@ -127,6 +127,7 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
     ready: atom(o.ready ?? true, 'fixture.ready'),
     selected: atom<SelectedDayView | null>(selected, 'fixture.selected'),
     selectedPerson: atom<Person | null>(selected?.person ?? null, 'fixture.selectedPerson'),
+    selectedIso: atom<string | null>(selected?.iso ?? null, 'fixture.selectedIso'),
     days: atom<WeekDayView[]>(o.days ?? WEEK, 'fixture.days'),
     balance: atom<DebtBalanceEntry[]>(balance, 'fixture.balance'),
     canForgive: atom(

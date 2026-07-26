@@ -207,7 +207,11 @@ pnpm run deploy:branch   # current branch, board-branch.iiskelo.com (rpi.branch.
 
 Use `pnpm run deploy`, not `pnpm deploy` — the latter is pnpm's own built-in command and never reaches the script.
 
-`rpi.branch.toml` is a disposable stack for trying the checked-out branch on real hardware. `pnpm run deploy:branch` reads the branch from git and passes it as `--vars BRANCH_NAME=…`, which is the only variable rpi 0.26 accepts — so the hostname is a literal, not derived. rpi keys the project by environment _and_ variables (`myboard--branch--<slug>`), so a second branch deployed while the first is still up collides on that shared hostname: tear the old one down with `rpi env destroy branch --vars BRANCH_NAME=<previous>` first. The environment carries `ttl = "72h"`, so a forgotten stack reaps itself. Its secrets bundle is `.env.branch` (template in `.env.branch.example`), sent once with `rpi secrets send --env branch --vars BRANCH_NAME=<branch>`.
+`rpi.branch.toml` is a disposable stack for trying the checked-out branch on real hardware. `pnpm run deploy:branch` reads the branch from git and passes it as `--vars BRANCH_NAME=…`, which is the only variable rpi 0.26 accepts — so the hostname is a literal, not derived. rpi keys the project by environment _and_ variables (`myboard--branch--<slug>`), so a second branch deployed while the first is still up collides on that shared hostname: tear the old one down with `rpi env destroy branch --vars BRANCH_NAME=<previous>` first. The environment carries `ttl = "72h"`, so a forgotten stack reaps itself.
+
+Because every branch is a fresh project, its secrets store starts empty and `[secrets].files` are missing until sent — which otherwise fails only after the ~3-minute image build, with an opaque Compose "secret file … does not exist". `deploy:branch` therefore checks `rpi secrets ls` first and sends the bundle itself when the branch has none; you only need `.env.branch` to exist locally (template in `.env.branch.example`). A brand-new branch project also gets a fresh deploy key, and the first deploy can lose the race between registering it on GitHub and cloning — if `git clone` fails with `Permission denied (publickey)`, just run the command again.
+
+Extra flags reach the CLI with or without a separator: `pnpm run deploy:branch --cancel` and `pnpm run deploy:branch -- --server home` both work.
 
 ## Failure modes to avoid
 

@@ -4,6 +4,7 @@ import type { EntryAuthor } from '@/domain/author'
 
 import { memberInitial, memberTone } from '../member'
 import { personInitial, personTone } from '../person'
+import { AVATAR_INITIAL_RATIO } from './Avatar'
 
 import styles from './MemberAvatar.module.css'
 
@@ -15,7 +16,11 @@ export type MemberAvatarProps = {
 
 export const MemberAvatar = reatomMemo<MemberAvatarProps>(
   ({ author, isViewer = false, px = 18 }) => {
-    const style = { inlineSize: `${px}px`, blockSize: `${px}px`, fontSize: `${px * 0.5}px` }
+    const style = {
+      inlineSize: `${px}px`,
+      blockSize: `${px}px`,
+      fontSize: `${px * AVATAR_INITIAL_RATIO}px`,
+    }
 
     if (author.kind === 'unknown') {
       return (

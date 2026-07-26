@@ -132,6 +132,9 @@ export type OfeliaViewModel = {
   ready: Computed<boolean>
   selected: Computed<SelectedDayView | null>
   selectedPerson: Computed<Person | null>
+  /** ISO date of the highlighted duty day, for readers that only track *which*
+   *  day is selected — not its status. The history column scrolls on it. */
+  selectedIso: Computed<string | null>
   days: Computed<WeekDayView[]>
   balance: Computed<DebtBalanceEntry[]>
   canForgive: Computed<boolean>
@@ -170,6 +173,8 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
 
   // Primitive → keeps `days` from recomputing when only the selected day's
   // *status* changed (e.g. after a confirm) but the highlighted day is the same.
+  // Exposed for the same reason: the history column re-renders to scroll only
+  // when the highlighted day actually moves.
   const selectedIso = computed(() => selected()?.iso ?? null, 'ofelia.selectedIso')
 
   const days = computed(() => {
@@ -189,5 +194,5 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
     'ofelia.canForgive',
   )
 
-  return { ready, selected, selectedPerson, days, balance, canForgive }
+  return { ready, selected, selectedPerson, selectedIso, days, balance, canForgive }
 }

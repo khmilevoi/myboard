@@ -8,7 +8,12 @@
 }
 
 /* Sticky against the column's own scroller; the containing block is .group, so a
-   header only pins while its own duty day is on screen. */
+   header only pins while its own duty day is on screen.
+   The column reserves `--ofelia-viewer-ring` of inline-start room for the viewer
+   ring, and records paint into that strip. The header's own box stops at the
+   content edge, so without stretching it the scrolling rings slide past the
+   pinned header through the uncovered strip. Reach back over it with a negative
+   margin and give the width back as padding, so nothing inside moves. */
 .groupHeader {
   position: sticky;
   top: 0;
@@ -16,7 +21,9 @@
   display: flex;
   align-items: center;
   gap: 0.4375rem;
+  margin-inline-start: calc(-1 * var(--ofelia-viewer-ring));
   padding: 0.375rem 0 0.3125rem;
+  padding-inline-start: var(--ofelia-viewer-ring);
   background: var(--surface);
 }
 

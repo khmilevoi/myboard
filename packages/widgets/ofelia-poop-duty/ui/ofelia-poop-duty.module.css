@@ -15,6 +15,10 @@
   --closed-text: #fff;
   --ofelia-debt-soft: oklch(0.955 0.035 25);
   --ofelia-debt-fg: oklch(0.5 0.15 27);
+  /* Width of the ring MemberAvatar paints around the signed-in viewer. It is a
+     spread shadow outside the border box, so every clipping ancestor the avatar
+     can sit flush against reserves exactly this much inline-start room. */
+  --ofelia-viewer-ring: 3px;
   --ofelia-member-1-bg: oklch(0.9 0.05 300);
   --ofelia-member-1-fg: oklch(0.4 0.13 300);
   --ofelia-member-2-bg: oklch(0.9 0.048 197);

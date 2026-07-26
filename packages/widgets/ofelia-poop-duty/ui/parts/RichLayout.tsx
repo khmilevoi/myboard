@@ -24,9 +24,18 @@ export type RichLayoutProps = {
 
 // Connected columns: each reads only its own stream atom, so an SSE update to
 // history or comments re-renders just that column — never the selected-day panel.
+// `view.selectedIso` and not `view.selected` on purpose: the column needs to
+// know only *which* day is highlighted, so confirming or forgiving the selected
+// day does not re-render the whole history.
 const HistoryColumn = reatomMemo(() => {
-  const { history, today } = useOfelia()
-  return <HistoryList groups={history()} today={today()?.toString() ?? null} />
+  const { history, today, view } = useOfelia()
+  return (
+    <HistoryList
+      groups={history()}
+      today={today()?.toString() ?? null}
+      selectedDate={view.selectedIso()}
+    />
+  )
 }, 'HistoryColumn')
 
 const CommentsColumn = reatomMemo(() => {

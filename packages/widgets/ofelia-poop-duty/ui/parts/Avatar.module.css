@@ -2,6 +2,11 @@
   flex: none;
   display: grid;
   place-items: center;
+  /* `place-items` centres a grid, but callers re-cast this box to `inline-flex`
+     to keep it inside an inline run (HistoryList `.phrase` and `.debt`), and a
+     flex container ignores `justify-items`. Naming the inline axis explicitly
+     keeps the initial centred under either display. */
+  justify-content: center;
   border-radius: 999px;
   font-weight: 600;
   line-height: 1;
