@@ -145,6 +145,17 @@ describe('resolveDays', () => {
     expect(map.get('2026-06-16')?.status).toBe('pending')
   })
 
+  it('re-opens a day when the reset shares the cleaned entry’s ts', () => {
+    // The widget server stamps ts from its injectable clock, which the e2e
+    // harness pins — so a clean/undo pair on the same day gets identical
+    // timestamps. Append order is the tie-break.
+    const map = resolveDays([
+      le({ ts: 7, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      le({ ts: 7, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')?.status).toBe('pending')
+  })
+
   it('takes the latest by ts and keeps dates independent', () => {
     const map = resolveDays([
       le({ ts: 2, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),

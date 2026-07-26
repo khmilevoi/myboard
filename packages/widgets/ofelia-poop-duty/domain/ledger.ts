@@ -57,7 +57,14 @@ export function latestOutcomesByDate(entries: LedgerEntry[]): Map<string, Ledger
   for (const entry of entries) {
     if (!DAY_OUTCOME_TYPES.has(entry.type)) continue
     const prev = latest.get(entry.date)
-    if (!prev || entry.ts > prev.ts) latest.set(entry.date, entry)
+    // `>=`, not `>`: the ledger is append-only and iterated in insertion
+    // order, so on an equal timestamp the later-appended entry is the newer
+    // decision. Ties are real — `ts` comes from the server's injectable clock
+    // (`WidgetServerContext.now()`), which the e2e harness pins to a fixed
+    // instant, and even in production two writes can land in the same
+    // millisecond. With `>` a "clean then undo" pair kept the `cleaned` entry
+    // as the day's outcome and the day never reopened.
+    if (!prev || entry.ts >= prev.ts) latest.set(entry.date, entry)
   }
   return latest
 }
