@@ -53,16 +53,38 @@ describe('ofelia server', () => {
     expect(append.mock.calls[0][1]).toMatchObject({ createdBy: null })
   })
 
-  it('ignores a forged createdBy/actor in the payload and stamps the real viewer', async () => {
-    const { context, append } = makeContext([])
+  it('half 1: the clean payload schema strips a forged createdBy/actor before parsing', () => {
+    const parsed = ofeliaServer.schemas.clean.payload.parse({
+      date: '2026-06-16',
+      createdBy: { accountId: 'evil', name: 'Мимо' },
+      actor: 'Карина',
+    })
 
-    expect(
-      await run(
-        'clean',
-        { date: '2026-06-16', createdBy: { accountId: 'evil', name: 'Мимо' }, actor: 'Карина' },
-        context,
-      ),
-    ).toEqual({ ok: true })
+    expect(parsed).toEqual({ date: '2026-06-16' })
+  })
+
+  it('half 1: the comment payload schema strips a forged createdBy before parsing', () => {
+    const parsed = ofeliaServer.schemas.comment.payload.parse({
+      weekStart: '2026-06-15',
+      text: 'привет',
+      createdBy: { accountId: 'evil', name: 'Мимо' },
+    })
+
+    expect(parsed).toEqual({ weekStart: '2026-06-15', text: 'привет' })
+  })
+
+  it('half 2: the clean handler ignores createdBy/actor even when a caller bypasses the schema', async () => {
+    const { context, append } = makeContext([])
+    // Deliberately skips run()/payload.parse() — hands the handler a payload
+    // that still carries createdBy/actor, as if the schema had already let
+    // them through, to prove the handler itself never reads them.
+    const forgedPayload = {
+      date: '2026-06-16',
+      createdBy: { accountId: 'evil', name: 'Мимо' },
+      actor: 'Карина',
+    } as unknown as Parameters<(typeof ofeliaServer.handlers)['clean']>[0]
+
+    expect(await ofeliaServer.handlers.clean(forgedPayload, context)).toEqual({ ok: true })
     expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
       date: '2026-06-16', type: 'cleaned', actor: 'Леша', createdBy: KARINA,
     })
