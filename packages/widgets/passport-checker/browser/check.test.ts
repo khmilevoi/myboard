@@ -171,7 +171,7 @@ describe('passport check handler', () => {
     const escalation = new UserInputRequiredError({ sshTarget: 'pi@myboard.local' })
     const { context, evaluate } = makeContext({
       escalations: [null, escalation],
-      submit: { kind: 'response', ok: false, evidence: { hasChallengeForm: true } },
+      submit: { kind: 'response', ok: false },
     })
     const result = await makePassportCheckHandler(handlerOptions)({}, context)
 
@@ -195,6 +195,43 @@ describe('passport check handler', () => {
     expect(goto).toHaveBeenCalledWith('http://fixture.local/solutions/checker', {
       waitUntil: 'domcontentloaded',
     })
+  })
+
+  // Nothing above checks *which* detector goes to which call, only the options on
+  // call 1 — a handler that swapped the two detector factories between the
+  // navigation and submission checks would leave every other test in this file
+  // green. Told apart here by actual behaviour, not by identity: the page detector
+  // reaches into the live page via page.evaluate; the evidence detector classifies
+  // evidence already collected inside the page and never touches its page argument.
+  it('passes a page-based detector to the navigation check', async () => {
+    const { context, detectUserInput } = makeContext({})
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    const navigationDetector = detectUserInput.mock.calls[0]?.[0]
+    const fakeEvaluate = vi.fn(async () => ({}))
+    await navigationDetector?.({ evaluate: fakeEvaluate } as unknown as Page)
+
+    expect(fakeEvaluate).toHaveBeenCalled()
+  })
+
+  it('passes an evidence-based detector to the submission check, and it classifies a challenge as true', async () => {
+    const { context, detectUserInput } = makeContext({
+      submit: { kind: 'response', ok: true, evidence: { hasChallengeForm: true } },
+    })
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    const submissionDetector = detectUserInput.mock.calls[1]?.[0]
+    // {} as Page has no evaluate at all: if this were secretly the page detector,
+    // invoking it here would throw instead of resolving.
+    await expect(submissionDetector?.({} as Page)).resolves.toBe(true)
+  })
+
+  it('passes an evidence-based detector to the submission check, and it classifies a clean response as false', async () => {
+    const { context, detectUserInput } = makeContext({})
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    const submissionDetector = detectUserInput.mock.calls[1]?.[0]
+    await expect(submissionDetector?.({} as Page)).resolves.toBe(false)
   })
 
   it.each([
