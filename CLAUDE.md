@@ -1,15 +1,13 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-See [AGENTS.md](./AGENTS.md) for the canonical repository guidelines (project structure, coding style, required skills, commit/PR conventions). This file adds command references and architecture notes that complement it — read both.
+Canonical guidance for AI agents working in this repository. `AGENTS.md` is a symlink to this file, so Claude Code, Codex, and every other assistant read the same rules.
 
 ## Required skills
 
-Before editing this repo, load the `reatom` and `errore` skills (referenced in AGENTS.md):
+Always load and follow the `reatom` and `errore` skills before working in this repository (locally `C:\Users\Khmil\.agents\skills\reatom` and `C:\Users\Khmil\.agents\skills\errore`):
 
-- **Reatom**: used for all atoms, actions, async flows, and React integration in `packages/client/`.
-- **errore**: used for TypeScript errors-as-values (tagged errors, `instanceof` narrowing, no throwing) across both `packages/client/` and `packages/server/`.
+- **Reatom**: all atoms, actions, async flows, tests, and React integration in `packages/client/` and `packages/widgets/*`.
+- **errore**: TypeScript errors-as-values — tagged errors, `instanceof` narrowing, flat early-return control flow, no throwing — across both `packages/client/` and `packages/server/`.
 
 ## Feature workflow
 
@@ -37,7 +35,7 @@ Before editing this repo, load the `reatom` and `errore` skills (referenced in A
    gh pr create --base dev
    ```
 
-   Summarize scope, list the verification commands actually run, and attach screenshots or a short recording for UI changes.
+   Summarize scope, list the verification commands actually run, link related issues when applicable, and attach screenshots or a short recording for UI changes.
 
 5. **Clean up as soon as the PR is merged** — the worktree and the branch are not kept around for the release:
 
@@ -58,29 +56,50 @@ Before editing this repo, load the `reatom` and `errore` skills (referenced in A
 
 7. **Release.** Once dev is verified, open a PR from `dev` into `main`, merge it, and deploy production with `rpi deploy`. Keep `dev` a fast-forward ahead of `main`; do not cherry-pick individual commits into `main`.
 
-If dev testing turns up a defect, branch off `dev` again from step 1 — never patch `main` directly.
+If dev testing turns up a defect, branch off `dev` again from step 1 — never patch `main` directly. Create PRs from the exact commit range that belongs to the task; do not mix publication concerns with implementation work.
+
+## Project structure
+
+Private pnpm workspace with all packages under `packages/`: `browser-automation`, `client`, `server`, `shared`, `widget-runtime`, `widget-sdk`, and one package per `packages/widgets/*` directory.
+
+- **`packages/client`** — the React/Vite board host. Source in `src`, Playwright specs in `packages/client/e2e` with page helpers in `e2e/pages`.
+- **`packages/server`** — the storage API; builds to `packages/server/dist`, uses Valkey, and keeps all widget server functions in one bundle.
+- **`packages/widgets/<widget-name>`** — one package per widget, each independently and optionally providing `client.ts`, `server.ts`, and `browser.ts` entry points, plus `types.ts`, `model/`, `ui/`, a federation `vite.config.ts`, and a standalone harness under `dev/` for the entry points it provides.
+- **`widget-runtime`** — the singleton live runtime: storage, widget RPC, SSE/BroadcastChannel, server time, runtime contracts.
+- **`widget-sdk`** — stateless Reatom/React glue and shared widget UI.
+- **`browser-automation`** — the future browser service and generated task registry owner.
+
+Client features and widgets split React/CSS/view tests into `ui/` and Reatom/domain/storage logic into `model/`. Package tests are colocated as `*.test.ts` or `*.test.tsx`. Use path aliases for absolute imports: `@/*` aliases only to `packages/client/src`, `@shared/*` to the shared package; shared widget code is imported through the `widget-runtime` / `widget-sdk` workspace package names, never through `packages/client/src`.
+
+The widget directory basename is the canonical widget ID. Each root `client.ts` exports the client definition and lazy loader without an `id`; each root `server.ts` exports schemas and handlers without a `typeId`; an optional root `browser.ts` default-exports the browser definition without a `widgetId`. Codegen injects the directory basename in each case.
 
 ## Commands
 
 Run from the repo root with pnpm unless noted.
 
 ```bash
-pnpm dev                      # codegen, then board + every widget dev server in parallel
-pnpm dev:server                # codegen, then server in watch mode
-pnpm build                     # codegen, build every widget remote, then typecheck/build the client host and PWA
-pnpm --filter server build     # bundle server with Rspack
-pnpm test                      # all workspace Vitest tests
-pnpm --filter client test      # client tests only
-pnpm --filter server test      # server tests only
-pnpm test:e2e                  # board Playwright e2e against the assembled production-style Vite output; needs a reachable Valkey at VALKEY_URL (e.g. `pnpm start:docker`) and ALLOW_TEST_DB_RESET=1 set
-pnpm test:e2e:docker           # same suite, fully isolated: ephemeral Valkey + browsers in one container, torn down after
-pnpm test:e2e:docker:down      # tear down the containerized e2e stack
-pnpm test:e2e:docker:headed    # dockerized Valkey + host Playwright in headed mode
-pnpm test:e2e:nginx            # gate + nginx image tests; needs `ALLOW_TEST_DB_RESET=1 pnpm start:docker` running
-pnpm typecheck                 # workspace-wide tsc --noEmit
+pnpm dev                        # codegen, then board + every widget dev server in parallel
+pnpm dev:server                 # codegen, then server in watch mode
+pnpm codegen:client             # widget ports, client catalog, icon map (loads root client.ts definitions)
+pnpm codegen:server             # server registry from widget directory names + root server.ts, without loading client code
+pnpm codegen:browser            # browser task registry from optional root browser.ts, without loading widget modules
+pnpm codegen                    # client + server + browser generators, as used by workspace-wide gates
+pnpm build                      # codegen, build every widget remote, then typecheck/build the client host and PWA
+pnpm build:widgets              # codegen, then build widget remotes only
+pnpm --filter server build      # bundle server with Rspack
+pnpm test                       # all workspace Vitest tests
+pnpm --filter client test       # client tests only
+pnpm --filter server test       # server tests only
+pnpm test:e2e                   # board Playwright e2e against the assembled production-style Vite output; needs a reachable Valkey at VALKEY_URL (e.g. `pnpm start:docker`) and ALLOW_TEST_DB_RESET=1 set
+pnpm test:e2e:docker            # same suite, fully isolated: ephemeral Valkey + browsers in one container, torn down after
+pnpm test:e2e:docker:down       # tear down the containerized e2e stack
+pnpm test:e2e:docker:headed     # dockerized Valkey + host Playwright in headed mode
+pnpm test:e2e:nginx             # gate + nginx image tests; needs `ALLOW_TEST_DB_RESET=1 pnpm start:docker` running
+pnpm typecheck                  # workspace-wide tsc --noEmit
 pnpm lint / pnpm lint:fix       # oxlint
 pnpm format / pnpm format:check # oxfmt
-pnpm check                      # lint + format:check + typecheck + test, run together (full local gate)
+pnpm deps:check                 # syncpack lint
+pnpm check                      # lint + format:check + deps:check + typecheck + test, run together (full local gate)
 pnpm dev:docker                 # Valkey + server + client with hot reload
 pnpm start:docker               # production-style Docker stack
 ```
@@ -90,6 +109,7 @@ Run a single test file or test name with Vitest directly, e.g.:
 ```bash
 pnpm --filter client exec vitest run src/widget-registry/model/registry.test.ts
 pnpm --filter client exec vitest run -t "test name substring"
+pnpm --filter client test -- src/board/model/board-storage.test.ts
 ```
 
 Playwright specs (`packages/client/e2e`) can be filtered the same way:
@@ -98,9 +118,20 @@ Playwright specs (`packages/client/e2e`) can be filtered the same way:
 pnpm --filter client exec playwright test e2e/<file>.spec.ts
 ```
 
-## Architecture
+### Windows / shell notes
 
-**Workspace layout**: pnpm workspace with all packages under `packages/`: the `client` Vite/React host, the `server` Node API, `shared`, singleton `widget-runtime`, stateless `widget-sdk`, and independently built `packages/widgets/*` packages. `@/*` aliases only to `packages/client/src`; shared widget code is imported through the two workspace package names.
+- Run all `pnpm`, `node`, `npm`, and `corepack` commands outside Codex's default sandbox with escalated permissions. In this environment the executables live under `C:\nvm4w\nodejs` and `C:\Users\Khmil\AppData\Local\pnpm`, and sandboxed runs can fail with `pnpm` not found or `Access is denied`.
+- `rg` may be unavailable in this shell. If so, use PowerShell-native discovery such as `Get-ChildItem -Recurse`, `Select-String`, and `Get-Content` instead of spending time fixing PATH.
+- Vitest path filters for client tests are relative to `packages/client`, not the repository root. Use `pnpm --filter client test -- src/board/model/board-storage.test.ts`, not `packages/client/src/...`.
+- If `pnpm --filter client test -- <file>` hangs or hides useful output, run the client Vitest entrypoint directly from `packages/client` with the Visual Studio Node 20 binary:
+  `& 'C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Microsoft\VisualStudio\NodeJs\node.exe' .\node_modules\vitest\vitest.mjs run src/board/model/board-storage.test.ts --reporter verbose`
+- Avoid switching targeted unit tests to `--pool vmThreads` as a first response: this repo's Vitest config passes `--harmony-temporal`, which can be invalid for worker threads in this environment.
+- If a model-only test fails during jsdom worker startup with `ERR_REQUIRE_ESM` from `html-encoding-sniffer` / `@exodus/bytes`, prefer `// @vitest-environment node` for that test file. If importing storage code creates Dexie, add `import 'fake-indexeddb/auto'` before importing the model.
+- For Reatom model tests that call `context.reset()`, module-level `effect(...)` subscriptions are aborted. Export the effect when it is part of the behavior under test, subscribe in `beforeEach`, and unsubscribe in `afterEach`.
+- Reatom effects run through Reatom queues. When asserting effect-driven changes, use `vi.waitFor(...)` or `schedule(() => undefined)` from `@reatom/core` to flush the queue before the assertion.
+- If `pnpm --filter client typecheck` fails in an unrelated file, report the exact existing error and do not chase it unless the current task requires it.
+
+## Architecture
 
 ### Widget system
 
@@ -124,10 +155,38 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 - All request/response bodies are validated with Zod schemas (`storage/schemas.ts`); validation failures return 422 with a formatted Zod error.
 - Errors and control flow follow the errore pattern (tagged errors / `Error | T` unions) rather than throwing.
 
-### Reatom + component convention
+## Coding style & naming conventions
 
-Every exported React function component in `packages/client/src` and `packages/widgets/*` is wrapped with `reatomMemo` from `widget-sdk`. Business logic, derived state, timers, and async flows belong in `model/`; `ui/` keeps refs, DOM interop, and minimal view glue. Class error boundaries stay internal and expose a `reatomMemo` wrapper.
+Use TypeScript and ESM imports. Follow the existing style: 2-space indentation, single quotes, no semicolons, named exports, and CSS Modules named `*.module.css`. React components use PascalCase filenames such as `Header.tsx`; utility modules use kebab-case or domain names such as `board-storage.ts`. Widget directories use kebab-case.
+
+All exported React function components in `packages/client/src` and `packages/widgets/*` must be defined with `reatomMemo` from `widget-sdk` (normally `widget-sdk/reatom/reatom-memo`). This is a hard rule: use `reatomMemo` even for simple presentational components so every component has the same Reatom integration and React memo wrapper. Keep business logic, derived state, timers, async flows, and cross-component UI state in `model/` Reatom atoms/actions/computeds; leave only refs, DOM interop, and truly tiny view glue in `ui/`. For React error boundaries, keep the class implementation internal and export a `reatomMemo` wrapper component.
+
+## UI gotchas
+
+Stacked Radix `Dialog`/`AlertDialog`/`Popover` roots (two sibling `Root` instances open at once, not DOM-nested) are prone to a known `DismissableLayer` race: closing the top one via its own close button/escape/outside-click can also dismiss the one underneath, because the underlying root's deferred `pointerDownOutside` check (`deferPointerDownOutside` → `setTimeout(0)`) runs after the top root has already unregistered from Radix's shared "topmost" layer stack. A reactive open-state guard does not fix this (the state has already flipped by the time the deferred check runs); only a plain ref cleared one tick later works, and even that is coupled to Radix's internal event timing.
+
+If this resurfaces, treat it as an architectural decision, not another timing patch: first consider collapsing the stack into a single `Dialog.Root` with an internal view/content switch (no second `Root` needed, so the race cannot occur), before reaching for another ref-based guard.
+
+## Testing guidelines
+
+Vitest is the unit/component test runner; React tests use Testing Library and jsdom. Keep tests near the code they verify as `*.test.ts` or `*.test.tsx`. Playwright specs belong in `packages/client/e2e`, with page helpers in `packages/client/e2e/pages`. Run `pnpm check` (or `pnpm test` and `pnpm typecheck`) before opening a PR; run `pnpm test:e2e` for browser-facing behavior.
+
+## Commits
+
+Recent history uses Conventional Commit prefixes, including `feat:`, `fix:`, `build:`, and `chore:`, optionally scoped (`fix(client): …`). Keep commits focused and imperative, for example `fix: random key generation`. PR expectations are part of the [feature workflow](#feature-workflow) above.
+
+## Security & configuration
+
+Do not commit `.env` files. Client environment examples live in `packages/client/.env.example`; server configuration uses `PORT` and `VALKEY_URL`. Prefer Docker commands when changes depend on Valkey or the full client/server stack.
 
 ## Deployment
 
-`pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release.
+`pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release. `rpi.dev.toml` overlays that configuration for the `dev` environment (see the [feature workflow](#feature-workflow)).
+
+## Failure modes to avoid
+
+- Keep the scope tight. Do not spend time re-reading plans, skills, or history once the actual code change is localized.
+- Do not use subagents when a task is already reduced to a small, single-file or two-file edit. Delegate only when it reduces complexity.
+- Verify in the correct workspace and cwd. If a test runner or package manager fails because of the shell environment, fix the invocation once and move on.
+- Do not mix publication concerns with implementation work. Create PRs from the exact commit range that belongs to the task.
+- Stop when the code, tests, and typecheck are green. Do not keep expanding the process after the required checks pass.
