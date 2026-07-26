@@ -448,3 +448,79 @@ describe('createApp', () => {
     }
   })
 })
+
+describe('cron tick route', () => {
+  let app: App
+  let base: string
+  let now: number
+  const runs: number[] = []
+
+  beforeEach(async () => {
+    runs.length = 0
+    const pubsub = createMemoryPubSub()
+    const ops = createMemoryOps(pubsub)
+    now = Date.parse('2026-06-16T12:00:00+02:00')
+
+    const cronWidget = defineWidgetServer({
+      schemas: {},
+      handlers: {},
+      crons: {
+        nightly: {
+          schedule: '5 0 * * *',
+          timeZone: 'Europe/Warsaw',
+          run: ({ scheduledFor }) => {
+            runs.push(scheduledFor)
+          },
+        },
+      },
+    })
+    const registry = createWidgetServerRegistry([
+      toRuntimeWidgetServerDefinition({ typeId: 'cron-widget', definition: cronWidget }),
+    ])
+    if (registry instanceof Error) throw registry
+
+    app = createApp({
+      ops,
+      subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
+      now: () => now,
+      widgetRegistry: registry,
+      browserClient: makeFakeBrowserAutomationClient().client,
+      authConfig: testAuthConfig,
+      recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
+      testControls: {
+        setNow: (ms) => {
+          now = ms
+        },
+        reset: () => ops.clear(),
+      },
+    })
+    await new Promise<void>((resolve) => app.server.listen(0, resolve))
+    base = `http://localhost:${(app.server.address() as AddressInfo).port}`
+  })
+
+  afterEach(async () => {
+    await app.close()
+  })
+
+  const tick = () => fetch(`${base}/api/test/cron/tick`, { method: 'POST' })
+
+  it('seeds the cursor on the first tick without running anything', async () => {
+    const res = await tick()
+
+    expect(res.status).toBe(204)
+    expect(runs).toEqual([])
+  })
+
+  it('runs the job once the occurrence is due', async () => {
+    await tick()
+
+    await fetch(`${base}/api/test/time`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ iso: '2026-06-17T00:06:00+02:00' }),
+    })
+    await tick()
+
+    expect(runs).toEqual([Date.parse('2026-06-17T00:05:00+02:00')])
+  })
+})

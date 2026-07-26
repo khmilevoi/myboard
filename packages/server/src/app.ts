@@ -46,6 +46,7 @@ import {
   formatZodError,
 } from './storage/schemas'
 import type { ValkeyOps } from './storage/valkey'
+import { makeCronScheduler } from './widgets/cron-scheduler'
 import { dispatchWidgetEvent } from './widgets/dispatch'
 import { WidgetRequestBodyError, type PublicWidgetDispatchError } from './widgets/errors'
 import type { WidgetServerRegistry } from './widgets/registry'
@@ -84,6 +85,7 @@ export type AppDeps = {
   }
   testControls?: TestControls
   audit?: AuditLogger
+  cron?: { intervalMs?: number }
 }
 
 export type App = {
@@ -105,6 +107,18 @@ export function createApp(deps: AppDeps): App {
     client: deps.browserClient,
     store: recoveryStore,
   })
+
+  const cronScheduler = makeCronScheduler({
+    registry: deps.widgetRegistry,
+    ops,
+    browserClient,
+    now,
+    ...(deps.cron?.intervalMs !== undefined ? { intervalMs: deps.cron.intervalMs } : {}),
+  })
+  // In test mode the suite drives the scheduler explicitly through
+  // /api/test/cron/tick; an interval racing a faked clock would only add
+  // nondeterminism.
+  if (!deps.testControls) cronScheduler.start()
 
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
@@ -401,6 +415,12 @@ export function createApp(deps: AppDeps): App {
       res.end()
     })
 
+    router.on('POST', '/api/test/cron/tick', async (_req, res) => {
+      await cronScheduler.tick()
+      res.writeHead(204)
+      res.end()
+    })
+
     router.on('POST', '/api/test/reset', async (_req, res) => {
       await controls.reset()
       res.writeHead(204)
@@ -525,6 +545,7 @@ export function createApp(deps: AppDeps): App {
   const close = async (): Promise<void> => {
     unsubscribe()
     recoveryStore.revokeAll()
+    await cronScheduler.stop()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
 
