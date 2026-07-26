@@ -8,6 +8,24 @@ const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
 const LEDGER_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:ledger')}`
 
+// Every assertion here is StandardTier UI — `ofelia-duty-person` exists only in
+// ui/tiers/StandardTier.tsx — and this widget only resolves `standard` once its
+// frame is at least 400px wide (`tiers.standard.minWidthPx`). So the width is a
+// precondition of what is being asserted, and the spec has to declare it.
+//
+// Playwright's default 1280 viewport is ~7px short of it. The board measures its
+// own container, not the window: 1280 minus the stable scrollbar gutter and the
+// board's 20px padding on each side leaves 1225px, so at 12 columns a default
+// `w:4` card is ~395px and its frame ~393px once the card's 1px border is taken
+// off. `compact` is then the correct rendering, not a defect. (This used to be
+// invisible: the board reported a hardcoded 1280px container on every screen,
+// which made the card 413px and left the threshold only 13px of headroom against
+// a measurement that was wrong by 55px.)
+//
+// At 1920 the container is ~1865px, the card ~609px and the frame ~607px, well
+// clear of the threshold.
+test.use({ viewport: { width: 1920, height: 1080 } })
+
 test.beforeEach(async ({ request }) => {
   await request.post('/api/test/reset')
   await request.post('/api/test/time', { data: { iso: PINNED_ISO } })

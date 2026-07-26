@@ -19,10 +19,16 @@ describe('ofeliaWidget tiers', () => {
   // (`containerPadding` defaults to `margin`) at `cols: 12`, `rowHeight: 30`,
   // `margin: [10, 10]`: a `{ w: 4, h: 6 }` card spans `colWidth * 4 + 3 * 10`
   // by `30 * 6 + 5 * 10`. The 413x230 pinned below is that footprint at a
-  // 1280px *container*. The container is not the viewport — the board subtracts
-  // its own 20px padding on each side plus the stable scrollbar gutter — so a
-  // 1280px viewport is a 1225px container, where `{ w: 4, h: 6 }` spans
-  // 395x230 and the old `{ w: 3, h: 5 }` spanned 294x190.
+  // 1280px *container*, which is what the board used to report on every screen.
+  //
+  // The container is not the viewport: the board subtracts its own 20px padding
+  // on each side plus the stable scrollbar gutter, so a 1280px viewport is only
+  // a 1225px container. There the card spans ~395x230 (the old `{ w: 3, h: 5 }`
+  // spanned ~294x190), and the element that is actually measured for the tier is
+  // the frame inside the card's 1px border — ~393x228. That is below this
+  // widget's own `minWidthPx: 400`, so at a 1280px viewport it resolves to
+  // `compact`, not `standard`; `standard` needs a viewport of roughly 1301px or
+  // wider, which is why e2e/ofelia-duty.spec.ts declares one.
   it('resolves to the standard tier at the widget default-placement footprint', () => {
     const defaultFootprintPx = { width: 413, height: 230 }
 
