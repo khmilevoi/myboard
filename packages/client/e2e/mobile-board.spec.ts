@@ -10,6 +10,25 @@ const MOBILE_VIEWPORT = { width: 390, height: 844 }
 // is switched to phone size inside each test.
 test.use({ hasTouch: true, viewport: { width: 1280, height: 800 } })
 
+// React Grid Layout animates `transform`, `width` and `height` for 200ms
+// (react-grid-layout/css/styles.css: `.react-grid-item`). The grip becomes
+// visible on the very render that STARTS that animation, so visibility alone is
+// not enough to measure against: a boundingBox() taken right after it samples a
+// frame mid-flight, and a tap aimed at those stale coordinates misses the grip.
+async function waitForSettledCards(page: Page): Promise<void> {
+  await page.waitForFunction(async () => {
+    const cards = Array.from(document.querySelectorAll('[data-testid="widget-card"]'))
+    if (cards.length === 0) return false
+    if (cards.some((card) => card.getAnimations().length > 0)) return false
+
+    const measure = () =>
+      cards.map((card) => JSON.stringify(card.getBoundingClientRect())).join('|')
+    const before = measure()
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    return measure() === before
+  })
+}
+
 async function seedTwoWidgets(page: Page): Promise<void> {
   await page.goto('/')
   await page.evaluate(() => {
@@ -26,6 +45,7 @@ async function seedTwoWidgets(page: Page): Promise<void> {
   // The grip is only rendered visible once the board resolves to mobile metrics,
   // so this doubles as a wait for the relayout.
   await expect(new BoardPage(page).getGrip(0)).toBeVisible()
+  await waitForSettledCards(page)
 }
 
 async function recordTouchPrevention(page: Page): Promise<void> {
