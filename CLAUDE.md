@@ -71,6 +71,8 @@ Private pnpm workspace with all packages under `packages/`: `browser-automation`
 
 Client features and widgets split React/CSS/view tests into `ui/` and Reatom/domain/storage logic into `model/`. Package tests are colocated as `*.test.ts` or `*.test.tsx`. Use path aliases for absolute imports: `@/*` aliases only to `packages/client/src`, `@shared/*` to the shared package; shared widget code is imported through the `widget-runtime` / `widget-sdk` workspace package names, never through `packages/client/src`.
 
+`packages/widgets/*/domain/` is dependency-free code shared by the widget's `model/` and its `server.ts`, and an `.oxlintrc.json` override enforces that: domain files may import only `zod`, `@shared/*`, `./` siblings and JS/Temporal globals, because the same files are bundled into the server image, which installs nothing but `packages/server`'s production dependencies.
+
 The widget directory basename is the canonical widget ID. Each root `client.ts` exports the client definition and lazy loader without an `id`; each root `server.ts` exports schemas and handlers without a `typeId`; an optional root `browser.ts` default-exports the browser definition without a `widgetId`. Codegen injects the directory basename in each case.
 
 ## Commands
@@ -125,7 +127,7 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 - Vitest path filters for client tests are relative to `packages/client`, not the repository root. Use `pnpm --filter client test -- src/board/model/board-storage.test.ts`, not `packages/client/src/...`.
 - If `pnpm --filter client test -- <file>` hangs or hides useful output, run the client Vitest entrypoint directly from `packages/client` with the Visual Studio Node 20 binary:
   `& 'C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Microsoft\VisualStudio\NodeJs\node.exe' .\node_modules\vitest\vitest.mjs run src/board/model/board-storage.test.ts --reporter verbose`
-- Avoid switching targeted unit tests to `--pool vmThreads` as a first response: this repo's Vitest config passes `--harmony-temporal`, which can be invalid for worker threads in this environment.
+- The workspace requires Node 26 (`engines.node: ">=26"`), where `Temporal` is an unflagged global. No Vitest config passes `--harmony-temporal` any more, so a missing `Temporal` means the wrong Node is on PATH, not a missing flag.
 - If a model-only test fails during jsdom worker startup with `ERR_REQUIRE_ESM` from `html-encoding-sniffer` / `@exodus/bytes`, prefer `// @vitest-environment node` for that test file. If importing storage code creates Dexie, add `import 'fake-indexeddb/auto'` before importing the model.
 - For Reatom model tests that call `context.reset()`, module-level `effect(...)` subscriptions are aborted. Export the effect when it is part of the behavior under test, subscribe in `beforeEach`, and unsubscribe in `afterEach`.
 - Reatom effects run through Reatom queues. When asserting effect-driven changes, use `vi.waitFor(...)` or `schedule(() => undefined)` from `@reatom/core` to flush the queue before the assertion.
@@ -139,6 +141,13 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 - **`packages/widgets/<widget-name>`**: one pnpm package per widget, split into `model/` and `ui/`, exposing only `./ui` as a federation remote and providing a standalone `dev/` harness. Adding a widget package and running codegen updates the client catalog, server registry, and stable port map without editing a hand-written registry.
 - **`packages/client/src/widget-host`**: mounts first-party widget components in the board React tree and provides frame/error-boundary/fullscreen behavior.
 - **`widget-runtime` / `widget-sdk`**: shared runtime contracts/connections and stateless React/UI helpers respectively. React, React DOM, Reatom, and `widget-runtime` are strict federation singletons.
+
+Widgets that write shared state do it from their own `server.ts` rather than through
+`/api/storage/:key/append`: the widget dispatch route resolves the session cookie into
+`WidgetServerContext.viewer`, so the record's author is stamped by the server and cannot be forged.
+`WidgetRuntimeProps.identity` gives the client side the same roster (`GET /api/auth/accounts`) for
+display — records store an `accountId` plus a frozen name, and display resolves through the
+directory so renames and avatars reach old records.
 
 ### Storage system (offline-first + sync)
 

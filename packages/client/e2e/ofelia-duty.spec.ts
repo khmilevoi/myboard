@@ -115,3 +115,16 @@ test('persistence — a confirmed day survives a reload', async ({ page }) => {
   await expect(ofelia.dutyName).toBeVisible()
   await expect(ofelia.confirmedPlaque).toBeVisible()
 })
+
+test('a confirmed day is written through the widget server event', async ({ page }) => {
+  const ofelia = new OfeliaPage(page)
+  await ofelia.seedOfeliaWidget()
+
+  const request = page.waitForRequest((candidate) =>
+    candidate.url().includes('/api/widgets/ofelia-poop-duty/clean'),
+  )
+  await ofelia.confirmButton.click()
+  await request
+
+  await expect(ofelia.confirmedPlaque).toBeVisible()
+})
