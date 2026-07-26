@@ -3,21 +3,18 @@ import type { AtomLike } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import { withStorageKeyReadonly, type WidgetIdentity, type WidgetStorage } from 'widget-runtime'
 
+import { resolveEntryAuthor, type EntryAuthor } from '@/domain/author'
 import { commentsKey, CommentsSchema } from '@/domain/comments'
 import type { Comment } from '@/domain/comments'
 import type { OfeliaEvents } from '@/domain/events'
 import { weekStartISO } from '@/domain/roster'
-import type { Person } from '@/domain/roster'
-
-import { formatDateShort } from '../ui/format'
 
 export type CommentView = {
   id: string
-  /** LEGACY pre-account signature; absent on account-authored comments. */
-  author?: Person
-  authorName: string
-  date: string
   text: string
+  author: EntryAuthor
+  createdAt: number
+  isViewerComment: boolean
 }
 
 export interface OfeliaCommentsModelProps {
@@ -28,7 +25,12 @@ export interface OfeliaCommentsModelProps {
   identity: WidgetIdentity
 }
 
-export const ofeliaCommentsModel = ({ storage, viewWeekStart, api }: OfeliaCommentsModelProps) => {
+export const ofeliaCommentsModel = ({
+  storage,
+  viewWeekStart,
+  api,
+  identity,
+}: OfeliaCommentsModelProps) => {
   const comments = atom<Comment[]>([], 'ofeliaComments.comments').extend(
     withStorageKeyReadonly({
       api: storage.shared.server,
@@ -41,20 +43,26 @@ export const ofeliaCommentsModel = ({ storage, viewWeekStart, api }: OfeliaComme
     }),
   )
 
-  const commentThread = computed<CommentView[]>(
-    () =>
-      comments()
-        .slice()
-        .sort((a, b) => a.ts - b.ts)
-        .map((comment) => ({
+  const commentThread = computed<CommentView[]>(() => {
+    const members = identity.members()
+    const viewerAccountId = identity.viewer()?.accountId ?? null
+
+    return comments()
+      .toSorted((left, right) => left.ts - right.ts)
+      .map((comment) => {
+        const author = resolveEntryAuthor(comment.createdBy, comment.author, members)
+        return {
           id: comment.id,
-          ...(comment.author ? { author: comment.author } : {}),
-          authorName: comment.createdBy?.name ?? comment.author ?? '',
-          date: formatDateShort(comment.ts),
           text: comment.text,
-        })),
-    'ofeliaComments.commentThread',
-  )
+          author,
+          createdAt: comment.ts,
+          isViewerComment:
+            author.kind === 'account' &&
+            viewerAccountId !== null &&
+            author.accountId === viewerAccountId,
+        }
+      })
+  }, 'ofeliaComments.commentThread')
 
   // The server trims and stamps the authoring account; the empty-text check
   // here only avoids a pointless round trip. Both reactive reads happen before

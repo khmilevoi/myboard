@@ -6,11 +6,16 @@ import type { CommentView } from '@/model/ofelia-comments'
 
 import { CommentThread } from './CommentThread'
 
+// TODO(task 14): the fixture still hand-builds `createdAt` timestamps whose
+// `formatDateShort` output matches the old literal `date` strings; Task 14's
+// rewrite can pick a clearer fixture shape.
+const dateAt = (day: number) => new Date(2026, 5, day, 12, 0, 0).getTime()
+
 const view = (overrides: Partial<CommentView> = {}): CommentView => ({
   id: 'c1',
-  author: 'Карина',
-  authorName: 'Карина',
-  date: '10 июн',
+  author: { kind: 'person', person: 'Карина' },
+  createdAt: dateAt(10),
+  isViewerComment: false,
   text: 'Привет',
   ...overrides,
 })
@@ -22,12 +27,16 @@ describe('CommentThread', () => {
         comments={[
           view({
             id: 'c1',
-            author: 'Карина',
-            authorName: 'Карина',
-            date: '10 июн',
+            author: { kind: 'person', person: 'Карина' },
+            createdAt: dateAt(10),
             text: 'Первый',
           }),
-          view({ id: 'c2', author: 'Леша', authorName: 'Леша', date: '11 июн', text: 'Второй' }),
+          view({
+            id: 'c2',
+            author: { kind: 'person', person: 'Леша' },
+            createdAt: dateAt(11),
+            text: 'Второй',
+          }),
         ]}
         onSend={vi.fn()}
       />,

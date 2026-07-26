@@ -2,8 +2,10 @@ import { Send } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
+import type { EntryAuthor } from '@/domain/author'
 import type { CommentView } from '@/model/ofelia-comments'
 
+import { formatDateShort } from '../format'
 import { Avatar } from './Avatar'
 
 import styles from './CommentThread.module.css'
@@ -11,6 +13,15 @@ import styles from './CommentThread.module.css'
 export type CommentThreadProps = {
   comments: CommentView[]
   onSend: (text: string) => Promise<void>
+}
+
+// TODO(task 14): CommentThread is rewritten to render EntryAuthor (including
+// account avatars) properly; this is a minimal shim so the component keeps
+// compiling after CommentView.author became EntryAuthor.
+function authorDisplayName(author: EntryAuthor): string {
+  if (author.kind === 'account') return author.name
+  if (author.kind === 'person') return author.person
+  return 'Неизвестно'
 }
 
 export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend }) => {
@@ -36,11 +47,13 @@ export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend 
         <ul ref={listRef} className={styles.list}>
           {[...comments].reverse().map((comment) => (
             <li key={comment.id} className={styles.item}>
-              {comment.author ? <Avatar person={comment.author} px={22} /> : null}
+              {comment.author.kind === 'person' ? (
+                <Avatar person={comment.author.person} px={22} />
+              ) : null}
               <div className={styles.body}>
                 <div className={styles.meta}>
-                  <span className={styles.author}>{comment.authorName}</span>
-                  <span className={styles.date}>{comment.date}</span>
+                  <span className={styles.author}>{authorDisplayName(comment.author)}</span>
+                  <span className={styles.date}>{formatDateShort(comment.createdAt)}</span>
                 </div>
                 <div className={styles.text}>{comment.text}</div>
               </div>

@@ -11,9 +11,7 @@ import { commentsKey } from '@/domain/comments'
 import type { Comment } from '@/domain/comments'
 import { weekStartISO } from '@/domain/roster'
 
-import { formatDateShort } from '../ui/format'
 import { ofeliaCommentsModel } from './ofelia-comments'
-import type { CommentView } from './ofelia-comments'
 
 function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
   const api: StorageApi = {
@@ -190,54 +188,46 @@ describe('ofeliaCommentsModel.comments', () => {
 })
 
 describe('ofeliaCommentsModel.commentThread', () => {
-  it('orders comments oldest-first and exposes only view fields', () => {
-    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
-
-    model.comments.set([
-      cm({ id: 'b', ts: 3, author: 'Карина', text: 'third' }),
-      cm({ id: 'a', ts: 1, author: 'Леша', text: 'first' }),
-      cm({ id: 'c', ts: 2, author: 'Леша', text: 'second' }),
-    ])
-
-    const thread = model.commentThread()
-
-    expect(thread.map((entry) => entry.id)).toEqual(['a', 'c', 'b'])
-
-    const first: CommentView | undefined = thread[0]
-    expect(first).toEqual({
-      id: 'a',
-      author: 'Леша',
-      authorName: 'Леша',
-      date: formatDateShort(1),
-      text: 'first',
+  it('resolves the author and marks the viewer', async () => {
+    const { storage, emit } = createCommentsStorage()
+    const model = ofeliaCommentsModel({
+      storage,
+      viewWeekStart: atom(D('2026-06-15'), 'test.viewWeekStart'),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity({
+        members: [{ accountId: 'a1', name: 'Карина' }],
+        viewerAccountId: 'a1',
+      }),
     })
-    expect(first).not.toHaveProperty('ts')
-  })
 
-  it('maps authorName and date from raw comments', () => {
-    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
-
-    const ts = new Date(2026, 5, 10, 12, 0, 0).getTime()
-
-    model.comments.set([cm({ id: 'c1', ts, author: 'Карина', text: 'hi' })])
-
-    const [entry] = model.commentThread()
-
-    expect(entry?.authorName).toBe('Карина')
-    expect(entry?.date).toBe('10 июн')
-  })
-
-  it('prefers the authoring account name over the legacy signature', () => {
-    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
-
-    model.comments.set([
-      cm({ id: 'c1', author: undefined, createdBy: { accountId: 'acc-1', name: 'Карина' } }),
+    const off = model.commentThread.subscribe(() => {})
+    // The storage connect hook registers via Reatom's effect queue, which
+    // flushes on the next microtask (see `_enqueue` in @reatom/core) rather
+    // than synchronously inside `.subscribe()`. Without this tick, `emit`
+    // would fire before any listener is registered and the value would be
+    // lost for good (`emit` does not replay to late subscribers).
+    await Promise.resolve()
+    emit('comments:2026-06-15', [
+      { id: 'c1', ts: 2, text: 'мой', createdBy: { accountId: 'a1', name: 'старое' } },
+      { id: 'c2', ts: 1, text: 'старый', author: 'Леша' },
     ])
 
-    const [entry] = model.commentThread()
+    await vi.waitFor(() => {
+      expect(wrap(() => model.commentThread().length)()).toBe(2)
+    })
 
-    expect(entry?.authorName).toBe('Карина')
-    expect(entry).not.toHaveProperty('author')
+    const [first, second] = wrap(() => model.commentThread())()
+    expect(first).toMatchObject({
+      id: 'c2',
+      author: { kind: 'person', person: 'Леша' },
+      isViewerComment: false,
+    })
+    expect(second).toMatchObject({
+      id: 'c1',
+      author: { kind: 'account', name: 'Карина' },
+      isViewerComment: true,
+    })
+    off()
   })
 })
 
