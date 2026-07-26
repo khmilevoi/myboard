@@ -11,8 +11,9 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # node:26-bookworm-slim no longer bundles corepack (removed from Node core);
-# install it explicitly before enabling it.
-RUN npm install -g corepack@latest \
+# install it explicitly before enabling it. Pinned: there is no CI, so a
+# breaking corepack release would only surface as a failed manual deploy.
+RUN npm install -g corepack@0.35.0 \
     && corepack enable \
     && apt-get update \
     && apt-get install -y --no-install-recommends fonts-liberation procps \

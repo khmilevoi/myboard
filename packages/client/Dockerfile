@@ -13,8 +13,9 @@ RUN find /widgets -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
 FROM node:26-alpine AS build
 WORKDIR /app
 # node:26-alpine no longer bundles corepack (removed from Node core); install
-# it explicitly before enabling it.
-RUN npm install -g corepack@latest && corepack enable
+# it explicitly before enabling it. Pinned: there is no CI, so a breaking
+# corepack release would only surface as a failed manual deploy.
+RUN npm install -g corepack@0.35.0 && corepack enable
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches ./patches
