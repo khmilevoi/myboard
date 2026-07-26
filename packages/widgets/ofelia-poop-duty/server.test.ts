@@ -1,6 +1,6 @@
+import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import type { WidgetServerContext, WidgetServerStorage } from '@shared/widgets/contracts'
 
 import { LEDGER_KEY } from './domain/ledger'
 import ofeliaServer from './server'
@@ -32,7 +32,11 @@ function makeContext(stored: unknown = null, viewer = KARINA) {
   return { context, append }
 }
 
-const run = (event: keyof typeof ofeliaServer.handlers, payload: unknown, context: WidgetServerContext) =>
+const run = (
+  event: keyof typeof ofeliaServer.handlers,
+  payload: unknown,
+  context: WidgetServerContext,
+) =>
   ofeliaServer.handlers[event](ofeliaServer.schemas[event].payload.parse(payload) as never, context)
 
 describe('ofelia server', () => {
@@ -41,7 +45,10 @@ describe('ofelia server', () => {
 
     expect(await run('clean', { date: '2026-06-16' }, context)).toEqual({ ok: true })
     expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
-      date: '2026-06-16', type: 'cleaned', actor: 'Леша', createdBy: KARINA,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: KARINA,
     })
   })
 
@@ -86,7 +93,10 @@ describe('ofelia server', () => {
 
     expect(await ofeliaServer.handlers.clean(forgedPayload, context)).toEqual({ ok: true })
     expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
-      date: '2026-06-16', type: 'cleaned', actor: 'Леша', createdBy: KARINA,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: KARINA,
     })
   })
 
@@ -95,7 +105,11 @@ describe('ofelia server', () => {
 
     expect(await run('debt', { date: '2026-06-16' }, context)).toEqual({ ok: true })
     expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
-      date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша', createdBy: KARINA,
+      date: '2026-06-16',
+      type: 'went_into_debt',
+      actor: 'Карина',
+      onBehalfOf: 'Леша',
+      createdBy: KARINA,
     })
   })
 
@@ -119,7 +133,8 @@ describe('ofelia server', () => {
     await run('comment', { weekStart: '2026-06-15', text: '  привет ' }, context)
 
     expect(append).toHaveBeenCalledWith('comments:2026-06-15', {
-      text: 'привет', createdBy: KARINA,
+      text: 'привет',
+      createdBy: KARINA,
     })
   })
 
