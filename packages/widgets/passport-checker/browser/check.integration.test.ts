@@ -6,15 +6,12 @@ import os from 'node:os'
 import path from 'node:path'
 
 import type { BrowserTaskContext, WidgetSecrets } from 'browser-automation/task-context'
+import { makeDetectUserInput, UserInputRequiredError } from 'browser-automation/user-input'
 import { chromium, type BrowserContext } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { makePassportCheckerBrowser } from '../browser'
-import {
-  BrowserSessionRequiredError,
-  InvalidCheckerResponseError,
-  UpstreamResponseError,
-} from './errors'
+import { InvalidCheckerResponseError, UpstreamResponseError } from './errors'
 
 const run = process.env.BROWSER_IT === '1'
 const fakeSeries = 'АБ'
@@ -118,17 +115,20 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     const browserRequests: string[] = []
     page.on('request', (request) => browserRequests.push(request.url()))
     const evaluateSpy = vi.spyOn(page, 'evaluate')
-    const retainPageForRecovery = vi.fn()
+    const retain = vi.fn()
     const definition = makePassportCheckerBrowser({ checkerUrl, recoverySshTarget: null })
     const context: BrowserTaskContext = {
       page,
       secrets: fixtureSecrets(),
-      retainPageForRecovery,
-      detectUserInput: async () => null,
+      // Unused by this handler now that escalation flows through
+      // detectUserInput below; kept only to satisfy BrowserTaskContext, which
+      // other executors (e.g. the real Chromium one) still rely on directly.
+      retainPageForRecovery: () => undefined,
+      detectUserInput: makeDetectUserInput({ page, recoverySshTarget: null, retain }),
     }
     const result = await definition.handlers.check({}, context)
-    if (!retainPageForRecovery.mock.calls.length) await page.close()
-    return { browserRequests, evaluateSpy, page, result, retainPageForRecovery }
+    if (!retain.mock.calls.length) await page.close()
+    return { browserRequests, evaluateSpy, page, result, retain }
   }
 
   it('submits exact browser-generated multipart fields and returns validated data', async () => {
@@ -152,10 +152,10 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
 
   it('retains a visible navigation challenge without POST', async () => {
     mode = 'navigation-challenge'
-    const { page, result, retainPageForRecovery } = await runCheck()
+    const { page, result, retain } = await runCheck()
 
-    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
-    expect(retainPageForRecovery).toHaveBeenCalledOnce()
+    expect(result).toBeInstanceOf(UserInputRequiredError)
+    expect(retain).toHaveBeenCalledOnce()
     expect(await page.title()).toContain('Just a moment')
     expect(requests).toEqual([{ method: 'GET', url: '/solutions/checker' }])
     await page.close()
@@ -163,10 +163,10 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
 
   it('maps a POST challenge and prepares recovery without repeating POST', async () => {
     mode = 'post-challenge'
-    const { page, result, retainPageForRecovery } = await runCheck()
+    const { page, result, retain } = await runCheck()
 
-    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
-    expect(retainPageForRecovery).toHaveBeenCalledOnce()
+    expect(result).toBeInstanceOf(UserInputRequiredError)
+    expect(retain).toHaveBeenCalledOnce()
     expect(requests).toEqual([
       { method: 'GET', url: '/solutions/checker' },
       { method: 'POST', url: '/solutions/checker' },
@@ -197,10 +197,10 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     mode = 'recovery-navigation-failure'
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 
-    const { evaluateSpy, page, result, retainPageForRecovery } = await runCheck()
+    const { evaluateSpy, page, result, retain } = await runCheck()
 
-    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
-    expect(retainPageForRecovery).toHaveBeenCalledOnce()
+    expect(result).toBeInstanceOf(UserInputRequiredError)
+    expect(retain).toHaveBeenCalledOnce()
     expect(warn).toHaveBeenCalledOnce()
     expect(JSON.stringify(warn.mock.calls)).not.toContain(fakeSeries)
     expect(JSON.stringify(warn.mock.calls)).not.toContain(fakeNumber)

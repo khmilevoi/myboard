@@ -24,7 +24,6 @@ export type ViewState =
 export const RETRYABLE_MESSAGES: Record<string, string> = {
   browser_unavailable: 'Сервис автоматизации недоступен',
   automation_timeout: 'Проверка не уложилась в отведённое время',
-  user_input_probe: 'Не удалось проверить состояние браузера',
   upstream_response: 'Сервис проверки временно недоступен',
   invalid_checker_response: 'Сервис проверки вернул неожиданный ответ',
   automation_protocol: 'Внутренняя ошибка автоматизации',

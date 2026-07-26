@@ -1,5 +1,6 @@
 // @vitest-environment node
 import type { BrowserTaskContext, WidgetSecrets } from 'browser-automation/task-context'
+import { UserInputProbeError, UserInputRequiredError } from 'browser-automation/user-input'
 import type { ChallengeEvidence } from 'browser-automation/user-input/cloudflare'
 import type { Page, Response } from 'playwright'
 import { describe, expect, it, vi } from 'vitest'
@@ -7,7 +8,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { makePassportCheckHandler, readPassportIdentity } from './check'
 import {
   BrowserConfigurationError,
-  BrowserSessionRequiredError,
   InvalidCheckerResponseError,
   UpstreamResponseError,
 } from './errors'
@@ -77,26 +77,33 @@ type PageScenario = {
   navigationError?: Error
   submissionError?: Error
   navigationStatus?: number
-  navigationHeaders?: Record<string, string>
-  evidence?: Partial<ChallengeEvidence>
   submit?: SubmitScenario
+  /** Consumed in call order by context.detectUserInput. */
+  escalations?: Array<UserInputProbeError | UserInputRequiredError | null>
 }
 
 const defaultSubmitBody = { kind: 'json', data: { status: 1, send_status_msg: 'ok' } } as const
 
 function makeContext(scenario: PageScenario) {
-  const retainPageForRecovery = vi.fn()
+  const escalations = [...(scenario.escalations ?? [])]
+  // Typed from the context member, not inferred: the tests below read
+  // detectUserInput.mock.calls[n][1] to assert which options the handler passed,
+  // and an inferred zero-argument mock would type those calls as empty tuples.
+  const detectUserInput = vi.fn<BrowserTaskContext['detectUserInput']>(
+    async () => escalations.shift() ?? null,
+  )
   const goto = vi.fn(async () => {
     if (scenario.navigationError) throw scenario.navigationError
     const status = scenario.navigationStatus ?? 200
     return {
       status: () => status,
       ok: () => status >= 200 && status < 400,
-      allHeaders: async () => scenario.navigationHeaders ?? {},
+      allHeaders: async () => ({}),
     } as unknown as Response
   })
-  const evaluate = vi.fn(async (_fn: unknown, arg?: unknown) => {
-    if (arg === undefined) return { ...baseEvidence, ...scenario.evidence }
+  // The navigation evidence probe now lives behind detectUserInput, so the only
+  // page.evaluate this handler still makes is the passport submission.
+  const evaluate = vi.fn(async (_fn: unknown) => {
     if (scenario.submissionError) throw scenario.submissionError
 
     const submit: SubmitScenario = scenario.submit ?? {
@@ -115,43 +122,79 @@ function makeContext(scenario: PageScenario) {
   const context: BrowserTaskContext = {
     page: { goto, evaluate } as unknown as Page,
     secrets: secrets('АБ', '123456'),
-    retainPageForRecovery,
-    detectUserInput: async () => null,
+    retainPageForRecovery: () => undefined,
+    detectUserInput,
   }
-  return { context, evaluate, goto, retainPageForRecovery }
+  return { context, evaluate, goto, detectUserInput }
+}
+
+const handlerOptions = {
+  checkerUrl: 'http://fixture.local/solutions/checker',
+  recoverySshTarget: null,
 }
 
 describe('passport check handler', () => {
   it('returns only the validated checker result after one submission', async () => {
-    const { context, evaluate, retainPageForRecovery } = makeContext({
+    const { context, evaluate, detectUserInput } = makeContext({
       submit: {
         kind: 'response',
         ok: true,
         body: { kind: 'json', data: { status: 2, send_status_msg: 'valid', ignored: true } },
       },
     })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: null,
-    })({}, context)
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
 
     expect(result).toEqual({ status: 2, send_status_msg: 'valid' })
-    expect(evaluate).toHaveBeenCalledTimes(2)
-    expect(retainPageForRecovery).not.toHaveBeenCalled()
+    expect(evaluate).toHaveBeenCalledTimes(1)
+    expect(detectUserInput).toHaveBeenCalledTimes(2)
   })
 
-  it('retains a navigation challenge without submitting', async () => {
-    const { context, evaluate, retainPageForRecovery } = makeContext({
-      evidence: { hasChallengeForm: true },
-    })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: 'pi@myboard.local',
-    })({}, context)
+  it('returns the navigation escalation without submitting', async () => {
+    const escalation = new UserInputRequiredError({ sshTarget: 'pi@myboard.local' })
+    const { context, evaluate } = makeContext({ escalations: [escalation] })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
 
-    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
-    expect(retainPageForRecovery).toHaveBeenCalledOnce()
+    expect(result).toBe(escalation)
+    expect(evaluate).not.toHaveBeenCalled()
+  })
+
+  it('returns a navigation probe failure without submitting', async () => {
+    const probeFailure = new UserInputProbeError({ cause: new Error('evaluate failed') })
+    const { context, evaluate } = makeContext({ escalations: [probeFailure] })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
+
+    expect(result).toBe(probeFailure)
+    expect(evaluate).not.toHaveBeenCalled()
+  })
+
+  it('returns the submission escalation and never re-submits', async () => {
+    const escalation = new UserInputRequiredError({ sshTarget: 'pi@myboard.local' })
+    const { context, evaluate } = makeContext({
+      escalations: [null, escalation],
+      submit: { kind: 'response', ok: false, evidence: { hasChallengeForm: true } },
+    })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
+
+    expect(result).toBe(escalation)
     expect(evaluate).toHaveBeenCalledTimes(1)
+  })
+
+  // The POST goes through fetch, so the DOM is still the ordinary checker form:
+  // without a fresh navigation the human staring at noVNC has no challenge to
+  // solve. The prepare hook is how the retained page gets one.
+  it('asks for a page reload only on the submission check', async () => {
+    const { context, detectUserInput } = makeContext({})
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    expect(detectUserInput.mock.calls[0]?.[1]).toBeUndefined()
+    const submissionOptions = detectUserInput.mock.calls[1]?.[1]
+    expect(typeof submissionOptions?.prepare).toBe('function')
+
+    const goto = vi.fn(async () => null)
+    await submissionOptions?.prepare?.({ goto } as unknown as Page)
+    expect(goto).toHaveBeenCalledWith('http://fixture.local/solutions/checker', {
+      waitUntil: 'domcontentloaded',
+    })
   })
 
   it.each([
@@ -162,45 +205,18 @@ describe('passport check handler', () => {
     ],
     [{ kind: 'network_error' } as const, UpstreamResponseError],
   ])('maps safe submission outcomes to domain errors', async (submit, ErrorType) => {
-    const { context, retainPageForRecovery } = makeContext({ submit })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: null,
-    })({}, context)
+    const { context } = makeContext({ submit })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
     expect(result).toBeInstanceOf(ErrorType)
-    expect(retainPageForRecovery).not.toHaveBeenCalled()
   })
 
   it.each([
     ['navigation', { navigationError: new Error('navigation failed') }],
     ['submission', { submissionError: new Error('submission failed') }],
   ] as const)('wraps a Playwright %s rejection as an upstream error', async (_phase, scenario) => {
-    const { context, retainPageForRecovery } = makeContext(scenario)
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: null,
-    })({}, context)
+    const { context } = makeContext(scenario)
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
     expect(result).toBeInstanceOf(UpstreamResponseError)
-    expect(retainPageForRecovery).not.toHaveBeenCalled()
-  })
-
-  it('classifies a POST challenge with the shared classifier, retains the page, and never re-submits', async () => {
-    const { context, evaluate, goto, retainPageForRecovery } = makeContext({
-      submit: {
-        kind: 'response',
-        ok: false,
-        evidence: { hasChallengeForm: true },
-      },
-    })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: 'pi@myboard.local',
-    })({}, context)
-
-    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
-    expect(retainPageForRecovery).toHaveBeenCalledOnce()
-    expect(goto).toHaveBeenCalledTimes(2)
-    expect(evaluate).toHaveBeenCalledTimes(2)
   })
 
   it('rejects schema mismatches and responses that echo document identity', async () => {
@@ -211,10 +227,7 @@ describe('passport check handler', () => {
       const { context } = makeContext({
         submit: { kind: 'response', ok: true, body: { kind: 'json', data } },
       })
-      const result = await makePassportCheckHandler({
-        checkerUrl: 'http://fixture.local/solutions/checker',
-        recoverySshTarget: null,
-      })({}, context)
+      const result = await makePassportCheckHandler(handlerOptions)({}, context)
       expect(result).toBeInstanceOf(InvalidCheckerResponseError)
       expect(JSON.stringify(result)).not.toContain('123456')
     }

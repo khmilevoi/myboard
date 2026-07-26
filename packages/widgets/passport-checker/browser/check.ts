@@ -1,11 +1,11 @@
 import type { BrowserTaskContext, WidgetSecrets } from 'browser-automation/task-context'
 import {
   evidenceFromResponseText,
-  isCloudflareChallenge,
+  makeCloudflareEvidenceDetector,
+  makeCloudflarePageDetector,
   type ChallengeEvidence,
 } from 'browser-automation/user-input/cloudflare'
 import * as errore from 'errore'
-import type { Response } from 'playwright'
 
 import {
   passportCheckResultSchema,
@@ -14,21 +14,9 @@ import {
 } from '../types'
 import {
   BrowserConfigurationError,
-  BrowserSessionRequiredError,
   InvalidCheckerResponseError,
   UpstreamResponseError,
 } from './errors'
-
-// These callbacks are serialized into Chromium by page.evaluate, so the browser
-// globals exist at runtime. Declaring them module-locally keeps the DOM lib out of
-// the Node-only browser-automation tsconfig, which compiles this file through the
-// generated task registry (see packages/browser-automation/src/diagnostics.ts).
-declare const window: { location: { href: string } }
-declare const document: {
-  title: string
-  documentElement: { innerHTML: string }
-  querySelector(selectors: string): unknown
-}
 
 const ukrainianPassportSeries = /^[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ]{2}$/u
 const passportNumber = /^[0-9]{6}$/
@@ -68,35 +56,6 @@ export type PassportCheckHandlerOptions = {
   recoverySshTarget: string | null
 }
 
-async function collectNavigationEvidence(context: BrowserTaskContext, response: Response | null) {
-  const pageEvidence = await context.page
-    .evaluate(() => ({
-      url: window.location.href,
-      title: document.title,
-      hasChallengeForm:
-        document.querySelector('#challenge-form, form[action*="challenge"]') !== null,
-      hasChallengePlatform:
-        document.querySelector('script[src*="/cdn-cgi/challenge-platform/"]') !== null,
-      hasChallengeContent: /cf-chl-|challenge-platform/i.test(document.documentElement.innerHTML),
-    }))
-    .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
-  if (pageEvidence instanceof Error) return pageEvidence
-
-  const headers = response
-    ? await response
-        .allHeaders()
-        .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
-    : {}
-  if (headers instanceof Error) return headers
-
-  return {
-    ...pageEvidence,
-    status: response?.status() ?? null,
-    server: headers.server ?? null,
-    cfRay: headers['cf-ray'] ?? null,
-  } satisfies ChallengeEvidence
-}
-
 function containsIdentity(result: PassportCheckResult, identity: PassportIdentity) {
   return (
     result.send_status_msg.includes(identity.series) ||
@@ -106,8 +65,8 @@ function containsIdentity(result: PassportCheckResult, identity: PassportIdentit
 
 // Playwright serializes a page.evaluate callback by source text alone — it
 // cannot close over a Node-side import (see the docstring on
-// evidenceFromResponseText in browser/challenge.ts). Passing the composed
-// source as a *string* pageFunction does not work either: verified
+// evidenceFromResponseText in browser-automation/user-input/cloudflare.ts).
+// Passing the composed source as a *string* pageFunction does not work either: verified
 // empirically against this Playwright version, a string pageFunction is only
 // ever evaluated as a bare expression and the `arg` is never applied to it, so
 // a function-typed completion value structured-clones to `undefined` instead
@@ -171,13 +130,11 @@ export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
       .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
     if (navigation instanceof Error) return navigation
 
-    const evidence = await collectNavigationEvidence(context, navigation)
-    if (evidence instanceof Error) return evidence
+    const navigationEscalation = await context.detectUserInput(
+      makeCloudflarePageDetector(navigation),
+    )
+    if (navigationEscalation instanceof Error) return navigationEscalation
 
-    if (isCloudflareChallenge(evidence)) {
-      context.retainPageForRecovery()
-      return new BrowserSessionRequiredError({ sshTarget: options.recoverySshTarget })
-    }
     if (navigation && !navigation.ok()) {
       return new UpstreamResponseError({ phase: 'navigation', status: navigation.status() })
     }
@@ -187,15 +144,18 @@ export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
     if (outcome.kind === 'network_error') {
       return new UpstreamResponseError({ phase: 'submission' })
     }
-    if (isCloudflareChallenge(outcome.evidence)) {
-      const prepared = await context.page
-        .goto(options.checkerUrl, { waitUntil: 'domcontentloaded' })
-        .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
-      if (prepared instanceof Error)
-        console.warn('Failed to prepare passport recovery page', prepared)
-      context.retainPageForRecovery()
-      return new BrowserSessionRequiredError({ sshTarget: options.recoverySshTarget })
-    }
+
+    // The POST went through fetch, so the page still shows the ordinary checker
+    // form and a human in the noVNC stream would have nothing to solve. The
+    // prepare hook re-navigates so the retained page carries the real challenge;
+    // it runs only if the detector matched, and its failure does not cancel the
+    // escalation.
+    const submissionEscalation = await context.detectUserInput(
+      makeCloudflareEvidenceDetector(outcome.evidence),
+      { prepare: (page) => page.goto(options.checkerUrl, { waitUntil: 'domcontentloaded' }) },
+    )
+    if (submissionEscalation instanceof Error) return submissionEscalation
+
     if (!outcome.ok) {
       return new UpstreamResponseError({
         phase: 'submission',
