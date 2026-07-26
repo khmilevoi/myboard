@@ -1,8 +1,10 @@
 import { computed } from '@reatom/core'
 import type { AtomLike, Computed } from '@reatom/core'
 
-import { DUTY_ROTATION, isOverDebtWarning } from '../model/ofelia-duty'
-import type { DayResolution, Person } from '../model/ofelia-duty'
+import { isOverDebtWarning } from '../domain/debt'
+import type { DayResolution } from '../domain/ledger'
+import { DUTY_ROTATION } from '../domain/roster'
+import type { Person } from '../domain/roster'
 
 const WEEKDAY_LABELS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'] as const
 

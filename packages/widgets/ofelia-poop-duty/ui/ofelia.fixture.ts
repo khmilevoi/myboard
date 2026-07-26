@@ -1,7 +1,8 @@
 import { atom } from '@reatom/core'
 
+import type { Person } from '../domain/roster'
 import type { CommentView } from '../model/ofelia-comments'
-import type { HistoryEntryView, Person } from '../model/ofelia-duty'
+import type { HistoryEntryView } from '../model/ofelia-duty'
 import type { OfeliaContextValue } from './ofelia-context'
 import type {
   DebtBalanceEntry,

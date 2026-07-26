@@ -1,25 +1,14 @@
 import { action, atom, computed, withAsyncData, wrap } from '@reatom/core'
 import type { Atom, AtomLike } from '@reatom/core'
 import { withStorageKeyReadonly, type WidgetStorage } from 'widget-runtime'
-import z from 'zod'
+
+import { commentsKey, CommentsSchema } from '@/domain/comments'
+import type { Comment } from '@/domain/comments'
+import { weekStartISO } from '@/domain/roster'
+import type { Person } from '@/domain/roster'
 
 import { formatDateShort } from '../ui/format'
-import { DUTY_ROTATION, IP_TAIL_LENGTH, weekStartISO } from './ofelia-duty'
-import type { Person } from './ofelia-duty'
-
-const AuthorSchema = z.enum(DUTY_ROTATION)
-
-const CommentSchema = z.object({
-  id: z.string(),
-  ts: z.number(),
-  ip: z.string().optional(),
-  author: AuthorSchema,
-  text: z.string(),
-})
-
-const CommentsSchema = z.array(CommentSchema)
-
-export type Comment = z.infer<typeof CommentSchema>
+import { IP_TAIL_LENGTH } from './ofelia-duty'
 
 export type CommentDraft = Pick<Comment, 'author' | 'text'>
 
@@ -30,10 +19,6 @@ export type CommentView = {
   date: string
   ipTail: string
   text: string
-}
-
-export function commentsKey(date: Temporal.PlainDate): string {
-  return `comments:${weekStartISO(date)}`
 }
 
 export interface OfeliaCommentsModelProps {
@@ -52,7 +37,7 @@ export const ofeliaCommentsModel = ({
       api: storage.shared.server,
       key: computed(() => {
         const weekStart = viewWeekStart()
-        return weekStart ? commentsKey(weekStart) : null
+        return weekStart ? commentsKey(weekStartISO(weekStart)) : null
       }),
       fallback: [],
       schema: CommentsSchema,
@@ -83,7 +68,7 @@ export const ofeliaCommentsModel = ({
     if (trimmed.length === 0) return
 
     const result = await wrap(
-      storage.shared.server.append(commentsKey(week), {
+      storage.shared.server.append(commentsKey(weekStartISO(week)), {
         author: currentUser(),
         text: trimmed,
       } satisfies CommentDraft),

@@ -5,9 +5,9 @@ import { getServerTime, type WidgetTier, useWidgetContext } from 'widget-runtime
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 
+import type { Person } from '../domain/roster'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
-import type { Person } from '../model/ofelia-duty'
 import { ofeliaContext } from './ofelia-context'
 import type { OfeliaContextValue } from './ofelia-context'
 import { CompactTier } from './tiers/CompactTier'

@@ -2,11 +2,15 @@ import { atom, context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StorageApi, StorageListener, WidgetStorage } from 'widget-runtime'
 
+import { commentsKey } from '@/domain/comments'
+import type { Comment } from '@/domain/comments'
+import { weekStartISO } from '@/domain/roster'
+import type { Person } from '@/domain/roster'
+
 import { formatDateShort } from '../ui/format'
-import { commentsKey, ofeliaCommentsModel } from './ofelia-comments'
-import type { Comment, CommentView } from './ofelia-comments'
+import { ofeliaCommentsModel } from './ofelia-comments'
+import type { CommentView } from './ofelia-comments'
 import { IP_TAIL_LENGTH } from './ofelia-duty'
-import type { Person } from './ofelia-duty'
 
 function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
   const api: StorageApi = {
@@ -76,9 +80,9 @@ afterEach(() => {
 
 describe('commentsKey', () => {
   it('keys by the Monday of the week', () => {
-    expect(commentsKey(D('2026-06-16'))).toBe('comments:2026-06-15')
-    expect(commentsKey(D('2026-06-21'))).toBe('comments:2026-06-15')
-    expect(commentsKey(D('2026-06-22'))).toBe('comments:2026-06-22')
+    expect(commentsKey(weekStartISO(D('2026-06-16')))).toBe('comments:2026-06-15')
+    expect(commentsKey(weekStartISO(D('2026-06-21')))).toBe('comments:2026-06-15')
+    expect(commentsKey(weekStartISO(D('2026-06-22')))).toBe('comments:2026-06-22')
   })
 })
 

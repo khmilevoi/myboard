@@ -3,17 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StorageApi, WidgetStorage } from 'widget-runtime'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
-import {
-  DEBT_WARNING_THRESHOLD,
-  effectiveDuty,
-  IP_TAIL_LENGTH,
-  isDebtDay,
-  isOverDebtWarning,
-  ofeliaDutyModel,
-  otherPerson,
-  weekStartISO,
-} from './ofelia-duty'
-import type { DayResolution } from './ofelia-duty'
+import { IP_TAIL_LENGTH, ofeliaDutyModel } from './ofelia-duty'
 
 // The ledger reactive flows (subscribe -> derived projections -> append actions)
 // are covered by the Playwright e2e suite. They are intentionally not unit-tested:
@@ -174,50 +164,6 @@ describe('ofeliaDutyModel.currentUser', () => {
 })
 
 describe('ofelia-duty selectors', () => {
-  it('otherPerson returns the partner', () => {
-    expect(otherPerson('Леша')).toBe('Карина')
-    expect(otherPerson('Карина')).toBe('Леша')
-  })
-
-  it('weekStartISO uses the Monday of the date week', () => {
-    expect(weekStartISO(D('2026-06-16'))).toBe('2026-06-15')
-  })
-
-  it('effectiveDuty / isDebtDay reflect projected debt days', () => {
-    const debts = { Леша: 0, Карина: 1 }
-    const today = D('2026-06-16')
-    expect(isDebtDay(D('2026-06-16'), debts, today)).toBe(true)
-    expect(effectiveDuty(D('2026-06-16'), debts, today)).toBe('Карина')
-    expect(isDebtDay(D('2026-06-17'), {}, today)).toBe(false)
-    expect(effectiveDuty(D('2026-06-17'), {}, today)).toBe('Карина')
-  })
-
-  it('effectiveDuty / isDebtDay skip already closed days when projecting debt', () => {
-    const debts = { Леша: 0, Карина: 1 }
-    const today = D('2026-06-16')
-    const resolution = new Map([
-      [
-        '2026-06-16',
-        {
-          status: 'closed',
-          type: 'went_into_debt',
-          actor: 'Леша',
-          onBehalfOf: 'Карина',
-        } satisfies DayResolution,
-      ],
-    ])
-
-    expect(isDebtDay(D('2026-06-16'), debts, today, resolution)).toBe(false)
-    expect(isDebtDay(D('2026-06-18'), debts, today, resolution)).toBe(true)
-    expect(effectiveDuty(D('2026-06-18'), debts, today, resolution)).toBe('Карина')
-  })
-
-  it('isOverDebtWarning fires strictly above the threshold', () => {
-    expect(DEBT_WARNING_THRESHOLD).toBe(7)
-    expect(isOverDebtWarning({ Леша: 7 }, 'Леша')).toBe(false)
-    expect(isOverDebtWarning({ Леша: 8 }, 'Леша')).toBe(true)
-  })
-
   it('IP_TAIL_LENGTH is 5', () => {
     expect(IP_TAIL_LENGTH).toBe(5)
   })

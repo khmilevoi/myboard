@@ -9,20 +9,22 @@ import {
 } from '@reatom/core'
 import { withStorageKeyReadonly } from 'widget-runtime'
 import type { ServerTime, WidgetStorage } from 'widget-runtime'
-import z from 'zod'
 
-export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
-export const BASE_DUTY_DATE = Temporal.PlainDate.from({
-  year: 2026,
-  month: 6,
-  day: 16,
-})
-export const DUTY_ROTATION = ['Леша', 'Карина'] as const
+import { foldDebt, getDebtDays } from '@/domain/debt'
+import type { DebtDay } from '@/domain/debt'
+import { LEDGER_KEY, LedgerEntriesSchema, resolveDays } from '@/domain/ledger'
+import type { DayResolution, LedgerEntry, LedgerEntryDraft, LedgerType } from '@/domain/ledger'
+import {
+  DUTY_ROTATION,
+  DUTY_TIME_ZONE,
+  getOfeliaDutyByDate,
+  getStartOfWeek,
+  otherPerson,
+  PersonSchema,
+  weekStartISO,
+} from '@/domain/roster'
+import type { Person } from '@/domain/roster'
 
-export type DutyPerson = (typeof DUTY_ROTATION)[number]
-export type Person = DutyPerson
-
-export const DEBT_WARNING_THRESHOLD = 7
 export const IP_TAIL_LENGTH = 5
 
 export type HistoryEntryView = {
@@ -38,109 +40,6 @@ export type HistoryEntryView = {
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage
   timer: ServerTime
-}
-
-// z.object with explicit keys (vs z.record) enables .partial(), which tolerates
-// legacy/partial storage records where some rotation keys may be absent.
-const NumberOfDebtsSchema = z
-  .object({
-    // Keep in sync with DUTY_ROTATION tuple.
-    Леша: z.int().nonnegative(),
-    Карина: z.int().nonnegative(),
-  })
-  .partial()
-const PersonSchema = z.enum(DUTY_ROTATION)
-type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>
-
-export const LEDGER_KEY = 'ledger'
-
-const LedgerTypeSchema = z.enum(['cleaned', 'went_into_debt', 'reset', 'forgiven'])
-export type LedgerType = z.infer<typeof LedgerTypeSchema>
-
-const LedgerEntrySchema = z.object({
-  id: z.string().describe('Уникальный идентификатор записи в append-only журнале'),
-  ts: z
-    .number()
-    .describe(
-      'Серверная метка времени создания записи для сортировки и выбора последнего решения дня',
-    ),
-  ip: z
-    .string()
-    .describe('IP автора записи, из которого в истории показывается только хвост для аудита'),
-  date: z.string().describe('ISO-дата дежурства, к которому относится действие'),
-  type: LedgerTypeSchema.describe(
-    'Тип действия: уборка, уход в долг, сброс решения или прощение долга',
-  ),
-  actor: PersonSchema.describe(
-    'Человек, который фактически убрал, ушел в долг или связан с изменением долга',
-  ),
-  onBehalfOf: PersonSchema.optional().describe(
-    'Человек, за которого выполнено действие или чей долг изменяется',
-  ),
-  by: PersonSchema.describe('Текущий пользователь, который создал запись в журнале'),
-})
-
-export type LedgerEntry = z.infer<typeof LedgerEntrySchema>
-export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts' | 'ip'>
-export const LedgerEntriesSchema = z.array(LedgerEntrySchema)
-
-const DAY_OUTCOME_TYPES: ReadonlySet<LedgerType> = new Set([
-  'cleaned',
-  'went_into_debt',
-  'reset',
-  'forgiven',
-])
-
-export function latestOutcomesByDate(entries: LedgerEntry[]): Map<string, LedgerEntry> {
-  const latest = new Map<string, LedgerEntry>()
-  for (const entry of entries) {
-    if (!DAY_OUTCOME_TYPES.has(entry.type)) continue
-    const prev = latest.get(entry.date)
-    if (!prev || entry.ts > prev.ts) latest.set(entry.date, entry)
-  }
-  return latest
-}
-
-export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
-  const debt: Partial<NumberOfDebts> = {}
-
-  for (const entry of latestOutcomesByDate(entries).values()) {
-    if (entry.type === 'went_into_debt' && entry.onBehalfOf) {
-      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) + 1
-    } else if (entry.type === 'cleaned' && entry.onBehalfOf) {
-      debt[entry.actor] = (debt[entry.actor] ?? 0) - 1
-    } else if (entry.type === 'forgiven' && entry.onBehalfOf) {
-      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) - 1
-    }
-  }
-
-  return normalizeDebts(debt)
-}
-
-export type DayResolution = {
-  status: 'closed' | 'pending'
-  type: LedgerType
-  actor: Person
-  onBehalfOf?: Person
-}
-
-export function resolveDays(entries: LedgerEntry[]): Map<string, DayResolution> {
-  const out = new Map<string, DayResolution>()
-  for (const [date, entry] of latestOutcomesByDate(entries)) {
-    out.set(date, {
-      status: entry.type === 'reset' ? 'pending' : 'closed',
-      type: entry.type,
-      actor: entry.actor,
-      ...(entry.onBehalfOf ? { onBehalfOf: entry.onBehalfOf } : {}),
-    })
-  }
-  return out
-}
-
-function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {
-  return date.subtract({
-    days: date.dayOfWeek - 1,
-  })
 }
 
 export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
@@ -379,100 +278,4 @@ export const ofeliaDutyModel = ({ storage, timer }: OfeliaDutyModelProps) => {
     forgive,
     undo,
   }
-}
-
-type DebtDay = {
-  date: Temporal.PlainDate
-  person: DutyPerson
-}
-
-function getDebtDays(
-  debts: Partial<NumberOfDebts>,
-  startDate: Temporal.PlainDate,
-  resolution: ReadonlyMap<string, DayResolution> = new Map(),
-): DebtDay[] {
-  if (DUTY_ROTATION.length < 2) {
-    return []
-  }
-
-  const days: DebtDay[] = []
-  let currentDate = startDate
-
-  for (const person of DUTY_ROTATION) {
-    let remainingDebt = debts[person] ?? 0
-
-    while (remainingDebt > 0) {
-      const plannedDuty = getOfeliaDutyByDate(currentDate)
-      const isClosed = resolution.get(currentDate.toString())?.status === 'closed'
-
-      if (plannedDuty !== person && !isClosed) {
-        days.push({
-          date: currentDate,
-          person,
-        })
-
-        remainingDebt -= 1
-      }
-
-      currentDate = currentDate.add({ days: 1 })
-    }
-  }
-
-  return days
-}
-
-export function normalizeDebts(debts: Partial<NumberOfDebts>): NumberOfDebts {
-  const values = DUTY_ROTATION.map((person) => debts[person] ?? 0)
-
-  const minDebt = Math.min(...values)
-
-  return DUTY_ROTATION.reduce<NumberOfDebts>(
-    (normalized, person) => ({
-      ...normalized,
-      [person]: (debts[person] ?? 0) - minDebt,
-    }),
-    {} as NumberOfDebts,
-  )
-}
-
-export function getOfeliaDutyByDate(date: Temporal.PlainDate): DutyPerson {
-  const diffDays = BASE_DUTY_DATE.until(date, { largestUnit: 'day' }).days
-  const rotationIndex = positiveModulo(diffDays, DUTY_ROTATION.length)
-
-  return DUTY_ROTATION[rotationIndex]
-}
-
-export function weekStartISO(date: Temporal.PlainDate): string {
-  return getStartOfWeek(date).toString()
-}
-
-export function otherPerson(person: Person): Person {
-  return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person
-}
-
-export function effectiveDuty(
-  date: Temporal.PlainDate,
-  debts: Partial<NumberOfDebts>,
-  today: Temporal.PlainDate,
-  resolution?: ReadonlyMap<string, DayResolution>,
-): Person {
-  const debtDay = getDebtDays(debts, today, resolution).find((day) => day.date.equals(date))
-  return debtDay?.person ?? getOfeliaDutyByDate(date)
-}
-
-export function isDebtDay(
-  date: Temporal.PlainDate,
-  debts: Partial<NumberOfDebts>,
-  today: Temporal.PlainDate,
-  resolution?: ReadonlyMap<string, DayResolution>,
-): boolean {
-  return getDebtDays(debts, today, resolution).some((day) => day.date.equals(date))
-}
-
-export function isOverDebtWarning(debts: Partial<NumberOfDebts>, person: Person): boolean {
-  return (debts[person] ?? 0) > DEBT_WARNING_THRESHOLD
-}
-
-function positiveModulo(value: number, divisor: number): number {
-  return ((value % divisor) + divisor) % divisor
 }

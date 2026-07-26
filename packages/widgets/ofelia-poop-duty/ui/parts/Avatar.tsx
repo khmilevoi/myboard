@@ -1,6 +1,6 @@
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import type { Person } from '@/model/ofelia-duty'
+import type { Person } from '@/domain/roster'
 
 import { personInitial, personTone } from '../person'
 

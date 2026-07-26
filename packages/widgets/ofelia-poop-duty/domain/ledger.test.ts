@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { foldDebt, resolveDays } from './ofelia-duty'
-import type { LedgerEntry } from './ofelia-duty'
+import { foldDebt } from './debt'
+import { resolveDays } from './ledger'
+import type { LedgerEntry } from './ledger'
 
 let seq = 0
 const le = (o: Partial<LedgerEntry> = {}): LedgerEntry => ({

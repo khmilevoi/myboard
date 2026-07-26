@@ -17,6 +17,28 @@
       }
     ]
   },
+  "overrides": [
+    {
+      "files": ["packages/widgets/*/domain/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(\\.\\./){2,}",
+                "message": "Deep relative imports are not allowed."
+              },
+              {
+                "regex": "^(@reatom/|react|react-dom|widget-runtime|widget-sdk|@/)",
+                "message": "Widget domain code is shared with the server bundle: it may only import zod, @shared/* and globals. No Reatom, React, widget runtime/SDK, and no '@/' alias (rspack externalizes it)."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "env": {
     "builtin": true,
     "browser": true,
