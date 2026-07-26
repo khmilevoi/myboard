@@ -5,7 +5,10 @@ import { BASE_WIDTH, MOBILE_BREAKPOINT, resolveGridMetrics } from './grid-metric
 
 describe('resolveGridMetrics', () => {
   it('reproduces the previous hardcoded metrics at the base width', () => {
-    // Regression barrier: existing 1080p boards must not shift by a pixel.
+    // Regression barrier: the formula at BASE_WIDTH must reproduce the previous
+    // hardcoded constants exactly. This pins the metrics, not on-screen geometry
+    // — a 1080p board now measures a 1865px container, so colWidth is 144.58
+    // where the old pinned-1280 bug produced 95.83.
     expect(resolveGridMetrics(BASE_WIDTH)).toEqual({
       isMobile: false,
       cols: 12,

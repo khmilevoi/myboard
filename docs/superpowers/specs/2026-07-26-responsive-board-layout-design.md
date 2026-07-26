@@ -128,11 +128,12 @@ the measured width deliberately no longer reproduces the old bug.
 
 Scaling the height also lets cards cross tier thresholds that a fixed `rowHeight` could never
 reach. `resolveTier` (`packages/widget-runtime/src/tier.ts:26`) requires both axes to clear a
-threshold, and `DEFAULT_TIERS.compact` needs `160` px of height. Accounting for the card's
-`padding: 20px`, a default `h:4` card measures roughly 110 px of frame height at 1920 — below
-`compact` — and roughly 260 px at 3840, which clears it. Exact tiers depend on each widget's `h`
-and on `tiers` overrides, but the direction is the point: on a large display widgets start
-rendering their richer layouts, which is what the tier system was built for.
+threshold, and `DEFAULT_TIERS.compact` needs `160` px of height. The measured element is the frame
+inside the card's 1 px border, so it is 2 px smaller than the grid item on each axis: a default
+`h:4` card measures 148 px of frame height at 1920 — below `compact` — and 298 px at 3840, which
+clears it. Exact tiers depend on each widget's `h` and on `tiers` overrides, but the direction is
+the point: on a large display widgets start rendering their richer layouts, which is what the tier
+system was built for.
 
 The lower clamp of `1` makes the zoom one-directional: the grid scales up on wide displays and
 never down. The clamp is therefore active across the entire band from `MOBILE_BREAKPOINT` to
@@ -142,7 +143,11 @@ not some narrow edge case — and everything in that band gets exactly the histo
 physically smaller than they have ever been and pushes widgets under their own tier thresholds: at
 `scale === 0.75` an `h: 6` card measures 172.5 px instead of 230 px, below `ofelia-poop-duty`'s own
 `minHeightPx: 200`, so it silently degrades to a poorer tier on a 1280/1366/1440 laptop. With the
-clamp at `1` no board shrinks and no widget loses a tier. Twelve columns are still cramped just
+clamp at `1` no *metric* shrinks — but that is not the same as no widget losing a tier, because
+column width still follows the measured container. On the same three laptops an ofelia card
+(`w: 4`) has a frame of 393 px at 1280, 422 px at 1366 and 446 px at 1440, so the 1366 and 1440
+boards clear the widget's `minWidthPx: 400` and the 1280 board does not — it renders `compact`.
+See the tier entry under "Risks and accepted limitations". Twelve columns are still cramped just
 above the breakpoint; that is an accepted compromise, and a third breakpoint is the real fix if it
 becomes a problem. The upper clamp of `2.5` never binds on a 4K display and exists as a guard
 against ultrawide monitors.
@@ -303,7 +308,7 @@ Changed:
 - `ui/Board.module.css` — grip styles, hidden on desktop.
 - `ui/BoardSchemaSelect.tsx` — the reset entry.
 
-Width comes from the existing `useContainerWidth()` call in `Board.tsx:18`. It is deliberately not
+Width comes from the existing `useContainerWidth()` call in `Board.tsx:28`. It is deliberately not
 lifted into an atom: writing to an atom during render is wrong, and routing it through an effect
 buys nothing when the logic already lives in pure functions under `model/`. The component passes a
 number, which satisfies the repository convention — computation in `model/`, DOM interop in `ui/`.
@@ -316,7 +321,9 @@ Unit tests on the pure functions carry most of the weight.
 `model/grid-metrics.test.ts`:
 
 - At 1920 the metrics equal today's values (`cols: 12`, `rowHeight: 30`, `margin: [10, 10]`) — the
-  regression barrier guaranteeing existing 1080p boards do not shift.
+  regression barrier guaranteeing the formula at `BASE_WIDTH` reproduces the previous hardcoded
+  constants exactly. It pins the metrics, not user-visible geometry: a 1080p board measures a
+  1865 px container, so `colWidth` is 144.58 rather than the 95.83 the pinned-1280 bug produced.
 - At 3840 the factor is exactly 2.
 - Both clamps engage at their bounds.
 - The 767/768 boundary switches breakpoint.
@@ -363,6 +370,17 @@ client preserve the unknown field untouched.
 last-write-wins, so two devices editing at the same time overwrite each other. Splitting the
 desktop and mobile layouts into separate fields does not help, because the whole document is the
 unit of writing. This is pre-existing and unchanged by this design.
+
+**`ofelia-poop-duty` drops to `CompactTier` below ~1300 px.** Because the board now measures its
+real container — the viewport minus its own 20 px padding on each side and the stable scrollbar
+gutter — a 1280 px window is a 1225 px container, where a `w: 4` card has a 393 px frame. That is
+under the widget's own `standard.minWidthPx` of `400`, so it renders `CompactTier` where it used to
+render `StandardTier`. This is the tier system behaving correctly on a genuinely 393 px frame: the
+widget's `400` was calibrated against the old measurement, which was wrong by 55 px and reported a
+413 px card on every screen. Windows of 1366 px and up are unaffected (422 px and 446 px frames).
+Recalibrating the widget — its thresholds or its `defaultSize` — is deliberately left as a separate
+follow-up outside this branch, since it is a product decision about that widget and raising
+`defaultSize` would not change boards whose `w: 4` is already persisted in the stored layout.
 
 **Twelve columns just above the breakpoint are a compromise.** The lower clamp of `1` keeps cards at
 their baseline size there rather than shrinking them, but it cannot make twelve columns readable at

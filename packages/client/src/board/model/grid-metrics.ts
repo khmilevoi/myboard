@@ -22,12 +22,18 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
  * `margin`), so scaling the margin scales the column width by the same factor —
  * the grid zooms instead of stretching on one axis, and aspect ratios are preserved.
  *
- * The zoom only goes upward. The lower clamp is 1, so the desktop grid never
- * renders smaller than its BASE_WIDTH baseline: every width from
- * MOBILE_BREAKPOINT up to BASE_WIDTH gets exactly the historical metrics
- * (`rowHeight: 30`, `margin: [10, 10]`), which keeps boards on a 1280/1366/1440
- * laptop the size they have always been and keeps widgets above their own tier
- * thresholds. Only displays wider than BASE_WIDTH scale up.
+ * The zoom only goes upward. The lower clamp is 1, so the *metrics* never fall
+ * below their BASE_WIDTH baseline: at every desktop width up to BASE_WIDTH,
+ * `rowHeight` stays 30 and `margin` stays `[10, 10]`, and only displays wider
+ * than BASE_WIDTH scale up.
+ *
+ * That pins the metrics, not the rendered geometry. Column width is still
+ * derived from the measured container, and the board now measures its real
+ * container — the viewport minus its own 20px padding on each side and the
+ * stable scrollbar gutter — instead of the hardcoded 1280 the previous code
+ * reported on every screen. So card widths do change per screen: a `w: 4` card
+ * is 395 px at a 1280 viewport where the old code drew 413 px, which can put a
+ * widget below its own tier thresholds even though no metric shrank.
  */
 export const resolveGridMetrics = (width: number): GridMetrics => {
   if (width < MOBILE_BREAKPOINT) {

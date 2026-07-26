@@ -19,10 +19,10 @@ const LEDGER_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:ledg
 // `w:4` card is ~395px and its frame ~393px once the card's 1px border is taken
 // off. `compact` is then the correct rendering, not a defect. (This used to be
 // invisible: the board reported a hardcoded 1280px container on every screen,
-// which made the card 413px and left the threshold only 13px of headroom against
-// a measurement that was wrong by 55px.)
+// which made the card 413px — a 411px frame, only 11px of headroom — against a
+// measurement that was wrong by 55px.)
 //
-// At 1920 the container is ~1865px, the card ~609px and the frame ~607px, well
+// At 1920 the container is ~1865px, the card ~608px and the frame ~606px, well
 // clear of the threshold.
 test.use({ viewport: { width: 1920, height: 1080 } })
 
