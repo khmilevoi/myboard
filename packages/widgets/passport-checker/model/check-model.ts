@@ -24,6 +24,7 @@ export type ViewState =
 export const RETRYABLE_MESSAGES: Record<string, string> = {
   browser_unavailable: 'Сервис автоматизации недоступен',
   automation_timeout: 'Проверка не уложилась в отведённое время',
+  user_input_probe: 'Не удалось проверить состояние браузера',
   upstream_response: 'Сервис проверки временно недоступен',
   invalid_checker_response: 'Сервис проверки вернул неожиданный ответ',
   automation_protocol: 'Внутренняя ошибка автоматизации',
@@ -46,10 +47,22 @@ export function mapCheckError(error: WidgetApiError | CheckDeadlineError): ViewS
   return { kind: 'retryable', message: RETRYABLE_MESSAGES[error.code] ?? GENERIC_RETRYABLE_MESSAGE }
 }
 
-function formatCheckedAt(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes}`
+const pad = (value: number) => String(value).padStart(2, '0')
+
+/**
+ * A stored result outlives the day it was taken, so a bare HH:MM would read as
+ * "today" forever. Same-day results keep the short form; older ones carry the
+ * date. Recomputed only when the view state recomputes — a tab left open across
+ * midnight keeps yesterday's short label until something else changes.
+ */
+export function formatCheckedAt(checkedAt: number, now: Date): string {
+  const date = new Date(checkedAt)
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  return sameDay ? time : `${pad(date.getDate())}.${pad(date.getMonth() + 1)} ${time}`
 }
 
 function withDeadline<T>(
@@ -106,7 +119,7 @@ export function makePassportCheckModel({
       kind: 'success',
       status: result.status,
       message: result.send_status_msg,
-      checkedAtLabel: formatCheckedAt(now()),
+      checkedAtLabel: formatCheckedAt(now().getTime(), now()),
     })
   }, 'passportCheck.check')
 
