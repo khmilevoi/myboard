@@ -141,11 +141,11 @@ Notes:
 
 ### Token → screen mapping (preserved 1:1)
 
-| URL | zod `token` output | `makeActivationModel` initial screen |
-| --- | --- | --- |
-| `/activate` (no param) | `undefined` → mapped to `null` | `home` |
-| `/activate?token=` (empty) | `''` | `activate-no-code` |
-| `/activate?token=abc` | `'abc'` | `activate` |
+| URL                        | zod `token` output             | `makeActivationModel` initial screen |
+| -------------------------- | ------------------------------ | ------------------------------------ |
+| `/activate` (no param)     | `undefined` → mapped to `null` | `home`                               |
+| `/activate?token=` (empty) | `''`                           | `activate-no-code`                   |
+| `/activate?token=abc`      | `'abc'`                        | `activate`                           |
 
 `token ?? null` maps `undefined → null`; the model's existing `initialScreen()`
 does the rest.
@@ -169,15 +169,18 @@ New files:
 - **`src/ui/Shell.tsx`** — presentational shell used by `rootRoute.render`:
 
   ```tsx
-  export const Shell = reatomMemo<{ children: ReactNode }>(({ children }) => (
-    <div className={styles.page}>
-      <ThemeTogglePill />
-      <div className={styles.card}>
-        <BrandMark />
-        {children}
+  export const Shell = reatomMemo<{ children: ReactNode }>(
+    ({ children }) => (
+      <div className={styles.page}>
+        <ThemeTogglePill />
+        <div className={styles.card}>
+          <BrandMark />
+          {children}
+        </div>
       </div>
-    </div>
-  ), 'Shell')
+    ),
+    'Shell',
+  )
   ```
 
   (`BrandMark` is a tiny local component for the 2×2 mark + label; may live in
@@ -279,8 +282,8 @@ harmless (and would be consistent — React — if it ever adopts it).
 ```tsx
 import { urlAtom } from '@reatom/core'
 // ...
-initTheme()                 // unchanged: applies <html data-theme> before first paint
-urlAtom.catchLinks(false)   // no in-app <a> navigation; board '/' stays a hard load
+initTheme() // unchanged: applies <html data-theme> before first paint
+urlAtom.catchLinks(false) // no in-app <a> navigation; board '/' stays a hard load
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
@@ -309,31 +312,31 @@ Reading `rootRoute.render()` reactively subscribes `App` to route changes; the
 
 ## File change summary
 
-| File | Action |
-| --- | --- |
-| `src/model/routes.tsx` | **new** — route tree (loader + render) |
-| `src/reatom.d.ts` | **new** — `RouteChild` augmentation |
-| `src/ui/Shell.tsx` | **new** — shared shell (page/card/brand + theme toggle + outlet) |
-| `src/ui/shell.module.css` | **new** — shared chrome + `.footerNote` + spinner |
-| `src/ui/ThemeTogglePill.module.css` | **new** — theme-toggle styles moved here |
-| `src/ui/LoadingCard.tsx` | **new** — spinner card body for `!ready()` |
-| `src/model/router.ts` | **delete** |
-| `src/model/router.test.ts` | **delete** → replaced by `routes.test.tsx` |
-| `src/model/routes.test.tsx` | **new** — route matching, search parsing, `.go()`, loader/deep-link |
-| `src/App.tsx` | render `rootRoute.render()` |
-| `src/App.test.tsx` | drive via `urlAtom.go` / `route.go` |
-| `src/main.tsx` | drop `initRouter`; add `catchLinks(false)` |
-| `src/ui/ActivateScreen.tsx` | card-body only; `onScan` prop → `addDeviceRoute.go` |
-| `src/ui/AddDeviceScreen.tsx` | card-body only; drop `useEffect`/init; model via prop; scanner escape kept |
-| `src/ui/ActivateScreen.module.css` | drop shared shell + theme-toggle classes |
-| `src/ui/AddDeviceScreen.module.css` | drop shared shell classes; keep scanner + body |
-| `src/ui/ThemeTogglePill.tsx` | import own module |
-| `src/model/activation-model.ts` | `token` from loader; drop `readTokenFromLocation` |
-| `src/model/add-device-model.ts` | rename factory → `makeAddDeviceModel`; `token`/`scan` from loader; drop `validating` + location readers (keep `initialized` guard) |
-| `src/model/activation-model.test.ts` | drop location-reader tests; token via arg |
-| `src/model/add-device-model.test.ts` | drop `validating`/location-reader tests |
-| `src/ui/AddDeviceScreen.test.tsx` | model via prop; deep-link/init tests → route/model level |
-| `src/ui/ActivateScreen.test.tsx` | `onScan` spy in place of `navigate` spy |
+| File                                 | Action                                                                                                                             |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `src/model/routes.tsx`               | **new** — route tree (loader + render)                                                                                             |
+| `src/reatom.d.ts`                    | **new** — `RouteChild` augmentation                                                                                                |
+| `src/ui/Shell.tsx`                   | **new** — shared shell (page/card/brand + theme toggle + outlet)                                                                   |
+| `src/ui/shell.module.css`            | **new** — shared chrome + `.footerNote` + spinner                                                                                  |
+| `src/ui/ThemeTogglePill.module.css`  | **new** — theme-toggle styles moved here                                                                                           |
+| `src/ui/LoadingCard.tsx`             | **new** — spinner card body for `!ready()`                                                                                         |
+| `src/model/router.ts`                | **delete**                                                                                                                         |
+| `src/model/router.test.ts`           | **delete** → replaced by `routes.test.tsx`                                                                                         |
+| `src/model/routes.test.tsx`          | **new** — route matching, search parsing, `.go()`, loader/deep-link                                                                |
+| `src/App.tsx`                        | render `rootRoute.render()`                                                                                                        |
+| `src/App.test.tsx`                   | drive via `urlAtom.go` / `route.go`                                                                                                |
+| `src/main.tsx`                       | drop `initRouter`; add `catchLinks(false)`                                                                                         |
+| `src/ui/ActivateScreen.tsx`          | card-body only; `onScan` prop → `addDeviceRoute.go`                                                                                |
+| `src/ui/AddDeviceScreen.tsx`         | card-body only; drop `useEffect`/init; model via prop; scanner escape kept                                                         |
+| `src/ui/ActivateScreen.module.css`   | drop shared shell + theme-toggle classes                                                                                           |
+| `src/ui/AddDeviceScreen.module.css`  | drop shared shell classes; keep scanner + body                                                                                     |
+| `src/ui/ThemeTogglePill.tsx`         | import own module                                                                                                                  |
+| `src/model/activation-model.ts`      | `token` from loader; drop `readTokenFromLocation`                                                                                  |
+| `src/model/add-device-model.ts`      | rename factory → `makeAddDeviceModel`; `token`/`scan` from loader; drop `validating` + location readers (keep `initialized` guard) |
+| `src/model/activation-model.test.ts` | drop location-reader tests; token via arg                                                                                          |
+| `src/model/add-device-model.test.ts` | drop `validating`/location-reader tests                                                                                            |
+| `src/ui/AddDeviceScreen.test.tsx`    | model via prop; deep-link/init tests → route/model level                                                                           |
+| `src/ui/ActivateScreen.test.tsx`     | `onScan` spy in place of `navigate` spy                                                                                            |
 
 ## Testing plan
 

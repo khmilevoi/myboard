@@ -71,4 +71,83 @@ describe('makeWidgetApi', () => {
     expect(result).toBeInstanceOf(WidgetApiError)
     expect((result as WidgetApiError).cause).toBeDefined()
   })
+
+  it('exposes the server error code and meta structurally', async () => {
+    const { http } = makeScriptedHttp({
+      [URL_SAVE]: [
+        {
+          status: 409,
+          body: {
+            error: {
+              code: 'browser_session_required',
+              message: 'The browser session requires attention',
+              meta: { sshTarget: 'admin@pi' },
+            },
+          },
+        },
+      ],
+    })
+    const api = makeWidgetApi<TestEvents>({
+      typeId: 'notes/widget',
+      instanceId: 'placement-1',
+      http,
+    })
+
+    const result = await api.invoke('save', { value: 'hello' })
+
+    expect(result).toBeInstanceOf(WidgetApiError)
+    if (!(result instanceof WidgetApiError)) throw new Error('expected WidgetApiError')
+    expect(result.code).toBe('browser_session_required')
+    expect(result.meta).toEqual({ sshTarget: 'admin@pi' })
+  })
+
+  it('keeps meta undefined when the server sends none', async () => {
+    const { http } = makeScriptedHttp({
+      [URL_SAVE]: [{ status: 422, body: { error: { code: 'payload_invalid', message: 'nope' } } }],
+    })
+    const api = makeWidgetApi<TestEvents>({
+      typeId: 'notes/widget',
+      instanceId: 'placement-1',
+      http,
+    })
+
+    const result = await api.invoke('save', { value: 'hello' })
+
+    expect(result).toBeInstanceOf(WidgetApiError)
+    if (!(result instanceof WidgetApiError)) throw new Error('expected WidgetApiError')
+    expect(result.code).toBe('payload_invalid')
+    expect(result.meta).toBeUndefined()
+  })
+
+  it('synthesizes the network code on transport failure', async () => {
+    const { http } = makeScriptedHttp({ [URL_SAVE]: ['network-error'] })
+    const api = makeWidgetApi<TestEvents>({
+      typeId: 'notes/widget',
+      instanceId: 'placement-1',
+      http,
+    })
+
+    const result = await api.invoke('save', { value: 'hello' })
+
+    expect(result).toBeInstanceOf(WidgetApiError)
+    if (!(result instanceof WidgetApiError)) throw new Error('expected WidgetApiError')
+    expect(result.code).toBe('network')
+  })
+
+  it('synthesizes the invalid_response code on an unparseable envelope', async () => {
+    const { http } = makeScriptedHttp({
+      [URL_SAVE]: [{ status: 200, body: { nonsense: true } }],
+    })
+    const api = makeWidgetApi<TestEvents>({
+      typeId: 'notes/widget',
+      instanceId: 'placement-1',
+      http,
+    })
+
+    const result = await api.invoke('save', { value: 'hello' })
+
+    expect(result).toBeInstanceOf(WidgetApiError)
+    if (!(result instanceof WidgetApiError)) throw new Error('expected WidgetApiError')
+    expect(result.code).toBe('invalid_response')
+  })
 })

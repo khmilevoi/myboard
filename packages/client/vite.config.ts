@@ -122,13 +122,19 @@ export default defineConfig(({ command }) => ({
             shared: federationShared(),
             dev: { remoteHmr: true },
             manifest: false,
-            // Widgets are consumed dynamically (loadRemote + the codegen'd
-            // catalog), never through a typed remote import, so there is
-            // nothing to generate types for; manifest: false above also means
-            // the DTS plugin has no remote manifest to retrieve a tsconfig
-            // from, which without this flag throws a caught-but-noisy
-            // "Cannot read properties of undefined (reading 'readFile')" on
-            // every build.
+            // There is nothing to generate types for: widgets are consumed
+            // dynamically (loadRemote + the codegen'd catalog), never through a
+            // typed remote import, and remote types come from the workspace
+            // packages rather than from @mf-types archives. Leaving the DTS
+            // plugin on breaks twice over. It drives type generation through
+            // the legacy TypeScript compiler API (ts.sys, ts.readConfigFile,
+            // ts.createProgram), which typescript@7 no longer exposes, so its
+            // dev worker dies on `ts.sys.readFile` with an uncaught "Cannot
+            // read properties of undefined" that takes the whole dev server
+            // down; and `manifest: false` above leaves it with no remote
+            // manifest to read a tsconfig from, which throws the same message
+            // as a caught-but-noisy error on every build. Widget remotes
+            // already opt out (widget-sdk/vite); the host has to as well.
             dts: false,
           }),
         ]),

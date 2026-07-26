@@ -4,7 +4,7 @@
 >
 > **Workflow note (2026-07-06):** this feature is NO LONGER driven by the Looper loop. Build it **sequentially**, task by task, in this worktree (`./.worktrees/webauthn-gate`, branch `feat/device-invite-webauthn-gate`). After each task: run the relevant `pnpm --filter … test` / `typecheck`, then a Codex review (`codex exec review --uncommitted -m gpt-5.5` while iterating, `--base main` at phase boundaries) before moving on.
 
-**Goal:** Let an account own multiple devices — a signed-in device mints a short, single-use add-device code (QR / link / manual), a second device self-enrolls into the *same account* as a `pending` device, and the owner approves it in-app over a realtime channel; expose a "My devices" panel to list/approve/deny/revoke devices.
+**Goal:** Let an account own multiple devices — a signed-in device mints a short, single-use add-device code (QR / link / manual), a second device self-enrolls into the _same account_ as a `pending` device, and the owner approves it in-app over a realtime channel; expose a "My devices" panel to list/approve/deny/revoke devices.
 
 **Architecture:** Extends the already-implemented Plan 1 dormant core. New server endpoints under `/api/auth/devices/*` reuse the existing Valkey key-lock, WebAuthn wrappers, session/challenge stores, and the SSE fanout (via `publishChange` under an `auth:account:{id}` key). The board host gains an account avatar → dropdown → "My devices" dialog + add-device QR modal (Reatom models + shadcn). The standalone activation app gains an `/add-device` mode (scan via `react-zxing` / manual code / register / wait-for-approval). **The nginx gate stays OFF — that is Plan 3.**
 
@@ -32,45 +32,45 @@ Every task's requirements implicitly include these (verbatim from the spec / rep
 
 **Server (`packages/server/src/`)**
 
-| File | Responsibility | Status |
-| --- | --- | --- |
-| `auth/add-tokens.ts` (+`.test.ts`) | Short add-device code: generate/normalize, `deviceadd:*` store, lookup/consume/fail-lock | **create** |
-| `auth/pending-tickets.ts` (+`.test.ts`) | `pending:*` ticket store + `__Host-mb_pending` cookie | **create** |
-| `auth/device-handlers.ts` (+`.test.ts`) | HTTP handlers for `/api/auth/devices/*` + `/api/auth/account` | **create** |
-| `auth/device-events.ts` (+`.test.ts`) | `authAccountKey` + `publishAuthDeviceEvent` (reuses `publishChange`) | **create** |
-| `auth/schemas.ts` | Add Zod bodies for the new endpoints | modify |
-| `auth/records.ts` | Extend `AddTokenRecordSchema` with `failedAttempts`; add `authAccountKey` helper | modify |
-| `auth/session-guard.ts` (+`.test.ts`) | `requireSession(deps, req)` shared helper | **create** |
-| `auth/index.ts` | Register the new `/api/auth/devices/*` + `/api/auth/account` routes | modify |
-| `app.ts` | Add the session-gated `GET /api/auth/devices/events` SSE endpoint (co-located with `/api/storage/events`) | modify |
+| File                                    | Responsibility                                                                                            | Status     |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------- |
+| `auth/add-tokens.ts` (+`.test.ts`)      | Short add-device code: generate/normalize, `deviceadd:*` store, lookup/consume/fail-lock                  | **create** |
+| `auth/pending-tickets.ts` (+`.test.ts`) | `pending:*` ticket store + `__Host-mb_pending` cookie                                                     | **create** |
+| `auth/device-handlers.ts` (+`.test.ts`) | HTTP handlers for `/api/auth/devices/*` + `/api/auth/account`                                             | **create** |
+| `auth/device-events.ts` (+`.test.ts`)   | `authAccountKey` + `publishAuthDeviceEvent` (reuses `publishChange`)                                      | **create** |
+| `auth/schemas.ts`                       | Add Zod bodies for the new endpoints                                                                      | modify     |
+| `auth/records.ts`                       | Extend `AddTokenRecordSchema` with `failedAttempts`; add `authAccountKey` helper                          | modify     |
+| `auth/session-guard.ts` (+`.test.ts`)   | `requireSession(deps, req)` shared helper                                                                 | **create** |
+| `auth/index.ts`                         | Register the new `/api/auth/devices/*` + `/api/auth/account` routes                                       | modify     |
+| `app.ts`                                | Add the session-gated `GET /api/auth/devices/events` SSE endpoint (co-located with `/api/storage/events`) | modify     |
 
 **Board client (`packages/client/src/`)**
 
-| File | Responsibility | Status |
-| --- | --- | --- |
-| `components/ui/dropdown-menu.tsx` | shadcn dropdown-menu wrapper over `radix-ui` | **create** |
-| `account/model/account-model.ts` (+`.test.ts`) | Account/devices atoms, GET `/account`+`/devices`, current-credential, logout, SSE subscription | **create** |
-| `account/model/add-device-model.ts` (+`.test.ts`) | Fresh-UV mint ceremony, code/URL, countdown, approve/deny | **create** |
-| `account/model/devices-http.ts` (+`.test.ts`) | Typed fetch helpers for the device endpoints | **create** |
-| `account/ui/AccountMenu.tsx` | Avatar + dropdown (My devices / Logout, pending badge) | **create** |
-| `account/ui/MyDevicesDialog.tsx` | Devices list, pending section, revoke confirm, add button | **create** |
-| `account/ui/AddDeviceModal.tsx` | QR + code + countdown, flips to approval | **create** |
-| `app/ui/Header.tsx` | Mount `<AccountMenu/>` in the actions group | modify |
+| File                                              | Responsibility                                                                                 | Status     |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------- |
+| `components/ui/dropdown-menu.tsx`                 | shadcn dropdown-menu wrapper over `radix-ui`                                                   | **create** |
+| `account/model/account-model.ts` (+`.test.ts`)    | Account/devices atoms, GET `/account`+`/devices`, current-credential, logout, SSE subscription | **create** |
+| `account/model/add-device-model.ts` (+`.test.ts`) | Fresh-UV mint ceremony, code/URL, countdown, approve/deny                                      | **create** |
+| `account/model/devices-http.ts` (+`.test.ts`)     | Typed fetch helpers for the device endpoints                                                   | **create** |
+| `account/ui/AccountMenu.tsx`                      | Avatar + dropdown (My devices / Logout, pending badge)                                         | **create** |
+| `account/ui/MyDevicesDialog.tsx`                  | Devices list, pending section, revoke confirm, add button                                      | **create** |
+| `account/ui/AddDeviceModal.tsx`                   | QR + code + countdown, flips to approval                                                       | **create** |
+| `app/ui/Header.tsx`                               | Mount `<AccountMenu/>` in the actions group                                                    | modify     |
 
 **Activation app (`packages/client/activation/src/`)**
 
-| File | Responsibility | Status |
-| --- | --- | --- |
+| File                                      | Responsibility                                                                           | Status     |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------- | ---------- |
 | `model/add-device-model.ts` (+`.test.ts`) | Read token from URL, scan→URL parse, manual code, register ceremony, poll pending-status | **create** |
-| `ui/AddDeviceScreen.tsx` (+`.module.css`) | Chooser / scanner / manual / register / waiting / done / rejected | **create** |
-| `App.tsx` | Replace the `/add-device` stub with `<AddDeviceScreen/>` | modify |
+| `ui/AddDeviceScreen.tsx` (+`.module.css`) | Chooser / scanner / manual / register / waiting / done / rejected                        | **create** |
+| `App.tsx`                                 | Replace the `/add-device` stub with `<AddDeviceScreen/>`                                 | modify     |
 
 **Deps:** add `qr-code-styling` and `react-zxing` to `packages/client/package.json` (the activation app builds from the client package).
 
 **E2E (`packages/client/e2e/`)**
 
-| File | Responsibility | Status |
-| --- | --- | --- |
+| File                 | Responsibility                                                                     | Status     |
+| -------------------- | ---------------------------------------------------------------------------------- | ---------- |
 | `add-device.spec.ts` | Two virtual authenticators: mint → register → pending → approve → login; negatives | **create** |
 
 ---
@@ -80,10 +80,12 @@ Every task's requirements implicitly include these (verbatim from the spec / rep
 ## Task A1: Add-device code store (`auth/add-tokens.ts`)
 
 **Files:**
+
 - Create: `packages/server/src/auth/add-tokens.ts`, `packages/server/src/auth/add-tokens.test.ts`
 - Modify: `packages/server/src/auth/records.ts` (extend `AddTokenRecordSchema`)
 
 **Interfaces:**
+
 - Consumes: `ValkeyOps`, `runExclusive`, `sha256hex`, `addTokenKey`, `getJson`/`setJson`, `AddTokenInvalidError`.
 - Produces:
   - `generateAddCode(): string` — 8-char canonical Crockford base32.
@@ -110,8 +112,12 @@ export const AddTokenRecordSchema = z.object({
 import { describe, expect, it } from 'vitest'
 import { createMemoryOps } from '../storage/memory-ops'
 import {
-  consumeAddToken, generateAddCode, lookupAddToken, mintAddToken,
-  normalizeAddCode, recordAddTokenFailure,
+  consumeAddToken,
+  generateAddCode,
+  lookupAddToken,
+  mintAddToken,
+  normalizeAddCode,
+  recordAddTokenFailure,
 } from './add-tokens'
 import { AddTokenInvalidError } from './errors'
 
@@ -256,7 +262,12 @@ export async function recordAddTokenFailure(
     const record = await getJson(ops, key, AddTokenRecordSchema)
     if (record instanceof Error || record === null) return
     if (record.expiresAt - now() <= 0) return
-    await setJson(ops, key, { ...record, failedAttempts: record.failedAttempts + 1 }, Math.max(0, record.expiresAt - now()))
+    await setJson(
+      ops,
+      key,
+      { ...record, failedAttempts: record.failedAttempts + 1 },
+      Math.max(0, record.expiresAt - now()),
+    )
   })
 }
 ```
@@ -274,10 +285,12 @@ rtk git commit -m "feat(auth): add-device short code store"
 ## Task A2: Request schemas + session guard
 
 **Files:**
+
 - Modify: `packages/server/src/auth/schemas.ts`
 - Create: `packages/server/src/auth/session-guard.ts`, `packages/server/src/auth/session-guard.test.ts`
 
 **Interfaces:**
+
 - Produces (schemas): `AddDeviceRegisterOptionsBodySchema` `{ token: string }`, `AddDeviceRegisterVerifyBodySchema` `{ token: string; attestationResponse: WebAuthnResponse }`, `AddTokenVerifyBodySchema` `{ authenticationResponse: WebAuthnResponse }`, `DeviceIdParamsSchema` `{ credentialId: string }`.
 - Produces: `requireSession(deps: AuthDeps, req): Promise<SessionRecord | AuthResult>` — resolves + verifies the session cookie, returning the `SessionRecord` or an `AuthResult` (`401`) to return directly. (`AuthResult` from `handlers.ts`.)
 
@@ -334,6 +347,7 @@ export async function requireSession(
 **Files:** Create `auth/device-events.ts` (+ `.test.ts`); modify `records.ts` (add `authAccountKey`).
 
 **Interfaces:**
+
 - Produces: `authAccountKey(accountId: string): string` → `"auth:account:" + accountId` (in `records.ts`).
 - Produces: `AuthDeviceEvent = { type: 'device-pending' | 'device-approved' | 'device-denied' | 'device-revoked'; credentialId: string; label?: string }`.
 - Produces: `publishAuthDeviceEvent(ops: ValkeyOps, accountId: string, event: AuthDeviceEvent): Promise<void>` — wraps `publishChange(ops, authAccountKey(accountId), event)`.
@@ -372,6 +386,7 @@ export async function publishAuthDeviceEvent(
 **Files:** Create `auth/pending-tickets.ts` (+ `.test.ts`).
 
 **Interfaces:**
+
 - Produces:
   - `issuePendingTicket(ops, config, now, { credentialId, accountId }): Promise<{ ticketId: string; cookie: string }>` — store `pending:{ticketId}` (`PendingTicketRecord`, TTL 15 min), set `pendingCookieName` cookie (`SameSite=Strict`, httpOnly, path `/`, 15-min max-age).
   - `readPendingTicket(ops, config, now, cookieHeader): Promise<PendingTicketRecord | PendingTicketInvalidError | Error>` — read (no delete; polling reuses it) + expiry check.
@@ -388,26 +403,46 @@ import type { ValkeyOps } from '../storage/valkey'
 import type { AuthConfig } from './config'
 import { parseCookies, serializeCookie } from './cookies'
 import { PendingTicketInvalidError } from './errors'
-import { type PendingTicketRecord, PendingTicketRecordSchema, getJson, pendingKey, setJson } from './records'
+import {
+  type PendingTicketRecord,
+  PendingTicketRecordSchema,
+  getJson,
+  pendingKey,
+  setJson,
+} from './records'
 import { randomId } from './tokens'
 
 export const PENDING_TTL_MS = 15 * 60_000
 
 export async function issuePendingTicket(
-  ops: ValkeyOps, config: AuthConfig, now: () => number,
+  ops: ValkeyOps,
+  config: AuthConfig,
+  now: () => number,
   { credentialId, accountId }: { credentialId: string; accountId: string },
 ): Promise<{ ticketId: string; cookie: string }> {
   const ticketId = randomId()
-  const record: PendingTicketRecord = { ticketId, credentialId, accountId, expiresAt: now() + PENDING_TTL_MS }
+  const record: PendingTicketRecord = {
+    ticketId,
+    credentialId,
+    accountId,
+    expiresAt: now() + PENDING_TTL_MS,
+  }
   await setJson(ops, pendingKey(ticketId), record, PENDING_TTL_MS)
   const cookie = serializeCookie(config.pendingCookieName, ticketId, {
-    maxAgeMs: PENDING_TTL_MS, httpOnly: true, secure: config.secureCookies, sameSite: 'Strict', path: '/',
+    maxAgeMs: PENDING_TTL_MS,
+    httpOnly: true,
+    secure: config.secureCookies,
+    sameSite: 'Strict',
+    path: '/',
   })
   return { ticketId, cookie }
 }
 
 export async function readPendingTicket(
-  ops: ValkeyOps, config: AuthConfig, now: () => number, cookieHeader: string | undefined,
+  ops: ValkeyOps,
+  config: AuthConfig,
+  now: () => number,
+  cookieHeader: string | undefined,
 ): Promise<PendingTicketRecord | PendingTicketInvalidError | Error> {
   const ticketId = parseCookies(cookieHeader)[config.pendingCookieName]
   if (!ticketId) return new PendingTicketInvalidError()
@@ -427,6 +462,7 @@ export async function readPendingTicket(
 **Files:** Create `auth/device-handlers.ts` (+ `.test.ts`).
 
 **Interfaces (produced):**
+
 - `postAddTokenOptions(deps, req): Promise<AuthResult>` — session required; returns WebAuthn **authentication** options whose `allowCredentials` = the account's active devices; saves an `auth` challenge bound to `accountId`.
 - `postAddToken(deps, req): Promise<AuthResult>` — session required; consumes the `auth` challenge, verifies the assertion against one of the account's active devices (fresh UV), updates its sign count, mints an add-token, returns `{ code, formatted, url, expiresAt }` where `url = ${PUBLIC_APP_URL}/add-device?token=<code>`.
 
@@ -445,12 +481,20 @@ if (device instanceof Error) return toAuthResult(device)
 if (device.accountId !== session.accountId) return toAuthResult(new NotAuthorizedError())
 if (device.disabled || device.status !== 'active') return toAuthResult(new DeviceDisabledError())
 // verify assertion (runExclusive on deviceKey), updateSignCount ...
-const { code } = await mintAddToken(deps.ops, deps.now, { accountId: session.accountId, ttlMs: ADD_TOKEN_TTL_MS })
-return { status: 200, body: {
-  code, formatted: formatAddCode(code),
-  url: `${PUBLIC_APP_URL()}/add-device?token=${code}`,
-  expiresAt: deps.now() + ADD_TOKEN_TTL_MS,
-}, headers: { 'Set-Cookie': clearedChallengeCookie(deps.config) } }
+const { code } = await mintAddToken(deps.ops, deps.now, {
+  accountId: session.accountId,
+  ttlMs: ADD_TOKEN_TTL_MS,
+})
+return {
+  status: 200,
+  body: {
+    code,
+    formatted: formatAddCode(code),
+    url: `${PUBLIC_APP_URL()}/add-device?token=${code}`,
+    expiresAt: deps.now() + ADD_TOKEN_TTL_MS,
+  },
+  headers: { 'Set-Cookie': clearedChallengeCookie(deps.config) },
+}
 ```
 
 > `toAuthResult`, `clearedChallengeCookie`, `sessionCookieFor` etc. are in `handlers.ts` — export the small helpers you reuse (`toAuthResult`, `clearedChallengeCookie`) or re-declare them locally in `device-handlers.ts`. Prefer exporting from `handlers.ts` to stay DRY.
@@ -462,6 +506,7 @@ return { status: 200, body: {
 ## Task A6: Add-device registration handlers (pending device) — `device-handlers.ts` (part 2)
 
 **Interfaces (produced):**
+
 - `postDeviceRegisterOptions(deps, req): Promise<AuthResult>` — **no session**; body `{ token }`; `lookupAddToken` live → `buildRegistrationOptions` (`excludeCredentials` = the token account's devices, `userName`/`displayName` from the account name) → save `add-device` challenge bound to `accountId`; return options + challenge cookie.
 - `postDeviceRegisterVerify(deps, req): Promise<AuthResult>` — **no session**; body `{ token, attestationResponse }`; consume `add-device` challenge → `verifyRegistration` → re-`lookupAddToken` live & `accountId === challenge.accountId` → create device `status:'pending'`, `addedVia:'add-token'` under the account (`addDeviceToAccount(..., { countsAgainstLimit: false })`) → `consumeAddToken` → `issuePendingTicket` → `publishAuthDeviceEvent('device-pending')` → return `{ credentialId }` + pending cookie + cleared challenge cookie. On any post-challenge failure, `recordAddTokenFailure`.
 
@@ -475,6 +520,7 @@ return { status: 200, body: {
 ## Task A7: Device management + account + pending-status handlers — `device-handlers.ts` (part 3)
 
 **Interfaces (produced):**
+
 - `getAccountInfo(deps, req): Promise<AuthResult>` — session; `{ id, name, deviceLimit }`.
 - `getDevices(deps, req): Promise<AuthResult>` — session; `{ devices: DeviceDto[], thisCredentialId }` where `DeviceDto = { credentialId, label, status, addedVia, createdAt, lastSeenAt }` (never expose `publicKey`).
 - `postApproveDevice(deps, req, params): Promise<AuthResult>` — session; the device must belong to the account and be `pending`; enforce the device limit on active count (+1); `setDeviceStatus('active')`; publish `device-approved`; `{ ok: true }`.
@@ -496,6 +542,7 @@ Ownership helper (local): `assertOwnedDevice(deps, accountId, credentialId): Pro
 **Files:** Modify `auth/index.ts` (routes) and `app.ts` (SSE endpoint). Test: extend `auth/index`-level integration or add `app`-level test if one exists; otherwise assert via the handler tests already written + a small routing smoke test.
 
 **Interfaces (produced):** registered routes —
+
 ```
 POST /api/auth/devices/add-token/options
 POST /api/auth/devices/add-token
@@ -521,14 +568,26 @@ router.on('GET', '/api/auth/devices/events', async (req, res) => {
   const session = sessionId
     ? await verifySession(ops, deps.authConfig, now, sessionId)
     : new Error('no session')
-  if (session instanceof Error) { res.writeHead(401); res.end(); return }
-  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' })
+  if (session instanceof Error) {
+    res.writeHead(401)
+    res.end()
+    return
+  }
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache',
+    connection: 'keep-alive',
+    'x-accel-buffering': 'no',
+  })
   const connId = randomUUID()
   registry.add(connId, res)
   registry.subscribe(connId, [authAccountKey(session.record.accountId)]) // server-scoped: A only sees its own account
   writeSseEvent(res, 'ready', { connId })
   const heartbeat = setInterval(() => res.write(': ping\n\n'), HEARTBEAT_MS)
-  req.on('close', () => { clearInterval(heartbeat); registry.remove(connId) })
+  req.on('close', () => {
+    clearInterval(heartbeat)
+    registry.remove(connId)
+  })
 })
 ```
 
@@ -556,6 +615,7 @@ Add imports in `app.ts`: `parseCookies` from `./auth/cookies`, `verifySession` f
 **Files:** Create `account/model/devices-http.ts` (+test), `account/model/account-model.ts` (+test).
 
 **Interfaces (produced):**
+
 - `devices-http.ts`: typed `fetch` helpers returning `Error | T` (errore) with `credentials:'same-origin'` + `X-Requested-With:'MyBoard'` (mirror `activation-model.ts`'s `postJson`): `fetchAccount()`, `fetchDevices()`, `approveDevice(id)`, `denyDevice(id)`, `revokeDevice(id)`, `logout()`.
 - `account-model.ts`: `createAccountModel(overrides?)` exposing atoms `account`, `devices`, `pending` (computed split of devices by `status`), `thisCredentialId` (from `localStorage[CRED_HINT_STORAGE_KEY]`), `loading`, `error`, and actions `refresh`, `approve(id)`, `deny(id)`, `revoke(id)`, `logout`, plus `connectEvents()` opening an `EventSource('/api/auth/devices/events')` that calls `refresh` on any `device-*` message. Logic pre-`wrap()`ed per [[reatom-context-start-unwrapped-continuations]].
 
@@ -654,5 +714,6 @@ onPaste={(e) => {
 - **Type consistency:** `mintAddToken`/`lookupAddToken`/`consumeAddToken`/`recordAddTokenFailure` share the `AddTokenRecord` shape; `AuthDeviceEvent.type` values match between publisher (A3) and consumers (A7 publishes, B2 refreshes on any `device-*`); `requireSession` returns `SessionRecord | AuthResult` consistently across A5–A7; `normalizeAddCode` is the single canonicalizer, wrapped by the activation `extractAddCode` (C2) that the scanner, manual typing, and paste all share. ✔
 
 ## Open follow-ups (not in this plan)
+
 - Rate limiting (`pending-status` own bucket; `/api/auth/*` IP limit) is **Plan 3** (nginx), not built here.
 - Device rename, avatar images, and stranded-user recovery ops scripts (`revoke-account`, `mint-add-device-token`) are separate follow-ups.

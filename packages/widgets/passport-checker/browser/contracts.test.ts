@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 // oxlint-disable-next-line no-restricted-imports -- browser-automation only exports ./task-context; this reaches its toEnvelopeError helper directly, as the brief specifies.
@@ -5,7 +6,6 @@ import { toEnvelopeError } from '../../../browser-automation/src/errors'
 import { passportCheckerBrowserSchemas, passportCheckerBrowserTasks } from '../types'
 import {
   BrowserConfigurationError,
-  BrowserSessionRequiredError,
   InvalidCheckerResponseError,
   UpstreamResponseError,
 } from './errors'
@@ -39,13 +39,6 @@ describe('passport checker browser contracts', () => {
       message: 'Passport checker is not configured',
     })
     expect(
-      toEnvelopeError(new BrowserSessionRequiredError({ sshTarget: 'pi@myboard.local' })),
-    ).toEqual({
-      code: 'browser_session_required',
-      message: 'The browser session requires attention',
-      meta: { sshTarget: 'pi@myboard.local' },
-    })
-    expect(
       toEnvelopeError(new UpstreamResponseError({ phase: 'submission', status: 503 })),
     ).toEqual({
       code: 'upstream_response',
@@ -58,17 +51,9 @@ describe('passport checker browser contracts', () => {
     })
   })
 
-  it('omits meta entirely for a session-required error with no sshTarget (the dev-stack default)', () => {
-    // toStrictEqual, not toEqual: toEqual treats an explicit `meta: undefined`
-    // key as equivalent to an absent key, so it would not catch a regression
-    // where publicMeta's `? {...} : undefined` collapsed to always returning
-    // an object. toStrictEqual distinguishes "key absent" from "key present
-    // with an undefined value".
-    expect(toEnvelopeError(new BrowserSessionRequiredError({ sshTarget: null }))).toStrictEqual({
-      code: 'browser_session_required',
-      message: 'The browser session requires attention',
-    })
-  })
+  // browser_session_required is now UserInputRequiredError's contract, owned
+  // and envelope-tested by browser-automation/src/user-input/errors.test.ts
+  // (the sshTarget-present and sshTarget-null/no-meta cases both live there).
 
   it('reports meta as exactly { phase } for an upstream error with no status', () => {
     expect(toEnvelopeError(new UpstreamResponseError({ phase: 'navigation' }))).toStrictEqual({

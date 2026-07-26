@@ -1,16 +1,13 @@
+// @vitest-environment node
 import type { BrowserTaskContext, WidgetSecrets } from 'browser-automation/task-context'
+import { UserInputProbeError, UserInputRequiredError } from 'browser-automation/user-input'
+import type { ChallengeEvidence } from 'browser-automation/user-input/cloudflare'
 import type { Page, Response } from 'playwright'
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-  evidenceFromResponseText,
-  isCloudflareChallenge,
-  type ChallengeEvidence,
-} from './challenge'
 import { makePassportCheckHandler, readPassportIdentity } from './check'
 import {
   BrowserConfigurationError,
-  BrowserSessionRequiredError,
   InvalidCheckerResponseError,
   UpstreamResponseError,
 } from './errors'
@@ -67,206 +64,6 @@ describe('passport identity', () => {
   })
 })
 
-describe('Cloudflare challenge classifier', () => {
-  it.each([
-    [{ ...baseEvidence, url: 'https://pasport.org.ua/cdn-cgi/challenge-platform/h/g' }],
-    [{ ...baseEvidence, title: 'Just a moment...' }],
-    [{ ...baseEvidence, hasChallengeForm: true }],
-    [
-      {
-        ...baseEvidence,
-        status: 503,
-        server: 'cloudflare',
-        cfRay: 'fixture-ray',
-        hasChallengeContent: true,
-      },
-    ],
-    [
-      {
-        ...baseEvidence,
-        status: 503,
-        server: 'cloudflare',
-        cfRay: 'fixture-ray',
-        hasChallengePlatform: true,
-      },
-    ],
-  ])('accepts positive challenge evidence', (evidence) => {
-    expect(isCloudflareChallenge(evidence)).toBe(true)
-  })
-
-  it.each([
-    [{ ...baseEvidence, status: 403 }],
-    [{ ...baseEvidence, status: 429 }],
-    [{ ...baseEvidence, status: 503, server: 'fixture' }],
-    [{ ...baseEvidence, status: 503, server: 'cloudflare', cfRay: 'fixture-ray' }],
-  ])('does not treat status alone as a challenge', (evidence) => {
-    expect(isCloudflareChallenge(evidence)).toBe(false)
-  })
-
-  // Item 1 fix: Cloudflare's "JS Detections" / Bot Fight Mode script is
-  // injected into normally served pages too, not only interstitials. Before
-  // the fix, hasChallengePlatform alone (via baseEvidence's 200/no-server/
-  // no-cfRay shape) was treated as an explicit marker and this returned true,
-  // which would have permanently misclassified a healthy checker origin that
-  // happens to run JSD/Bot Fight Mode. Previously this exact fixture lived in
-  // the "accepts positive challenge evidence" list above; it has moved here.
-  it('does not classify a 200 page carrying only the JS Detections/Bot Fight Mode script as a challenge', () => {
-    expect(isCloudflareChallenge({ ...baseEvidence, hasChallengePlatform: true })).toBe(false)
-  })
-})
-
-describe('evidenceFromResponseText', () => {
-  it('does not classify a 200 body carrying only the JS Detections/Bot Fight Mode script as a challenge', () => {
-    const evidence = evidenceFromResponseText({
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 200,
-      server: null,
-      cfRay: null,
-      text: '<!doctype html><head><script src="/cdn-cgi/challenge-platform/h/g/jsd/r2.js"></script></head><body>ready</body>',
-    })
-    expect(evidence.hasChallengePlatform).toBe(true)
-    expect(isCloudflareChallenge(evidence)).toBe(false)
-  })
-
-  it('extracts a bounded title and both challenge markers from a real challenge body', () => {
-    const evidence = evidenceFromResponseText({
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 503,
-      server: 'cloudflare',
-      cfRay: 'fixture-ray',
-      text: '<!doctype html><title>Just a moment...</title><div id="challenge-form" class="cf-chl-widget"></div>',
-    })
-    expect(evidence).toEqual({
-      url: 'https://pasport.org.ua/solutions/checker',
-      title: 'Just a moment...',
-      status: 503,
-      server: 'cloudflare',
-      cfRay: 'fixture-ray',
-      hasChallengeForm: true,
-      hasChallengePlatform: false,
-      hasChallengeContent: true,
-    })
-    expect(isCloudflareChallenge(evidence)).toBe(true)
-  })
-
-  it('detects an unquoted id=challenge-form attribute', () => {
-    const evidence = evidenceFromResponseText({
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 503,
-      server: 'cloudflare',
-      cfRay: 'fixture-ray',
-      text: '<!doctype html><div id=challenge-form></div>',
-    })
-    expect(evidence.hasChallengeForm).toBe(true)
-  })
-
-  it('produces all-false evidence and an empty title for a plain JSON success body', () => {
-    const evidence = evidenceFromResponseText({
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 200,
-      server: null,
-      cfRay: null,
-      text: '{"status":1,"send_status_msg":"ok"}',
-    })
-    expect(evidence).toEqual({
-      url: 'https://pasport.org.ua/solutions/checker',
-      title: '',
-      status: 200,
-      server: null,
-      cfRay: null,
-      hasChallengeForm: false,
-      hasChallengePlatform: false,
-      hasChallengeContent: false,
-    })
-    expect(isCloudflareChallenge(evidence)).toBe(false)
-  })
-
-  it('caps an oversized title at 200 characters instead of returning it unbounded', () => {
-    const longTitle = 'A'.repeat(400)
-    const evidence = evidenceFromResponseText({
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 200,
-      server: null,
-      cfRay: null,
-      text: `<title>${longTitle}</title>`,
-    })
-    expect(evidence.title).toBe('A'.repeat(200))
-    expect(evidence.title.length).toBe(200)
-  })
-
-  it('does not take a <title occurrence with no matching close tag, such as inside a script literal', () => {
-    const evidence = evidenceFromResponseText({
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 200,
-      server: null,
-      cfRay: null,
-      text: '<script>var markup = "<title>fake";</script><title>Real Title</title>',
-    })
-    expect(evidence.title).toBe('Real Title')
-  })
-
-  it('returns all-false evidence with no title when the response has no text', () => {
-    const evidence = evidenceFromResponseText({
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 502,
-      server: null,
-      cfRay: null,
-      text: null,
-    })
-    expect(evidence).toEqual({
-      url: 'https://pasport.org.ua/solutions/checker',
-      title: '',
-      status: 502,
-      server: null,
-      cfRay: null,
-      hasChallengeForm: false,
-      hasChallengePlatform: false,
-      hasChallengeContent: false,
-    })
-  })
-})
-
-describe('evidenceFromResponseText spliced into a page callback', () => {
-  // browser/check.ts never calls evidenceFromResponseText by reference: it
-  // splices its *source text* (via Function.prototype.toString()) into a
-  // `new Function(...)` that runs inside Chromium via page.evaluate — see the
-  // docstring on evidenceFromResponseText in browser/challenge.ts and the
-  // comment above submitPassportInPage in browser/check.ts. Every other test
-  // in this file calls evidenceFromResponseText directly, which still
-  // resolves free identifiers (a hoisted module-scope regex, an imported
-  // helper, ...) against this test module's scope and would pass even if the
-  // function were no longer self-contained. Reconstructing it exactly the
-  // way production does has no such scope to fall back on: a free identifier
-  // makes this throw ReferenceError instead of silently succeeding. Do NOT
-  // simplify this back into a direct call — that would stop guarding the
-  // actual page-callback splice production ships.
-  const reconstructed = new Function(
-    `return ${evidenceFromResponseText.toString()}`,
-  )() as typeof evidenceFromResponseText
-
-  it('reconstructs identically to the direct call for a real challenge body', () => {
-    const input = {
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 503,
-      server: 'cloudflare',
-      cfRay: 'fixture-ray',
-      text: '<!doctype html><title>Just a moment...</title><div id="challenge-form" class="cf-chl-widget"></div>',
-    }
-    expect(reconstructed(input)).toEqual(evidenceFromResponseText(input))
-  })
-
-  it('reconstructs identically to the direct call for a plain success body', () => {
-    const input = {
-      url: 'https://pasport.org.ua/solutions/checker',
-      status: 200,
-      server: null,
-      cfRay: null,
-      text: '{"status":1,"send_status_msg":"ok"}',
-    }
-    expect(reconstructed(input)).toEqual(evidenceFromResponseText(input))
-  })
-})
-
 type SubmitScenario =
   | { kind: 'network_error' }
   | {
@@ -280,26 +77,33 @@ type PageScenario = {
   navigationError?: Error
   submissionError?: Error
   navigationStatus?: number
-  navigationHeaders?: Record<string, string>
-  evidence?: Partial<ChallengeEvidence>
   submit?: SubmitScenario
+  /** Consumed in call order by context.detectUserInput. */
+  escalations?: Array<UserInputProbeError | UserInputRequiredError | null>
 }
 
 const defaultSubmitBody = { kind: 'json', data: { status: 1, send_status_msg: 'ok' } } as const
 
 function makeContext(scenario: PageScenario) {
-  const retainPageForRecovery = vi.fn()
+  const escalations = [...(scenario.escalations ?? [])]
+  // Typed from the context member, not inferred: the tests below read
+  // detectUserInput.mock.calls[n][1] to assert which options the handler passed,
+  // and an inferred zero-argument mock would type those calls as empty tuples.
+  const detectUserInput = vi.fn<BrowserTaskContext['detectUserInput']>(
+    async () => escalations.shift() ?? null,
+  )
   const goto = vi.fn(async () => {
     if (scenario.navigationError) throw scenario.navigationError
     const status = scenario.navigationStatus ?? 200
     return {
       status: () => status,
       ok: () => status >= 200 && status < 400,
-      allHeaders: async () => scenario.navigationHeaders ?? {},
+      allHeaders: async () => ({}),
     } as unknown as Response
   })
-  const evaluate = vi.fn(async (_fn: unknown, arg?: unknown) => {
-    if (arg === undefined) return { ...baseEvidence, ...scenario.evidence }
+  // The navigation evidence probe now lives behind detectUserInput, so the only
+  // page.evaluate this handler still makes is the passport submission.
+  const evaluate = vi.fn(async (_fn: unknown) => {
     if (scenario.submissionError) throw scenario.submissionError
 
     const submit: SubmitScenario = scenario.submit ?? {
@@ -318,42 +122,114 @@ function makeContext(scenario: PageScenario) {
   const context: BrowserTaskContext = {
     page: { goto, evaluate } as unknown as Page,
     secrets: secrets('АБ', '123456'),
-    retainPageForRecovery,
+    detectUserInput,
   }
-  return { context, evaluate, goto, retainPageForRecovery }
+  return { context, evaluate, goto, detectUserInput }
+}
+
+const handlerOptions = {
+  checkerUrl: 'http://fixture.local/solutions/checker',
 }
 
 describe('passport check handler', () => {
   it('returns only the validated checker result after one submission', async () => {
-    const { context, evaluate, retainPageForRecovery } = makeContext({
+    const { context, evaluate, detectUserInput } = makeContext({
       submit: {
         kind: 'response',
         ok: true,
         body: { kind: 'json', data: { status: 2, send_status_msg: 'valid', ignored: true } },
       },
     })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: null,
-    })({}, context)
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
 
     expect(result).toEqual({ status: 2, send_status_msg: 'valid' })
-    expect(evaluate).toHaveBeenCalledTimes(2)
-    expect(retainPageForRecovery).not.toHaveBeenCalled()
+    expect(evaluate).toHaveBeenCalledTimes(1)
+    expect(detectUserInput).toHaveBeenCalledTimes(2)
   })
 
-  it('retains a navigation challenge without submitting', async () => {
-    const { context, evaluate, retainPageForRecovery } = makeContext({
-      evidence: { hasChallengeForm: true },
-    })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: 'pi@myboard.local',
-    })({}, context)
+  it('returns the navigation escalation without submitting', async () => {
+    const escalation = new UserInputRequiredError({ sshTarget: 'pi@myboard.local' })
+    const { context, evaluate } = makeContext({ escalations: [escalation] })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
 
-    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
-    expect(retainPageForRecovery).toHaveBeenCalledOnce()
+    expect(result).toBe(escalation)
+    expect(evaluate).not.toHaveBeenCalled()
+  })
+
+  it('returns a navigation probe failure without submitting', async () => {
+    const probeFailure = new UserInputProbeError({ cause: new Error('evaluate failed') })
+    const { context, evaluate } = makeContext({ escalations: [probeFailure] })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
+
+    expect(result).toBe(probeFailure)
+    expect(evaluate).not.toHaveBeenCalled()
+  })
+
+  it('returns the submission escalation and never re-submits', async () => {
+    const escalation = new UserInputRequiredError({ sshTarget: 'pi@myboard.local' })
+    const { context, evaluate } = makeContext({
+      escalations: [null, escalation],
+      submit: { kind: 'response', ok: false },
+    })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
+
+    expect(result).toBe(escalation)
     expect(evaluate).toHaveBeenCalledTimes(1)
+  })
+
+  // The POST goes through fetch, so the DOM is still the ordinary checker form:
+  // without a fresh navigation the human staring at noVNC has no challenge to
+  // solve. The prepare hook is how the retained page gets one.
+  it('asks for a page reload only on the submission check', async () => {
+    const { context, detectUserInput } = makeContext({})
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    expect(detectUserInput.mock.calls[0]?.[1]).toBeUndefined()
+    const submissionOptions = detectUserInput.mock.calls[1]?.[1]
+    expect(typeof submissionOptions?.prepare).toBe('function')
+
+    const goto = vi.fn(async () => null)
+    await submissionOptions?.prepare?.({ goto } as unknown as Page)
+    expect(goto).toHaveBeenCalledWith('http://fixture.local/solutions/checker', {
+      waitUntil: 'domcontentloaded',
+    })
+  })
+
+  // Nothing above checks *which* detector goes to which call, only the options on
+  // call 1 — a handler that swapped the two detector factories between the
+  // navigation and submission checks would leave every other test in this file
+  // green. Told apart here by actual behaviour, not by identity: the page detector
+  // reaches into the live page via page.evaluate; the evidence detector classifies
+  // evidence already collected inside the page and never touches its page argument.
+  it('passes a page-based detector to the navigation check', async () => {
+    const { context, detectUserInput } = makeContext({})
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    const navigationDetector = detectUserInput.mock.calls[0]?.[0]
+    const fakeEvaluate = vi.fn(async () => ({}))
+    await navigationDetector?.({ evaluate: fakeEvaluate } as unknown as Page)
+
+    expect(fakeEvaluate).toHaveBeenCalled()
+  })
+
+  it('passes an evidence-based detector to the submission check, and it classifies a challenge as true', async () => {
+    const { context, detectUserInput } = makeContext({
+      submit: { kind: 'response', ok: true, evidence: { hasChallengeForm: true } },
+    })
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    const submissionDetector = detectUserInput.mock.calls[1]?.[0]
+    // {} as Page has no evaluate at all: if this were secretly the page detector,
+    // invoking it here would throw instead of resolving.
+    await expect(submissionDetector?.({} as Page)).resolves.toBe(true)
+  })
+
+  it('passes an evidence-based detector to the submission check, and it classifies a clean response as false', async () => {
+    const { context, detectUserInput } = makeContext({})
+    await makePassportCheckHandler(handlerOptions)({}, context)
+
+    const submissionDetector = detectUserInput.mock.calls[1]?.[0]
+    await expect(submissionDetector?.({} as Page)).resolves.toBe(false)
   })
 
   it.each([
@@ -364,45 +240,18 @@ describe('passport check handler', () => {
     ],
     [{ kind: 'network_error' } as const, UpstreamResponseError],
   ])('maps safe submission outcomes to domain errors', async (submit, ErrorType) => {
-    const { context, retainPageForRecovery } = makeContext({ submit })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: null,
-    })({}, context)
+    const { context } = makeContext({ submit })
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
     expect(result).toBeInstanceOf(ErrorType)
-    expect(retainPageForRecovery).not.toHaveBeenCalled()
   })
 
   it.each([
     ['navigation', { navigationError: new Error('navigation failed') }],
     ['submission', { submissionError: new Error('submission failed') }],
   ] as const)('wraps a Playwright %s rejection as an upstream error', async (_phase, scenario) => {
-    const { context, retainPageForRecovery } = makeContext(scenario)
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: null,
-    })({}, context)
+    const { context } = makeContext(scenario)
+    const result = await makePassportCheckHandler(handlerOptions)({}, context)
     expect(result).toBeInstanceOf(UpstreamResponseError)
-    expect(retainPageForRecovery).not.toHaveBeenCalled()
-  })
-
-  it('classifies a POST challenge with the shared classifier, retains the page, and never re-submits', async () => {
-    const { context, evaluate, goto, retainPageForRecovery } = makeContext({
-      submit: {
-        kind: 'response',
-        ok: false,
-        evidence: { hasChallengeForm: true },
-      },
-    })
-    const result = await makePassportCheckHandler({
-      checkerUrl: 'http://fixture.local/solutions/checker',
-      recoverySshTarget: 'pi@myboard.local',
-    })({}, context)
-
-    expect(result).toBeInstanceOf(BrowserSessionRequiredError)
-    expect(retainPageForRecovery).toHaveBeenCalledOnce()
-    expect(goto).toHaveBeenCalledTimes(2)
-    expect(evaluate).toHaveBeenCalledTimes(2)
   })
 
   it('rejects schema mismatches and responses that echo document identity', async () => {
@@ -413,10 +262,7 @@ describe('passport check handler', () => {
       const { context } = makeContext({
         submit: { kind: 'response', ok: true, body: { kind: 'json', data } },
       })
-      const result = await makePassportCheckHandler({
-        checkerUrl: 'http://fixture.local/solutions/checker',
-        recoverySshTarget: null,
-      })({}, context)
+      const result = await makePassportCheckHandler(handlerOptions)({}, context)
       expect(result).toBeInstanceOf(InvalidCheckerResponseError)
       expect(JSON.stringify(result)).not.toContain('123456')
     }

@@ -24,16 +24,19 @@
 ### Task 1: `pruneInvites` core function + tests
 
 **Files:**
+
 - Modify: `packages/server/src/auth/invites.ts` (add `pruneInvites`, exported `InvitePruneResult` type, after the existing `listAllInvites` function at the end of the file)
 - Test: `packages/server/src/auth/invites.test.ts` (add a new `describe('pruneInvites', ...)` block at the end)
 
 **Interfaces:**
+
 - Consumes: `InviteStatus`, `inviteStatus()`, `INVITE_KEY_PREFIX`, `getJson()`, `InviteRecordSchema` — all already defined earlier in `invites.ts`. `ValkeyOps` from `../storage/valkey`.
 - Produces: `export type InvitePruneResult = { pruned: Array<{ id: string; status: InviteStatus }>; kept: number }` and `export async function pruneInvites(ops: ValkeyOps, now: () => number, opts?: { dryRun?: boolean }): Promise<InvitePruneResult>` — consumed by Task 2's `scripts/prune-invites.ts`.
 
 - [ ] **Step 1: Write the failing tests**
 
 Append to `packages/server/src/auth/invites.test.ts` (add `pruneInvites` to the existing import from `./invites` at the top of the file, changing:
+
 ```ts
 import {
   consumeInvite,
@@ -44,7 +47,9 @@ import {
   revokeInviteById,
 } from './invites'
 ```
+
 to:
+
 ```ts
 import {
   consumeInvite,
@@ -56,6 +61,7 @@ import {
   revokeInviteById,
 } from './invites'
 ```
+
 ), then add at the end of the file:
 
 ```ts
@@ -192,12 +198,14 @@ git commit -m "feat(server): add pruneInvites for bulk-deleting dead invite reco
 ### Task 2: `prune-invites` CLI script
 
 **Files:**
+
 - Create: `packages/server/scripts/prune-invites.ts`
 - Create: `packages/server/scripts/prune-invites.cli.ts`
 - Create: `packages/server/scripts/prune-invites.test.ts`
 - Modify: `packages/server/rspack.config.ts:10-16` (add one entry)
 
 **Interfaces:**
+
 - Consumes: `pruneInvites`, `InvitePruneResult` from `../src/auth/invites` (Task 1); `createValkeyOps`, `ValkeyOps` from `../src/storage/valkey`.
 - Produces: `export async function runPruneInvites(ops: ValkeyOps, now: () => number, opts?: { dryRun?: boolean }): Promise<InvitePruneResult>` and `export async function runPruneInvitesCli(): Promise<void>` — not consumed by later tasks, but must follow the same naming convention as `runRevokeAccount`/`runRevokeAccountCli` etc.
 
@@ -322,12 +330,14 @@ git commit -m "feat(server): add prune-invites CLI command"
 ### Task 3: `revoke-devices` CLI script
 
 **Files:**
+
 - Create: `packages/server/scripts/revoke-devices.ts`
 - Create: `packages/server/scripts/revoke-devices.cli.ts`
 - Create: `packages/server/scripts/revoke-devices.test.ts`
 - Modify: `packages/server/rspack.config.ts` (add one entry)
 
 **Interfaces:**
+
 - Consumes: `getAccount`, `listAccountDeviceIds` from `../src/auth/accounts`; `revokeDevice` from `../src/auth/devices`; `AccountNotFoundError` from `../src/auth/errors`; `createValkeyOps`, `ValkeyOps` from `../src/storage/valkey`.
 - Produces: `export async function runRevokeDevices(ops: ValkeyOps, accountId: string, opts?: { dryRun?: boolean }): Promise<{ revoked: number } | AccountNotFoundError | Error>` and `export async function runRevokeDevicesCli(): Promise<void>`.
 
@@ -519,20 +529,24 @@ git commit -m "feat(server): add revoke-devices CLI command to bulk-revoke an ac
 ### Task 4: ASCII QR code in `create-invite`
 
 **Files:**
+
 - Modify: `packages/server/package.json` (add `qrcode-terminal` dependency and `@types/qrcode-terminal` devDependency)
 - Modify: `packages/server/scripts/create-invite.ts:1-5,92-96` (import + one line in `runCli`)
 
 **Interfaces:**
+
 - Consumes: `qrcode-terminal`'s `generate(text: string, opts: { small?: boolean }, callback: (qr: string) => void)`.
 - Produces: no new exports; `runCli`'s behavior changes (stdout unchanged, stderr gains QR art).
 
 - [ ] **Step 1: Install the dependency**
 
 Run:
+
 ```bash
 pnpm --filter server add qrcode-terminal
 pnpm --filter server add -D @types/qrcode-terminal
 ```
+
 Expected: `packages/server/package.json` gains a `qrcode-terminal` entry under `"dependencies"` and `@types/qrcode-terminal` under `"devDependencies"`; `pnpm-lock.yaml` updates accordingly.
 
 - [ ] **Step 2: Add the import**
@@ -592,6 +606,7 @@ VALKEY_URL=redis://localhost:6379 PUBLIC_APP_URL=http://localhost:5173 RP_ID=loc
 cat /tmp/stdout.txt
 cat /tmp/stderr.txt
 ```
+
 Expected: `/tmp/stdout.txt` contains exactly one line matching `http://localhost:5173/activate?token=...` and nothing else; `/tmp/stderr.txt` contains ASCII QR block art. Requires a reachable Valkey at `VALKEY_URL` (e.g. `pnpm start:docker` from the repo root, or any local Valkey/Redis instance).
 
 - [ ] **Step 6: Commit**

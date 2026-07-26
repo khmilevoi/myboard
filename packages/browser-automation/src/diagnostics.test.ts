@@ -31,7 +31,7 @@ describe('diagnostics browser-check', () => {
     const context: BrowserTaskContext = {
       page: fakePage('FakeUA/1.0'),
       secrets: fakeSecrets('present'),
-      retainPageForRecovery: () => undefined,
+      detectUserInput: async () => null,
     }
     const result = await handler({}, context)
     expect(result).toEqual({ ok: true, secretPresent: true, userAgent: 'FakeUA/1.0' })
@@ -41,7 +41,7 @@ describe('diagnostics browser-check', () => {
     const context: BrowserTaskContext = {
       page: fakePage('FakeUA/1.0'),
       secrets: fakeSecrets(undefined),
-      retainPageForRecovery: () => undefined,
+      detectUserInput: async () => null,
     }
     const result = await handler({}, context)
     expect(result).toMatchObject({ ok: true, secretPresent: false })
@@ -51,7 +51,7 @@ describe('diagnostics browser-check', () => {
     const context: BrowserTaskContext = {
       page: fakePage('FakeUA/1.0'),
       secrets: fakeSecrets('TOP-SECRET'),
-      retainPageForRecovery: () => undefined,
+      detectUserInput: async () => null,
     }
     const result = await handler({}, context)
     expect(JSON.stringify(result)).not.toContain('TOP-SECRET')

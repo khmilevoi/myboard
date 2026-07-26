@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./task-context": "./src/browser/context.ts"
+    "./task-context": "./src/browser/context.ts",
+    "./user-input": "./src/user-input/index.ts",
+    "./user-input/cloudflare": "./src/user-input/cloudflare.ts"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "build": "rspack build",
+    "build": "rspack build && tsx scripts/check-bundle.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

@@ -13,7 +13,7 @@
 These apply to **every** task; each task's requirements implicitly include this section.
 
 - **errore, not throwing.** All server functions return `Error | T` unions and narrow with `instanceof Error` / `instanceof <TaggedError>`; never `throw` for control flow. Public auth errors carry `status`/`code`; surface them via `toAuthResult(err)`.
-- **Reatom `wrap()` convention (client).** Inside a reatom `action`, every awaited external promise is individually `wrap()`ed. A plain async helper called from an action wraps each of *its own* awaited promises, and the caller *also* `wrap()`s the helper call (mirrors the existing `completeLoginAfterApproval` idiom). `.catch()` chains onto the **raw** ceremony/fetch promise *before* it is passed to `wrap(...)`, never onto `wrap(...)`'s result. Do not hoist a single `wrap(fn)` closure and reuse it across calls — call `wrap(fn)()` fresh per invocation.
+- **Reatom `wrap()` convention (client).** Inside a reatom `action`, every awaited external promise is individually `wrap()`ed. A plain async helper called from an action wraps each of _its own_ awaited promises, and the caller _also_ `wrap()`s the helper call (mirrors the existing `completeLoginAfterApproval` idiom). `.catch()` chains onto the **raw** ceremony/fetch promise _before_ it is passed to `wrap(...)`, never onto `wrap(...)`'s result. Do not hoist a single `wrap(fn)` closure and reuse it across calls — call `wrap(fn)()` fresh per invocation.
 - **Storage keys are a persistence contract.** This change adds no new stored key shapes and must not alter any existing key derivation (`pendingKey`, `sessionKey`, etc.).
 - **User-facing strings are Russian; code, comments, commit messages are English.** New client error/reason strings match the existing Russian copy in `add-device-model.ts`.
 - **Testing is local only.** Never test against the live Pi; never create test devices on production. Server/client unit tests run under Vitest; the e2e runs against the local dockerized stack.
@@ -39,12 +39,15 @@ These apply to **every** task; each task's requirements implicitly include this 
 ### Task 1: `consumePendingTicket` (atomic single-use claim of a pending ticket)
 
 **Files:**
+
 - Modify: `packages/server/src/auth/pending-tickets.ts`
 - Test: `packages/server/src/auth/pending-tickets.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `pendingKey`, `PendingTicketRecordSchema`, `PendingTicketRecord`, `getJson` (from `./records`); `parseCookies` (from `./cookies`); `PendingTicketInvalidError` (from `./errors`); `runExclusive` (from `../storage/key-lock`); `ValkeyOps`, `AuthConfig`.
 - Produces (relied on by Task 2):
+
   ```ts
   export async function consumePendingTicket(
     ops: ValkeyOps,
@@ -53,6 +56,7 @@ These apply to **every** task; each task's requirements implicitly include this 
     cookieHeader: string | undefined,
   ): Promise<PendingTicketRecord | PendingTicketInvalidError | Error>
   ```
+
   Resolves the ticket id from the pending cookie, then under `runExclusive(pendingKey(ticketId))` re-reads the record, deletes it, and returns it. Missing cookie / missing / expired record → `PendingTicketInvalidError`. Single-use: a second call returns `PendingTicketInvalidError`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -198,18 +202,22 @@ rtk git commit -m "feat(auth): add consumePendingTicket for single-use ticket cl
 ### Task 2: `postClaimSession` endpoint (mint session on approval)
 
 **Files:**
+
 - Modify: `packages/server/src/auth/handlers.ts` (add `clearedPendingCookie`)
 - Modify: `packages/server/src/auth/device-handlers.ts` (add `postClaimSession`)
 - Modify: `packages/server/src/auth/index.ts` (register the route)
 - Test: `packages/server/src/auth/device-handlers.test.ts`
 
 **Interfaces:**
+
 - Consumes: `consumePendingTicket` (Task 1); `readPendingTicket` (`./pending-tickets`); `getDevice`, `DeviceNotFoundError` (already imported in `device-handlers.ts`); `issueSession` (`./sessions`); `clientIp` (`../http/client-ip`); `sessionCookieFor`, `clearedPendingCookie` (`./handlers`); `auditFor`, `toAuthResult` (already imported).
 - Produces:
+
   ```ts
   export function clearedPendingCookie(config: AuthConfig): string
   export async function postClaimSession(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult>
   ```
+
   The response body always carries a `status` discriminator (`'approved' | 'pending' | 'denied'`), mirroring `getPendingStatus`. Only `approved` sets cookies (session + cleared pending) and includes `credentialId`. Route: `POST /api/auth/devices/claim-session`.
 
 - [ ] **Step 1: Add `clearedPendingCookie` to `handlers.ts`**
@@ -482,13 +490,13 @@ export async function postClaimSession(deps: AuthDeps, req: IncomingMessage): Pr
 In `packages/server/src/auth/index.ts`, add `postClaimSession` to the import from `./device-handlers`, then register the route directly after the existing `GET /api/auth/devices/pending-status` route:
 
 ```ts
-  router.on(
-    'POST',
-    '/api/auth/devices/claim-session',
-    async (req: IncomingMessage, res: ServerResponse) => {
-      sendAuth(res, await postClaimSession(authDeps, req))
-    },
-  )
+router.on(
+  'POST',
+  '/api/auth/devices/claim-session',
+  async (req: IncomingMessage, res: ServerResponse) => {
+    sendAuth(res, await postClaimSession(authDeps, req))
+  },
+)
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -513,10 +521,12 @@ rtk git commit -m "feat(auth): mint device session via POST /api/auth/devices/cl
 ### Task 3: Client — claim the session instead of a second ceremony
 
 **Files:**
+
 - Modify: `packages/client/activation/src/model/add-device-model.ts`
 - Test: `packages/client/activation/src/model/add-device-model.test.ts`
 
 **Interfaces:**
+
 - Consumes (server contract from Task 2): `POST /api/auth/devices/claim-session` with **no body** (the pending-ticket cookie carries identity) → `200 { status: 'approved' | 'pending' | 'denied', credentialId? }`; a transport error or non-200 → treated as an `AddDeviceError`.
 - Produces: no change to the public `AddDeviceModel` interface (`pollPendingStatus` keeps its `Action<[], Promise<void>>` signature). The `AddDeviceDeps.startAuthenticationCeremony` field is **removed**.
 
@@ -529,143 +539,143 @@ In `packages/client/activation/src/model/add-device-model.test.ts`, inside `desc
 **(a) Replace** the test `it('goes registering -> waiting -> done, logs in, and navigates on approval', ...)` (the whole `it(...)`) with:
 
 ```ts
-  it('goes registering -> waiting -> done, claims a session, and navigates on approval', async () => {
-    vi.useFakeTimers()
+it('goes registering -> waiting -> done, claims a session, and navigates on approval', async () => {
+  vi.useFakeTimers()
 
-    const { http, calls } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
-      ],
-      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
-      '/api/auth/devices/pending-status': [
-        { status: 200, body: { status: 'pending' } },
-        { status: 200, body: { status: 'approved' } },
-      ],
-      '/api/auth/devices/claim-session': [
-        { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
-      ],
-    })
-    const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b', rawId: 'raw' })
-    const navigate = vi.fn()
-    const storage = createStorage()
-
-    const model = createAddDeviceModel({
-      currentOrigin: CURRENT_ORIGIN,
-      http,
-      startRegistrationCeremony,
-      navigate,
-      storage,
-    })
-
-    await model.submitManual('K7QP-3M9X')
-
-    expect(model.token()).toBe('K7QP3M9X')
-    expect(startRegistrationCeremony).toHaveBeenCalledWith({
-      optionsJSON: { challenge: 'add-device-challenge' },
-    })
-    expect(model.mode()).toBe('waiting')
-
-    // First poll tick: still pending.
-    await vi.advanceTimersByTimeAsync(2_000)
-    expect(model.mode()).toBe('waiting')
-
-    // Second poll tick: approved -> claim-session mints the session, then navigate.
-    await vi.advanceTimersByTimeAsync(2_000)
-
-    const claimCall = calls.find((c) => c.url === '/api/auth/devices/claim-session')
-    expect(claimCall).toEqual({
-      method: 'POST',
-      url: '/api/auth/devices/claim-session',
-      json: undefined,
-    })
-    // No second WebAuthn ceremony: the login endpoints are never touched.
-    expect(calls.some((c) => c.url === '/api/auth/login/options')).toBe(false)
-    expect(calls.some((c) => c.url === '/api/auth/login/verify')).toBe(false)
-    expect(storage.set).toHaveBeenCalledWith('cred-b')
-    expect(model.mode()).toBe('done')
-    expect(navigate).toHaveBeenCalledWith('/')
-
-    // Polling has stopped -- no further pending-status calls on more ticks.
-    const callsAfterDone = calls.length
-    await vi.advanceTimersByTimeAsync(10_000)
-    expect(calls.length).toBe(callsAfterDone)
+  const { http, calls } = makeScriptedHttp({
+    '/api/auth/devices/register/options': [
+      { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+    ],
+    '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+    '/api/auth/devices/pending-status': [
+      { status: 200, body: { status: 'pending' } },
+      { status: 200, body: { status: 'approved' } },
+    ],
+    '/api/auth/devices/claim-session': [
+      { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
+    ],
   })
+  const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b', rawId: 'raw' })
+  const navigate = vi.fn()
+  const storage = createStorage()
+
+  const model = createAddDeviceModel({
+    currentOrigin: CURRENT_ORIGIN,
+    http,
+    startRegistrationCeremony,
+    navigate,
+    storage,
+  })
+
+  await model.submitManual('K7QP-3M9X')
+
+  expect(model.token()).toBe('K7QP3M9X')
+  expect(startRegistrationCeremony).toHaveBeenCalledWith({
+    optionsJSON: { challenge: 'add-device-challenge' },
+  })
+  expect(model.mode()).toBe('waiting')
+
+  // First poll tick: still pending.
+  await vi.advanceTimersByTimeAsync(2_000)
+  expect(model.mode()).toBe('waiting')
+
+  // Second poll tick: approved -> claim-session mints the session, then navigate.
+  await vi.advanceTimersByTimeAsync(2_000)
+
+  const claimCall = calls.find((c) => c.url === '/api/auth/devices/claim-session')
+  expect(claimCall).toEqual({
+    method: 'POST',
+    url: '/api/auth/devices/claim-session',
+    json: undefined,
+  })
+  // No second WebAuthn ceremony: the login endpoints are never touched.
+  expect(calls.some((c) => c.url === '/api/auth/login/options')).toBe(false)
+  expect(calls.some((c) => c.url === '/api/auth/login/verify')).toBe(false)
+  expect(storage.set).toHaveBeenCalledWith('cred-b')
+  expect(model.mode()).toBe('done')
+  expect(navigate).toHaveBeenCalledWith('/')
+
+  // Polling has stopped -- no further pending-status calls on more ticks.
+  const callsAfterDone = calls.length
+  await vi.advanceTimersByTimeAsync(10_000)
+  expect(calls.length).toBe(callsAfterDone)
+})
 ```
 
 **(b) Add** these two tests inside the same `describe('registration + polling flow', ...)` block:
 
 ```ts
-  it('keeps waiting and surfaces an error when the claim fails, then resumes polling', async () => {
-    vi.useFakeTimers()
+it('keeps waiting and surfaces an error when the claim fails, then resumes polling', async () => {
+  vi.useFakeTimers()
 
-    const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
-      ],
-      '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
-      // First poll: approved -> claim fails (500). Later poll: pending again.
-      '/api/auth/devices/pending-status': [
-        { status: 200, body: { status: 'approved' } },
-        { status: 200, body: { status: 'pending' } },
-      ],
-      '/api/auth/devices/claim-session': [{ status: 500, body: {} }],
-    })
-    const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
-    const navigate = vi.fn()
+  const { http } = makeScriptedHttp({
+    '/api/auth/devices/register/options': [
+      { status: 200, body: { options: { challenge: 'add-device-challenge' } } },
+    ],
+    '/api/auth/devices/register/verify': [{ status: 200, body: { credentialId: 'cred-b' } }],
+    // First poll: approved -> claim fails (500). Later poll: pending again.
+    '/api/auth/devices/pending-status': [
+      { status: 200, body: { status: 'approved' } },
+      { status: 200, body: { status: 'pending' } },
+    ],
+    '/api/auth/devices/claim-session': [{ status: 500, body: {} }],
+  })
+  const startRegistrationCeremony = vi.fn().mockResolvedValue({ id: 'cred-b' })
+  const navigate = vi.fn()
 
-    const model = createAddDeviceModel({
-      currentOrigin: CURRENT_ORIGIN,
-      http,
-      startRegistrationCeremony,
-      navigate,
-      storage: createStorage(),
-    })
-
-    await model.submitManual('K7QP-3M9X')
-    expect(model.mode()).toBe('waiting')
-
-    // Approved poll -> claim 500 -> stay on waiting with an error, do not navigate.
-    await vi.advanceTimersByTimeAsync(2_000)
-    expect(model.mode()).toBe('waiting')
-    expect(model.error()).not.toBeNull()
-    expect(navigate).not.toHaveBeenCalled()
-
-    // Polling resumed: the next (pending) tick recovers and clears the error.
-    await vi.advanceTimersByTimeAsync(2_000)
-    expect(model.mode()).toBe('waiting')
-    expect(model.error()).toBeNull()
+  const model = createAddDeviceModel({
+    currentOrigin: CURRENT_ORIGIN,
+    http,
+    startRegistrationCeremony,
+    navigate,
+    storage: createStorage(),
   })
 
-  it('single-flights the claim so two overlapping approved polls claim at most once', async () => {
-    const { http, calls } = makeScriptedHttp({
-      '/api/auth/devices/pending-status': [
-        { status: 200, body: { status: 'approved' } },
-        { status: 200, body: { status: 'approved' } },
-      ],
-      '/api/auth/devices/claim-session': [
-        { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
-      ],
-    })
-    const navigate = vi.fn()
-    const storage = createStorage()
+  await model.submitManual('K7QP-3M9X')
+  expect(model.mode()).toBe('waiting')
 
-    const model = createAddDeviceModel({
-      currentOrigin: CURRENT_ORIGIN,
-      http,
-      navigate,
-      storage,
-    })
-    model.mode.set('waiting')
+  // Approved poll -> claim 500 -> stay on waiting with an error, do not navigate.
+  await vi.advanceTimersByTimeAsync(2_000)
+  expect(model.mode()).toBe('waiting')
+  expect(model.error()).not.toBeNull()
+  expect(navigate).not.toHaveBeenCalled()
 
-    // Two poll passes fired concurrently (models a slow GET overlapping the next
-    // tick): both see 'approved', but the single-flight guard admits one claim.
-    await Promise.all([model.pollPendingStatus(), model.pollPendingStatus()])
+  // Polling resumed: the next (pending) tick recovers and clears the error.
+  await vi.advanceTimersByTimeAsync(2_000)
+  expect(model.mode()).toBe('waiting')
+  expect(model.error()).toBeNull()
+})
 
-    const claimCalls = calls.filter((c) => c.url === '/api/auth/devices/claim-session')
-    expect(claimCalls).toHaveLength(1)
-    expect(storage.set).toHaveBeenCalledWith('cred-b')
-    expect(navigate).toHaveBeenCalledWith('/')
+it('single-flights the claim so two overlapping approved polls claim at most once', async () => {
+  const { http, calls } = makeScriptedHttp({
+    '/api/auth/devices/pending-status': [
+      { status: 200, body: { status: 'approved' } },
+      { status: 200, body: { status: 'approved' } },
+    ],
+    '/api/auth/devices/claim-session': [
+      { status: 200, body: { status: 'approved', credentialId: 'cred-b' } },
+    ],
   })
+  const navigate = vi.fn()
+  const storage = createStorage()
+
+  const model = createAddDeviceModel({
+    currentOrigin: CURRENT_ORIGIN,
+    http,
+    navigate,
+    storage,
+  })
+  model.mode.set('waiting')
+
+  // Two poll passes fired concurrently (models a slow GET overlapping the next
+  // tick): both see 'approved', but the single-flight guard admits one claim.
+  await Promise.all([model.pollPendingStatus(), model.pollPendingStatus()])
+
+  const claimCalls = calls.filter((c) => c.url === '/api/auth/devices/claim-session')
+  expect(claimCalls).toHaveLength(1)
+  expect(storage.set).toHaveBeenCalledWith('cred-b')
+  expect(navigate).toHaveBeenCalledWith('/')
+})
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -705,12 +715,12 @@ import { startRegistration as browserStartRegistration } from '@simplewebauthn/b
 **(d) Closure state** — remove the `registeredCredentialId` declaration and add a `claiming` single-flight flag. The block that currently declares `registeredCredentialId`, `pollIntervalId`, `pollTicks` becomes:
 
 ```ts
-  let pollIntervalId: ReturnType<typeof window.setInterval> | undefined
-  let pollTicks = 0
-  // Single-flight guard: with the post-approval ceremony gone, an overlapping
-  // duplicate claim is already harmless, but this also stops a second claim from
-  // hitting an already-consumed (single-use) ticket.
-  let claiming = false
+let pollIntervalId: ReturnType<typeof window.setInterval> | undefined
+let pollTicks = 0
+// Single-flight guard: with the post-approval ceremony gone, an overlapping
+// duplicate claim is already harmless, but this also stops a second claim from
+// hitting an already-consumed (single-use) ticket.
+let claiming = false
 ```
 
 **(e) Add a claim-result type** — after the `type JsonResult = ...` declaration, add:
@@ -725,99 +735,99 @@ type ClaimOutcome =
 **(f) Remove `completeLoginAfterApproval`** — delete the entire function (its doc comment through its closing brace) that begins `async function completeLoginAfterApproval(` and add `claimSession` in its place:
 
 ```ts
-  // Claims the joining device's session once the owner approves it: a single
-  // POST authenticated by the pending-ticket cookie. No WebAuthn assertion and
-  // no authenticator credential selection — the server already holds everything
-  // needed to mint the session (valid pending ticket + device now active). A
-  // plain async helper (not a reatom action); its awaited fetch is wrap()ed
-  // internally and the caller wrap()s the whole call, matching this file's
-  // convention.
-  async function claimSession(): Promise<AddDeviceError | ClaimOutcome> {
-    const result = await wrap(postJson(deps.http, '/api/auth/devices/claim-session', undefined))
-    if (result instanceof Error) return result
-    if (result.status !== 200) {
-      return new AddDeviceError({ reason: `не удалось получить сессию (код ${result.status})` })
-    }
-
-    const body = result.body as {
-      status?: 'approved' | 'pending' | 'denied'
-      credentialId?: string
-    }
-    if (body.status === 'approved') {
-      if (!body.credentialId) {
-        return new AddDeviceError({ reason: 'сервер не вернул идентификатор устройства' })
-      }
-      return { status: 'approved', credentialId: body.credentialId }
-    }
-    if (body.status === 'denied') return { status: 'denied' }
-    return { status: 'pending' }
+// Claims the joining device's session once the owner approves it: a single
+// POST authenticated by the pending-ticket cookie. No WebAuthn assertion and
+// no authenticator credential selection — the server already holds everything
+// needed to mint the session (valid pending ticket + device now active). A
+// plain async helper (not a reatom action); its awaited fetch is wrap()ed
+// internally and the caller wrap()s the whole call, matching this file's
+// convention.
+async function claimSession(): Promise<AddDeviceError | ClaimOutcome> {
+  const result = await wrap(postJson(deps.http, '/api/auth/devices/claim-session', undefined))
+  if (result instanceof Error) return result
+  if (result.status !== 200) {
+    return new AddDeviceError({ reason: `не удалось получить сессию (код ${result.status})` })
   }
+
+  const body = result.body as {
+    status?: 'approved' | 'pending' | 'denied'
+    credentialId?: string
+  }
+  if (body.status === 'approved') {
+    if (!body.credentialId) {
+      return new AddDeviceError({ reason: 'сервер не вернул идентификатор устройства' })
+    }
+    return { status: 'approved', credentialId: body.credentialId }
+  }
+  if (body.status === 'denied') return { status: 'denied' }
+  return { status: 'pending' }
+}
 ```
 
 **(g) Rewrite `pollPendingStatus`** — replace the whole `const pollPendingStatus = action(async () => { ... }, 'addDevice.pollPendingStatus')` with:
 
 ```ts
-  const pollPendingStatus = action(async () => {
-    const result = await wrap(getJson(deps.http, '/api/auth/devices/pending-status'))
-    if (result instanceof Error) {
-      error.set(result.message)
-      return
-    }
-    if (result.status !== 200) {
-      error.set(`Не удалось проверить статус (код ${result.status})`)
-      return
-    }
+const pollPendingStatus = action(async () => {
+  const result = await wrap(getJson(deps.http, '/api/auth/devices/pending-status'))
+  if (result instanceof Error) {
+    error.set(result.message)
+    return
+  }
+  if (result.status !== 200) {
+    error.set(`Не удалось проверить статус (код ${result.status})`)
+    return
+  }
 
-    // A successful response clears any stale error left behind by an earlier
-    // transient failure (mirrors startRegistration/submitManual clearing `error`
-    // at entry) -- otherwise a one-off blip's message would linger after
-    // polling recovers.
-    error.set(null)
+  // A successful response clears any stale error left behind by an earlier
+  // transient failure (mirrors startRegistration/submitManual clearing `error`
+  // at entry) -- otherwise a one-off blip's message would linger after
+  // polling recovers.
+  error.set(null)
 
-    const { status } = result.body as { status: 'approved' | 'pending' | 'denied' }
-    if (status === 'pending') return
+  const { status } = result.body as { status: 'approved' | 'pending' | 'denied' }
+  if (status === 'pending') return
 
-    stopPolling()
+  stopPolling()
 
-    if (status === 'denied') {
-      mode.set('rejected')
-      return
-    }
+  if (status === 'denied') {
+    mode.set('rejected')
+    return
+  }
 
-    // status === 'approved': mint the session with one server round-trip. The
-    // single-flight guard means two overlapping approved polls (a GET slower
-    // than the 2s interval) claim at most once.
-    if (claiming) return
-    claiming = true
+  // status === 'approved': mint the session with one server round-trip. The
+  // single-flight guard means two overlapping approved polls (a GET slower
+  // than the 2s interval) claim at most once.
+  if (claiming) return
+  claiming = true
 
-    const claim = await wrap(claimSession())
-    if (claim instanceof Error) {
-      claiming = false
-      error.set(claim.message)
-      // Retry affordance: resume polling so a later approved tick re-attempts
-      // the claim (the single-use ticket is untouched on a failed claim).
-      beginPolling()
-      return
-    }
+  const claim = await wrap(claimSession())
+  if (claim instanceof Error) {
+    claiming = false
+    error.set(claim.message)
+    // Retry affordance: resume polling so a later approved tick re-attempts
+    // the claim (the single-use ticket is untouched on a failed claim).
+    beginPolling()
+    return
+  }
 
-    if (claim.status === 'denied') {
-      mode.set('rejected')
-      return
-    }
+  if (claim.status === 'denied') {
+    mode.set('rejected')
+    return
+  }
 
-    if (claim.status === 'pending') {
-      // Defensive: an `approved` poll should not see the device un-approved on
-      // the claim. Resume polling rather than get stuck.
-      claiming = false
-      beginPolling()
-      return
-    }
+  if (claim.status === 'pending') {
+    // Defensive: an `approved` poll should not see the device un-approved on
+    // the claim. Resume polling rather than get stuck.
+    claiming = false
+    beginPolling()
+    return
+  }
 
-    // claim.status === 'approved'
-    deps.storage.set(claim.credentialId)
-    mode.set('done')
-    deps.navigate('/')
-  }, 'addDevice.pollPendingStatus')
+  // claim.status === 'approved'
+  deps.storage.set(claim.credentialId)
+  mode.set('done')
+  deps.navigate('/')
+}, 'addDevice.pollPendingStatus')
 ```
 
 **(h) `startRegistration`** — remove the now-dead `registeredCredentialId` assignment. The tail of `startRegistration` (currently `const { credentialId } = verifyResult.body ...; registeredCredentialId = credentialId; mode.set('waiting'); beginPolling()`) becomes just:
@@ -850,9 +860,11 @@ rtk git commit -m "feat(activation): claim session on approval instead of a seco
 ### Task 4: e2e — prove the joining device reaches the board without a second ceremony
 
 **Files:**
+
 - Test: `packages/client/e2e/add-device.spec.ts`
 
 **Interfaces:**
+
 - Consumes: the full stack from Tasks 2–3 (`claim-session` route + client `claimSession`). Uses the existing page objects (`ActivatePage`, `AccountMenuPage`, `MyDevicesDialogPage`, `AddDeviceActivatePage`, `AddDeviceModalPage`) and helpers (`registerAccountAndDeviceA`, `mintAddDeviceCode`) already in the spec.
 
 - [ ] **Step 1: Add network assertions to the happy-path e2e**
@@ -860,19 +872,19 @@ rtk git commit -m "feat(activation): claim session on approval instead of a seco
 In `packages/client/e2e/add-device.spec.ts`, in the first test (`test('device B registers via a minted code, owner approves over SSE, device B auto-logs in', ...)`), attach a POST-path recorder to `pageB` immediately after `pageB` is created (right after `const pageB = await contextB.newPage()`):
 
 ```ts
-  // Record device B's POST paths so we can prove it obtains its session via
-  // claim-session and never runs a second login ceremony (login/verify).
-  const deviceBPosts: string[] = []
-  pageB.on('request', (req) => {
-    if (req.method() === 'POST') deviceBPosts.push(new URL(req.url()).pathname)
-  })
+// Record device B's POST paths so we can prove it obtains its session via
+// claim-session and never runs a second login ceremony (login/verify).
+const deviceBPosts: string[] = []
+pageB.on('request', (req) => {
+  if (req.method() === 'POST') deviceBPosts.push(new URL(req.url()).pathname)
+})
 ```
 
 Then, after the existing board-redirect + session assertions (after `expect(sessionB.status()).toBe(200)`), add:
 
 ```ts
-  expect(deviceBPosts).toContain('/api/auth/devices/claim-session')
-  expect(deviceBPosts).not.toContain('/api/auth/login/verify')
+expect(deviceBPosts).toContain('/api/auth/devices/claim-session')
+expect(deviceBPosts).not.toContain('/api/auth/login/verify')
 ```
 
 Rename the test title to reflect the new mechanism:
@@ -913,6 +925,7 @@ rtk git commit -m "test(activation): assert joining device claims a session, run
 ## Self-Review
 
 **1. Spec coverage.**
+
 - Server `consumePendingTicket` (atomic, runExclusive-guarded, single-use) → Task 1. ✅
 - Server `clearedPendingCookie` → Task 2 Step 1. ✅
 - Server `postClaimSession` with `status` discriminator, denied/pending/approved branches, ticket consume, `issueSession`, `emit('login')`, session + cleared-pending cookies → Task 2. ✅

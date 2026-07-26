@@ -22,10 +22,12 @@
 ### Task 1: ActivateScreen — swap Input + Button to shadcn primitives
 
 **Files:**
+
 - Modify: `packages/client/activation/src/ui/ActivateScreen.tsx`
 - Modify: `packages/client/activation/src/ui/ActivateScreen.module.css`
 
 **Interfaces:**
+
 - Consumes: `Button` from `@/components/ui/button` (props: `variant?: 'default'|'outline'|'secondary'|'ghost'|'destructive'|'link'`, extends `React.ComponentProps<'button'>`), `Input` from `@/components/ui/input` (extends `React.ComponentProps<'input'>`).
 - Produces: nothing new consumed by other tasks — `ActivateScreen.tsx` still renders `<ThemeTogglePill />` from Task 3 unchanged (same import, same call signature).
 
@@ -55,37 +57,37 @@ import styles from './ActivateScreen.module.css'
 Replace:
 
 ```tsx
-            <input
-              type="text"
-              placeholder="Ваше имя"
-              aria-label="Ваше имя"
-              aria-invalid={hasNameError}
-              aria-describedby="activate-name-error"
-              disabled={loading}
-              className={`${styles.input} ${hasNameError ? styles.inputError : ''}`}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') model.startRegistration()
-              }}
-              {...bindField(nameField)}
-            />
+<input
+  type="text"
+  placeholder="Ваше имя"
+  aria-label="Ваше имя"
+  aria-invalid={hasNameError}
+  aria-describedby="activate-name-error"
+  disabled={loading}
+  className={`${styles.input} ${hasNameError ? styles.inputError : ''}`}
+  onKeyDown={(event) => {
+    if (event.key === 'Enter') model.startRegistration()
+  }}
+  {...bindField(nameField)}
+/>
 ```
 
 with:
 
 ```tsx
-            <Input
-              type="text"
-              placeholder="Ваше имя"
-              aria-label="Ваше имя"
-              aria-invalid={hasNameError}
-              aria-describedby="activate-name-error"
-              disabled={loading}
-              className="h-12 rounded-[13px] px-[15px] text-[15px]"
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') model.startRegistration()
-              }}
-              {...bindField(nameField)}
-            />
+<Input
+  type="text"
+  placeholder="Ваше имя"
+  aria-label="Ваше имя"
+  aria-invalid={hasNameError}
+  aria-describedby="activate-name-error"
+  disabled={loading}
+  className="h-12 rounded-[13px] px-[15px] text-[15px]"
+  onKeyDown={(event) => {
+    if (event.key === 'Enter') model.startRegistration()
+  }}
+  {...bindField(nameField)}
+/>
 ```
 
 (`aria-invalid` already drives shadcn `Input`'s built-in destructive border/ring — the old `.inputError` class is no longer needed.)
@@ -95,31 +97,31 @@ with:
 Replace:
 
 ```tsx
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => (mode === 'new-account' ? model.startRegistration() : model.startLogin())}
-          className={`${styles.primaryButton} ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
-        >
-          {mode === 'new-account'
-            ? passkeyButtonContent(loading, 'Создать ключ доступа', 'Создание ключа доступа…')
-            : passkeyButtonContent(loading, 'Войти с ключом доступа', 'Вход…')}
-        </button>
+<button
+  type="button"
+  disabled={loading}
+  onClick={() => (mode === 'new-account' ? model.startRegistration() : model.startLogin())}
+  className={`${styles.primaryButton} ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
+>
+  {mode === 'new-account'
+    ? passkeyButtonContent(loading, 'Создать ключ доступа', 'Создание ключа доступа…')
+    : passkeyButtonContent(loading, 'Войти с ключом доступа', 'Вход…')}
+</button>
 ```
 
 with:
 
 ```tsx
-        <Button
-          type="button"
-          disabled={loading}
-          onClick={() => (mode === 'new-account' ? model.startRegistration() : model.startLogin())}
-          className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
-        >
-          {mode === 'new-account'
-            ? passkeyButtonContent(loading, 'Создать ключ доступа', 'Создание ключа доступа…')
-            : passkeyButtonContent(loading, 'Войти с ключом доступа', 'Вход…')}
-        </Button>
+<Button
+  type="button"
+  disabled={loading}
+  onClick={() => (mode === 'new-account' ? model.startRegistration() : model.startLogin())}
+  className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${mode === 'new-account' ? styles.primaryButtonAfterField : styles.primaryButtonStandalone}`}
+>
+  {mode === 'new-account'
+    ? passkeyButtonContent(loading, 'Создать ключ доступа', 'Создание ключа доступа…')
+    : passkeyButtonContent(loading, 'Войти с ключом доступа', 'Вход…')}
+</Button>
 ```
 
 - [ ] **Step 4: Trim `ActivateScreen.module.css`**
@@ -145,11 +147,13 @@ git commit -m "refactor(activation): use shadcn Button/Input in ActivateScreen"
 ### Task 2: AddDeviceScreen — swap Input + Button (default/outline/link) to shadcn primitives
 
 **Files:**
+
 - Modify: `packages/client/activation/src/ui/AddDeviceScreen.tsx`
 - Modify: `packages/client/activation/src/ui/AddDeviceScreen.module.css`
 - Test (existing, run as regression check): `packages/client/activation/src/ui/AddDeviceScreen.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `Button`, `Input` (same as Task 1).
 - Produces: nothing new consumed by other tasks.
 
@@ -182,84 +186,80 @@ import styles from './AddDeviceScreen.module.css'
 Replace:
 
 ```tsx
-              <button
-                type="button"
-                className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
-                onClick={goToScan}
-              >
-                <Camera size={18} strokeWidth={2} aria-hidden />
-                Сканировать QR-код
-              </button>
+<button
+  type="button"
+  className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
+  onClick={goToScan}
+>
+  <Camera size={18} strokeWidth={2} aria-hidden />
+  Сканировать QR-код
+</button>
 ```
 
 with:
 
 ```tsx
-              <Button
-                type="button"
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
-                onClick={goToScan}
-              >
-                <Camera size={18} strokeWidth={2} aria-hidden />
-                Сканировать QR-код
-              </Button>
+<Button
+  type="button"
+  className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
+  onClick={goToScan}
+>
+  <Camera size={18} strokeWidth={2} aria-hidden />
+  Сканировать QR-код
+</Button>
 ```
 
 Replace:
 
 ```tsx
-                <input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  className={`${styles.codeInput} ${error ? styles.codeInputError : ''}`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
+<input
+  type="text"
+  placeholder="____ – ____"
+  aria-label="Код с другого устройства"
+  aria-invalid={Boolean(error)}
+  value={manualValue}
+  className={`${styles.codeInput} ${error ? styles.codeInputError : ''}`}
+  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+  onPaste={handleCodePaste}
+  onKeyDown={handleCodeKeyDown}
+/>
 ```
 
 with:
 
 ```tsx
-                <Input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput}`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
+<Input
+  type="text"
+  placeholder="____ – ____"
+  aria-label="Код с другого устройства"
+  aria-invalid={Boolean(error)}
+  value={manualValue}
+  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput}`}
+  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+  onPaste={handleCodePaste}
+  onKeyDown={handleCodeKeyDown}
+/>
 ```
 
 Replace:
 
 ```tsx
-              <button
-                type="button"
-                className={styles.outlineButton}
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </button>
+<button type="button" className={styles.outlineButton} onClick={() => submitCode(manualValue)}>
+  Продолжить
+</button>
 ```
 
 with:
 
 ```tsx
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full rounded-[13px] font-semibold"
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </Button>
+<Button
+  type="button"
+  variant="outline"
+  className="h-12 w-full rounded-[13px] font-semibold"
+  onClick={() => submitCode(manualValue)}
+>
+  Продолжить
+</Button>
 ```
 
 - [ ] **Step 4: camera-denied fallback link**
@@ -267,22 +267,22 @@ with:
 Replace:
 
 ```tsx
-              <button type="button" className={styles.cameraDeniedLink} onClick={goToManual}>
-                Ввести код вручную
-              </button>
+<button type="button" className={styles.cameraDeniedLink} onClick={goToManual}>
+  Ввести код вручную
+</button>
 ```
 
 with:
 
 ```tsx
-              <Button
-                type="button"
-                variant="link"
-                className="mt-4 h-auto p-0 text-sm font-semibold"
-                onClick={goToManual}
-              >
-                Ввести код вручную
-              </Button>
+<Button
+  type="button"
+  variant="link"
+  className="mt-4 h-auto p-0 text-sm font-semibold"
+  onClick={goToManual}
+>
+  Ввести код вручную
+</Button>
 ```
 
 - [ ] **Step 5: `manual` mode — code input, continue button**
@@ -290,65 +290,65 @@ with:
 Replace:
 
 ```tsx
-                <input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  disabled={isExpiredError}
-                  className={`${styles.codeInput} ${
-                    isExpiredError ? styles.codeInputExpired : error ? styles.codeInputError : ''
-                  }`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
+<input
+  type="text"
+  placeholder="____ – ____"
+  aria-label="Код с другого устройства"
+  aria-invalid={Boolean(error)}
+  value={manualValue}
+  disabled={isExpiredError}
+  className={`${styles.codeInput} ${
+    isExpiredError ? styles.codeInputExpired : error ? styles.codeInputError : ''
+  }`}
+  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+  onPaste={handleCodePaste}
+  onKeyDown={handleCodeKeyDown}
+/>
 ```
 
 with:
 
 ```tsx
-                <Input
-                  type="text"
-                  placeholder="____ – ____"
-                  aria-label="Код с другого устройства"
-                  aria-invalid={Boolean(error)}
-                  value={manualValue}
-                  disabled={isExpiredError}
-                  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput} ${
-                    isExpiredError ? styles.codeInputExpired : ''
-                  }`}
-                  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
-                  onPaste={handleCodePaste}
-                  onKeyDown={handleCodeKeyDown}
-                />
+<Input
+  type="text"
+  placeholder="____ – ____"
+  aria-label="Код с другого устройства"
+  aria-invalid={Boolean(error)}
+  value={manualValue}
+  disabled={isExpiredError}
+  className={`h-12 rounded-[13px] px-[15px] ${styles.codeInput} ${
+    isExpiredError ? styles.codeInputExpired : ''
+  }`}
+  onChange={(event) => setManualValue(formatManualCode(event.target.value))}
+  onPaste={handleCodePaste}
+  onKeyDown={handleCodeKeyDown}
+/>
 ```
 
 Replace:
 
 ```tsx
-              <button
-                type="button"
-                disabled={isExpiredError}
-                className={`${styles.primaryButton} ${styles.primaryButtonManualGap}`}
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </button>
+<button
+  type="button"
+  disabled={isExpiredError}
+  className={`${styles.primaryButton} ${styles.primaryButtonManualGap}`}
+  onClick={() => submitCode(manualValue)}
+>
+  Продолжить
+</button>
 ```
 
 with:
 
 ```tsx
-              <Button
-                type="button"
-                disabled={isExpiredError}
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonManualGap}`}
-                onClick={() => submitCode(manualValue)}
-              >
-                Продолжить
-              </Button>
+<Button
+  type="button"
+  disabled={isExpiredError}
+  className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonManualGap}`}
+  onClick={() => submitCode(manualValue)}
+>
+  Продолжить
+</Button>
 ```
 
 - [ ] **Step 6: `registering` mode — create-passkey button**
@@ -356,29 +356,29 @@ with:
 Replace:
 
 ```tsx
-              <button
-                type="button"
-                disabled={showRegisterLoading}
-                aria-busy={showRegisterLoading}
-                className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
-                onClick={createPasskey}
-              >
-                {passkeyButtonContent(showRegisterLoading)}
-              </button>
+<button
+  type="button"
+  disabled={showRegisterLoading}
+  aria-busy={showRegisterLoading}
+  className={`${styles.primaryButton} ${styles.primaryButtonTopGap}`}
+  onClick={createPasskey}
+>
+  {passkeyButtonContent(showRegisterLoading)}
+</button>
 ```
 
 with:
 
 ```tsx
-              <Button
-                type="button"
-                disabled={showRegisterLoading}
-                aria-busy={showRegisterLoading}
-                className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
-                onClick={createPasskey}
-              >
-                {passkeyButtonContent(showRegisterLoading)}
-              </Button>
+<Button
+  type="button"
+  disabled={showRegisterLoading}
+  aria-busy={showRegisterLoading}
+  className={`h-12 w-full gap-[9px] rounded-[13px] text-[15px] font-semibold ${styles.primaryButtonTopGap}`}
+  onClick={createPasskey}
+>
+  {passkeyButtonContent(showRegisterLoading)}
+</Button>
 ```
 
 - [ ] **Step 7: `rejected` mode — retry button**
@@ -386,22 +386,22 @@ with:
 Replace:
 
 ```tsx
-              <button type="button" className={styles.outlineButton} onClick={goToChoose}>
-                Попробовать снова
-              </button>
+<button type="button" className={styles.outlineButton} onClick={goToChoose}>
+  Попробовать снова
+</button>
 ```
 
 with:
 
 ```tsx
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 w-full rounded-[13px] font-semibold"
-                onClick={goToChoose}
-              >
-                Попробовать снова
-              </Button>
+<Button
+  type="button"
+  variant="outline"
+  className="h-12 w-full rounded-[13px] font-semibold"
+  onClick={goToChoose}
+>
+  Попробовать снова
+</Button>
 ```
 
 - [ ] **Step 8: Trim `AddDeviceScreen.module.css`**
@@ -444,10 +444,12 @@ git commit -m "refactor(activation): use shadcn Button/Input in AddDeviceScreen"
 ### Task 3: ThemeTogglePill — swap to ToggleGroup and add a regression test
 
 **Files:**
+
 - Modify: `packages/client/activation/src/ui/ThemeTogglePill.tsx`
 - Create: `packages/client/activation/src/ui/ThemeTogglePill.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `ToggleGroup`, `ToggleGroupItem` from `@/components/ui/toggle-group` (props: `React.ComponentProps<typeof ToggleGroupPrimitive.Root>` / `.Item`, i.e. `type`, `value`, `aria-label`, `className`, `onClick`, etc. pass straight through); `themeMode` atom from `@/theme/model/theme-model` (already imported today — read via `themeMode()`, written via `themeMode.set(mode)`).
 - Produces: `ThemeTogglePill` export unchanged in name/signature (`reatomMemo(() => ..., 'ThemeTogglePill')`, no props) — `ActivateScreen.tsx` (Task 1) keeps rendering `<ThemeTogglePill />` with no changes needed on its side.
 - Reference: `packages/client/src/theme/ui/ThemeToggle.tsx` uses this exact `ToggleGroup`/`ToggleGroupItem` pattern already (controlled `value` on the group, per-item `onClick` rather than the group's `onValueChange`) — mirror it, but keep `ThemeTogglePill`'s existing plain `setMode(mode)` call (no view-transition animation — that's `ThemeToggle`-specific and out of scope here).
@@ -595,6 +597,7 @@ pnpm --filter client exec vite --config vite.activation.config.ts
 ```
 
 Open the printed local URL and check, in both light and dark theme (via the pill toggle, top-right on `/activate`):
+
 - `/activate` (new-account mode: clear `localStorage['mb_cred_hint']` first) — name field + CTA button look like sized, rounded controls (48px/13px), focus ring and validation-error state on the name field.
 - `/add-device` — `choose` screen (scan button, divider, code field, outline continue button), `manual` screen (type text into the code field to see the mono/centered/letter-spaced styling still applied), and the theme-toggle pill's selected/unselected states.
 
