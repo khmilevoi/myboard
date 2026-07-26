@@ -542,8 +542,8 @@ endpoints, SSE, and UI onto that schema. The gate stays **OFF** (that is Plan 3)
    single-use + 5-min TTL + per-code failed-attempt lock (reuse the
    invite-failure pattern) + the nginx IP limit.
 2. **Fresh user-verification to mint (two-step).** `POST /devices/add-token/
-   options` (returns WebAuthn auth options/challenge) → `navigator.credentials.
-   get()` on device A → `POST /devices/add-token` (assertion verified) → mint
+options` (returns WebAuthn auth options/challenge) → `navigator.credentials.
+get()` on device A → `POST /devices/add-token` (assertion verified) → mint
    the code. Stops a walk-up attacker on A's unlocked session from silently
    adding a device.
 3. **Device B entry (react-zxing kept).** `/add-device?token=<code>` reached via

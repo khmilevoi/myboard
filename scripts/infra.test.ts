@@ -14,6 +14,7 @@ const widgetViteConfig = readFileSync(
   resolve(root, 'packages/widget-sdk/src/vite/widget-vite-config.ts'),
   'utf8',
 )
+const clientViteConfig = readFileSync(resolve(root, 'packages/client/vite.config.ts'), 'utf8')
 const rootPackage = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
 }
@@ -29,6 +30,16 @@ const nginxConf = readFileSync(resolve(root, 'packages/client/nginx.conf'), 'utf
 it('exposes each root client definition as the remote client entrypoint', () => {
   expect(widgetViteConfig).toContain("exposes: { './client': './client.ts' }")
   expect(widgetViteConfig).not.toContain("'./ui': './ui/expose.ts'")
+})
+
+// @module-federation/dts-plugin generates federation types through the legacy
+// TypeScript compiler API (ts.sys, ts.readConfigFile, ts.createProgram), none
+// of which typescript@7 ships any more. Leaving DTS on kills the dev server
+// with "Cannot read properties of undefined (reading 'readFile')", so every
+// federation() call site -- host and remotes -- must opt out.
+it('keeps federation DTS generation off on every federation call site', () => {
+  expect(widgetViteConfig).toContain('dts: false')
+  expect(clientViteConfig).toContain('dts: false')
 })
 
 it('routes local commands to the narrowest codegen target', () => {
@@ -92,10 +103,17 @@ it('registers the lightweight browser automation workspace package', () => {
   }
 
   expect(manifest.name).toBe('browser-automation')
+  // build has a second step on purpose: the runtime stage of the browser image
+  // copies only package.json and dist/, so anything rspack leaves external must
+  // resolve from the production node_modules alone. A workspace package cannot
+  // — its exports map points at .ts sources that never reach the image — and no
+  // vitest run can see that, because vitest resolves those specifiers itself
+  // and never looks at the bundle. check-bundle.ts asserts it on the artifact,
+  // chained onto the build the Dockerfile already runs.
   expect(manifest.scripts).toEqual({
     dev: 'tsx watch src/index.ts',
     start: 'tsx src/index.ts',
-    build: 'rspack build',
+    build: 'rspack build && tsx scripts/check-bundle.ts',
     test: 'vitest run',
     typecheck: 'tsc --noEmit -p tsconfig.json',
   })

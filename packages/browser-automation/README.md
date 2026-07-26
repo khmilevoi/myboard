@@ -76,12 +76,66 @@ entire shared X display, not a per-widget view. Anyone who opens one can see
 and drive every page in the persistent Chromium profile, not just the widget
 that requested recovery.
 
+## Requesting manual input from a widget task
+
+A browser task that cannot finish without a human — a Cloudflare challenge, a
+login wall, a captcha — asks the platform to escalate instead of assembling the
+escalation itself:
+
+```ts
+import { makeCloudflarePageDetector } from 'browser-automation/user-input/cloudflare'
+
+const navigation = await context.page.goto(url, { waitUntil: 'domcontentloaded' })
+
+const escalation = await context.detectUserInput(makeCloudflarePageDetector(navigation))
+if (escalation instanceof Error) return escalation
+```
+
+`detectUserInput` runs the detector against the live page. If it matches, the
+platform retains the page for manual recovery and returns `UserInputRequiredError`
+(`code: 'browser_session_required'`), which the widget server turns into HTTP 409
+and the client turns into the noVNC recovery view. If the detector cannot decide,
+it returns `UserInputProbeError` (`code: 'user_input_probe'`) and leaves the page
+unretained. Otherwise it returns `null`.
+
+Retention is not separately reachable: a task cannot hold a page open without
+escalating, or escalate without leaving a page behind.
+
+When the evidence does not come from the DOM — for example a `fetch` response
+body read inside the page — classify it directly and, if the retained page needs
+to be brought into a state a human can act on, pass a `prepare` hook. It runs
+only when the detector matched, before the page is retained, and its failure is
+logged without cancelling the escalation:
+
+```ts
+import { makeCloudflareEvidenceDetector } from 'browser-automation/user-input/cloudflare'
+
+const escalation = await context.detectUserInput(makeCloudflareEvidenceDetector(evidence), {
+  prepare: (page) => page.goto(url, { waitUntil: 'domcontentloaded' }),
+})
+```
+
+A detector is any `(page) => Promise<Error | boolean>`, so a widget facing
+something other than Cloudflare writes its own and gets the same handling.
+
+`AUTOMATION_SSH_TARGET` is read once by the service config and attached to the
+escalation error as public `sshTarget` meta; widgets neither read nor pass it.
+An unusable value degrades to no hint rather than failing service startup.
+
 ## Profile volume
 
 The Chromium profile lives in the named volume `browser_profile` at `/profile`.
 It survives image rebuilds and container restarts, preserving the session
 (including `cf_clearance`). Do not delete it to "fix" a problem; surface a
 recovery instead.
+
+Because the volume outlives the container, `SingletonLock`, `SingletonCookie`,
+and `SingletonSocket` can still name the `<hostname>-<pid>` of a container that
+is gone, and Chromium then refuses to start ("The profile appears to be in use
+by another Chromium process ... on another computer"). The executor removes
+those three entries before every launch. That is safe only because the container
+runs a single browser-automation process with one persistent context — never
+point a second Chromium at this volume.
 
 ## Diagnostics probe
 

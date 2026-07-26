@@ -24,7 +24,7 @@ login_failed     OGJ…  code=DeviceNotFoundError   ← login re-selected the ST
 ```
 
 The `login_failed … DeviceNotFoundError` is the fragility: the post-approval
-login ceremony asks the *authenticator* to choose a credential, and a synced
+login ceremony asks the _authenticator_ to choose a credential, and a synced
 password manager can return a previously-registered (now revoked) credential
 instead of the one just created. The server then rejects it, the new device
 never obtains a session, and it never reaches the board.
@@ -118,7 +118,7 @@ mutating semantics.)
      (same shape as `postLoginVerify`).
    - `emit('login', { accountId, credentialId })` — a session was established.
    - Return `{ status: 200, body: { status: 'approved', credentialId },
-     headers: { 'Set-Cookie': [sessionCookieFor(...), clearedPendingCookie(config)] } }`.
+headers: { 'Set-Cookie': [sessionCookieFor(...), clearedPendingCookie(config)] } }`.
 
 4. **`packages/server/src/auth/index.ts` — register the route:**
    `router.on('POST', '/api/auth/devices/claim-session', … postClaimSession …)`.
@@ -146,7 +146,7 @@ mutating semantics.)
      resume polling (`beginPolling()`);
    - `AddDeviceError` → `error.set(...)`, stay on `waiting` with a retry
      affordance.
-   On a poll `denied` → `rejected`; on poll `pending` → keep polling.
+     On a poll `denied` → `rejected`; on poll `pending` → keep polling.
 4. **Single-flight guard** so overlapping polls (slow mobile network, GET > 2s
    poll interval) fire `claimSession` at most once. With the ceremony gone a
    duplicate is already harmless, but the guard also avoids a second claim
@@ -167,7 +167,7 @@ approval.
 ## Error handling & edge cases
 
 - **Claim before approval** (client bug / race): device not `active` → `200
-  { status: 'pending' }`, ticket untouched, client resumes polling.
+{ status: 'pending' }`, ticket untouched, client resumes polling.
 - **Owner denied between poll and claim**: device deleted → `denied`, no session.
 - **Poll race (two overlapping approved polls → two claims)**: ticket consume is
   atomic and single-use; the loser gets `PendingTicketInvalidError`; the client

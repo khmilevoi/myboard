@@ -24,10 +24,12 @@
 ### Task 1: Reactive router
 
 **Files:**
+
 - Create: `packages/client/activation/src/model/router.ts`
 - Test: `packages/client/activation/src/model/router.test.ts`
 
 **Interfaces:**
+
 - Produces: `pathname: Atom<string>`, `search: Atom<string>`, `navigateInApp(path: string): void`, `initRouter(): void`.
 
 - [ ] **Step 1: Write the failing test**
@@ -133,10 +135,12 @@ git commit -m "feat(activation): reactive in-app router for /activate <-> /add-d
 ### Task 2: activation-model → `screen` atom
 
 **Files:**
+
 - Modify: `packages/client/activation/src/model/activation-model.ts`
 - Test: `packages/client/activation/src/model/activation-model.test.ts`
 
 **Interfaces:**
+
 - Produces: `makeActivationModel(overrides?): ActivationModel` where `ActivationModel.screen: Atom<'home' | 'activate' | 'activate-no-code' | 'activate-used'>` (replaces `mode`); `startRegistration`, `startLogin`, `registrationForm`, `loading`, `error` unchanged.
 - Consumes: nothing new.
 
@@ -153,19 +157,19 @@ Replace every `createActivationModel(` with `makeActivationModel(` in this file.
 Replace the `invite_consumed` test body's assertion:
 
 ```ts
-  it('moves to the activate-used screen when register/options returns 409 invite_consumed', async () => {
-    const { http } = makeScriptedHttp({
-      '/api/auth/register/options': [
-        { status: 409, body: { code: 'invite_consumed', canLogin: true } },
-      ],
-    })
-    const model = makeActivationModel({ token: 'invite-token', http })
-
-    model.registrationForm.fields.name.change('Alice')
-    await model.startRegistration()
-
-    expect(model.screen()).toBe('activate-used')
+it('moves to the activate-used screen when register/options returns 409 invite_consumed', async () => {
+  const { http } = makeScriptedHttp({
+    '/api/auth/register/options': [
+      { status: 409, body: { code: 'invite_consumed', canLogin: true } },
+    ],
   })
+  const model = makeActivationModel({ token: 'invite-token', http })
+
+  model.registrationForm.fields.name.change('Alice')
+  await model.startRegistration()
+
+  expect(model.screen()).toBe('activate-used')
+})
 ```
 
 In the `startLogin` "sends the stored credential hint ... after invite_consumed" test, replace `expect(model.mode()).toBe('login')` with `expect(model.screen()).toBe('activate-used')`.
@@ -221,7 +225,7 @@ function initialScreen(token: string | null): ActivationScreen {
 In `ActivationModel`, replace `mode: Atom<ActivationMode>` with:
 
 ```ts
-  screen: Atom<ActivationScreen>
+screen: Atom<ActivationScreen>
 ```
 
 Rename the factory and swap the atom:
@@ -231,7 +235,7 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
 ```
 
 ```ts
-  const screen = atom<ActivationScreen>(initialScreen(deps.token), 'activation.screen')
+const screen = atom<ActivationScreen>(initialScreen(deps.token), 'activation.screen')
 ```
 
 (Delete the old `const mode = atom<ActivationMode>('new-account', 'activation.mode')` line and the `ActivationMode` type export.)
@@ -239,16 +243,16 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
 In the `onSubmit` 409 branch:
 
 ```ts
-        if (optionsResult.status === 409 && optionsResult.body.code === 'invite_consumed') {
-          screen.set('activate-used')
-          return
-        }
+if (optionsResult.status === 409 && optionsResult.body.code === 'invite_consumed') {
+  screen.set('activate-used')
+  return
+}
 ```
 
 In the final `return`, replace `mode` with `screen`:
 
 ```ts
-  return { screen, loading, error, registrationForm, startRegistration, startLogin }
+return { screen, loading, error, registrationForm, startRegistration, startLogin }
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -268,11 +272,13 @@ git commit -m "refactor(activation): screen atom replaces mode; invite_consumed 
 ### Task 3: ActivateScreen — four screens
 
 **Files:**
+
 - Modify (full rewrite): `packages/client/activation/src/ui/ActivateScreen.tsx`
 - Modify: `packages/client/activation/src/ui/ActivateScreen.module.css`
 - Test: `packages/client/activation/src/ui/ActivateScreen.test.tsx` (new)
 
 **Interfaces:**
+
 - Consumes: `makeActivationModel`, `ActivationModel` (Task 2); `navigateInApp` (Task 1).
 - Produces: `ActivateScreen` accepting `{ model?: ActivationModel; navigate?: (path: string) => void }` (both optional, for test injection).
 
@@ -322,7 +328,9 @@ describe('ActivateScreen', () => {
     m.screen.set('activate-used')
     render(<ActivateScreen model={m} navigate={vi.fn()} />)
 
-    expect(screen.getByRole('heading', { name: 'Приглашение уже использовано' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Приглашение уже использовано' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Войти с passkey/ })).toBeInTheDocument()
   })
 
@@ -432,8 +440,7 @@ export const ActivateScreen = reatomMemo<ActivateScreenProps>(
             <>
               <h1 className={styles.heading}>Вход в myboard</h1>
               <p className={`${styles.description} ${styles.descriptionLogin}`}>
-                Используйте passkey или отсканируйте QR-код с другого устройства, где вы уже
-                вошли.
+                Используйте passkey или отсканируйте QR-код с другого устройства, где вы уже вошли.
               </p>
               <Button
                 type="button"
@@ -504,8 +511,8 @@ export const ActivateScreen = reatomMemo<ActivateScreenProps>(
             <>
               <h1 className={styles.heading}>Нужен код приглашения</h1>
               <p className={`${styles.description} ${styles.descriptionLogin}`}>
-                В этой ссылке нет кода приглашения. Запросите новое приглашение у администратора
-                или отсканируйте QR-код, который он отправил.
+                В этой ссылке нет кода приглашения. Запросите новое приглашение у администратора или
+                отсканируйте QR-код, который он отправил.
               </p>
               <Button
                 type="button"
@@ -635,11 +642,13 @@ git commit -m "feat(activation): four-screen ActivateScreen (home/activate/no-co
 ### Task 4: Reactive App routing
 
 **Files:**
+
 - Modify: `packages/client/activation/src/App.tsx`
 - Modify: `packages/client/activation/src/main.tsx`
 - Test: `packages/client/activation/src/App.test.tsx` (new)
 
 **Interfaces:**
+
 - Consumes: `pathname` (Task 1); `makeActivationModel`/`ActivateScreen` (Tasks 2–3).
 
 - [ ] **Step 1: Write the failing test**
@@ -733,10 +742,12 @@ git commit -m "feat(activation): route App reactively off the router pathname"
 ### Task 5: add-device model opens directly to the scanner
 
 **Files:**
+
 - Modify: `packages/client/activation/src/model/add-device-model.ts`
 - Test: `packages/client/activation/src/model/add-device-model.test.ts`
 
 **Interfaces:**
+
 - Produces: `AddDeviceDeps.scan: boolean` (default from `?scan=1`); initial `mode` = `scanning` when `scan`, else `choose`.
 
 - [ ] **Step 1: Write the failing test**
@@ -774,10 +785,10 @@ Expected: FAIL — `scan` is not an accepted dep; TS error / first test fails.
 In `add-device-model.ts`, add to `AddDeviceDeps` (next to `token`):
 
 ```ts
-  // True when the activation card routed here via `/add-device?scan=1` to open
-  // the camera straight away, skipping the `choose` screen and its redundant
-  // second "Сканировать QR-код" tap.
-  scan: boolean
+// True when the activation card routed here via `/add-device?scan=1` to open
+// the camera straight away, skipping the `choose` screen and its redundant
+// second "Сканировать QR-код" tap.
+scan: boolean
 ```
 
 Add a reader next to `readTokenFromLocation`:
@@ -798,7 +809,7 @@ In `createAddDeviceModel`'s `deps`, add:
 Change the `mode` atom initial value:
 
 ```ts
-  const mode = atom<AddDeviceMode>(deps.scan ? 'scanning' : 'choose', 'addDevice.mode')
+const mode = atom<AddDeviceMode>(deps.scan ? 'scanning' : 'choose', 'addDevice.mode')
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -818,10 +829,12 @@ git commit -m "feat(activation): add-device opens directly to the scanner on ?sc
 ### Task 6: Full-screen scanner overlay + close
 
 **Files:**
+
 - Modify: `packages/client/activation/src/ui/AddDeviceScreen.tsx`
 - Modify: `packages/client/activation/src/ui/AddDeviceScreen.module.css`
 
 **Interfaces:**
+
 - Consumes: `navigateInApp` (Task 1); the add-device model's `?scan=1` initial mode (Task 5).
 
 **Note on testing:** `useZxing` eagerly loads a barcode-detector wasm engine that crashes under jsdom, so the existing `AddDeviceScreen.test.tsx` never renders the scanner (it only covers the paste path in `choose` mode). This task is presentational + wiring; it is verified by the unchanged paste test still passing, `pnpm typecheck`, and the manual/e2e smoke in Tasks 7–8. Do **not** add a jsdom test that mounts the scanner.
@@ -890,44 +903,46 @@ function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProp
 Inside the `AddDeviceScreen` component body, after `const [ceremonyPending, setCeremonyPending] = useState(false)` add:
 
 ```tsx
-  // True when this screen mounted straight into scanning (activation card →
-  // /add-device?scan=1). Its close ✕ returns to the activation card; a scanner
-  // entered from the add-device `choose` screen returns to `choose` instead.
-  const [enteredScanDirectly] = useState(() => model.mode() === 'scanning')
+// True when this screen mounted straight into scanning (activation card →
+// /add-device?scan=1). Its close ✕ returns to the activation card; a scanner
+// entered from the add-device `choose` screen returns to `choose` instead.
+const [enteredScanDirectly] = useState(() => model.mode() === 'scanning')
 
-  function closeScanner() {
-    if (enteredScanDirectly) {
-      if (typeof window !== 'undefined' && window.history.length > 1) {
-        window.history.back()
-      } else {
-        navigateInApp('/activate')
-      }
-      return
+function closeScanner() {
+  if (enteredScanDirectly) {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back()
+    } else {
+      navigateInApp('/activate')
     }
-    goToChoose()
+    return
   }
+  goToChoose()
+}
 ```
 
 Then, just before the main `return (` of the component, add an early return so the overlay covers the whole viewport (replacing the old in-card `scanning && !cameraDenied` branch):
 
 ```tsx
-  if (scanning && !cameraDenied) {
-    return (
-      <ScannerOverlay
-        onDecode={handleDecode}
-        onCameraError={handleCameraError}
-        onClose={closeScanner}
-      />
-    )
-  }
+if (scanning && !cameraDenied) {
+  return (
+    <ScannerOverlay
+      onDecode={handleDecode}
+      onCameraError={handleCameraError}
+      onClose={closeScanner}
+    />
+  )
+}
 ```
 
 Remove the old in-card scanner branch:
 
 ```tsx
-          {scanning && !cameraDenied ? (
-            <Scanner onDecode={handleDecode} onCameraError={handleCameraError} />
-          ) : null}
+{
+  scanning && !cameraDenied ? (
+    <Scanner onDecode={handleDecode} onCameraError={handleCameraError} />
+  ) : null
+}
 ```
 
 - [ ] **Step 3: Swap the CSS**
@@ -1061,10 +1076,12 @@ git commit -m "feat(activation): full-screen QR scanner overlay with close affor
 ### Task 7: e2e — copy update, used screen, HOME login
 
 **Files:**
+
 - Modify: `packages/client/e2e/pages/ActivatePage.ts`
 - Modify: `packages/client/e2e/auth-activation.spec.ts`
 
 **Interfaces:**
+
 - Consumes: the new copy/screens (Tasks 2–4); `seedInvite`, `enableVirtualAuthenticator` (existing e2e support).
 
 **Note:** Running these specs needs a reachable Valkey and `ALLOW_TEST_DB_RESET=1` (`pnpm test:e2e`, or `pnpm test:e2e:docker`). If that infra is not available in this environment, still make the edits and run `pnpm --filter client exec tsc` over the e2e project so the specs typecheck; flag that the suite must be run in CI / a docker run.
@@ -1213,12 +1230,13 @@ Expected: no errors. Fix any surfaced issue in the owning file and re-run.
 - [ ] **Step 3: Manual smoke (use the `/run` or `verify` skill)**
 
 Start the activation app (`pnpm dev` and open the `/activate/` dev URL) and confirm each state:
+
 - `/activate` (no token) → **HOME** "Вход в myboard", with "Войти с passkey" + "Сканировать QR-код".
 - `/activate?token=` (empty) → **NO-CODE** "Нужен код приглашения".
 - `/activate?token=abc` → **ACTIVATE** "Активация устройства" with the name field.
 - On ACTIVATE, "Сканировать QR-код" navigates to `/add-device` with the camera opening directly (no `choose` step) and the ✕ returns to the activation card **without a full reload**.
 - The ACTIVATE cross-link "Войти с passkey" switches to HOME in place.
-Confirm theme toggle (light/dark/system) still restyles the card.
+  Confirm theme toggle (light/dark/system) still restyles the card.
 
 - [ ] **Step 4: Final commit (only if fixes were made)**
 
@@ -1232,6 +1250,7 @@ git commit -m "fix(activation): address integration verification findings"
 ## Self-Review
 
 **Spec coverage:**
+
 - Four-screen model (home/activate/no-code/used) → Tasks 2–3. ✅
 - HOME login landing (fixes `/` no-token dead end) → Tasks 2–4, verified in Task 7's login-landing test. ✅
 - `invite_consumed → activate-used` runtime transition → Task 2. ✅

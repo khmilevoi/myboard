@@ -1,4 +1,5 @@
 import type { WidgetServerContext, WidgetViewer } from '@shared/widgets/contracts'
+import { PublicWidgetError } from '@shared/widgets/public-error'
 
 import type { BrowserAutomationClient } from '../browser/client'
 import type { ValkeyOps } from '../storage/valkey'
@@ -75,6 +76,7 @@ export async function dispatchWidgetEvent(
       }),
   )
   if (handlerResult instanceof WidgetHandlerError) return handlerResult
+  if (handlerResult instanceof PublicWidgetError) return handlerResult
   if (handlerResult instanceof Error) {
     return new WidgetHandlerError({
       typeId: options.typeId,

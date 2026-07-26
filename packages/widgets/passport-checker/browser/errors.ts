@@ -12,30 +12,6 @@ export class BrowserConfigurationError extends errore.createTaggedError({
   publicMessage = 'Passport checker is not configured'
 }
 
-type BrowserSessionRequiredErrorOptions = {
-  sshTarget: string | null
-  cause?: unknown
-}
-
-export class BrowserSessionRequiredError extends errore.createTaggedError({
-  name: 'BrowserSessionRequiredError',
-  message: 'Passport checker browser session requires attention',
-  extends: BrowserTaskError,
-}) {
-  readonly sshTarget: string | null
-  code = 'browser_session_required'
-  publicMessage = 'The browser session requires attention'
-
-  constructor({ sshTarget, ...options }: BrowserSessionRequiredErrorOptions) {
-    super(options)
-    this.sshTarget = sshTarget
-  }
-
-  get publicMeta(): Record<string, unknown> | undefined {
-    return this.sshTarget ? { sshTarget: this.sshTarget } : undefined
-  }
-}
-
 type UpstreamResponseErrorOptions = {
   phase: CheckerPhase
   status?: number

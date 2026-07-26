@@ -4,7 +4,7 @@
 
 **Goal:** Replace the activation SPA's hand-written router with Reatom's `reatomRoute`, using a `rootRoute` layout + `outlet()` for the shared card shell, route `loader`s to build/initialize page models, route `render` to mount screens, and zod `search` schemas for `token`/`scan`.
 
-**Architecture:** Five tasks. (1) Rename the add-device model factory to `make*`. (2) Add the `RouteChild` type augmentation and extract the duplicated card chrome into a shared `Shell` + `LoadingCard`. (3) Render both screens as card *bodies* inside that `Shell`, still on the old router (low-risk CSS/structure dedup). (4) Swap the hand-written router for `reatomRoute` — routes, loaders, render, authoritative `token`/`scan` from search, screens receive the model by prop. (5) Delete the now-dead `validating` atom, whose role `loader.ready()` took over.
+**Architecture:** Five tasks. (1) Rename the add-device model factory to `make*`. (2) Add the `RouteChild` type augmentation and extract the duplicated card chrome into a shared `Shell` + `LoadingCard`. (3) Render both screens as card _bodies_ inside that `Shell`, still on the old router (low-risk CSS/structure dedup). (4) Swap the hand-written router for `reatomRoute` — routes, loaders, render, authoritative `token`/`scan` from search, screens receive the model by prop. (5) Delete the now-dead `validating` atom, whose role `loader.ready()` took over.
 
 **Tech Stack:** `@reatom/core@1001.1.0` (`reatomRoute`, `urlAtom`, `RouteChild`), `@reatom/react` (`reatomMemo` via `widget-sdk`), `zod@^4.4.3`, React 19, Vite, Vitest + `@testing-library/react`, CSS modules.
 
@@ -28,12 +28,14 @@ All paths below are relative to `packages/client/activation/`.
 Pure mechanical rename to satisfy the repo's "factories are `make*`, not `create*`" convention. No behavior change; the existing suite stays green. Done first so every later task references the new name.
 
 **Files:**
+
 - Modify: `src/model/add-device-model.ts` (the exported factory)
 - Modify: `src/model/add-device-model.test.ts` (import + all call sites)
 - Modify: `src/ui/AddDeviceScreen.tsx` (import + `useState` fallback)
 - Modify: `src/ui/AddDeviceScreen.test.tsx` (import + call site)
 
 **Interfaces:**
+
 - Produces: `makeAddDeviceModel(overrides?: Partial<AddDeviceDeps>): AddDeviceModel` — replaces `createAddDeviceModel`, identical signature. The `AddDeviceModel` type name is unchanged.
 
 - [ ] **Step 1: Rename the factory export**
@@ -53,6 +55,7 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
 - [ ] **Step 2: Update every usage**
 
 Replace `createAddDeviceModel` with `makeAddDeviceModel` everywhere it appears in:
+
 - `src/model/add-device-model.test.ts` — the `import { createAddDeviceModel } from './add-device-model'` and every `createAddDeviceModel({ ... })` call.
 - `src/ui/AddDeviceScreen.tsx` — `import { type AddDeviceModel, createAddDeviceModel } from '../model/add-device-model'` and `useState(() => injectedModel ?? createAddDeviceModel())`.
 - `src/ui/AddDeviceScreen.test.tsx` — `import { createAddDeviceModel } from '../model/add-device-model'` and the `createAddDeviceModel({ ... })` call.
@@ -92,6 +95,7 @@ EOF
 Additive only — nothing consumes the new pieces yet, so the suite stays green. Moves the duplicated card chrome and the theme-toggle styles into dedicated modules.
 
 **Files:**
+
 - Create: `src/reatom.d.ts`
 - Create: `src/ui/shell.module.css`
 - Create: `src/ui/Shell.tsx`
@@ -102,6 +106,7 @@ Additive only — nothing consumes the new pieces yet, so the suite stays green.
 - Modify: `src/ui/ThemeTogglePill.tsx:10` (import its own module)
 
 **Interfaces:**
+
 - Produces:
   - `Shell` — `reatomMemo<{ children: ReactNode }>` rendering `.page > ThemeTogglePill + .card > BrandMark + {children}`.
   - `LoadingCard` — `reatomMemo` rendering a centered spinner (card body).
@@ -410,9 +415,10 @@ EOF
 
 ### Task 3: Render screens as card bodies inside the shared Shell
 
-Wrap the current pathname-branched output in `Shell`, and reduce both screens to card *bodies* (they stop emitting `.page` / `.card` / brand mark / theme toggle). Still on the hand-written router — no routing behavior changes. The theme toggle now appears on both screens (via `Shell`), an accepted change.
+Wrap the current pathname-branched output in `Shell`, and reduce both screens to card _bodies_ (they stop emitting `.page` / `.card` / brand mark / theme toggle). Still on the hand-written router — no routing behavior changes. The theme toggle now appears on both screens (via `Shell`), an accepted change.
 
 **Files:**
+
 - Modify: `src/App.tsx`
 - Modify: `src/ui/ActivateScreen.tsx`
 - Modify: `src/ui/ActivateScreen.module.css` (drop shared shell + theme-toggle classes)
@@ -420,6 +426,7 @@ Wrap the current pathname-branched output in `Shell`, and reduce both screens to
 - Modify: `src/ui/AddDeviceScreen.module.css` (drop shared shell classes)
 
 **Interfaces:**
+
 - Consumes: `Shell` (Task 2), `shell.module.css` `.footerNote` (Task 2).
 - Produces: `ActivateScreen` / `AddDeviceScreen` render only card-body content (a fragment), no outer chrome. Props unchanged this task (`ActivateScreen` keeps `model` + `navigate`; `AddDeviceScreen` keeps `model`).
 
@@ -598,6 +605,7 @@ EOF
 Create the route tree, wire loaders/render, make `token`/`scan` authoritative from the route search, pass the model to each screen by prop, and delete the old router. This is the actual migration.
 
 **Files:**
+
 - Create: `src/model/routes.tsx`
 - Create: `src/model/routes.test.tsx`
 - Delete: `src/model/router.ts`
@@ -612,6 +620,7 @@ Create the route tree, wire loaders/render, make `token`/`scan` authoritative fr
 - Modify: `src/ui/ActivateScreen.test.tsx` (`navigate` → `onScan`)
 
 **Interfaces:**
+
 - Consumes: `makeActivationModel`, `ActivationModel` (`src/model/activation-model.ts`); `makeAddDeviceModel`, `AddDeviceModel` (`src/model/add-device-model.ts`); `Shell`, `LoadingCard` (Task 2); `ActivateScreen`, `AddDeviceScreen` (Task 3).
 - Produces:
   - `rootRoute` — layout route rendering `<Shell>{outlet}</Shell>`.
@@ -912,7 +921,9 @@ describe('App routing', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'Нужен код приглашения' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Нужен код приглашения' }),
+    ).toBeInTheDocument()
   })
 
   it('switches to the add-device page via addDeviceRoute.go without remounting', async () => {
@@ -1012,17 +1023,20 @@ EOF
 `await model.init()` in the add-device loader means the screen only renders once validation is done, so `validating` is always false at render time. Remove it. The `initialized` re-entrancy guard in `init()` **stays** (defensive; its idempotency test stays green).
 
 **Files:**
+
 - Modify: `src/model/add-device-model.ts`
 - Modify: `src/ui/AddDeviceScreen.tsx`
 - Modify: `src/model/add-device-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AddDeviceModel` (Task 4).
 - Produces: `AddDeviceModel` without the `validating: Atom<boolean>` member; `init()` no longer touches `validating`.
 
 - [ ] **Step 1: Remove the two `validating` tests**
 
 In `src/model/add-device-model.test.ts`, delete these two `it(...)` blocks from the `init (...)` describe:
+
 - `'flags validating while the URL code is being checked, then clears it'`
 - `'never flags validating when there is no URL code'`
 
@@ -1106,6 +1120,7 @@ Expected: PASS. If `format:check` flags the new/edited files, run `pnpm format` 
 - [ ] **Manual smoke (dev server or built activation app)**
 
 Verify each surface renders and the theme toggle is present on both:
+
 - `/activate` → HOME login card.
 - `/activate?token=abc` → activation/registration card.
 - `/activate?token=` → "Нужен код приглашения".

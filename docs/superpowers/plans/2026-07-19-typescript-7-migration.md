@@ -33,10 +33,12 @@
 ### Task 1: Benchmark script + baseline ("before") measurement
 
 **Files:**
+
 - Create: `scripts/bench-typecheck-build.ts`
 - Create (script output): `docs/typescript-7-migration/benchmarks.json`
 
 **Interfaces:**
+
 - Produces: a JSON file at `docs/typescript-7-migration/benchmarks.json` with shape `{ [phase: 'before'|'after']: { typescript: string, node: string, typecheck: { coldSeconds: number, warmRunsSeconds: number[], warmMedianSeconds: number|null }, build: { runsSeconds: number[], medianSeconds: number } } }`. Task 3 reads this file for both phases.
 
 - [ ] **Step 1: Write the benchmark script**
@@ -71,7 +73,9 @@ function parseArgs(): Args {
       'Usage: tsx scripts/bench-typecheck-build.ts --phase=before|after [--typecheck-runs=N] [--build-runs=N]',
     )
   }
-  const typecheckRuns = Number(args.find((a) => a.startsWith('--typecheck-runs='))?.split('=')[1] ?? 3)
+  const typecheckRuns = Number(
+    args.find((a) => a.startsWith('--typecheck-runs='))?.split('=')[1] ?? 3,
+  )
   const buildRuns = Number(args.find((a) => a.startsWith('--build-runs='))?.split('=')[1] ?? 2)
   return { phase: phaseArg, typecheckRuns, buildRuns }
 }
@@ -183,9 +187,11 @@ git commit -m "chore: add typecheck/build benchmark script, capture TS 6.0.3 bas
 ### Task 2: Migrate the workspace to TypeScript 7
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml:38` (catalog `typescript` entry)
 
 **Interfaces:**
+
 - Consumes: nothing from Task 1 besides having a clean baseline to compare against later.
 - Produces: a workspace where every package resolves `typescript@7.0.2` from the catalog, `pnpm run typecheck` and `pnpm run build` both exit 0.
 
@@ -194,13 +200,13 @@ git commit -m "chore: add typecheck/build benchmark script, capture TS 6.0.3 bas
 In `pnpm-workspace.yaml`, change:
 
 ```yaml
-  typescript: ^6.0.3
+typescript: ^6.0.3
 ```
 
 to:
 
 ```yaml
-  typescript: ^7.0.2
+typescript: ^7.0.2
 ```
 
 - [ ] **Step 2: Reinstall**
@@ -240,10 +246,12 @@ git commit -m "chore: migrate to TypeScript 7 (typescript@7.0.2)"
 ### Task 3: Post-migration ("after") measurement + comparison report
 
 **Files:**
+
 - Create: `docs/typescript-7-migration.md`
 - Modify (script output): `docs/typescript-7-migration/benchmarks.json`
 
 **Interfaces:**
+
 - Consumes: `docs/typescript-7-migration/benchmarks.json`'s `before` key (written in Task 1) and the `after` key this task produces, using the exact same script so methodology is identical between phases.
 
 - [ ] **Step 1: Run the post-migration benchmark**
@@ -262,19 +270,19 @@ Migrated `typescript` from `{{before.typescript}}` to `{{after.typescript}}` (na
 
 ## `pnpm run typecheck`
 
-| | cold (s) | warm run 1 (s) | warm run 2 (s) | warm median (s) |
-|---|---|---|---|---|
+|                                  | cold (s)                         | warm run 1 (s)                          | warm run 2 (s)                          | warm median (s)                        |
+| -------------------------------- | -------------------------------- | --------------------------------------- | --------------------------------------- | -------------------------------------- |
 | TypeScript {{before.typescript}} | {{before.typecheck.coldSeconds}} | {{before.typecheck.warmRunsSeconds[0]}} | {{before.typecheck.warmRunsSeconds[1]}} | {{before.typecheck.warmMedianSeconds}} |
-| TypeScript {{after.typescript}} | {{after.typecheck.coldSeconds}} | {{after.typecheck.warmRunsSeconds[0]}} | {{after.typecheck.warmRunsSeconds[1]}} | {{after.typecheck.warmMedianSeconds}} |
+| TypeScript {{after.typescript}}  | {{after.typecheck.coldSeconds}}  | {{after.typecheck.warmRunsSeconds[0]}}  | {{after.typecheck.warmRunsSeconds[1]}}  | {{after.typecheck.warmMedianSeconds}}  |
 
 Warm-median delta: {{compute (after.warmMedianSeconds - before.warmMedianSeconds)}}s ({{compute percentage}}%).
 
 ## `pnpm run build`
 
-| | run 1 (s) | run 2 (s) | median (s) |
-|---|---|---|---|
+|                                  | run 1 (s)                       | run 2 (s)                       | median (s)                     |
+| -------------------------------- | ------------------------------- | ------------------------------- | ------------------------------ |
 | TypeScript {{before.typescript}} | {{before.build.runsSeconds[0]}} | {{before.build.runsSeconds[1]}} | {{before.build.medianSeconds}} |
-| TypeScript {{after.typescript}} | {{after.build.runsSeconds[0]}} | {{after.build.runsSeconds[1]}} | {{after.build.medianSeconds}} |
+| TypeScript {{after.typescript}}  | {{after.build.runsSeconds[0]}}  | {{after.build.runsSeconds[1]}}  | {{after.build.medianSeconds}}  |
 
 Median delta: {{compute (after.medianSeconds - before.medianSeconds)}}s ({{compute percentage}}%).
 

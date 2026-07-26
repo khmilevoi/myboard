@@ -15,5 +15,5 @@
       "@widgets/*": ["../widgets/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "scripts"]
 }

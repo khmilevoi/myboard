@@ -7,6 +7,7 @@ export type BrowserServiceConfig = {
   executionMs: number
   profileDir: string
   secretsDir: string
+  recoverySshTarget: string | null
 }
 
 export class BrowserServiceConfigError extends errore.createTaggedError({
@@ -33,6 +34,18 @@ const ConfigSchema = z.object({
   BROWSER_SECRETS_DIR: stringEnv('/run/secrets'),
 })
 
+// Public recovery metadata surfaced to the UI, so only a bare host or user@host
+// may pass. Deliberately NOT part of ConfigSchema: a parse failure there reaches
+// process.exit(1) in index.ts, and an unusable value must only cost the SSH
+// fallback hint, never the whole automation service.
+const sshTargetPattern = /^(?:[A-Za-z0-9._-]+@)?[A-Za-z0-9.-]+$/
+
+function normalizeRecoverySshTarget(value: string | undefined) {
+  const target = value?.trim()
+  if (!target) return null
+  return sshTargetPattern.test(target) ? target : null
+}
+
 export function loadBrowserServiceConfig(
   env: NodeJS.ProcessEnv,
 ): BrowserServiceConfigError | BrowserServiceConfig {
@@ -47,5 +60,6 @@ export function loadBrowserServiceConfig(
     executionMs: parsed.data.BROWSER_TASK_TIMEOUT_MS,
     profileDir: parsed.data.BROWSER_PROFILE_DIR,
     secretsDir: parsed.data.BROWSER_SECRETS_DIR,
+    recoverySshTarget: normalizeRecoverySshTarget(env.AUTOMATION_SSH_TARGET),
   }
 }

@@ -8,20 +8,20 @@ under `packages/`, of which 7 declare a `typecheck` script — `shared` has none
 
 ## `pnpm run typecheck`
 
-| | cold (s) | warm run 1 (s) | warm run 2 (s) | warm median (s) |
-|---|---|---|---|---|
-| TypeScript 6.0.3 | 18.84 | 15.88 | 17.52 | 16.70 |
-| TypeScript 7.0.2 | 5.81 | 5.32 | 6.40 | 5.86 |
+|                  | cold (s) | warm run 1 (s) | warm run 2 (s) | warm median (s) |
+| ---------------- | -------- | -------------- | -------------- | --------------- |
+| TypeScript 6.0.3 | 18.84    | 15.88          | 17.52          | 16.70           |
+| TypeScript 7.0.2 | 5.81     | 5.32           | 6.40           | 5.86            |
 
 - Cold typecheck: **-13.03s (-69.2%)** — TS7 is **3.24x** faster.
 - Warm-median typecheck: **-10.84s (-64.9%)** — TS7 is **2.85x** faster.
 
 ## `pnpm run build`
 
-| | run 1 (s) | run 2 (s) | median (s) |
-|---|---|---|---|
-| TypeScript 6.0.3 | 16.59 | 15.23 | 15.91 |
-| TypeScript 7.0.2 | 12.87 | 12.70 | 12.79 |
+|                  | run 1 (s) | run 2 (s) | median (s) |
+| ---------------- | --------- | --------- | ---------- |
+| TypeScript 6.0.3 | 16.59     | 15.23     | 15.91      |
+| TypeScript 7.0.2 | 12.87     | 12.70     | 12.79      |
 
 - Median delta: **-3.13s (-19.6%)** — TS7 is **1.24x** faster.
 
@@ -53,7 +53,7 @@ numbers show.
 - `pnpm run typecheck` and `pnpm run build` passing under TS7 is self-verified by this branch's own
   artifacts: `docs/typescript-7-migration/benchmarks.json`'s `after` key could only exist if both
   commands exited 0 (the benchmark script throws and writes no JSON on failure). The full `pnpm
-  test` suite was additionally run twice against this migration — once during the version bump and
+test` suite was additionally run twice against this migration — once during the version bump and
   once on this branch's final commit — both times exiting 0 with test counts identical to the
   pre-migration baseline (66/33/74(+2 skipped)/318(+3 skipped)/95/23/6/153/239 across the 9
   `test`-scripted workspace projects). Re-running `pnpm test` in CI before merge is still the right

@@ -1,15 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "lib": ["ES2024", "ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node", "vitest/globals"],
+    "allowImportingTsExtensions": true,
+    "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "paths": {
       "@/*": ["./*"],
       "@shared/*": ["../../shared/*"]

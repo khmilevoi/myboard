@@ -24,7 +24,7 @@ describe('widget registry', () => {
 
   it('uses a shared widget icon name type', () => {
     const iconNames: WidgetIconName[] = widgetTypes.map((type) => type.icon)
-    expect(iconNames).toEqual(['Clock', 'Cat'])
+    expect(iconNames).toEqual(['Clock', 'Cat', 'IdCard'])
   })
 
   it('returns UnknownWidgetTypeError for an unknown type', () => {
