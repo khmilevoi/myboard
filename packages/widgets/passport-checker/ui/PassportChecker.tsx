@@ -24,11 +24,11 @@ export function isStandardLayout(tier: WidgetTier): boolean {
 }
 
 export const PassportChecker = reatomMemo(() => {
-  const { tier, typeId, instanceId, api, requestClose, requestFullscreen } =
+  const { tier, typeId, instanceId, api, storage, requestClose, requestFullscreen } =
     useWidgetContext<PassportCheckerEvents>()
 
   const { checkModel, recoveryModel, recoveryFlow } = passportInstance(instanceId, () => {
-    const checkModel = makePassportCheckModel({ api })
+    const checkModel = makePassportCheckModel({ api, storage: storage.shared.server })
     const recoveryModel = makeRecoveryModel({
       widgetId: typeId,
       transport: makeRecoveryTransport(),

@@ -1,5 +1,6 @@
 import type { WidgetApi } from '@shared/widgets/contracts'
 import { WidgetApiError } from 'widget-runtime'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import type { PassportCheckerEvents } from '../types'
 import { makePassportCheckModel } from './check-model'
@@ -12,6 +13,7 @@ function setup() {
   )
   const checkModel = makePassportCheckModel({
     api: { invoke } as unknown as WidgetApi<PassportCheckerEvents, WidgetApiError>,
+    storage: createFakeStorage(),
   })
   const teardown = vi.fn()
   const recoveryModel = { teardown } as unknown as RecoveryModel

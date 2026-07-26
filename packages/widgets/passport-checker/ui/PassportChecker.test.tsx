@@ -1,15 +1,28 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { makeHostRuntime, WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
+import { WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { PassportChecker } from './PassportChecker'
 
 type InvokeResult = WidgetApiError | { status: number; send_status_msg: string }
 
+/** Isolated in-memory storage. The real host runtime would issue HTTP requests
+ *  to /api/storage from jsdom now that the widget reads shared storage. */
+function makeFakeStorage(): WidgetRuntimeProps['storage'] {
+  const instance = createFakeStorage()
+  const shared = createFakeStorage()
+  return {
+    instance: { client: instance, server: instance },
+    shared: { client: shared, server: shared },
+  }
+}
+
 function makeProps(
   tier: WidgetRuntimeProps['tier'],
   invoke: () => Promise<InvokeResult>,
   instanceId = 'inst-passport',
+  storage: WidgetRuntimeProps['storage'] = makeFakeStorage(),
 ) {
   const props: WidgetRuntimeProps = {
     instanceId,
@@ -21,7 +34,7 @@ function makeProps(
     requestClose: vi.fn(),
     requestDelete: vi.fn(),
     reportError: vi.fn(),
-    storage: makeHostRuntime().makeWidgetStorage({ instanceId, typeId: 'passport-checker' }),
+    storage,
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
   }
   return props
@@ -141,13 +154,37 @@ describe('PassportChecker / tiny tier', () => {
     expect(screen.getByRole('button', { name: /Повторить/ })).toBeInTheDocument()
   })
 
-  it('renders the compact success state with a status chip', async () => {
+  it('renders the compact success state with a status chip and timestamp', async () => {
     renderWidget('compact', async () => ({ status: 200, send_status_msg: 'Готово' }))
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
     expect(await screen.findByText('Готово')).toBeInTheDocument()
-    expect(screen.getByText('СТАТУС 200')).toBeInTheDocument()
+    expect(screen.getByText(/СТАТУС 200 · \d{2}:\d{2}/)).toBeInTheDocument()
+  })
+
+  it('shows a dated timestamp for a restored result, not "just now"', async () => {
+    const storage = makeFakeStorage()
+    // Fixed in the past, deliberately not "today": a restored result must read
+    // as stale in the tiny tile too, not only in the standard one.
+    await storage.shared.server.set('lastResult', {
+      status: 200,
+      message: 'Готово',
+      checkedAt: new Date('2020-01-01T09:05:00').getTime(),
+    })
+    const invoke = vi.fn<() => Promise<InvokeResult>>()
+
+    render(
+      <WidgetRuntimeContext.Provider
+        value={makeProps('compact', invoke, 'inst-restored-tiny', storage)}
+      >
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    expect(await screen.findByText('Готово')).toBeInTheDocument()
+    expect(screen.getByText(/СТАТУС 200 · \d{2}\.\d{2} \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('renders the compact sessionRequired state', async () => {
@@ -205,13 +242,81 @@ describe('PassportChecker / shared instance state', () => {
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
-  it('gives separate instance ids separate state', async () => {
+  // Separate model graphs AND separate fake storages. In production the key is
+  // type-scoped, so two placements do converge on the same stored result once
+  // one of them checks — that is covered by the cross-placement test below,
+  // which reuses one storage across two instance ids to isolate that axis.
+  it('gives separate storages separate state', async () => {
     const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
     renderPair(['standard', 'standard'], invoke, ['inst-one', 'inst-two'])
 
     fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
+    await screen.findByText('Готово')
 
-    expect(await screen.findAllByText('Готово')).toHaveLength(1)
+    // Assert a positive fact about the SECOND placement rather than the
+    // absence of 'Готово'. `findAllByText('Готово').toHaveLength(1)` would
+    // resolve on the first snapshot with >= 1 match — the exact trap
+    // documented above the 'shares one model graph' test — so it can never
+    // go red even if the two storages started converging. The idle copy is
+    // only visible while placement two has not observed a result, so its
+    // continued presence is what would actually break if isolation failed.
+    expect(screen.getAllByText('Проверка статуса паспорта')).toHaveLength(1)
+
+    // Flush a macrotask so any deferred cross-storage fanout has a chance to
+    // land before the final check, then re-query (not find*, which would
+    // wait and never fail on its own).
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryAllByText('Готово')).toHaveLength(1)
+  })
+
+  it('renders a stored result on mount, without checking', async () => {
+    const storage = makeFakeStorage()
+    await storage.shared.server.set('lastResult', {
+      status: 200,
+      message: 'Документ готовий',
+      checkedAt: Date.now(),
+    })
+    const invoke = vi.fn<() => Promise<InvokeResult>>()
+
+    render(
+      <WidgetRuntimeContext.Provider
+        value={makeProps('standard', invoke, 'inst-restored', storage)}
+      >
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    expect(await screen.findByText('Документ готовий')).toBeInTheDocument()
+    expect(screen.getByText(/статус 200 · проверено \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Проверить снова/ })).toBeInTheDocument()
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('shows a check from one placement in another placement', async () => {
+    const storage = makeFakeStorage()
+    const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
+
+    render(
+      <>
+        <WidgetRuntimeContext.Provider
+          value={makeProps('standard', invoke, 'inst-shared-a', storage)}
+        >
+          <PassportChecker />
+        </WidgetRuntimeContext.Provider>
+        <WidgetRuntimeContext.Provider
+          value={makeProps('standard', invoke, 'inst-shared-b', storage)}
+        >
+          <PassportChecker />
+        </WidgetRuntimeContext.Provider>
+      </>,
+    )
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
+
+    // Two independent model graphs, one type-scoped key: the second placement
+    // learns the result through storage, not through a second check.
+    await waitFor(() => expect(screen.getAllByText('Готово')).toHaveLength(2))
+    expect(invoke).toHaveBeenCalledTimes(1)
   })
 
   it('renders the recovery modal from the tile mount, never from fullscreen', async () => {

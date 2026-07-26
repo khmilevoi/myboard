@@ -1,13 +1,17 @@
 import { context, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import { WidgetApiError } from 'widget-runtime'
+import type { StorageApi } from 'widget-runtime'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import type { PassportCheckerEvents } from '../types'
 import {
   GENERIC_RETRYABLE_MESSAGE,
   formatCheckedAt,
+  lastResultSchema,
   makePassportCheckModel,
   mapCheckError,
+  PASSPORT_LAST_RESULT_KEY,
   RETRYABLE_MESSAGES,
 } from './check-model'
 
@@ -114,6 +118,7 @@ describe('makePassportCheckModel', () => {
     await context.start(async () => {
       const model = makePassportCheckModel({
         api,
+        storage: createFakeStorage(),
         now: () => new Date('2026-07-24T13:07:00'),
       })
       const read = wrap(() => model.viewState())
@@ -145,7 +150,7 @@ describe('makePassportCheckModel', () => {
     )
 
     await context.start(async () => {
-      const model = makePassportCheckModel({ api })
+      const model = makePassportCheckModel({ api, storage: createFakeStorage() })
       const run = wrap(() => model.checkPassport())
 
       const first = run()
@@ -162,7 +167,7 @@ describe('makePassportCheckModel', () => {
     invoke.mockResolvedValueOnce(apiError('browser_session_required', { sshTarget: 'admin@pi' }))
 
     await context.start(async () => {
-      const model = makePassportCheckModel({ api })
+      const model = makePassportCheckModel({ api, storage: createFakeStorage() })
       const read = wrap(() => model.viewState())
       const run = wrap(() => model.checkPassport())
 
@@ -178,7 +183,7 @@ describe('makePassportCheckModel', () => {
     invoke.mockReturnValueOnce(new Promise<never>(() => {}))
 
     await context.start(async () => {
-      const model = makePassportCheckModel({ api, deadlineMs: 1_000 })
+      const model = makePassportCheckModel({ api, storage: createFakeStorage(), deadlineMs: 1_000 })
       const read = wrap(() => model.viewState())
       const run = wrap(() => model.checkPassport())
 
@@ -195,7 +200,144 @@ describe('makePassportCheckModel', () => {
 
   it('starts with the recovery modal closed', () => {
     const { api } = makeApi()
-    const model = makePassportCheckModel({ api })
+    const model = makePassportCheckModel({ api, storage: createFakeStorage() })
     expect(model.recoveryOpen()).toBe(false)
+  })
+})
+
+const STORED = {
+  status: 200,
+  message: 'Документ готовий',
+  checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+}
+
+async function seed(storage: StorageApi) {
+  const result = await storage.set(PASSPORT_LAST_RESULT_KEY, STORED)
+  if (result instanceof Error) throw result
+}
+
+describe('lastResultSchema', () => {
+  // Every other test in this file goes through createFakeStorage, which
+  // explicitly skips schema validation (see its fakes), so on the real HTTP
+  // backend this schema is a production-only path. This is the one place it
+  // actually runs, over the exact object shape `succeed` builds in
+  // checkPassport: { status, message, checkedAt }.
+  it('parses the shape a successful check writes', () => {
+    expect(lastResultSchema.safeParse(STORED).success).toBe(true)
+  })
+})
+
+describe('PASSPORT_LAST_RESULT_KEY', () => {
+  // Every test in this file reaches storage through the constant, never the
+  // literal, so a silent rename here would keep the suite green while
+  // orphaning every deployed user's stored result under the old key (see
+  // CLAUDE.md's storage-keys-are-a-persistence-contract warning).
+  it('is the literal storage key', () => {
+    expect(PASSPORT_LAST_RESULT_KEY).toBe('lastResult')
+  })
+})
+
+describe('makePassportCheckModel persistence', () => {
+  it('writes a successful check to the shared key', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce({ status: 200, send_status_msg: 'Документ готовий' })
+    const storage = createFakeStorage()
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T13:07:00'),
+      })
+      const run = wrap(() => model.checkPassport())
+      await run()
+    })
+
+    // The change hook that performs the write is flushed on a microtask, so the
+    // value is not in the fake the instant `checkPassport` resolves.
+    await vi.waitFor(async () => {
+      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(STORED)
+    })
+  })
+
+  it('restores a stored result into the view state without checking', async () => {
+    const { api, invoke } = makeApi()
+    const storage = createFakeStorage()
+    await seed(storage)
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T21:40:00'),
+      })
+      const read = wrap(() => model.viewState())
+      // withStorageKey subscribes from a connect hook, so the atom only reads
+      // storage while something is subscribed to it.
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      await vi.waitFor(() => {
+        expect(read()).toEqual({
+          kind: 'success',
+          status: 200,
+          message: 'Документ готовий',
+          checkedAtLabel: '13:07',
+        })
+      })
+
+      unsubscribe()
+    })
+
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('dates a restored result taken on an earlier day', async () => {
+    const { api } = makeApi()
+    const storage = createFakeStorage()
+    await seed(storage)
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-26T09:00:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      await vi.waitFor(() => {
+        expect(read()).toMatchObject({ kind: 'success', checkedAtLabel: '24.07 13:07' })
+      })
+
+      unsubscribe()
+    })
+  })
+
+  it('shows a failed check without erasing the stored result', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(apiError('browser_unavailable'))
+    const storage = createFakeStorage()
+    await seed(storage)
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T21:40:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      await run()
+
+      expect(read()).toEqual({
+        kind: 'retryable',
+        message: RETRYABLE_MESSAGES.browser_unavailable,
+      })
+      unsubscribe()
+    })
+
+    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(STORED)
   })
 })

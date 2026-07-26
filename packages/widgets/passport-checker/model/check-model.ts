@@ -1,7 +1,9 @@
-import { action, atom, wrap } from '@reatom/core'
+import { action, atom, computed, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import * as errore from 'errore'
-import { WidgetApiError } from 'widget-runtime'
+import { WidgetApiError, withStorageKey } from 'widget-runtime'
+import type { StorageApi } from 'widget-runtime'
+import { z } from 'zod'
 
 import type { PassportCheckerEvents } from '../types'
 
@@ -21,6 +23,24 @@ export type ViewState =
   | { kind: 'invalidConfig' }
   | { kind: 'sessionRequired'; sshTarget: string | null }
 
+/** Everything that describes the current attempt rather than a stored fact. */
+export type TransientState = Exclude<ViewState, { kind: 'success' }>
+
+export const PASSPORT_LAST_RESULT_KEY = 'lastResult'
+
+// The schema is a persistence contract, same as the key: existing stored
+// values are never migrated when it changes. Any new field must be
+// `.optional()` or carry a `.default()` — a required field added later fails
+// `safeParse` for every value already sitting in Valkey, `withStorageKey`
+// then discards it on read, and every client falls back to `idle` with no
+// way back short of a manual data fix.
+export const lastResultSchema = z.object({
+  status: z.number().int(),
+  message: z.string(),
+  checkedAt: z.number().int(),
+})
+export type StoredCheckResult = z.output<typeof lastResultSchema>
+
 export const RETRYABLE_MESSAGES: Record<string, string> = {
   browser_unavailable: 'Сервис автоматизации недоступен',
   automation_timeout: 'Проверка не уложилась в отведённое время',
@@ -32,7 +52,7 @@ export const RETRYABLE_MESSAGES: Record<string, string> = {
 
 export const GENERIC_RETRYABLE_MESSAGE = 'Не удалось выполнить проверку'
 
-export function mapCheckError(error: WidgetApiError | CheckDeadlineError): ViewState {
+export function mapCheckError(error: WidgetApiError | CheckDeadlineError): TransientState {
   if (error instanceof CheckDeadlineError) {
     return { kind: 'retryable', message: RETRYABLE_MESSAGES.automation_timeout }
   }
@@ -89,6 +109,8 @@ function withDeadline<T>(
 
 export type MakePassportCheckModelOptions = {
   api: WidgetApi<PassportCheckerEvents, WidgetApiError>
+  /** The shared-scope server storage; the model never sees the scope itself. */
+  storage: StorageApi
   deadlineMs?: number
   now?: () => Date
 }
@@ -97,31 +119,62 @@ export type PassportCheckModel = ReturnType<typeof makePassportCheckModel>
 
 export function makePassportCheckModel({
   api,
+  storage,
   deadlineMs = CHECK_DEADLINE_MS,
   now = () => new Date(),
 }: MakePassportCheckModelOptions) {
-  const viewState = atom<ViewState>({ kind: 'idle' }, 'passportCheck.viewState')
+  // Persisted across reloads, placements and devices: the passport status is a
+  // fact about the world, not a property of one tile. withStorageKey owns both
+  // directions — it subscribes on connect and writes back on local change.
+  const lastResult = atom<StoredCheckResult | null>(null, 'passportCheck.lastResult').extend(
+    withStorageKey({ api: storage, key: PASSPORT_LAST_RESULT_KEY, schema: lastResultSchema }),
+  )
+  const transient = atom<TransientState>({ kind: 'idle' }, 'passportCheck.transient')
   const recoveryOpen = atom(false, 'passportCheck.recoveryOpen')
 
+  const viewState = computed((): ViewState => {
+    // Read `lastResult` unconditionally, ahead of the transient branch. Behind
+    // an `if` the dependency would disappear whenever a check is pending or an
+    // error is showing, disconnecting the atom and tearing down its storage
+    // subscription — every check would then re-subscribe (and, on the HTTP
+    // backend, re-GET) on the way back to idle.
+    const stored = lastResult()
+    const current = transient()
+    if (current.kind !== 'idle') return current
+    if (!stored) return { kind: 'idle' }
+    return {
+      kind: 'success',
+      status: stored.status,
+      message: stored.message,
+      checkedAtLabel: formatCheckedAt(stored.checkedAt, now()),
+    }
+  }, 'passportCheck.viewState')
+
   const checkPassport = action(async () => {
-    if (viewState().kind === 'pending') return
-    viewState.set({ kind: 'pending' })
+    if (transient().kind === 'pending') return
+    transient.set({ kind: 'pending' })
     // Continuations after `await` run outside the calling frame; capture the
-    // frame-bound writer now (repo wrap rules — never hoist it to module scope).
-    const settle = wrap((next: ViewState) => viewState.set(next))
+    // frame-bound writers now (repo wrap rules — never hoist them to module scope).
+    const fail = wrap((next: TransientState) => transient.set(next))
+    const succeed = wrap((next: StoredCheckResult) => {
+      // Both sets land in one frame — Reatom notifies subscribers only after
+      // the synchronous block finishes — so no subscriber ever observes a gap
+      // between them. Order kept anyway: write-then-reveal reads better.
+      lastResult.set(next)
+      transient.set({ kind: 'idle' })
+    })
 
     const result = await withDeadline(api.invoke('check', {}), deadlineMs)
     if (result instanceof Error) {
-      settle(mapCheckError(result))
+      fail(mapCheckError(result))
       return
     }
-    settle({
-      kind: 'success',
+    succeed({
       status: result.status,
       message: result.send_status_msg,
-      checkedAtLabel: formatCheckedAt(now().getTime(), now()),
+      checkedAt: now().getTime(),
     })
   }, 'passportCheck.check')
 
-  return { viewState, recoveryOpen, checkPassport }
+  return { viewState, transient, lastResult, recoveryOpen, checkPassport }
 }
