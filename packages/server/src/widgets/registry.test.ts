@@ -8,6 +8,7 @@ const definition: RuntimeWidgetServerDefinition = {
   typeId: 'test-widget',
   schemas: {},
   handlers: {},
+  crons: {},
 }
 
 describe('widget server registry', () => {

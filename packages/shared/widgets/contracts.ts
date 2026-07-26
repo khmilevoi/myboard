@@ -45,6 +45,8 @@ export type WidgetServerStorage = {
   ): Promise<Error | void>
 }
 
+type Awaitable<T> = T | Promise<T>
+
 export type WidgetViewer = { accountId: string; name: string }
 
 export type WidgetServerContext = {
@@ -65,7 +67,28 @@ export type WidgetServerContext = {
   }
 }
 
-type Awaitable<T> = T | Promise<T>
+export type WidgetCronContext = {
+  typeId: string
+  now: () => number
+  /**
+   * The scheduled moment this run stands for, in epoch ms. After a catch-up
+   * this is the missed occurrence, not the wall clock — handlers that reason
+   * about "which day is being closed" want this one, not now().
+   */
+  scheduledFor: number
+  api: {
+    storage: { shared: WidgetServerStorage }
+    browser: WidgetServerBrowserApi
+  }
+}
+
+export type WidgetCronJob = {
+  /** Cron expression, 5 or 6 fields (croner syntax). */
+  schedule: string
+  /** IANA time zone the expression is evaluated in. */
+  timeZone: string
+  run: (context: WidgetCronContext) => Awaitable<Error | void>
+}
 
 export type WidgetServerDefinition<Schemas extends WidgetEventSchemas> = {
   schemas: Schemas
@@ -75,6 +98,7 @@ export type WidgetServerDefinition<Schemas extends WidgetEventSchemas> = {
       context: WidgetServerContext,
     ) => Awaitable<Error | z.input<Schemas[Event]['result']>>
   }
+  crons?: Record<string, WidgetCronJob>
 }
 
 export type RuntimeWidgetServerDefinition = {
@@ -84,6 +108,7 @@ export type RuntimeWidgetServerDefinition = {
     string,
     (payload: unknown, context: WidgetServerContext) => Awaitable<Error | unknown>
   >
+  crons: Record<string, WidgetCronJob>
 }
 
 export function defineWidgetServer<const Schemas extends WidgetEventSchemas>(
@@ -99,5 +124,10 @@ export function toRuntimeWidgetServerDefinition<const Schemas extends WidgetEven
   typeId: string
   definition: WidgetServerDefinition<Schemas>
 }): RuntimeWidgetServerDefinition {
-  return { typeId, ...definition } as unknown as RuntimeWidgetServerDefinition
+  return {
+    typeId,
+    schemas: definition.schemas,
+    handlers: definition.handlers,
+    crons: definition.crons ?? {},
+  } as unknown as RuntimeWidgetServerDefinition
 }

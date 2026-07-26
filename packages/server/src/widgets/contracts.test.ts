@@ -41,4 +41,29 @@ describe('widget contracts', () => {
     expect(runtime.typeId).toBe('test-widget')
     expect(Object.keys(runtime.handlers)).toEqual(['echo'])
   })
+
+  it('carries crons through to the runtime definition', () => {
+    const definition = defineWidgetServer({
+      schemas: { ping: { payload: z.object({}), result: z.object({}) } },
+      handlers: { ping: () => ({}) },
+      crons: {
+        nightly: { schedule: '5 0 * * *', timeZone: 'Europe/Warsaw', run: () => undefined },
+      },
+    })
+
+    const runtime = toRuntimeWidgetServerDefinition({ typeId: 'with-cron', definition })
+
+    expect(runtime.crons.nightly?.schedule).toBe('5 0 * * *')
+  })
+
+  it('defaults crons to an empty map when a widget declares none', () => {
+    const definition = defineWidgetServer({
+      schemas: { ping: { payload: z.object({}), result: z.object({}) } },
+      handlers: { ping: () => ({}) },
+    })
+
+    const runtime = toRuntimeWidgetServerDefinition({ typeId: 'no-cron', definition })
+
+    expect(runtime.crons).toEqual({})
+  })
 })
