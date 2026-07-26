@@ -189,7 +189,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
 describe('ofeliaCommentsModel.commentThread', () => {
   it('resolves the author and marks the viewer', async () => {
-    const { storage, emit } = createCommentsStorage()
+    const { storage, subscribe, emit } = createCommentsStorage()
     const model = ofeliaCommentsModel({
       storage,
       viewWeekStart: atom(D('2026-06-15'), 'test.viewWeekStart'),
@@ -200,34 +200,48 @@ describe('ofeliaCommentsModel.commentThread', () => {
       }),
     })
 
-    const off = model.commentThread.subscribe(() => {})
-    // The storage connect hook registers via Reatom's effect queue, which
-    // flushes on the next microtask (see `_enqueue` in @reatom/core) rather
-    // than synchronously inside `.subscribe()`. Without this tick, `emit`
-    // would fire before any listener is registered and the value would be
-    // lost for good (`emit` does not replay to late subscribers).
-    await Promise.resolve()
-    emit('comments:2026-06-15', [
-      { id: 'c1', ts: 2, text: 'мой', createdBy: { accountId: 'a1', name: 'старое' } },
-      { id: 'c2', ts: 1, text: 'старый', author: 'Леша' },
-    ])
+    await context.start(async () => {
+      const off = model.commentThread.subscribe(() => {})
+      // Continuations after `await` run outside the started frame; capture
+      // frame-bound closures now so later reads hit this context, not the
+      // global one.
+      const readThread = wrap(() => model.commentThread())
 
-    await vi.waitFor(() => {
-      expect(wrap(() => model.commentThread().length)()).toBe(2)
-    })
+      // The storage connect hook registers via Reatom's effect queue, which
+      // flushes asynchronously (see `_enqueue`/`notify` in @reatom/core)
+      // rather than synchronously inside `.subscribe()`. Without waiting for
+      // the actual registration, `emit` could fire before any listener is
+      // subscribed and the value would be lost for good (`emit` does not
+      // replay to late subscribers).
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith(
+          'comments:2026-06-15',
+          expect.any(Function),
+          expect.anything(),
+        ),
+      )
+      emit('comments:2026-06-15', [
+        { id: 'c1', ts: 2, text: 'мой', createdBy: { accountId: 'a1', name: 'старое' } },
+        { id: 'c2', ts: 1, text: 'старый', author: 'Леша' },
+      ])
 
-    const [first, second] = wrap(() => model.commentThread())()
-    expect(first).toMatchObject({
-      id: 'c2',
-      author: { kind: 'person', person: 'Леша' },
-      isViewerComment: false,
+      await vi.waitFor(() => {
+        expect(readThread().length).toBe(2)
+      })
+
+      const [first, second] = readThread()
+      expect(first).toMatchObject({
+        id: 'c2',
+        author: { kind: 'person', person: 'Леша' },
+        isViewerComment: false,
+      })
+      expect(second).toMatchObject({
+        id: 'c1',
+        author: { kind: 'account', name: 'Карина' },
+        isViewerComment: true,
+      })
+      off()
     })
-    expect(second).toMatchObject({
-      id: 'c1',
-      author: { kind: 'account', name: 'Карина' },
-      isViewerComment: true,
-    })
-    off()
   })
 })
 
