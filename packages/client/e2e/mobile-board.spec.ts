@@ -48,7 +48,7 @@ async function seedTwoWidgets(page: Page): Promise<void> {
 
   await page.setViewportSize(MOBILE_VIEWPORT)
   // The grip is only rendered visible once the board resolves to mobile metrics,
-  // so this doubles as a wait for the relayout.
+  // so this waits for the breakpoint — but not for the relayout it triggers.
   await expect(new BoardPage(page).getGrip(0)).toBeVisible()
   await waitForSettledCards(page)
 }
