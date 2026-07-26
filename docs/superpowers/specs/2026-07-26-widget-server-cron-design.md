@@ -56,8 +56,16 @@ Changes:
   return.
 - `packages/server/tsconfig.json`: `lib: ["ES2022"]` → include `ESNext`, otherwise `Temporal`
   has no global types in server code.
-- Delete the `vm.runInThisContext('Temporal')` shims in `packages/client/src/vitest.setup.ts` and
-  `packages/widget-runtime/vitest.setup.ts`. On Node 26 the global exists; the shims are dead code.
+- Drop `execArgv: ['--harmony-temporal']` from the three vitest configs that carry it
+  (`packages/widget-runtime/vitest.config.ts`, `packages/client/vite.config.ts`,
+  `packages/widget-sdk/src/vite/widget-vite-config.ts`). Node 26 ships Temporal unflagged; the flag
+  is still accepted (verified on `node:26-alpine`) but is now a no-op that would break silently if
+  V8 ever drops it.
+
+  The `vm.runInThisContext('Temporal')` shims in `packages/client/src/vitest.setup.ts`,
+  `packages/widget-runtime/vitest.setup.ts` and `packages/widget-sdk/src/test/widget-setup.ts`
+  **stay**. jsdom is a separate realm and does not inherit Node's global `Temporal`; the shim is
+  what copies it across, and that is still true on 26.
 
 The one image that can actually break is `browser-automation`: it installs Playwright with system
 dependencies on `bookworm-slim`. It must be built and exercised explicitly, not assumed free.
