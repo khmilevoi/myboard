@@ -1,6 +1,6 @@
 import type { DebtBalanceEntry, SelectedDayView } from './view-model'
 
-const MONTHS_GENITIVE = [
+export const MONTHS_GENITIVE = [
   'января',
   'февраля',
   'марта',
@@ -39,6 +39,19 @@ export function pluralizeDays(n: number): string {
   else if (last === 1) word = 'день'
   else if (last >= 2 && last <= 4) word = 'дня'
   else word = 'дней'
+
+  return `${n} ${word}`
+}
+
+export function pluralizeRecords(n: number): string {
+  const abs = Math.abs(n) % 100
+  const last = abs % 10
+
+  let word: string
+  if (abs >= 11 && abs <= 14) word = 'записей'
+  else if (last === 1) word = 'запись'
+  else if (last >= 2 && last <= 4) word = 'записи'
+  else word = 'записей'
 
   return `${n} ${word}`
 }

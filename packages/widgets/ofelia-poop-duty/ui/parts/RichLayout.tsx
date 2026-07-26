@@ -24,14 +24,9 @@ export type RichLayoutProps = {
 
 // Connected columns: each reads only its own stream atom, so an SSE update to
 // history or comments re-renders just that column — never the selected-day panel.
-//
-// TODO(task 13): HistoryList still renders a flat entry list. Flatten each
-// day group's `current` and `superseded` entries here until the panel is
-// redesigned to render `HistoryDayGroup[]` with per-day headers.
 const HistoryColumn = reatomMemo(() => {
-  const { history } = useOfelia()
-  const entries = history().flatMap((group) => [group.current, ...group.superseded])
-  return <HistoryList entries={entries} />
+  const { history, today } = useOfelia()
+  return <HistoryList groups={history()} today={today()?.toString() ?? null} />
 }, 'HistoryColumn')
 
 const CommentsColumn = reatomMemo(() => {

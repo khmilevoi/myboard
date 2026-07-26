@@ -53,6 +53,7 @@ export const OfeliaPoopDuty = reatomMemo(() => {
     return {
       view,
       history: dutyModel.historyView,
+      today: dutyModel.today,
       comments: commentsModel.commentThread,
       actions: {
         onConfirm: wrap(() => {

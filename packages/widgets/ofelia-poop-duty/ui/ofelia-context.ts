@@ -10,6 +10,8 @@ export type OfeliaContextValue = {
   // `view.selected()`, `view.balance()`, … so each subscribes to one slice).
   view: OfeliaViewModel
   history: AtomLike<HistoryDayGroup[]>
+  /** The duty-zone calendar day, so history headers can say сегодня / вчера. */
+  today: AtomLike<Temporal.PlainDate | null>
   comments: AtomLike<CommentView[]>
   actions: OfeliaActions
   nav: OfeliaWeekNav

@@ -1,59 +1,87 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import type { HistoryEntryView } from '@/model/ofelia-duty'
+import type { HistoryDayGroup, HistoryEntryView } from '@/model/history-view'
 
 import { HistoryList } from './HistoryList'
 
-const entry = (overrides: Partial<HistoryEntryView> = {}): HistoryEntryView => ({
+const KARINA = { kind: 'account', accountId: 'a1', name: 'Карина' } as const
+
+const view = (o: Partial<HistoryEntryView> = {}): HistoryEntryView => ({
   id: 'e1',
-  dutyDate: '2026-06-16',
   type: 'cleaned',
-  actor: 'Карина',
-  recordedAt: 0,
-  recordedBy: { kind: 'unknown' },
+  actor: 'Леша',
+  dutyDate: '2026-06-16',
+  recordedAt: Date.UTC(2026, 5, 16, 19, 40),
+  recordedBy: KARINA,
   isViewerRecord: false,
   recordedLate: false,
   debtDelta: null,
-  ...overrides,
+  ...o,
+})
+
+const group = (o: Partial<HistoryDayGroup> = {}): HistoryDayGroup => ({
+  dutyDate: '2026-06-16',
+  current: view(),
+  superseded: [],
+  ...o,
 })
 
 describe('HistoryList', () => {
-  it('renders vertical layout with date and avatar+name row', () => {
-    render(<HistoryList entries={[entry()]} />)
-    expect(screen.getByText('2026-06-16')).toBeInTheDocument()
-    expect(screen.getByText('Карина')).toBeInTheDocument()
+  it('renders the day header and the signature', () => {
+    render(<HistoryList groups={[group()]} today="2026-06-16" />)
+
+    expect(screen.getByText('сегодня')).toBeInTheDocument()
+    expect(screen.getByText('вт')).toBeInTheDocument()
+    expect(screen.getByText('отметил(а) Карина')).toBeInTheDocument()
+    expect(screen.getByText('21:40')).toBeInTheDocument()
   })
 
-  it('renders "долг" badge for went_into_debt', () => {
-    render(<HistoryList entries={[entry({ type: 'went_into_debt' })]} />)
-    expect(screen.getByText('долг')).toBeInTheDocument()
+  it('never renders an ip', () => {
+    const { container } = render(<HistoryList groups={[group()]} today="2026-06-16" />)
+    expect(container.textContent).not.toMatch(/\d+\.\d+\.\d+/)
   })
 
-  it('renders "за {initial}" badge for cleaned with onBehalfOf', () => {
-    render(<HistoryList entries={[entry({ onBehalfOf: 'Леша' })]} />)
-    expect(screen.getByText('за Л')).toBeInTheDocument()
+  it('renders the debt pill with its amount', () => {
+    render(
+      <HistoryList
+        groups={[group({ current: view({ debtDelta: { person: 'Карина', amount: 1 } }) })]}
+        today="2026-06-16"
+      />,
+    )
+    expect(screen.getByText('+1 день')).toBeInTheDocument()
   })
 
-  it('renders "−1 день" badge for forgiven', () => {
-    render(<HistoryList entries={[entry({ type: 'forgiven' })]} />)
-    expect(screen.getByText('−1 день')).toBeInTheDocument()
+  it('marks superseded records and counts them in the header', () => {
+    render(
+      <HistoryList
+        groups={[group({ superseded: [view({ id: 'old', type: 'reset' })] })]}
+        today="2026-06-16"
+      />,
+    )
+
+    expect(screen.getByText('2 записи')).toBeInTheDocument()
+    const stale = screen.getByTestId('history-superseded-old')
+    expect(within(stale).getByText('перекрыто')).toBeInTheDocument()
   })
 
-  it('renders "переоткрыто" badge for reset', () => {
-    render(<HistoryList entries={[entry({ type: 'reset' })]} />)
-    expect(screen.getByText('переоткрыто')).toBeInTheDocument()
+  it('shows the recording date when it differs from the duty day', () => {
+    render(
+      <HistoryList
+        groups={[
+          group({
+            current: view({ recordedLate: true, recordedAt: Date.UTC(2026, 5, 18, 19, 40) }),
+          }),
+        ]}
+        today="2026-06-18"
+      />,
+    )
+    expect(screen.getByText('18 июня')).toBeInTheDocument()
   })
 
-  it('renders no badge for cleaned without onBehalfOf', () => {
-    render(<HistoryList entries={[entry()]} />)
-    expect(screen.queryByText(/^за /)).not.toBeInTheDocument()
-    expect(screen.queryByText('долг')).not.toBeInTheDocument()
-  })
-
-  it('renders an empty state when there are no entries', () => {
-    render(<HistoryList entries={[]} />)
+  it('renders an empty state', () => {
+    render(<HistoryList groups={[]} today="2026-06-16" />)
     expect(screen.getByText('Пока нет событий')).toBeInTheDocument()
   })
 })

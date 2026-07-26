@@ -138,6 +138,7 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
 type MakeOfeliaValueOptions = {
   view?: OfeliaViewModel
   history?: HistoryDayGroup[]
+  today?: Temporal.PlainDate
   comments?: CommentView[]
   actions?: Partial<OfeliaActions>
   onSend?: (text: string) => Promise<void>
@@ -147,6 +148,10 @@ export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextVa
   return {
     view: o.view ?? makeOfeliaView(),
     history: atom<HistoryDayGroup[]>(o.history ?? [], 'fixture.history'),
+    today: atom<Temporal.PlainDate | null>(
+      o.today ?? Temporal.PlainDate.from('2026-06-16'),
+      'fixture.today',
+    ),
     comments: atom<CommentView[]>(o.comments ?? [], 'fixture.comments'),
     actions: {
       onConfirm: noop,
