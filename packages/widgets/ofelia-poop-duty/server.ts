@@ -1,4 +1,5 @@
 import { defineWidgetServer, type WidgetServerContext } from '@shared/widgets/contracts'
+import * as errore from 'errore'
 
 import { commentsKey } from './domain/comments'
 import {
@@ -22,10 +23,13 @@ async function readDraftInput(
   const entries = await context.api.storage.shared.get(LEDGER_KEY, LedgerEntriesSchema)
   if (entries instanceof Error) return entries
 
+  const target = errore.try(() => Temporal.PlainDate.from(date))
+  if (target instanceof Error) return target
+
   return {
     entries: entries ?? [],
     today: plainDateIn(DUTY_TIME_ZONE, context.now()),
-    target: Temporal.PlainDate.from(date),
+    target,
     createdBy: context.viewer,
   }
 }

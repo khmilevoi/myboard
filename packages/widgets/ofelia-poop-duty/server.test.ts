@@ -53,6 +53,30 @@ describe('ofelia server', () => {
     expect(append.mock.calls[0][1]).toMatchObject({ createdBy: null })
   })
 
+  it('ignores a forged createdBy/actor in the payload and stamps the real viewer', async () => {
+    const { context, append } = makeContext([])
+
+    expect(
+      await run(
+        'clean',
+        { date: '2026-06-16', createdBy: { accountId: 'evil', name: 'Мимо' }, actor: 'Карина' },
+        context,
+      ),
+    ).toEqual({ ok: true })
+    expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
+      date: '2026-06-16', type: 'cleaned', actor: 'Леша', createdBy: KARINA,
+    })
+  })
+
+  it('appends a debt entry stamped with the viewer', async () => {
+    const { context, append } = makeContext([])
+
+    expect(await run('debt', { date: '2026-06-16' }, context)).toEqual({ ok: true })
+    expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
+      date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша', createdBy: KARINA,
+    })
+  })
+
   it('is a silent no-op when forgiving a day that carries no debt', async () => {
     const { context, append } = makeContext([])
 
@@ -77,9 +101,18 @@ describe('ofelia server', () => {
     })
   })
 
-  it('surfaces a storage read failure', async () => {
-    const { context } = makeContext(new Error('valkey down'))
+  it('rejects a calendar-invalid date as a value instead of throwing', async () => {
+    const { context, append } = makeContext([])
 
-    expect(await run('clean', { date: '2026-06-16' }, context)).toBeInstanceOf(Error)
+    expect(await run('clean', { date: '2026-02-30' }, context)).toBeInstanceOf(Error)
+    expect(append).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a storage read failure without writing', async () => {
+    const failure = new Error('valkey down')
+    const { context, append } = makeContext(failure)
+
+    expect(await run('clean', { date: '2026-06-16' }, context)).toBe(failure)
+    expect(append).not.toHaveBeenCalled()
   })
 })
