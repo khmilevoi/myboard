@@ -129,7 +129,6 @@ function makeContext(scenario: PageScenario) {
 
 const handlerOptions = {
   checkerUrl: 'http://fixture.local/solutions/checker',
-  recoverySshTarget: null,
 }
 
 describe('passport check handler', () => {

@@ -53,7 +53,6 @@ type SubmitOutcome =
 
 export type PassportCheckHandlerOptions = {
   checkerUrl: string
-  recoverySshTarget: string | null
 }
 
 function containsIdentity(result: PassportCheckResult, identity: PassportIdentity) {

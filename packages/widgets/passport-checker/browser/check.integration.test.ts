@@ -116,7 +116,7 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     page.on('request', (request) => browserRequests.push(request.url()))
     const evaluateSpy = vi.spyOn(page, 'evaluate')
     const retain = vi.fn()
-    const definition = makePassportCheckerBrowser({ checkerUrl, recoverySshTarget: null })
+    const definition = makePassportCheckerBrowser({ checkerUrl })
     const context: BrowserTaskContext = {
       page,
       secrets: fixtureSecrets(),
