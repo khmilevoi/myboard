@@ -7,10 +7,15 @@
   gap: 0.5rem;
 }
 
+/* Scrolling clips the inline axis too, and every comment avatar sits flush
+   against the list's inline start, so the viewer ring needs its own room here
+   as well — see `--ofelia-viewer-ring`. */
 .list {
   display: flex;
   margin: 0;
+  margin-inline-start: calc(-1 * var(--ofelia-viewer-ring));
   padding: 0;
+  padding-inline-start: var(--ofelia-viewer-ring);
   list-style: none;
   flex: 1;
   min-height: 0;

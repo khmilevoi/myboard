@@ -240,20 +240,30 @@
   border-top: 1px solid var(--border);
 }
 
+/* `overflow-y: auto` also clips the inline axis, and the record avatars sit
+   flush against this column's inline start, so their viewer ring would be
+   shaved off. The padding/negative-margin pair widens the clip box outward
+   without moving any content. */
 .historyCol {
   inline-size: 12.25rem;
   flex: none;
   overflow-y: auto;
+  padding-inline-start: var(--ofelia-viewer-ring);
+  margin-inline-start: calc(-1 * var(--ofelia-viewer-ring));
   padding-inline-end: 0.875rem;
   border-inline-end: 1px solid var(--border);
 }
 
+/* Same story as `.historyCol`: this one clips the composer avatar's ring, and
+   the comment list inside it clips the per-comment ones. */
 .commentsCol {
   flex: 1;
   min-inline-size: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-inline-start: var(--ofelia-viewer-ring);
+  margin-inline-start: calc(-1 * var(--ofelia-viewer-ring));
 }
 
 .mobileTabsVisible.mobileTabsVisible {
