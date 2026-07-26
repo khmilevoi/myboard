@@ -96,6 +96,25 @@ const Entry = reatomMemo<{ entry: HistoryEntryView; superseded?: boolean }>(
   'HistoryEntry',
 )
 
+// Do NOT replace the walk below with `element.scrollIntoView()`. That scrolls
+// *every* scroll container in the ancestor chain, and `overflow: hidden` boxes
+// are scroll containers too — they simply have no scrollbar. The widget frame is
+// one of them, so the native call displaces the entire widget by however much it
+// overflows, and the reader has no scrollbar to put it back.
+//
+// So: find the innermost box the reader could have scrolled by hand, and move
+// only that one. When nothing in the chain is scrollable there is nothing to
+// reveal, and the correct behaviour is to leave the layout alone.
+const scrollportOf = (node: HTMLElement): HTMLElement | null => {
+  let current = node.parentElement
+  while (current) {
+    const { overflowY } = getComputedStyle(current)
+    if (/auto|scroll/.test(overflowY) && current.scrollHeight > current.clientHeight) return current
+    current = current.parentElement
+  }
+  return null
+}
+
 export type HistoryListProps = {
   groups: HistoryDayGroup[]
   today: string | null
@@ -127,9 +146,16 @@ export const HistoryList = reatomMemo<HistoryListProps>(
       scrolledTo.current = selectedDate
       if (isFirstRun) return
 
-      // Exactly one ancestor scrolls per layout — the column on desktop, the
-      // dialog body on mobile — so the native call cannot drag two scrollports.
-      groupNodes.current.get(selectedDate)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      const group = groupNodes.current.get(selectedDate)
+      if (!group) return
+      const scrollport = scrollportOf(group)
+      if (!scrollport) return
+
+      // Align the group's top with the scrollport's, which is exactly where the
+      // sticky day header pins.
+      const delta = group.getBoundingClientRect().top - scrollport.getBoundingClientRect().top
+      if (Math.abs(delta) < 1) return
+      scrollport.scrollTo({ top: scrollport.scrollTop + delta, behavior: 'smooth' })
     }, [selectedDate, groups])
 
     if (groups.length === 0) return <div className={styles.empty}>Пока нет событий</div>
