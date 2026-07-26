@@ -8,6 +8,14 @@ export const LEDGER_KEY = 'ledger'
 export const LedgerTypeSchema = z.enum(['cleaned', 'went_into_debt', 'reset', 'forgiven'])
 export type LedgerType = z.infer<typeof LedgerTypeSchema>
 
+export const CreatedBySchema = z.object({
+  accountId: z.string(),
+  name: z
+    .string()
+    .describe('Display name frozen at write time; the members directory overrides it'),
+})
+export type CreatedBy = z.infer<typeof CreatedBySchema>
+
 export const LedgerEntrySchema = z.object({
   id: z.string().describe('Уникальный идентификатор записи в append-only журнале'),
   ts: z
@@ -15,9 +23,6 @@ export const LedgerEntrySchema = z.object({
     .describe(
       'Серверная метка времени создания записи для сортировки и выбора последнего решения дня',
     ),
-  ip: z
-    .string()
-    .describe('IP автора записи, из которого в истории показывается только хвост для аудита'),
   date: z.string().describe('ISO-дата дежурства, к которому относится действие'),
   type: LedgerTypeSchema.describe(
     'Тип действия: уборка, уход в долг, сброс решения или прощение долга',
@@ -28,11 +33,16 @@ export const LedgerEntrySchema = z.object({
   onBehalfOf: PersonSchema.optional().describe(
     'Человек, за которого выполнено действие или чей долг изменяется',
   ),
-  by: PersonSchema.describe('Текущий пользователь, который создал запись в журнале'),
+  createdBy: CreatedBySchema.nullish().describe(
+    'Account that created the record; null when unattributed',
+  ),
+  by: PersonSchema.optional().describe(
+    'LEGACY pre-account signature. Read-only: never written again',
+  ),
 })
 
 export type LedgerEntry = z.infer<typeof LedgerEntrySchema>
-export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts' | 'ip'>
+export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts' | 'by'>
 export const LedgerEntriesSchema = z.array(LedgerEntrySchema)
 
 const DAY_OUTCOME_TYPES: ReadonlySet<LedgerType> = new Set([

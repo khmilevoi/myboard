@@ -1,17 +1,19 @@
 import { z } from 'zod'
 
+import { CreatedBySchema } from './ledger'
 import { PersonSchema } from './roster'
 
 export const CommentSchema = z.object({
   id: z.string(),
   ts: z.number(),
-  ip: z.string().optional(),
-  author: PersonSchema,
   text: z.string(),
+  createdBy: CreatedBySchema.nullish(),
+  author: PersonSchema.optional().describe('LEGACY pre-account signature. Read-only'),
 })
 
 export const CommentsSchema = z.array(CommentSchema)
 export type Comment = z.infer<typeof CommentSchema>
+export type CommentDraft = Omit<Comment, 'id' | 'ts' | 'author'>
 
 /**
  * `weekStartIso` MUST be the output of `weekStartISO(date)`. The produced key is

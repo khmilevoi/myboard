@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { foldDebt } from './debt'
-import { resolveDays } from './ledger'
+import { LedgerEntrySchema, resolveDays } from './ledger'
 import type { LedgerEntry } from './ledger'
 
 let seq = 0
 const le = (o: Partial<LedgerEntry> = {}): LedgerEntry => ({
   id: `e${seq++}`,
   ts: seq,
-  ip: '127.0.0.1',
   date: '2026-06-16',
   type: 'cleaned',
   actor: 'Леша',
@@ -173,5 +172,49 @@ describe('resolveDays', () => {
       actor: 'Карина',
       onBehalfOf: 'Леша',
     })
+  })
+})
+
+describe('LedgerEntrySchema', () => {
+  it('accepts a legacy entry and drops its ip', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e1',
+      ts: 1,
+      ip: '10.0.0.7',
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      by: 'Леша',
+    })
+
+    expect(parsed).not.toHaveProperty('ip')
+    expect(parsed.by).toBe('Леша')
+    expect(parsed.createdBy).toBeUndefined()
+  })
+
+  it('accepts an authored entry', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e2',
+      ts: 2,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { accountId: 'a1', name: 'Карина' },
+    })
+
+    expect(parsed.createdBy).toEqual({ accountId: 'a1', name: 'Карина' })
+  })
+
+  it('accepts an unattributed entry', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e3',
+      ts: 3,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: null,
+    })
+
+    expect(parsed.createdBy).toBeNull()
   })
 })
