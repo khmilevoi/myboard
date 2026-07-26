@@ -72,6 +72,45 @@ type Evidence = Record<string, unknown>
  * `ReferenceError` in the page and nowhere else. Evaluating it in a bare realm
  * and calling it is the only check that actually proves that.
  */
+/**
+ * Compile-only parse probe. `new Function` compiles its body without running it,
+ * so this asks the JavaScript parser "is this a complete expression?" and
+ * nothing more. try/catch rather than errore: a SyntaxError here is the probe's
+ * expected negative answer, not a failure to report.
+ */
+function parses(source: string) {
+  try {
+    new Function(`return (${source})`)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Reads `function <name>(...) { ... }` out of the bundle, letting the parser
+ * find where the declaration ends. Counting braces by hand would have to
+ * understand string literals *and* regex literals, and this particular body is
+ * full of regexes containing quote characters (`["']?challenge-form["']?`) that
+ * a naive string tracker mis-pairs. The first closing brace at which the slice
+ * parses is the end of the function: any shorter prefix has unbalanced braces
+ * and cannot parse. Returns null rather than guessing.
+ */
+function readFunctionDeclaration(bundle: string, name: string) {
+  const declaration = new RegExp(`function\\s+${name.replace(/\$/g, '\\$')}\\s*\\(`).exec(bundle)
+  if (!declaration) return null
+
+  for (
+    let index = bundle.indexOf('}', declaration.index);
+    index !== -1;
+    index = bundle.indexOf('}', index + 1)
+  ) {
+    const candidate = bundle.slice(declaration.index, index + 1)
+    if (parses(candidate)) return candidate
+  }
+  return null
+}
+
 function extractSplicedEvidenceSource(bundle: string) {
   const marker = 'const evidenceFromResponseText = '
   const markerIndex = bundle.indexOf(marker)
@@ -87,7 +126,25 @@ function extractSplicedEvidenceSource(bundle: string) {
       'Could not extract the spliced evidenceFromResponseText source from dist/index.cjs; the splice shape in check.ts changed.',
     )
   }
-  return bundle.slice(start + '.concat('.length, end)
+  const spliced = bundle.slice(start + '.concat('.length, end).trim()
+
+  // The slice is the whole function expression only while swc inlines it, which
+  // it stops doing the moment evidenceFromResponseText gains a second consumer —
+  // precisely what the public `browser-automation/user-input/cloudflare` subpath
+  // exists to allow. Then the splice site reads `<name>.toString()` and what the
+  // page receives is that declaration's own source, so that is what must be
+  // proven closed. Evaluating the bare identifier instead would raise a
+  // ReferenceError and accuse a perfectly good bundle.
+  if (!/^[A-Za-z_$][\w$]*$/.test(spliced)) return spliced
+
+  const declaration = readFunctionDeclaration(bundle, spliced)
+  if (declaration === null) {
+    return new Error(
+      `dist/index.cjs splices "${spliced}.toString()", but no "function ${spliced}(...)" declaration could be read out of the bundle. ` +
+        'This is a gap in this check rather than evidence of a defect: teach extractSplicedEvidenceSource the shape the bundler now emits.',
+    )
+  }
+  return declaration
 }
 
 /**
