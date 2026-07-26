@@ -1,7 +1,7 @@
 import type { RuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
 import { describe, expect, it } from 'vitest'
 
-import { DuplicateWidgetTypeError, UnknownWidgetTypeError } from './errors'
+import { DuplicateWidgetTypeError, InvalidCronScheduleError, UnknownWidgetTypeError } from './errors'
 import { createWidgetServerRegistry, findWidgetServer } from './registry'
 
 const definition: RuntimeWidgetServerDefinition = {
@@ -29,4 +29,31 @@ describe('widget server registry', () => {
       DuplicateWidgetTypeError,
     )
   })
+})
+
+function withCron(typeId: string, schedule: string, timeZone: string): RuntimeWidgetServerDefinition {
+  return {
+    typeId,
+    schemas: {},
+    handlers: {},
+    crons: { nightly: { schedule, timeZone, run: () => undefined } },
+  }
+}
+
+it('rejects an unparsable cron schedule', () => {
+  expect(createWidgetServerRegistry([withCron('broken', 'not a cron', 'Europe/Warsaw')])).toBeInstanceOf(
+    InvalidCronScheduleError,
+  )
+})
+
+it('rejects an unknown time zone', () => {
+  expect(createWidgetServerRegistry([withCron('bad-zone', '5 0 * * *', 'Mars/Olympus')])).toBeInstanceOf(
+    InvalidCronScheduleError,
+  )
+})
+
+it('accepts a valid schedule', () => {
+  expect(createWidgetServerRegistry([withCron('ok', '5 0 * * *', 'Europe/Warsaw')])).not.toBeInstanceOf(
+    Error,
+  )
 })

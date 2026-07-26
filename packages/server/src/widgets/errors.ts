@@ -71,4 +71,16 @@ export class WidgetViewerLookupError extends errore.createTaggedError({
   extends: WidgetDispatchError,
 }) {}
 
+export class InvalidCronScheduleError extends errore.createTaggedError({
+  name: 'InvalidCronScheduleError',
+  message: 'Invalid cron schedule "$schedule" for $typeId.$job',
+  extends: WidgetDispatchError,
+}) {}
+
+export class WidgetCronRunError extends errore.createTaggedError({
+  name: 'WidgetCronRunError',
+  message: 'Cron job $typeId.$job failed for scheduled moment $scheduledFor',
+  extends: WidgetDispatchError,
+}) {}
+
 export type PublicWidgetDispatchError = WidgetDispatchError
