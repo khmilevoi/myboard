@@ -44,6 +44,18 @@ describe('mapCheckError', () => {
     expect(mapCheckError(apiError(code))).toEqual({ kind: 'retryable', message })
   })
 
+  // Hardcodes the expected string instead of reading RETRYABLE_MESSAGES.user_input_probe:
+  // the entry has already vanished from the table twice without any test turning red,
+  // because a table-sourced expectation just compares the map against itself. If the
+  // entry is missing, mapCheckError silently falls back to GENERIC_RETRYABLE_MESSAGE and
+  // the user sees "Не удалось выполнить проверку" instead of the specific text below.
+  it('maps user_input_probe to its specific retryable message', () => {
+    expect(mapCheckError(apiError('user_input_probe'))).toEqual({
+      kind: 'retryable',
+      message: 'Не удалось проверить состояние браузера',
+    })
+  })
+
   it('maps browser_session_required with sshTarget', () => {
     expect(mapCheckError(apiError('browser_session_required', { sshTarget: 'admin@pi' }))).toEqual({
       kind: 'sessionRequired',
