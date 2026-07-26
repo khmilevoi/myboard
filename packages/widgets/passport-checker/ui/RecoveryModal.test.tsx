@@ -1,6 +1,7 @@
 import type { WidgetApi } from '@shared/widgets/contracts'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { WidgetApiError } from 'widget-runtime'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { makePassportCheckModel } from '../model/check-model'
 import { makeRecoveryFlow } from '../model/recovery-flow'
@@ -50,8 +51,9 @@ function setup(
   )
   const checkModel = makePassportCheckModel({
     api: { invoke } as unknown as WidgetApi<PassportCheckerEvents, WidgetApiError>,
+    storage: createFakeStorage(),
   })
-  checkModel.viewState.set({ kind: 'sessionRequired', sshTarget })
+  checkModel.transient.set({ kind: 'sessionRequired', sshTarget })
   checkModel.recoveryOpen.set(true)
 
   const issueCalls: string[] = []

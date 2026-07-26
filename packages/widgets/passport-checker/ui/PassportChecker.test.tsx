@@ -1,15 +1,28 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { makeHostRuntime, WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
+import { WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { PassportChecker } from './PassportChecker'
 
 type InvokeResult = WidgetApiError | { status: number; send_status_msg: string }
 
+/** Isolated in-memory storage. The real host runtime would issue HTTP requests
+ *  to /api/storage from jsdom now that the widget reads shared storage. */
+function makeFakeStorage(): WidgetRuntimeProps['storage'] {
+  const instance = createFakeStorage()
+  const shared = createFakeStorage()
+  return {
+    instance: { client: instance, server: instance },
+    shared: { client: shared, server: shared },
+  }
+}
+
 function makeProps(
   tier: WidgetRuntimeProps['tier'],
   invoke: () => Promise<InvokeResult>,
   instanceId = 'inst-passport',
+  storage: WidgetRuntimeProps['storage'] = makeFakeStorage(),
 ) {
   const props: WidgetRuntimeProps = {
     instanceId,
@@ -21,7 +34,7 @@ function makeProps(
     requestClose: vi.fn(),
     requestDelete: vi.fn(),
     reportError: vi.fn(),
-    storage: makeHostRuntime().makeWidgetStorage({ instanceId, typeId: 'passport-checker' }),
+    storage,
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
   }
   return props
@@ -205,6 +218,9 @@ describe('PassportChecker / shared instance state', () => {
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
+  // Separate model graphs AND separate fake storages. In production the key is
+  // type-scoped, so two placements do converge on the same stored result once
+  // one of them checks — that is covered by the cross-placement test below.
   it('gives separate instance ids separate state', async () => {
     const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
     renderPair(['standard', 'standard'], invoke, ['inst-one', 'inst-two'])
