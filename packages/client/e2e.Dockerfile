@@ -5,12 +5,15 @@
 # docker-compose.yml or docker-compose.dev.yml. Chromium + its OS deps are
 # installed explicitly and pinned to the workspace's Playwright version, same
 # approach as packages/browser-automation/Dockerfile.
-FROM node:22-bookworm-slim
+FROM node:26-bookworm-slim
 WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
-RUN corepack enable \
+# node:26-bookworm-slim no longer bundles corepack (removed from Node core);
+# install it explicitly before enabling it.
+RUN npm install -g corepack@latest \
+    && corepack enable \
     && apt-get update \
     && apt-get install -y --no-install-recommends fonts-liberation procps \
     && npx -y playwright@1.61.0 install --with-deps chromium \
