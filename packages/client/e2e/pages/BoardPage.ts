@@ -13,6 +13,10 @@ export class BoardPage {
     return this.widgetCards.nth(index)
   }
 
+  getGrip(index: number): Locator {
+    return this.getCard(index).locator('.widget-drag-grip')
+  }
+
   async expandCard(index: number): Promise<void> {
     await this.getCard(index).getByRole('button', { name: 'Развернуть' }).click()
   }
