@@ -367,8 +367,14 @@ mini circle, and the dimming must be re-checked for contrast in dark theme.
 
 **Author states.** Viewer's own record → a ring on the account square, never the word "вы". Legacy
 author → the duty circle stands in, with a `без аккаунта` marker. Unknown author → dashed square
-with `?` and `автор неизвестен`. Directory still loading → neutral square plus a skeleton bar of
-the same size, so nothing reflows when names arrive.
+with `?` and `автор неизвестен`.
+
+The mock also draws a "directory still loading" row. It cannot occur: every record carries its own
+`name` snapshot, so an author renders immediately and the directory only upgrades the name and
+(later) the avatar. The one place a loading state is real is the **viewer's** circle on the comment
+composer — `viewer` is `null` until the directory arrives — so the skeleton treatment belongs there
+and nowhere else. Colours must still be reserved before the fetch resolves so a name change does
+not reflow the row.
 
 **Groups.** Sticky header per duty day: `сегодня` / `вчера` / `19 июня`, weekday, hairline rule, and
 an entry counter when the day holds more than one record. The column header carries the week's total.
