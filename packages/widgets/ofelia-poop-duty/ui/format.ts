@@ -15,21 +15,6 @@ export const MONTHS_GENITIVE = [
   'декабря',
 ] as const
 
-const MONTHS_SHORT = [
-  'янв',
-  'фев',
-  'мар',
-  'апр',
-  'май',
-  'июн',
-  'июл',
-  'авг',
-  'сен',
-  'окт',
-  'ноя',
-  'дек',
-] as const
-
 export function pluralizeDays(n: number): string {
   const abs = Math.abs(n) % 100
   const last = abs % 10
@@ -80,9 +65,4 @@ export function selectedDaySubtitle(
 
   const noDebt = balance.every((entry) => entry.debt === 0)
   return noDebt ? 'по очереди · долгов нет' : 'по очереди'
-}
-
-export function formatDateShort(ts: number): string {
-  const d = new Date(ts)
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
 }
