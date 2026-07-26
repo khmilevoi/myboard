@@ -1,5 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { makeHostRuntime, WidgetApiError, WidgetRuntimeContext } from 'widget-runtime'
+import {
+  makeHostRuntime,
+  makeStaticWidgetIdentity,
+  WidgetApiError,
+  WidgetRuntimeContext,
+} from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
 
 import { PassportChecker } from './PassportChecker'
@@ -61,6 +66,7 @@ function renderSessionRequired() {
       typeId: 'passport-checker',
     }),
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
+    identity: makeStaticWidgetIdentity(),
   }
   return render(
     <WidgetRuntimeContext.Provider value={props}>
@@ -134,6 +140,7 @@ function renderSessionRequiredIn(tier: WidgetRuntimeProps['tier'], instanceId: s
       typeId: 'passport-checker',
     }),
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
+    identity: makeStaticWidgetIdentity(),
   }
   const view = render(
     <WidgetRuntimeContext.Provider value={props}>

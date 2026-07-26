@@ -229,3 +229,25 @@
     display: none;
   }
 }
+
+.resetButton {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.resetButton:hover {
+  background: var(--accent-soft);
+  color: var(--foreground);
+}
