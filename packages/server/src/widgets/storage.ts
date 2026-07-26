@@ -23,6 +23,13 @@ export type CreateWidgetServerStorageApiOptions = {
   createId?: () => string
 }
 
+export type MakeWidgetScopedStorageOptions = {
+  ops: ValkeyOps
+  namespace: string
+  now: () => number
+  createId?: () => string
+}
+
 function storageError(operation: string, key: string, cause?: unknown) {
   return new WidgetServerStorageError({ operation, key, cause })
 }
@@ -34,17 +41,13 @@ function serialize(operation: string, key: string, value: unknown) {
   return serialized
 }
 
-export function createWidgetServerStorageApi({
+export function makeWidgetScopedStorage({
   ops,
-  typeId,
-  instanceId,
+  namespace,
   now,
   createId = randomUUID,
-}: CreateWidgetServerStorageApiOptions): {
-  instance: WidgetServerStorage
-  shared: WidgetServerStorage
-} {
-  const createScope = (namespace: string): WidgetServerStorage => ({
+}: MakeWidgetScopedStorageOptions): WidgetServerStorage {
+  return {
     async get<T>(key: string, schema?: z.ZodType<T>) {
       const fullKey = toFullKey(namespace, key)
       const raw = await ops.get(fullKey).catch((cause) => storageError('get', fullKey, cause))
@@ -144,10 +147,22 @@ export function createWidgetServerStorageApi({
         if (published instanceof Error) return published
       })
     },
-  })
+  }
+}
 
+export function createWidgetServerStorageApi({
+  ops,
+  typeId,
+  instanceId,
+  now,
+  createId = randomUUID,
+}: CreateWidgetServerStorageApiOptions): {
+  instance: WidgetServerStorage
+  shared: WidgetServerStorage
+} {
+  const scope = (namespace: string) => makeWidgetScopedStorage({ ops, namespace, now, createId })
   return {
-    instance: createScope(instanceNamespace(instanceId)),
-    shared: createScope(typeNamespace(typeId)),
+    instance: scope(instanceNamespace(instanceId)),
+    shared: scope(typeNamespace(typeId)),
   }
 }
