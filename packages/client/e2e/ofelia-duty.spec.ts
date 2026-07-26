@@ -8,6 +8,12 @@ const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
 const LEDGER_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:ledger')}`
 
+// This spec asserts tier-dependent UI, and the grid is a true zoom — a narrower
+// window renders physically smaller cards — so it must pin a width: at 1920 the
+// grid scale is exactly 1, which is the geometry these assertions were written
+// against.
+test.use({ viewport: { width: 1920, height: 1080 } })
+
 test.beforeEach(async ({ request }) => {
   await request.post('/api/test/reset')
   await request.post('/api/test/time', { data: { iso: PINNED_ISO } })
