@@ -28,6 +28,18 @@ const group = (o: Partial<HistoryDayGroup> = {}): HistoryDayGroup => ({
   ...o,
 })
 
+/**
+ * What a screen reader is left with: the rendered text minus everything hidden
+ * from the accessibility tree. Asserting this rather than the DOM is the point —
+ * the duty circles are `aria-hidden`, so a check against visible markup would
+ * pass even with no announced subject at all.
+ */
+const announced = (element: HTMLElement): string => {
+  const clone = element.cloneNode(true) as HTMLElement
+  for (const hidden of clone.querySelectorAll('[aria-hidden="true"]')) hidden.remove()
+  return (clone.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
 describe('HistoryList', () => {
   it('renders the day header and the signature', () => {
     render(<HistoryList groups={[group()]} today="2026-06-16" />)
@@ -80,8 +92,77 @@ describe('HistoryList', () => {
     expect(screen.getByText('18 июня')).toBeInTheDocument()
   })
 
+  it('renders a debt repayment as a negative pill', () => {
+    render(
+      <HistoryList
+        groups={[group({ current: view({ debtDelta: { person: 'Леша', amount: -1 } }) })]}
+        today="2026-06-16"
+      />,
+    )
+    expect(screen.getByText('−1 день')).toBeInTheDocument()
+  })
+
+  it('tags a record signed before accounts existed', () => {
+    render(
+      <HistoryList
+        groups={[group({ current: view({ recordedBy: { kind: 'person', person: 'Леша' } }) })]}
+        today="2026-06-16"
+      />,
+    )
+    expect(screen.getByText('отметил(а) Леша')).toBeInTheDocument()
+    expect(screen.getByText('без аккаунта')).toBeInTheDocument()
+  })
+
+  it('names no author when the record carries none', () => {
+    render(
+      <HistoryList
+        groups={[group({ current: view({ recordedBy: { kind: 'unknown' } }) })]}
+        today="2026-06-16"
+      />,
+    )
+    expect(screen.getByText('автор неизвестен')).toBeInTheDocument()
+  })
+
   it('renders an empty state', () => {
     render(<HistoryList groups={[]} today="2026-06-16" />)
     expect(screen.getByText('Пока нет событий')).toBeInTheDocument()
+  })
+
+  describe('accessible text', () => {
+    it('announces the subject of the phrase, not just the verb', () => {
+      const { container } = render(<HistoryList groups={[group()]} today="2026-06-16" />)
+      expect(announced(container)).toContain('Леша убрал(а)')
+    })
+
+    it('announces both people of a debt day and whose day the pill moves', () => {
+      const { container } = render(
+        <HistoryList
+          groups={[
+            group({
+              current: view({
+                type: 'went_into_debt',
+                onBehalfOf: 'Карина',
+                debtDelta: { person: 'Карина', amount: 1 },
+              }),
+            }),
+          ]}
+          today="2026-06-16"
+        />,
+      )
+
+      const text = announced(container)
+      expect(text).toContain('Карина ушёл(ла) в долг → убирает Леша')
+      expect(text).toContain('Карина: +1 день')
+    })
+
+    it('announces a reopened day without naming anyone', () => {
+      const { container } = render(
+        <HistoryList groups={[group({ current: view({ type: 'reset' }) })]} today="2026-06-16" />,
+      )
+
+      const text = announced(container)
+      expect(text).toContain('день переоткрыт')
+      expect(text).not.toContain('Леша')
+    })
   })
 })

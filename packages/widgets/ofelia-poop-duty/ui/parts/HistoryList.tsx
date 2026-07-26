@@ -1,4 +1,5 @@
 import { Clock } from 'lucide-react'
+import { Fragment } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import type { HistoryDayGroup, HistoryEntryView } from '@/model/history-view'
@@ -22,6 +23,10 @@ const authorName = (entry: HistoryEntryView): string => {
   return 'автор неизвестен'
 }
 
+// Here the duty circle *is* the subject of the sentence, not an ornament beside a
+// written-out name, and `Avatar` is `aria-hidden`. Without the paired text the
+// column would announce as bare verbs — "убрал(а)", "простил(а) день" — so every
+// circle carries a visually hidden name in the same reading position.
 const Phrase = reatomMemo<{ entry: HistoryEntryView }>(
   ({ entry }) => (
     <span className={styles.phrase}>
@@ -29,7 +34,10 @@ const Phrase = reatomMemo<{ entry: HistoryEntryView }>(
         typeof part === 'string' ? (
           <span key={index}>{part}</span>
         ) : (
-          <Avatar key={index} person={part.person} px={18} />
+          <Fragment key={index}>
+            <Avatar person={part.person} px={18} />
+            <span className={styles.srOnly}>{part.person}</span>
+          </Fragment>
         ),
       )}
     </span>
@@ -44,15 +52,26 @@ const Entry = reatomMemo<{ entry: HistoryEntryView; superseded?: boolean }>(
       data-superseded={superseded}
       {...(superseded ? { 'data-testid': `history-superseded-${entry.id}` } : {})}
     >
+      {/* The separating spaces are real text nodes, as in the mock: they keep the
+          chips from running into the phrase both visually and when announced. */}
       <div className={styles.action}>
         <Phrase entry={entry} />
         {entry.debtDelta ? (
-          <span className={styles.debt} data-sign={entry.debtDelta.amount > 0 ? 'up' : 'down'}>
-            <Avatar person={entry.debtDelta.person} px={13} />
-            {entry.debtDelta.amount > 0 ? '+1 день' : '−1 день'}
-          </span>
+          <Fragment>
+            {' '}
+            <span className={styles.debt} data-sign={entry.debtDelta.amount > 0 ? 'up' : 'down'}>
+              <Avatar person={entry.debtDelta.person} px={13} />
+              <span className={styles.srOnly}>{`${entry.debtDelta.person}: `}</span>
+              {entry.debtDelta.amount > 0 ? '+1 день' : '−1 день'}
+            </span>
+          </Fragment>
         ) : null}
-        {superseded ? <span className={styles.stale}>перекрыто</span> : null}
+        {superseded ? (
+          <Fragment>
+            {' '}
+            <span className={styles.stale}>перекрыто</span>
+          </Fragment>
+        ) : null}
       </div>
       <div className={styles.signature}>
         <MemberAvatar author={entry.recordedBy} isViewer={entry.isViewerRecord} px={18} />

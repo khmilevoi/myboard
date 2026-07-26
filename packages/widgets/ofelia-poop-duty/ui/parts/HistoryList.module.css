@@ -69,11 +69,26 @@
   vertical-align: -0.25rem;
 }
 
+/* Carries the name of a duty circle for assistive tech: the circle itself is
+   `aria-hidden`, and in the phrase it stands in for the name rather than
+   decorating one. Out of flow, so it costs no layout in either the inline
+   phrase or the flex pill. */
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .debt {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  margin-inline-start: 0.3125rem;
   padding: 0.09375rem 0.375rem 0.09375rem 0.1875rem;
   border-radius: 999px;
   font-family: var(--font-mono);
@@ -94,14 +109,18 @@
 
 .debt > [data-tone] {
   display: inline-flex;
-  /* Required: the superseded rail strikes through the pill, and `line-through`
-     otherwise bleeds into the circle. The mock defeats it the same way. */
+  /* Inert, and kept only for parity with the mock, which carries the same
+     declaration. A descendant cannot cancel a decoration its ancestor
+     originated (CSS Text Decoration 3) — `none` only stops this element
+     decorating its own contents. What actually spares the initial glyph is
+     `inline-flex`: an atomic inline, whose contents are excluded from
+     propagation. The ancestor's line is still painted across the box, in the
+     mock and here alike. */
   text-decoration: none;
 }
 
 .stale {
   display: inline-block;
-  margin-inline-start: 0.3125rem;
   padding: 0.0625rem 0.3125rem;
   border: 1px solid var(--border);
   border-radius: 0.3125rem;
