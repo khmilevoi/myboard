@@ -197,6 +197,18 @@ Do not commit `.env` files. Client environment examples live in `packages/client
 
 `pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release. `rpi.dev.toml` overlays that configuration for the `dev` environment (see the [feature workflow](#feature-workflow)).
 
+Three deploy targets, each with its own hostname, Valkey volume and device invite:
+
+```bash
+pnpm run deploy          # production, board.iiskelo.com          (rpi.toml)
+pnpm run deploy:dev      # dev integration, board-dev.iiskelo.com (rpi.dev.toml)
+pnpm run deploy:branch   # current branch, board-branch.iiskelo.com (rpi.branch.toml)
+```
+
+Use `pnpm run deploy`, not `pnpm deploy` — the latter is pnpm's own built-in command and never reaches the script.
+
+`rpi.branch.toml` is a disposable stack for trying the checked-out branch on real hardware. `pnpm run deploy:branch` reads the branch from git and passes it as `--vars BRANCH_NAME=…`, which is the only variable rpi 0.26 accepts — so the hostname is a literal, not derived. rpi keys the project by environment _and_ variables (`myboard--branch--<slug>`), so a second branch deployed while the first is still up collides on that shared hostname: tear the old one down with `rpi env destroy branch --vars BRANCH_NAME=<previous>` first. The environment carries `ttl = "72h"`, so a forgotten stack reaps itself. Its secrets bundle is `.env.branch` (template in `.env.branch.example`), sent once with `rpi secrets send --env branch --vars BRANCH_NAME=<branch>`.
+
 ## Failure modes to avoid
 
 - Keep the scope tight. Do not spend time re-reading plans, skills, or history once the actual code change is localized.
