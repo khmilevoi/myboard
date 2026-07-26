@@ -144,7 +144,12 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 
 Widgets that write shared state do it from their own `server.ts` rather than through
 `/api/storage/:key/append`: the widget dispatch route resolves the session cookie into
-`WidgetServerContext.viewer`, so the record's author is stamped by the server and cannot be forged.
+`WidgetServerContext.viewer`, so the record's author is stamped by the server from the caller's own
+session and never travels in the request body. The UI therefore cannot sign a record with someone
+else's name. This is not an authorization boundary: `POST /api/storage/:key/append` is still
+reachable by anyone nginx has already let in, and it writes the body as given, so a signed-in
+household member can hand-write a record carrying any author into a widget's key. The generic
+storage route stays a shared trusted channel inside the board.
 `WidgetRuntimeProps.identity` gives the client side the same roster (`GET /api/auth/accounts`) for
 display — records store an `accountId` plus a frozen name, and display resolves through the
 directory so renames and avatars reach old records.
