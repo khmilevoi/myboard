@@ -12,7 +12,6 @@ import { CommentThread } from './CommentThread'
 import { HistoryList } from './HistoryList'
 import { MobileTabs } from './MobileTabs'
 import { OfeliaActionControls } from './OfeliaActionControls'
-import { UserToggle } from './UserToggle'
 import { WeekStrip } from './WeekStrip'
 
 import styles from './RichLayout.module.css'
@@ -36,7 +35,7 @@ const CommentsColumn = reatomMemo(() => {
 }, 'CommentsColumn')
 
 export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onClose }) => {
-  const { view, currentUser, actions, nav } = useOfelia()
+  const { view, actions, nav } = useOfelia()
   const [tab, setTab] = useState<'history' | 'comments'>('history')
   const selected = view.selected()
   if (!selected) return null
@@ -61,9 +60,6 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
             </div>
             <div className={styles.subtitle}>Кто убирает за Офелией · чередование</div>
           </div>
-        </div>
-        <div className={styles.headerActions}>
-          <UserToggle value={currentUser()} onChange={actions.onSetUser} />
         </div>
         <OfeliaActionControls
           className={styles.headerClose}

@@ -137,7 +137,6 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
 
 type MakeOfeliaValueOptions = {
   view?: OfeliaViewModel
-  currentUser?: Person
   history?: HistoryEntryView[]
   comments?: CommentView[]
   actions?: Partial<OfeliaActions>
@@ -147,7 +146,6 @@ type MakeOfeliaValueOptions = {
 export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextValue {
   return {
     view: o.view ?? makeOfeliaView(),
-    currentUser: atom<Person>(o.currentUser ?? 'Карина', 'fixture.currentUser'),
     history: atom<HistoryEntryView[]>(o.history ?? [], 'fixture.history'),
     comments: atom<CommentView[]>(o.comments ?? [], 'fixture.comments'),
     actions: {
@@ -156,7 +154,6 @@ export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextVa
       onDebt: noop,
       onForgive: noop,
       onSelectDay: noop,
-      onSetUser: noop,
       ...o.actions,
     },
     nav: { onPrevWeek: noop, onNextWeek: noop, onCurrentWeek: noop },

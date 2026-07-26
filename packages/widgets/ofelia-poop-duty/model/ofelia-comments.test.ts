@@ -1,16 +1,19 @@
 import { atom, context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { StorageApi, StorageListener, WidgetStorage } from 'widget-runtime'
+import {
+  makeStaticWidgetIdentity,
+  type StorageApi,
+  type StorageListener,
+  type WidgetStorage,
+} from 'widget-runtime'
 
 import { commentsKey } from '@/domain/comments'
 import type { Comment } from '@/domain/comments'
 import { weekStartISO } from '@/domain/roster'
-import type { Person } from '@/domain/roster'
 
 import { formatDateShort } from '../ui/format'
 import { ofeliaCommentsModel } from './ofelia-comments'
 import type { CommentView } from './ofelia-comments'
-import { IP_TAIL_LENGTH } from './ofelia-duty'
 
 function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
   const api: StorageApi = {
@@ -58,17 +61,22 @@ function createCommentsStorage() {
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
-function makeDeps(weekStart: Temporal.PlainDate | null = D('2026-06-15'), user: Person = 'Леша') {
+const okInvoke = () => vi.fn(async () => ({ ok: true }))
+
+function makeDeps(
+  weekStart: Temporal.PlainDate | null = D('2026-06-15'),
+  invoke: ReturnType<typeof okInvoke> = okInvoke(),
+) {
   return {
     viewWeekStart: atom<Temporal.PlainDate | null>(weekStart, 'test.viewWeekStart'),
-    currentUser: atom<Person>(user, 'test.currentUser'),
+    api: { invoke } as never,
+    identity: makeStaticWidgetIdentity(),
   }
 }
 
 const cm = (overrides: Partial<Comment> = {}): Comment => ({
   id: 'comment-1',
   ts: 1,
-  ip: '127.0.0.1',
   author: 'Леша',
   text: 'hello',
   ...overrides,
@@ -201,81 +209,94 @@ describe('ofeliaCommentsModel.commentThread', () => {
       author: 'Леша',
       authorName: 'Леша',
       date: formatDateShort(1),
-      ipTail: '127.0.0.1'.slice(-IP_TAIL_LENGTH),
       text: 'first',
     })
     expect(first).not.toHaveProperty('ts')
-    expect(first).not.toHaveProperty('ip')
   })
 
-  it('maps authorName, date, and ipTail from raw comments', () => {
+  it('maps authorName and date from raw comments', () => {
     const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
 
-    const ip = '203.0.113.55'
     const ts = new Date(2026, 5, 10, 12, 0, 0).getTime()
 
-    model.comments.set([cm({ id: 'c1', ts, ip, author: 'Карина', text: 'hi' })])
+    model.comments.set([cm({ id: 'c1', ts, author: 'Карина', text: 'hi' })])
 
     const [entry] = model.commentThread()
 
     expect(entry?.authorName).toBe('Карина')
     expect(entry?.date).toBe('10 июн')
-    expect(entry?.ipTail).toBe(ip.slice(-IP_TAIL_LENGTH))
-    expect(entry?.ipTail).toBe('13.55')
   })
 
-  it('uses an empty ipTail when the raw comment has no ip', () => {
+  it('prefers the authoring account name over the legacy signature', () => {
     const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
 
-    model.comments.set([cm({ id: 'c1', ip: undefined })])
+    model.comments.set([
+      cm({ id: 'c1', author: undefined, createdBy: { accountId: 'acc-1', name: 'Карина' } }),
+    ])
 
     const [entry] = model.commentThread()
 
-    expect(entry?.ipTail).toBe('')
+    expect(entry?.authorName).toBe('Карина')
+    expect(entry).not.toHaveProperty('author')
   })
 })
 
 describe('ofeliaCommentsModel.send', () => {
-  it('appends a trimmed comment authored by the current user to the viewed week', async () => {
-    const storage = createStorage()
-    const model = ofeliaCommentsModel({ storage, ...makeDeps(D('2026-06-15'), 'Карина') })
+  it('invokes the comment event for the viewed week', async () => {
+    const invoke = okInvoke()
+    const model = ofeliaCommentsModel({
+      storage: createStorage(),
+      ...makeDeps(D('2026-06-15'), invoke),
+    })
 
-    await model.send('  Привет  ')
+    await wrap(() => model.send('  Привет  '))()
 
-    expect(storage.shared.server.append).toHaveBeenCalledWith('comments:2026-06-15', {
-      author: 'Карина',
-      text: 'Привет',
+    expect(invoke).toHaveBeenCalledWith('comment', {
+      weekStart: '2026-06-15',
+      text: '  Привет  ',
     })
   })
 
-  it('ignores empty or whitespace-only text', async () => {
+  it('does not write through storage any more', async () => {
     const storage = createStorage()
     const model = ofeliaCommentsModel({ storage, ...makeDeps(D('2026-06-15')) })
 
-    await model.send('   ')
+    await wrap(() => model.send('Привет'))()
 
     expect(storage.shared.server.append).not.toHaveBeenCalled()
+  })
+
+  it('ignores empty or whitespace-only text', async () => {
+    const invoke = okInvoke()
+    const model = ofeliaCommentsModel({
+      storage: createStorage(),
+      ...makeDeps(D('2026-06-15'), invoke),
+    })
+
+    await wrap(() => model.send('   '))()
+
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('is a no-op before the first sync (no viewed week)', async () => {
-    const storage = createStorage()
-    const model = ofeliaCommentsModel({ storage, ...makeDeps(null) })
+    const invoke = okInvoke()
+    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps(null, invoke) })
 
-    await model.send('hello')
+    await wrap(() => model.send('hello'))()
 
-    expect(storage.shared.server.append).not.toHaveBeenCalled()
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('writes to the currently viewed week after navigation', async () => {
-    const storage = createStorage()
-    const deps = makeDeps(D('2026-06-15'), 'Леша')
-    const model = ofeliaCommentsModel({ storage, ...deps })
+    const invoke = okInvoke()
+    const deps = makeDeps(D('2026-06-15'), invoke)
+    const model = ofeliaCommentsModel({ storage: createStorage(), ...deps })
 
     deps.viewWeekStart.set(D('2026-06-22'))
-    await model.send('next week note')
+    await wrap(() => model.send('next week note'))()
 
-    expect(storage.shared.server.append).toHaveBeenCalledWith('comments:2026-06-22', {
-      author: 'Леша',
+    expect(invoke).toHaveBeenCalledWith('comment', {
+      weekStart: '2026-06-22',
       text: 'next week note',
     })
   })

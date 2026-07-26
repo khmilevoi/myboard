@@ -34,7 +34,6 @@ export const HistoryList = reatomMemo<HistoryListProps>(({ entries }) => {
           <li key={entry.id} className={styles.item}>
             <div className={styles.meta}>
               <span className={styles.date}>{entry.date}</span>
-              {entry.ipTail ? <span className={styles.ip}>{entry.ipTail}</span> : null}
             </div>
             <div className={styles.row}>
               <Avatar person={entry.actor} px={20} />

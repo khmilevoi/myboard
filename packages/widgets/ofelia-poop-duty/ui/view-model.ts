@@ -52,7 +52,6 @@ export type OfeliaActions = {
   onDebt: () => void
   onForgive: () => void
   onSelectDay: (iso: string) => void
-  onSetUser: (person: Person) => void
 }
 
 export type OfeliaWeekNav = {

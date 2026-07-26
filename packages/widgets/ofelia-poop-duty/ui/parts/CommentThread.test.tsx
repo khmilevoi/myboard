@@ -11,7 +11,6 @@ const view = (overrides: Partial<CommentView> = {}): CommentView => ({
   author: 'Карина',
   authorName: 'Карина',
   date: '10 июн',
-  ipTail: '0.0.7',
   text: 'Привет',
   ...overrides,
 })

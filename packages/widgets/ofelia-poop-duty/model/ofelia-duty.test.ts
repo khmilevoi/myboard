@@ -1,9 +1,9 @@
 import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { StorageApi, WidgetStorage } from 'widget-runtime'
+import { makeStaticWidgetIdentity, type StorageApi, type WidgetStorage } from 'widget-runtime'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
-import { IP_TAIL_LENGTH, ofeliaDutyModel } from './ofelia-duty'
+import { ofeliaDutyModel } from './ofelia-duty'
 
 // The ledger reactive flows (subscribe -> derived projections -> append actions)
 // are covered by the Playwright e2e suite. They are intentionally not unit-tested:
@@ -37,34 +37,29 @@ afterEach(() => {
 })
 
 describe('ofeliaDutyModel server time', () => {
-  it('returns null projections and blocks actions before the first sync', async () => {
-    const storage = createStorage()
-    const model = ofeliaDutyModel({ storage, timer: createFakeTimer() })
+  it('returns null projections and sends nothing before the first sync', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer(),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
 
     expect(model.viewWeekStart()).toBeNull()
     expect(model.currentWeek()).toBeNull()
     expect(model.debtDays()).toBeNull()
 
-    await model.goIntoDebt()
-    expect(storage.shared.server.append).not.toHaveBeenCalled()
-  })
-
-  it('blocks append actions while the ledger has not synced yet', async () => {
-    const storage = createStorage()
-    const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
-
-    await model.confirmClean(D('2026-06-16'))
-    await model.goIntoDebt(D('2026-06-16'))
-    await model.forgive(D('2026-06-16'))
-    await model.undo(D('2026-06-16'))
-
-    expect(storage.shared.server.append).not.toHaveBeenCalled()
+    await wrap(() => model.goIntoDebt())()
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('exposes today so the view model can gate future-day controls', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     expect(model.today()?.toString()).toBe('2026-06-16')
@@ -74,6 +69,8 @@ describe('ofeliaDutyModel server time', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     return context.start(async () => {
@@ -96,6 +93,8 @@ describe('ofeliaDutyModel server time', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     expect(model.selectedDate()).toBeNull()
@@ -108,63 +107,79 @@ describe('ofeliaDutyModel server time', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer(),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     expect(model.undoAvailable()).toBe(false)
   })
 })
 
-describe('ofeliaDutyModel.currentUser', () => {
-  it('defaults to the first roster member', () => {
+describe('ofeliaDutyModel actions', () => {
+  it('invokes the clean event with the target date', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
     const model = ofeliaDutyModel({
       storage: createStorage(),
-      timer: createFakeTimer(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
-    expect(model.currentUser()).toBe('Леша')
+    await wrap(() => model.confirmClean(D('2026-06-18')))()
+
+    expect(invoke).toHaveBeenCalledWith('clean', { date: '2026-06-18' })
   })
 
-  it('loads a persisted value from shared.client on connect', async () => {
-    const storage = createStorage({
-      get: (async () => 'Карина') as StorageApi['get'],
-    })
-    const model = ofeliaDutyModel({
-      storage,
-      timer: createFakeTimer(),
-    })
-
-    await context.start(async () => {
-      const off = model.currentUser.subscribe(() => {})
-      const check = wrap(() => expect(model.currentUser()).toBe('Карина'))
-
-      await vi.waitFor(() => check())
-      off()
-    })
-  })
-
-  it('persists the selection to shared.client on change', async () => {
+  it('does not write through storage any more', async () => {
     const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
-    await context.start(async () => {
-      const off = model.currentUser.subscribe(() => {})
-      await wrap(() => model.currentUser.set('Карина'))()
+    await wrap(() => model.confirmClean(D('2026-06-16')))()
 
-      const check = wrap(() =>
-        expect(storage.shared.client.set).toHaveBeenCalledWith('currentUser', 'Карина'),
-      )
-
-      await vi.waitFor(() => check())
-      off()
-    })
+    expect(storage.shared.server.append).not.toHaveBeenCalled()
   })
-})
 
-describe('ofelia-duty selectors', () => {
-  it('IP_TAIL_LENGTH is 5', () => {
-    expect(IP_TAIL_LENGTH).toBe(5)
+  it('maps the remaining day actions onto their own events', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(() => model.goIntoDebt(D('2026-06-16')))()
+    await wrap(() => model.forgive(D('2026-06-17')))()
+    await wrap(() => model.undo(D('2026-06-18')))()
+
+    expect(invoke.mock.calls).toEqual([
+      ['debt', { date: '2026-06-16' }],
+      ['forgive', { date: '2026-06-17' }],
+      ['undo', { date: '2026-06-18' }],
+    ])
+  })
+
+  it('falls back to the selected day, then today', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(() => model.confirmClean())()
+    model.selectedDate.set(D('2026-06-19'))
+    await wrap(() => model.confirmClean())()
+
+    expect(invoke.mock.calls).toEqual([
+      ['clean', { date: '2026-06-16' }],
+      ['clean', { date: '2026-06-19' }],
+    ])
   })
 })

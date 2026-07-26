@@ -36,12 +36,11 @@ export const CommentThread = reatomMemo<CommentThreadProps>(({ comments, onSend 
         <ul ref={listRef} className={styles.list}>
           {[...comments].reverse().map((comment) => (
             <li key={comment.id} className={styles.item}>
-              <Avatar person={comment.author} px={22} />
+              {comment.author ? <Avatar person={comment.author} px={22} /> : null}
               <div className={styles.body}>
                 <div className={styles.meta}>
                   <span className={styles.author}>{comment.authorName}</span>
                   <span className={styles.date}>{comment.date}</span>
-                  {comment.ipTail ? <span className={styles.ip}>{comment.ipTail}</span> : null}
                 </div>
                 <div className={styles.text}>{comment.text}</div>
               </div>

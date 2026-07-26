@@ -5,7 +5,7 @@ import { getServerTime, type WidgetTier, useWidgetContext } from 'widget-runtime
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 
-import type { Person } from '../domain/roster'
+import type { OfeliaEvents } from '../domain/events'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
 import { ofeliaContext } from './ofelia-context'
@@ -20,16 +20,21 @@ import { makeOfeliaViewModel } from './view-model'
 import styles from './ofelia-poop-duty.module.css'
 
 export const OfeliaPoopDuty = reatomMemo(() => {
-  const { mode, tier, storage, requestFullscreen, requestClose, requestDelete } = useWidgetContext()
-  const dutyModel = useMemo(() => ofeliaDutyModel({ storage, timer: getServerTime() }), [storage])
+  const { mode, tier, storage, api, identity, requestFullscreen, requestClose, requestDelete } =
+    useWidgetContext<OfeliaEvents>()
+  const dutyModel = useMemo(
+    () => ofeliaDutyModel({ storage, timer: getServerTime(), api, identity }),
+    [storage, api, identity],
+  )
   const commentsModel = useMemo(
     () =>
       ofeliaCommentsModel({
         storage,
         viewWeekStart: dutyModel.viewWeekStart,
-        currentUser: dutyModel.currentUser,
+        api,
+        identity,
       }),
-    [storage, dutyModel],
+    [storage, dutyModel, api, identity],
   )
 
   // One stable, model-scoped context value. `view` is the atomic view-model — a
@@ -47,7 +52,6 @@ export const OfeliaPoopDuty = reatomMemo(() => {
 
     return {
       view,
-      currentUser: dutyModel.currentUser,
       history: dutyModel.historyView,
       comments: commentsModel.commentThread,
       actions: {
@@ -70,7 +74,6 @@ export const OfeliaPoopDuty = reatomMemo(() => {
         onSelectDay: wrap((iso: string) =>
           dutyModel.selectedDate.set(Temporal.PlainDate.from(iso)),
         ),
-        onSetUser: wrap((person: Person) => dutyModel.currentUser.set(person)),
       },
       nav: {
         onPrevWeek: wrap(() => {
