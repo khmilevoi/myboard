@@ -343,12 +343,19 @@
     display: block;
   }
 
+  /* Bounding the tab pane needs `overflow: hidden`, and that clips the inline
+     axis too — `overflow-x` cannot stay `visible` once the other axis is not.
+     So this box becomes a second clipper sitting at the same inline start as the
+     columns inside it, and it would shave the viewer ring the columns already
+     reserved room for. Reach outward by the ring width the same way they do. */
   .split {
     padding-block-start: 0;
     border-top: 0;
     min-block-size: 16rem;
     max-block-size: min(26rem, 48dvh);
     overflow: hidden;
+    margin-inline-start: calc(-1 * var(--ofelia-viewer-ring));
+    padding-inline-start: var(--ofelia-viewer-ring);
   }
 
   .historyCol,
