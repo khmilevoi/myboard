@@ -23,12 +23,22 @@ describe('resolveGridMetrics', () => {
     })
   })
 
-  it('clamps the scale at 0.75 on narrow desktops', () => {
+  it('never renders a narrow desktop smaller than the base-width baseline', () => {
+    // The zoom only goes upward, so the whole band between the mobile
+    // breakpoint and BASE_WIDTH keeps the base metrics: no board shrinks and no
+    // widget drops a tier on a laptop-width window.
     expect(resolveGridMetrics(1280)).toEqual({
       isMobile: false,
       cols: 12,
-      rowHeight: 22.5,
-      margin: [7.5, 7.5],
+      rowHeight: 30,
+      margin: [10, 10],
+    })
+
+    expect(resolveGridMetrics(800)).toEqual({
+      isMobile: false,
+      cols: 12,
+      rowHeight: 30,
+      margin: [10, 10],
     })
   })
 
