@@ -10,7 +10,7 @@ import { readJsonBody } from '../http/body'
 import { clientIp } from '../http/client-ip'
 import { runExclusive } from '../storage/key-lock'
 import { formatZodError } from '../storage/schemas'
-import { addDeviceToAccount, getAccount } from './accounts'
+import { addDeviceToAccount, getAccount, listAccounts } from './accounts'
 import {
   consumeAddToken,
   formatAddCode,
@@ -324,6 +324,21 @@ export async function getAccountInfo(deps: AuthDeps, req: IncomingMessage): Prom
   return {
     status: 200,
     body: { id: account.id, name: account.name, deviceLimit: account.deviceLimit },
+  }
+}
+
+export async function getAccounts(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
+  const session = await requireSession(deps, req)
+  if (isAuthResult(session)) return session
+
+  const accounts = await listAccounts(deps.ops)
+
+  return {
+    status: 200,
+    body: {
+      accounts: accounts.map((account) => ({ accountId: account.id, name: account.name })),
+      viewerAccountId: session.accountId,
+    },
   }
 }
 

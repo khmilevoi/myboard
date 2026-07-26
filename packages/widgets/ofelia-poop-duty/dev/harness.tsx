@@ -24,6 +24,7 @@ export function harnessProps(): WidgetRuntimeProps {
     reportError: (error) => console.warn('[harness]', error),
     storage: runtime.makeWidgetStorage({ instanceId: `dev:${DEV_ID}`, typeId: DEV_ID }),
     api: runtime.makeWidgetApi({ instanceId: `dev:${DEV_ID}`, typeId: DEV_ID }),
+    identity: runtime.identity,
   }
 }
 

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <meta name="design_doc_mode" content="canvas">
+  <style>
+    body { margin:0; background:#eceef1; font-family:'Hanken Grotesk',sans-serif; }
+  </style>
+</helmet>
+
+<!-- ============ CURRENT (reference) ============ -->
+<div style="position:absolute;left:60px;top:60px;width:360px;">
+  <div data-drags-parent="1" style="font:600 12px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#9396a0;text-transform:uppercase;margin-bottom:14px;">Сейчас</div>
+  <div style="background:#fff;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:18px 20px;height:236px;box-sizing:border-box;position:relative;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:9px;color:#5b5e69;font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg>Лоток Офелии</div>
+      <div style="display:flex;gap:6px;">
+        <button style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #e3e4e8;border-radius:8px;background:#fff;color:#5b5e69;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"></path></svg></button>
+        <button style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #e3e4e8;border-radius:8px;background:#fff;color:#9396a0;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:16px;">
+      <span style="width:50px;height:50px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 19px 'Hanken Grotesk',sans-serif;">К</span>
+      <div><div style="font:700 24px 'Hanken Grotesk',sans-serif;color:#22232a;">Карина</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;">гасит долг</div></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;font:500 12.5px 'Hanken Grotesk',sans-serif;color:#5b5e69;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:inline-flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span>0 дней</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;font:500 12.5px 'Hanken Grotesk',sans-serif;color:#5b5e69;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:inline-flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span>2 дня</span>
+    </div>
+    <div style="position:absolute;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;">
+      <button style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #e3e4e8;border-radius:9px;background:#fff;color:oklch(0.55 0.17 281);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></button>
+      <button style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #e3e4e8;border-radius:9px;background:#fff;color:#5b5e69;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3 1.8"></path></svg></button>
+      <button style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #e3e4e8;border-radius:9px;background:#fff;color:oklch(0.55 0.13 155);cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OPTION A — Action-first ============ -->
+<div style="position:absolute;left:520px;top:60px;width:360px;">
+  <div data-drags-parent="1" style="font:600 12px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#645fd1;text-transform:uppercase;margin-bottom:14px;">A · Действие в фокусе</div>
+  <div style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px 18px 18px;box-sizing:border-box;display:flex;flex-direction:column;gap:0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:9px;color:#5b5e69;font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg>Лоток Офелии</div>
+      <div style="display:flex;gap:6px;">
+        <button style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:#9396a0;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"></path></svg></button>
+        <button style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:#9396a0;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:13px;margin-top:14px;">
+      <span style="width:48px;height:48px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 18px 'Hanken Grotesk',sans-serif;flex:none;">К</span>
+      <div style="min-width:0;">
+        <div style="font:700 22px 'Hanken Grotesk',sans-serif;color:#22232a;line-height:1.1;">Карина</div>
+        <div style="display:inline-flex;align-items:center;gap:6px;margin-top:5px;font:600 11px 'Hanken Grotesk',sans-serif;color:oklch(0.45 0.13 27);background:oklch(0.95 0.03 25);padding:3px 9px;border-radius:999px;">гасит долг · 2 дня</div>
+      </div>
+    </div>
+    <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:46px;margin-top:16px;border:none;border-radius:12px;background:oklch(0.55 0.17 281);color:#fff;font:600 14.5px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Какашки убраны</button>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:40px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#5b5e69;font:600 12.5px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3 1.8"></path></svg>Отложить</button>
+      <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:40px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:oklch(0.5 0.13 155);font:600 12.5px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>Простить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OPTION B — Долг-строка ============ -->
+<div style="position:absolute;left:980px;top:60px;width:360px;">
+  <div data-drags-parent="1" style="font:600 12px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#645fd1;text-transform:uppercase;margin-bottom:14px;">B · Баланс долга</div>
+  <div style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px 18px 18px;box-sizing:border-box;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:9px;color:#5b5e69;font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg>Лоток Офелии</div>
+      <div style="display:flex;gap:6px;">
+        <button style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:#9396a0;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"></path></svg></button>
+        <button style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:#9396a0;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+    </div>
+    <div style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#9396a0;margin-top:16px;">Сегодня убирает</div>
+    <div style="display:flex;align-items:center;gap:13px;margin-top:9px;">
+      <span style="width:46px;height:46px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 18px 'Hanken Grotesk',sans-serif;flex:none;">К</span>
+      <div style="font:700 23px 'Hanken Grotesk',sans-serif;color:#22232a;">Карина</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <div style="flex:1;display:flex;align-items:center;gap:9px;background:oklch(0.965 0.018 25);border-radius:11px;padding:9px 11px;">
+        <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk',sans-serif;flex:none;">К</span>
+        <div><div style="font:700 16px 'Hanken Grotesk',sans-serif;color:#22232a;line-height:1;">2 <span style="font:500 12px 'Hanken Grotesk',sans-serif;color:#9396a0;">дня</span></div><div style="font:500 10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:oklch(0.55 0.12 27);margin-top:3px;">долг</div></div>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;gap:9px;background:#f4f5f7;border-radius:11px;padding:9px 11px;">
+        <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk',sans-serif;flex:none;">Л</span>
+        <div><div style="font:700 16px 'Hanken Grotesk',sans-serif;color:#22232a;line-height:1;">0 <span style="font:500 12px 'Hanken Grotesk',sans-serif;color:#9396a0;">дней</span></div><div style="font:500 10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:#9396a0;margin-top:3px;">чисто</div></div>
+      </div>
+    </div>
+    <div style="height:1px;background:#eceef1;margin:15px 0 13px;"></div>
+    <div style="display:flex;gap:7px;">
+      <button style="flex:1.4;display:flex;align-items:center;justify-content:center;gap:7px;height:42px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 13px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Убрано</button>
+      <button title="Отложить" style="flex:none;width:42px;height:42px;display:flex;align-items:center;justify-content:center;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#5b5e69;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3 1.8"></path></svg></button>
+      <button title="Простить · −1 день" style="flex:none;width:42px;height:42px;display:flex;align-items:center;justify-content:center;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:oklch(0.5 0.13 155);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OPTION C — Боковая рейка ============ -->
+<div style="position:absolute;left:60px;top:380px;width:360px;">
+  <div data-drags-parent="1" style="font:600 12px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#645fd1;text-transform:uppercase;margin-bottom:14px;">C · Рейка действий</div>
+  <div style="background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);box-sizing:border-box;overflow:hidden;display:flex;">
+    <div style="flex:1;padding:16px 0 16px 18px;min-width:0;">
+      <div style="display:flex;align-items:center;gap:9px;color:#5b5e69;font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg>Лоток Офелии</div>
+      <div style="display:flex;align-items:center;gap:13px;margin-top:18px;">
+        <span style="width:50px;height:50px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 19px 'Hanken Grotesk',sans-serif;flex:none;">К</span>
+        <div><div style="font:700 23px 'Hanken Grotesk',sans-serif;color:#22232a;line-height:1.05;">Карина</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:3px;">гасит долг</div></div>
+      </div>
+      <div style="display:flex;gap:18px;margin-top:18px;">
+        <div style="display:flex;align-items:center;gap:7px;"><span style="width:22px;height:22px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#22232a;">2 <span style="font:500 12px;color:#9396a0;">дня</span></span></div>
+        <div style="display:flex;align-items:center;gap:7px;"><span style="width:22px;height:22px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#22232a;">0 <span style="font:500 12px;color:#9396a0;">дней</span></span></div>
+      </div>
+    </div>
+    <div style="flex:none;width:60px;background:#f6f7f9;border-left:1px solid #eceef1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:14px 0;">
+      <button style="display:flex;flex-direction:column;align-items:center;gap:3px;width:46px;padding:7px 0;border:none;border-radius:10px;background:oklch(0.55 0.17 281);color:#fff;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg><span style="font:600 8.5px 'JetBrains Mono',monospace;letter-spacing:.02em;">убрано</span></button>
+      <button style="display:flex;flex-direction:column;align-items:center;gap:3px;width:46px;padding:7px 0;border:none;border-radius:10px;background:#fff;color:#5b5e69;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3 1.8"></path></svg><span style="font:600 8.5px 'JetBrains Mono',monospace;letter-spacing:.02em;">отлож</span></button>
+      <button style="display:flex;flex-direction:column;align-items:center;gap:3px;width:46px;padding:7px 0;border:none;border-radius:10px;background:#fff;color:oklch(0.5 0.13 155);cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg><span style="font:600 8.5px 'JetBrains Mono',monospace;letter-spacing:.02em;">−1 дн</span></button>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>

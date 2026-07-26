@@ -19,7 +19,6 @@ export type CreateWidgetServerStorageApiOptions = {
   ops: ValkeyOps
   typeId: string
   instanceId: string
-  ip: string | null
   now: () => number
   createId?: () => string
 }
@@ -39,7 +38,6 @@ export function createWidgetServerStorageApi({
   ops,
   typeId,
   instanceId,
-  ip,
   now,
   createId = randomUUID,
 }: CreateWidgetServerStorageApiOptions): {
@@ -124,7 +122,7 @@ export function createWidgetServerStorageApi({
         if (!Array.isArray(parsed)) return storageError('append.shape', fullKey)
         const current: unknown[] = parsed
 
-        const enriched = errore.try(() => ({ id: createId(), ts: now(), ip, ...entry }))
+        const enriched = errore.try(() => ({ id: createId(), ts: now(), ...entry }))
         if (enriched instanceof Error) return storageError('append.enrich', fullKey, enriched)
 
         const next = [...current, enriched]

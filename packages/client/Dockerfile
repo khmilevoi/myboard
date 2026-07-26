@@ -5,14 +5,17 @@
 # manifest changes, not on widget sources. Widget discovery stays
 # directory-based: a new widget adds a package.json, which changes this
 # stage's output and correctly re-runs the install.
-FROM node:22-alpine AS widget-manifests
+FROM node:26-alpine AS widget-manifests
 COPY packages/widgets /widgets
 RUN find /widgets -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
 
 # --- build stage: build every widget remote, then assemble the host PWA ---
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
-RUN corepack enable
+# node:26-alpine no longer bundles corepack (removed from Node core); install
+# it explicitly before enabling it. Pinned: there is no CI, so a breaking
+# corepack release would only surface as a failed manual deploy.
+RUN npm install -g corepack@0.35.0 && corepack enable
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches ./patches

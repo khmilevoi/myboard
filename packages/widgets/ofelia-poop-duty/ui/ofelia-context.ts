@@ -1,17 +1,21 @@
-import type { Atom, AtomLike } from '@reatom/core'
+import type { AtomLike } from '@reatom/core'
 import { createContext, useContext } from 'react'
+import type { BoardMember } from 'widget-runtime'
 
 import type { CommentView } from '../model/ofelia-comments'
-import type { HistoryEntryView, Person } from '../model/ofelia-duty'
+import type { HistoryDayGroup } from '../model/ofelia-duty'
 import type { OfeliaActions, OfeliaViewModel, OfeliaWeekNav } from './view-model'
 
 export type OfeliaContextValue = {
   // The atomic view-model: a record of focused computeds (consumers call
   // `view.selected()`, `view.balance()`, … so each subscribes to one slice).
   view: OfeliaViewModel
-  currentUser: Atom<Person>
-  history: AtomLike<HistoryEntryView[]>
+  history: AtomLike<HistoryDayGroup[]>
+  /** The duty-zone calendar day, so history headers can say сегодня / вчера. */
+  today: AtomLike<Temporal.PlainDate | null>
   comments: AtomLike<CommentView[]>
+  /** The signed-in account, or null until the members directory arrives. */
+  viewer: AtomLike<BoardMember | null>
   actions: OfeliaActions
   nav: OfeliaWeekNav
   onSend: (text: string) => Promise<void>

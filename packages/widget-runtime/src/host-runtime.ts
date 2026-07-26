@@ -2,6 +2,7 @@ import { HttpClient, type HttpLike } from '@shared/http/client'
 import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 
+import { makeWidgetIdentity, type WidgetIdentity } from './identity'
 import type { ScopedStorage, WidgetStorage } from './storage'
 import { makeDexieStorage } from './storage/client/dexie-storage'
 import { instanceNamespace, typeNamespace } from './storage/scope'
@@ -16,6 +17,7 @@ export type HostRuntimeOptions = {
 }
 
 export type HostRuntime = {
+  identity: WidgetIdentity
   makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage
   makeScopedStorage(scope: string): ScopedStorage
   makeWidgetApi<Events extends WidgetEventMap>(options: {
@@ -55,7 +57,11 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
     }
   }
 
+  // Cheap to construct — the request itself is deferred to the first subscriber.
+  const identity = makeWidgetIdentity({ http })
+
   return {
+    identity,
     makeScopedStorage: makeScoped,
     makeWidgetStorage: ({ instanceId, typeId }) => ({
       instance: makeScoped(instanceNamespace(instanceId)),

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { foldDebt, resolveDays } from './ofelia-duty'
-import type { LedgerEntry } from './ofelia-duty'
+import { foldDebt } from './debt'
+import { LedgerEntrySchema, resolveDays } from './ledger'
+import type { LedgerEntry } from './ledger'
 
 let seq = 0
 const le = (o: Partial<LedgerEntry> = {}): LedgerEntry => ({
   id: `e${seq++}`,
   ts: seq,
-  ip: '127.0.0.1',
   date: '2026-06-16',
   type: 'cleaned',
   actor: 'Леша',
@@ -145,6 +145,17 @@ describe('resolveDays', () => {
     expect(map.get('2026-06-16')?.status).toBe('pending')
   })
 
+  it('re-opens a day when the reset shares the cleaned entry’s ts', () => {
+    // The widget server stamps ts from its injectable clock, which the e2e
+    // harness pins — so a clean/undo pair on the same day gets identical
+    // timestamps. Append order is the tie-break.
+    const map = resolveDays([
+      le({ ts: 7, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      le({ ts: 7, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')?.status).toBe('pending')
+  })
+
   it('takes the latest by ts and keeps dates independent', () => {
     const map = resolveDays([
       le({ ts: 2, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
@@ -172,5 +183,49 @@ describe('resolveDays', () => {
       actor: 'Карина',
       onBehalfOf: 'Леша',
     })
+  })
+})
+
+describe('LedgerEntrySchema', () => {
+  it('accepts a legacy entry and drops its ip', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e1',
+      ts: 1,
+      ip: '10.0.0.7',
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      by: 'Леша',
+    })
+
+    expect(parsed).not.toHaveProperty('ip')
+    expect(parsed.by).toBe('Леша')
+    expect(parsed.createdBy).toBeUndefined()
+  })
+
+  it('accepts an authored entry', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e2',
+      ts: 2,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { accountId: 'a1', name: 'Карина' },
+    })
+
+    expect(parsed.createdBy).toEqual({ accountId: 'a1', name: 'Карина' })
+  })
+
+  it('accepts an unattributed entry', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e3',
+      ts: 3,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: null,
+    })
+
+    expect(parsed.createdBy).toBeNull()
   })
 })

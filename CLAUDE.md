@@ -26,7 +26,7 @@ Always load and follow the `reatom` and `errore` skills before working in this r
 
 2. **Implement and commit inside that worktree.** Keep commits focused and imperative.
 
-3. **Run the full gate before opening the PR**, from the worktree: `pnpm check` (lint + format:check + deps:check + typecheck + tests), plus `pnpm test:e2e:docker` when the change touches browser-facing behavior. There is no CI on this repo — these local runs *are* the gate.
+3. **Run the full gate before opening the PR**, from the worktree: `pnpm check` (lint + format:check + deps:check + typecheck + tests), plus `pnpm test:e2e:docker` when the change touches browser-facing behavior. There is no CI on this repo — these local runs _are_ the gate.
 
 4. **Open the PR against `dev`**, never against `main`:
 
@@ -70,6 +70,8 @@ Private pnpm workspace with all packages under `packages/`: `browser-automation`
 - **`browser-automation`** — the future browser service and generated task registry owner.
 
 Client features and widgets split React/CSS/view tests into `ui/` and Reatom/domain/storage logic into `model/`. Package tests are colocated as `*.test.ts` or `*.test.tsx`. Use path aliases for absolute imports: `@/*` aliases only to `packages/client/src`, `@shared/*` to the shared package; shared widget code is imported through the `widget-runtime` / `widget-sdk` workspace package names, never through `packages/client/src`.
+
+`packages/widgets/*/domain/` is dependency-free code shared by the widget's `model/` and its `server.ts`, and an `.oxlintrc.json` override enforces that: domain files may import only `zod`, `@shared/*`, `./` siblings and JS/Temporal globals, because the same files are bundled into the server image, which installs nothing but `packages/server`'s production dependencies.
 
 The widget directory basename is the canonical widget ID. Each root `client.ts` exports the client definition and lazy loader without an `id`; each root `server.ts` exports schemas and handlers without a `typeId`; an optional root `browser.ts` default-exports the browser definition without a `widgetId`. Codegen injects the directory basename in each case.
 
@@ -125,7 +127,7 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 - Vitest path filters for client tests are relative to `packages/client`, not the repository root. Use `pnpm --filter client test -- src/board/model/board-storage.test.ts`, not `packages/client/src/...`.
 - If `pnpm --filter client test -- <file>` hangs or hides useful output, run the client Vitest entrypoint directly from `packages/client` with the Visual Studio Node 20 binary:
   `& 'C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Microsoft\VisualStudio\NodeJs\node.exe' .\node_modules\vitest\vitest.mjs run src/board/model/board-storage.test.ts --reporter verbose`
-- Avoid switching targeted unit tests to `--pool vmThreads` as a first response: this repo's Vitest config passes `--harmony-temporal`, which can be invalid for worker threads in this environment.
+- The workspace requires Node 26 (`engines.node: ">=26"`), where `Temporal` is an unflagged global. No Vitest config passes `--harmony-temporal` any more, so a missing `Temporal` means the wrong Node is on PATH, not a missing flag.
 - If a model-only test fails during jsdom worker startup with `ERR_REQUIRE_ESM` from `html-encoding-sniffer` / `@exodus/bytes`, prefer `// @vitest-environment node` for that test file. If importing storage code creates Dexie, add `import 'fake-indexeddb/auto'` before importing the model.
 - For Reatom model tests that call `context.reset()`, module-level `effect(...)` subscriptions are aborted. Export the effect when it is part of the behavior under test, subscribe in `beforeEach`, and unsubscribe in `afterEach`.
 - Reatom effects run through Reatom queues. When asserting effect-driven changes, use `vi.waitFor(...)` or `schedule(() => undefined)` from `@reatom/core` to flush the queue before the assertion.
@@ -139,6 +141,18 @@ pnpm --filter client exec playwright test e2e/<file>.spec.ts
 - **`packages/widgets/<widget-name>`**: one pnpm package per widget, split into `model/` and `ui/`, exposing only `./ui` as a federation remote and providing a standalone `dev/` harness. Adding a widget package and running codegen updates the client catalog, server registry, and stable port map without editing a hand-written registry.
 - **`packages/client/src/widget-host`**: mounts first-party widget components in the board React tree and provides frame/error-boundary/fullscreen behavior.
 - **`widget-runtime` / `widget-sdk`**: shared runtime contracts/connections and stateless React/UI helpers respectively. React, React DOM, Reatom, and `widget-runtime` are strict federation singletons.
+
+Widgets that write shared state do it from their own `server.ts` rather than through
+`/api/storage/:key/append`: the widget dispatch route resolves the session cookie into
+`WidgetServerContext.viewer`, so the record's author is stamped by the server from the caller's own
+session and never travels in the request body. The UI therefore cannot sign a record with someone
+else's name. This is not an authorization boundary: `POST /api/storage/:key/append` is still
+reachable by anyone nginx has already let in, and it writes the body as given, so a signed-in
+household member can hand-write a record carrying any author into a widget's key. The generic
+storage route stays a shared trusted channel inside the board.
+`WidgetRuntimeProps.identity` gives the client side the same roster (`GET /api/auth/accounts`) for
+display — records store an `accountId` plus a frozen name, and display resolves through the
+directory so renames and avatars reach old records.
 
 ### Storage system (offline-first + sync)
 
@@ -182,6 +196,22 @@ Do not commit `.env` files. Client environment examples live in `packages/client
 ## Deployment
 
 `pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release. `rpi.dev.toml` overlays that configuration for the `dev` environment (see the [feature workflow](#feature-workflow)).
+
+Three deploy targets, each with its own hostname, Valkey volume and device invite:
+
+```bash
+pnpm run deploy          # production, board.iiskelo.com          (rpi.toml)
+pnpm run deploy:dev      # dev integration, board-dev.iiskelo.com (rpi.dev.toml)
+pnpm run deploy:branch   # current branch, board-branch.iiskelo.com (rpi.branch.toml)
+```
+
+Use `pnpm run deploy`, not `pnpm deploy` — the latter is pnpm's own built-in command and never reaches the script.
+
+`rpi.branch.toml` is a disposable stack for trying the checked-out branch on real hardware. `pnpm run deploy:branch` reads the branch from git and passes it as `--vars BRANCH_NAME=…`, which is the only variable rpi 0.26 accepts — so the hostname is a literal, not derived. rpi keys the project by environment _and_ variables (`myboard--branch--<slug>`), so a second branch deployed while the first is still up collides on that shared hostname: tear the old one down with `rpi env destroy branch --vars BRANCH_NAME=<previous>` first. The environment carries `ttl = "72h"`, so a forgotten stack reaps itself.
+
+Because every branch is a fresh project, its secrets store starts empty and `[secrets].files` are missing until sent — which otherwise fails only after the ~3-minute image build, with an opaque Compose "secret file … does not exist". `deploy:branch` therefore checks `rpi secrets ls` first and sends the bundle itself when the branch has none; you only need `.env.branch` to exist locally (template in `.env.branch.example`). A brand-new branch project also gets a fresh deploy key, and the first deploy can lose the race between registering it on GitHub and cloning — if `git clone` fails with `Permission denied (publickey)`, just run the command again.
+
+Extra flags reach the CLI with or without a separator: `pnpm run deploy:branch --cancel` and `pnpm run deploy:branch -- --server home` both work.
 
 ## Failure modes to avoid
 

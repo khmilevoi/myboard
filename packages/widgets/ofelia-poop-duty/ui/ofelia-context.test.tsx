@@ -6,8 +6,8 @@ import { ofeliaContext, useOfelia } from './ofelia-context'
 import { makeOfeliaValue } from './ofelia.fixture'
 
 function Probe() {
-  const { currentUser } = useOfelia()
-  return <span>{currentUser()}</span>
+  const { view } = useOfelia()
+  return <span>{view.selected()?.person}</span>
 }
 
 describe('useOfelia', () => {
@@ -17,10 +17,10 @@ describe('useOfelia', () => {
 
   it('exposes the provided value', () => {
     render(
-      <ofeliaContext.Provider value={makeOfeliaValue({ currentUser: 'Леша' })}>
+      <ofeliaContext.Provider value={makeOfeliaValue()}>
         <Probe />
       </ofeliaContext.Provider>,
     )
-    expect(screen.getByText('Леша')).toBeInTheDocument()
+    expect(screen.getByText('Карина')).toBeInTheDocument()
   })
 })

@@ -3,6 +3,7 @@ import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  makeStaticWidgetIdentity,
   type ServerTime,
   type WidgetRuntimeProps,
   WidgetRuntimeContext,
@@ -50,6 +51,7 @@ function props(tier: WidgetTier): WidgetRuntimeProps {
     reportError: vi.fn(),
     storage: fakeWidgetStorage(),
     api: { invoke: vi.fn() },
+    identity: makeStaticWidgetIdentity(),
   }
 }
 

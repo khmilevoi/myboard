@@ -45,10 +45,16 @@ export type WidgetServerStorage = {
   ): Promise<Error | void>
 }
 
+export type WidgetViewer = { accountId: string; name: string }
+
 export type WidgetServerContext = {
   typeId: string
   instanceId: string
   ip: string | null
+  /** The signed-in account, or null when the request carries no live session
+   * (widget dev harnesses and e2e runs without the nginx gate). Not an error:
+   * the event still runs and the record is written unattributed. */
+  viewer: WidgetViewer | null
   now: () => number
   api: {
     storage: {

@@ -1,4 +1,4 @@
-import type { WidgetServerContext } from '@shared/widgets/contracts'
+import type { WidgetServerContext, WidgetViewer } from '@shared/widgets/contracts'
 
 import type { BrowserAutomationClient } from '../browser/client'
 import type { ValkeyOps } from '../storage/valkey'
@@ -21,6 +21,7 @@ export type DispatchWidgetEventOptions = {
   instanceId: string
   payload: unknown
   ip: string | null
+  viewer: WidgetViewer | null
   now: () => number
 }
 
@@ -54,12 +55,12 @@ export async function dispatchWidgetEvent(
     typeId: options.typeId,
     instanceId: options.instanceId,
     ip: options.ip,
+    viewer: options.viewer,
     now: options.now,
     api: createWidgetServerApi({
       ops: options.ops,
       typeId: options.typeId,
       instanceId: options.instanceId,
-      ip: options.ip,
       now: options.now,
       browserClient: options.browserClient,
     }),

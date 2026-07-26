@@ -33,7 +33,9 @@ function parseArgs(): Args {
       'Usage: tsx scripts/bench-typecheck-build.ts --phase=before|after [--typecheck-runs=N] [--build-runs=N]',
     )
   }
-  const typecheckRuns = Number(args.find((a) => a.startsWith('--typecheck-runs='))?.split('=')[1] ?? 3)
+  const typecheckRuns = Number(
+    args.find((a) => a.startsWith('--typecheck-runs='))?.split('=')[1] ?? 3,
+  )
   const buildRuns = Number(args.find((a) => a.startsWith('--build-runs='))?.split('=')[1] ?? 2)
   return { phase: phaseArg, typecheckRuns, buildRuns }
 }
@@ -79,14 +81,18 @@ function main(): void {
   log(`=== Benchmarking phase: ${phase} ===`)
   log(`TypeScript version: ${tsVersion}`)
   log(`Node version: ${process.version}`)
-  log(`Plan: 1 cold typecheck + ${typecheckRuns - 1} warm typecheck run(s), then ${buildRuns} build run(s)`)
+  log(
+    `Plan: 1 cold typecheck + ${typecheckRuns - 1} warm typecheck run(s), then ${buildRuns} build run(s)`,
+  )
 
   clearTypecheckCache()
   const typecheckCold = timeCommand('typecheck cold', 'pnpm run typecheck')
 
   const typecheckWarm: number[] = []
   for (let i = 1; i < typecheckRuns; i++) {
-    typecheckWarm.push(timeCommand(`typecheck warm ${i}/${typecheckRuns - 1}`, 'pnpm run typecheck'))
+    typecheckWarm.push(
+      timeCommand(`typecheck warm ${i}/${typecheckRuns - 1}`, 'pnpm run typecheck'),
+    )
   }
 
   const buildRunsSeconds: number[] = []

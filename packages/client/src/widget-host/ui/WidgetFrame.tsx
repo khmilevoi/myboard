@@ -78,6 +78,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         reportError: (error) => console.warn(`[widget ${instanceId}] error:`, error),
         storage: widgetStorage,
         api: widgetApi,
+        identity: hostRuntime.identity,
       }
     }, [
       instanceId,

@@ -5,9 +5,9 @@ import { getServerTime, type WidgetTier, useWidgetContext } from 'widget-runtime
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 
+import type { OfeliaEvents } from '../domain/events'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
-import type { Person } from '../model/ofelia-duty'
 import { ofeliaContext } from './ofelia-context'
 import type { OfeliaContextValue } from './ofelia-context'
 import { CompactTier } from './tiers/CompactTier'
@@ -20,16 +20,21 @@ import { makeOfeliaViewModel } from './view-model'
 import styles from './ofelia-poop-duty.module.css'
 
 export const OfeliaPoopDuty = reatomMemo(() => {
-  const { mode, tier, storage, requestFullscreen, requestClose, requestDelete } = useWidgetContext()
-  const dutyModel = useMemo(() => ofeliaDutyModel({ storage, timer: getServerTime() }), [storage])
+  const { mode, tier, storage, api, identity, requestFullscreen, requestClose, requestDelete } =
+    useWidgetContext<OfeliaEvents>()
+  const dutyModel = useMemo(
+    () => ofeliaDutyModel({ storage, timer: getServerTime(), api, identity }),
+    [storage, api, identity],
+  )
   const commentsModel = useMemo(
     () =>
       ofeliaCommentsModel({
         storage,
         viewWeekStart: dutyModel.viewWeekStart,
-        currentUser: dutyModel.currentUser,
+        api,
+        identity,
       }),
-    [storage, dutyModel],
+    [storage, dutyModel, api, identity],
   )
 
   // One stable, model-scoped context value. `view` is the atomic view-model — a
@@ -47,9 +52,10 @@ export const OfeliaPoopDuty = reatomMemo(() => {
 
     return {
       view,
-      currentUser: dutyModel.currentUser,
       history: dutyModel.historyView,
+      today: dutyModel.today,
       comments: commentsModel.commentThread,
+      viewer: identity.viewer,
       actions: {
         onConfirm: wrap(() => {
           const date = targetDate()
@@ -70,7 +76,6 @@ export const OfeliaPoopDuty = reatomMemo(() => {
         onSelectDay: wrap((iso: string) =>
           dutyModel.selectedDate.set(Temporal.PlainDate.from(iso)),
         ),
-        onSetUser: wrap((person: Person) => dutyModel.currentUser.set(person)),
       },
       nav: {
         onPrevWeek: wrap(() => {
@@ -88,7 +93,7 @@ export const OfeliaPoopDuty = reatomMemo(() => {
       },
       onSend: wrap((text: string) => commentsModel.send(text)),
     }
-  }, [dutyModel, commentsModel])
+  }, [dutyModel, commentsModel, identity])
 
   // The loading guard subscribes to just the boolean readiness slice; the first
   // server-time sync flips it to true and the tiers (reading other slices) mount.

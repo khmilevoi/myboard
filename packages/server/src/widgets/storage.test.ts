@@ -12,7 +12,6 @@ describe('createWidgetServerStorageApi', () => {
       ops,
       typeId: 'clock',
       instanceId: 'placement-1',
-      ip: '127.0.0.1',
       now: () => 123,
       createId: () => 'entry-1',
     })
@@ -32,22 +31,21 @@ describe('createWidgetServerStorageApi', () => {
       ops,
       typeId: 'notes',
       instanceId: 'placement-1',
-      ip: '10.0.0.7',
       now: () => 456,
       createId: () => 'entry-7',
     })
 
     expect(await storage.shared.append('items', { text: 'hello' })).toBeUndefined()
-    expect(
-      await storage.shared.get(
-        'items',
-        z.array(z.object({ id: z.string(), ts: z.number(), ip: z.string(), text: z.string() })),
-      ),
-    ).toEqual([{ id: 'entry-7', ts: 456, ip: '10.0.0.7', text: 'hello' }])
+    const written = await storage.shared.get(
+      'items',
+      z.array(z.object({ id: z.string(), ts: z.number(), text: z.string() })),
+    )
+    expect(written).toEqual([{ id: 'entry-7', ts: 456, text: 'hello' }])
+    expect((written as unknown[])[0]).not.toHaveProperty('ip')
     expect(messages).toEqual([
       JSON.stringify({
         key: 'w:t:notes:items',
-        value: [{ id: 'entry-7', ts: 456, ip: '10.0.0.7', text: 'hello' }],
+        value: [{ id: 'entry-7', ts: 456, text: 'hello' }],
       }),
     ])
   })
