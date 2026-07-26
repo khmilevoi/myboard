@@ -1,13 +1,15 @@
 import { context } from '@reatom/core'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { createElement } from 'react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type WidgetComponent, useWidgetContext } from 'widget-runtime'
 
 import { findWidgetType } from '@/widget-registry/model/registry'
 
-import { addInstance } from '../model/board-model'
+import { addInstance, resetMobileLayout } from '../model/board-model'
 import { activeBoard, activeBoardId, LOCAL_BOARD_ID, localBoard } from '../model/board-storage'
+import { deriveMobileLayout } from '../model/mobile-layout'
 import { Board } from './Board'
 
 const registryHolder = vi.hoisted(() => ({
@@ -18,6 +20,34 @@ const registryHolder = vi.hoisted(() => ({
 const federation = vi.hoisted(() => ({
   loadRemote: vi.fn(),
 }))
+
+const grid = vi.hoisted(() => ({
+  width: 1920,
+  props: null as null | Record<string, any>,
+}))
+
+// The real grid still renders — every existing test depends on it. The wrapper
+// only records the props Board passed, and useContainerWidth is overridden
+// because jsdom reports 0 for every measured element, which would send the
+// component down the `width || 1200` desktop fallback in every test.
+vi.mock('react-grid-layout', async (importActual) => {
+  const actual = await importActual<typeof import('react-grid-layout')>()
+  const Recorder = (props: Record<string, any>) => {
+    grid.props = props
+    return createElement<any>(actual.default, props)
+  }
+
+  return {
+    ...actual,
+    default: Recorder,
+    useContainerWidth: () => ({
+      width: grid.width,
+      mounted: true,
+      containerRef: { current: null },
+      measureWidth: () => {},
+    }),
+  }
+})
 
 // The generated catalog loads first-party widgets over Module Federation;
 // no host instance exists under Vitest, so loadRemote must be mocked (same
@@ -56,6 +86,8 @@ beforeEach(() => {
       loadComponent: async () => ({ default: StubClockWidget }),
     },
   })
+  grid.width = 1920
+  grid.props = null
 })
 
 describe('Board', () => {
@@ -171,5 +203,79 @@ describe('Board', () => {
     render(<Board />)
 
     expect(await screen.findByText('tier:tiny')).toBeInTheDocument()
+  })
+
+  it('renders a single column with the derived layout at mobile width', async () => {
+    grid.width = 390
+    addInstance('clock')
+    addInstance('clock')
+
+    render(<Board />)
+    await screen.findAllByTestId('widget-card')
+
+    expect(grid.props?.['gridConfig']).toEqual({ cols: 1, rowHeight: 40, margin: [10, 10] })
+    expect(grid.props?.['layout']).toEqual(deriveMobileLayout(activeBoard()!.layout))
+    expect(grid.props?.['dragConfig']?.handle).toBe('.widget-drag-grip')
+  })
+
+  it('keeps the twelve-column zoomed grid at desktop width', async () => {
+    grid.width = 3840
+    addInstance('clock')
+
+    render(<Board />)
+    await screen.findByTestId('widget-card')
+
+    expect(grid.props?.['gridConfig']).toEqual({ cols: 12, rowHeight: 60, margin: [20, 20] })
+    expect(grid.props?.['layout']).toEqual(activeBoard()!.layout)
+    expect(grid.props?.['dragConfig']?.handle).toBe('.widget-drag-handle')
+  })
+
+  it('does not create a mobile layout just by mounting at mobile width', async () => {
+    // The critical guard: onLayoutChange fires on mount after compaction, so a
+    // naive implementation would freeze the mobile layout with no interaction at
+    // all and permanently degrade derive-and-override into always-frozen.
+    grid.width = 390
+    addInstance('clock')
+
+    render(<Board />)
+    await screen.findByTestId('widget-card')
+
+    expect(activeBoard()?.mobileLayout).toBeUndefined()
+  })
+
+  it('materializes and then persists the mobile layout once a drag starts', async () => {
+    grid.width = 390
+    addInstance('clock')
+
+    render(<Board />)
+    await screen.findByTestId('widget-card')
+
+    const derived = deriveMobileLayout(activeBoard()!.layout)
+    act(() => {
+      grid.props?.['onDragStart']?.([], null, null, null, new Event('mousedown'), null)
+    })
+    expect(activeBoard()?.mobileLayout).toEqual(derived)
+
+    const dragged = derived.map((item) => ({ ...item, h: item.h + 3 }))
+    act(() => {
+      grid.props?.['onLayoutChange']?.(dragged)
+    })
+    expect(activeBoard()?.mobileLayout).toEqual(dragged)
+    expect(activeBoard()?.layout).not.toEqual(dragged)
+
+    act(() => {
+      resetMobileLayout()
+    })
+    expect(activeBoard()?.mobileLayout).toBeUndefined()
+  })
+
+  it('renders a drag grip inside every card', async () => {
+    grid.width = 390
+    addInstance('clock')
+
+    render(<Board />)
+    const card = await screen.findByTestId('widget-card')
+
+    expect(card.querySelector('.widget-drag-grip')).not.toBeNull()
   })
 })
