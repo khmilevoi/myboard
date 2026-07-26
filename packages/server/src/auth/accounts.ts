@@ -123,7 +123,13 @@ export async function listAccounts(ops: ValkeyOps): Promise<AccountRecord[]> {
     if (key.indexOf(':', ACCOUNT_KEY_PREFIX.length) !== -1) continue
 
     const record = await getJson(ops, key, AccountRecordSchema)
-    if (record instanceof Error || record === null) continue
+    if (record instanceof Error) {
+      // Dropping it silently would shrink the roster and read as "an account
+      // vanished" rather than as the data corruption it is.
+      console.warn(`listAccounts: skipping unreadable account record ${key}:`, record.message)
+      continue
+    }
+    if (record === null) continue
     accounts.push(record)
   }
 
