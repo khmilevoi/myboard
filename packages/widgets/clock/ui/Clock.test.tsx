@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { makeHostRuntime, type WidgetRuntimeProps, WidgetRuntimeContext } from 'widget-runtime'
+import {
+  makeHostRuntime,
+  makeStaticWidgetIdentity,
+  type WidgetRuntimeProps,
+  WidgetRuntimeContext,
+} from 'widget-runtime'
 
 import { Clock } from './Clock'
 
@@ -21,6 +26,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
       typeId: 'clock',
     }),
     api: { invoke: vi.fn() },
+    identity: makeStaticWidgetIdentity(),
   }
 }
 
