@@ -3,15 +3,17 @@
 # --- widget-manifests stage: reduce packages/widgets to package.json files so
 # the install layer re-keys on manifest changes, not widget sources (mirrors the
 # server image). Browser task discovery stays directory-based via browser.ts.
-FROM node:22-alpine AS widget-manifests
+FROM node:26-alpine AS widget-manifests
 COPY packages/widgets /widgets
 RUN find /widgets -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
 
 # --- build stage: codegen:browser (generated registry is git/docker-ignored and
 # MUST be generated here) + rspack bundle to dist/index.cjs ---
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
-RUN corepack enable
+# node:26-alpine no longer bundles corepack (removed from Node core); install
+# it explicitly before enabling it.
+RUN npm install -g corepack@latest && corepack enable
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches ./patches
@@ -35,7 +37,7 @@ RUN pnpm run codegen:browser && pnpm --filter browser-automation build
 # --- runtime stage: slim Node/Debian base with ONLY Chromium, pinned to the
 # workspace Playwright version, plus the Xvfb + noVNC recovery surface. Firefox
 # and WebKit are never installed (unlike the official Playwright image). ---
-FROM node:22-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
@@ -45,7 +47,10 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 # named volume inherits this ownership). `--with-deps chromium` installs only
 # Chromium's libraries; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD affects only the npm
 # postinstall, never this explicit install.
-RUN corepack enable \
+# node:26-bookworm-slim no longer bundles corepack (removed from Node core);
+# install it explicitly before enabling it.
+RUN npm install -g corepack@latest \
+    && corepack enable \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
        xvfb x11vnc novnc websockify fonts-liberation \

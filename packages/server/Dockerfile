@@ -4,15 +4,17 @@
 # files (plus .ports.json) so install layers re-key only on manifest changes,
 # not on widget sources. Widget discovery stays directory-based: a new widget
 # adds a package.json, which changes this stage's output and re-installs.
-FROM node:22-alpine AS widget-manifests
+FROM node:26-alpine AS widget-manifests
 COPY packages/widgets /widgets
 RUN find /widgets -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
 
 # --- build stage: codegen (widget server registry is git-ignored and
 # dockerignored, it MUST be generated here) + rspack bundle ---
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
-RUN corepack enable
+# node:26-alpine no longer bundles corepack (removed from Node core); install
+# it explicitly before enabling it.
+RUN npm install -g corepack@latest && corepack enable
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches ./patches
@@ -38,9 +40,9 @@ COPY packages/server ./packages/server
 RUN pnpm run codegen:server && pnpm --filter server build
 
 # --- runtime stage: dist + server's production deps only ---
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
-RUN corepack enable
+RUN npm install -g corepack@latest && corepack enable
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches ./patches
 COPY packages/client/package.json ./packages/client/

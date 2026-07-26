@@ -2,6 +2,9 @@
   "name": "myboard",
   "version": "0.0.0",
   "private": true,
+  "engines": {
+    "node": ">=26"
+  },
   "type": "module",
   "scripts": {
     "codegen": "tsx scripts/codegen.ts all",

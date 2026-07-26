@@ -299,7 +299,6 @@ export default defineConfig(({ command }) => ({
     setupFiles: ['./src/vitest.setup.ts'],
     testTimeout: 30000,
     exclude: [...configDefaults.exclude, 'e2e/**'],
-    execArgv: ['--harmony-temporal'],
   },
   server: {
     // Inside a Docker bind mount (notably on Windows/macOS) native FS events
