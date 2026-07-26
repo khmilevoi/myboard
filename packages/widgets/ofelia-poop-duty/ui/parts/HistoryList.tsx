@@ -33,7 +33,7 @@ export const HistoryList = reatomMemo<HistoryListProps>(({ entries }) => {
         return (
           <li key={entry.id} className={styles.item}>
             <div className={styles.meta}>
-              <span className={styles.date}>{entry.date}</span>
+              <span className={styles.date}>{entry.dutyDate}</span>
             </div>
             <div className={styles.row}>
               <Avatar person={entry.actor} px={20} />

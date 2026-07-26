@@ -2,7 +2,7 @@ import { atom } from '@reatom/core'
 
 import type { Person } from '../domain/roster'
 import type { CommentView } from '../model/ofelia-comments'
-import type { HistoryEntryView } from '../model/ofelia-duty'
+import type { HistoryDayGroup } from '../model/ofelia-duty'
 import type { OfeliaContextValue } from './ofelia-context'
 import type {
   DebtBalanceEntry,
@@ -137,7 +137,7 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
 
 type MakeOfeliaValueOptions = {
   view?: OfeliaViewModel
-  history?: HistoryEntryView[]
+  history?: HistoryDayGroup[]
   comments?: CommentView[]
   actions?: Partial<OfeliaActions>
   onSend?: (text: string) => Promise<void>
@@ -146,7 +146,7 @@ type MakeOfeliaValueOptions = {
 export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextValue {
   return {
     view: o.view ?? makeOfeliaView(),
-    history: atom<HistoryEntryView[]>(o.history ?? [], 'fixture.history'),
+    history: atom<HistoryDayGroup[]>(o.history ?? [], 'fixture.history'),
     comments: atom<CommentView[]>(o.comments ?? [], 'fixture.comments'),
     actions: {
       onConfirm: noop,

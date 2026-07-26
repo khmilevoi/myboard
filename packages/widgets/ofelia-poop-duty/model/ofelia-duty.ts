@@ -7,27 +7,23 @@ import { foldDebt, getDebtDays } from '@/domain/debt'
 import type { DebtDay } from '@/domain/debt'
 import type { OfeliaEvents } from '@/domain/events'
 import { LEDGER_KEY, LedgerEntriesSchema, resolveDays } from '@/domain/ledger'
-import type { DayResolution, LedgerEntry, LedgerType } from '@/domain/ledger'
-import { DUTY_TIME_ZONE, getOfeliaDutyByDate, getStartOfWeek, weekStartISO } from '@/domain/roster'
-import type { Person } from '@/domain/roster'
+import type { DayResolution, LedgerEntry } from '@/domain/ledger'
+import { DUTY_TIME_ZONE, getOfeliaDutyByDate, getStartOfWeek } from '@/domain/roster'
 
-export type HistoryEntryView = {
-  id: string
-  date: string
-  type: LedgerType
-  actor: Person
-  onBehalfOf?: Person
-}
+import { toHistoryGroups } from './history-view'
+import type { HistoryDayGroup } from './history-view'
+
+export type { HistoryDayGroup, HistoryEntryView, ToHistoryGroupsOptions } from './history-view'
 
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage
   timer: ServerTime
   api: WidgetApi<OfeliaEvents>
-  /** Read by the history and comment views; the ledger itself is stamped server-side. */
+  /** Read by the history view to resolve authors and mark the viewer's own records. */
   identity: WidgetIdentity
 }
 
-export const ofeliaDutyModel = ({ storage, timer, api }: OfeliaDutyModelProps) => {
+export const ofeliaDutyModel = ({ storage, timer, api, identity }: OfeliaDutyModelProps) => {
   // Reactive mirror of the append-only, server-owned ledger key. null is the
   // "not loaded yet" sentinel the computeds below branch on. The connect hook
   // lives on the atom itself: Reatom's dependency graph connects `ledger` when
@@ -83,22 +79,17 @@ export const ofeliaDutyModel = ({ storage, timer, api }: OfeliaDutyModelProps) =
 
   const selectedDate = atom<Temporal.PlainDate | null>(null, 'ofeliaDuty.selectedDate')
 
-  const historyView = computed<HistoryEntryView[]>(() => {
+  const historyView = computed<HistoryDayGroup[]>(() => {
     const week = viewWeekStart()
-    if (!week) return []
     const entries = ledger()
-    if (entries === null) return []
-    const weekIso = week.toString()
-    return entries
-      .filter((entry) => weekStartISO(Temporal.PlainDate.from(entry.date)) === weekIso)
-      .toSorted((a, b) => b.ts - a.ts)
-      .map((entry) => ({
-        id: entry.id,
-        date: entry.date,
-        type: entry.type,
-        actor: entry.actor,
-        ...(entry.onBehalfOf ? { onBehalfOf: entry.onBehalfOf } : {}),
-      }))
+    if (!week || entries === null) return []
+
+    return toHistoryGroups({
+      entries,
+      weekStartIso: week.toString(),
+      members: identity.members(),
+      viewerAccountId: identity.viewer()?.accountId ?? null,
+    })
   }, 'ofeliaDuty.historyView')
 
   const undoAvailable = computed(() => {

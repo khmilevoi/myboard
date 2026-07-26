@@ -8,9 +8,14 @@ import { HistoryList } from './HistoryList'
 
 const entry = (overrides: Partial<HistoryEntryView> = {}): HistoryEntryView => ({
   id: 'e1',
-  date: '2026-06-16',
+  dutyDate: '2026-06-16',
   type: 'cleaned',
   actor: 'Карина',
+  recordedAt: 0,
+  recordedBy: { kind: 'unknown' },
+  isViewerRecord: false,
+  recordedLate: false,
+  debtDelta: null,
   ...overrides,
 })
 
