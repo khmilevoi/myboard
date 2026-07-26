@@ -2,6 +2,9 @@
   flex: none;
   display: grid;
   place-items: center;
+  /* Same reason as the duty circle: `justify-items` is inert once a caller
+     re-casts this box to `inline-flex`, so the inline axis is named outright. */
+  justify-content: center;
   overflow: hidden;
   font-weight: 600;
   line-height: 1;
