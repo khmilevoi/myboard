@@ -63,13 +63,22 @@ pnpm install
 
 Expected: completes without an `ERR_PNPM_*` failure. Run `pnpm`/`node` commands with escalated permissions on Windows — sandboxed runs fail with `pnpm` not found or `Access is denied`.
 
-- [ ] **Step 2: Confirm the baseline is green**
+- [ ] **Step 2: Generate the codegen outputs**
+
+```bash
+pnpm codegen
+```
+
+Required, not optional: `widget-catalog.generated.ts` and `widget-icons.generated.ts` are git-ignored, so a fresh worktree has neither and 11 of the client's 41 test files fail to import `@/widget-registry/model/registry` until this runs.
+
+- [ ] **Step 3: Confirm the baseline is green**
 
 ```bash
 pnpm --filter widget-sdk test
+pnpm --filter client test
 ```
 
-Expected: PASS. If it does not pass here, the failure is pre-existing and must be reported before any change is made.
+Expected: PASS. If either does not pass here, the failure is pre-existing and must be reported before any change is made.
 
 ---
 
