@@ -118,3 +118,18 @@ test('a touch on the drag grip cancels scrolling so the card can be dragged', as
 
   expect(await readTouchPrevention(page)).toEqual([true])
 })
+
+// The card controls used to be revealed only by `.frame:hover`, which a touch
+// device never fires — leaving an invisible but fully clickable "Удалить"
+// button in the corner of every card. The stylesheet now hides them only where
+// hover exists, so on a touch device they must be on screen without any hover.
+test('card controls are visible on a touch device without hovering', async ({ page }) => {
+  await seedTwoWidgets(page)
+
+  const card = new BoardPage(page).getCard(0)
+  const remove = card.getByRole('button', { name: 'Удалить' })
+
+  await expect(remove).toBeVisible()
+  await expect(remove).toHaveCSS('opacity', '1')
+  await expect(remove).toHaveCSS('pointer-events', 'auto')
+})
