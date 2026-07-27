@@ -126,6 +126,13 @@ export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete }: TinyTierProps)
         </>
       )
       break
+
+    default:
+      // `ReactNode` already includes `undefined`, so a missing case here
+      // would NOT trip TypeScript's used-before-assignment check on `body` —
+      // this is the guard that actually makes a missing case a compile error.
+      view satisfies never
+      break
   }
 
   return (

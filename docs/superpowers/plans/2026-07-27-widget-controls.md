@@ -1059,7 +1059,7 @@ Expected: PASS, unchanged. A failure here means the rewrite changed rendered out
 pnpm --filter widgets-passport-checker typecheck
 ```
 
-Expected: no errors. If tsc reports that `body` is used before assignment, a `case` is missing from the switch — the union has exactly six members and all six must assign it.
+Expected: no errors. Note: tsc does **not** report a used-before-assignment error on `body` if a `case` goes missing — `ReactNode` already includes `undefined`, so that check never fires here. The `default: view satisfies never` branch is what makes a missing case a compile error instead; that is what to expect to fail if a seventh `ViewState` member is ever added without a matching `case`.
 
 - [ ] **Step 5: Commit**
 
@@ -1136,7 +1136,7 @@ Not covered by any automated test, and worth one pass before the PR:
 - [ ] `pnpm dev`, then open the board at a desktop width. Hover a clock card: the controls fade in as before. Move away: they fade out and are not clickable.
 - [ ] Same board in a browser device-emulation touch profile: the controls are on screen without hovering and are finger-sized.
 - [ ] Ofelia at the `standard` tier and at fullscreen: the header controls are the new 30px bordered buttons, delete shows a trash icon and close an `X` — the two are no longer the same glyph.
-- [ ] `pnpm dev` also serves each widget's standalone `dev/` harness. Open ofelia's and confirm its controls render (previously an overlay in a harness had no frame to hover and stayed invisible).
+- [ ] `pnpm dev` also serves each widget's standalone `dev/` harness. Open ofelia's and confirm its controls do **not** render — every harness's `harnessProps()` hardcodes `mode: 'large'`, so `useWidgetChrome()` returns only `onClose` there. Flip that harness's `mode` to `'small'` to actually see the controls render outside a board frame.
 
 ---
 

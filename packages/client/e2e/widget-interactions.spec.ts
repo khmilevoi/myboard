@@ -42,6 +42,16 @@ test('widget can be expanded without duplicate fullscreen or close controls', as
   await expect(board.getCard(0).getByRole('button', { name: 'Развернуть' })).toHaveCount(1)
   await expect(board.getCard(0).locator('iframe')).toHaveCount(0)
 
+  // The desktop half of the visibility rule, which mobile-board.spec.ts cannot
+  // reach: that file runs under `hasTouch: true`, where the `@media (hover: hover)`
+  // block is inactive. Read opacity off the controls container — opacity is not
+  // inherited, so asserting it on the button would always report the button's own
+  // untouched `1` and could never fail.
+  const controls = board.getCard(0).locator('[data-placement="overlay"]')
+  await expect(controls).toHaveCSS('opacity', '0')
+  await board.getCard(0).hover()
+  await expect(controls).toHaveCSS('opacity', '1')
+
   await board.expandCard(0)
   const overlay = new OverlayPage(page)
   await overlay.waitForOpen()

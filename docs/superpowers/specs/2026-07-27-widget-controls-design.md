@@ -70,7 +70,11 @@ Five concrete defects follow.
 4. **Visibility defaults to visible**, and is suppressed only inside a board frame on a hovering
    device. This inverts today's rule and makes the SDK self-sufficient: the host stops carrying a
    rule about someone else's chrome, and a standalone `dev/harness.tsx` (which has no
-   `[data-widget-surface]` ancestor) shows the controls instead of hiding them forever.
+   `[data-widget-surface]` ancestor) shows the controls instead of hiding them forever — in
+   principle. That benefit is latent today: every harness (`clock`, `ofelia-poop-duty`,
+   `passport-checker`) hardcodes `mode: 'large'` in `harnessProps()`, and `useWidgetChrome()` returns
+   only `onClose` for that mode, so no harness currently renders any controls to see. The CSS half of
+   the claim (no frame ancestor, nothing to suppress) holds regardless.
 5. **Which buttons exist stays in the widget's JSX**, and the `mode` policy behind them moves to a
    `useWidgetChrome()` hook. Passport-checker deliberately offers no expand affordance at all
    (`onExpand` is never passed to its tiers; `requestFullscreen` is used only to restore fullscreen

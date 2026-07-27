@@ -68,9 +68,17 @@ export const WidgetControls = reatomMemo<WidgetControlsProps>(
 /**
  * The board-card policy behind those callbacks, stated once.
  *
- * `mode === 'large'` is the fullscreen mount (see FullscreenOverlay in the
- * client host), where expanding is meaningless and deleting the card you are
- * looking at is a trap; `mode === 'small'` is the board card, where closing is.
+ * `mode === 'small'` is the board card, where expanding makes sense and
+ * closing does not; every other mode falls through to close-only, which is
+ * the safe default for `mode === 'large'` (the fullscreen mount — see
+ * FullscreenOverlay in the client host — where expanding is meaningless and
+ * deleting the card you are looking at is a trap).
+ *
+ * Stated as "allow on `small`, else deny" rather than "deny on `large`, else
+ * allow" on purpose: `WidgetMode` is `'small' | 'large'` today, so the two
+ * are equivalent, but if a third mode is ever added (preview, catalog,
+ * embed) it must default to no card-management chrome at all, not to full
+ * expand+delete — a permissive branch should never be the wide one.
  *
  * This returns the callbacks rather than the rendered buttons because *which*
  * buttons a widget offers stays the widget's decision — passport-checker, for
@@ -83,6 +91,6 @@ export const WidgetControls = reatomMemo<WidgetControlsProps>(
 export const useWidgetChrome = (): WidgetChrome => {
   const { mode, requestFullscreen, requestDelete, requestClose } = useWidgetContext()
 
-  if (mode === 'large') return { onClose: requestClose }
-  return { onExpand: requestFullscreen, onDelete: requestDelete }
+  if (mode === 'small') return { onExpand: requestFullscreen, onDelete: requestDelete }
+  return { onClose: requestClose }
 }
