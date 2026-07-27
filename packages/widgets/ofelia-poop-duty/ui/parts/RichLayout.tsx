@@ -1,6 +1,7 @@
 import { Cat, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
@@ -12,7 +13,6 @@ import { AvatarWithBadge } from './AvatarWithBadge'
 import { CommentThread } from './CommentThread'
 import { HistoryList } from './HistoryList'
 import { MobileTabs } from './MobileTabs'
-import { OfeliaActionControls } from './OfeliaActionControls'
 import { WeekStrip } from './WeekStrip'
 
 import styles from './RichLayout.module.css'
@@ -83,7 +83,8 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
             <div className={styles.subtitle}>Кто убирает за Офелией · чередование</div>
           </div>
         </div>
-        <OfeliaActionControls
+        <WidgetControls
+          placement="inline"
           className={styles.headerClose}
           onExpand={onExpand}
           onDelete={onDelete}
