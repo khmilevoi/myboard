@@ -50,6 +50,8 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
   const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
 
   const makeScoped = (scope: string): ScopedStorage => {
+    // The trailing colon is part of the persistence contract — read the header comment in
+    // packages/shared/storage/scope.ts before touching this normalization.
     const scopeWithColon = scope.endsWith(':') ? scope : `${scope}:`
     return {
       client: makeDexieStorage(scopeWithColon),
