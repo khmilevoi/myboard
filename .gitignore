@@ -52,8 +52,9 @@ packages/browser-automation/.dev-profile/
 packages/browser-automation/.dev-secrets/
 
 # passport-checker widget secrets: real values are local-only and delivered to
-# the Pi via `rpi secrets push --group prod|dev` ([secrets].files in rpi.toml is
-# the push source); only the .example placeholder templates are tracked.
+# the Pi via `rpi secrets push` and `rpi secrets push --group dev`
+# ([secrets].files in rpi.toml is the push source for both); only the .example
+# placeholder templates are tracked.
 packages/widgets/passport-checker/secrets/*
 !packages/widgets/passport-checker/secrets/*.example
 

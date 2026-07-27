@@ -407,10 +407,10 @@ describe('rpi secret groups', () => {
   const groupsOf = (toml: string) => /^groups = \[(.*)\]$/m.exec(settingsOf(toml))?.[1]
 
   it('delivers the passport files through a group instead of per-environment bundles', () => {
-    // The base file stays the push source for the passport groups
-    // ([secrets].files is read locally by `rpi secrets push`, never at deploy
-    // time); the overlays clear it so nothing carries a second copy.
-    expect(groupsOf(baseToml)).toBe('"prod"')
+    // The base file is the push source for both production's own bundle and
+    // the `dev` group ([secrets].files is read locally by `rpi secrets push`,
+    // never at deploy time); the overlays clear it so nothing carries a second
+    // copy that would shadow the group.
     expect(baseToml).toContain('packages/widgets/passport-checker/secrets/series')
     for (const overlay of [devOverlay, branchOverlay]) {
       expect(overlay).toContain('files = []')
@@ -418,11 +418,19 @@ describe('rpi secret groups', () => {
     }
   })
 
+  it('gives production no group of its own', () => {
+    // A keyless push always writes this file's env + files into the deploy
+    // key's own bundle, and that bundle is the last layer — so a group here
+    // could only ever be an identical shadowed copy, and a rotation pushed to
+    // it alone would never reach production.
+    expect(groupsOf(baseToml)).toBeUndefined()
+  })
+
   it('attaches the groups each environment needs, in precedence order', () => {
     // Arrays replace wholesale, so an overlay that forgot its own `groups`
-    // would silently attach `prod` — the production secret set — instead. The
-    // branch stand adds its own configuration on top of `dev`, so it has to
-    // come last: within one layer stack, later wins per variable.
+    // would inherit the base's — nothing — and deploy without the passport
+    // files at all. The branch stand adds its own configuration on top of
+    // `dev`, so it has to come last: within one layer stack, later wins.
     expect(groupsOf(devOverlay)).toBe('"dev"')
     expect(groupsOf(branchOverlay)).toBe('"dev", "branch"')
   })

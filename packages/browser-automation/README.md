@@ -29,25 +29,25 @@ packages/widgets/passport-checker/secrets/number   # six digits
 
 `rpi.toml`'s `[secrets]` section also lists both files under `files`, so `rpi`
 delivers them to the Pi verbatim at the same repo-relative path on every
-deploy. They travel in a **secret group** rather than in each environment's own
-bundle: `rpi.toml` attaches `prod`, and both overlays attach `dev` with
-`[secrets].files` cleared. Push each group once from the repository root, and
-restart the running stack when the values change:
+deploy. Production takes them from its own bundle; the non-production stacks
+share one copy through the **`dev` secret group**, which both overlays attach
+with `[secrets].files` cleared. Both pushes read the same two local files, from
+the repository root:
 
 ```bash
-rpi secrets push --group prod    # production's copy of the two secret files
+rpi secrets push                 # production's own bundle
 rpi secrets push --group dev     # the copy dev and the branch stand share
 ```
 
-A group push writes to the store and stops there. To land rotated values on a
-running stack without a full deploy, follow it with `rpi secrets push --apply
+A push writes to the store and stops there. To land rotated values on a running
+stack without a full deploy, follow it with `rpi secrets push --apply
 [--env <env>]`, which re-resolves that key's whole layer stack — every declared
 group, then its own bundle — and recreates the affected containers.
 
-A declared group that was never pushed fails the deploy naming the group.
+A declared group that is missing or empty fails the deploy naming the group.
 `rpi secrets ls [--env <env>]` shows which layer every entry comes from
-(`<- key` for the environment's own bundle, `<- group dev` for a group), which
-is also how you confirm the files are no longer duplicated per environment.
+(`<- key` for the environment's own bundle, `<- dev` for the group), which is
+also how you confirm the files are no longer duplicated per environment.
 
 Compose (`docker-compose.yml`) declares `passport_series`/`passport_number` as
 file-backed **runtime secrets** sourced from those same paths, mounted only
