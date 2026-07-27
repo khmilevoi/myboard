@@ -256,3 +256,60 @@ the payload schema, so the key shape is derived from the same rule on both sides
 rather than trusted from the wire.
 
 **Trigger.** A second client or an automation posts comments.
+
+## Ofelia's tier thresholds sit within 10 px of their own frames
+
+**Today.** `ofelia-poop-duty` declares `standard.minWidthPx: 400` and
+`minHeightPx: 300`. Now that the board measures its real container, a `w: 4`
+card is a 393 px frame at a ~1280 px viewport — so it renders `CompactTier`
+there — and the `h: 8` default is a 308 px frame, 8 px above the height
+threshold. Because the board's lower scale clamp is `1`, that 8 px of headroom
+is the same at every desktop width.
+
+**Why it is tolerable.** The user's devices are one phone plus 1920x1080 and
+3840x2160 desktops, so neither margin is hit in practice. The width threshold
+was calibrated against the pinned-1280 measurement bug, i.e. against a number
+wrong by 55 px, and nothing has needed it since.
+
+**Why it should not stay.** Any chrome added inside the card silently drops
+ofelia to `compact` and takes five e2e tests with it, with no error and no
+obvious cause. Raising `defaultSize.w` would not rescue existing boards, whose
+`w` is already persisted in the stored layout.
+
+**Trigger.** A ~1280 px screen enters the household, or anything is added to the
+card's header or footer.
+
+## An old client bundle cannot parse a new record shape
+
+**Today.** Widget record schemas are `z.array(...)`, so a single record carrying
+a field an older bundle's schema rejects fails the whole parse — and a
+still-open client hangs on its loading skeleton permanently, not just for that
+row. It has happened twice: the authored ledger's `createdBy`, and the cron's
+`{ system: true }` author. Both releases shipped compat shims that keep writing
+the legacy `ip`/`by`/`author` fields for one release, each with its removal
+condition recorded at the shim.
+
+**Why it is tolerable.** Force-reloading every open client after a deploy fixes
+it, and the shims cover the window where that has not happened yet.
+
+**Why it should not stay.** The failure is silent, total for the widget, and
+lands on the wall tablet — the one client nobody reloads. Every future record
+field repeats it, and every release adds another shim to remember to remove.
+
+**Shape to consider.** Parse per element and drop unreadable rows rather than
+failing the array, so an unknown field costs one row instead of the widget.
+
+**Trigger.** A third record-shape change, or the first shim that outlives its
+stated removal condition.
+
+## An ofelia comment from outside the duty rotation loses its author
+
+**Today.** A comment written by an account whose name is not in
+`DUTY_ROTATION` is stored with no legacy `author` field, so a pre-release client
+loses that entire week's thread until it reloads.
+
+**Why it is tolerable.** Every current household account is in the rotation, and
+the alternative considered — synthesizing an author — writes a permanent false
+attribution into an append-only store.
+
+**Trigger.** An account named outside the rotation is created.
