@@ -126,30 +126,36 @@ export const pushOverlay = (close: () => void): OverlayEntry => {
   if (owedDepth !== null && owedDepth >= readDepth()) clearOwedTraversal()
 
   if (owedDepth !== null) {
-    // Reuse an entry the deferred traversal still owes back instead of pushing
-    // another one. That entry exists and already carries this `overlayDepth` —
-    // it was stamped when the overlay now being dropped was pushed — so the
-    // depth comes from the debt, never from `stack.length + 1`: deriving it
-    // from the stack would collide with an overlay above a mid-stack drop that
-    // is still waiting to be closed.
-    const current = readDepth()
+    // Claim an entry the deferred traversal still owes back instead of pushing
+    // another one. Nothing is written to history at all — no `pushState`, no
+    // `replaceState`, no traversal — because that entry already exists and
+    // already carries this `overlayDepth`, stamped when the overlay now being
+    // dropped was pushed. Only the bookkeeping moves.
+    //
+    // The depth therefore comes from the debt, never from the stack: an
+    // overlay above a mid-stack drop is still sitting in the stack waiting to
+    // be closed, so `stack.length + 1` would hand out a depth it already holds.
     const entry = { depth: owedDepth + 1, close }
     // Inserted at its depth, not appended, so the stack stays ordered by depth
     // and `reconcile` still pops the stale entries above it first.
     stack.splice(owedDepth, 0, entry)
-
-    if (entry.depth < current) owedDepth = entry.depth
-    else clearOwedTraversal()
-
-    // Only the current entry can be re-stamped. A deeper one is reached by the
-    // traversal that is still owed, and already holds the depth just claimed.
-    if (entry.depth === current) {
-      history.replaceState({ ...history.state, overlayDepth: entry.depth }, '')
-    }
+    // The guard above leaves `owedDepth < readDepth()`, so the claimed depth is
+    // at most the current one. Equal means the claimed entry is the one we are
+    // standing on and the debt is spent; less means the traversal still has to
+    // walk back to it.
+    if (entry.depth === readDepth()) clearOwedTraversal()
+    else owedDepth = entry.depth
     return entry
   }
 
-  const entry = { depth: stack.length + 1, close }
+  // `pushState` inserts its entry immediately after the current one, so the new
+  // overlay's depth is the current depth plus one by construction — not by
+  // counting the stack. The two agree whenever history and the stack agree, and
+  // stop agreeing in exactly the duplicate-depth mode described on
+  // `dropOverlay`, where `stack.length + 1` would skip a number. Depth would
+  // then no longer be one-per-entry, and `flushOwedTraversal`'s
+  // `readDepth() - target` — which counts entries — would traverse too far.
+  const entry = { depth: readDepth() + 1, close }
   history.pushState({ ...history.state, overlayDepth: entry.depth }, '')
   stack.push(entry)
   return entry
@@ -182,6 +188,25 @@ export const dismissOverlay = (entry: OverlayEntry): void => {
  * task so that a `pushOverlay` in this same task can consume it — see the
  * module header for why performing it here breaks StrictMode and every
  * close-one-open-another transition.
+ *
+ * ## Two residuals, both needing a drop that is not the topmost entry
+ *
+ * Neither is fixable from inside this module while `popstate` is the only code
+ * allowed to close an overlay, so they are constraints on callers:
+ *
+ * - **Do not mount two overlays in the same commit as a middle drop.** Such a
+ *   drop owes more than one entry, and two pushes consume the whole debt
+ *   between them, so no traversal runs and the overlay that sat above the drop
+ *   stays open carrying a depth that duplicates the new top one's. It is not
+ *   stranded — the `stack.length > depth` clause in `reconcile` closes it on
+ *   the next back press, one press later than it should have — but a caller
+ *   that mounts one overlay per commit never reaches this at all.
+ * - `dropOverlay` and `dismissOverlay` in the same task overshoot.
+ *   `dismissOverlay` navigates eagerly, and the flush then recomputes its step
+ *   count against a history that has not moved yet, so the two traversals
+ *   stack and land further back than either intended — far enough, with enough
+ *   overlays open, to leave the application. This predates the deferral: an
+ *   eager `dropOverlay` had the same overshoot against an eager dismiss.
  */
 export const dropOverlay = (entry: OverlayEntry): void => {
   const index = stack.indexOf(entry)

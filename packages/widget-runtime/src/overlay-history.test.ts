@@ -152,9 +152,12 @@ describe('overlay history', () => {
 describe('overlay history — real history traversal', () => {
   // jsdom keeps one session history for the whole file, so each of these owns
   // the entry a back press is supposed to land on rather than inheriting
-  // whatever the previous test left current.
+  // whatever the previous test left current. It is marked so that landing on
+  // it is distinguishable from overshooting past it — `beforeEach` leaves the
+  // current entry `{}`, so an unmarked baseline would match either.
+  const baseline = { marker: 'baseline' }
   const pushBaseline = (): void => {
-    history.pushState({}, '')
+    history.pushState(baseline, '')
   }
 
   // One flush task plus jsdom's two-task traversal, with slack.
@@ -173,11 +176,13 @@ describe('overlay history — real history traversal', () => {
     pushBaseline()
     const close = vi.fn()
     const entry = pushOverlay(close)
-    expect(history.state).toEqual({ overlayDepth: 1 })
+    expect(history.state).toEqual({ ...baseline, overlayDepth: 1 })
 
     dropOverlay(entry)
 
-    await vi.waitFor(() => expect(history.state).toEqual({}))
+    // The marker is what makes this an assertion about landing on the baseline
+    // rather than merely about leaving the overlay entry.
+    await vi.waitFor(() => expect(history.state).toEqual(baseline))
     expect(close).not.toHaveBeenCalled()
   })
 
@@ -196,14 +201,15 @@ describe('overlay history — real history traversal', () => {
     await settle()
 
     // No traversal ran, so no spontaneous popstate closed the overlay that had
-    // just opened, and only one entry was spent.
+    // just opened, and only one entry was spent. Both are "nothing happened"
+    // assertions, so the fixed settle is the point rather than a race.
     expect(opened).not.toHaveBeenCalled()
-    expect(history.state).toEqual({ overlayDepth: 1 })
+    expect(history.state).toEqual({ ...baseline, overlayDepth: 1 })
 
     history.back()
 
     await vi.waitFor(() => expect(opened).toHaveBeenCalledOnce())
-    expect(history.state).toEqual({})
+    expect(history.state).toEqual(baseline)
     expect(dropped).not.toHaveBeenCalled()
   })
 
@@ -229,12 +235,12 @@ describe('overlay history — real history traversal', () => {
     await vi.waitFor(() => expect(upper).toHaveBeenCalledOnce())
     expect(lower).not.toHaveBeenCalled()
     expect(opened).not.toHaveBeenCalled()
-    expect(history.state).toEqual({ overlayDepth: 1 })
+    expect(history.state).toEqual({ ...baseline, overlayDepth: 1 })
 
     history.back()
 
     await vi.waitFor(() => expect(opened).toHaveBeenCalledOnce())
-    expect(history.state).toEqual({})
+    expect(history.state).toEqual(baseline)
   })
 
   it('coalesces two drops in the same task into a single traversal a push can claim', async () => {
@@ -252,9 +258,9 @@ describe('overlay history — real history traversal', () => {
 
     expect(e3.depth).toBe(1)
 
-    await settle()
-
-    expect(history.state).toEqual({ overlayDepth: 1 })
+    // A positive assertion — it needs the single go(-1) to have completed —
+    // so it waits for the traversal rather than assuming a fixed delay.
+    await vi.waitFor(() => expect(history.state).toEqual({ ...baseline, overlayDepth: 1 }))
     expect(first).not.toHaveBeenCalled()
     expect(second).not.toHaveBeenCalled()
     expect(third).not.toHaveBeenCalled()
@@ -262,7 +268,45 @@ describe('overlay history — real history traversal', () => {
     history.back()
 
     await vi.waitFor(() => expect(third).toHaveBeenCalledOnce())
-    expect(history.state).toEqual({})
+    expect(history.state).toEqual(baseline)
+  })
+
+  it('keeps depth contiguous when an ordinary push follows a duplicate-depth stack', async () => {
+    pushBaseline()
+    const lower = vi.fn()
+    const stale = vi.fn()
+    const first = vi.fn()
+    const second = vi.fn()
+    const third = vi.fn()
+
+    // Build the one state where the stack holds two entries at the same depth:
+    // a mid-stack drop whose debt is then consumed entirely by two pushes, so
+    // no traversal ever runs and `stale` is left waiting above them.
+    const lowerEntry = pushOverlay(lower)
+    pushOverlay(stale)
+    dropOverlay(lowerEntry)
+    pushOverlay(first)
+    const secondEntry = pushOverlay(second)
+
+    await settle()
+    // Stack is [first(1), second(2), stale(2)] against two real entries.
+    expect(history.state).toEqual({ ...baseline, overlayDepth: 2 })
+    expect(stale).not.toHaveBeenCalled()
+
+    // `stack.length + 1` would stamp 4 on an entry that history places
+    // immediately after the depth-2 one. Depth would stop counting entries.
+    const thirdEntry = pushOverlay(third)
+    expect(thirdEntry.depth).toBe(3)
+
+    // And that miscount is what a later drop pays for: dropping `second` must
+    // walk back to depth 1, which is two entries, not three. Under
+    // `stack.length + 1` it goes back three and takes `first` with it.
+    dropOverlay(secondEntry)
+
+    await vi.waitFor(() => expect(third).toHaveBeenCalledOnce())
+    expect(stale).toHaveBeenCalledOnce()
+    expect(first).not.toHaveBeenCalled()
+    expect(history.state).toEqual({ ...baseline, overlayDepth: 1 })
   })
 
   it('clears a pending traversal on reset instead of firing it into the next test', async () => {

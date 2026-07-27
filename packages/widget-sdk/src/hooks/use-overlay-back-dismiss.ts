@@ -14,9 +14,10 @@ import { dismissOverlay, dropOverlay, pushOverlay, type OverlayEntry } from 'wid
  * push → drop → push in one synchronous task. That still registers exactly one
  * entry, but not because the drop and the push cancel out as navigations: a
  * drop does not navigate at all. It records the depth history owes back and
- * schedules the traversal, and the push that follows in the same task reuses
- * that owed entry instead of pushing a new one — a `replaceState`, no
- * traversal. Issuing the drop's `history.back()` eagerly would be the bug: a
+ * schedules the traversal, and the push that follows in the same task claims
+ * that owed entry — which already carries the right depth, so there is no
+ * `pushState` and no traversal, only bookkeeping. Issuing the drop's
+ * `history.back()` eagerly would be the bug: a
  * real browser performs it tens of milliseconds later, after the second push,
  * and the resulting `popstate` would close the overlay on its own. See the
  * header of `overlay-history.ts`.
