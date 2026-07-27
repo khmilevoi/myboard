@@ -1,9 +1,47 @@
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import * as React from 'react'
+import { useOverlayBackDismiss } from 'widget-sdk/hooks/use-overlay-back-dismiss'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-const Dialog = DialogPrimitive.Root
+type DialogRootProps = React.ComponentProps<typeof DialogPrimitive.Root>
+
+// Split out because the hook cannot sit behind the `open === undefined` branch
+// below. Every close request is routed into `requestDismiss`, which goes
+// through history; `popstate` is what eventually calls `onOpenChange(false)`.
+const ControlledDialog = reatomMemo<DialogRootProps & { open: boolean }>(
+  ({ open, onOpenChange, ...props }) => {
+    const requestDismiss = useOverlayBackDismiss(open, () => onOpenChange?.(false))
+
+    return (
+      <DialogPrimitive.Root
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange?.(true)
+          else requestDismiss()
+        }}
+        {...props}
+      />
+    )
+  },
+  'ControlledDialog',
+)
+
+/**
+ * The shared dialog root, with the platform back gesture wired in for every
+ * call site at once — see the overlay-history module in widget-runtime.
+ *
+ * An uncontrolled dialog keeps Radix's own open state, which this wrapper
+ * cannot drive, so it passes straight through. There is no such call site in
+ * production (only `primitives.test.tsx`), but the branch must exist: without
+ * it an uncontrolled dialog's close request would route into an
+ * `onOpenChange` nobody is listening to and the dialog would never shut.
+ */
+const Dialog = reatomMemo<DialogRootProps>(({ open, ...props }) => {
+  if (open === undefined) return <DialogPrimitive.Root {...props} />
+  return <ControlledDialog open={open} {...props} />
+}, 'Dialog')
+
 const DialogTrigger = DialogPrimitive.Trigger
 const DialogPortal = DialogPrimitive.Portal
 const DialogClose = DialogPrimitive.Close
