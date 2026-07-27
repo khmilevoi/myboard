@@ -31,14 +31,17 @@ either — it goes branch → PR into `dev` → dev deploy → PR from `dev` int
 
    ```bash
    git fetch origin
-   git worktree add .worktrees/<short-name> -b feat/<short-name> origin/dev
+   git -c core.symlinks=false worktree add .worktrees/<short-name> -b feat/<short-name> origin/dev
+   git -C .worktrees/<short-name> update-index --skip-worktree AGENTS.md
    cd .worktrees/<short-name>
    pnpm install
    ```
 
+   `AGENTS.md` is a committed symlink that Windows cannot materialize, so both git flags are
+   required — without them the command fails outright or leaves a permanent ` T ` typechange.
    Branch names use the same Conventional Commit prefixes as commits: `feat/`, `fix/`, `chore/`.
 
-2. **Implement and commit inside that worktree.** Keep commits focused and imperative.
+2. **Implement and commit inside that worktree.**
 
 3. **Run the full gate before opening the PR**, from the worktree: `pnpm check`, plus
    `pnpm test:e2e:docker` when the change touches browser-facing behavior. There is no CI on this
@@ -149,9 +152,7 @@ export a `reatomMemo` wrapper component.
 
 ## Testing
 
-Vitest for unit and component tests (Testing Library + jsdom for React), Playwright for e2e in
-`packages/client/e2e` with page helpers in `e2e/pages`. Keep tests beside the code they verify. Run
-`pnpm check` before every PR, and `pnpm test:e2e:docker` for browser-facing behavior.
+Vitest for unit and component tests (Testing Library + jsdom for React), Playwright for e2e.
 
 ## Commits
 
@@ -164,16 +165,3 @@ PR expectations are part of the [feature workflow](#feature-workflow) above.
 Do not commit `.env` files. Client environment examples live in `packages/client/.env.example`;
 server configuration uses `PORT` and `VALKEY_URL`. Prefer Docker commands when changes depend on
 Valkey or the full client/server stack.
-
-## Failure modes to avoid
-
-- Keep the scope tight. Do not spend time re-reading plans, skills or history once the actual code
-  change is localized.
-- Do not use subagents when a task is already reduced to a small, single-file or two-file edit.
-  Delegate only when it reduces complexity.
-- Verify in the correct workspace and cwd. If a test runner or package manager fails because of the
-  shell environment, fix the invocation once and move on.
-- Do not mix publication concerns with implementation work. Create PRs from the exact commit range
-  that belongs to the task.
-- Stop when the code, tests and typecheck are green. Do not keep expanding the process after the
-  required checks pass.
