@@ -478,16 +478,30 @@ Append this test to the end of `packages/client/e2e/mobile-board.spec.ts`:
 // The card controls used to be revealed only by `.frame:hover`, which a touch
 // device never fires — leaving an invisible but fully clickable "Удалить"
 // button in the corner of every card. The stylesheet now hides them only where
-// hover exists, so on a touch device they must be on screen without any hover.
-test('card controls are visible on a touch device without hovering', async ({ page }) => {
+// hover exists, so on a touch device they must be on screen, opaque, and
+// actually usable without any hover.
+test('card controls are visible and usable on a touch device without hovering', async ({
+  page,
+}) => {
   await seedTwoWidgets(page)
 
-  const card = new BoardPage(page).getCard(0)
+  const board = new BoardPage(page)
+  const card = board.getCard(0)
   const remove = card.getByRole('button', { name: 'Удалить' })
 
+  // Read opacity off the container the stylesheet sets it on. opacity is not
+  // inherited, so asserting it on the button would always report the button's
+  // own untouched `1` and could never fail.
+  await expect(card.locator('[data-placement="overlay"]')).toHaveCSS('opacity', '1')
   await expect(remove).toBeVisible()
-  await expect(remove).toHaveCSS('opacity', '1')
+  // pointer-events IS inherited, so this one does reflect the container.
   await expect(remove).toHaveCSS('pointer-events', 'auto')
+
+  // The functional half, which no CSS assertion can fake: Playwright's
+  // actionability check fails on a `pointer-events: none` control, so a
+  // completed click proves the control is genuinely reachable.
+  await board.removeCard(0)
+  await expect(board.widgetCards).toHaveCount(1)
 })
 ```
 
