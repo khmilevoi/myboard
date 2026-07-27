@@ -104,7 +104,21 @@ describe('FullscreenOverlay', () => {
 
     render(<FullscreenOverlay />)
     await screen.findByRole('dialog')
-    fireEvent.keyDown(document.body, { key: 'Escape' })
+
+    // expandedInstanceId() alone cannot tell "routed through history" apart
+    // from "closed directly" — both end in the same null. Spying on the
+    // traversal `dismissOverlay` issues (dismissOverlay calls history.back();
+    // dropOverlay, used on unmount, calls history.go — see overlay-history.ts)
+    // pins the mechanism: this assertion only passes if Escape actually goes
+    // through requestDismiss rather than calling onOpenChange(false) directly.
+    const backSpy = vi.spyOn(history, 'back')
+    try {
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(backSpy).toHaveBeenCalledOnce()
+    } finally {
+      backSpy.mockRestore()
+    }
+
     // Escape now routes through requestDismiss -> history.back(), and jsdom
     // (like real browsers) traverses history asynchronously, so the resulting
     // popstate — and the close it drives — lands a tick later than the event.
