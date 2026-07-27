@@ -54,6 +54,7 @@ describe('ofelia server', () => {
       type: 'cleaned',
       actor: 'Леша',
       createdBy: KARINA,
+      by: 'Леша',
     })
   })
 
@@ -102,6 +103,7 @@ describe('ofelia server', () => {
       type: 'cleaned',
       actor: 'Леша',
       createdBy: KARINA,
+      by: 'Леша',
     })
   })
 
@@ -115,6 +117,7 @@ describe('ofelia server', () => {
       actor: 'Карина',
       onBehalfOf: 'Леша',
       createdBy: KARINA,
+      by: 'Карина',
     })
   })
 
@@ -140,6 +143,7 @@ describe('ofelia server', () => {
     expect(append).toHaveBeenCalledWith('comments:2026-06-15', {
       text: 'привет',
       createdBy: KARINA,
+      author: 'Карина',
     })
   })
 
@@ -183,9 +187,22 @@ function makeCronContext(
   return { context, append }
 }
 
+// A seed record dated well before the auto-approve window, only to keep the
+// ledger non-empty in tests that exercise a widget that has already been
+// used at least once (a genuinely empty/absent ledger is covered by the
+// F11 no-op test below, and must not reach these assertions).
+const SEED_ENTRY = {
+  id: 'seed',
+  ts: 0,
+  date: '2026-01-01',
+  type: 'cleaned' as const,
+  actor: 'Леша' as const,
+  createdBy: null,
+}
+
 describe('ofelia auto-approve cron', () => {
   it('closes the unresolved window with system-authored entries', async () => {
-    const { context, append } = makeCronContext([])
+    const { context, append } = makeCronContext([SEED_ENTRY])
 
     expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
     expect(append).toHaveBeenCalledTimes(7)
@@ -194,6 +211,7 @@ describe('ofelia auto-approve cron', () => {
       type: 'cleaned',
       actor: 'Леша',
       createdBy: { system: true },
+      by: 'Леша',
     })
   })
 
@@ -203,5 +221,57 @@ describe('ofelia auto-approve cron', () => {
 
     expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeInstanceOf(Error)
     expect(append).not.toHaveBeenCalled()
+  })
+
+  it('is a no-op, with no append, when the ledger key does not exist (F11)', async () => {
+    // Every stack ships this widget's server.ts, so its cron is registered
+    // everywhere regardless of whether the widget was ever placed on a
+    // board. A missing ledger key means nobody has ever used it — nothing
+    // to auto-approve, and the job must not fabricate history by writing.
+    const { context, append } = makeCronContext(null)
+
+    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(append).not.toHaveBeenCalled()
+  })
+
+  it('is a no-op, with no append, when the ledger key resolves to an empty array (F11)', async () => {
+    const { context, append } = makeCronContext([])
+
+    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(append).not.toHaveBeenCalled()
+  })
+
+  it('skips a day that a concurrent manual close resolved after the initial read (F10)', async () => {
+    // 06-13 is the 4th day of the 7-day window (06-10 … 06-16). Simulate a
+    // widget dispatch that manually closes it in the gap between the job's
+    // initial read (call #1) and the fresh re-check this job now does right
+    // before appending that day's draft (call #5: initial + 3 prior re-checks
+    // for 06-10, 06-11, 06-12).
+    const manualClose = {
+      id: 'manual-1',
+      ts: 999,
+      date: '2026-06-13',
+      type: 'cleaned' as const,
+      actor: 'Карина' as const,
+      createdBy: KARINA,
+    }
+
+    let calls = 0
+    const { context, append } = makeCronContext([SEED_ENTRY])
+    context.api.storage.shared.get = vi.fn(async () => {
+      calls += 1
+      return (calls >= 5 ? [SEED_ENTRY, manualClose] : [SEED_ENTRY]) as never
+    })
+
+    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+
+    // 06-10, 06-11, 06-12, 06-14, 06-15, 06-16 still get the system close;
+    // 06-13 does not, because the manual close already resolved it by the
+    // time this job re-checked that specific day.
+    expect(append).toHaveBeenCalledTimes(6)
+    expect(append).not.toHaveBeenCalledWith(
+      LEDGER_KEY,
+      expect.objectContaining({ date: '2026-06-13' }),
+    )
   })
 })

@@ -49,13 +49,30 @@ export const LedgerEntrySchema = z.object({
     'Account that created the record, the server for automatic records, or null when unattributed',
   ),
   by: PersonSchema.optional().describe(
-    'LEGACY pre-account signature. Read-only: never written again',
+    'LEGACY pre-account signature. F2a: written again for one release as a ' +
+      'compat shim so pre-release (main) clients, which require this field ' +
+      'and reject the whole ledger without it, can still read new entries. ' +
+      'Drop the write side once no main-era bundle can be live.',
   ),
 })
 
 export type LedgerEntry = z.infer<typeof LedgerEntrySchema>
-export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts' | 'by'>
-export const LedgerEntriesSchema = z.array(LedgerEntrySchema)
+// `by` stays part of the draft shape (not omitted) only for the one-release
+// compat shim above — see makeCleanDraft et al. in drafts.ts.
+export type LedgerEntryDraft = Omit<LedgerEntry, 'id' | 'ts'>
+// A single malformed element must not blank the whole ledger for everyone:
+// parse per element and drop what doesn't validate instead of failing the
+// array wholesale.
+export const LedgerEntriesSchema = z.array(z.unknown()).transform((rawEntries) =>
+  rawEntries.flatMap((raw) => {
+    const parsed = LedgerEntrySchema.safeParse(raw)
+    if (!parsed.success) {
+      console.warn('Dropping malformed ledger entry', parsed.error)
+      return []
+    }
+    return [parsed.data]
+  }),
+)
 
 const DAY_OUTCOME_TYPES: ReadonlySet<LedgerType> = new Set([
   'cleaned',

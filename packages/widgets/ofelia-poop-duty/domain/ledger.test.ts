@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { foldDebt } from './debt'
-import { LedgerEntrySchema, resolveDays } from './ledger'
+import { LedgerEntriesSchema, LedgerEntrySchema, resolveDays } from './ledger'
 import type { LedgerEntry } from './ledger'
 
 let seq = 0
@@ -253,5 +253,26 @@ describe('LedgerEntrySchema', () => {
     })
 
     expect(parsed.success).toBe(true)
+  })
+})
+
+describe('LedgerEntriesSchema', () => {
+  it('drops a single malformed element instead of failing the whole array (F2a)', () => {
+    const good = {
+      id: 'e1',
+      ts: 1,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { accountId: 'a1', name: 'Карина' },
+    }
+    const bad = { id: 'e2', ts: 2, date: '2026-06-17', type: 'cleaned', actor: 'NotAPerson' }
+
+    // z.array(LedgerEntrySchema).parse([good, bad]) would throw here before
+    // the fix, blanking the entire ledger for one bad record.
+    const parsed = LedgerEntriesSchema.parse([good, bad])
+
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0].id).toBe('e1')
   })
 })
