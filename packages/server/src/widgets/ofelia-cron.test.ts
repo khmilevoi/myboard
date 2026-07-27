@@ -63,22 +63,45 @@ async function readLedger(ops: ReturnType<typeof createMemoryOps>) {
   return raw === null ? [] : (JSON.parse(raw) as { date: string; createdBy: unknown }[])
 }
 
+// A seed record dated well before the auto-approve window, only to mark the
+// widget as already used (a genuinely never-placed widget leaves the ledger
+// key absent and the cron must no-op there — see server.test.ts's F11
+// coverage). These end-to-end tests exercise a widget that has been placed
+// and used at least once, then left untouched for the auto-approve window.
+const SEED_ENTRY = {
+  date: '2026-01-01',
+  type: 'cleaned',
+  actor: 'Леша',
+  createdBy: null,
+}
+
+async function seedLedger(ops: ReturnType<typeof createMemoryOps>) {
+  await ops.set(LEDGER_KEY, JSON.stringify([{ id: 'seed', ts: 0, ...SEED_ENTRY }]))
+}
+
 describe('ofelia auto-approve cron end to end', () => {
   it('writes nothing on the seeding tick', async () => {
     const { ops, scheduler } = makeSetup()
+    await seedLedger(ops)
     await scheduler.tick()
 
-    expect(await readLedger(ops)).toEqual([])
+    // Drop the seed record: it predates the auto-approve window and is only
+    // there to mark the widget as already used.
+    const ledger = (await readLedger(ops)).filter((record) => record.date !== SEED_ENTRY.date)
+    expect(ledger).toEqual([])
   })
 
   it('closes the unresolved window once the occurrence comes due', async () => {
     const { ops, scheduler, setNow } = makeSetup()
+    await seedLedger(ops)
     await scheduler.tick()
 
     setNow(AFTER_MIDNIGHT_0617)
     await scheduler.tick()
 
-    const ledger = await readLedger(ops)
+    // Drop the seed record: it predates the auto-approve window and is only
+    // there to mark the widget as already used.
+    const ledger = (await readLedger(ops)).filter((record) => record.date !== SEED_ENTRY.date)
     expect(ledger.map((record) => record.date)).toEqual([
       '2026-06-10',
       '2026-06-11',
@@ -93,14 +116,34 @@ describe('ofelia auto-approve cron end to end', () => {
 
   it('adds nothing on a second tick for the same occurrence', async () => {
     const { ops, scheduler, setNow } = makeSetup()
+    await seedLedger(ops)
     await scheduler.tick()
     setNow(AFTER_MIDNIGHT_0617)
     await scheduler.tick()
-    const after = await readLedger(ops)
+    // Drop the seed record: it predates the auto-approve window and is only
+    // there to mark the widget as already used, so it can't stand in for the
+    // window actually having closed.
+    const closedDates = (await readLedger(ops))
+      .filter((record) => record.date !== SEED_ENTRY.date)
+      .map((record) => record.date)
+    // The window must actually have closed for this to be a meaningful
+    // idempotency check rather than a vacuous 0-equals-0 comparison.
+    expect(closedDates).toEqual([
+      '2026-06-10',
+      '2026-06-11',
+      '2026-06-12',
+      '2026-06-13',
+      '2026-06-14',
+      '2026-06-15',
+      '2026-06-16',
+    ])
 
     await scheduler.tick()
 
-    expect(await readLedger(ops)).toHaveLength(after.length)
+    const afterSecondTick = (await readLedger(ops))
+      .filter((record) => record.date !== SEED_ENTRY.date)
+      .map((record) => record.date)
+    expect(afterSecondTick).toEqual(closedDates)
   })
 
   it('retries a partially failed run without duplicating the days it already closed', async () => {
@@ -110,23 +153,26 @@ describe('ofelia auto-approve cron end to end', () => {
     const { ops, scheduler, setNow } = makeSetup((memoryOps) =>
       makeOpsThatFailsNthSet(memoryOps, LEDGER_KEY, 4),
     )
+    await seedLedger(ops)
     await scheduler.tick()
 
     setNow(AFTER_MIDNIGHT_0617)
     await scheduler.tick()
 
-    expect((await readLedger(ops)).map((record) => record.date)).toEqual([
-      '2026-06-10',
-      '2026-06-11',
-      '2026-06-12',
-    ])
+    // Drop the seed record: it predates the auto-approve window and is only
+    // there to mark the widget as already used.
+    expect(
+      (await readLedger(ops))
+        .filter((record) => record.date !== SEED_ENTRY.date)
+        .map((record) => record.date),
+    ).toEqual(['2026-06-10', '2026-06-11', '2026-06-12'])
 
     // Retried on the next tick, at the same occurrence: the cursor did not
     // advance past the failed run, so this must finish the remaining days
     // without re-writing the three that already landed.
     await scheduler.tick()
 
-    const ledger = await readLedger(ops)
+    const ledger = (await readLedger(ops)).filter((record) => record.date !== SEED_ENTRY.date)
     expect(ledger.map((record) => record.date)).toEqual([
       '2026-06-10',
       '2026-06-11',

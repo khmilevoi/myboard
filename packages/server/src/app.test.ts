@@ -11,6 +11,7 @@ import { addDeviceToAccount, createAccount } from './auth/accounts'
 import type { AuthConfig } from './auth/config'
 import { storeDevice } from './auth/devices'
 import { lookupInvite } from './auth/invites'
+import { accountKey, sessionKey } from './auth/records'
 import { issueSession } from './auth/sessions'
 import { makeFakeBrowserAutomationClient } from './browser/testing/fake-client'
 import { createMemoryOps, createMemoryPubSub } from './test/memory-ops'
@@ -57,6 +58,9 @@ async function seedAccountWithSession(
   return { account, session }
 }
 
+const browserDeadlineCause = new Error('browser deadline: automation timed out')
+const protocolMismatchCause = new Error('browser protocol mismatch')
+
 const browserTasks = defineWidgetBrowserTasks({
   check: {
     payload: z.object({ value: z.string() }),
@@ -82,10 +86,27 @@ const testWidget = defineWidgetServer({
       payload: z.object({}),
       result: z.object({ ok: z.boolean() }),
     },
+    whoami: {
+      payload: z.object({}),
+      result: z.object({
+        viewer: z.object({ accountId: z.string(), name: z.string() }).nullable(),
+      }),
+    },
+    publicRejectServerCause: {
+      payload: z.object({}),
+      result: z.object({ ok: z.boolean() }),
+    },
+    publicRejectClientCause: {
+      payload: z.object({}),
+      result: z.object({ ok: z.boolean() }),
+    },
   },
   handlers: {
     echo(payload, context) {
       return { echoed: payload.value, instanceId: context.instanceId }
+    },
+    whoami(_payload, context) {
+      return { viewer: context.viewer }
     },
     async browserEcho(payload, context) {
       return context.api.browser.invoke(browserTasks.check, payload)
@@ -103,6 +124,22 @@ const testWidget = defineWidgetServer({
         code: 'browser_configuration',
         publicMessage: 'Passport checker is not configured',
         status: 500,
+      })
+    },
+    publicRejectServerCause() {
+      return new PublicWidgetError({
+        code: 'browser_unavailable',
+        publicMessage: 'Browser session is unavailable',
+        status: 502,
+        cause: browserDeadlineCause,
+      })
+    },
+    publicRejectClientCause() {
+      return new PublicWidgetError({
+        code: 'browser_session_required',
+        publicMessage: 'The browser session requires attention',
+        status: 409,
+        cause: protocolMismatchCause,
       })
     },
   },
@@ -163,6 +200,77 @@ describe('createApp', () => {
     expect(put.status).toBe(204)
     const get = await fetch(`${base}/api/storage/${DEBTS_KEY}`)
     expect(await get.json()).toEqual({ value: { count: 1 } })
+  })
+
+  it('rejects a prefix listing outside the board/widget namespaces', async () => {
+    const res = await fetch(`${base}/api/storage?prefix=session:`)
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: { code: 'storage_forbidden' } })
+  })
+
+  it('rejects an empty prefix, which would enumerate the whole keyspace', async () => {
+    const res = await fetch(`${base}/api/storage?prefix=`)
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: { code: 'storage_forbidden' } })
+  })
+
+  it('cannot read a live session record through the generic storage GET', async () => {
+    const { session } = await seedAccountWithSession(ops, now, 'cred-storage-guard')
+    const key = encodeURIComponent(sessionKey(session.sessionId))
+    const res = await fetch(`${base}/api/storage/${key}`)
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: { code: 'storage_forbidden' } })
+  })
+
+  it('rejects a write to the cron scheduler cursor through the generic storage PUT', async () => {
+    const res = await fetch(
+      `${base}/api/storage/${encodeURIComponent('cron:ofelia-poop-duty:autoApproveDay')}`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
+        body: JSON.stringify({ value: { cursorMs: 0, failures: 0 } }),
+      },
+    )
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: { code: 'storage_forbidden' } })
+  })
+
+  it('rejects an append onto the session keyspace through the generic storage append', async () => {
+    const { session } = await seedAccountWithSession(ops, now, 'cred-storage-guard-append')
+    const key = encodeURIComponent(sessionKey(session.sessionId))
+    const res = await fetch(`${base}/api/storage/${key}/append`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
+      body: JSON.stringify({ entry: { evil: true } }),
+    })
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: { code: 'storage_forbidden' } })
+  })
+
+  it('still serves a legitimate widget key through all four generic storage verbs', async () => {
+    const key = encodeURIComponent('w:t:ofelia-poop-duty:allowlist-check')
+    const csrf = { 'X-Requested-With': 'MyBoard' }
+
+    const put = await fetch(`${base}/api/storage/${key}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', ...csrf },
+      body: JSON.stringify({ value: { ok: true } }),
+    })
+    expect(put.status).toBe(204)
+
+    const get = await fetch(`${base}/api/storage/${key}`)
+    expect(get.status).toBe(200)
+    expect(await get.json()).toEqual({ value: { ok: true } })
+
+    const list = await fetch(`${base}/api/storage?prefix=w:t:ofelia-poop-duty:`)
+    expect(list.status).toBe(200)
+    expect(((await list.json()) as { keys: string[] }).keys).toContain(
+      'w:t:ofelia-poop-duty:allowlist-check',
+    )
+
+    const del = await fetch(`${base}/api/storage/${key}`, { method: 'DELETE', headers: csrf })
+    expect(del.status).toBe(204)
+    expect((await fetch(`${base}/api/storage/${key}`)).status).toBe(404)
   })
 
   it('POST /api/test/time pins the clock', async () => {
@@ -297,6 +405,45 @@ describe('createApp', () => {
     }
   })
 
+  it('logs the cause chain for a 5xx widget error', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await fetch(`${base}/api/widgets/test-widget/publicRejectServerCause`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
+        body: JSON.stringify({ instanceId: 'placement-1', payload: {} }),
+      })
+      expect(res.status).toBe(502)
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ message: browserDeadlineCause.message }),
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
+  it('warns (does not error) on a public 4xx widget error that still carries a cause', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await fetch(`${base}/api/widgets/test-widget/publicRejectClientCause`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'X-Requested-With': 'MyBoard' },
+        body: JSON.stringify({ instanceId: 'placement-1', payload: {} }),
+      })
+      expect(res.status).toBe(409)
+      expect(consoleWarn).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ message: protocolMismatchCause.message }),
+      )
+      expect(consoleError).not.toHaveBeenCalled()
+    } finally {
+      consoleWarn.mockRestore()
+      consoleError.mockRestore()
+    }
+  })
+
   it('invokes a widget-scoped browser task through normal widget RPC', async () => {
     browserFake.setResult({ result: { echoed: 'from-browser' } })
     const res = await fetch(`${base}/api/widgets/test-widget/browserEcho`, {
@@ -330,6 +477,49 @@ describe('createApp', () => {
     expect(await echo.json()).toEqual({
       data: { echoed: 'hello', instanceId: 'placement-1' },
     })
+  })
+
+  it('resolves the signed-in viewer from the session cookie for a widget dispatch', async () => {
+    const { account, session } = await seedAccountWithSession(ops, now, 'cred-whoami')
+    const res = await fetch(`${base}/api/widgets/test-widget/whoami`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'X-Requested-With': 'MyBoard',
+        cookie: `session=${session.sessionId}`,
+      },
+      body: JSON.stringify({ instanceId: 'placement-1', payload: {} }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      data: { viewer: { accountId: account.id, name: 'Acc' } },
+    })
+  })
+
+  it('fails a widget dispatch instead of falling through to a null viewer when the account behind the session is corrupt', async () => {
+    const { account, session } = await seedAccountWithSession(ops, now, 'cred-whoami-corrupt')
+    // Simulate a Valkey fault / deleted account behind a still-live session.
+    await ops.del(accountKey(account.id))
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await fetch(`${base}/api/widgets/test-widget/whoami`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'X-Requested-With': 'MyBoard',
+          cookie: `session=${session.sessionId}`,
+        },
+        body: JSON.stringify({ instanceId: 'placement-1', payload: {} }),
+      })
+
+      expect(res.status).toBe(500)
+      const body = (await res.json()) as { error: { code: string } }
+      expect(body.error.code).toBe('internal_error')
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('POST /api/auth/register/options with an unknown token returns invite-not-found', async () => {

@@ -125,7 +125,11 @@ export function makeWidgetScopedStorage({
         if (!Array.isArray(parsed)) return storageError('append.shape', fullKey)
         const current: unknown[] = parsed
 
-        const enriched = errore.try(() => ({ id: createId(), ts: now(), ...entry }))
+        // `ip` is a one-release compat shim: pre-release client bundles still parse
+        // append entries with `ip: z.string()` and fail their whole z.array on a
+        // missing field. Ship an empty string (no IP is actually recorded) until
+        // no pre-release bundle can be live, then drop this field entirely.
+        const enriched = errore.try(() => ({ id: createId(), ts: now(), ip: '', ...entry }))
         if (enriched instanceof Error) return storageError('append.enrich', fullKey, enriched)
 
         const next = [...current, enriched]

@@ -36,16 +36,17 @@ describe('createWidgetServerStorageApi', () => {
     })
 
     expect(await storage.shared.append('items', { text: 'hello' })).toBeUndefined()
+    // one-release compat shim: pre-release clients require `ip: z.string()`
+    // on every append entry, so the server still stamps an empty one.
     const written = await storage.shared.get(
       'items',
-      z.array(z.object({ id: z.string(), ts: z.number(), text: z.string() })),
+      z.array(z.object({ id: z.string(), ts: z.number(), ip: z.string(), text: z.string() })),
     )
-    expect(written).toEqual([{ id: 'entry-7', ts: 456, text: 'hello' }])
-    expect((written as unknown[])[0]).not.toHaveProperty('ip')
+    expect(written).toEqual([{ id: 'entry-7', ts: 456, ip: '', text: 'hello' }])
     expect(messages).toEqual([
       JSON.stringify({
         key: 'w:t:notes:items',
-        value: [{ id: 'entry-7', ts: 456, text: 'hello' }],
+        value: [{ id: 'entry-7', ts: 456, ip: '', text: 'hello' }],
       }),
     ])
   })
