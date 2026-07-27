@@ -107,11 +107,23 @@ const Entry = reatomMemo<{ entry: HistoryEntryView; superseded?: boolean }>(
 // So: find the innermost box the reader could have scrolled by hand, and move
 // only that one. When nothing in the chain is scrollable there is nothing to
 // reveal, and the correct behaviour is to leave the layout alone.
+//
+// Stop at the FIRST `overflow-y: auto/scroll` ancestor, regardless of whether
+// it currently overflows (F13). The intended target is `.historyCol` — it
+// only overflows once the week has enough records — but the old walk kept
+// going past it whenever it did not, and `.body` (further out, `overflow-y:
+// auto` too) DOES usually overflow, so the whole widget body got scrolled
+// instead. That is exactly the bug the comment above says this code exists
+// to prevent. Returning null here (found the scrollport, it has nothing to
+// scroll) is correct: "nothing to reveal" must be a no-op, not a fallback to
+// an outer container the reader never asked to move.
 const scrollportOf = (node: HTMLElement): HTMLElement | null => {
   let current = node.parentElement
   while (current) {
     const { overflowY } = getComputedStyle(current)
-    if (/auto|scroll/.test(overflowY) && current.scrollHeight > current.clientHeight) return current
+    if (/auto|scroll/.test(overflowY)) {
+      return current.scrollHeight > current.clientHeight ? current : null
+    }
     current = current.parentElement
   }
   return null
@@ -150,6 +162,12 @@ export const HistoryList = reatomMemo<HistoryListProps>(
 
       const group = groupNodes.current.get(selectedDate)
       if (!group) return
+      // A day rendered inside a hidden mobile tab (`display: none`) has no
+      // layout box at all — `offsetParent` is null there, and
+      // `getBoundingClientRect()` would return an all-zero rect, which would
+      // otherwise read as "scroll to 0,0": an arbitrary jump (F13). Nothing
+      // to reveal when nothing is laid out.
+      if (group.offsetParent === null) return
       const scrollport = scrollportOf(group)
       if (!scrollport) return
 

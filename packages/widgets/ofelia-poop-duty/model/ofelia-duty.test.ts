@@ -1,7 +1,15 @@
 import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { makeStaticWidgetIdentity, type StorageApi, type WidgetStorage } from 'widget-runtime'
+import {
+  makeStaticWidgetIdentity,
+  StorageError,
+  WidgetApiError,
+  type StorageApi,
+  type WidgetStorage,
+} from 'widget-runtime'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
+
+import type { LedgerEntry } from '@/domain/ledger'
 
 import { ofeliaDutyModel } from './ofelia-duty'
 
@@ -181,5 +189,157 @@ describe('ofeliaDutyModel actions', () => {
       ['clean', { date: '2026-06-16' }],
       ['clean', { date: '2026-06-19' }],
     ])
+  })
+})
+
+describe('ofeliaDutyModel action status (F6a)', () => {
+  it('surfaces a failed day action instead of discarding it silently', async () => {
+    // `invoke` resolves to the error VALUE — the real production shape
+    // (WidgetApi never throws); `invokeDay` is the one that re-throws it so
+    // `withAsyncData` captures the rejection.
+    const invoke = vi.fn(async () => new WidgetApiError({ reason: 'offline', code: 'network' }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    expect(model.actionPending()).toBe(false)
+    expect(model.actionError()).toBeNull()
+
+    // Before this fix nothing anywhere read `confirmClean.error()` — the
+    // widget just fired the action floating and moved on. The failure is
+    // expected here; only the surfaced state matters.
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+
+    expect(model.actionPending()).toBe(false)
+    expect(model.actionError()?.message).toContain('offline')
+  })
+
+  it('clears the surfaced error once a later action succeeds', async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce(new WidgetApiError({ reason: 'offline', code: 'network' }))
+      .mockResolvedValueOnce({ ok: true })
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+    expect(model.actionError()).not.toBeNull()
+
+    await wrap(() => model.confirmClean(D('2026-06-17')))()
+    expect(model.actionError()).toBeNull()
+  })
+
+  // MEDIUM: the old `confirmClean.error() ?? goIntoDebt.error() ?? …` chain
+  // pinned to whichever of the four failed FIRST, regardless of what
+  // succeeded afterward — this is the case the previous test's "retry the
+  // SAME action" shape could not catch. A different action succeeding must
+  // clear the stale error too.
+  it('clears a failed action error when a DIFFERENT action later succeeds', async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce(new WidgetApiError({ reason: 'offline', code: 'network' }))
+      .mockResolvedValueOnce({ ok: true })
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+    expect(model.actionError()).not.toBeNull()
+
+    await wrap(() => model.goIntoDebt(D('2026-06-17')))()
+    expect(model.actionError()).toBeNull()
+  })
+
+  it('maps a real WidgetApiError to a Russian, user-facing message', async () => {
+    const invoke = vi.fn(async () => new WidgetApiError({ reason: 'offline', code: 'network' }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    expect(model.actionErrorMessage()).toBeNull()
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+
+    // Never the internal `WidgetApiError.message` ("Widget API request
+    // failed: offline") — that string must never reach a household user.
+    expect(model.actionErrorMessage()).toBe('Нет соединения с сервером')
+  })
+
+  it('falls back to the generic Russian message for an unrecognised error code', async () => {
+    const invoke = vi.fn(
+      async () => new WidgetApiError({ reason: 'boom', code: 'something_unexpected' }),
+    )
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+
+    expect(model.actionErrorMessage()).toBe('Не удалось выполнить действие')
+  })
+})
+
+describe('ofeliaDutyModel.retryLedger (F2c)', () => {
+  it('re-fetches the ledger through the same public API and clears a previous failure', async () => {
+    // `Mock<F>` can't preserve a generic call signature (Parameters/ReturnType
+    // erase `T` to `unknown`), so a vi.fn() can never satisfy StorageApi['get']
+    // structurally. Assert the concrete instantiation this test actually drives
+    // (get('ledger', LedgerEntriesSchema) -> LedgerEntry[]) instead of `any`.
+    const get = vi.fn(async () => [] as LedgerEntry[]) as unknown as StorageApi['get']
+    const model = ofeliaDutyModel({
+      storage: createStorage({ get }),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+    model.ledgerError.set(new StorageError({ reason: 'boom' }))
+
+    await wrap(() => model.retryLedger())()
+
+    expect(get).toHaveBeenCalledWith('ledger', expect.anything())
+    expect(model.ledgerError()).toBeNull()
+    expect(model.ledgerLoading()).toBe(false)
+  })
+
+  it('records a failed retry rather than silently leaving the widget stuck', async () => {
+    const failure = new StorageError({ reason: 'still down' })
+    const get = vi.fn(async () => failure)
+    const model = ofeliaDutyModel({
+      storage: createStorage({ get }),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(() => model.retryLedger())()
+
+    expect(model.ledgerError()).toBe(failure)
+    expect(model.ledgerLoading()).toBe(false)
   })
 })

@@ -31,6 +31,11 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
 
   const view = checkModel.viewState()
   const sshTarget = view.kind === 'sessionRequired' ? view.sshTarget : null
+  // Only read when sshTarget is non-null (i.e. view.kind is actually
+  // 'sessionRequired' — the check-model already defaults this field), so the
+  // fallback below never actually surfaces; it just satisfies the type when
+  // view is some other kind.
+  const novncPort = view.kind === 'sessionRequired' ? view.novncPort : 6080
   const remaining = recoveryModel.remainingMs()
 
   return createPortal(
@@ -67,7 +72,7 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
         </header>
         <div className={styles.body}>
           <NoVncCanvas />
-          <SshFallback sshTarget={sshTarget} />
+          <SshFallback sshTarget={sshTarget} novncPort={novncPort} />
         </div>
         <footer className={styles.footer}>
           <button type="button" className={styles.secondaryButton} onClick={close}>

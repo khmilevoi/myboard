@@ -209,6 +209,51 @@ describe('makeRecoveryModel', () => {
     })
   })
 
+  it('teardown during issuing invalidates the in-flight attempt: no RFB is built, no interval survives', async () => {
+    vi.useFakeTimers()
+    // transport.issue resolves only after teardown() runs — reproduces the
+    // modal-closed-mid-request race: the POST is still in flight when the
+    // component unmounts.
+    let resolveIssue: (value: RecoveryIssue) => void = () => {}
+    const issueCalls: string[] = []
+    const transport: RecoveryTransport = {
+      issue: async (widgetId) => {
+        issueCalls.push(widgetId)
+        return new Promise<RecoveryIssue>((resolve) => {
+          resolveIssue = resolve
+        })
+      },
+    }
+    const rfbs: FakeRfb[] = []
+    const makeRfb = (_target: HTMLElement, url: string) => {
+      const rfb = new FakeRfb(url)
+      rfbs.push(rfb)
+      return rfb
+    }
+
+    await context.start(async () => {
+      const model = makeRecoveryModel({
+        widgetId: 'passport-checker',
+        transport,
+        makeRfb,
+        location: LOCATION,
+      })
+      const start = wrap((el: HTMLElement) => model.start(el))
+      const teardown = wrap(() => model.teardown())
+
+      const pending = start(document.createElement('div'))
+      teardown()
+      resolveIssue({ expiresInMs: 60_000 })
+      await pending
+
+      expect(issueCalls).toEqual(['passport-checker'])
+      // No RFB was constructed against the now-detached container, and no
+      // 500ms countdown interval was left running with no owner to dispose it.
+      expect(rfbs).toHaveLength(0)
+      expect(vi.getTimerCount()).toBe(0)
+    })
+  })
+
   it('tears down exactly once', async () => {
     const fakes = makeFakes([{ expiresInMs: 60_000 }])
 

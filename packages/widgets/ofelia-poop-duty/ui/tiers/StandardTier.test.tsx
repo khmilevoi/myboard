@@ -85,6 +85,20 @@ describe('StandardTier', () => {
     expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
   })
 
+  // F6a: a failed day action (confirm/debt/forgive/undo) used to fail
+  // floating — nothing disabled the buttons and nothing showed the error.
+  it('disables the day buttons while an action is pending and shows the last error', () => {
+    const view = makeOfeliaView({
+      actionPending: true,
+      actionErrorMessage: 'Нет соединения с сервером',
+    })
+    withOfelia(makeOfeliaValue({ view }), <StandardTier />)
+
+    expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Нет соединения с сервером')
+  })
+
   it('draws its expand/delete controls when wired', () => {
     const onExpand = vi.fn()
     const onDelete = vi.fn()

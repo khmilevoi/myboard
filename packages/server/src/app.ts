@@ -25,6 +25,7 @@ import { recoveryCookieName } from './recovery/cookie'
 import { handleRecoveryIssue } from './recovery/handlers'
 import { makeRecoveryRevokingClient } from './recovery/revoking-client'
 import { makeRecoveryTunnel } from './recovery/tunnel'
+import { isAllowedStorageKey, isAllowedStoragePrefix } from './storage/access'
 import {
   handleGet,
   handlePut,
@@ -148,7 +149,19 @@ export function createApp(deps: AppDeps): App {
   }
 
   function sendWidgetError(res: ServerResponse, error: PublicWidgetDispatchError): void {
-    if (error.status === 500) console.error(error)
+    // 5xx is always an operator-facing failure; log it with its cause chain
+    // so `rpi logs` shows what actually broke (browser automation timeouts,
+    // protocol errors, etc). A PublicWidgetError that still carries a cause
+    // at 4xx is worth a warning too — it's the same upstream failure, just
+    // one a handler chose to present as a client error (e.g. passport-checker
+    // mapping a rejected browser task to 409/502/503/504). Routine 4xx
+    // rejections that aren't PublicWidgetError (unknown route, payload
+    // validation) stay unlogged — every malformed client request would
+    // otherwise spam the operator log.
+    if (error.status >= 500) console.error(error, error.cause)
+    else if (error instanceof PublicWidgetError && error.cause !== undefined) {
+      console.warn(error, error.cause)
+    }
     res.writeHead(error.status, { 'content-type': 'application/json' })
     const meta = error instanceof PublicWidgetError ? error.meta : undefined
     res.end(
@@ -157,6 +170,15 @@ export function createApp(deps: AppDeps): App {
           meta === undefined
             ? { code: error.code, message: error.publicMessage }
             : { code: error.code, message: error.publicMessage, meta },
+      }),
+    )
+  }
+
+  function sendStorageForbidden(res: ServerResponse): void {
+    res.writeHead(403, { 'content-type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error: { code: 'storage_forbidden', message: 'This key is not reachable here' },
       }),
     )
   }
@@ -246,14 +268,29 @@ export function createApp(deps: AppDeps): App {
       res.end(JSON.stringify(formatZodError(parsed.error)))
       return
     }
-    send(res, await handleKeys(ops, parsed.data.prefix ?? ''))
+    const prefix = parsed.data.prefix ?? ''
+    if (!isAllowedStoragePrefix(prefix)) {
+      sendStorageForbidden(res)
+      return
+    }
+    send(res, await handleKeys(ops, prefix))
   })
 
   router.on('GET', '/api/storage/:key', async (_req, res, params) => {
-    send(res, await handleGet(ops, decodeURIComponent(params.key as string)))
+    const key = decodeURIComponent(params.key as string)
+    if (!isAllowedStorageKey(key)) {
+      sendStorageForbidden(res)
+      return
+    }
+    send(res, await handleGet(ops, key))
   })
 
   router.on('PUT', '/api/storage/:key', async (req, res, params) => {
+    const key = decodeURIComponent(params.key as string)
+    if (!isAllowedStorageKey(key)) {
+      sendStorageForbidden(res)
+      return
+    }
     let raw: unknown
     try {
       raw = await readJsonBody(req)
@@ -269,12 +306,18 @@ export function createApp(deps: AppDeps): App {
       res.end(JSON.stringify(formatZodError(parsed.error)))
       return
     }
-    const key = decodeURIComponent(params.key as string)
     send(res, await handlePut(ops, key, parsed.data))
     await publishChange(ops, key, parsed.data.value)
   })
 
   router.on('POST', '/api/storage/:key/append', async (req, res, params) => {
+    const key = decodeURIComponent(params.key as string)
+    // Same allowlist as PUT/DELETE: append still writes the given key
+    // verbatim, so it is just as capable of corrupting auth/cron records.
+    if (!isAllowedStorageKey(key)) {
+      sendStorageForbidden(res)
+      return
+    }
     let raw: unknown
     try {
       raw = await readJsonBody(req)
@@ -292,7 +335,6 @@ export function createApp(deps: AppDeps): App {
       return
     }
 
-    const key = decodeURIComponent(params.key as string)
     const status = await runExclusive(key, async () => {
       const result = await handleAppend(ops, key, parsed.data)
       await publishChange(ops, key, result.value)
@@ -305,6 +347,10 @@ export function createApp(deps: AppDeps): App {
 
   router.on('DELETE', '/api/storage/:key', async (_req, res, params) => {
     const key = decodeURIComponent(params.key as string)
+    if (!isAllowedStorageKey(key)) {
+      sendStorageForbidden(res)
+      return
+    }
     send(res, await handleDelete(ops, key))
     await publishChange(ops, key, null)
   })

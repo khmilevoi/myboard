@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import type { EntryAuthor } from '@/domain/author'
+import { ofeliaEventSchemas } from '@/domain/events'
 import { DUTY_TIME_ZONE, plainDateIn } from '@/domain/roster'
 import type { CommentView } from '@/model/ofelia-comments'
 
@@ -10,6 +11,10 @@ import { formatDayMonth, formatTimeOfDay } from '../history-format'
 import { MemberAvatar } from './MemberAvatar'
 
 import styles from './CommentThread.module.css'
+
+// Sourced from the same event payload schema the server validates against —
+// never hardcode a second copy of the limit that could drift from it (F6b).
+const COMMENT_MAX_LENGTH = ofeliaEventSchemas.comment.payload.shape.text.maxLength ?? undefined
 
 function authorName(author: EntryAuthor): string {
   if (author.kind === 'account') return author.name
@@ -52,6 +57,14 @@ const Row = reatomMemo<{ comment: CommentView; today: string | null }>(
 
 export type CommentThreadProps = {
   comments: CommentView[]
+  /** True only when `comments` has never resolved for the viewed week — it
+   *  would otherwise show a DIFFERENT week's rows, so the failure state takes
+   *  priority over rendering them (F14). */
+  failed?: boolean
+  /** True when the viewed week's read has failed but `comments` already holds
+   *  that week's own rows (a transient hiccup) — show a banner without
+   *  hiding them. Ignored when `failed` is also true. */
+  warning?: boolean
   /** The signed-in account, or null while the members directory is still loading. */
   viewer: EntryAuthor | null
   today: string | null
@@ -59,8 +72,9 @@ export type CommentThreadProps = {
 }
 
 export const CommentThread = reatomMemo<CommentThreadProps>(
-  ({ comments, viewer, today, onSend }) => {
+  ({ comments, failed = false, warning = false, viewer, today, onSend }) => {
     const [text, setText] = useState('')
+    const [sendError, setSendError] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement>(null)
     const listRef = useRef<HTMLUListElement>(null)
 
@@ -68,15 +82,36 @@ export const CommentThread = reatomMemo<CommentThreadProps>(
       const trimmed = text.trim()
       if (trimmed.length === 0) return
 
-      onSend(trimmed).then(() => {
-        listRef.current?.scrollTo(0, 0)
-      })
-      setText('')
+      setSendError(null)
+      onSend(trimmed)
+        .then(() => {
+          // Clearing only on success is the whole fix: `text` is otherwise
+          // left exactly as the reader typed it, so a failure never
+          // destroys a draft — there is nothing to "restore".
+          setText('')
+          listRef.current?.scrollTo(0, 0)
+        })
+        .catch(() => {
+          setSendError('Не удалось отправить комментарий')
+        })
     }
 
     return (
       <div className={styles.root}>
-        {comments.length === 0 ? (
+        {/* A transient failure on an already-loaded week keeps the rows on
+            screen — only a banner marks it, never a wholesale swap for the
+            "failed" box below (that box is reserved for `failed`, where
+            `comments` may be a different week's rows entirely). */}
+        {warning && !failed ? (
+          <div className={styles.loadWarning} role="alert">
+            Не удалось обновить комментарии
+          </div>
+        ) : null}
+        {failed ? (
+          <div className={styles.empty} role="alert">
+            Не удалось загрузить комментарии
+          </div>
+        ) : comments.length === 0 ? (
           <div className={styles.empty}>Пока нет комментариев</div>
         ) : (
           <ul ref={listRef} className={styles.list}>
@@ -85,6 +120,12 @@ export const CommentThread = reatomMemo<CommentThreadProps>(
             ))}
           </ul>
         )}
+
+        {sendError ? (
+          <div className={styles.sendError} role="alert">
+            {sendError}
+          </div>
+        ) : null}
 
         <form
           className={styles.form}
@@ -114,6 +155,7 @@ export const CommentThread = reatomMemo<CommentThreadProps>(
             ref={inputRef}
             className={styles.input}
             value={text}
+            maxLength={COMMENT_MAX_LENGTH}
             onChange={(event) => setText(event.target.value)}
             placeholder="Написать комментарий…"
             aria-label="Комментарий"

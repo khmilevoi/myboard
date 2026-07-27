@@ -63,7 +63,10 @@ test.describe('gate: seeded session', () => {
     expect(shell.status()).toBe(200)
     expect(await shell.text()).toContain('<div id="root">')
 
-    expect((await request.get('/api/storage?prefix=')).status()).toBe(200)
+    // '?prefix=root:' (rather than the empty prefix) stays inside the
+    // storage allowlist (packages/server/src/storage/access.ts) so this
+    // still exercises the auth gate, not the allowlist's own 403.
+    expect((await request.get('/api/storage?prefix=root:')).status()).toBe(200)
     expect((await request.get('/api/time')).status()).toBe(200)
   })
 
@@ -81,11 +84,18 @@ test.describe('gate: seeded session', () => {
     request,
   }) => {
     await seedSession(request)
-    const noHeader = await request.put('/api/storage/e2e%3Acsrf', { data: { value: 1 } })
+    // 'w:t:e2e:csrf' (URL-encoded) rather than the bare 'e2e:csrf' key: it
+    // sits inside the storage allowlist (packages/server/src/storage/access.ts),
+    // so both probes below still isolate the CSRF gate -- a 403 from the
+    // allowlist instead would make the with-header "positive control"
+    // indistinguishable from the without-header case this test exists to
+    // prove apart.
+    const key = 'w%3At%3Ae2e%3Acsrf'
+    const noHeader = await request.put(`/api/storage/${key}`, { data: { value: 1 } })
     expect(noHeader.status()).toBe(403)
     expect(await noHeader.json()).toEqual({ code: 'csrf_required' })
 
-    const withHeader = await request.put('/api/storage/e2e%3Acsrf', {
+    const withHeader = await request.put(`/api/storage/${key}`, {
       headers: { 'X-Requested-With': 'MyBoard' },
       data: { value: 1 },
     })

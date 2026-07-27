@@ -89,6 +89,19 @@
   height: 100%;
 }
 
+.sendError {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--destructive);
+}
+
+.loadWarning {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--destructive);
+  padding-block-end: 0.25rem;
+}
+
 .form {
   display: flex;
   gap: 0.375rem;

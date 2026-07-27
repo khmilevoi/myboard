@@ -80,4 +80,17 @@ describe('CompactTier', () => {
     expect(screen.queryByRole('button', { name: 'Отложить' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Простить' })).not.toBeInTheDocument()
   })
+
+  // F6a: a failed day action used to fail floating, with nothing disabling
+  // the buttons and nothing showing the error.
+  it('disables the actions while pending and shows the last action error', () => {
+    const view = makeOfeliaView({
+      actionPending: true,
+      actionErrorMessage: 'Нет соединения с сервером',
+    })
+    withOfelia(makeOfeliaValue({ view }), <CompactTier />)
+
+    expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Нет соединения с сервером')
+  })
 })

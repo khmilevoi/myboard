@@ -2,6 +2,7 @@ import { atom, context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
+  StorageError,
   type StorageApi,
   type StorageListener,
   type WidgetStorage,
@@ -240,6 +241,180 @@ describe('ofeliaCommentsModel.commentThread', () => {
         author: { kind: 'account', name: 'Карина' },
         isViewerComment: true,
       })
+      off()
+    })
+  })
+
+  // F14: the connect hook only ever writes `comments` on a SUCCESSFUL event;
+  // on a failed read it just records `error` and returns, so `comments` (and
+  // hence, before this fix, `commentThread`) kept whatever the PREVIOUS
+  // week's read last resolved to — a different week's rows rendering
+  // indistinguishably from the current week's thread.
+  it('does not keep the previous week thread when the new week read fails', async () => {
+    const { storage, subscribe, calls, emit } = createCommentsStorage()
+    const deps = makeDeps(D('2026-06-15'))
+    const model = ofeliaCommentsModel({ storage, ...deps })
+
+    await context.start(async () => {
+      const off = model.commentThread.subscribe(() => {})
+      const readThread = wrap(() => model.commentThread())
+      const readError = wrap(() => model.commentsError())
+      const setWeek = wrap((week: Temporal.PlainDate) => deps.viewWeekStart.set(week))
+
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith(
+          'comments:2026-06-15',
+          expect.any(Function),
+          expect.anything(),
+        ),
+      )
+      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      await vi.waitFor(() => expect(readThread()).toHaveLength(1))
+
+      setWeek(D('2026-06-22'))
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith(
+          'comments:2026-06-22',
+          expect.any(Function),
+          expect.anything(),
+        ),
+      )
+      // The new week's read fails — before the fix `commentThread` would
+      // still show week one's row here.
+      const latestCall = calls.at(-1)
+      latestCall?.listener(new StorageError({ reason: 'boom' }))
+
+      await vi.waitFor(() => expect(readError()).not.toBeNull())
+      expect(readThread()).toEqual([])
+
+      off()
+    })
+  })
+
+  // MEDIUM (F14 follow-up): a failure on the key ALREADY being viewed — a
+  // flaky re-poll, an unparsable push — must not blank rows that genuinely
+  // belong to the currently selected week. The narrow hazard F14 fixed was a
+  // DIFFERENT week's rows rendering under the new selection; a same-week
+  // hiccup should keep them and let the error surface as a banner instead.
+  it('keeps the current week thread when a later read on the same key fails', async () => {
+    const { storage, subscribe, calls, emit } = createCommentsStorage()
+    const deps = makeDeps(D('2026-06-15'))
+    const model = ofeliaCommentsModel({ storage, ...deps })
+
+    await context.start(async () => {
+      const off = model.commentThread.subscribe(() => {})
+      const readThread = wrap(() => model.commentThread())
+      const readError = wrap(() => model.commentsError())
+      const readBlocked = wrap(() => model.commentsBlocked())
+
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith(
+          'comments:2026-06-15',
+          expect.any(Function),
+          expect.anything(),
+        ),
+      )
+      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      await vi.waitFor(() => expect(readThread()).toHaveLength(1))
+
+      // A later event on the SAME subscription fails (no week switch).
+      const latestCall = calls.at(-1)
+      latestCall?.listener(new StorageError({ reason: 'flaky' }))
+
+      await vi.waitFor(() => expect(readError()).not.toBeNull())
+      expect(readBlocked()).toBe(false)
+      expect(readThread()).toHaveLength(1)
+      expect(readThread()[0]?.text).toBe('still here')
+
+      off()
+    })
+  })
+
+  // LOW finding: `commentsWarning` used to be built in the UI component
+  // instead of living next to `commentsBlocked` in the model, so the
+  // invariant "exactly one of the two is true whenever `commentsError` is
+  // set" was unpinned. Pin the same-week-failure edge here (mirrors "keeps
+  // the current week thread…" above): a non-destructive warning, never
+  // `commentsBlocked` at the same time.
+  it('sets commentsWarning, never commentsBlocked, for a same-key failure', async () => {
+    const { storage, subscribe, calls, emit } = createCommentsStorage()
+    const deps = makeDeps(D('2026-06-15'))
+    const model = ofeliaCommentsModel({ storage, ...deps })
+
+    await context.start(async () => {
+      const off = model.commentThread.subscribe(() => {})
+      const readThread = wrap(() => model.commentThread())
+      const readError = wrap(() => model.commentsError())
+      const readBlocked = wrap(() => model.commentsBlocked())
+      const readWarning = wrap(() => model.commentsWarning())
+
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith(
+          'comments:2026-06-15',
+          expect.any(Function),
+          expect.anything(),
+        ),
+      )
+      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      await vi.waitFor(() => expect(readThread()).toHaveLength(1))
+
+      expect(readBlocked()).toBe(false)
+      expect(readWarning()).toBe(false)
+
+      const latestCall = calls.at(-1)
+      latestCall?.listener(new StorageError({ reason: 'flaky' }))
+
+      await vi.waitFor(() => expect(readError()).not.toBeNull())
+      expect(readBlocked()).toBe(false)
+      expect(readWarning()).toBe(true)
+      expect(readBlocked() && readWarning()).toBe(false)
+
+      off()
+    })
+  })
+
+  // The mirror edge (mirrors "does not keep the previous week thread…"
+  // above): a different-week failure sets `commentsBlocked`, never
+  // `commentsWarning` at the same time.
+  it('sets commentsBlocked, never commentsWarning, for a different-week failure', async () => {
+    const { storage, subscribe, calls, emit } = createCommentsStorage()
+    const deps = makeDeps(D('2026-06-15'))
+    const model = ofeliaCommentsModel({ storage, ...deps })
+
+    await context.start(async () => {
+      const off = model.commentThread.subscribe(() => {})
+      const readThread = wrap(() => model.commentThread())
+      const readError = wrap(() => model.commentsError())
+      const readBlocked = wrap(() => model.commentsBlocked())
+      const readWarning = wrap(() => model.commentsWarning())
+      const setWeek = wrap((week: Temporal.PlainDate) => deps.viewWeekStart.set(week))
+
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith(
+          'comments:2026-06-15',
+          expect.any(Function),
+          expect.anything(),
+        ),
+      )
+      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      await vi.waitFor(() => expect(readThread()).toHaveLength(1))
+
+      setWeek(D('2026-06-22'))
+      await vi.waitFor(() =>
+        expect(subscribe).toHaveBeenCalledWith(
+          'comments:2026-06-22',
+          expect.any(Function),
+          expect.anything(),
+        ),
+      )
+      const latestCall = calls.at(-1)
+      latestCall?.listener(new StorageError({ reason: 'boom' }))
+
+      await vi.waitFor(() => expect(readError()).not.toBeNull())
+      expect(readBlocked()).toBe(true)
+      expect(readWarning()).toBe(false)
+      expect(readBlocked() && readWarning()).toBe(false)
+
       off()
     })
   })

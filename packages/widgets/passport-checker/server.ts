@@ -9,14 +9,34 @@ import { PublicWidgetError } from '@shared/widgets/public-error'
 
 import { passportCheckerBrowserSchemas, passportCheckerBrowserTasks } from './types'
 
+// docker-compose.yml maps the noVNC container port to a per-stack host port
+// via NOVNC_HOST_PORT (default 6080). The recovery error meta carries the
+// real value so the client's SSH-tunnel hint never hardcodes 6080 — a
+// hardcoded value would tunnel an operator on dev/branch straight into
+// production's browser session whenever the stacks disagree. 6080 here is
+// only a fallback for a browser-automation build that hasn't started
+// sending `novncPort` yet, matching NOVNC_HOST_PORT's own default.
+const DEFAULT_NOVNC_PORT = 6080
+
 export function mapRejectedTask(error: BrowserTaskRejectedError): PublicWidgetError {
   if (error.code === 'browser_session_required') {
     const sshTarget = error.meta?.sshTarget
+    const novncPort = error.meta?.novncPort
     return new PublicWidgetError({
       status: 409,
       code: 'browser_session_required',
       publicMessage: error.publicMessage,
-      meta: typeof sshTarget === 'string' ? { sshTarget } : undefined,
+      // sshTarget mirrors the upstream meta exactly (present only when it's a
+      // string); novncPort always travels, falling back to the stack default
+      // so the client can build the SSH tunnel hint even when the upstream
+      // meta is missing or malformed.
+      meta: {
+        ...(typeof sshTarget === 'string' ? { sshTarget } : {}),
+        novncPort:
+          typeof novncPort === 'number' && Number.isInteger(novncPort) && novncPort > 0
+            ? novncPort
+            : DEFAULT_NOVNC_PORT,
+      },
       cause: error,
     })
   }

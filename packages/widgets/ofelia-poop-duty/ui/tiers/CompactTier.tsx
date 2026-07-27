@@ -3,6 +3,7 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
 import { ActionButtons } from '../parts/ActionButtons'
+import { ActionErrorNote } from '../parts/ActionErrorNote'
 import { Avatar } from '../parts/Avatar'
 import { OfeliaMiniHeader } from '../parts/OfeliaMiniHeader'
 
@@ -21,6 +22,8 @@ export const CompactTier = reatomMemo<CompactTierProps>(({ onExpand, onDelete })
   const balance = view.balance()
   const canForgive = view.canForgive()
   const subtitle = selectedDaySubtitle(selected, balance)
+  const actionPending = view.actionPending()
+  const actionErrorMessage = view.actionErrorMessage()
 
   return (
     <div className={styles.root}>
@@ -34,18 +37,22 @@ export const CompactTier = reatomMemo<CompactTierProps>(({ onExpand, onDelete })
       </div>
 
       {selected.isFuture ? null : (
-        <ActionButtons
-          className={styles.actions}
-          status={selected.status}
-          canUndo={selected.canUndo}
-          canForgive={canForgive}
-          debtLabel="Отложить"
-          forgiveLabel="Простить"
-          onConfirm={actions.onConfirm}
-          onUndo={actions.onUndo}
-          onDebt={actions.onDebt}
-          onForgive={actions.onForgive}
-        />
+        <>
+          <ActionButtons
+            className={styles.actions}
+            status={selected.status}
+            canUndo={selected.canUndo}
+            canForgive={canForgive}
+            inactive={actionPending}
+            debtLabel="Отложить"
+            forgiveLabel="Простить"
+            onConfirm={actions.onConfirm}
+            onUndo={actions.onUndo}
+            onDebt={actions.onDebt}
+            onForgive={actions.onForgive}
+          />
+          <ActionErrorNote message={actionErrorMessage} />
+        </>
       )}
     </div>
   )

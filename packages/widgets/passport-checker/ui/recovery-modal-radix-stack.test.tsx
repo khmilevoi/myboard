@@ -56,7 +56,7 @@ function makeValue(
     api: { invoke } as unknown as WidgetApi<PassportCheckerEvents, WidgetApiError>,
     storage: createFakeStorage(),
   })
-  checkModel.transient.set({ kind: 'sessionRequired', sshTarget: 'admin@pi' })
+  checkModel.transient.set({ kind: 'sessionRequired', sshTarget: 'admin@pi', novncPort: 6080 })
   checkModel.recoveryOpen.set(true)
 
   const results = [...issueResults]

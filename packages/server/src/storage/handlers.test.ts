@@ -92,7 +92,8 @@ describe('handleAppend', () => {
       type: 'cleaned',
       ts: Date.parse('2026-06-20T00:00:00.000Z'),
     })
-    expect(result.value[0]).not.toHaveProperty('ip')
+    // one-release compat shim: pre-release clients require `ip: z.string()`
+    expect(result.value[0]).toMatchObject({ ip: '' })
     expect(typeof (result.value[0] as { id: unknown }).id).toBe('string')
     expect(ops.set).toHaveBeenCalledWith('history:2026-06-15', JSON.stringify(result.value))
     vi.useRealTimers()

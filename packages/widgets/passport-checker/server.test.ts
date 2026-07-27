@@ -59,9 +59,9 @@ describe('passport checker server', () => {
       rejected('browser_session_required', { sshTarget: 'admin@pi' }),
       409,
       'browser_session_required',
-      { sshTarget: 'admin@pi' },
+      { sshTarget: 'admin@pi', novncPort: 6080 },
     ],
-    [rejected('browser_session_required'), 409, 'browser_session_required', undefined],
+    [rejected('browser_session_required'), 409, 'browser_session_required', { novncPort: 6080 }],
     [rejected('browser_configuration'), 500, 'browser_configuration', undefined],
     [
       rejected('upstream_response', { phase: 'submission', status: 502 }),
@@ -98,19 +98,38 @@ describe('passport checker server', () => {
     expect(result.meta).toEqual(meta)
   })
 
-  it('filters meta down to sshTarget only', () => {
+  it('filters meta down to sshTarget and novncPort only', () => {
     const mapped = mapRejectedTask(
       rejected('browser_session_required', { sshTarget: 'admin@pi', secret: 'never' }),
     )
 
-    expect(mapped.meta).toEqual({ sshTarget: 'admin@pi' })
+    expect(mapped.meta).toEqual({ sshTarget: 'admin@pi', novncPort: 6080 })
   })
 
   it('drops a non-string sshTarget', () => {
     const mapped = mapRejectedTask(rejected('browser_session_required', { sshTarget: 42 }))
 
-    expect(mapped.meta).toBeUndefined()
+    expect(mapped.meta).toEqual({ novncPort: 6080 })
   })
+
+  it('passes through a valid novncPort from the upstream meta', () => {
+    const mapped = mapRejectedTask(
+      rejected('browser_session_required', { sshTarget: 'admin@pi', novncPort: 16080 }),
+    )
+
+    expect(mapped.meta).toEqual({ sshTarget: 'admin@pi', novncPort: 16080 })
+  })
+
+  it.each([0, -1, 1.5, '6080', null])(
+    'falls back to the default port for an invalid novncPort meta value %s',
+    (novncPort) => {
+      const mapped = mapRejectedTask(
+        rejected('browser_session_required', { sshTarget: 'admin@pi', novncPort }),
+      )
+
+      expect(mapped.meta).toEqual({ sshTarget: 'admin@pi', novncPort: 6080 })
+    },
+  )
 
   it('keeps the rejected error public message', () => {
     const mapped = mapRejectedTask(rejected('upstream_response'))

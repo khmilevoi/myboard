@@ -45,6 +45,7 @@ class FakeRfb implements RfbLike {
 function setup(
   issueResults: Array<RecoveryIssueError | RecoveryIssue>,
   sshTarget: string | null = 'admin@pi',
+  novncPort = 6080,
 ) {
   const invoke = vi.fn(
     async () => new WidgetApiError({ reason: 'x', code: 'browser_session_required' }),
@@ -53,7 +54,7 @@ function setup(
     api: { invoke } as unknown as WidgetApi<PassportCheckerEvents, WidgetApiError>,
     storage: createFakeStorage(),
   })
-  checkModel.transient.set({ kind: 'sessionRequired', sshTarget })
+  checkModel.transient.set({ kind: 'sessionRequired', sshTarget, novncPort })
   checkModel.recoveryOpen.set(true)
 
   const issueCalls: string[] = []
@@ -181,16 +182,31 @@ describe('RecoveryModal', () => {
     expect(screen.getByRole('button', { name: 'Переподключиться' })).toBeInTheDocument()
   })
 
-  it('shows the SSH fallback with the real command', async () => {
+  it('shows the SSH fallback with the real command, using the stack default noVNC port', async () => {
     setup([{ expiresInMs: 60_000 }])
     await screen.findByRole('dialog')
 
     fireEvent.click(screen.getByRole('button', { name: /Запасной вход по SSH/ }))
 
     expect(screen.getByText('ssh -L 6080:127.0.0.1:6080 admin@pi')).toBeInTheDocument()
+    expect(screen.getByText(/http:\/\/localhost:6080/)).toBeInTheDocument()
     expect(
       screen.getByText('ssh-цель из конфигурации виджета · тот же одноразовый срок доступа'),
     ).toBeInTheDocument()
+  })
+
+  // A dev or branch stack publishes noVNC on a different host port (see
+  // docker-compose.yml's NOVNC_HOST_PORT); the SSH tunnel and hint must
+  // follow that stack's actual port, not the production default, or an
+  // operator recovering one stack tunnels into a different one's Chromium.
+  it('shows the SSH fallback with a non-default noVNC port', async () => {
+    setup([{ expiresInMs: 60_000 }], 'admin@pi', 6180)
+    await screen.findByRole('dialog')
+
+    fireEvent.click(screen.getByRole('button', { name: /Запасной вход по SSH/ }))
+
+    expect(screen.getByText('ssh -L 6180:127.0.0.1:6180 admin@pi')).toBeInTheDocument()
+    expect(screen.getByText(/http:\/\/localhost:6180/)).toBeInTheDocument()
   })
 
   it('hides the SSH section when sshTarget is null', async () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { HistoryDayGroup, HistoryEntryView } from '@/model/history-view'
 
@@ -174,6 +174,142 @@ describe('HistoryList', () => {
       const text = announced(container)
       expect(text).toContain('день переоткрыт')
       expect(text).not.toContain('Леша')
+    })
+
+    // F17: the signature row's MemberAvatar (account kind) used to carry its
+    // initial to assistive tech, so this read "Котметил(а) Карина…" — the
+    // name announced once for the avatar and again for the written text.
+    // `toContain('отметил(а) Карина')` would not catch that (the substring
+    // is still present); assert the accessible text STARTS with the written
+    // signature instead, with nothing announced ahead of it.
+    it('does not repeat the account initial before its written name in the signature (F17)', () => {
+      render(<HistoryList groups={[group()]} today="2026-06-16" />)
+
+      const signature = screen.getByText('отметил(а) Карина').parentElement as HTMLElement
+      expect(announced(signature).startsWith('отметил(а) Карина')).toBe(true)
+    })
+  })
+
+  describe('scroll-to-day (F13)', () => {
+    // jsdom never actually lays anything out, so every layout metric below
+    // is 0 by default — each scenario mocks exactly the box(es) it needs.
+    const stubOverflow = (
+      el: HTMLElement,
+      { scrollHeight, clientHeight }: { scrollHeight: number; clientHeight: number },
+    ) => {
+      el.style.overflowY = 'auto'
+      Object.defineProperty(el, 'scrollHeight', { value: scrollHeight, configurable: true })
+      Object.defineProperty(el, 'clientHeight', { value: clientHeight, configurable: true })
+      el.scrollTo = vi.fn()
+    }
+
+    const stubRectTop = (el: HTMLElement, top: number) => {
+      vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({ top } as DOMRect)
+    }
+
+    // A day rendered before its group exists in the DOM has no layout box,
+    // so mount it selected on day one and move to day two once mounted —
+    // the effect's own first-run guard only records the mounted selection.
+    const twoGroups = [
+      group({ dutyDate: '2026-06-15', current: view({ dutyDate: '2026-06-15' }) }),
+      group({ dutyDate: '2026-06-16' }),
+    ]
+
+    it('does not escape to an outer overflowing box when the nearest scrollable ancestor has nothing to scroll yet', () => {
+      const { container, rerender } = render(
+        <div data-testid="body">
+          <div data-testid="historyCol">
+            <HistoryList groups={twoGroups} today="2026-06-16" selectedDate="2026-06-15" />
+          </div>
+        </div>,
+      )
+      const body = screen.getByTestId('body')
+      const historyCol = screen.getByTestId('historyCol')
+      // `.body` overflows; `.historyCol` (the intended target, nearer to the
+      // group) does not — before the fix the walk escaped past it to `.body`.
+      stubOverflow(body, { scrollHeight: 800, clientHeight: 400 })
+      stubOverflow(historyCol, { scrollHeight: 200, clientHeight: 400 })
+      Object.defineProperty(
+        container.querySelector('[data-duty-date="2026-06-16"]') as HTMLElement,
+        'offsetParent',
+        { value: document.body, configurable: true },
+      )
+
+      rerender(
+        <div data-testid="body">
+          <div data-testid="historyCol">
+            <HistoryList groups={twoGroups} today="2026-06-16" selectedDate="2026-06-16" />
+          </div>
+        </div>,
+      )
+
+      expect(historyCol.scrollTo).not.toHaveBeenCalled()
+      expect(body.scrollTo).not.toHaveBeenCalled()
+    })
+
+    it('scrolls the nearest scrollable ancestor, not an outer one, when it actually overflows', () => {
+      const { container, rerender } = render(
+        <div data-testid="body">
+          <div data-testid="historyCol">
+            <HistoryList groups={twoGroups} today="2026-06-16" selectedDate="2026-06-15" />
+          </div>
+        </div>,
+      )
+      const body = screen.getByTestId('body')
+      const historyCol = screen.getByTestId('historyCol')
+      stubOverflow(body, { scrollHeight: 800, clientHeight: 400 })
+      stubOverflow(historyCol, { scrollHeight: 800, clientHeight: 400 })
+      stubRectTop(historyCol, 100)
+      const targetGroup = container.querySelector('[data-duty-date="2026-06-16"]') as HTMLElement
+      Object.defineProperty(targetGroup, 'offsetParent', {
+        value: document.body,
+        configurable: true,
+      })
+      stubRectTop(targetGroup, 500)
+
+      rerender(
+        <div data-testid="body">
+          <div data-testid="historyCol">
+            <HistoryList groups={twoGroups} today="2026-06-16" selectedDate="2026-06-16" />
+          </div>
+        </div>,
+      )
+
+      expect(historyCol.scrollTo).toHaveBeenCalledWith({
+        top: 400,
+        behavior: 'smooth',
+      })
+      expect(body.scrollTo).not.toHaveBeenCalled()
+    })
+
+    it('does not scroll a day whose group has no layout box, e.g. a hidden mobile tab', () => {
+      const { container, rerender } = render(
+        <div data-testid="body">
+          <div data-testid="historyCol">
+            <HistoryList groups={twoGroups} today="2026-06-16" selectedDate="2026-06-15" />
+          </div>
+        </div>,
+      )
+      const body = screen.getByTestId('body')
+      const historyCol = screen.getByTestId('historyCol')
+      stubOverflow(body, { scrollHeight: 800, clientHeight: 400 })
+      stubOverflow(historyCol, { scrollHeight: 800, clientHeight: 400 })
+      stubRectTop(historyCol, 100)
+      const targetGroup = container.querySelector('[data-duty-date="2026-06-16"]') as HTMLElement
+      stubRectTop(targetGroup, 500)
+      // `offsetParent` is left at jsdom's default `null` — a hidden mobile
+      // tab (`display: none`) never has one either.
+
+      rerender(
+        <div data-testid="body">
+          <div data-testid="historyCol">
+            <HistoryList groups={twoGroups} today="2026-06-16" selectedDate="2026-06-16" />
+          </div>
+        </div>,
+      )
+
+      expect(historyCol.scrollTo).not.toHaveBeenCalled()
+      expect(body.scrollTo).not.toHaveBeenCalled()
     })
   })
 })

@@ -548,6 +548,31 @@ describe('makeChromiumExecutor', () => {
     await executor.release(context)
   })
 
+  // The noVNC host port must reach the recovery error unchanged: an operator
+  // on a stack whose NOVNC_HOST_PORT differs from the default must be told
+  // that port, not a hardcoded one that tunnels into a different stack.
+  it('threads the configured noVNC host port into the escalation error', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor({ ...makeDeps(created), novncPort: 6180 })
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    const escalation = await context.detectUserInput(async () => true)
+    expect((escalation as UserInputRequiredError).novncPort).toBe(6180)
+    await executor.release(context)
+  })
+
+  it('falls back to the default noVNC port when none is configured', async () => {
+    const created: FakeContext[] = []
+    const executor = makeChromiumExecutor(makeDeps(created))
+    const context = await executor.acquire(new AbortController().signal, 'passport-checker')
+    if (context instanceof Error) throw context
+
+    const escalation = await context.detectUserInput(async () => true)
+    expect((escalation as UserInputRequiredError).novncPort).toBe(6080)
+    await executor.release(context)
+  })
+
   it('hands the acquired page to the detector', async () => {
     const created: FakeContext[] = []
     const executor = makeChromiumExecutor(makeDeps(created))

@@ -6,6 +6,7 @@ import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
 import { personInitial } from '../person'
 import { ActionButtons } from './ActionButtons'
+import { ActionErrorNote } from './ActionErrorNote'
 import { Avatar } from './Avatar'
 import { AvatarWithBadge } from './AvatarWithBadge'
 import { CommentThread } from './CommentThread'
@@ -39,11 +40,13 @@ const HistoryColumn = reatomMemo(() => {
 }, 'HistoryColumn')
 
 const CommentsColumn = reatomMemo(() => {
-  const { comments, viewer, today, onSend } = useOfelia()
+  const { comments, commentsFailed, commentsWarning, viewer, today, onSend } = useOfelia()
   const current = viewer()
   return (
     <CommentThread
       comments={comments()}
+      failed={commentsFailed()}
+      warning={commentsWarning()}
       viewer={current ? { kind: 'account', ...current } : null}
       today={today()?.toString() ?? null}
       onSend={onSend}
@@ -62,6 +65,8 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
   const days = view.days()
   const range = formatWeekRange(days)
   const selectedDay = days.find((day) => day.iso === selected.iso)
+  const actionPending = view.actionPending()
+  const actionErrorMessage = view.actionErrorMessage()
 
   return (
     <div className={styles.root}>
@@ -109,12 +114,13 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
               canUndo={selected.canUndo}
               canForgive={canForgive}
               primaryLabel="Подтвердить уборку"
-              inactive={selected.isFuture}
+              inactive={selected.isFuture || actionPending}
               onConfirm={actions.onConfirm}
               onUndo={actions.onUndo}
               onDebt={actions.onDebt}
               onForgive={actions.onForgive}
             />
+            <ActionErrorNote message={actionErrorMessage} />
           </div>
 
           <div className={styles.balance}>

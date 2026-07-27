@@ -101,6 +101,81 @@ describe('CommentThread', () => {
     expect(screen.getByText('Пока нет комментариев')).toBeInTheDocument()
   })
 
+  // F14: `comments` may still hold a previous week's rows when the current
+  // week's read has failed — `failed` must win over rendering them.
+  it('shows a failure state instead of a possibly stale thread', () => {
+    renderThread({ comments: [comment()], failed: true })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить комментарии')
+    expect(screen.queryByText('привет')).not.toBeInTheDocument()
+  })
+
+  // MEDIUM (F14 follow-up): a transient failure on an already-loaded week
+  // must not blank rows that genuinely belong to it — only a banner marks
+  // the failure, the thread stays visible.
+  it('shows a warning banner without hiding an already-loaded thread', () => {
+    renderThread({ comments: [comment()], warning: true })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось обновить комментарии')
+    expect(screen.getByText('привет')).toBeInTheDocument()
+  })
+
+  it('prefers the failed state over the warning when both are set', () => {
+    renderThread({ comments: [comment()], failed: true, warning: true })
+
+    const alerts = screen.getAllByRole('alert')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]).toHaveTextContent('Не удалось загрузить комментарии')
+    expect(screen.queryByText('привет')).not.toBeInTheDocument()
+  })
+
+  describe('send failure (F6b)', () => {
+    it('keeps the draft and surfaces an error instead of discarding the text', async () => {
+      const onSend = vi.fn(async () => {
+        throw new Error('network down')
+      })
+      renderThread({ onSend })
+
+      const input = screen.getByLabelText('Комментарий')
+      fireEvent.change(input, { target: { value: '  черновик  ' } })
+      fireEvent.click(screen.getByLabelText('Отправить'))
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('Не удалось отправить комментарий')
+      })
+      // Before the fix `setText('')` ran unconditionally the moment the
+      // handler fired, regardless of the outcome — the draft was gone before
+      // `onSend` even settled.
+      expect(input).toHaveValue('  черновик  ')
+    })
+
+    it('clears a previous send error on the next successful send', async () => {
+      const onSend = vi
+        .fn<(text: string) => Promise<void>>()
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockResolvedValueOnce(undefined)
+      renderThread({ onSend })
+
+      const input = screen.getByLabelText('Комментарий')
+      fireEvent.change(input, { target: { value: 'раз' } })
+      fireEvent.click(screen.getByLabelText('Отправить'))
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+
+      fireEvent.click(screen.getByLabelText('Отправить'))
+      await waitFor(() => expect(input).toHaveValue(''))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+  })
+
+  // The server payload schema caps comment text at 2000 characters; a longer
+  // draft is a guaranteed 422 the reader would otherwise experience as the
+  // composer silently eating their message.
+  it('caps the input to the server-enforced comment length', () => {
+    renderThread()
+
+    expect(screen.getByLabelText('Комментарий')).toHaveAttribute('maxlength', '2000')
+  })
+
   // The composer circle is the one avatar in this widget with no adjacent name
   // in the text, so it carries its own accessible name instead of announcing a
   // bare initial. It stays invisible: the spec has no "signed in as" affordance.

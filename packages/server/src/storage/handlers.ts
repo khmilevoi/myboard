@@ -36,7 +36,11 @@ export async function handleAppend(
   const raw = await ops.get(key)
   const parsed = raw === null ? [] : safeParse(raw)
   const current: unknown[] = Array.isArray(parsed) ? parsed : []
-  const enriched = { ...payload.entry, id: randomUUID(), ts: Date.now() }
+  // `ip` is a one-release compat shim: pre-release client bundles still parse
+  // append entries with `ip: z.string()` and fail their whole z.array on a
+  // missing field. Ship an empty string (no IP is actually recorded) until
+  // no pre-release bundle can be live, then drop this field entirely.
+  const enriched = { ...payload.entry, id: randomUUID(), ts: Date.now(), ip: '' }
 
   current.push(enriched)
 

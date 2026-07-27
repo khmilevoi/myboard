@@ -1,4 +1,4 @@
-import { atom, computed, withConnectHook, wrap, type Computed } from '@reatom/core'
+import { atom, computed, sleep, withConnectHook, wrap, type Computed } from '@reatom/core'
 import type { HttpLike } from '@shared/http/client'
 import * as errore from 'errore'
 import { z } from 'zod'
@@ -63,33 +63,78 @@ async function fetchIdentity(http: HttpLike): Promise<BoardMembersError | Identi
 
 export type MakeWidgetIdentityOptions = { http: HttpLike }
 
+// Backoff between retries after a transient failure (transport error, a non-401
+// status, or a response shape AccountsResultSchema no longer matches). The
+// Pi's PWA shell is served from the service-worker cache while the server
+// container is still starting after a deploy or reboot, so the very first
+// fetch on a page load is exactly the one most likely to need this.
+const RETRY_DELAYS_MS = [1_000, 5_000, 15_000]
+
+// Once the roster has loaded, keep refreshing on this cadence so an account
+// created later still appears in an already-open board without a reload.
+// Also the fallback cadence once the bounded backoff above is exhausted, so a
+// boot-window failure that outlasts it keeps quietly retrying forever instead
+// of giving up or hammering the server.
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000
+
 /**
  * One directory per document. The fetch is deferred to the first subscriber via
  * withConnectHook, so a harness or a board with no identity-reading widget
- * never calls the endpoint. `wrap` is called fresh inside the hook on purpose —
- * a hoisted wrapped closure aborts after `context.reset()`.
+ * never calls the endpoint. The hook body loops via recursive `.then()` calls
+ * rather than an `async`/`await` loop on purpose: `withConnectHook` awaits a
+ * Promise-returning hook itself (`await wrap(result)`), and when the connect
+ * scope aborts mid-await that extra wrapping layer races its own abort against
+ * our loop settling and can leave a rejection with nothing attached to it yet
+ * — an internal `try`/`catch` around the loop body does not close that window,
+ * because `await wrap(...)` already installs its handler before the `catch`
+ * ever runs. A plain (non-async) hook never returns a Promise for
+ * `withConnectHook` to re-wrap, so every `wrap(...)` call here carries its own
+ * explicit `() => {}` rejection handler instead — the same shape as the
+ * original one-shot fetch, just re-entered on a delay.
  */
 export function makeWidgetIdentity({ http }: MakeWidgetIdentityOptions): WidgetIdentity {
   const state = atom<IdentityState | null>(null, 'identity.state').extend(
     withConnectHook(() => {
-      void wrap(fetchIdentity(http)).then(
-        (result) => {
-          if (result instanceof Error) {
-            // A 401 is expected on an unauthenticated host and stays silent;
-            // everything else (transport failure, non-401 status, or a
-            // response shape AccountsResultSchema no longer matches) is
-            // unexpected and worth surfacing.
-            if (result.status !== 401) console.warn('[widget-runtime]', result.message, result)
-            return
-          }
-          state.set(result)
-        },
-        // The connect scope aborts — and this promise rejects with an
-        // AbortError — whenever the last subscriber disconnects mid-fetch.
-        // That is expected control flow, not a failure: swallow it instead of
-        // leaving an unhandled rejection on the .then()-derived promise.
-        () => {},
-      )
+      let attempt = 0
+
+      // A rejection here only ever means the connect scope aborted (the last
+      // subscriber disconnected) — `wrap(sleep(...))`'s only other outcome is
+      // resolving after the delay. Swallow it and simply stop re-entering
+      // `step`; anything else would be a bug in `sleep` itself, not something
+      // to retry.
+      const scheduleNext = (delay: number) => {
+        wrap(sleep(delay)).then(step, () => {})
+      }
+
+      const step = () => {
+        wrap(fetchIdentity(http)).then(
+          (result) => {
+            if (result instanceof Error) {
+              // A 401 is expected on an unauthenticated host: retrying would just
+              // repeat the same 401 forever, so stay silent and stop for good.
+              if (result.status === 401) return
+
+              // Everything else is unexpected and worth surfacing, and worth
+              // retrying. Once the bounded backoff above is exhausted, fall back
+              // to the same slow cadence as the post-success refresh below,
+              // rather than hammering a server that has been down for a while.
+              console.warn('[widget-runtime]', result.message, result)
+              const delay =
+                attempt < RETRY_DELAYS_MS.length ? RETRY_DELAYS_MS[attempt] : REFRESH_INTERVAL_MS
+              attempt += 1
+              scheduleNext(delay)
+              return
+            }
+
+            state.set(result)
+            attempt = 0
+            scheduleNext(REFRESH_INTERVAL_MS)
+          },
+          () => {},
+        ) // connect scope aborted mid-fetch — expected, not a failure
+      }
+
+      step()
     }),
   )
 

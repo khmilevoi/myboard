@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { autoApproveDrafts } from './day-close'
+import { foldDebt } from './debt'
 import type { LedgerEntry } from './ledger'
 
 // 2026-06-19T00:05:00+02:00 — the cron moment that closes 2026-06-12…2026-06-18.
@@ -75,18 +76,34 @@ describe('autoApproveDrafts', () => {
     expect(autoApproveDrafts({ entries: applied, scheduledForMs: SCHEDULED_FOR })).toEqual([])
   })
 
-  it('does not settle anybody’s debt', () => {
-    const drafts = autoApproveDrafts({
-      entries: [
-        entry({ date: '2026-06-11', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
-      ],
-      scheduledForMs: SCHEDULED_FOR,
+  it('settles an outstanding debt exactly once when the cron reaches its debt day (F1)', () => {
+    // Карина owes one day (Леша cleaned 06-11 on her behalf); her debt day is
+    // never manually touched — only the nightly cron ever looks at it.
+    const debtEntry = entry({
+      date: '2026-06-11',
+      type: 'went_into_debt',
+      actor: 'Леша',
+      onBehalfOf: 'Карина',
+      ts: 1,
     })
 
-    // getDebtDays hands debts forward from "today", so a past date carries no
-    // debt assignment: every draft names the planned duty person and none
-    // carries onBehalfOf, which is what keeps foldDebt from crediting a
-    // repayment nobody made.
-    expect(drafts.every((draft) => draft.onBehalfOf === undefined)).toBe(true)
+    const drafts = autoApproveDrafts({ entries: [debtEntry], scheduledForMs: SCHEDULED_FOR })
+
+    // 06-12 is the first day in the window that isn't Карина's own duty day,
+    // so it is where her debt gets settled.
+    const settlement = drafts.find((draft) => draft.date === '2026-06-12')
+    expect(settlement).toMatchObject({ actor: 'Карина', onBehalfOf: 'Леша' })
+
+    // Exactly one draft in the window pays the debt down — every other day
+    // is an ordinary close with no onBehalfOf, so the debt isn't rediscovered
+    // and re-settled on a later day in the same run.
+    expect(drafts.filter((draft) => draft.onBehalfOf != null)).toHaveLength(1)
+
+    const applied: LedgerEntry[] = drafts.map((draft, index) => ({
+      id: `auto-${index}`,
+      ts: 100 + index,
+      ...draft,
+    }))
+    expect(foldDebt([debtEntry, ...applied])).toEqual({ Леша: 0, Карина: 0 })
   })
 })

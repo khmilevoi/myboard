@@ -8,6 +8,7 @@ export type BrowserServiceConfig = {
   profileDir: string
   secretsDir: string
   recoverySshTarget: string | null
+  novncPort: number
 }
 
 export class BrowserServiceConfigError extends errore.createTaggedError({
@@ -32,6 +33,11 @@ const ConfigSchema = z.object({
   BROWSER_TASK_TIMEOUT_MS: positiveIntEnv(60_000),
   BROWSER_PROFILE_DIR: stringEnv('/profile'),
   BROWSER_SECRETS_DIR: stringEnv('/run/secrets'),
+  // Host-published noVNC port, so the recovery hint matches the stack an
+  // operator is actually on. Must stay in lockstep with the NOVNC_HOST_PORT
+  // that docker-compose.yml already uses for the publish line: the container
+  // only ever sees its own internal 6080 and cannot introspect the host bind.
+  NOVNC_HOST_PORT: positiveIntEnv(6080),
 })
 
 // Public recovery metadata surfaced to the UI, so only a bare host or user@host
@@ -61,5 +67,6 @@ export function loadBrowserServiceConfig(
     profileDir: parsed.data.BROWSER_PROFILE_DIR,
     secretsDir: parsed.data.BROWSER_SECRETS_DIR,
     recoverySshTarget: normalizeRecoverySshTarget(env.AUTOMATION_SSH_TARGET),
+    novncPort: parsed.data.NOVNC_HOST_PORT,
   }
 }
