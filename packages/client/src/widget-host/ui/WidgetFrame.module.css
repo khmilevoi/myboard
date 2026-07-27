@@ -6,12 +6,6 @@
   background: var(--card);
 }
 
-.skeleton {
-  position: absolute;
-  inset: 12px;
-  height: auto;
-}
-
 .errorCard {
   position: absolute;
   inset: 0;

@@ -89,6 +89,43 @@ describe('WidgetFrame', () => {
     )
     expect(container.querySelector('iframe')).toBeNull()
     expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull()
+    // No host delete callback means no delete affordance. The frame's own
+    // `onDelete` is a useEvent handle and therefore always truthy, so this
+    // asserts the guard reads the raw prop rather than that handle.
+    expect(screen.queryByRole('button', { name: 'Удалить' })).toBeNull()
+  })
+
+  it('names the loading widget and wires its delete control to onDelete', () => {
+    vi.mocked(findWidgetType).mockReturnValue({
+      id: 'clock',
+      title: 'Часы',
+      description: 'Текущее время и дата',
+      loadComponent: () => new Promise<never>(() => {}),
+      defaultSize: { w: 3, h: 2 },
+      icon: 'Clock',
+    })
+    const onDelete = vi.fn()
+
+    render(
+      <WidgetFrame
+        instanceId="inst-skel-named"
+        typeId="clock"
+        mode="small"
+        tier="standard"
+        onDelete={onDelete}
+      />,
+    )
+
+    // Title and icon come from the synchronous codegen catalog, so a card whose
+    // remote is still in flight identifies itself instead of being one of
+    // several indistinguishable grey boxes.
+    expect(screen.getByRole('status', { name: 'Загрузка виджета «Часы»' })).toBeInTheDocument()
+    expect(screen.getByText('Часы')).toBeInTheDocument()
+
+    // The reason this card carries a control at all: a remote that never
+    // resolves would otherwise leave a card that can never be removed.
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(onDelete).toHaveBeenCalledTimes(1)
   })
 
   it('provides the resolved tier to the widget component through runtime context', async () => {

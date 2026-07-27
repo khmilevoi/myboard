@@ -13,7 +13,6 @@ import {
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { hostRuntime } from '@/runtime'
 import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { resolvedTheme } from '@/theme/model/theme-model'
@@ -21,6 +20,7 @@ import { findWidgetType } from '@/widget-registry/model/registry'
 
 import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
+import { WidgetLoadingCard } from './WidgetLoadingCard'
 
 import styles from './WidgetFrame.module.css'
 
@@ -45,6 +45,11 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
     const onDelete = useEvent(callbacks.onDelete ?? (() => null))
     const onRequestFullscreen = useEvent(callbacks.onRequestFullscreen ?? (() => null))
     const onRequestClose = useEvent(callbacks.onRequestClose ?? (() => null))
+
+    // `onDelete` above is a useEvent handle and so is always truthy, even when
+    // the host passed nothing — it cannot be used to decide whether a delete
+    // affordance exists. The raw prop can.
+    const deleteAction = callbacks.onDelete ? onDelete : undefined
 
     const tiers = type instanceof Error ? DEFAULT_TIERS : (type.tiers ?? DEFAULT_TIERS)
     const tier = tierOverride ?? resolveTier({ width, height }, tiers)
@@ -105,9 +110,9 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
             <Badge variant="outline" className={styles.errorBadge}>
               {type.name}
             </Badge>
-            {onDelete && (
+            {deleteAction && (
               <div className={styles.errorActions}>
-                <button className={styles.delete} aria-label="Удалить" onClick={onDelete}>
+                <button className={styles.delete} aria-label="Удалить" onClick={deleteAction}>
                   Удалить
                 </button>
               </div>
@@ -126,9 +131,9 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
               console.warn(`[widget ${instanceId}] render failed:`, error.message)
             }
             onRetry={wrap(() => retryWidget(instanceId))}
-            onDelete={onDelete}
+            onDelete={deleteAction}
           >
-            <Suspense fallback={<Skeleton className={styles.skeleton} />}>
+            <Suspense fallback={<WidgetLoadingCard type={type} onDelete={deleteAction} />}>
               {LazyWidget && <LazyWidget />}
             </Suspense>
           </WidgetErrorBoundary>
