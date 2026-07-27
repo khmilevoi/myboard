@@ -256,3 +256,98 @@ the payload schema, so the key shape is derived from the same rule on both sides
 rather than trusted from the wire.
 
 **Trigger.** A second client or an automation posts comments.
+
+## Ofelia's tier thresholds sit within 10 px of their own frames
+
+**Today.** `ofelia-poop-duty` declares `standard.minWidthPx: 400` and
+`minHeightPx: 300`. Now that the board measures its real container, a `w: 4`
+card is a 393 px frame at a ~1280 px viewport — so it renders `CompactTier`
+there — and the `h: 8` default is a 308 px frame, 8 px above the height
+threshold. Because the board's lower scale clamp is `1`, that 8 px of headroom
+is the same at every desktop width.
+
+**Why it is tolerable.** The user's devices are one phone plus 1920x1080 and
+3840x2160 desktops, so neither margin is hit in practice. The width threshold
+was calibrated against the pinned-1280 measurement bug, i.e. against a number
+wrong by 55 px, and nothing has needed it since.
+
+**Why it should not stay.** Any chrome added inside the card silently drops
+ofelia to `compact` and takes five e2e tests with it, with no error and no
+obvious cause. Raising `defaultSize.w` would not rescue existing boards, whose
+`w` is already persisted in the stored layout.
+
+**Trigger.** A ~1280 px screen enters the household, or anything is added to the
+card's header or footer.
+
+## An old client bundle cannot parse a new record shape
+
+**Today.** Widget record schemas are `z.array(...)`, so a single record carrying
+a field an older bundle's schema rejects fails the whole parse — and a
+still-open client hangs on its loading skeleton permanently, not just for that
+row. It has happened twice: the authored ledger's `createdBy`, and the cron's
+`{ system: true }` author. Both releases shipped compat shims that keep writing
+the legacy `ip`/`by`/`author` fields for one release, each with its removal
+condition recorded at the shim.
+
+**Why it is tolerable.** Force-reloading every open client after a deploy fixes
+it, and the shims cover the window where that has not happened yet.
+
+**Why it should not stay.** The failure is silent, total for the widget, and
+lands on the wall tablet — the one client nobody reloads. Every future record
+field repeats it, and every release adds another shim to remember to remove.
+
+**Shape to consider.** Parse per element and drop unreadable rows rather than
+failing the array, so an unknown field costs one row instead of the widget.
+
+**Trigger.** A third record-shape change, or the first shim that outlives its
+stated removal condition.
+
+## An ofelia comment from outside the duty rotation loses its author
+
+**Today.** A comment written by an account whose name is not in
+`DUTY_ROTATION` is stored with no legacy `author` field, so a pre-release client
+loses that entire week's thread until it reloads.
+
+**Why it is tolerable.** Every current household account is in the rotation, and
+the alternative considered — synthesizing an author — writes a permanent false
+attribution into an append-only store.
+
+**Trigger.** An account named outside the rotation is created.
+
+## The PWA update path has no manual affordance and can lag an hour
+
+**Today.** `registerType: 'autoUpdate'` with `injectRegister: null` makes
+`vite-plugin-pwa@1.3.0` set `workbox.skipWaiting`/`clientsClaim` (`dist/index.js:874`),
+and its `dist/client/build/register.js` auto branch reloads the page itself on
+`activated` when `isUpdate || isExternal`. A new release does land on its own. But
+that same branch never calls `onNeedRefresh`, and `updateServiceWorker()` opens with
+`if (!auto) sendSkipWaitingMessage()` — so in auto mode it is a no-op. `needRefreshAtom`
+and `applyUpdate()` (`packages/client/src/app/model/pwa.ts`) and `UpdateBanner`
+(`app/ui/App.tsx:25`) are therefore dead code. The only update check an already-open
+client performs is `pwa.ts`'s hourly `registration.update()`.
+
+**Why it is tolerable.** `packages/client/nginx.conf` sends `Cache-Control: no-cache`
+for `/sw.js` and every `remoteEntry.js`, so a plain navigation picks a new release up,
+and most clients navigate often enough.
+
+**Why it should not stay.** A standalone PWA resumed from the background does not
+navigate, so the wall tablet can sit up to an hour on the previous release — the one
+client nobody reloads, and the same client that "An old client bundle cannot parse a
+new record shape" above already lands on. Meanwhile the banner advertises a manual
+escape hatch that cannot fire, and pressing it calls a function that returns
+immediately.
+
+**Shape to consider.** Re-check on `visibilitychange` and `online` alongside the timer,
+guarded the way Vite PWA's periodic-updates guide does it: skip while `r.installing`,
+skip when offline, and only call `r.update()` after `sw.js` answers 200. Then pick one
+of the two update models instead of half of each — delete
+`needRefreshAtom`/`applyUpdate`/`UpdateBanner`, or move to `registerType: 'prompt'`,
+where `onNeedRefresh` does fire and the banner earns its place. Auto mode reloads
+without asking, which interrupts a drag; `onNeedReload` is the lever if that matters.
+
+Note that none of this touches IndexedDB: a service-worker update never evicts Dexie,
+which is why the shared `board-branch` hostname still needs site data cleared by hand
+when switching branches.
+
+**Trigger.** A release has to reach the wall tablet promptly, or someone tries to use
+the update banner.

@@ -38,6 +38,7 @@ pnpm-debug.log*
 # Playwright
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # git worktrees (local development branches)
 .worktrees/
@@ -60,3 +61,9 @@ packages/widgets/passport-checker/secrets/*
 
 # Looper loop scratch/observability (local only, not part of the deliverable)
 looper-output/
+
+# docs/ is local-only except the agent and architecture guides, which are the
+# canonical checked-in references (see CLAUDE.md)
+docs/*
+!docs/agent/
+!docs/architecture/
