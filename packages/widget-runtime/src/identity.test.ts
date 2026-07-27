@@ -121,6 +121,96 @@ describe('makeWidgetIdentity', () => {
   })
 })
 
+describe('makeWidgetIdentity retry and refresh', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // Both fetches in this suite are pure microtask chains (mocked `http.get`
+  // never itself schedules a timer), so nothing forces the JS engine to drain
+  // them just because a fake timer got advanced. Pump the microtask queue by
+  // hand at every checkpoint instead of trusting `advanceTimersByTimeAsync`
+  // alone to have fully settled a multi-hop `wrap`/`fetchIdentity` chain.
+  const flushMicrotasks = async (times = 20) => {
+    for (let i = 0; i < times; i++) await Promise.resolve()
+  }
+
+  it('retries after a transient failure and populates the roster once the retry succeeds', async () => {
+    vi.useFakeTimers()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(
+        okResponse({ accounts: [{ accountId: 'a1', name: 'Карина' }], viewerAccountId: 'a1' }),
+      )
+    const http = { get, post: vi.fn() } as unknown as HttpLike
+    const identity = makeWidgetIdentity({ http })
+
+    const off = identity.members.subscribe(() => {})
+
+    await flushMicrotasks()
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalled()
+    expect(wrap(() => identity.members().size)()).toBe(0)
+
+    // Past the first retry delay: the retry fires and this time succeeds.
+    await vi.advanceTimersByTimeAsync(1_000)
+    await flushMicrotasks()
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(wrap(() => identity.members().size)()).toBe(1)
+    expect(wrap(() => identity.viewer()?.name)()).toBe('Карина')
+
+    off()
+    warn.mockRestore()
+  })
+
+  it('does not retry a 401, even left connected far longer than any retry/refresh delay', async () => {
+    vi.useFakeTimers()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const get = vi.fn(async () => ({ ok: false, status: 401, body: undefined }))
+    const http = { get, post: vi.fn() } as unknown as HttpLike
+    const identity = makeWidgetIdentity({ http })
+
+    const off = identity.members.subscribe(() => {})
+    await flushMicrotasks()
+    expect(get).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000)
+    await flushMicrotasks()
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(warn).not.toHaveBeenCalled()
+
+    off()
+    warn.mockRestore()
+  })
+
+  it('cancels the scheduled retry when the last subscriber disconnects', async () => {
+    vi.useFakeTimers()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const get = vi.fn(async () => new Error('offline'))
+    const http = { get, post: vi.fn() } as unknown as HttpLike
+    const identity = makeWidgetIdentity({ http })
+
+    const off = identity.members.subscribe(() => {})
+    await flushMicrotasks()
+    expect(get).toHaveBeenCalledTimes(1)
+
+    off() // last subscriber gone while a retry is scheduled
+
+    // Well past the delay that would have fired the retry had the loop kept
+    // running after disconnect.
+    await vi.advanceTimersByTimeAsync(60_000)
+    await flushMicrotasks()
+
+    expect(get).toHaveBeenCalledTimes(1)
+
+    warn.mockRestore()
+  })
+})
+
 describe('makeStaticWidgetIdentity', () => {
   it('serves the members it was given without any request', () => {
     const identity = makeStaticWidgetIdentity({
