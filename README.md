@@ -62,16 +62,16 @@ its Valkey data is fully independent of production and starts empty.
 
 ```bash
 cp .env.dev.example .env.dev   # once
-rpi secrets send --env dev     # after every .env.dev change
+rpi secrets push --env dev     # after every .env.dev change
 rpi deploy --env dev
 rpi config show --env dev      # resolved base + overlay, without touching the agent
 ```
 
-`rpi.dev.toml` inherits `rpi.toml`'s `[secrets].files` unchanged, so `rpi secrets
-send --env dev` also needs the passport-checker widget's two plain-value files
-present locally — same paths and setup as production, see
-`packages/browser-automation/README.md#provisioning-secrets`. They are not part
-of `.env.dev`.
+`rpi.dev.toml` clears `[secrets].files` and attaches the `dev` secret group
+instead, so `.env.dev` is the whole of this environment's own bundle. The
+passport-checker widget's two plain-value files reach every stack through a
+group pushed once from the repository root — see
+`packages/browser-automation/README.md#provisioning-secrets`.
 
 Everything not repeated in the overlay is inherited, so `rpi command` works the
 same way with `--env dev`. A fresh dev stack has no devices — mint its own

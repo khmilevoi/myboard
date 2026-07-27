@@ -48,7 +48,7 @@ Always load and follow the `reatom` and `errore` skills before working in this r
 6. **Deploy and test on dev.** Nothing about the deploy is automatic:
 
    ```bash
-   rpi secrets send --env dev   # only after .env.dev changed
+   rpi secrets push --env dev   # only after .env.dev changed
    rpi deploy --env dev
    ```
 
@@ -214,11 +214,21 @@ pnpm run deploy:branch   # current branch, board-branch.iiskelo.com (rpi.branch.
 
 Use `pnpm run deploy`, not `pnpm deploy` — the latter is pnpm's own built-in command and never reaches the script.
 
-`rpi.branch.toml` is a disposable stack for trying the checked-out branch on real hardware. `pnpm run deploy:branch` reads the branch from git and passes it as `--vars BRANCH_NAME=…`, which is the only variable rpi 0.26 accepts — so the hostname is a literal, not derived. rpi keys the project by environment _and_ variables (`myboard--branch--<slug>`), so a second branch deployed while the first is still up collides on that shared hostname: tear the old one down with `rpi env destroy branch --vars BRANCH_NAME=<previous>` first. The environment carries `ttl = "72h"`, so a forgotten stack reaps itself.
+`rpi.branch.toml` is one shared stand for trying the checked-out branch on real hardware, not one stack per branch. `source.branch` resolves through `${git.branch}`, so rpi reads the branch out of the checkout and no `--vars` are passed anywhere — `pnpm run deploy:branch`, `rpi command … --env branch` and `rpi env destroy branch` all take the environment alone. Since rpi 0.27 the environment key gets a per-branch suffix only when the configuration references `${env.slug}`; nothing in `rpi.branch.toml` does, so every branch deploys onto the key `myboard--branch` behind `board-branch.iiskelo.com`, keeping the same volumes: the test device stays invited and board data survives a branch switch, but the previous branch's service worker, IndexedDB and Valkey contents are still there afterwards (`rpi env reset-data branch` wipes the volumes). `rpi config show --env branch` prints a warning about the shared key — that is the intended configuration, not drift. The environment carries `ttl = "72h"`, so a stand nobody redeploys reaps itself.
 
-Because every branch is a fresh project, its secrets store starts empty and `[secrets].files` are missing until sent — which otherwise fails only after the ~3-minute image build, with an opaque Compose "secret file … does not exist". `deploy:branch` therefore checks `rpi secrets ls` first and sends the bundle itself when the branch has none; you only need `.env.branch` to exist locally (template in `.env.branch.example`). A brand-new branch project also gets a fresh deploy key, and the first deploy can lose the race between registering it on GitHub and cloning — if `git clone` fails with `Permission denied (publickey)`, just run the command again.
+The stand's own configuration lives in the `branch` secret group rather than in the environment's bundle, which stays empty. Two things follow. Groups belong to the base project, so neither `rpi env destroy branch` nor the TTL reaper takes it down with the stand — one that reaped itself is still configured when it is deployed again. And a *declared* group that is missing or empty fails the deploy at the layer-load step, before the checkout is written and long before the ~3-minute image build, naming the group and the push that fixes it — where a missing bundle of its own would have deployed silently unconfigured, with the WebAuthn gate on production's hostname and this stack fighting the others for their host ports. That is why `deploy:branch` is a bare `rpi deploy --env branch` and needs no script around it. A rebuilt branch project does get a fresh deploy key, and the first deploy can lose the race between registering it on GitHub and cloning — if `git clone` fails with `Permission denied (publickey)`, just run the command again.
 
-Extra flags reach the CLI with or without a separator: `pnpm run deploy:branch --cancel` and `pnpm run deploy:branch -- --server home` both work.
+Secrets reach the three stacks through groups rather than per-environment bundles. `rpi.toml` attaches `prod`, `rpi.dev.toml` attaches `dev`, `rpi.branch.toml` attaches `["dev", "branch"]`; `[secrets].files` is cleared in both overlays, and `[secrets].env`/`files` in each file is the local source a push reads, never a deploy-time input. Push each group once, from the repository root except where noted:
+
+```bash
+rpi secrets push --group prod                    # .env + the passport-checker files
+rpi secrets push --group dev                     # the same files, for dev and the branch stand
+rpi secrets push --group branch --env branch     # .env.branch, the stand's own configuration
+```
+
+Layers apply in the order declared and merge per variable and per file path, with the environment's own bundle always last — so `branch` overrides `dev`, and anything pushed to a deploy key overrides both. A declared group that is missing **or empty** fails the deploy naming the group; only the deploy key's own bundle may be empty. `rpi secrets ls [--env <env>]` shows which layer wins every entry (`<- group branch`, `<- key`). `rpi secrets send` still works but is a deprecated alias for `rpi secrets push`.
+
+Extra flags reach the CLI without a separator — `pnpm run deploy:branch --cancel`, `pnpm run deploy:branch --server home`. Do not add `--`: pnpm forwards the separator itself into the command, and rpi's parser reads a bare `--` as end-of-flags, so everything after it lands as a positional and is rejected.
 
 ## Failure modes to avoid
 

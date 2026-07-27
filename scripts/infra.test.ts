@@ -336,6 +336,98 @@ describe('rpi dev environment overlay', () => {
   })
 })
 
+// These TOML files carry long explanatory headers, so a "must not contain"
+// assertion has to look at the settings alone — a comment that mentions the
+// construct it forbids is documentation, not configuration.
+const settingsOf = (toml: string) =>
+  toml
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith('#'))
+    .join('\n')
+
+describe('rpi branch environment overlay', () => {
+  const baseToml = readFileSync(resolve(root, 'rpi.toml'), 'utf8')
+  const devOverlay = readFileSync(resolve(root, 'rpi.dev.toml'), 'utf8')
+  const branchOverlay = readFileSync(resolve(root, 'rpi.branch.toml'), 'utf8')
+  const branchEnvExample = readFileSync(resolve(root, '.env.branch.example'), 'utf8')
+
+  const hostname = (toml: string) => /hostname = "([^"]+)"/.exec(toml)?.[1]
+  const envValue = (key: string) =>
+    new RegExp(`^${key}=(.+)$`, 'm').exec(branchEnvExample)?.[1]?.trim()
+
+  it('resolves the deployed branch from the checkout, with no variables to pass', () => {
+    expect(branchOverlay).toContain('branch = "${git.branch}"')
+    // rpi reads the branch itself, so the deploy is a bare CLI call — and a
+    // --vars key nothing references would be a hard error, not a no-op.
+    expect(rootPackage.scripts['deploy:branch']).toBe('rpi deploy --env branch')
+    expect(settingsOf(branchOverlay)).not.toContain('${BRANCH_NAME}')
+  })
+
+  it('keeps the stand on one shared key instead of one per branch', () => {
+    // rpi appends --<slug> to the environment key as soon as anything
+    // references ${env.slug}. Nothing here may: the stand exists to keep its
+    // volumes (and the invited device) across branch switches. The comments
+    // explain that at length, hence settingsOf().
+    expect(settingsOf(branchOverlay)).not.toContain('${env.slug}')
+    expect(branchOverlay).toContain('ttl = "72h"')
+  })
+
+  it('scopes the webauthn gate to a hostname of its own', () => {
+    // Same silent failure mode as the dev overlay: a mismatch breaks every
+    // ceremony instead of failing the deploy.
+    expect(hostname(branchOverlay)).toBeDefined()
+    expect(hostname(branchOverlay)).not.toBe(hostname(baseToml))
+    expect(hostname(branchOverlay)).not.toBe(hostname(devOverlay))
+    expect(envValue('RP_ID')).toBe(hostname(branchOverlay))
+    expect(envValue('PUBLIC_APP_URL')).toBe(`https://${hostname(branchOverlay)}`)
+    expect(envValue('EXPECTED_ORIGIN')).toBe(`https://${hostname(branchOverlay)}`)
+  })
+
+  it('keeps the untracked branch secrets source out of git', () => {
+    expect(gitignore).toContain('.env.branch')
+    expect(branchOverlay).toContain('env = ".env.branch"')
+  })
+
+  it('keeps the stand configured through a group that outlives it', () => {
+    // `rpi env destroy branch` and the TTL reaper drop the environment's own
+    // bundle but never a group, so .env.branch belongs in the `branch` group —
+    // declared last, since it overrides what `dev` brings. Being a declared
+    // group is also what makes rpi refuse to deploy the stand unconfigured,
+    // which a bundle of its own would not: a missing key bundle deploys
+    // silently without one.
+    expect(branchOverlay).toContain('groups = ["dev", "branch"]')
+  })
+})
+
+describe('rpi secret groups', () => {
+  const baseToml = readFileSync(resolve(root, 'rpi.toml'), 'utf8')
+  const devOverlay = readFileSync(resolve(root, 'rpi.dev.toml'), 'utf8')
+  const branchOverlay = readFileSync(resolve(root, 'rpi.branch.toml'), 'utf8')
+
+  const groupsOf = (toml: string) => /^groups = \[(.*)\]$/m.exec(settingsOf(toml))?.[1]
+
+  it('delivers the passport files through a group instead of per-environment bundles', () => {
+    // The base file stays the push source for the passport groups
+    // ([secrets].files is read locally by `rpi secrets push`, never at deploy
+    // time); the overlays clear it so nothing carries a second copy.
+    expect(groupsOf(baseToml)).toBe('"prod"')
+    expect(baseToml).toContain('packages/widgets/passport-checker/secrets/series')
+    for (const overlay of [devOverlay, branchOverlay]) {
+      expect(overlay).toContain('files = []')
+      expect(settingsOf(overlay)).not.toContain('passport-checker/secrets')
+    }
+  })
+
+  it('attaches the groups each environment needs, in precedence order', () => {
+    // Arrays replace wholesale, so an overlay that forgot its own `groups`
+    // would silently attach `prod` — the production secret set — instead. The
+    // branch stand adds its own configuration on top of `dev`, so it has to
+    // come last: within one layer stack, later wins per variable.
+    expect(groupsOf(devOverlay)).toBe('"dev"')
+    expect(groupsOf(branchOverlay)).toBe('"dev", "branch"')
+  })
+})
+
 describe('docker-compose.e2e.yml headed-run support', () => {
   it('publishes valkey to localhost so a host-run Playwright can reach it', () => {
     const valkeyBlock = e2eCompose.slice(
