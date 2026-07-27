@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react'
-import { useState } from 'react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetOverlayHistory } from 'widget-runtime'
 
@@ -68,5 +68,79 @@ describe('useOverlayBackDismiss', () => {
     }
     render(<Closed />)
     expect(history.state).toEqual({})
+  })
+})
+
+describe('useOverlayBackDismiss under StrictMode', () => {
+  it('registers exactly one history entry after StrictMode double-mount settles', async () => {
+    render(
+      <StrictMode>
+        <Overlay onClose={vi.fn()} />
+      </StrictMode>,
+    )
+
+    await waitFor(
+      () => {
+        expect(history.state).toEqual({ overlayDepth: 1 })
+      },
+      { timeout: 100 },
+    )
+  })
+
+  it('closes the overlay with a single back press after StrictMode double-mount settles', async () => {
+    const onClose = vi.fn()
+    render(
+      <StrictMode>
+        <Overlay onClose={onClose} />
+      </StrictMode>,
+    )
+
+    await waitFor(
+      () => {
+        expect(history.state).toEqual({ overlayDepth: 1 })
+      },
+      { timeout: 100 },
+    )
+
+    goBackTo(0)
+
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(screen.getByText('closed')).toBeInTheDocument()
+  })
+})
+
+describe('useOverlayBackDismiss dismiss callback fallback', () => {
+  it('calls close directly when entry has been cleared', () => {
+    const onClose = vi.fn()
+    let capturedDismiss: (() => void) | null = null
+
+    const TestWrapper = () => {
+      const [open, setOpen] = useState(true)
+      const requestDismiss = useOverlayBackDismiss(open, () => {
+        setOpen(false)
+        onClose()
+      })
+      capturedDismiss = requestDismiss
+
+      return (
+        <div>
+          <span>{open ? 'open' : 'closed'}</span>
+        </div>
+      )
+    }
+
+    const { unmount } = render(<TestWrapper />)
+
+    // Entry is registered
+    expect(history.state).toEqual({ overlayDepth: 1 })
+
+    // Unmount the component, clearing the entry
+    unmount()
+
+    // Call the dismiss callback after the entry is cleared
+    capturedDismiss?.()
+
+    // Fallback close should have been called
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })
