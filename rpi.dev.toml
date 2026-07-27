@@ -1,11 +1,14 @@
 # Dev environment overlay for the production stack — deploy with:
 #
-#   rpi secrets send --env dev     # once, and after every .env.dev change
+#   rpi secrets push --env dev     # once, and after every .env.dev change
 #   rpi deploy --env dev
 #
+# (`rpi secrets send` is the deprecated alias of `rpi secrets push`.)
+#
 # Merges onto rpi.toml field by field, so everything not repeated here
-# (build.compose, ingress.service/port/expose, healthcheck, timeouts, commands,
-# secrets.files) is inherited from production.
+# (build.compose, ingress.service/port/expose, healthcheck, timeouts, commands)
+# is inherited from production. Arrays and [commands] replace wholesale rather
+# than merging, which is why `files` and `groups` are restated below.
 #
 # The environment deploys under the project key `myboard--dev`: its own compose
 # project, containers, network and volumes. Dev Valkey data is therefore
@@ -26,5 +29,10 @@ hostname = "board-dev.iiskelo.com"
 [secrets]
 # Separate bundle from production: carries the dev hostname for the WebAuthn
 # gate plus host-port overrides that keep this stack off production's binds.
-# secrets.files is inherited from rpi.toml.
 env = ".env.dev"
+# The passport-checker files come from the `dev` secret group (pushed once from
+# rpi.toml), not from this environment's own bundle — so `rpi secrets push
+# --env dev` uploads .env.dev alone. Groups are applied first and this key's own
+# bundle on top, per variable and per file path.
+files = []
+groups = ["dev"]

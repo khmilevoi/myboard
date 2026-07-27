@@ -23,7 +23,7 @@
     "preview": "pnpm --filter client preview",
     "deploy": "rpi deploy",
     "deploy:dev": "rpi deploy --env dev",
-    "deploy:branch": "tsx scripts/deploy-branch.ts",
+    "deploy:branch": "rpi deploy --env branch",
     "test": "pnpm run codegen && pnpm run test:workspace",
     "test:unit": "vitest run",
     "test:workspace": "pnpm run test:unit && pnpm -r test",

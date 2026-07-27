@@ -1,50 +1,59 @@
-# Throwaway environment for whichever feature branch is currently checked out —
-# deploy with:
+# Shared stand for whichever feature branch is currently checked out — deploy
+# with:
 #
-#   pnpm deploy:branch              # fills BRANCH_NAME from git for you
+#   pnpm run deploy:branch
 #
-# or by hand:
+# or by hand, from the worktree whose branch you want on the Pi:
 #
-#   rpi secrets send --env branch --vars BRANCH_NAME=feat/x   # once, and after every .env.branch change
-#   rpi deploy       --env branch --vars BRANCH_NAME=feat/x
+#   rpi secrets push --group branch --env branch   # after every .env.branch change
+#   rpi deploy --env branch
 #
-# `--vars` substitutes `${BRANCH_NAME}` below. Without it the deploy fails
-# validation, which is deliberate: there is no sensible default branch here.
-# BRANCH_NAME is the only variable rpi 0.26 accepts, which is why the hostname
-# is a literal rather than being derived from the branch.
+# `source.branch` below resolves through `${git.branch}`, so rpi reads the
+# checked-out branch itself and nothing has to be retyped or passed with
+# `--vars`. A detached HEAD is a hard error naming `--vars` as the workaround
+# (`--vars BRANCH_NAME=…` would then need the reference restored here first).
 #
 # Merges onto rpi.toml field by field, so everything not repeated here
-# (build.compose, ingress.service/port/expose, healthcheck, timeouts, commands,
-# secrets.files) is inherited from production.
+# (build.compose, ingress.service/port/expose, healthcheck, timeouts, commands)
+# is inherited from production. Arrays and [commands] replace wholesale rather
+# than merging, which is why `files` and `groups` are restated below.
 #
-# rpi derives the project key from the environment name AND the variables, so
-# each branch gets its own compose project, network and volumes — e.g.
-# `myboard--branch--feat-x`. `[project]` cannot be set here; the CLI owns it.
+# ONE SHARED STAND, NOT ONE PER BRANCH. Since rpi 0.27 the environment key gets
+# a per-branch suffix only when the configuration references `${env.slug}`;
+# nothing here does, so every branch deploys onto the same key `myboard--branch`
+# behind the same hostname, reusing the same compose project, network and
+# volumes. That is deliberate: the test device stays invited and the board keeps
+# its data when you redeploy from a different branch. The flip side is that a
+# second branch cannot run alongside the first, and that the previous branch's
+# service worker, IndexedDB and Valkey contents are still there after a switch —
+# `rpi env reset-data branch` wipes the volumes (and then the stack needs a
+# fresh device invite), and a hard reload with "Update on reload" ticked in
+# DevTools → Application clears the stale PWA cache.
 #
-# ONE BRANCH STACK AT A TIME. Because the hostname below is fixed while the
-# project key varies per branch, deploying a second branch while the first is
-# still up makes two projects claim the same hostname, which rpi rejects. Tear
-# the old one down first:
+# Tear the stand down completely with `rpi env destroy branch` (no `--vars`,
+# same as every other command here now).
 #
-#   rpi env destroy branch --vars BRANCH_NAME=feat/previous
-#
-# `rpi env reset-data branch --vars BRANCH_NAME=...` wipes just the volumes.
+# `rpi config show --env branch` warns that "source.branch is computed but
+# nothing references ${env.slug}, so the key stays 'myboard--branch'". That is
+# the design described above, not a misconfiguration — adding an ${env.slug}
+# reference anywhere in this file would split the stand per branch and break
+# every point made in the previous paragraph.
 
 [environment]
 # Unlike production and dev, this stack is disposable, so it gets a TTL and the
 # agent's reaper cleans it up — a branch tried once and abandoned should not sit
-# on the Pi holding a hostname and a Valkey volume forever. Everything in it is
-# throwaway by definition: the data starts empty on every fresh deploy and the
-# device invite is specific to this stack.
+# on the Pi holding a hostname and a Valkey volume forever.
 #
 # 72h is deliberately generous: long enough to leave a stack up over a weekend
-# and come back to it, short enough that a forgotten branch clears itself before
-# the next one collides on the hostname.
+# and come back to it, short enough that a forgotten branch clears itself
+# instead of being redeployed over by the next one. The TTL counts from the last
+# successful deploy, so an actively used stand never reaps itself.
 ttl = "72h"
 
 [source]
-# The only thing that varies per deploy.
-branch = "${BRANCH_NAME}"
+# The only thing that varies per deploy — read from the git checkout rpi runs
+# in, which in this repository's workflow is the feature worktree.
+branch = "${git.branch}"
 
 [ingress]
 # Must differ from production's and dev's hostnames (rpi rejects a collision).
@@ -54,7 +63,22 @@ branch = "${BRANCH_NAME}"
 hostname = "board-branch.iiskelo.com"
 
 [secrets]
-# Separate bundle from production and dev: carries this hostname for the
-# WebAuthn gate plus host-port overrides that keep this stack off the other two
-# stacks' binds. secrets.files is inherited from rpi.toml.
+# Local push source for the `branch` secret group below — not for this
+# environment's own bundle, which stays empty on purpose:
+#
+#   rpi secrets push --group branch --env branch
+#
+# Everything host-specific lives there rather than in the key's bundle because
+# groups belong to the base project: `rpi env destroy branch` and the TTL reaper
+# drop an environment's own bundle but never a group, so a stand that reaped
+# itself is still configured when it is deployed again.
 env = ".env.branch"
+# Layers apply in the order declared, merged per variable and per file path,
+# with this key's own (empty) bundle last: `dev` carries the passport-checker
+# files shared with the dev stack, `branch` carries this hostname for the
+# WebAuthn gate plus the host-port overrides that keep this stack off the other
+# two stacks' binds. A declared group that is missing or empty fails the deploy
+# naming the group — the deploy key's own bundle is the only layer allowed to be
+# empty.
+files = []
+groups = ["dev", "branch"]
