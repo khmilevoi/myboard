@@ -120,7 +120,7 @@ describe('overlay history', () => {
     const first = vi.fn()
     const second = vi.fn()
     const e1 = pushOverlay(first)
-    const e2 = pushOverlay(second)
+    pushOverlay(second)
 
     // Stack is [e1, e2]; dropping e1 requires going back 2 steps to remove both
     const go = vi.spyOn(history, 'go').mockImplementation(() => undefined)

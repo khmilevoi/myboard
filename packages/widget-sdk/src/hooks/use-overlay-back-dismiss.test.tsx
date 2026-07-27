@@ -162,7 +162,9 @@ describe('useOverlayBackDismiss under StrictMode — real history traversal', ()
 describe('useOverlayBackDismiss dismiss callback fallback', () => {
   it('calls close directly when entry has been cleared', () => {
     const onClose = vi.fn()
-    let capturedDismiss: (() => void) | null = null
+    // Held on an object rather than a `let`: control-flow analysis never sees
+    // the assignment inside the component, and narrows a `let` to `never`.
+    const captured: { dismiss: (() => void) | null } = { dismiss: null }
 
     const TestWrapper = () => {
       const [open, setOpen] = useState(true)
@@ -170,7 +172,7 @@ describe('useOverlayBackDismiss dismiss callback fallback', () => {
         setOpen(false)
         onClose()
       })
-      capturedDismiss = requestDismiss
+      captured.dismiss = requestDismiss
 
       return (
         <div>
@@ -188,7 +190,7 @@ describe('useOverlayBackDismiss dismiss callback fallback', () => {
     unmount()
 
     // Call the dismiss callback after the entry is cleared
-    capturedDismiss?.()
+    captured.dismiss?.()
 
     // Fallback close should have been called
     expect(onClose).toHaveBeenCalledOnce()
