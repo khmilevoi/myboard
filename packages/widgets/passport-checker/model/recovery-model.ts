@@ -1,8 +1,8 @@
 import { action, atom, wrap } from '@reatom/core'
 import * as errore from 'errore'
 
+import type { LoadRfb } from './load-rfb'
 import type { RecoveryTransport } from './recovery-transport'
-import type { MakeRfb } from './rfb'
 
 export type RecoveryState =
   | { kind: 'issuing' }
@@ -13,6 +13,7 @@ export type RecoveryState =
   | { kind: 'unavailable' }
   | { kind: 'busy' }
   | { kind: 'automationDown' }
+  | { kind: 'viewerUnavailable' }
 
 export const RECOVERY_TICK_MS = 500
 
@@ -24,7 +25,7 @@ export function recoverySocketUrl(loc: { protocol: string; host: string }): stri
 export type MakeRecoveryModelOptions = {
   widgetId: string
   transport: RecoveryTransport
-  makeRfb: MakeRfb
+  loadRfb: LoadRfb
   nowMs?: () => number
   location?: { protocol: string; host: string }
 }
@@ -34,7 +35,7 @@ export type RecoveryModel = ReturnType<typeof makeRecoveryModel>
 export function makeRecoveryModel({
   widgetId,
   transport,
-  makeRfb,
+  loadRfb,
   nowMs = () => Date.now(),
   location: loc,
 }: MakeRecoveryModelOptions) {
@@ -75,13 +76,24 @@ export function makeRecoveryModel({
       remainingMs.set(0)
     })
 
-    const issued = await transport.issue(widgetId)
+    // noVNC is fetched here instead of being imported at module scope: its
+    // top-level await never settles on some devices, and a static import would
+    // park the whole widget chunk in "evaluating" — see ./load-rfb. Loading it
+    // alongside the issue request keeps the modal's time to first frame
+    // unchanged, and a capability this attempt never uses costs nothing: the
+    // store supersedes an unused token on the next issue() and only counts a
+    // live socket as busy.
+    const [issued, makeRfb] = await Promise.all([transport.issue(widgetId), loadRfb()])
     if (isStale()) return
     if (issued instanceof Error) {
       if (issued.code === 'recovery_busy') return setState({ kind: 'busy' })
       if (issued.code === 'recovery_unavailable') return setState({ kind: 'unavailable' })
       console.warn('recovery issue failed:', issued.message)
       return setState({ kind: 'automationDown' })
+    }
+    if (makeRfb instanceof Error) {
+      console.warn('recovery viewer failed to load:', makeRfb.message)
+      return setState({ kind: 'viewerUnavailable' })
     }
 
     setState({ kind: 'connecting', expiresInMs: issued.expiresInMs })

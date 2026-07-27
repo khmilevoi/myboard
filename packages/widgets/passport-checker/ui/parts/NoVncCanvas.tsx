@@ -18,6 +18,10 @@ const FRAME_COPY: Record<RecoveryState['kind'], { title: string; hint?: string }
   unavailable: { title: 'Нет активной сессии для восстановления' },
   busy: { title: 'Восстановление уже идёт' },
   automationDown: { title: 'Сервис автоматизации недоступен' },
+  viewerUnavailable: {
+    title: 'Не удалось загрузить noVNC',
+    hint: 'проверьте соединение и обновите страницу',
+  },
 }
 
 const RECONNECT_KINDS: ReadonlySet<RecoveryState['kind']> = new Set([
@@ -26,6 +30,7 @@ const RECONNECT_KINDS: ReadonlySet<RecoveryState['kind']> = new Set([
   'unavailable',
   'busy',
   'automationDown',
+  'viewerUnavailable',
 ])
 
 export const NoVncCanvas = reatomMemo(() => {

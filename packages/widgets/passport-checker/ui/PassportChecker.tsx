@@ -6,10 +6,10 @@ import { useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { makePassportCheckModel } from '../model/check-model'
 import { passportInstance } from '../model/instance-store'
+import { loadNoVncRfb } from '../model/load-rfb'
 import { makeRecoveryFlow } from '../model/recovery-flow'
 import { makeRecoveryModel } from '../model/recovery-model'
 import { makeRecoveryTransport } from '../model/recovery-transport'
-import { makeNoVncRfb } from '../model/rfb'
 import type { PassportCheckerEvents } from '../types'
 import { passportCheckerContext } from './passport-checker-context'
 import type { PassportCheckerContextValue } from './passport-checker-context'
@@ -33,7 +33,7 @@ export const PassportChecker = reatomMemo(() => {
     const recoveryModel = makeRecoveryModel({
       widgetId: typeId,
       transport: makeRecoveryTransport(),
-      makeRfb: makeNoVncRfb,
+      loadRfb: loadNoVncRfb,
     })
     return {
       checkModel,

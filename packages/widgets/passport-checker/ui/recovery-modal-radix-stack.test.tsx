@@ -1,5 +1,5 @@
 import type { WidgetApi } from '@shared/widgets/contracts'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Dialog } from 'radix-ui'
 import { WidgetApiError } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
@@ -12,7 +12,7 @@ import {
   type RecoveryIssue,
   type RecoveryTransport,
 } from '../model/recovery-transport'
-import type { RfbLike } from '../model/rfb'
+import type { MakeRfb, RfbLike } from '../model/rfb'
 import type { PassportCheckerEvents } from '../types'
 import { passportCheckerContext } from './passport-checker-context'
 import { RecoveryModal } from './RecoveryModal'
@@ -67,10 +67,11 @@ function makeValue(
       return next
     },
   }
+  const makeRfb: MakeRfb = (_target, url) => new FakeRfb(url)
   const recoveryModel = makeRecoveryModel({
     widgetId: 'passport-checker',
     transport,
-    makeRfb: (_target, url) => new FakeRfb(url),
+    loadRfb: async () => makeRfb,
     location: { protocol: 'https:', host: 'board.test' },
   })
   const recoveryFlow = makeRecoveryFlow({ checkModel, recoveryModel })
@@ -78,7 +79,7 @@ function makeValue(
   return { checkModel, value: { checkModel, recoveryModel, recoveryFlow } }
 }
 
-function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
+async function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
   const { checkModel, value } = makeValue(overrides)
   const onOpenChange = vi.fn()
 
@@ -112,6 +113,14 @@ function renderNested(overrides?: Array<RecoveryIssueError | RecoveryIssue>) {
       </Dialog.Portal>
     </Dialog.Root>,
   )
+
+  // NoVncCanvas's mount effect starts the recovery model, which lands its
+  // `issuing -> connecting` transition a few microtasks later: it awaits the
+  // capability request together with the lazily imported noVNC viewer
+  // (model/load-rfb.ts). Flush that continuation inside act() here, so the
+  // synchronous tests below cannot have it repaint mid-assertion — and so it
+  // does not warn about an update outside act().
+  await act(async () => {})
 
   // Both surfaces are role="dialog". Radix's modal `hideOthers` stamps
   // aria-hidden onto every document.body child outside its own content —
@@ -158,7 +167,7 @@ beforeEach(async () => {
 
 describe('RecoveryModal nested under a modal Radix dialog', () => {
   it('Escape closes ONLY our modal, not the underlying Radix dialog', async () => {
-    const { checkModel, onOpenChange, ourDialog } = renderNested()
+    const { checkModel, onOpenChange, ourDialog } = await renderNested()
     await waitFor(() => expect(ourDialog()).toBeInTheDocument())
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -167,8 +176,8 @@ describe('RecoveryModal nested under a modal Radix dialog', () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 
-  it('pulls focus back when the underlying Radix content takes it', () => {
-    const { ourDialog } = renderNested()
+  it('pulls focus back when the underlying Radix content takes it', async () => {
+    const { ourDialog } = await renderNested()
     const dialog = ourDialog()
 
     screen.getByRole('button', { name: 'inside radix' }).focus()
@@ -176,8 +185,8 @@ describe('RecoveryModal nested under a modal Radix dialog', () => {
     expect(dialog.contains(document.activeElement)).toBe(true)
   })
 
-  it('swallows the focusout of a move between two of our own controls before it reaches document', () => {
-    const { ourDialog } = renderNested()
+  it('swallows the focusout of a move between two of our own controls before it reaches document', async () => {
+    const { ourDialog } = await renderNested()
     const dialog = ourDialog()
 
     const buttons = dialog.querySelectorAll('button')
