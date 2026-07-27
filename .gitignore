@@ -38,6 +38,7 @@ pnpm-debug.log*
 # Playwright
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # git worktrees (local development branches)
 .worktrees/
