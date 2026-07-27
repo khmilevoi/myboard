@@ -46,6 +46,20 @@ test('nginx marks the host federation entry no-cache so a stale edge copy cannot
   expect(chunkResponse.status()).toBe(200)
 })
 
+// The service worker has the exact same hazard: vite-plugin-pwa emits it at the
+// fixed name /sw.js, and its precache manifest changes every release. Cloudflare
+// ignores the browser's forced-revalidation request directive, so without this
+// header a deploy keeps serving the previous release's precached assets for hours.
+test('nginx marks the service worker no-cache so a stale edge copy cannot pin clients to the old release', async ({
+  request,
+}) => {
+  await seedSession(request)
+
+  const sw = await request.get('/sw.js')
+  expect(sw.status()).toBe(200)
+  expect(sw.headers()['cache-control']).toContain('no-cache')
+})
+
 test('the production nginx image mounts Clock through the same-origin remote', async ({ page }) => {
   await seedSession(page.request)
   await page.goto('/')
