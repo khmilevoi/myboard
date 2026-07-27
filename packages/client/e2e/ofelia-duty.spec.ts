@@ -151,6 +151,32 @@ test('auto-approve — a cron-closed day reaches the open board over SSE', async
   page,
   request,
 }) => {
+  // The job returns early on an empty ledger on purpose: a stack where nobody
+  // has ever used the widget must not grow one fabricated `cleaned` record a
+  // night forever (server.ts, F11, added in b1fffc0e — six hours after this
+  // test was written, which is why it started failing). So the board needs
+  // some history before the cron has anything to close.
+  //
+  // 2026-06-15 is a genuine Карина duty day and this entry closes it, so the
+  // run below skips it and 2026-06-16 — the day the card is showing — is the
+  // one that gets auto-approved. Do not drop this seed to "simplify" the
+  // test: without it the cron no-ops and every assertion below fails.
+  await request.put(LEDGER_URL, {
+    headers: { 'X-Requested-With': 'MyBoard' },
+    data: {
+      value: [
+        {
+          id: 'seed-history',
+          ts: 1,
+          date: '2026-06-15',
+          type: 'cleaned',
+          actor: 'Карина',
+          by: 'Карина',
+        },
+      ],
+    },
+  })
+
   const ofelia = new OfeliaPage(page)
   await ofelia.seedOfeliaWidget()
   await expect(ofelia.confirmButton).toBeVisible()
