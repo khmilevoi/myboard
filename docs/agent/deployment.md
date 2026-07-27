@@ -73,6 +73,69 @@ A rebuilt branch project does get a fresh deploy key, and the first deploy can l
 registering it on GitHub and cloning — if `git clone` fails with `Permission denied (publickey)`,
 just run the command again.
 
+## Verifying a deploy in the browser
+
+Nothing about a deployed board is safe to judge on a normal reload. Three separate caches sit
+between the build and what runs, and each of them fails silently — the page renders, no error is
+logged, and the measurements describe a different release.
+
+**The service worker and IndexedDB survive a redeploy.** The client is a PWA
+(`vite-plugin-pwa`, `generateSW`, ~148 precached entries) with offline-first Dexie storage, both
+keyed to the origin rather than to the stack. On the shared `branch` hostname that means switching
+the env from branch A to branch B leaves A's precache and A's board layout in place. The symptom is
+`[Federation Runtime]: Please call createInstance first. #RUNTIME-009` on every widget while the
+board shell renders fine — two copies of the module graph, because the cached `remoteEntry.js`
+resolves the old chunk hashes. Clear site data (DevTools → Application → Storage) before believing
+anything; a hard reload is not enough, the old worker controls the page until the new one activates
+and nothing evicts IndexedDB. From a console, the equivalent is:
+
+```js
+const regs = await navigator.serviceWorker.getRegistrations()
+await Promise.all(regs.map((r) => r.unregister()))
+await Promise.all((await caches.keys()).map((k) => caches.delete(k)))
+await fetch('/widgets/<id>/remoteEntry.js', { cache: 'reload' })  // then navigate with ?v=N
+```
+
+The `{cache: 'reload'}` fetch matters on its own: `remoteEntry.js` also sits in the HTTP disk cache,
+which `caches.delete` does not touch.
+
+**URL-stable, content-changing files are exposed to the edge cache.** Almost every asset is
+content-hashed, but `/remoteEntry.js` and `/sw.js` are not — their URLs stay put while their
+contents change every release, so Cloudflare's default `max-age` served the previous release's copy
+and produced the same RUNTIME-009. Both now carry `Cache-Control: no-cache` in
+`packages/client/nginx.conf`, asserted by `packages/client/e2e/nginx-smoke.spec.ts`. Any new file
+with that shape needs the same rule, and a header only affects the *next* fetch — an object already
+at the edge must be purged by URL or waited out.
+
+**So read response headers before reading any bundle.** `cf-cache-status: HIT` with a non-zero `age`
+and a `last-modified` older than the deploy is the whole answer. Comparing the chunk hashes in the
+console trace against the build log's emitted asset list tells you cache-vs-server directly: a hash
+absent from the build log is proof you are looking at cache, not at code. Four plausible causes —
+service-worker cache, a missing remote, a host-init race, a stale BuildKit layer — were investigated
+and disproved before the edge cache was found, and all four live on the wrong side of it.
+
+## An aborted deploy leaves a container on a dead network
+
+If `rpi deploy` gets past the image build and then fails while starting containers (a host port
+still held by another stack, say), Compose has already created every container. The next deploy
+recreates only the services whose config it considers changed and leaves the rest — typically
+`valkey` — attached to the network from the aborted run. The stack then comes up with every service
+`running`, the server logging `getaddrinfo ENOTFOUND valkey` forever, and `client` never becoming
+healthy because it depends on the server.
+
+The tell is **ENOTFOUND, not ECONNREFUSED**: a refused connection means valkey is not ready yet, a
+name that does not resolve means the containers are on different networks, so waiting cannot help.
+`rpi restart` re-attaches a container to the networks it already recorded, and re-running the deploy
+skips the container for the same reason it did the first time. The only fix is to recreate:
+
+```bash
+rpi rm <project>        # keeps volumes without --volumes
+pnpm run deploy:branch  # re-sends the secrets bundle by itself
+```
+
+`rpi rm` asks for the project name at an interactive prompt, so an agent with no stdin cannot run
+it — ask the user.
+
 ## Secrets
 
 Secrets are shared through named groups wherever more than one stack needs the same set.
