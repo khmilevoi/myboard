@@ -109,6 +109,56 @@ describe('useOverlayBackDismiss under StrictMode', () => {
   })
 })
 
+// A hand-built PopStateEvent cannot tell one registered entry from two that
+// happen to carry the same depth — it never traverses, so it always lands on
+// the depth the test names. These drive a real back press instead, which lands
+// on whatever entry the double-mount actually left behind.
+describe('useOverlayBackDismiss under StrictMode — real history traversal', () => {
+  // One flush task plus jsdom's two-task traversal, with slack.
+  const settle = async (): Promise<void> => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+  }
+
+  it('does not close itself after the double-mount, with no user action', async () => {
+    const onClose = vi.fn()
+    render(
+      <StrictMode>
+        <Overlay onClose={onClose} />
+      </StrictMode>,
+    )
+
+    await settle()
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByText('open')).toBeInTheDocument()
+    expect(history.state).toEqual({ overlayDepth: 1 })
+  })
+
+  it('closes on one real back press after the double-mount settles', async () => {
+    // The entry the back press must land on, owned by this test.
+    history.pushState({}, '')
+
+    const onClose = vi.fn()
+    render(
+      <StrictMode>
+        <Overlay onClose={onClose} />
+      </StrictMode>,
+    )
+
+    await settle()
+    expect(history.state).toEqual({ overlayDepth: 1 })
+
+    history.back()
+    await settle()
+
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(screen.getByText('closed')).toBeInTheDocument()
+    expect(history.state).toEqual({})
+  })
+})
+
 describe('useOverlayBackDismiss dismiss callback fallback', () => {
   it('calls close directly when entry has been cleared', () => {
     const onClose = vi.fn()

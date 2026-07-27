@@ -10,11 +10,19 @@ import { dismissOverlay, dropOverlay, pushOverlay, type OverlayEntry } from 'wid
  * fresh history entry each time. Same shape as `useModalIsolation` in
  * passport-checker.
  *
- * StrictMode runs this effect mount → cleanup → mount, which is push → drop
- * (a `history.back()`) → push: one entry registered, and the depth the
- * listener reconciles against agrees with the live stack. The cleanup is what
- * makes that true — pushing without unregistering would take two back presses
- * to close.
+ * StrictMode runs this effect mount → cleanup → mount, so the runtime sees
+ * push → drop → push in one synchronous task. That still registers exactly one
+ * entry, but not because the drop and the push cancel out as navigations: a
+ * drop does not navigate at all. It records the depth history owes back and
+ * schedules the traversal, and the push that follows in the same task reuses
+ * that owed entry instead of pushing a new one — a `replaceState`, no
+ * traversal. Issuing the drop's `history.back()` eagerly would be the bug: a
+ * real browser performs it tens of milliseconds later, after the second push,
+ * and the resulting `popstate` would close the overlay on its own. See the
+ * header of `overlay-history.ts`.
+ *
+ * The cleanup is still what makes the count come out right — pushing without
+ * dropping would take two back presses to close.
  */
 export const useOverlayBackDismiss = (open: boolean, close: () => void): (() => void) => {
   const closeRef = useRef(close)
