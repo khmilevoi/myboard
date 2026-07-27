@@ -1,0 +1,46 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 12px 14px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* The title yields, the control never does. That is the whole responsive story
+   for this card: at the tiny tier the title ellipsizes away and the icon is
+   left as the only identifier, with no container query needed. */
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  color: var(--muted-foreground);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.title svg {
+  flex: none;
+}
+
+.titleText {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Radius and pulse come from Skeleton's own utility classes; only the box it
+   occupies belongs here. The pulse stops under prefers-reduced-motion through
+   the global rule in app/global.css. */
+.body {
+  flex: 1;
+  min-block-size: 0;
+}

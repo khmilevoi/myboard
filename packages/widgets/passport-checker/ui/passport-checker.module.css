@@ -451,12 +451,20 @@
   color: var(--pc-error-hint);
 }
 
+/* A button that keeps the chip's look — see TinyTier's success case for why the
+   status row is also the action. 36px, not the design's 30px, so it lands on
+   the same baseline as every other tiny action row (.tinyButton /
+   .tinySecondaryButton) instead of being a shorter, harder-to-hit target. */
 .tinyStatusChip {
   width: 100%;
-  height: 30px;
+  height: 36px;
   flex: none;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-weight: 600;
@@ -464,6 +472,16 @@
   letter-spacing: 0.04em;
   background: var(--pc-success-soft);
   color: var(--pc-success-chip-fg);
+  cursor: pointer;
+}
+
+.tinyStatusChip:hover {
+  border-color: var(--pc-success-border);
+}
+
+.tinyStatusChip:focus-visible {
+  outline: 2px solid var(--ring, var(--primary, oklch(0.55 0.17 281)));
+  outline-offset: 2px;
 }
 
 .tinyButton {

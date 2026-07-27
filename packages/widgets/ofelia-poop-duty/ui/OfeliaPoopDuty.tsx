@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { getServerTime, type WidgetTier, useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
+import { useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import type { OfeliaEvents } from '../domain/events'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
@@ -20,8 +21,12 @@ import { makeOfeliaViewModel } from './view-model'
 import styles from './ofelia-poop-duty.module.css'
 
 export const OfeliaPoopDuty = reatomMemo(() => {
-  const { mode, tier, storage, api, identity, requestFullscreen, requestClose, requestDelete } =
-    useWidgetContext<OfeliaEvents>()
+  const { tier, storage, api, identity, requestClose } = useWidgetContext<OfeliaEvents>()
+  // Called up here with the other hooks, not next to its use site below: this
+  // component early-returns a loading/error view before the tier switch, and a
+  // hook cannot sit behind that return. The file already keeps a fixed hook set
+  // for the same reason (see the `ready`/`loadFailed` comment below).
+  const chrome = useWidgetChrome()
   const dutyModel = useMemo(
     () => ofeliaDutyModel({ storage, timer: getServerTime(), api, identity }),
     [storage, api, identity],
@@ -144,11 +149,10 @@ export const OfeliaPoopDuty = reatomMemo(() => {
     )
   }
 
-  // Card management controls (expand/delete) only make sense on the board
-  // card itself — the fullscreen dialog already provides its own close
-  // affordance, so neither callback is handed to that tier.
-  const onExpand = mode === 'small' ? requestFullscreen : undefined
-  const onDelete = mode === 'small' ? requestDelete : undefined
+  // Card management controls (expand/delete) only make sense on the board card
+  // itself; useWidgetChrome already withholds them on the fullscreen mount,
+  // which renders with mode="large".
+  const { onExpand, onDelete } = chrome
 
   let content: ReactNode = null
   switch (tier) {

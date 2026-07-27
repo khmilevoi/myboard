@@ -17,11 +17,16 @@ export class BoardPage {
     return this.getCard(index).locator('.widget-drag-grip')
   }
 
+  // The controls are hover-revealed on a desktop pointer and carry
+  // `pointer-events: none` until then, so the card has to be hovered before the
+  // click — Playwright checks the hit target before it moves the mouse.
   async expandCard(index: number): Promise<void> {
+    await this.getCard(index).hover()
     await this.getCard(index).getByRole('button', { name: 'Развернуть' }).click()
   }
 
   async removeCard(index: number): Promise<void> {
+    await this.getCard(index).hover()
     await this.getCard(index).getByRole('button', { name: 'Удалить' }).click()
   }
 }

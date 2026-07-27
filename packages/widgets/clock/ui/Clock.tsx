@@ -1,6 +1,6 @@
 import { useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
+import { useWidgetChrome, WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
 import { clockNow } from '../model/clock-model'
 
@@ -20,7 +20,10 @@ const dateFmt = new Intl.DateTimeFormat(undefined, {
 })
 
 export const Clock = reatomMemo(() => {
-  const { mode, requestFullscreen, requestDelete } = useWidgetContext()
+  const { mode } = useWidgetContext()
+  // Called before the mode branch below: it is a hook, so it cannot sit behind
+  // an early return.
+  const chrome = useWidgetChrome()
   const now = clockNow()
 
   if (mode === 'large') {
@@ -34,7 +37,7 @@ export const Clock = reatomMemo(() => {
 
   return (
     <div className={styles.smallButton}>
-      <WidgetControls onExpand={requestFullscreen} onDelete={requestDelete} />
+      <WidgetControls {...chrome} />
       <span className={styles.timeSmall}>{timeFmt.format(now)}</span>
     </div>
   )

@@ -11,7 +11,7 @@ import {
   type RecoveryIssue,
   type RecoveryTransport,
 } from '../model/recovery-transport'
-import type { RfbLike } from '../model/rfb'
+import type { MakeRfb, RfbLike } from '../model/rfb'
 import type { PassportCheckerEvents } from '../types'
 import { passportCheckerContext } from './passport-checker-context'
 import { formatAccessCountdown, RecoveryModal } from './RecoveryModal'
@@ -68,14 +68,15 @@ function setup(
     },
   }
   const rfbs: FakeRfb[] = []
+  const makeRfb: MakeRfb = (_target, url) => {
+    const rfb = new FakeRfb(url)
+    rfbs.push(rfb)
+    return rfb
+  }
   const recoveryModel = makeRecoveryModel({
     widgetId: 'passport-checker',
     transport,
-    makeRfb: (_target, url) => {
-      const rfb = new FakeRfb(url)
-      rfbs.push(rfb)
-      return rfb
-    },
+    loadRfb: async () => makeRfb,
     location: { protocol: 'https:', host: 'board.test' },
   })
 

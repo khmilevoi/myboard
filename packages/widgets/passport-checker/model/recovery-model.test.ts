@@ -1,12 +1,13 @@
 import { context, wrap } from '@reatom/core'
 
+import { RfbLoadError } from './load-rfb'
 import { makeRecoveryModel, recoverySocketUrl } from './recovery-model'
 import {
   RecoveryIssueError,
   type RecoveryIssue,
   type RecoveryTransport,
 } from './recovery-transport'
-import type { RfbLike } from './rfb'
+import type { MakeRfb, RfbLike } from './rfb'
 
 class FakeRfb implements RfbLike {
   listeners = new Map<string, Set<(event: Event) => void>>()
@@ -45,12 +46,12 @@ function makeFakes(results: Array<RecoveryIssueError | RecoveryIssue>) {
     },
   }
   const rfbs: FakeRfb[] = []
-  const makeRfb = (_target: HTMLElement, url: string) => {
+  const makeRfb: MakeRfb = (_target, url) => {
     const rfb = new FakeRfb(url)
     rfbs.push(rfb)
     return rfb
   }
-  return { transport, makeRfb, issueCalls, rfbs }
+  return { transport, loadRfb: async () => makeRfb, issueCalls, rfbs }
 }
 
 const LOCATION = { protocol: 'https:', host: 'board.test' }
@@ -59,7 +60,7 @@ function makeModel(fakes: ReturnType<typeof makeFakes>, nowMs?: () => number) {
   return makeRecoveryModel({
     widgetId: 'passport-checker',
     transport: fakes.transport,
-    makeRfb: fakes.makeRfb,
+    loadRfb: fakes.loadRfb,
     location: LOCATION,
     ...(nowMs ? { nowMs } : {}),
   })
@@ -122,6 +123,63 @@ describe('makeRecoveryModel', () => {
     })
 
     warn.mockRestore()
+  })
+
+  it('maps a viewer that fails to load to viewerUnavailable', async () => {
+    const fakes = makeFakes([{ expiresInMs: 60_000 }])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await context.start(async () => {
+      const model = makeRecoveryModel({
+        widgetId: 'passport-checker',
+        transport: fakes.transport,
+        loadRfb: async () => new RfbLoadError(),
+        location: LOCATION,
+      })
+      const read = wrap(() => model.state())
+      const start = wrap((el: HTMLElement) => model.start(el))
+
+      await start(document.createElement('div'))
+
+      expect(read()).toEqual({ kind: 'viewerUnavailable' })
+      expect(fakes.rfbs).toHaveLength(0)
+      // The capability was still requested — both run in parallel, and the
+      // store supersedes an unused token on the next issue().
+      expect(fakes.issueCalls).toEqual(['passport-checker'])
+    })
+
+    warn.mockRestore()
+  })
+
+  it('teardown while the viewer is loading invalidates the attempt', async () => {
+    vi.useFakeTimers()
+    const fakes = makeFakes([{ expiresInMs: 60_000 }])
+    let resolveLoad: (value: MakeRfb) => void = () => {}
+
+    await context.start(async () => {
+      const model = makeRecoveryModel({
+        widgetId: 'passport-checker',
+        transport: fakes.transport,
+        loadRfb: () =>
+          new Promise<MakeRfb>((resolve) => {
+            resolveLoad = resolve
+          }),
+        location: LOCATION,
+      })
+      const start = wrap((el: HTMLElement) => model.start(el))
+      const teardown = wrap(() => model.teardown())
+
+      const pending = start(document.createElement('div'))
+      teardown()
+      resolveLoad(await fakes.loadRfb())
+      await pending
+
+      // Same guarantee as the in-flight issue case, for the window the lazy
+      // viewer import adds: nothing is built against the detached container and
+      // no countdown interval is left without an owner to dispose it.
+      expect(fakes.rfbs).toHaveLength(0)
+      expect(vi.getTimerCount()).toBe(0)
+    })
   })
 
   it('drops to disconnected on RFB disconnect and reissues on reconnect', async () => {
@@ -225,7 +283,7 @@ describe('makeRecoveryModel', () => {
       },
     }
     const rfbs: FakeRfb[] = []
-    const makeRfb = (_target: HTMLElement, url: string) => {
+    const makeRfb: MakeRfb = (_target, url) => {
       const rfb = new FakeRfb(url)
       rfbs.push(rfb)
       return rfb
@@ -235,7 +293,7 @@ describe('makeRecoveryModel', () => {
       const model = makeRecoveryModel({
         widgetId: 'passport-checker',
         transport,
-        makeRfb,
+        loadRfb: async () => makeRfb,
         location: LOCATION,
       })
       const start = wrap((el: HTMLElement) => model.start(el))
