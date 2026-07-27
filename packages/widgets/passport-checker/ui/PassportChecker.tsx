@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useWidgetContext } from 'widget-runtime'
 import type { WidgetTier } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { makePassportCheckModel } from '../model/check-model'
 import { passportInstance } from '../model/instance-store'
@@ -24,17 +25,8 @@ export function isStandardLayout(tier: WidgetTier): boolean {
 }
 
 export const PassportChecker = reatomMemo(() => {
-  const {
-    mode,
-    tier,
-    typeId,
-    instanceId,
-    api,
-    storage,
-    requestClose,
-    requestFullscreen,
-    requestDelete,
-  } = useWidgetContext<PassportCheckerEvents>()
+  const { tier, typeId, instanceId, api, storage, requestClose, requestFullscreen } =
+    useWidgetContext<PassportCheckerEvents>()
 
   const { checkModel, recoveryModel, recoveryFlow } = passportInstance(instanceId, () => {
     const checkModel = makePassportCheckModel({ api, storage: storage.shared.server })
@@ -65,10 +57,10 @@ export const PassportChecker = reatomMemo(() => {
   const openRecovery = () =>
     recoveryFlow.openRecovery({ fromFullscreen: tier === 'fullscreen', collapse: requestClose })
 
-  // Card management (delete) only makes sense on the board card itself: the
-  // fullscreen mount always renders with mode="large" (see FullscreenOverlay),
-  // so this excludes it the same way ofelia-poop-duty gates its own controls.
-  const onDelete = mode === 'small' ? requestDelete : undefined
+  // Only `onDelete`: this widget deliberately offers no expand affordance, and
+  // `requestFullscreen` above exists solely to restore fullscreen after the
+  // recovery modal closes.
+  const { onDelete } = useWidgetChrome()
 
   return (
     <passportCheckerContext.Provider value={value}>
