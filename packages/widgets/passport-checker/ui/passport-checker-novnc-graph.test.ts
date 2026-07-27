@@ -22,5 +22,11 @@ describe('passport-checker mount graph', () => {
     // forever with nothing thrown, so no error boundary fires. Reach noVNC
     // through model/load-rfb.ts's dynamic import, never through a static one.
     expect(novnc.evaluations).toBe(0)
-  })
+    // The single `await` above is a cold import of the widget's whole mount
+    // graph — React, Reatom, widget-sdk, the model layer — transformed from
+    // scratch in a fresh module registry. That is the entire cost of this test,
+    // and it overran the default 5s budget under `pnpm check`, which runs five
+    // workspace gates concurrently. Nothing here waits on behaviour, so the
+    // wider budget cannot mask a regression: a real one fails the assertion.
+  }, 20_000)
 })
