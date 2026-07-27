@@ -55,6 +55,16 @@ export const OfeliaPoopDuty = reatomMemo(() => {
       history: dutyModel.historyView,
       today: dutyModel.today,
       comments: commentsModel.commentThread,
+      // F14: `commentsBlocked` is only true when `comments` has never resolved
+      // for the currently viewed week — the case where trusting it would show
+      // a different week's rows. A failure on an already-loaded week is a
+      // separate, non-destructive `commentsWarning` below.
+      commentsFailed: commentsModel.commentsBlocked,
+      // LOW finding: this derived state used to be built here in the
+      // component instead of living next to `commentsBlocked` in
+      // `model/ofelia-comments.ts` — moved so both are pinned by the same
+      // model test asserting they're never simultaneously true.
+      commentsWarning: commentsModel.commentsWarning,
       viewer: identity.viewer,
       actions: {
         onConfirm: wrap(() => {
@@ -99,7 +109,28 @@ export const OfeliaPoopDuty = reatomMemo(() => {
   // server-time sync flips it to true and the tiers (reading other slices) mount.
   // Read race-free (useSyncExternalStore) so a warm /api/time response that lands
   // in the render→subscribe window isn't dropped, leaving the card stuck loading.
-  if (!useAtomValue(value.view.ready)) {
+  // `loadFailed` is read the same way, unconditionally, so this stays a single
+  // fixed set of hooks regardless of which branch below returns (F2c): a ledger
+  // read failure otherwise pins `ready` at false forever with nothing to show
+  // for it but an endless skeleton.
+  const ready = useAtomValue(value.view.ready)
+  const loadFailed = useAtomValue(value.view.loadFailed)
+  if (!ready) {
+    if (loadFailed) {
+      return (
+        <div className={styles.widget} data-tier={tier}>
+          <div className={styles.loading}>
+            <div className={styles.loadError} role="alert">
+              <p>Не удалось загрузить виджет Офелии</p>
+              <button type="button" onClick={wrap(() => dutyModel.retryLedger())}>
+                Повторить
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className={styles.widget} data-tier={tier}>
         <div className={styles.loading}>

@@ -68,6 +68,11 @@ export const MemberAvatar = reatomMemo<MemberAvatarProps>(
       )
     }
 
+    // Every other branch here is `aria-hidden`: the circle is decoration, and
+    // the paired text next to it carries the name. This one used to be the
+    // exception — its initial (and, with an avatar image, the `alt` text)
+    // got announced a second time right before the written name, e.g.
+    // "Карина отметил(а) Карина" (F17).
     return (
       <span
         className={styles.avatar}
@@ -76,9 +81,10 @@ export const MemberAvatar = reatomMemo<MemberAvatarProps>(
         data-viewer={isViewer}
         style={style}
         title={author.name}
+        aria-hidden
       >
         {author.avatarUrl ? (
-          <img className={styles.image} src={author.avatarUrl} alt={author.name} />
+          <img className={styles.image} src={author.avatarUrl} alt="" />
         ) : (
           memberInitial(author.name)
         )}

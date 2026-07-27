@@ -1,5 +1,6 @@
 import { computed } from '@reatom/core'
 import type { AtomLike, Computed } from '@reatom/core'
+import type { StorageError } from 'widget-runtime'
 
 import { isOverDebtWarning } from '../domain/debt'
 import type { DayResolution } from '../domain/ledger'
@@ -130,6 +131,9 @@ export function toBalance(debts: Partial<Record<Person, number>>): DebtBalanceEn
 // and a history event does not recompute the week strip).
 export type OfeliaViewModel = {
   ready: Computed<boolean>
+  /** True once the ledger's initial read has failed and stayed failed — the
+   *  widget will otherwise sit on the loading skeleton forever (F2c). */
+  loadFailed: Computed<boolean>
   selected: Computed<SelectedDayView | null>
   selectedPerson: Computed<Person | null>
   /** ISO date of the highlighted duty day, for readers that only track *which*
@@ -138,6 +142,15 @@ export type OfeliaViewModel = {
   days: Computed<WeekDayView[]>
   balance: Computed<DebtBalanceEntry[]>
   canForgive: Computed<boolean>
+  /** True while any day action (confirm/debt/forgive/undo) is in flight. */
+  actionPending: Computed<boolean>
+  /** A Russian, user-facing sentence for the most recent day-action failure,
+   *  if any (F6a) — never the raw `Error.message`, which can carry an
+   *  internal reason string or a server error forwarded verbatim. Tracks
+   *  WRITE order: cleared the instant ANY of the four day actions starts, and
+   *  set only by the one that actually fails — so a later action's success
+   *  clears an earlier action's stale error instead of being shadowed by it. */
+  actionErrorMessage: Computed<string | null>
 }
 
 // Structural subset of `ofeliaDutyModel` — the model is passed in directly.
@@ -148,12 +161,24 @@ export type OfeliaDutySources = {
   numberOfDebts: AtomLike<Partial<Record<Person, number>> | null>
   today: AtomLike<Temporal.PlainDate | null>
   forgivePending: AtomLike<boolean>
+  ledgerError: AtomLike<StorageError | null>
+  ledgerLoading: AtomLike<boolean>
+  actionPending: AtomLike<boolean>
+  actionErrorMessage: AtomLike<string | null>
 }
 
 // `make` (not `create`) per the repo factory convention; named for its output
 // (`OfeliaViewModel`) to stay distinct from the test fixture's `makeOfeliaView`.
 export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
   const ready = computed(() => duty.currentWeek() != null, 'ofelia.ready')
+
+  // Only "failed", never "ready AND failed": once the week loads, a later
+  // transient error must not yank the widget back into a failure screen —
+  // this only ever gates the initial endless-skeleton case (F2c).
+  const loadFailed = computed(
+    () => !ready() && !duty.ledgerLoading() && duty.ledgerError() != null,
+    'ofelia.loadFailed',
+  )
 
   const selected = computed(() => {
     const week = duty.currentWeek()
@@ -194,5 +219,19 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
     'ofelia.canForgive',
   )
 
-  return { ready, selected, selectedPerson, selectedIso, days, balance, canForgive }
+  const actionPending = computed(() => duty.actionPending(), 'ofelia.actionPending')
+  const actionErrorMessage = computed(() => duty.actionErrorMessage(), 'ofelia.actionErrorMessage')
+
+  return {
+    ready,
+    loadFailed,
+    selected,
+    selectedPerson,
+    selectedIso,
+    days,
+    balance,
+    canForgive,
+    actionPending,
+    actionErrorMessage,
+  }
 }

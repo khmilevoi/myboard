@@ -10,13 +10,27 @@ describe('MemberAvatar', () => {
     expect(screen.getByTitle('Карина')).toHaveTextContent('К')
   })
 
-  it('renders the avatar image when the directory has one', () => {
-    render(
+  // F17: the account branch used to be the one exception left announced to
+  // assistive tech — its initial (or, with an avatar, the image `alt`) was
+  // read a second time right before the paired written name, producing
+  // things like "Карина отметил(а) Карина". Every other branch here is
+  // `aria-hidden`; this one must match.
+  it('hides the account initial from assistive tech, same as every other branch', () => {
+    const { container } = render(
+      <MemberAvatar author={{ kind: 'account', accountId: 'a1', name: 'Карина' }} />,
+    )
+    expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('renders the avatar image with an empty alt, so it is not announced twice', () => {
+    const { container } = render(
       <MemberAvatar
         author={{ kind: 'account', accountId: 'a1', name: 'Карина', avatarUrl: '/k.png' }}
       />,
     )
-    expect(screen.getByRole('img', { name: 'Карина' })).toHaveAttribute('src', '/k.png')
+    const image = container.querySelector('img')
+    expect(image).toHaveAttribute('src', '/k.png')
+    expect(image).toHaveAttribute('alt', '')
   })
 
   it('marks the viewer', () => {

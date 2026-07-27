@@ -4,7 +4,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
+  StorageError,
   type ServerTime,
+  type StorageApi,
   type WidgetRuntimeProps,
   WidgetRuntimeContext,
   type WidgetStorage,
@@ -12,6 +14,8 @@ import {
 } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
+
+import { LEDGER_KEY } from '@/domain/ledger'
 
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 
@@ -141,5 +145,54 @@ describe('OfeliaPoopDuty tier routing', () => {
       'data-slot',
       'skeleton',
     )
+  })
+})
+
+// F2c: a failed initial ledger read used to leave `ledger` pinned at its
+// `null` sentinel forever — every derived computed collapsed to null,
+// `view.ready` never flipped, and the widget sat on the loading skeleton
+// with no error and no way out.
+function fakeWidgetStorageWithFailingLedger(): WidgetStorage {
+  const instanceClient = createFakeStorage()
+  const instanceServer = createFakeStorage()
+  const sharedClient = createFakeStorage()
+  const baseSharedServer = createFakeStorage()
+
+  const sharedServer: StorageApi = {
+    ...baseSharedServer,
+    subscribe: vi.fn((key: string, listener: (event: unknown) => void, schema?: unknown) => {
+      if (key === LEDGER_KEY) {
+        listener(new StorageError({ reason: 'boom' }))
+        return () => {}
+      }
+      return baseSharedServer.subscribe(key, listener as never, schema as never)
+    }) as unknown as StorageApi['subscribe'],
+    get: vi.fn(async (key: string) =>
+      key === LEDGER_KEY ? [] : null,
+    ) as unknown as StorageApi['get'],
+  }
+
+  return {
+    instance: { client: instanceClient, server: instanceServer },
+    shared: { client: sharedClient, server: sharedServer },
+  }
+}
+
+describe('OfeliaPoopDuty ledger load failure (F2c)', () => {
+  it('shows a retry affordance instead of an endless skeleton, and recovers on retry', async () => {
+    const widgetProps = props('standard')
+    widgetProps.storage = fakeWidgetStorageWithFailingLedger()
+    renderWidget(widgetProps)
+
+    // Never an endless skeleton: the failed read resolves to a real failure
+    // state with a retry action, not the loading placeholder.
+    const retry = await screen.findByRole('button', { name: 'Повторить' })
+    expect(screen.queryByLabelText('Загрузка виджета Офелии')).not.toBeInTheDocument()
+
+    fireEvent.click(retry)
+
+    await waitFor(() => {
+      expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    })
   })
 })

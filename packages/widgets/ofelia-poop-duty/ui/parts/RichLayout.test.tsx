@@ -164,6 +164,66 @@ describe('RichLayout', () => {
     }
   })
 
+  // F6a: a failed day action used to fail floating, with nothing disabling
+  // the buttons and nothing showing the error.
+  it('disables the day actions while pending and shows the last action error', () => {
+    const view = makeOfeliaView({
+      actionPending: true,
+      actionErrorMessage: 'Нет соединения с сервером',
+    })
+    renderRich(makeOfeliaValue({ view }), <RichLayout />)
+
+    expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Нет соединения с сервером')
+  })
+
+  // F14: `comments` may still hold a previous week's rows when the current
+  // week's read has failed — the failed flag must win over rendering them.
+  it('shows a comments failure state instead of a possibly stale thread', () => {
+    renderRich(
+      makeOfeliaValue({
+        comments: [
+          {
+            id: 'c1',
+            text: 'старая неделя',
+            author: { kind: 'account', accountId: 'a1', name: 'Карина' },
+            createdAt: 1,
+            isViewerComment: false,
+          },
+        ],
+        commentsFailed: true,
+      }),
+      <RichLayout />,
+    )
+
+    expect(screen.getByText('Не удалось загрузить комментарии')).toBeInTheDocument()
+    expect(screen.queryByText('старая неделя')).not.toBeInTheDocument()
+  })
+
+  // MEDIUM (F14 follow-up): a transient failure on the currently viewed
+  // week's already-loaded thread must keep showing its rows, with only a
+  // non-destructive banner marking the failure.
+  it('keeps an already-loaded comments thread visible behind a warning banner', () => {
+    renderRich(
+      makeOfeliaValue({
+        comments: [
+          {
+            id: 'c1',
+            text: 'текущая неделя',
+            author: { kind: 'account', accountId: 'a1', name: 'Карина' },
+            createdAt: 1,
+            isViewerComment: false,
+          },
+        ],
+        commentsWarning: true,
+      }),
+      <RichLayout />,
+    )
+
+    expect(screen.getByText('Не удалось обновить комментарии')).toBeInTheDocument()
+    expect(screen.getByText('текущая неделя')).toBeInTheDocument()
+  })
+
   it('keeps the parent-owned tab state bridge on the split container', () => {
     const { container } = renderRich(makeOfeliaValue(), <RichLayout />)
     const split = container.querySelector('[data-tab]')

@@ -113,10 +113,13 @@ const DEFAULT_BALANCE: DebtBalanceEntry[] = [
 // Override API stays on plain slice values; each field is wrapped in an atom.
 type OfeliaViewOverrides = {
   ready?: boolean
+  loadFailed?: boolean
   selected?: SelectedDayView | null
   days?: WeekDayView[]
   balance?: DebtBalanceEntry[]
   canForgive?: boolean
+  actionPending?: boolean
+  actionErrorMessage?: string | null
 }
 
 export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
@@ -125,6 +128,7 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
 
   return {
     ready: atom(o.ready ?? true, 'fixture.ready'),
+    loadFailed: atom(o.loadFailed ?? false, 'fixture.loadFailed'),
     selected: atom<SelectedDayView | null>(selected, 'fixture.selected'),
     selectedPerson: atom<Person | null>(selected?.person ?? null, 'fixture.selectedPerson'),
     selectedIso: atom<string | null>(selected?.iso ?? null, 'fixture.selectedIso'),
@@ -134,6 +138,11 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
       o.canForgive ?? (selected?.isDebtDay === true && balance.some((entry) => entry.debt > 0)),
       'fixture.canForgive',
     ),
+    actionPending: atom(o.actionPending ?? false, 'fixture.actionPending'),
+    actionErrorMessage: atom<string | null>(
+      o.actionErrorMessage ?? null,
+      'fixture.actionErrorMessage',
+    ),
   }
 }
 
@@ -142,6 +151,8 @@ type MakeOfeliaValueOptions = {
   history?: HistoryDayGroup[]
   today?: Temporal.PlainDate
   comments?: CommentView[]
+  commentsFailed?: boolean
+  commentsWarning?: boolean
   viewer?: BoardMember | null
   actions?: Partial<OfeliaActions>
   onSend?: (text: string) => Promise<void>
@@ -156,6 +167,8 @@ export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextVa
       'fixture.today',
     ),
     comments: atom<CommentView[]>(o.comments ?? [], 'fixture.comments'),
+    commentsFailed: atom(o.commentsFailed ?? false, 'fixture.commentsFailed'),
+    commentsWarning: atom(o.commentsWarning ?? false, 'fixture.commentsWarning'),
     viewer: atom<BoardMember | null>(o.viewer ?? null, 'fixture.viewer'),
     actions: {
       onConfirm: noop,
