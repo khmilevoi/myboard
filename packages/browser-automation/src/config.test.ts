@@ -11,6 +11,7 @@ describe('loadBrowserServiceConfig', () => {
       profileDir: '/profile',
       secretsDir: '/run/secrets',
       recoverySshTarget: null,
+      novncPort: 6080,
     })
   })
 
@@ -27,7 +28,20 @@ describe('loadBrowserServiceConfig', () => {
       profileDir: '/profile',
       secretsDir: '/run/secrets',
       recoverySshTarget: null,
+      novncPort: 6080,
     })
+  })
+
+  // Must stay in lockstep with docker-compose.yml's NOVNC_HOST_PORT, which
+  // drives the publish line the container itself cannot introspect.
+  it('reads a NOVNC_HOST_PORT override', () => {
+    const config = loadBrowserServiceConfig({ NOVNC_HOST_PORT: '6180' })
+    expect(config).toMatchObject({ novncPort: 6180 })
+  })
+
+  it('returns a tagged error for a non-positive-integer NOVNC_HOST_PORT', () => {
+    const result = loadBrowserServiceConfig({ NOVNC_HOST_PORT: '0' })
+    expect(result).toBeInstanceOf(BrowserServiceConfigError)
   })
 
   it('normalizes a usable AUTOMATION_SSH_TARGET', () => {

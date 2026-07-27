@@ -92,6 +92,8 @@ export function makeChromiumExecutor(deps: {
   secretsDir: string
   /** Public SSH fallback hint put into escalation error meta. */
   recoverySshTarget?: string | null
+  /** Public noVNC host port hint put into escalation error meta. */
+  novncPort?: number
   launch?: LaunchPersistentContext
 }): BrowserExecutor<BrowserTaskContext> {
   const launch = deps.launch ?? launchPersistentChromium
@@ -203,6 +205,7 @@ export function makeChromiumExecutor(deps: {
           detectUserInput: makeDetectUserInput({
             page,
             recoverySshTarget: deps.recoverySshTarget ?? null,
+            novncPort: deps.novncPort,
             retain: () => {
               managedContext.retained = true
             },

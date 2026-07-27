@@ -17,6 +17,9 @@ export type DetectUserInput = (
 export function makeDetectUserInput(deps: {
   page: Page
   recoverySshTarget: string | null
+  /** Real host noVNC port for this stack; UserInputRequiredError falls back
+   *  to its own default when omitted. */
+  novncPort?: number
   retain: () => void
 }): DetectUserInput {
   return async (detector, options) => {
@@ -44,6 +47,9 @@ export function makeDetectUserInput(deps: {
     }
 
     deps.retain()
-    return new UserInputRequiredError({ sshTarget: deps.recoverySshTarget })
+    return new UserInputRequiredError({
+      sshTarget: deps.recoverySshTarget,
+      novncPort: deps.novncPort,
+    })
   }
 }

@@ -126,6 +126,9 @@ services:
     init: true
     environment:
       PORT: '8788'
+      # Matches the hardcoded noVNC publish port below; kept explicit rather
+      # than relying on config.ts's default coinciding with it by accident.
+      NOVNC_HOST_PORT: '6080'
     secrets:
       - source: dev_passport_series
         target: passport-checker_series

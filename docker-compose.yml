@@ -87,6 +87,12 @@ services:
       PORT: '8788'
       # Non-secret operational config; Subproject 5 includes it in safe error meta.
       AUTOMATION_SSH_TARGET: ${AUTOMATION_SSH_TARGET:-}
+      # Same variable as the noVNC publish line below, so a stack cannot set
+      # one without the other: the container only ever sees its own internal
+      # 6080 and has no way to introspect the host port Compose published it
+      # under, so it must be told. Threaded into the recovery error meta the
+      # widget reads to build its SSH-tunnel hint.
+      NOVNC_HOST_PORT: ${NOVNC_HOST_PORT:-6080}
     secrets:
       - source: passport_series
         target: passport-checker_series
