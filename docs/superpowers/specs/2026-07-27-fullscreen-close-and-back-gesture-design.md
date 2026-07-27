@@ -83,8 +83,8 @@ Desktop hides the defect — `Esc` and a click on the backdrop both work. A phon
 
 **clock.** `Clock.tsx` renders `<WidgetControls {...chrome} />` in the `mode === 'large'` branch as
 well as the small one. `useWidgetChrome()` yields `{ onClose }` there, so exactly one button
-appears. `clock.module.css`'s `.root` needs `position: relative`, or `placement="overlay"` resolves
-against the dialog panel instead of the widget content.
+appears. No CSS change: `placement="overlay"` needs a positioned ancestor, and `clock.module.css`'s
+`.root` already carries `position: relative` (line 8).
 
 **passport-checker.** `PassportChecker.tsx:63` becomes `const { onDelete, onClose } =
 useWidgetChrome()`; both travel to the tiers, and `StandardTier` / `TinyTier` render
