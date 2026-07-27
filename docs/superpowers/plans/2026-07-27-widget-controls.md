@@ -1090,10 +1090,13 @@ Expected: `pnpm format` may rewrite files; `pnpm lint` and `pnpm deps:check` rep
 
 ```bash
 pnpm typecheck
+pnpm --filter client run typecheck:e2e
 pnpm test
 ```
 
 Expected: PASS. Compare any failure against the Task 0 baseline before treating it as a regression.
+
+`typecheck:e2e` is a separate script and is **not** covered by `pnpm typecheck`: the client's `typecheck` runs `tsconfig.json` and `tsconfig.node.json`, which include `src`, `tests` and `activation/src` but never `e2e/**`. Only `tsconfig.e2e.json` includes the Playwright specs, so without this line a type error in `mobile-board.spec.ts` or `BoardPage.ts` reaches the browser run unnoticed.
 
 - [ ] **Step 3: Run the browser suite**
 
