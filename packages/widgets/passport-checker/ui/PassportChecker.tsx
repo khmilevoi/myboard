@@ -24,8 +24,17 @@ export function isStandardLayout(tier: WidgetTier): boolean {
 }
 
 export const PassportChecker = reatomMemo(() => {
-  const { tier, typeId, instanceId, api, storage, requestClose, requestFullscreen } =
-    useWidgetContext<PassportCheckerEvents>()
+  const {
+    mode,
+    tier,
+    typeId,
+    instanceId,
+    api,
+    storage,
+    requestClose,
+    requestFullscreen,
+    requestDelete,
+  } = useWidgetContext<PassportCheckerEvents>()
 
   const { checkModel, recoveryModel, recoveryFlow } = passportInstance(instanceId, () => {
     const checkModel = makePassportCheckModel({ api, storage: storage.shared.server })
@@ -56,13 +65,18 @@ export const PassportChecker = reatomMemo(() => {
   const openRecovery = () =>
     recoveryFlow.openRecovery({ fromFullscreen: tier === 'fullscreen', collapse: requestClose })
 
+  // Card management (delete) only makes sense on the board card itself: the
+  // fullscreen mount always renders with mode="large" (see FullscreenOverlay),
+  // so this excludes it the same way ofelia-poop-duty gates its own controls.
+  const onDelete = mode === 'small' ? requestDelete : undefined
+
   return (
     <passportCheckerContext.Provider value={value}>
       <div className={styles.widget} data-tier={tier}>
         {isStandardLayout(tier) ? (
-          <StandardTier onOpenRecovery={openRecovery} />
+          <StandardTier onOpenRecovery={openRecovery} onDelete={onDelete} />
         ) : (
-          <TinyTier onOpenRecovery={openRecovery} />
+          <TinyTier onOpenRecovery={openRecovery} onDelete={onDelete} />
         )}
       </div>
       {/* The fullscreen mount never owns the modal: opening recovery from it

@@ -23,11 +23,12 @@ function makeProps(
   invoke: () => Promise<InvokeResult>,
   instanceId = 'inst-passport',
   storage: WidgetRuntimeProps['storage'] = makeFakeStorage(),
+  mode: WidgetRuntimeProps['mode'] = 'small',
 ) {
   const props: WidgetRuntimeProps = {
     instanceId,
     typeId: 'passport-checker',
-    mode: 'small',
+    mode,
     tier,
     theme: 'light',
     requestFullscreen: vi.fn(),
@@ -99,7 +100,9 @@ describe('PassportChecker / standard tier', () => {
     expect(await screen.findByText('Паспорт-чекер не настроен')).toBeInTheDocument()
     expect(screen.getByText('Обратитесь к администратору.')).toBeInTheDocument()
     expect(screen.getByText('действие недоступно · нужна настройка на сервере')).toBeInTheDocument()
-    expect(screen.queryByRole('button')).toBeNull()
+    // A delete button (widget chrome) is expected here; only the check action
+    // is meant to be absent when the widget has no server-side config.
+    expect(screen.queryByRole('button', { name: 'Проверить' })).toBeNull()
   })
 
   it('renders sessionRequired with the open-recovery action', async () => {
@@ -125,6 +128,42 @@ describe('PassportChecker / standard tier', () => {
 
     expect(await screen.findByText('Готово')).toBeInTheDocument()
     expect(invoke).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('PassportChecker / delete control', () => {
+  it('renders in the standard tier and invokes requestDelete exactly once when clicked', () => {
+    const props = makeProps('standard', vi.fn())
+    render(
+      <WidgetRuntimeContext.Provider value={props}>
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+
+    expect(props.requestDelete).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders in the tiny tier', () => {
+    renderWidget('compact', vi.fn())
+
+    expect(screen.getByRole('button', { name: 'Удалить' })).toBeInTheDocument()
+  })
+
+  // The board tile always mounts with mode="small"; the fullscreen overlay
+  // always mounts with mode="large" (see FullscreenOverlay.tsx), so this is
+  // the actual production condition under which the fullscreen mount runs —
+  // not just its tier="fullscreen" in isolation.
+  it('is absent from the fullscreen mount (mode="large")', () => {
+    const props = makeProps('fullscreen', vi.fn(), 'inst-passport', makeFakeStorage(), 'large')
+    render(
+      <WidgetRuntimeContext.Provider value={props}>
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Удалить' })).toBeNull()
   })
 })
 
@@ -203,7 +242,9 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
     expect(await screen.findByText('Не настроен')).toBeInTheDocument()
-    expect(screen.queryByRole('button')).toBeNull()
+    // A delete button (widget chrome) is expected here; only the check action
+    // is meant to be absent when the widget has no server-side config.
+    expect(screen.queryByRole('button', { name: 'Проверить' })).toBeNull()
   })
 })
 

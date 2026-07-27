@@ -6,6 +6,7 @@ import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import type { PassportCheckerEvents } from '../types'
 import {
+  CHECK_DEADLINE_MS,
   GENERIC_RETRYABLE_MESSAGE,
   formatCheckedAt,
   lastResultSchema,
@@ -60,22 +61,45 @@ describe('mapCheckError', () => {
     })
   })
 
-  it('maps browser_session_required with sshTarget', () => {
-    expect(mapCheckError(apiError('browser_session_required', { sshTarget: 'admin@pi' }))).toEqual({
+  it('maps browser_session_required with sshTarget and novncPort', () => {
+    expect(
+      mapCheckError(
+        apiError('browser_session_required', { sshTarget: 'admin@pi', novncPort: 16080 }),
+      ),
+    ).toEqual({
       kind: 'sessionRequired',
       sshTarget: 'admin@pi',
+      novncPort: 16080,
     })
   })
 
-  it('maps browser_session_required without sshTarget to null', () => {
+  it('maps browser_session_required without sshTarget or novncPort to null/default', () => {
     expect(mapCheckError(apiError('browser_session_required'))).toEqual({
       kind: 'sessionRequired',
       sshTarget: null,
+      novncPort: 6080,
     })
   })
 
   it('maps browser_configuration to invalidConfig', () => {
     expect(mapCheckError(apiError('browser_configuration'))).toEqual({ kind: 'invalidConfig' })
+  })
+})
+
+describe('CHECK_DEADLINE_MS', () => {
+  // Mirrors packages/browser-automation/src/config.ts's ConfigSchema
+  // defaults (BROWSER_QUEUE_WAIT_MS + BROWSER_TASK_TIMEOUT_MS) and
+  // docker-compose.yml's board-server BROWSER_AUTOMATION_TIMEOUT_MS. Not
+  // imported directly — passport-checker's model does not depend on either
+  // package — so if those numbers move, this test (and the derivation
+  // comment on CHECK_DEADLINE_MS) must be updated by hand rather than
+  // silently drifting apart.
+  const SERVER_PIPELINE_BUDGET_MS = 30_000 + 60_000
+  const SERVER_HTTP_TIMEOUT_MS = 100_000
+
+  it('sits above the server pipeline budget and below the server HTTP timeout', () => {
+    expect(CHECK_DEADLINE_MS).toBeGreaterThan(SERVER_PIPELINE_BUDGET_MS)
+    expect(CHECK_DEADLINE_MS).toBeLessThan(SERVER_HTTP_TIMEOUT_MS)
   })
 })
 
@@ -173,7 +197,7 @@ describe('makePassportCheckModel', () => {
 
       await run()
 
-      expect(read()).toEqual({ kind: 'sessionRequired', sshTarget: 'admin@pi' })
+      expect(read()).toEqual({ kind: 'sessionRequired', sshTarget: 'admin@pi', novncPort: 6080 })
     })
   })
 
@@ -194,6 +218,101 @@ describe('makePassportCheckModel', () => {
       expect(read()).toEqual({
         kind: 'retryable',
         message: RETRYABLE_MESSAGES.automation_timeout,
+      })
+    })
+  })
+
+  it('lands a late success: an invoke that resolves after the deadline still writes lastResult and clears the transient error', async () => {
+    const { api, invoke } = makeApi()
+    let resolveInvoke: (value: WidgetApiError | CheckResult) => void = () => {}
+    invoke.mockReturnValueOnce(
+      new Promise<WidgetApiError | CheckResult>((resolve) => {
+        resolveInvoke = resolve
+      }),
+    )
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage: createFakeStorage(),
+        deadlineMs: 0,
+        now: () => new Date('2026-07-24T13:07:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+
+      // The 0ms deadline wins the race first, same as the existing "fires
+      // first" test above — the pipeline itself is still running.
+      await run()
+      expect(read()).toEqual({
+        kind: 'retryable',
+        message: RETRYABLE_MESSAGES.automation_timeout,
+      })
+
+      // A real result arrives after the fact. It must not be silently
+      // dropped: the passport status is a fact the user still needs.
+      resolveInvoke({ status: 200, send_status_msg: 'Документ готовий' })
+      await vi.waitFor(() => {
+        expect(read()).toEqual({
+          kind: 'success',
+          status: 200,
+          message: 'Документ готовий',
+          checkedAtLabel: '13:07',
+        })
+      })
+    })
+  })
+
+  it('does not let a late straggler from a superseded attempt overwrite a newer, already-observed result', async () => {
+    const { api, invoke } = makeApi()
+    let resolveFirst: (value: WidgetApiError | CheckResult) => void = () => {}
+    invoke.mockReturnValueOnce(
+      new Promise<WidgetApiError | CheckResult>((resolve) => {
+        resolveFirst = resolve
+      }),
+    )
+    invoke.mockResolvedValueOnce({ status: 200, send_status_msg: 'Документ готовий' })
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage: createFakeStorage(),
+        deadlineMs: 0,
+        now: () => new Date('2026-07-24T13:07:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+
+      // Attempt A: the 0ms deadline wins immediately, same as the "fires
+      // first" test above — the underlying invoke is still running.
+      await run()
+      expect(read()).toEqual({
+        kind: 'retryable',
+        message: RETRYABLE_MESSAGES.automation_timeout,
+      })
+
+      // The user retries. Attempt B (mocked second) resolves and completes
+      // normally, taking transient back to idle with the newer result.
+      await run()
+      expect(read()).toEqual({
+        kind: 'success',
+        status: 200,
+        message: 'Документ готовий',
+        checkedAtLabel: '13:07',
+      })
+
+      // Attempt A's invoke finally settles — a straggler from an attempt the
+      // user has already moved past. It must not overwrite the newer result,
+      // even though transient is idle (not pending) at this point.
+      resolveFirst({ status: 102, send_status_msg: 'В обробці' })
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(read()).toEqual({
+        kind: 'success',
+        status: 200,
+        message: 'Документ готовий',
+        checkedAtLabel: '13:07',
       })
     })
   })

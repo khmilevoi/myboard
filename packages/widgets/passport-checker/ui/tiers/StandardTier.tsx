@@ -1,15 +1,16 @@
 import { wrap } from '@reatom/core'
 import { AppWindow, Check, CircleAlert, IdCard, RefreshCw } from 'lucide-react'
 import { cn, reatomMemo } from 'widget-sdk'
+import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
 import { StatusBanner } from '../parts/StatusBanner'
 import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
 
-export type StandardTierProps = { onOpenRecovery: () => void }
+export type StandardTierProps = { onOpenRecovery: () => void; onDelete?: () => void }
 
-export const StandardTier = reatomMemo(({ onOpenRecovery }: StandardTierProps) => {
+export const StandardTier = reatomMemo(({ onOpenRecovery, onDelete }: StandardTierProps) => {
   const { checkModel } = usePassportChecker()
   const view = checkModel.viewState()
   const check = wrap(() => {
@@ -22,6 +23,7 @@ export const StandardTier = reatomMemo(({ onOpenRecovery }: StandardTierProps) =
 
   return (
     <div className={styles.standard}>
+      <WidgetControls onDelete={onDelete} />
       <header className={styles.header}>
         <span
           className={cn(styles.iconChip, view.kind === 'invalidConfig' && styles.iconChipMuted)}

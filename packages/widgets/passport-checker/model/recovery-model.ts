@@ -113,26 +113,42 @@ export function makeRecoveryModel({
     }, RECOVERY_TICK_MS)
 
     let disposed = false
-    session = {
-      dispose: () => {
-        if (disposed) return
-        disposed = true
-        clearInterval(timer)
-        // Listeners come off before disconnect() so the RFB's own disconnect
-        // event cannot re-enter the state machine during teardown.
-        rfb.removeEventListener('connect', onConnect)
-        rfb.removeEventListener('disconnect', onDisconnect)
-        rfb.removeEventListener('securityfailure', onSecurityFailure)
-        const result = errore.try({
-          try: () => rfb.disconnect(),
-          catch: (cause) => new Error('rfb disconnect failed', { cause }),
-        })
-        if (result instanceof Error) console.warn(result.message)
-      },
+    const dispose = () => {
+      if (disposed) return
+      disposed = true
+      clearInterval(timer)
+      // Listeners come off before disconnect() so the RFB's own disconnect
+      // event cannot re-enter the state machine during teardown.
+      rfb.removeEventListener('connect', onConnect)
+      rfb.removeEventListener('disconnect', onDisconnect)
+      rfb.removeEventListener('securityfailure', onSecurityFailure)
+      const result = errore.try({
+        try: () => rfb.disconnect(),
+        catch: (cause) => new Error('rfb disconnect failed', { cause }),
+      })
+      if (result instanceof Error) console.warn(result.message)
     }
+
+    // makeRfb/setInterval above run synchronously (no await between them and
+    // the last isStale() check), but teardown() or a superseding start() may
+    // still have landed in that window. Re-check here so a just-built
+    // RFB/interval is disposed immediately instead of being handed to
+    // `session`, where nothing would ever call dispose() again.
+    if (isStale()) {
+      dispose()
+      return
+    }
+    session = { dispose }
   }, 'passportRecovery.start')
 
   const teardown = action(() => {
+    // Bump `attempt` first so a start() awaiting transport.issue() sees
+    // isStale() === true when it resumes and never constructs a real RFB
+    // against a target that's already unmounted. Without this, disposeSession()
+    // below is a no-op during the `issuing` window (session is still null —
+    // it's only assigned at the very end of start()), so the pending POST
+    // resolves later into an orphaned RFB + interval that nothing ever disposes.
+    attempt += 1
     disposeSession()
   }, 'passportRecovery.teardown')
 

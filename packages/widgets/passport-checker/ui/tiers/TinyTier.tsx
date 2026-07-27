@@ -1,14 +1,15 @@
 import { wrap } from '@reatom/core'
 import { Check, CircleAlert, IdCard, RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn, reatomMemo } from 'widget-sdk'
+import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
 import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
 
-export type TinyTierProps = { onOpenRecovery: () => void }
+export type TinyTierProps = { onOpenRecovery: () => void; onDelete?: () => void }
 
-export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
+export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete }: TinyTierProps) => {
   const { checkModel } = usePassportChecker()
   const view = checkModel.viewState()
   const check = wrap(() => {
@@ -22,6 +23,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'sessionRequired') {
     return (
       <div className={cn(styles.tiny, styles.tinyWarning)}>
+        <WidgetControls onDelete={onDelete} />
         <div className={styles.tinyBody}>
           <span className={cn(styles.tinyChip, styles.tinyChipWarning)} aria-hidden>
             <TriangleAlert size={19} />
@@ -39,6 +41,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'invalidConfig') {
     return (
       <div className={cn(styles.tiny, styles.tinyCentered)}>
+        <WidgetControls onDelete={onDelete} />
         <span className={cn(styles.tinyChip, styles.tinyChipMuted)} aria-hidden>
           <IdCard size={20} />
         </span>
@@ -49,6 +52,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'pending') {
     return (
       <div className={styles.tiny} role="status">
+        <WidgetControls onDelete={onDelete} />
         <div className={cn(styles.tinyBody, styles.tinyBodyPending)}>
           <span className={cn(styles.spinner, styles.spinnerLarge)} aria-hidden />
           <span className={styles.tinyMono}>Проверяем…</span>
@@ -62,6 +66,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'success') {
     return (
       <div className={styles.tiny}>
+        <WidgetControls onDelete={onDelete} />
         <div className={styles.tinyBody}>
           <span className={cn(styles.tinyBadge, styles.tinyBadgeSuccess)} aria-hidden>
             <Check size={21} strokeWidth={2.6} />
@@ -81,6 +86,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   if (view.kind === 'retryable') {
     return (
       <div className={styles.tiny}>
+        <WidgetControls onDelete={onDelete} />
         <div className={styles.tinyBody}>
           <span className={cn(styles.tinyBadge, styles.tinyBadgeError)} aria-hidden>
             <CircleAlert size={21} />
@@ -95,6 +101,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery }: TinyTierProps) => {
   }
   return (
     <div className={styles.tiny}>
+      <WidgetControls onDelete={onDelete} />
       <div className={styles.tinyBody}>
         <span className={styles.tinyChip} aria-hidden>
           <IdCard size={21} />
