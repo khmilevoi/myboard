@@ -313,3 +313,41 @@ the alternative considered — synthesizing an author — writes a permanent fal
 attribution into an append-only store.
 
 **Trigger.** An account named outside the rotation is created.
+
+## The PWA update path has no manual affordance and can lag an hour
+
+**Today.** `registerType: 'autoUpdate'` with `injectRegister: null` makes
+`vite-plugin-pwa@1.3.0` set `workbox.skipWaiting`/`clientsClaim` (`dist/index.js:874`),
+and its `dist/client/build/register.js` auto branch reloads the page itself on
+`activated` when `isUpdate || isExternal`. A new release does land on its own. But
+that same branch never calls `onNeedRefresh`, and `updateServiceWorker()` opens with
+`if (!auto) sendSkipWaitingMessage()` — so in auto mode it is a no-op. `needRefreshAtom`
+and `applyUpdate()` (`packages/client/src/app/model/pwa.ts`) and `UpdateBanner`
+(`app/ui/App.tsx:25`) are therefore dead code. The only update check an already-open
+client performs is `pwa.ts`'s hourly `registration.update()`.
+
+**Why it is tolerable.** `packages/client/nginx.conf` sends `Cache-Control: no-cache`
+for `/sw.js` and every `remoteEntry.js`, so a plain navigation picks a new release up,
+and most clients navigate often enough.
+
+**Why it should not stay.** A standalone PWA resumed from the background does not
+navigate, so the wall tablet can sit up to an hour on the previous release — the one
+client nobody reloads, and the same client that "An old client bundle cannot parse a
+new record shape" above already lands on. Meanwhile the banner advertises a manual
+escape hatch that cannot fire, and pressing it calls a function that returns
+immediately.
+
+**Shape to consider.** Re-check on `visibilitychange` and `online` alongside the timer,
+guarded the way Vite PWA's periodic-updates guide does it: skip while `r.installing`,
+skip when offline, and only call `r.update()` after `sw.js` answers 200. Then pick one
+of the two update models instead of half of each — delete
+`needRefreshAtom`/`applyUpdate`/`UpdateBanner`, or move to `registerType: 'prompt'`,
+where `onNeedRefresh` does fire and the banner earns its place. Auto mode reloads
+without asking, which interrupts a drag; `onNeedReload` is the lever if that matters.
+
+Note that none of this touches IndexedDB: a service-worker update never evicts Dexie,
+which is why the shared `board-branch` hostname still needs site data cleared by hand
+when switching branches.
+
+**Trigger.** A release has to reach the wall tablet promptly, or someone tries to use
+the update banner.
