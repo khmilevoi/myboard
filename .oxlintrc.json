@@ -65,6 +65,7 @@
     "**/looper-output/**",
     "**/.superpowers/**",
     "**/node_modules/**",
+    "**/*.md",
     "docs/**",
     "design/**"
   ]

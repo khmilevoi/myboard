@@ -16,6 +16,7 @@
     "pnpm-lock.yaml",
     "**/node_modules/**",
     "**/*.generated.ts",
+    "**/*.md",
     "docs/**",
     "design/**"
   ]

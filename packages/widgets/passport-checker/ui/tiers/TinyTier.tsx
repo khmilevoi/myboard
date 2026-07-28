@@ -91,10 +91,28 @@ export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete, onClose }: TinyT
           {/* The tiny tile has no room for a second banner line, but a restored
               result can be days old, so the timestamp rides along in the same
               chip rather than being dropped (see StandardTier's bannerMeta,
-              which shows the same fact at full size). */}
-          <span className={styles.tinyStatusChip}>
+              which shows the same fact at full size).
+
+              The chip is also the action, rather than carrying one below it,
+              because this state would otherwise be a dead end: the widget
+              deliberately offers no expand affordance, so a card narrower than
+              the 321px `standard` threshold (client.ts) that restores a stored
+              result on mount would have no way left to re-check. Folding the
+              action into the row the state already draws costs no height, so it
+              still fits the smallest tile.
+
+              The accessible name repeats the visible text after the action so
+              the name contains the label a user can see, rather than replacing
+              it. */}
+          <button
+            type="button"
+            className={styles.tinyStatusChip}
+            aria-label={`Проверить снова · СТАТУС ${view.status} · ${view.checkedAtLabel}`}
+            onClick={check}
+          >
+            <RefreshCw size={12} aria-hidden />
             СТАТУС {view.status} · {view.checkedAtLabel}
-          </span>
+          </button>
         </>
       )
       break

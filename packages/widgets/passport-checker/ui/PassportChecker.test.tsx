@@ -224,6 +224,26 @@ describe('PassportChecker / tiny tier', () => {
     expect(screen.getByText(/СТАТУС 200 · \d{2}:\d{2}/)).toBeInTheDocument()
   })
 
+  // The tiny tile offers no expand affordance (PassportChecker takes only
+  // `onDelete` from useWidgetChrome), so if this state had no action of its own
+  // it would be a dead end: a card narrower than the widget's 321px standard
+  // threshold that restores a stored result on mount could never be re-checked.
+  it('re-runs the check from the compact success state', async () => {
+    const invoke = vi
+      .fn<() => Promise<InvokeResult>>()
+      .mockResolvedValueOnce({ status: 200, send_status_msg: 'Готово' })
+      .mockResolvedValueOnce({ status: 404, send_status_msg: 'Дані не знайдено!' })
+
+    renderWidget('compact', invoke)
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Проверить снова/ }))
+
+    expect(await screen.findByText('Дані не знайдено!')).toBeInTheDocument()
+    expect(screen.getByText(/СТАТУС 404 · \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(invoke).toHaveBeenCalledTimes(2)
+  })
+
   it('shows a dated timestamp for a restored result, not "just now"', async () => {
     const storage = makeFakeStorage()
     // Fixed in the past, deliberately not "today": a restored result must read
