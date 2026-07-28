@@ -12,13 +12,8 @@ skills and loads them on demand; other agents read the files directly.
 | `docs/agent/test-troubleshooting.md` | a test run or a pnpm/node invocation misbehaves on this machine |
 | `docs/agent/widget-server.md` | writing a widget's `server.ts`, a cron job, or code that stamps a record's author |
 | `docs/agent/radix-stacked-dialogs.md` | closing one Radix dialog or popover also dismisses the one underneath |
-| `docs/architecture/overview.md` | you need the widget/storage/server picture beyond the map below |
-
-## Related guides
-
-| Guide | Read it when |
-| --- | --- |
 | `docs/agent/browser-history-traversal.md` | touching `overlay-history.ts`, or a test disagrees with the browser about history traversal timing |
+| `docs/architecture/overview.md` | you need the widget/storage/server picture beyond the map below |
 
 ## Required skills
 
