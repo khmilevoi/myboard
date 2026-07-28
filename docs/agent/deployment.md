@@ -73,6 +73,31 @@ A rebuilt branch project does get a fresh deploy key, and the first deploy can l
 registering it on GitHub and cloning — if `git clone` fails with `Permission denied (publickey)`,
 just run the command again.
 
+## Which stack am I looking at
+
+Every non-production stack brands itself, so a screenshot, a tab title or an installed PWA icon
+identifies its origin without checking the URL:
+
+| Stack | accent | title / manifest | badge |
+| --- | --- | --- | --- |
+| `board.iiskelo.com` | violet | `myboard` | none |
+| `board-dev.iiskelo.com` | amber | `myboard · dev` | `DEV` |
+| `board-branch.iiskelo.com` | raspberry | `myboard · branch` | `BRANCH` |
+| `pnpm dev` / `pnpm dev:docker` | teal | `myboard · local` | `LOCAL` |
+
+The name travels `RPI_ENV` → the `APP_ENV` build arg in `docker-compose.yml` → `VITE_APP_ENV` in
+`packages/client/Dockerfile` → the `__APP_ENV__` build constant. It is baked into the bundle at
+image-build time, so **a stand that comes up violet means `APP_ENV` never reached the build**, not
+that a CSS rule lost. Check `rpi config show --env <name>` for `RPI_ENV`, then rebuild without a
+cached client layer.
+
+An unrecognised value fails the build outright, naming the value and the known environments — a
+typo can never ship production branding onto a stand.
+
+Adding or recolouring an environment is one entry in
+`packages/client/src/shared/app-env/registry.ts` followed by `pnpm icons:generate`; committing the
+regenerated `public/env/**` and `icons.lock.json` together is enforced by a unit test.
+
 ## Verifying a deploy in the browser
 
 Nothing about a deployed board is safe to judge on a normal reload. Three separate caches sit

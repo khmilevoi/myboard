@@ -73,3 +73,20 @@ test('the production nginx image mounts Clock through the same-origin remote', a
   //  заебал, че напрямую локатор в тесте ищется? сохрани ёпта
   await expect(card.locator('[class*="skeleton"]')).toHaveCount(0)
 })
+
+// The environment icons are referenced from BOTH the board and the activation
+// page, and the activation page is the one surface an unauthenticated visitor
+// sees. Under the catch-all `location /` these requests hit auth_request, get
+// 401, and are answered with the activation HTML through error_page -- so the
+// browser receives text/html for a favicon and the login screen stays
+// unbranded, which is exactly the signal this feature exists to give.
+test('nginx serves the environment icons without a session', async ({ request }) => {
+  const icon = await request.get('/env/dev/favicon.svg')
+
+  expect(icon.status()).toBe(200)
+  expect(icon.headers()['content-type']).toContain('image/svg+xml')
+  expect(await icon.text()).not.toContain('<div id="root">')
+
+  const missing = await request.get('/env/nope/favicon.svg')
+  expect(missing.status()).toBe(404)
+})
