@@ -129,6 +129,27 @@ describe('PassportChecker / standard tier', () => {
     expect(await screen.findByText('Готово')).toBeInTheDocument()
     expect(invoke).toHaveBeenCalledTimes(2)
   })
+
+  it('offers a close control, and no delete, on the fullscreen mount', () => {
+    const widgetProps = makeProps(
+      'fullscreen',
+      vi.fn(),
+      'inst-passport-fullscreen',
+      makeFakeStorage(),
+      'large',
+    )
+    render(
+      <WidgetRuntimeContext.Provider value={widgetProps}>
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Развернуть' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    expect(widgetProps.requestClose).toHaveBeenCalledOnce()
+  })
 })
 
 describe('PassportChecker / delete control', () => {

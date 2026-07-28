@@ -57,18 +57,19 @@ export const PassportChecker = reatomMemo(() => {
   const openRecovery = () =>
     recoveryFlow.openRecovery({ fromFullscreen: tier === 'fullscreen', collapse: requestClose })
 
-  // Only `onDelete`: this widget deliberately offers no expand affordance, and
-  // `requestFullscreen` above exists solely to restore fullscreen after the
-  // recovery modal closes.
-  const { onDelete } = useWidgetChrome()
+  // Named fields rather than a spread: this widget deliberately offers no
+  // expand affordance, and `requestFullscreen` above exists solely to restore
+  // fullscreen after the recovery modal closes. Exactly one of the two is
+  // defined in any given mode, so each tier still shows a single button.
+  const { onDelete, onClose } = useWidgetChrome()
 
   return (
     <passportCheckerContext.Provider value={value}>
       <div className={styles.widget} data-tier={tier}>
         {isStandardLayout(tier) ? (
-          <StandardTier onOpenRecovery={openRecovery} onDelete={onDelete} />
+          <StandardTier onOpenRecovery={openRecovery} onDelete={onDelete} onClose={onClose} />
         ) : (
-          <TinyTier onOpenRecovery={openRecovery} onDelete={onDelete} />
+          <TinyTier onOpenRecovery={openRecovery} onDelete={onDelete} onClose={onClose} />
         )}
       </div>
       {/* The fullscreen mount never owns the modal: opening recovery from it

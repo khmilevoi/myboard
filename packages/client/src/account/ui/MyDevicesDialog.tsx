@@ -318,17 +318,19 @@ export const MyDevicesDialog = reatomMemo<MyDevicesDialogProps>(
             if (next) {
               addDeviceWasOpenRef.current = true
             } else {
-              // Clear a tick *later* than `addDeviceOpen.set(false)` below,
-              // not in the same synchronous pass: this onOpenChange call is
-              // itself running inside the same click that Radix's own
-              // DismissableLayer has already scheduled a deferred
-              // outside-dismiss check for (see the onPointerDownOutside
-              // comment above) via `setTimeout(fn, 0)`, registered *before*
-              // this handler runs (during the click's capture phase). A
-              // `setTimeout(0)` scheduled here, during the bubble phase,
-              // therefore always fires *after* that already-queued one --
-              // so the ref is still `true` when Radix's check reads it, and
-              // only flips back to `false` once that window has passed.
+              // Cleared one tick after `addDeviceOpen.set(false)` below, not
+              // synchronously with it -- but the reason has changed. Since
+              // the overlay-history work, this `onOpenChange(false)` no
+              // longer runs inside the click at all: it arrives from the
+              // `popstate` handler that `dismissOverlay` schedules (see
+              // overlay-history.ts), tens of milliseconds after the click
+              // that started it. By then, this dialog's own deferred
+              // outside-dismiss check (the onPointerDownOutside comment
+              // above) has long since run and read the ref -- so the ref is
+              // certainly still `true` when it matters, an even stronger
+              // guarantee than the same-tick race this comment used to
+              // describe. The `setTimeout` below is now belt-and-braces
+              // rather than a race this code needs to win.
               setTimeout(() => {
                 addDeviceWasOpenRef.current = false
               }, 0)

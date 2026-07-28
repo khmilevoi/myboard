@@ -4,6 +4,7 @@ import 'fake-indexeddb/auto'
 import '@testing-library/jest-dom/vitest'
 import { configure } from '@testing-library/react'
 import { beforeEach } from 'vitest'
+import { resetOverlayHistory } from 'widget-runtime'
 import { resetClientStorage } from 'widget-runtime/storage/test/fakes'
 
 // The Dexie db behind client storage is a module singleton: rows and in-flight
@@ -13,6 +14,22 @@ import { resetClientStorage } from 'widget-runtime/storage/test/fakes'
 beforeEach(async () => {
   await resetClientStorage()
 })
+
+// packages/widget-runtime/src/overlay-history.ts mirrors open overlays onto
+// browser history through file-scoped singletons (the entry stack, the
+// popstate listener, a pending owed-traversal timer), shared by every
+// Dialog/Popover root that calls useOverlayBackDismiss (packages/client/src/
+// components/ui/dialog.tsx, popover.tsx). Without a reset, one test's
+// still-registered entry (or scheduled traversal) leaks into the next.
+// Guarded to jsdom: `@vitest-environment node` files in this package (e.g.
+// board-storage.test.ts) have no window/history at all — see the
+// `globalThis.location` stub below for the same split.
+if (typeof window !== 'undefined') {
+  beforeEach(() => {
+    resetOverlayHistory()
+    history.replaceState({}, '')
+  })
+}
 
 // `@vitest-environment node` files (e.g. board-storage.test.ts) have no
 // `location` at all, unlike jsdom. HttpClient falls back to

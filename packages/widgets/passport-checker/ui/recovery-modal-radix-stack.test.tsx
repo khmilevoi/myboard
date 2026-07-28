@@ -170,10 +170,33 @@ describe('RecoveryModal nested under a modal Radix dialog', () => {
     const { checkModel, onOpenChange, ourDialog } = await renderNested()
     await waitFor(() => expect(ourDialog()).toBeInTheDocument())
 
-    fireEvent.keyDown(document, { key: 'Escape' })
+    // Spied, not mocked: pins the mechanism (Escape must route through
+    // history) rather than only its eventual effect.
+    const back = vi.spyOn(history, 'back')
+    try {
+      fireEvent.keyDown(document, { key: 'Escape' })
 
-    expect(checkModel.recoveryOpen()).toBe(false)
-    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+      expect(back).toHaveBeenCalledOnce()
+
+      // Wait for OUR modal to actually close before checking the survivor.
+      // Asserting the survivor immediately would pass even if the race this
+      // test guards against had returned: the underlying Radix dialog's own
+      // deferred `pointerDownOutside`/Escape check runs on a `setTimeout(0)`
+      // (see CLAUDE.md's UI gotchas), so an early check could simply run
+      // before that deferred call had a chance to fire.
+      await waitFor(() => expect(checkModel.recoveryOpen()).toBe(false))
+
+      // Give that deferred check a macrotask to land, if it were going to —
+      // test-side settling of the system under test, not a production-code
+      // timing guard.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+
+      expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    } finally {
+      back.mockRestore()
+    }
   })
 
   it('pulls focus back when the underlying Radix content takes it', async () => {
