@@ -46,6 +46,13 @@ COPY packages/client ./packages/client
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     pnpm install --offline --frozen-lockfile --store-dir /pnpm-store
 
+# Environment branding (packages/client/src/shared/app-env). Declared here,
+# right before the build, so every install and COPY layer above stays shared
+# between a production, a dev and a branch image -- only the final RUN differs.
+# Absent -> production, which emits no override, no badge and no icon rewrite.
+ARG APP_ENV=production
+ENV VITE_APP_ENV=$APP_ENV
+
 # Typechecking runs in CI. The image build keeps the same production artifact
 # order as the root build while invoking Vite directly for the host on slow Pi
 # hardware: codegen -> every remote -> host/PWA assembly -> standalone

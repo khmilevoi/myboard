@@ -1,0 +1,51 @@
+.badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--env-badge-fg);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+/* Pairs with BoardSchemaSelect.module.css's 640px rule: that's where the
+   select goes width: 100% and starts squeezing the brand box, and the
+   badge's 69px is exactly what the select's growth costs -- drop the label
+   text and keep only the dot, still inside a circular pill of the same
+   height. */
+@media (max-width: 640px) {
+  .badge {
+    gap: 0;
+    width: 22px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .label {
+    display: none;
+  }
+}
+
+/* Pairs with BoardSchemaSelect.module.css's 430px rule: that's where the
+   select itself collapses to a 36px icon, so there is no room left for the
+   badge at all. */
+@media (max-width: 430px) {
+  .badge {
+    display: none;
+  }
+}

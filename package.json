@@ -20,6 +20,7 @@
     "logs:docker": "docker compose logs -f",
     "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter \\\"./packages/widgets/*\\\" build\" \"pnpm --filter client typecheck\" && pnpm --filter client build && pnpm --filter client build:activation",
     "build:widgets": "pnpm run codegen:client && pnpm --filter \"./packages/widgets/*\" build",
+    "icons:generate": "pnpm --filter client icons:generate",
     "preview": "pnpm --filter client preview",
     "deploy": "rpi deploy",
     "deploy:dev": "rpi deploy --env dev",
