@@ -36,4 +36,31 @@ describe('ThemeToggle', () => {
       )
     })
   })
+
+  // Both controls are always in the DOM -- CSS media queries pick which one
+  // is visible, and jsdom never evaluates them -- so the cycling button's
+  // accessible name must not collide with any 'radio' name above, or these
+  // getByRole('radio', ...) queries above would themselves start throwing
+  // "found multiple elements".
+  it('also renders the compact cycling button', () => {
+    render(<ThemeToggle />)
+    expect(screen.getByRole('button', { name: 'Сменить тему' })).toBeInTheDocument()
+  })
+
+  it('walks light -> dark -> system -> light as the cycling button is clicked repeatedly', () => {
+    render(<ThemeToggle />)
+    const cycleButton = screen.getByRole('button', { name: 'Сменить тему' })
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Светлая тема' }))
+    expect(themeMode()).toBe('light')
+
+    fireEvent.click(cycleButton)
+    expect(themeMode()).toBe('dark')
+
+    fireEvent.click(cycleButton)
+    expect(themeMode()).toBe('system')
+
+    fireEvent.click(cycleButton)
+    expect(themeMode()).toBe('light')
+  })
 })

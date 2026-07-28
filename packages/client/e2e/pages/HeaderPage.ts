@@ -3,11 +3,13 @@ import type { Locator, Page } from '@playwright/test'
 export class HeaderPage {
   readonly addWidgetButton: Locator
   readonly themeToggle: Locator
+  readonly themeCycleButton: Locator
 
   constructor(readonly page: Page) {
     const header = page.getByRole('banner')
     this.addWidgetButton = header.getByRole('button', { name: 'Добавить виджет' })
     this.themeToggle = header.getByRole('radiogroup', { name: 'Тема' })
+    this.themeCycleButton = header.getByRole('button', { name: 'Сменить тему' })
   }
 
   async addWidget(title: string): Promise<void> {

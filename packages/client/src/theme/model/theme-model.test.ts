@@ -2,7 +2,7 @@ import { context } from '@reatom/core'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { initTheme, systemPrefersDark, themeMode } from './theme-model'
+import { cycleThemeMode, initTheme, systemPrefersDark, themeMode } from './theme-model'
 import { THEME_STORAGE_KEY } from './theme-storage'
 
 function mockMatchMedia(matches: boolean) {
@@ -45,5 +45,20 @@ describe('theme model init', () => {
     mockMatchMedia(false)
     initTheme()
     expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+})
+
+describe('cycleThemeMode', () => {
+  it('advances light -> dark -> system -> light, wrapping around', () => {
+    themeMode.set('light')
+
+    cycleThemeMode()
+    expect(themeMode()).toBe('dark')
+
+    cycleThemeMode()
+    expect(themeMode()).toBe('system')
+
+    cycleThemeMode()
+    expect(themeMode()).toBe('light')
   })
 })

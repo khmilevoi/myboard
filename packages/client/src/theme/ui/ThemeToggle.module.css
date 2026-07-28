@@ -34,3 +34,42 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+.cycleButton {
+  display: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.cycleButton:hover {
+  color: var(--foreground);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+.cycleButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Pairs with MOBILE_BREAKPOINT (packages/client/src/board/model/grid-metrics.ts):
+   768px is already this repo's "narrow" threshold, and it lands right on the
+   measured onset of the .brand/.actions collision -- swap the three-item
+   group for the single cycling button here. */
+@media (max-width: 768px) {
+  .group {
+    display: none;
+  }
+
+  .cycleButton {
+    display: grid;
+  }
+}
