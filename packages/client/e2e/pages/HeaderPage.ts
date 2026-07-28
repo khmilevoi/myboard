@@ -9,7 +9,9 @@ export class HeaderPage {
     const header = page.getByRole('banner')
     this.addWidgetButton = header.getByRole('button', { name: 'Добавить виджет' })
     this.themeToggle = header.getByRole('radiogroup', { name: 'Тема' })
-    this.themeCycleButton = header.getByRole('button', { name: 'Сменить тему' })
+    // The accessible name embeds the current mode (e.g. "Тема: Тёмная тема.
+    // Сменить"), so it changes on every click -- match the constant suffix.
+    this.themeCycleButton = header.getByRole('button', { name: /Сменить$/ })
   }
 
   async addWidget(title: string): Promise<void> {

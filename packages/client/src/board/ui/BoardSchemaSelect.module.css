@@ -1,7 +1,3 @@
-.root {
-  min-width: 220px;
-}
-
 .trigger {
   /* width: 220px (kept, not replaced by flex-basis) plus flex-shrink: 1 and
      min-width: 0, so this can give ground when the header row is short of
@@ -217,14 +213,14 @@
 
 @media (max-width: 640px) {
   /* .trigger (or .skeleton, while loading) is itself a flex item of .brand
-     (Header.module.css) -- BoardSchemaSelect has no wrapper element, so
-     whichever one is rendered sits directly beside its siblings (the logo,
-     EnvBadge). .root below is never applied to anything in
-     BoardSchemaSelect.tsx, so it cannot be the fix target: width: 100%
-     resolves against .brand's own content box, claiming the *entire* row
-     for itself as if the logo/badge weren't there and pushing their content
-     under .actions. flex: 1 1 auto fills only the space left after the
-     siblings, which is the width this rule actually wants. */
+     (Header.module.css) -- BoardSchemaSelect has no wrapper element (there
+     used to be an unused .root class here suggesting one; it applied to
+     nothing and has been deleted), so whichever one is rendered sits
+     directly beside its siblings (the logo, EnvBadge). width: 100% resolved
+     against .brand's own content box, claiming the *entire* row for itself
+     as if the logo/badge weren't there and pushing their content under
+     .actions. flex: 1 1 auto fills only the space left after the siblings,
+     which is the width this rule actually wants. */
   .trigger,
   .skeleton {
     flex: 1 1 auto;
@@ -233,11 +229,6 @@
 }
 
 @media (max-width: 430px) {
-  .root {
-    width: auto;
-    min-width: 36px;
-  }
-
   .trigger,
   .skeleton {
     width: 36px;

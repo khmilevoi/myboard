@@ -61,10 +61,12 @@
 }
 
 /* Pairs with MOBILE_BREAKPOINT (packages/client/src/board/model/grid-metrics.ts):
-   768px is already this repo's "narrow" threshold, and it lands right on the
-   measured onset of the .brand/.actions collision -- swap the three-item
-   group for the single cycling button here. */
-@media (max-width: 768px) {
+   grid-metrics.ts treats 768 as desktop (`width < MOBILE_BREAKPOINT`), so the
+   threshold here is 767px, not 768px, to actually agree with it -- 767px is
+   this repo's "narrow" boundary, and it lands right on the measured onset of
+   the .brand/.actions collision -- swap the three-item group for the single
+   cycling button here. */
+@media (max-width: 767px) {
   .group {
     display: none;
   }

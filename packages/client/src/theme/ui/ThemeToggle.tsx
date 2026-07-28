@@ -78,7 +78,7 @@ export const ThemeToggle = reatomMemo(() => {
       <button
         type="button"
         className={styles.cycleButton}
-        aria-label="Сменить тему"
+        aria-label={`Тема: ${LABELS[current]}. Сменить`}
         title={LABELS[current]}
         onClick={wrap((event: MouseEvent) =>
           applyWithViewTransition(event, () => cycleThemeMode()),

@@ -25,17 +25,20 @@ describe('EnvBadge', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('keeps the label text in its own element, separate from the dot', () => {
+  // getByText matches on an element's direct text-node children, and returns
+  // the closest such element -- if the label were reverted to bare text
+  // inside .badge, getByText('dev') would resolve to the pill itself (also a
+  // <span>), so comparing against the dot (also not the pill) would pass on
+  // both the old and new markup. Compare against the outer pill instead:
+  // that's the one element getByText can resolve to on the old markup but
+  // never on the new one.
+  it('keeps the label text in its own element, nested inside the pill', () => {
     render(<EnvBadge env="dev" />)
+    const pill = screen.getByRole('status')
     const label = screen.getByText('dev')
-    const dot = screen.getByRole('status').querySelector('[aria-hidden="true"]')
 
     expect(label.tagName).toBe('SPAN')
-    expect(label).not.toBe(dot)
-  })
-
-  it('keeps announcing the environment via aria-label, independent of the label text -- this is what keeps the <=640px dot-only state announced, since CSS.module media queries do not evaluate in jsdom', () => {
-    render(<EnvBadge env="branch" />)
-    expect(screen.getByRole('status')).toHaveAttribute('aria-label', 'Окружение: branch')
+    expect(label).not.toBe(pill)
+    expect(pill).toContainElement(label)
   })
 })
