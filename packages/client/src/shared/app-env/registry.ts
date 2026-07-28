@@ -8,6 +8,11 @@ export interface AppEnvBranding {
   label: string | null
 }
 
+/** The design system's fixed accent lightness and chroma; only the hue varies
+ *  per environment. */
+export const ACCENT_L = 0.55
+export const ACCENT_C = 0.17
+
 /**
  * Adding an environment is one entry here plus `pnpm icons:generate`.
  * Changing one is one number.

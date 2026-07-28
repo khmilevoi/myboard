@@ -1,4 +1,4 @@
-import { APP_ENVS, type AppEnvName } from './registry'
+import { ACCENT_C, ACCENT_L, APP_ENVS, type AppEnvName } from './registry'
 
 /**
  * The environment palette as two CSS rule sets, ready to inject into <head>.
@@ -25,9 +25,9 @@ export function envAccentCss(name: AppEnvName): string {
 
   return [
     `${root} {`,
-    `  --primary: oklch(0.55 0.17 ${hue});`,
+    `  --primary: oklch(${ACCENT_L} ${ACCENT_C} ${hue});`,
     `  --primary-hover: oklch(0.49 0.17 ${hue});`,
-    `  --ring: oklch(0.55 0.17 ${hue});`,
+    `  --ring: oklch(${ACCENT_L} ${ACCENT_C} ${hue});`,
     `  --accent-soft: oklch(0.955 0.032 ${hue});`,
     `  --env-badge-fg: oklch(0.5 0.15 ${hue});`,
     `}`,

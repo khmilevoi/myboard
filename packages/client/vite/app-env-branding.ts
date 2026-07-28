@@ -10,7 +10,7 @@ import type { AppEnvName } from '../src/shared/app-env/registry'
  * Always installed, including for production -- brandHtml is the no-op, not
  * the plugin list, so both configs keep one shape.
  *
- * Default hook order (post) on purpose: Vite injects its own <script> and
+ * Default hook order (normal) on purpose: Vite injects its own <script> and
  * <link rel="stylesheet"> at the end of <head>, so inserting before </head>
  * puts the accent <style> after the bundled stylesheet. envAccentCss doubles
  * `:root` so correctness does not actually depend on that -- but there is no

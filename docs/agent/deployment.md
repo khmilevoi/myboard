@@ -87,16 +87,25 @@ identifies its origin without checking the URL:
 
 The name travels `RPI_ENV` → the `APP_ENV` build arg in `docker-compose.yml` → `VITE_APP_ENV` in
 `packages/client/Dockerfile` → the `__APP_ENV__` build constant. It is baked into the bundle at
-image-build time, so **a stand that comes up violet means `APP_ENV` never reached the build**, not
-that a CSS rule lost. Check `rpi config show --env <name>` for `RPI_ENV`, then rebuild without a
-cached client layer.
+image-build time, so **a stand that comes up violet usually means `APP_ENV` never reached the
+build**, not that a CSS rule lost — but rule out the stale-service-worker cause in the next section
+first, especially on the shared `branch` hostname. Check `rpi config show --env <name>` for
+`RPI_ENV`, then rebuild without a cached client layer.
 
 An unrecognised value fails the build outright, naming the value and the known environments — a
 typo can never ship production branding onto a stand.
 
-Adding or recolouring an environment is one entry in
+Recolouring an environment, or adding one to the branding itself, is one entry in
 `packages/client/src/shared/app-env/registry.ts` followed by `pnpm icons:generate`; committing the
-regenerated `public/env/**` and `icons.lock.json` together is enforced by a unit test.
+regenerated `public/env/**` and `icons.lock.json` together is enforced by a unit test. Adding a new
+*deploy target* is more than that — it also needs its own `rpi.<name>.toml`, a `.env.<name>`, a
+hostname and a `deploy:<name>` script, same as `dev` and `branch` have.
+
+Known accepted limitation: production's activation page references root-absolute icons
+(`/favicon.ico`, `/favicon.svg`, `/apple-touch-icon.png`), which fall into nginx's gated catch-all
+and come back 401 with the activation HTML instead of the icon — the same failure `location /env/`
+exists to prevent on every branded stack. Left open deliberately for production, the one stack that
+is not branded, because closing it would change a production response.
 
 ## Verifying a deploy in the browser
 

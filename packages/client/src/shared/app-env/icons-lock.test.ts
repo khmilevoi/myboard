@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ENV_ICON_FILES } from './icons'
 import { oklchToHex } from './oklch'
-import { APP_ENVS, type AppEnvName } from './registry'
+import { ACCENT_C, ACCENT_L, APP_ENVS, type AppEnvName } from './registry'
 
 const clientRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const lock = JSON.parse(readFileSync(`${clientRoot}icons.lock.json`, 'utf8')) as Record<
@@ -37,7 +37,7 @@ describe('icons.lock.json', () => {
   it.each(branded)('matches the registry for %s', (name) => {
     expect(lock[name]).toBeDefined()
     expect(lock[name].hue).toBe(APP_ENVS[name].hue)
-    expect(lock[name].hex).toBe(oklchToHex(0.55, 0.17, APP_ENVS[name].hue))
+    expect(lock[name].hex).toBe(oklchToHex(ACCENT_L, ACCENT_C, APP_ENVS[name].hue))
   })
 
   it.each(branded)('has every committed icon file for %s', (name) => {

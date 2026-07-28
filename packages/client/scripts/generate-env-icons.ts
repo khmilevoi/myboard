@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from '@playwright/test'
 
 import { oklchToHex } from '../src/shared/app-env/oklch'
-import { APP_ENVS, type AppEnvName } from '../src/shared/app-env/registry'
+import { ACCENT_C, ACCENT_L, APP_ENVS, type AppEnvName } from '../src/shared/app-env/registry'
 
 const clientRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDir = resolve(clientRoot, 'public')
@@ -13,7 +13,7 @@ const envRoot = resolve(publicDir, 'env')
 const lockFile = resolve(clientRoot, 'icons.lock.json')
 
 /** The production fill every committed SVG carries; replaced with the env accent. */
-const PRODUCTION_FILL = '#645fd1'
+const PRODUCTION_FILL = oklchToHex(ACCENT_L, ACCENT_C, APP_ENVS.production.hue)
 
 /**
  * Which SVG feeds which raster, and at what size. Read off the committed
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
   try {
     for (const name of branded) {
       const { hue } = APP_ENVS[name]
-      const hex = oklchToHex(0.55, 0.17, hue)
+      const hex = oklchToHex(ACCENT_L, ACCENT_C, hue)
       const outDir = resolve(envRoot, name)
       await mkdir(outDir, { recursive: true })
 

@@ -15,6 +15,10 @@ const widgetViteConfig = readFileSync(
   'utf8',
 )
 const clientViteConfig = readFileSync(resolve(root, 'packages/client/vite.config.ts'), 'utf8')
+const clientActivationViteConfig = readFileSync(
+  resolve(root, 'packages/client/vite.activation.config.ts'),
+  'utf8',
+)
 const rootPackage = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
 }
@@ -478,6 +482,9 @@ describe('environment branding delivery', () => {
     expect(clientDockerfile.indexOf('ARG APP_ENV=production')).toBeGreaterThan(
       clientDockerfile.indexOf('COPY packages/client ./packages/client'),
     )
+    expect(clientDockerfile.indexOf('ARG APP_ENV=production')).toBeGreaterThan(
+      clientDockerfile.indexOf('pnpm install --offline --frozen-lockfile'),
+    )
     expect(clientDockerfile.indexOf('ENV VITE_APP_ENV=$APP_ENV')).toBeLessThan(
       clientDockerfile.indexOf('RUN pnpm run codegen:client'),
     )
@@ -489,5 +496,14 @@ describe('environment branding delivery', () => {
       compose.indexOf('  browser-automation:'),
     )
     expect(devClientBlock).toContain('VITE_APP_ENV: local')
+  })
+
+  // Both configs derive appEnv from VITE_APP_ENV and must actually feed it
+  // into the branding plugin -- otherwise a stand builds with the right
+  // constant but an unbranded index.html, and nothing else would catch it:
+  // the e2e suites only ever build production, where the plugin is a no-op.
+  it('registers the branding plugin in both client Vite configs', () => {
+    expect(clientViteConfig).toContain('appEnvBranding(appEnv)')
+    expect(clientActivationViteConfig).toContain('appEnvBranding(appEnv)')
   })
 })

@@ -75,6 +75,13 @@ function activationRoutePlugin(): Plugin {
       // directory as static -- both its HTML *and* the `/activate/assets/*`
       // it references -- if present; otherwise fail loudly instead of
       // silently falling through to the board's SPA shell.
+      //
+      // Accepted limitation: this reads dist/activate/index.html verbatim,
+      // never through transformIndexHtml, so in local dev the board's own
+      // branding (from VITE_APP_ENV, e.g. teal 'local') can disagree with
+      // whatever environment `build:activation` was last run with. Harmless
+      // on a real stand, where both builds share one image-build ENV
+      // VITE_APP_ENV.
       server.middlewares.use((req, res, next) => {
         if (!req.url) return next()
         const pathname = req.url.split('?')[0]
