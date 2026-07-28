@@ -17,6 +17,7 @@
     "./lib/utils": "./src/lib/utils.ts",
     "./ui/*": "./src/ui/*.tsx",
     "./reatom/*": "./src/reatom/*.ts",
+    "./hooks/*": "./src/hooks/*.ts",
     "./define-widget-client": "./src/define-widget-client.ts",
     "./vite": "./src/vite/index.ts",
     "./test-setup": "./src/test/widget-setup.ts"

@@ -61,9 +61,14 @@ describe('Clock', () => {
     expect(widgetProps.requestDelete).toHaveBeenCalledOnce()
   })
 
-  it('has no expand/delete controls in the fullscreen (large) view', () => {
-    renderClock(props('large'))
+  it('offers a close control, and no expand or delete, in the fullscreen (large) view', () => {
+    const widgetProps = props('large')
+    renderClock(widgetProps)
+
     expect(screen.queryByRole('button', { name: 'Развернуть' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    expect(widgetProps.requestClose).toHaveBeenCalledOnce()
   })
 })

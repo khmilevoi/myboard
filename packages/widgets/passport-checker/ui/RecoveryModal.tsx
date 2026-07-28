@@ -3,6 +3,7 @@ import { Check, Monitor, X } from 'lucide-react'
 import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { reatomMemo } from 'widget-sdk'
+import { useOverlayBackDismiss } from 'widget-sdk/hooks/use-overlay-back-dismiss'
 
 import { NoVncCanvas } from './parts/NoVncCanvas'
 import { SshFallback } from './parts/SshFallback'
@@ -27,7 +28,13 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
   const close = wrap(() => recoveryFlow.closeRecovery({ restore: restoreFullscreen }))
   const retry = wrap(() => recoveryFlow.retryCheck({ restore: restoreFullscreen }))
 
-  useModalIsolation(rootRef, close)
+  // The modal only mounts while recovery is open, so `open` is literally true.
+  // `retry` deliberately does NOT go through here: it closes the modal by
+  // transitioning the flow, and the effect cleanup hands the history entry back
+  // on unmount.
+  const requestDismiss = useOverlayBackDismiss(true, close)
+
+  useModalIsolation(rootRef, requestDismiss)
 
   const view = checkModel.viewState()
   const sshTarget = view.kind === 'sessionRequired' ? view.sshTarget : null
@@ -65,7 +72,7 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
             className={styles.closeButton}
             title="Закрыть (Esc)"
             aria-label="Закрыть"
-            onClick={close}
+            onClick={requestDismiss}
           >
             <X size={15} aria-hidden />
           </button>
@@ -75,7 +82,7 @@ export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalPro
           <SshFallback sshTarget={sshTarget} novncPort={novncPort} />
         </div>
         <footer className={styles.footer}>
-          <button type="button" className={styles.secondaryButton} onClick={close}>
+          <button type="button" className={styles.secondaryButton} onClick={requestDismiss}>
             Закрыть
           </button>
           <button type="button" className={styles.primaryButton} onClick={retry}>

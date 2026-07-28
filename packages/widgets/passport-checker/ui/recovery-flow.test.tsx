@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import {
   makeHostRuntime,
   makeStaticWidgetIdentity,
+  resetOverlayHistory,
   WidgetApiError,
   WidgetRuntimeContext,
 } from 'widget-runtime'
@@ -74,6 +75,11 @@ function renderSessionRequired() {
     </WidgetRuntimeContext.Provider>,
   )
 }
+
+beforeEach(() => {
+  resetOverlayHistory()
+  history.replaceState({}, '')
+})
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -227,4 +233,63 @@ describe('recovery flow across tiers', () => {
     },
     ROUND_TRIP_TIMEOUT_MS,
   )
+
+  it('closes the recovery modal on the platform back gesture', async () => {
+    renderSessionRequiredIn('standard', 'inst-passport-back-gesture')
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+    const dialog = await screen.findByRole('dialog')
+
+    // Same race the file-level comment above describes, for the same reason:
+    // findByRole resolves on DOM commit, but the modal's passive mount effects
+    // — useModalIsolation's listeners AND useOverlayBackDismiss's history push
+    // — can still be pending. Focus landing inside the dialog proves they ran.
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+    expect(history.state).toMatchObject({ overlayDepth: 1 })
+
+    history.replaceState({ overlayDepth: 0 }, '')
+    window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  // The test above drives popstate -> modal closes, which passes whether the
+  // close buttons route through the hook or call `close` directly (the
+  // reconciler unmounts the modal either way). This test drives the other
+  // direction — the close buttons themselves — so a revert of
+  // `onClick={requestDismiss}` back to `onClick={close}` is caught: with
+  // `history.back` mocked to a no-op, a routed close leaves the modal
+  // mounted (only the reconciler's popstate handler may unmount it), while a
+  // direct `close` call would both skip `history.back` entirely and unmount
+  // the modal synchronously.
+  it('routes both close buttons through history instead of closing directly', async () => {
+    renderSessionRequiredIn('standard', 'inst-passport-back-buttons')
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+
+    const back = vi.spyOn(history, 'back').mockImplementation(() => undefined)
+    try {
+      // Scoped to the dialog: `renderSessionRequiredIn` always renders at
+      // `mode: 'large'`, so the widget's OWN chrome (WidgetControls, wired to
+      // `requestClose`) also renders a "Закрыть" button alongside the
+      // modal's two — an unscoped query would pick that one up instead.
+      const [headerClose, footerClose] = within(dialog).getAllByRole('button', {
+        name: 'Закрыть',
+      })
+
+      fireEvent.click(headerClose)
+      expect(back).toHaveBeenCalledTimes(1)
+
+      fireEvent.click(footerClose)
+      expect(back).toHaveBeenCalledTimes(2)
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    } finally {
+      back.mockRestore()
+    }
+  })
 })

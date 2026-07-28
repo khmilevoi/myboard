@@ -8,9 +8,13 @@ import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
 
-export type TinyTierProps = { onOpenRecovery: () => void; onDelete?: () => void }
+export type TinyTierProps = {
+  onOpenRecovery: () => void
+  onDelete?: () => void
+  onClose?: () => void
+}
 
-export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete }: TinyTierProps) => {
+export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete, onClose }: TinyTierProps) => {
   const { checkModel } = usePassportChecker()
   const view = checkModel.viewState()
   const check = wrap(() => {
@@ -155,7 +159,7 @@ export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete }: TinyTierProps)
 
   return (
     <div className={cn(styles.tiny, modifier)} role={role}>
-      <WidgetControls onDelete={onDelete} />
+      <WidgetControls onDelete={onDelete} onClose={onClose} />
       {body}
     </div>
   )

@@ -1,8 +1,27 @@
 import 'fake-indexeddb/auto'
 import '@testing-library/jest-dom/vitest'
 import { configure } from '@testing-library/react'
+import { beforeEach } from 'vitest'
+import { resetOverlayHistory } from 'widget-runtime'
 
 configure({ asyncUtilTimeout: 30000 })
+
+// packages/widget-runtime/src/overlay-history.ts mirrors open overlays onto
+// browser history through file-scoped singletons (the entry stack, the
+// popstate listener, a pending owed-traversal timer) shared by every
+// useOverlayBackDismiss call in a test file — this hook's own tests plus,
+// through defineWidgetVitestConfig using this same setup file for every
+// widget package, hand-rolled overlays like passport-checker's RecoveryModal.
+// Without a reset, one test's still-registered entry (or scheduled traversal)
+// leaks into the next. Guarded to jsdom: `@vitest-environment node` files in
+// these packages (e.g. server.test.ts, domain tests) have no window/history
+// at all.
+if (typeof window !== 'undefined') {
+  beforeEach(() => {
+    resetOverlayHistory()
+    history.replaceState({}, '')
+  })
+}
 
 // jsdom lacks ResizeObserver; react-grid-layout v2's useContainerWidth needs it.
 class ResizeObserverMock {

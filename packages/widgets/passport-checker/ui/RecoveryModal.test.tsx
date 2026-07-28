@@ -126,23 +126,55 @@ describe('RecoveryModal', () => {
     await screen.findByRole('dialog')
     await screen.findByText(/доступ · 1:00/)
 
-    fireEvent.keyDown(document, { key: 'Escape' })
+    // Spied, not mocked: the close now routes through history rather than
+    // closing the model directly, so pin that mechanism rather than only
+    // observing its eventual effect — a mutation that reverts the routing
+    // would leave `recoveryOpen` true here forever, which a bare `waitFor`
+    // below would time out on anyway, but asserting the call directly fails
+    // fast and names the actual break.
+    const back = vi.spyOn(history, 'back')
+    try {
+      fireEvent.keyDown(document, { key: 'Escape' })
 
-    expect(checkModel.recoveryOpen()).toBe(false)
-    expect(rfbs[0]?.disconnectCalls).toBe(1)
+      expect(back).toHaveBeenCalledOnce()
+
+      // `closeRecovery` tears down the rfb and flips `recoveryOpen` in the
+      // same synchronous action (see recovery-flow.ts's `finish`), so once
+      // the traversal's popstate reaches the reconciler and invokes it,
+      // both effects are already true together — no separate wait needed
+      // for the teardown assertion below.
+      await waitFor(() => expect(checkModel.recoveryOpen()).toBe(false))
+      expect(rfbs[0]?.disconnectCalls).toBe(1)
+    } finally {
+      back.mockRestore()
+    }
   })
 
   it('closes on backdrop pointerdown but not inside the dialog', async () => {
     const { checkModel } = setup([{ expiresInMs: 60_000 }])
     const dialog = await screen.findByRole('dialog')
 
-    fireEvent.pointerDown(dialog)
-    expect(checkModel.recoveryOpen()).toBe(true)
+    const back = vi.spyOn(history, 'back')
+    try {
+      fireEvent.pointerDown(dialog)
 
-    const overlay = dialog.parentElement
-    if (!overlay) throw new Error('expected the overlay element')
-    fireEvent.pointerDown(overlay)
-    expect(checkModel.recoveryOpen()).toBe(false)
+      // The genuine negative claim: a pointerdown inside the dialog must
+      // never even attempt the history traversal. Pinned at the mechanism
+      // level rather than only "recoveryOpen hasn't flipped yet" — the
+      // latter would still read true this early even if the close were
+      // wrongly triggered, since that flip is now async.
+      expect(back).not.toHaveBeenCalled()
+      expect(checkModel.recoveryOpen()).toBe(true)
+
+      const overlay = dialog.parentElement
+      if (!overlay) throw new Error('expected the overlay element')
+      fireEvent.pointerDown(overlay)
+
+      expect(back).toHaveBeenCalledOnce()
+      await waitFor(() => expect(checkModel.recoveryOpen()).toBe(false))
+    } finally {
+      back.mockRestore()
+    }
   })
 
   it('retries the check from the footer: teardown, close, re-invoke', async () => {

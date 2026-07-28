@@ -1,9 +1,36 @@
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import * as React from 'react'
+import { useOverlayBackDismiss } from 'widget-sdk/hooks/use-overlay-back-dismiss'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-const Popover = PopoverPrimitive.Root
+type PopoverRootProps = React.ComponentProps<typeof PopoverPrimitive.Root>
+
+const ControlledPopover = reatomMemo<PopoverRootProps & { open: boolean }>(
+  ({ open, onOpenChange, ...props }) => {
+    const requestDismiss = useOverlayBackDismiss(open, () => onOpenChange?.(false))
+
+    return (
+      <PopoverPrimitive.Root
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange?.(true)
+          else requestDismiss()
+        }}
+        {...props}
+      />
+    )
+  },
+  'ControlledPopover',
+)
+
+// Same contract as the shared Dialog root: an uncontrolled popover owns its
+// state and passes through untouched.
+const Popover = reatomMemo<PopoverRootProps>(({ open, ...props }) => {
+  if (open === undefined) return <PopoverPrimitive.Root {...props} />
+  return <ControlledPopover open={open} {...props} />
+}, 'Popover')
+
 const PopoverTrigger = PopoverPrimitive.Trigger
 const PopoverAnchor = PopoverPrimitive.Anchor
 

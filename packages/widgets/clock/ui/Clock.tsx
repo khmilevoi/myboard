@@ -29,6 +29,7 @@ export const Clock = reatomMemo(() => {
   if (mode === 'large') {
     return (
       <div className={styles.root}>
+        <WidgetControls {...chrome} />
         <div className={styles.timeLarge}>{timeFmt.format(now)}</div>
         <div className={styles.date}>{dateFmt.format(now)}</div>
       </div>
