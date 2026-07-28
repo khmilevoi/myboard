@@ -1,0 +1,330 @@
+import { context, wrap } from '@reatom/core'
+
+import { RfbLoadError } from './load-rfb'
+import { makeRecoveryModel, recoverySocketUrl } from './recovery-model'
+import {
+  RecoveryIssueError,
+  type RecoveryIssue,
+  type RecoveryTransport,
+} from './recovery-transport'
+import type { MakeRfb, RfbLike } from './rfb'
+
+class FakeRfb implements RfbLike {
+  listeners = new Map<string, Set<(event: Event) => void>>()
+  disconnectCalls = 0
+
+  constructor(public url: string) {}
+
+  addEventListener(type: string, listener: (event: Event) => void) {
+    const set = this.listeners.get(type) ?? new Set()
+    set.add(listener)
+    this.listeners.set(type, set)
+  }
+
+  removeEventListener(type: string, listener: (event: Event) => void) {
+    this.listeners.get(type)?.delete(listener)
+  }
+
+  disconnect() {
+    this.disconnectCalls += 1
+  }
+
+  emit(type: string) {
+    // oxlint-disable-next-line unicorn/no-useless-spread -- snapshot listeners before invoking them so a handler that (un)registers a listener mid-emit can't mutate the set we're iterating.
+    for (const listener of [...(this.listeners.get(type) ?? [])]) listener(new Event(type))
+  }
+}
+
+function makeFakes(results: Array<RecoveryIssueError | RecoveryIssue>) {
+  const issueCalls: string[] = []
+  const transport: RecoveryTransport = {
+    issue: async (widgetId) => {
+      issueCalls.push(widgetId)
+      const next = results.shift()
+      if (!next) throw new Error('unexpected issue call')
+      return next
+    },
+  }
+  const rfbs: FakeRfb[] = []
+  const makeRfb: MakeRfb = (_target, url) => {
+    const rfb = new FakeRfb(url)
+    rfbs.push(rfb)
+    return rfb
+  }
+  return { transport, loadRfb: async () => makeRfb, issueCalls, rfbs }
+}
+
+const LOCATION = { protocol: 'https:', host: 'board.test' }
+
+function makeModel(fakes: ReturnType<typeof makeFakes>, nowMs?: () => number) {
+  return makeRecoveryModel({
+    widgetId: 'passport-checker',
+    transport: fakes.transport,
+    loadRfb: fakes.loadRfb,
+    location: LOCATION,
+    ...(nowMs ? { nowMs } : {}),
+  })
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  context.reset()
+})
+
+describe('recoverySocketUrl', () => {
+  it('builds wss for https and ws for http', () => {
+    expect(recoverySocketUrl({ protocol: 'https:', host: 'a.b' })).toBe(
+      'wss://a.b/api/browser/recovery/socket',
+    )
+    expect(recoverySocketUrl({ protocol: 'http:', host: 'localhost:5173' })).toBe(
+      'ws://localhost:5173/api/browser/recovery/socket',
+    )
+  })
+})
+
+describe('makeRecoveryModel', () => {
+  it('issues, connects and reflects RFB connect', async () => {
+    const fakes = makeFakes([{ expiresInMs: 60_000 }])
+
+    await context.start(async () => {
+      const model = makeModel(fakes)
+      const read = wrap(() => model.state())
+      const start = wrap((el: HTMLElement) => model.start(el))
+
+      await start(document.createElement('div'))
+
+      expect(fakes.issueCalls).toEqual(['passport-checker'])
+      expect(read()).toEqual({ kind: 'connecting', expiresInMs: 60_000 })
+      expect(fakes.rfbs[0]?.url).toBe('wss://board.test/api/browser/recovery/socket')
+
+      fakes.rfbs[0]?.emit('connect')
+      expect(read()).toEqual({ kind: 'connected', expiresInMs: 60_000 })
+    })
+  })
+
+  it.each([
+    [new RecoveryIssueError({ code: 'recovery_unavailable' }), 'unavailable'],
+    [new RecoveryIssueError({ code: 'recovery_busy' }), 'busy'],
+    [new RecoveryIssueError({ code: 'automation_unavailable' }), 'automationDown'],
+    [new RecoveryIssueError({ code: 'network' }), 'automationDown'],
+  ])('maps an issue error to %s', async (error, kind) => {
+    const fakes = makeFakes([error])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await context.start(async () => {
+      const model = makeModel(fakes)
+      const read = wrap(() => model.state())
+      const start = wrap((el: HTMLElement) => model.start(el))
+
+      await start(document.createElement('div'))
+
+      expect(read()).toEqual({ kind })
+      expect(fakes.rfbs).toHaveLength(0)
+    })
+
+    warn.mockRestore()
+  })
+
+  it('maps a viewer that fails to load to viewerUnavailable', async () => {
+    const fakes = makeFakes([{ expiresInMs: 60_000 }])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await context.start(async () => {
+      const model = makeRecoveryModel({
+        widgetId: 'passport-checker',
+        transport: fakes.transport,
+        loadRfb: async () => new RfbLoadError(),
+        location: LOCATION,
+      })
+      const read = wrap(() => model.state())
+      const start = wrap((el: HTMLElement) => model.start(el))
+
+      await start(document.createElement('div'))
+
+      expect(read()).toEqual({ kind: 'viewerUnavailable' })
+      expect(fakes.rfbs).toHaveLength(0)
+      // The capability was still requested — both run in parallel, and the
+      // store supersedes an unused token on the next issue().
+      expect(fakes.issueCalls).toEqual(['passport-checker'])
+    })
+
+    warn.mockRestore()
+  })
+
+  it('teardown while the viewer is loading invalidates the attempt', async () => {
+    vi.useFakeTimers()
+    const fakes = makeFakes([{ expiresInMs: 60_000 }])
+    let resolveLoad: (value: MakeRfb) => void = () => {}
+
+    await context.start(async () => {
+      const model = makeRecoveryModel({
+        widgetId: 'passport-checker',
+        transport: fakes.transport,
+        loadRfb: () =>
+          new Promise<MakeRfb>((resolve) => {
+            resolveLoad = resolve
+          }),
+        location: LOCATION,
+      })
+      const start = wrap((el: HTMLElement) => model.start(el))
+      const teardown = wrap(() => model.teardown())
+
+      const pending = start(document.createElement('div'))
+      teardown()
+      resolveLoad(await fakes.loadRfb())
+      await pending
+
+      // Same guarantee as the in-flight issue case, for the window the lazy
+      // viewer import adds: nothing is built against the detached container and
+      // no countdown interval is left without an owner to dispose it.
+      expect(fakes.rfbs).toHaveLength(0)
+      expect(vi.getTimerCount()).toBe(0)
+    })
+  })
+
+  it('drops to disconnected on RFB disconnect and reissues on reconnect', async () => {
+    const fakes = makeFakes([{ expiresInMs: 60_000 }, { expiresInMs: 60_000 }])
+
+    await context.start(async () => {
+      const model = makeModel(fakes)
+      const read = wrap(() => model.state())
+      const readRemaining = wrap(() => model.remainingMs())
+      const start = wrap((el: HTMLElement) => model.start(el))
+      const target = document.createElement('div')
+
+      await start(target)
+      fakes.rfbs[0]?.emit('connect')
+      fakes.rfbs[0]?.emit('disconnect')
+      expect(read()).toEqual({ kind: 'disconnected' })
+      expect(readRemaining()).toBe(0)
+      expect(fakes.rfbs[0]?.disconnectCalls).toBe(1)
+
+      await start(target)
+      expect(fakes.issueCalls).toHaveLength(2)
+      expect(read()).toEqual({ kind: 'connecting', expiresInMs: 60_000 })
+    })
+  })
+
+  it('maps securityfailure to disconnected', async () => {
+    const fakes = makeFakes([{ expiresInMs: 60_000 }])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await context.start(async () => {
+      const model = makeModel(fakes)
+      const read = wrap(() => model.state())
+      const start = wrap((el: HTMLElement) => model.start(el))
+
+      await start(document.createElement('div'))
+      fakes.rfbs[0]?.emit('securityfailure')
+
+      expect(read()).toEqual({ kind: 'disconnected' })
+    })
+
+    warn.mockRestore()
+  })
+
+  it('counts down and expires the session at zero', async () => {
+    vi.useFakeTimers()
+    const fakes = makeFakes([{ expiresInMs: 2_000 }])
+
+    await context.start(async () => {
+      const model = makeModel(fakes)
+      const read = wrap(() => model.state())
+      const readRemaining = wrap(() => model.remainingMs())
+      const start = wrap((el: HTMLElement) => model.start(el))
+
+      await start(document.createElement('div'))
+      fakes.rfbs[0]?.emit('connect')
+      expect(readRemaining()).toBe(2_000)
+
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(readRemaining()).toBe(1_000)
+
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(read()).toEqual({ kind: 'expired' })
+      expect(readRemaining()).toBe(0)
+      expect(fakes.rfbs[0]?.disconnectCalls).toBe(1)
+    })
+  })
+
+  it('supersedes a stale attempt: old RFB events are ignored, old session disposed', async () => {
+    const fakes = makeFakes([{ expiresInMs: 60_000 }, { expiresInMs: 60_000 }])
+
+    await context.start(async () => {
+      const model = makeModel(fakes)
+      const read = wrap(() => model.state())
+      const start = wrap((el: HTMLElement) => model.start(el))
+      const target = document.createElement('div')
+
+      await start(target)
+      const firstRfb = fakes.rfbs[0]
+
+      await start(target)
+      expect(firstRfb?.disconnectCalls).toBe(1)
+
+      firstRfb?.emit('disconnect')
+      expect(read()).toEqual({ kind: 'connecting', expiresInMs: 60_000 })
+    })
+  })
+
+  it('teardown during issuing invalidates the in-flight attempt: no RFB is built, no interval survives', async () => {
+    vi.useFakeTimers()
+    // transport.issue resolves only after teardown() runs — reproduces the
+    // modal-closed-mid-request race: the POST is still in flight when the
+    // component unmounts.
+    let resolveIssue: (value: RecoveryIssue) => void = () => {}
+    const issueCalls: string[] = []
+    const transport: RecoveryTransport = {
+      issue: async (widgetId) => {
+        issueCalls.push(widgetId)
+        return new Promise<RecoveryIssue>((resolve) => {
+          resolveIssue = resolve
+        })
+      },
+    }
+    const rfbs: FakeRfb[] = []
+    const makeRfb: MakeRfb = (_target, url) => {
+      const rfb = new FakeRfb(url)
+      rfbs.push(rfb)
+      return rfb
+    }
+
+    await context.start(async () => {
+      const model = makeRecoveryModel({
+        widgetId: 'passport-checker',
+        transport,
+        loadRfb: async () => makeRfb,
+        location: LOCATION,
+      })
+      const start = wrap((el: HTMLElement) => model.start(el))
+      const teardown = wrap(() => model.teardown())
+
+      const pending = start(document.createElement('div'))
+      teardown()
+      resolveIssue({ expiresInMs: 60_000 })
+      await pending
+
+      expect(issueCalls).toEqual(['passport-checker'])
+      // No RFB was constructed against the now-detached container, and no
+      // 500ms countdown interval was left running with no owner to dispose it.
+      expect(rfbs).toHaveLength(0)
+      expect(vi.getTimerCount()).toBe(0)
+    })
+  })
+
+  it('tears down exactly once', async () => {
+    const fakes = makeFakes([{ expiresInMs: 60_000 }])
+
+    await context.start(async () => {
+      const model = makeModel(fakes)
+      const start = wrap((el: HTMLElement) => model.start(el))
+      const teardown = wrap(() => model.teardown())
+
+      await start(document.createElement('div'))
+      teardown()
+      teardown()
+
+      expect(fakes.rfbs[0]?.disconnectCalls).toBe(1)
+    })
+  })
+})

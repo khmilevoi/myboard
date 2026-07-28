@@ -53,17 +53,17 @@ services:
       - valkey
 
   install:
-    image: node:22-alpine
+    image: node:26-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm install && pnpm run codegen"
+    command: sh -c "npm install -g corepack@0.35.0 && corepack enable && pnpm install && pnpm run codegen"
     environment:
       npm_config_store_dir: /pnpm-store
     volumes: *workspace-volumes
 
   server:
-    image: node:22-alpine
+    image: node:26-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm --filter server dev"
+    command: sh -c "npm install -g corepack@0.35.0 && corepack enable && pnpm --filter server dev"
     environment:
       VALKEY_URL: redis://valkey:6379
       PORT: '8787'
@@ -87,9 +87,9 @@ services:
         condition: service_started
 
   widgets:
-    image: node:22-alpine
+    image: node:26-alpine
     working_dir: /app
-    command: sh -c 'corepack enable && pnpm -r --parallel --filter "./packages/widgets/*" dev --host'
+    command: sh -c 'npm install -g corepack@0.35.0 && corepack enable && pnpm -r --parallel --filter "./packages/widgets/*" dev --host'
     environment:
       VITE_API_PROXY: http://server:8787
       CHOKIDAR_USEPOLLING: 'true'
@@ -101,12 +101,15 @@ services:
         condition: service_completed_successfully
 
   client:
-    image: node:22-alpine
+    image: node:26-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm --filter client dev --host"
+    command: sh -c "npm install -g corepack@0.35.0 && corepack enable && pnpm --filter client dev --host"
     environment:
       VITE_API_PROXY: http://server:8787
       CHOKIDAR_USEPOLLING: 'true'
+      # Redundant with vite.config.ts's `vite serve` fallback, and stated
+      # anyway: this file is read as the description of what the dev stack is.
+      VITE_APP_ENV: local
     volumes: *workspace-volumes
     ports:
       - '5173:5173'
@@ -126,6 +129,9 @@ services:
     init: true
     environment:
       PORT: '8788'
+      # Matches the hardcoded noVNC publish port below; kept explicit rather
+      # than relying on config.ts's default coinciding with it by accident.
+      NOVNC_HOST_PORT: '6080'
     secrets:
       - source: dev_passport_series
         target: passport-checker_series

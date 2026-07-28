@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { findWidgetType, WidgetType } from '@/widget-registry/model/registry'
 
 import { activeBoard, boards } from './board-storage'
+import { resolveBoardLayout } from './mobile-layout'
 import { BoardSnapshot, type LayoutItem } from './types'
 
 export const expandedInstanceId = atom<string | null>(null, 'board.expandedInstanceId')
@@ -81,6 +82,7 @@ export const removeInstance = action((id: string) => {
       ...active,
       instances: active.instances.filter((instance) => instance.id !== id),
       layout: active.layout.filter((item) => item.i !== id),
+      mobileLayout: active.mobileLayout?.filter((item) => item.i !== id),
     }
   })
 }, 'board.removeInstance')
@@ -94,3 +96,42 @@ export const updateLayout = action((next: LayoutItem[]) => {
     }
   })
 }, 'board.updateLayout')
+
+/**
+ * Persists a mobile-width layout change.
+ *
+ * Deliberately a no-op while mobileLayout is absent: onLayoutChange also fires on
+ * mount, after the compactor normalizes the layout, and writing then would freeze
+ * the mobile layout without any user interaction. materializeMobileLayout is what
+ * creates the field, and it is bound to the start of a real gesture.
+ */
+export const updateMobileLayout = action((next: LayoutItem[]) => {
+  activeBoard.update((active) => {
+    if (!active) return active
+    if (!active.mobileLayout) return active
+    return { ...active, mobileLayout: next }
+  })
+}, 'board.updateMobileLayout')
+
+/**
+ * Freezes the currently resolved mobile layout into the board, making it
+ * authoritative. Called at the start of a drag or resize on a mobile-width
+ * viewport. Idempotent: once the field exists the user's own arrangement wins.
+ */
+export const materializeMobileLayout = action(() => {
+  activeBoard.update((active) => {
+    if (!active) return active
+    if (active.mobileLayout) return active
+    return { ...active, mobileLayout: resolveBoardLayout(active, true) }
+  })
+}, 'board.materializeMobileLayout')
+
+/** Returns the board to derived mode by removing the override entirely. */
+export const resetMobileLayout = action(() => {
+  activeBoard.update((active) => {
+    if (!active) return active
+    const next = { ...active }
+    delete next.mobileLayout
+    return next
+  })
+}, 'board.resetMobileLayout')

@@ -17,6 +17,40 @@
       }
     ]
   },
+  "overrides": [
+    {
+      "files": ["packages/widgets/*/domain/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!zod", "!@shared/**", "!./**"],
+                "message": "Widget domain code is shared with the server bundle: it may import ONLY zod, @shared/*, './' siblings and JS/Temporal globals. This is an allowlist — everything else is blocked, including Reatom, React, widget-runtime/widget-sdk, any other npm package, the '@/' alias, and any '../' escape out of domain/ (rspack externalizes every request that does not start with '.', '@shared' or '@widgets', and the server image installs only packages/server's prod dependencies)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/widgets/*/domain/**/*.test.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!zod", "!@shared/**", "!./**", "!vitest"],
+                "message": "Widget domain tests may import ONLY vitest, zod, @shared/* and './' siblings. Reatom, React, widget-runtime/widget-sdk, other npm packages and '../' escapes are blocked here too — needing one would prove the domain module under test is not actually dependency-free."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "env": {
     "builtin": true,
     "browser": true,
@@ -30,6 +64,9 @@
     "**/.worktrees/**",
     "**/looper-output/**",
     "**/.superpowers/**",
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "**/*.md",
+    "docs/**",
+    "design/**"
   ]
 }

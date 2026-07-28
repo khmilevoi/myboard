@@ -1,0 +1,84 @@
+# Shared stand for whichever feature branch is currently checked out — deploy
+# with:
+#
+#   pnpm run deploy:branch
+#
+# or by hand, from the worktree whose branch you want on the Pi:
+#
+#   rpi secrets push --group branch --env branch   # after every .env.branch change
+#   rpi deploy --env branch
+#
+# `source.branch` below resolves through `${git.branch}`, so rpi reads the
+# checked-out branch itself and nothing has to be retyped or passed with
+# `--vars`. A detached HEAD is a hard error naming `--vars` as the workaround
+# (`--vars BRANCH_NAME=…` would then need the reference restored here first).
+#
+# Merges onto rpi.toml field by field, so everything not repeated here
+# (build.compose, ingress.service/port/expose, healthcheck, timeouts, commands)
+# is inherited from production. Arrays and [commands] replace wholesale rather
+# than merging, which is why `files` and `groups` are restated below.
+#
+# ONE SHARED STAND, NOT ONE PER BRANCH. Since rpi 0.27 the environment key gets
+# a per-branch suffix only when the configuration references `${env.slug}`;
+# nothing here does, so every branch deploys onto the same key `myboard--branch`
+# behind the same hostname, reusing the same compose project, network and
+# volumes. That is deliberate: the test device stays invited and the board keeps
+# its data when you redeploy from a different branch. The flip side is that a
+# second branch cannot run alongside the first, and that the previous branch's
+# service worker, IndexedDB and Valkey contents are still there after a switch —
+# `rpi env reset-data branch` wipes the volumes (and then the stack needs a
+# fresh device invite), and a hard reload with "Update on reload" ticked in
+# DevTools → Application clears the stale PWA cache.
+#
+# Tear the stand down completely with `rpi env destroy branch` (no `--vars`,
+# same as every other command here now).
+#
+# `rpi config show --env branch` warns that "source.branch is computed but
+# nothing references ${env.slug}, so the key stays 'myboard--branch'". That is
+# the design described above, not a misconfiguration — adding an ${env.slug}
+# reference anywhere in this file would split the stand per branch and break
+# every point made in the previous paragraph.
+
+[environment]
+# Unlike production and dev, this stack is disposable, so it gets a TTL and the
+# agent's reaper cleans it up — a branch tried once and abandoned should not sit
+# on the Pi holding a hostname and a Valkey volume forever.
+#
+# 72h is deliberately generous: long enough to leave a stack up over a weekend
+# and come back to it, short enough that a forgotten branch clears itself
+# instead of being redeployed over by the next one. The TTL counts from the last
+# successful deploy, so an actively used stand never reaps itself.
+ttl = "72h"
+
+[source]
+# The only thing that varies per deploy — read from the git checkout rpi runs
+# in, which in this repository's workflow is the feature worktree.
+branch = "${git.branch}"
+
+[ingress]
+# Must differ from production's and dev's hostnames (rpi rejects a collision).
+# WebAuthn credentials are scoped to this host, hence the RP_ID/origin overrides
+# in .env.branch. Keeping it stable across branches is what lets the test device
+# stay invited when you redeploy from a different branch.
+hostname = "board-branch.iiskelo.com"
+
+[secrets]
+# Local push source for the `branch` secret group below — not for this
+# environment's own bundle, which stays empty on purpose:
+#
+#   rpi secrets push --group branch --env branch
+#
+# Everything host-specific lives there rather than in the key's bundle because
+# groups belong to the base project: `rpi env destroy branch` and the TTL reaper
+# drop an environment's own bundle but never a group, so a stand that reaped
+# itself is still configured when it is deployed again.
+env = ".env.branch"
+# Layers apply in the order declared, merged per variable and per file path,
+# with this key's own (empty) bundle last: `dev` carries the passport-checker
+# files shared with the dev stack, `branch` carries this hostname for the
+# WebAuthn gate plus the host-port overrides that keep this stack off the other
+# two stacks' binds. A declared group that is missing or empty fails the deploy
+# naming the group — the deploy key's own bundle is the only layer allowed to be
+# empty.
+files = []
+groups = ["dev", "branch"]

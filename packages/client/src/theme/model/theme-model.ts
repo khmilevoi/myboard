@@ -1,4 +1,4 @@
-import { atom, computed, effect, wrap } from '@reatom/core'
+import { action, atom, computed, effect, wrap } from '@reatom/core'
 
 import type { ResolvedTheme, ThemeMode } from '@/shared/theme/types'
 
@@ -6,6 +6,18 @@ import { resolveTheme } from './resolve-theme'
 import { loadThemeMode, saveThemeMode } from './theme-storage'
 
 export const themeMode = atom<ThemeMode>('system', 'theme.mode')
+
+// The cycle order for the compact single-button toggle (ThemeToggle at
+// <=768px). Domain knowledge, not view glue -- the view derives its
+// label/icon OPTIONS list from this order instead of repeating it.
+export const THEME_MODE_ORDER: ThemeMode[] = ['light', 'dark', 'system']
+
+export const cycleThemeMode = action(() => {
+  const currentIndex = THEME_MODE_ORDER.indexOf(themeMode())
+  const nextMode = THEME_MODE_ORDER[(currentIndex + 1) % THEME_MODE_ORDER.length]
+  themeMode.set(nextMode)
+}, 'theme.cycleMode')
+
 export const systemPrefersDark = atom(false, 'theme.systemPrefersDark')
 
 export const resolvedTheme = computed(

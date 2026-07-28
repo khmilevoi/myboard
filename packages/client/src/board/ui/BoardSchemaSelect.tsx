@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import * as React from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
@@ -26,6 +26,7 @@ export type BoardSchemaSelectProps = {
   onCreate?: (name: string) => void
   onRename?: (id: string, name: string) => void
   onDelete?: (id: string) => void
+  onResetMobileLayout?: () => void
 }
 
 export const BoardSchemaSelect = reatomMemo<BoardSchemaSelectProps>(
@@ -39,6 +40,7 @@ export const BoardSchemaSelect = reatomMemo<BoardSchemaSelectProps>(
     onCreate,
     onRename,
     onDelete,
+    onResetMobileLayout,
   }) => {
     const [open, setOpen] = React.useState(false)
     const [newName, setNewName] = React.useState('')
@@ -198,6 +200,20 @@ export const BoardSchemaSelect = reatomMemo<BoardSchemaSelectProps>(
                 <Plus size={16} aria-hidden />
               </button>
             </form>
+          ) : null}
+
+          {onResetMobileLayout ? (
+            <button
+              type="button"
+              className={styles.resetButton}
+              onClick={() => {
+                onResetMobileLayout()
+                setOpen(false)
+              }}
+            >
+              <RotateCcw size={14} aria-hidden />
+              <span>Сбросить мобильную раскладку</span>
+            </button>
           ) : null}
           <PopoverArrow className={styles.arrow} />
         </PopoverContent>

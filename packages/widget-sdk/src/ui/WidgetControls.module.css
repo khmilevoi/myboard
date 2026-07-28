@@ -1,33 +1,91 @@
 .root {
+  display: flex;
+  gap: 4px;
+}
+
+.root[data-placement='overlay'] {
   position: absolute;
   inset-block-start: 8px;
   inset-inline-end: 8px;
   z-index: 5;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
   transition: opacity 0.15s var(--ease);
+}
+
+/*
+  Inverted on purpose. The controls are visible by default and are hidden only
+  inside a board frame ([data-widget-surface], set by WidgetFrame) on a device
+  that can hover. Three things follow:
+
+  - a touch device, which never hovers, always sees them;
+  - a standalone dev/ harness, which has no frame around it, shows them instead
+    of hiding them forever;
+  - the reveal rule lives in this package rather than in the host's
+    WidgetFrame.module.css, so the host no longer styles a widget's chrome.
+
+  `pointer-events: none` is the half that matters: without it an opacity:0
+  control is still clickable, which is how an invisible "Удалить" button ended
+  up in the corner of every clock and passport-checker card on a phone.
+*/
+@media (hover: hover) {
+  :global([data-widget-surface]) .root[data-placement='overlay'] {
+    opacity: 0;
+    pointer-events: none;
+  }
+  :global([data-widget-surface]:hover) .root[data-placement='overlay'],
+  :global([data-widget-surface]:focus-within) .root[data-placement='overlay'] {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .button {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
+  inline-size: 30px;
+  block-size: 30px;
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--secondary);
   color: var(--text-3);
   cursor: pointer;
   transition:
     color 0.15s var(--ease),
-    background 0.15s var(--ease);
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
 }
+
+/* Sized here, not through lucide's `size` prop, so the touch bump below is a
+   single rule rather than a prop threaded through every call site. */
+.button svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
 .button:hover {
   color: var(--foreground);
   background: var(--muted);
 }
+
+.destructive:hover {
+  color: var(--destructive);
+  border-color: color-mix(in oklch, var(--destructive), transparent 60%);
+  background: color-mix(in oklch, var(--destructive), transparent 90%);
+}
+
 .button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* A coarse pointer has no hover to reveal anything, so these are permanently on
+   screen and have to be finger-sized. 44px is the touch-target floor. */
+@media (pointer: coarse) {
+  .button {
+    inline-size: 44px;
+    block-size: 44px;
+  }
+  .button svg {
+    inline-size: 20px;
+    block-size: 20px;
+  }
 }

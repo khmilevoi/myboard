@@ -6,12 +6,16 @@ import {
   addBoard,
   addInstance,
   expandedInstanceId,
+  materializeMobileLayout,
   removeBoard,
   removeInstance,
+  resetMobileLayout,
   updateBoard,
   updateLayout,
+  updateMobileLayout,
 } from './board-model'
 import { activeBoard, activeBoardId, boards, LOCAL_BOARD_ID, localBoard } from './board-storage'
+import { deriveMobileLayout } from './mobile-layout'
 
 const resetLocalBoard = () =>
   localBoard.set({
@@ -109,5 +113,64 @@ describe('board-model', () => {
 
     removeBoard(created.id)
     expect(boards()).toEqual([])
+  })
+
+  it('ignores a mobile layout update before the layout was materialized', () => {
+    addInstance('clock')
+    const id = activeBoard()!.instances[0]!.id
+
+    updateMobileLayout([{ i: id, x: 0, y: 0, w: 1, h: 9, minW: 1 }])
+
+    expect(activeBoard()?.mobileLayout).toBeUndefined()
+  })
+
+  it('materializes the derived mobile layout once', () => {
+    addInstance('clock')
+    const id = activeBoard()!.instances[0]!.id
+
+    materializeMobileLayout()
+
+    const materialized = activeBoard()?.mobileLayout
+    expect(materialized).toEqual(deriveMobileLayout(activeBoard()!.layout))
+    expect(materialized?.[0]).toMatchObject({ i: id, x: 0, w: 1, minW: 1 })
+
+    // A second gesture must not overwrite what the user has already arranged.
+    updateMobileLayout([{ i: id, x: 0, y: 0, w: 1, h: 12, minW: 1 }])
+    materializeMobileLayout()
+    expect(activeBoard()?.mobileLayout?.[0]?.h).toBe(12)
+  })
+
+  it('stores a mobile layout update once the layout was materialized', () => {
+    addInstance('clock')
+    const id = activeBoard()!.instances[0]!.id
+
+    materializeMobileLayout()
+    updateMobileLayout([{ i: id, x: 0, y: 0, w: 1, h: 7, minW: 1 }])
+
+    expect(activeBoard()?.mobileLayout).toEqual([{ i: id, x: 0, y: 0, w: 1, h: 7, minW: 1 }])
+    // The desktop layout is untouched by mobile edits.
+    expect(activeBoard()?.layout?.[0]?.h).not.toBe(7)
+  })
+
+  it('drops the mobile layout on reset', () => {
+    addInstance('clock')
+    materializeMobileLayout()
+    expect(activeBoard()?.mobileLayout).toBeDefined()
+
+    resetMobileLayout()
+
+    expect(activeBoard()?.mobileLayout).toBeUndefined()
+    expect('mobileLayout' in activeBoard()!).toBe(false)
+  })
+
+  it('removes an instance from both layouts', () => {
+    addInstance('clock')
+    const id = activeBoard()!.instances[0]!.id
+    materializeMobileLayout()
+
+    removeInstance(id)
+
+    expect(activeBoard()?.layout).toHaveLength(0)
+    expect(activeBoard()?.mobileLayout).toHaveLength(0)
   })
 })

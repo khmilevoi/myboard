@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { makeHostRuntime, type WidgetRuntimeProps, WidgetRuntimeContext } from 'widget-runtime'
+import {
+  makeHostRuntime,
+  makeStaticWidgetIdentity,
+  type WidgetRuntimeProps,
+  WidgetRuntimeContext,
+} from 'widget-runtime'
 
 import { Clock } from './Clock'
 
@@ -21,6 +26,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
       typeId: 'clock',
     }),
     api: { invoke: vi.fn() },
+    identity: makeStaticWidgetIdentity(),
   }
 }
 
@@ -55,9 +61,14 @@ describe('Clock', () => {
     expect(widgetProps.requestDelete).toHaveBeenCalledOnce()
   })
 
-  it('has no expand/delete controls in the fullscreen (large) view', () => {
-    renderClock(props('large'))
+  it('offers a close control, and no expand or delete, in the fullscreen (large) view', () => {
+    const widgetProps = props('large')
+    renderClock(widgetProps)
+
     expect(screen.queryByRole('button', { name: 'Развернуть' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    expect(widgetProps.requestClose).toHaveBeenCalledOnce()
   })
 })

@@ -8,6 +8,24 @@ const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
 const LEDGER_URL = `/api/storage/${encodeURIComponent('w:t:ofelia-poop-duty:ledger')}`
 
+// Every assertion here is StandardTier UI — `ofelia-duty-person` exists only in
+// ui/tiers/StandardTier.tsx — and this widget only resolves `standard` once its
+// frame is at least 400px wide (`tiers.standard.minWidthPx`). So the width is a
+// precondition of what is being asserted, and the spec has to declare it.
+//
+// Playwright's default 1280 viewport is ~7px short of it. The board measures its
+// own container, not the window: 1280 minus the stable scrollbar gutter and the
+// board's 20px padding on each side leaves 1225px, so at 12 columns a default
+// `w:4` card is ~395px and its frame ~393px once the card's 1px border is taken
+// off. `compact` is then the correct rendering, not a defect. (This used to be
+// invisible: the board reported a hardcoded 1280px container on every screen,
+// which made the card 413px — a 411px frame, only 11px of headroom — against a
+// measurement that was wrong by 55px.)
+//
+// At 1920 the container is ~1865px, the card ~608px and the frame ~606px, well
+// clear of the threshold.
+test.use({ viewport: { width: 1920, height: 1080 } })
+
 test.beforeEach(async ({ request }) => {
   await request.post('/api/test/reset')
   await request.post('/api/test/time', { data: { iso: PINNED_ISO } })
@@ -114,4 +132,68 @@ test('persistence — a confirmed day survives a reload', async ({ page }) => {
   await page.reload()
   await expect(ofelia.dutyName).toBeVisible()
   await expect(ofelia.confirmedPlaque).toBeVisible()
+})
+
+test('a confirmed day is written through the widget server event', async ({ page }) => {
+  const ofelia = new OfeliaPage(page)
+  await ofelia.seedOfeliaWidget()
+
+  const request = page.waitForRequest((candidate) =>
+    candidate.url().includes('/api/widgets/ofelia-poop-duty/clean'),
+  )
+  await ofelia.confirmButton.click()
+  await request
+
+  await expect(ofelia.confirmedPlaque).toBeVisible()
+})
+
+test('auto-approve — a cron-closed day reaches the open board over SSE', async ({
+  page,
+  request,
+}) => {
+  // The job returns early on an empty ledger on purpose: a stack where nobody
+  // has ever used the widget must not grow one fabricated `cleaned` record a
+  // night forever (server.ts, F11, added in b1fffc0e — six hours after this
+  // test was written, which is why it started failing). So the board needs
+  // some history before the cron has anything to close.
+  //
+  // 2026-06-15 is a genuine Карина duty day and this entry closes it, so the
+  // run below skips it and 2026-06-16 — the day the card is showing — is the
+  // one that gets auto-approved. Do not drop this seed to "simplify" the
+  // test: without it the cron no-ops and every assertion below fails.
+  await request.put(LEDGER_URL, {
+    headers: { 'X-Requested-With': 'MyBoard' },
+    data: {
+      value: [
+        {
+          id: 'seed-history',
+          ts: 1,
+          date: '2026-06-15',
+          type: 'cleaned',
+          actor: 'Карина',
+          by: 'Карина',
+        },
+      ],
+    },
+  })
+
+  const ofelia = new OfeliaPage(page)
+  await ofelia.seedOfeliaWidget()
+  await expect(ofelia.confirmButton).toBeVisible()
+
+  // The first tick only seeds the job cursor — nothing may change yet.
+  await request.post('/api/test/cron/tick')
+  await expect(ofelia.confirmButton).toBeVisible()
+
+  // Past the next 00:05 Warsaw, so the 2026-06-17 occurrence is due and closes
+  // every unresolved day up to and including 2026-06-16.
+  await request.post('/api/test/time', { data: { iso: '2026-06-17T00:06:00+02:00' } })
+  await request.post('/api/test/cron/tick')
+
+  // No reload: this must arrive through the storage SSE stream. Same assertion
+  // pair the manual "confirm" test uses, so a pass means the cron write is
+  // indistinguishable from a button press as far as the board is concerned.
+  await expect(ofelia.confirmedPlaque).toBeVisible()
+  await expect(ofelia.undoButton).toBeVisible()
+  await expect(ofelia.confirmButton).toHaveCount(0)
 })

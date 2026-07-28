@@ -1,7 +1,9 @@
 import { atom } from '@reatom/core'
 import { describe, expect, it } from 'vitest'
+import type { StorageError } from 'widget-runtime'
 
-import type { DayResolution, Person } from '../model/ofelia-duty'
+import type { DayResolution } from '../domain/ledger'
+import type { Person } from '../domain/roster'
 import { makeOfeliaViewModel, resolveSelected, toBalance, toWeekDays } from './view-model'
 import type { DutyDay } from './view-model'
 
@@ -219,6 +221,10 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       ),
       today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
       forgivePending: atom(false, 'test.forgivePending'),
+      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      ledgerLoading: atom(false, 'test.ledgerLoading'),
+      actionPending: atom(false, 'test.actionPending'),
+      actionErrorMessage: atom<string | null>(null, 'test.actionErrorMessage'),
     }
     const view = makeOfeliaViewModel(duty)
 
@@ -248,6 +254,10 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       ),
       today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
       forgivePending,
+      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      ledgerLoading: atom(false, 'test.ledgerLoading'),
+      actionPending: atom(false, 'test.actionPending'),
+      actionErrorMessage: atom<string | null>(null, 'test.actionErrorMessage'),
     }
     const view = makeOfeliaViewModel(duty)
 
@@ -255,5 +265,71 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     expect(view.canForgive()).toBe(true)
     forgivePending.set(true)
     expect(view.canForgive()).toBe(false)
+  })
+
+  // Never became ready (`currentWeek` came from a `ledger` that stayed at its
+  // null sentinel) and the storage read stopped loading with an error — this
+  // is exactly the shape `withStorageKeyReadonly` leaves the widget in on a
+  // failed initial fetch, with nothing surfaced anywhere before F2c.
+  it('flags a load failure once the ledger read has failed and stopped loading (F2c)', () => {
+    const duty = {
+      currentWeek: atom<DutyDay[] | null>(null, 'test.currentWeek'),
+      selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
+      dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
+      numberOfDebts: atom<Partial<Record<Person, number>> | null>(null, 'test.numberOfDebts'),
+      today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
+      forgivePending: atom(false, 'test.forgivePending'),
+      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      ledgerLoading: atom(true, 'test.ledgerLoading'),
+      actionPending: atom(false, 'test.actionPending'),
+      actionErrorMessage: atom<string | null>(null, 'test.actionErrorMessage'),
+    }
+    const view = makeOfeliaViewModel(duty)
+
+    // Still loading: not ready, but not "failed" either — the skeleton is
+    // still the right state.
+    expect(view.ready()).toBe(false)
+    expect(view.loadFailed()).toBe(false)
+
+    duty.ledgerLoading.set(false)
+    duty.ledgerError.set(new Error('boom') as StorageError)
+    expect(view.loadFailed()).toBe(true)
+
+    // Once the week actually loads, a later transient error must not pull
+    // the widget back into the failure screen.
+    duty.currentWeek.set(week())
+    duty.numberOfDebts.set({ Карина: 1 })
+    expect(view.ready()).toBe(true)
+    expect(view.loadFailed()).toBe(false)
+  })
+
+  it('surfaces action pending/error straight from the duty sources (F6a)', () => {
+    const actionPending = atom(false, 'test.actionPending')
+    const actionErrorMessage = atom<string | null>(null, 'test.actionErrorMessage')
+    const duty = {
+      currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
+      selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
+      dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
+      numberOfDebts: atom<Partial<Record<Person, number>> | null>(
+        { Карина: 1 },
+        'test.numberOfDebts',
+      ),
+      today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
+      forgivePending: atom(false, 'test.forgivePending'),
+      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      ledgerLoading: atom(false, 'test.ledgerLoading'),
+      actionPending,
+      actionErrorMessage,
+    }
+    const view = makeOfeliaViewModel(duty)
+
+    expect(view.actionPending()).toBe(false)
+    expect(view.actionErrorMessage()).toBeNull()
+
+    actionPending.set(true)
+    expect(view.actionPending()).toBe(true)
+
+    actionErrorMessage.set('Нет соединения с сервером')
+    expect(view.actionErrorMessage()).toBe('Нет соединения с сервером')
   })
 })

@@ -1,4 +1,5 @@
 import { defineWidgetBrowserTasks } from '@shared/widgets/browser-contracts'
+import type { InferWidgetEvents } from '@shared/widgets/contracts'
 import { z } from 'zod'
 
 export const passportCheckPayloadSchema = z.strictObject({})
@@ -18,3 +19,5 @@ export const passportCheckerBrowserTasks = defineWidgetBrowserTasks(passportChec
 
 export type PassportCheckPayload = z.output<typeof passportCheckPayloadSchema>
 export type PassportCheckResult = z.output<typeof passportCheckResultSchema>
+
+export type PassportCheckerEvents = InferWidgetEvents<typeof passportCheckerBrowserSchemas>

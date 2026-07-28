@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: oklch(0.965 0.004 262); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; border-bottom: 1px solid oklch(0.86 0.05 285); }
+  a:hover { color: oklch(0.45 0.17 281); border-bottom-color: currentColor; }
+  .frame {
+    --card: oklch(1 0 0);
+    --bg: oklch(0.975 0.003 255);
+    --muted: oklch(0.968 0.005 255);
+    --border: oklch(0.91 0.005 255);
+    --border-strong: oklch(0.85 0.008 255);
+    --text: oklch(0.27 0.02 262);
+    --text-dim: oklch(0.5 0.018 262);
+    --text-3: oklch(0.66 0.012 262);
+    --accent: oklch(0.55 0.17 281);
+    --accent-soft: oklch(0.955 0.032 285);
+    --on-accent: #fff;
+    --k-bg: oklch(0.86 0.07 25);  --k-fg: oklch(0.42 0.13 27);
+    --l-bg: oklch(0.87 0.06 215); --l-fg: oklch(0.42 0.1 225);
+    --ok-soft: oklch(0.95 0.05 155); --ok-fg: oklch(0.44 0.13 155);
+    --debt-soft: oklch(0.955 0.035 25); --debt-fg: oklch(0.5 0.15 27);
+    --a1-bg: oklch(0.9 0.05 300); --a1-fg: oklch(0.4 0.13 300);
+    --a2-bg: oklch(0.9 0.048 197); --a2-fg: oklch(0.4 0.1 200);
+  }
+  [data-theme="dark"] .frame {
+    --bg: oklch(0.19 0.008 262);
+    --card: oklch(0.225 0.01 262);
+    --muted: oklch(0.265 0.012 262);
+    --border: oklch(0.305 0.012 262);
+    --border-strong: oklch(0.4 0.015 262);
+    --text: oklch(0.95 0.005 262);
+    --text-dim: oklch(0.73 0.012 262);
+    --text-3: oklch(0.56 0.012 262);
+    --accent: oklch(0.74 0.14 285);
+    --accent-soft: oklch(0.33 0.075 285);
+    --on-accent: oklch(0.19 0.04 285);
+    --k-bg: oklch(0.43 0.11 25); --k-fg: oklch(0.91 0.07 30);
+    --l-bg: oklch(0.4 0.085 232); --l-fg: oklch(0.9 0.06 220);
+    --ok-soft: oklch(0.33 0.07 155); --ok-fg: oklch(0.86 0.13 155);
+    --debt-soft: oklch(0.35 0.085 25); --debt-fg: oklch(0.88 0.09 28);
+    --a1-bg: oklch(0.38 0.09 300); --a1-fg: oklch(0.92 0.06 300);
+    --a2-bg: oklch(0.36 0.07 200); --a2-fg: oklch(0.92 0.05 200);
+    --success: oklch(0.74 0.15 152);
+  }
+  [data-theme="dark"] .frame { background: var(--card); border-color: oklch(0.32 0.012 262); box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 24px 50px -20px rgba(0,0,0,.55); }
+  [data-theme="dark"] .frame input { color-scheme: dark; }
+</style>
+</helmet>
+
+<div style="min-height:100%;padding:56px 64px 96px;font-family:'Hanken Grotesk',system-ui,sans-serif;color:oklch(0.27 0.02 262);">
+
+  <section style="display:flex;flex-direction:column;gap:36px;">
+    <header style="max-width:760px;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:oklch(0.55 0.17 281);background:oklch(0.955 0.032 285);border-radius:5px;padding:3px 8px;">Лоток Офелии · редизайн 2 колонок</span>
+        <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.66 0.012 262);">история · комментарии</span>
+      </div>
+      <h1 style="margin:0;font:600 34px/1.15 'Hanken Grotesk',sans-serif;letter-spacing:-0.015em;">Читаемый гроссбух: дежурство и аккаунт — разные сущности</h1>
+      <p style="margin:0;max-width:640px;font:400 15px/1.55 'Hanken Grotesk',sans-serif;color:oklch(0.5 0.018 262);text-wrap:pretty;">Даты человеческие и сгруппированные, IP убран, перекрытые записи вложены под актуальную. Круг дежурства — окружность с цветом слота; круг аккаунта — квадрат со скруглением, слот под аватар, цвет из хеша id. Остальные блоки виджета не менялись и показаны только как контекст.</p>
+    </header>
+
+    <div class="frame" style="max-width:1180px;display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:28px 40px;padding:26px 28px 28px;background:var(--card);border:1px solid oklch(0.9 0.006 262);border-radius:16px;">
+      <div style="grid-column:1 / -1;font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);">Система знаков</div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="display:flex;align-items:center;gap:4px;flex:none;padding-top:1px;"><span style="width:22px;height:22px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk',sans-serif;">К</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk',sans-serif;">Л</span></span>
+          <div><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:var(--text);">Круг дежурства — окружность</div><div style="font:400 12.5px/1.45 'Hanken Grotesk',sans-serif;color:var(--text-dim);text-wrap:pretty;">Роль в графике. Цвет слота: Карина — тёплый красный, Лёша — холодный синий. Живёт внутри фразы.</div></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="display:flex;align-items:center;gap:4px;flex:none;padding-top:1px;"><span style="width:22px;height:22px;border-radius:7px;background:var(--a1-bg);color:var(--a1-fg);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk',sans-serif;">К</span><span title="avatarUrl" style="width:22px;height:22px;border-radius:7px;background:repeating-linear-gradient(135deg, var(--a2-bg) 0 3px, var(--card) 3px 6px);"></span></span>
+          <div><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:var(--text);">Круг аккаунта — скруглённый квадрат</div><div style="font:400 12.5px/1.45 'Hanken Grotesk',sans-serif;color:var(--text-dim);text-wrap:pretty;">Кто записал. Слот под изображение, пока — инициал; цвет из хеша accountId, не из ротации. Второй пример — аккаунт с загруженным аватаром.</div></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="display:flex;align-items:center;gap:4px;flex:none;padding-top:1px;"><span style="width:22px;height:22px;border-radius:7px;background:var(--a1-bg);color:var(--a1-fg);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk',sans-serif;box-shadow:0 0 0 1.5px var(--card),0 0 0 3px var(--accent);">К</span><span style="width:22px;height:22px;border-radius:7px;border:1.5px dashed var(--border-strong);color:var(--text-3);display:flex;align-items:center;justify-content:center;font:600 11px 'Hanken Grotesk',sans-serif;">?</span></span>
+          <div><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:var(--text);">Кольцо = «это вы», пунктир = автор неизвестен</div><div style="font:400 12.5px/1.45 'Hanken Grotesk',sans-serif;color:var(--text-dim);text-wrap:pretty;">Своё отмечается на круге аккаунта, без слова «вы». Пока личности догружаются, на месте круга — заглушка того же размера: строки не переезжают.</div></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="flex:none;padding-top:1px;display:flex;gap:4px;"><span style="display:inline-flex;align-items:center;gap:4px;padding:1.5px 6px 1.5px 3px;border-radius:999px;background:var(--debt-soft);color:var(--debt-fg);font:600 10px 'JetBrains Mono',monospace;"><span style="width:13px;height:13px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:inline-flex;align-items:center;justify-content:center;font:600 8px 'Hanken Grotesk',sans-serif;">К</span>+1 день</span><span style="display:inline-flex;align-items:center;gap:4px;padding:1.5px 6px 1.5px 3px;border-radius:999px;background:var(--ok-soft);color:var(--ok-fg);font:600 10px 'JetBrains Mono',monospace;"><span style="width:13px;height:13px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:inline-flex;align-items:center;justify-content:center;font:600 8px 'Hanken Grotesk',sans-serif;">Л</span>−1 день</span></span>
+          <div><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:var(--text);">Долг: чей и куда</div><div style="font:400 12.5px/1.45 'Hanken Grotesk',sans-serif;color:var(--text-dim);text-wrap:pretty;">Чип несёт круг того, чей долг двигается, — фраза может упоминать двоих.</div></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="flex:none;padding-top:2px;"><span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font:600 10px 'JetBrains Mono',monospace;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3.2 1.9"></path></svg>18 июня</span></span>
+          <div><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:var(--text);">Отметка позже дня дежурства</div><div style="font:400 12.5px/1.45 'Hanken Grotesk',sans-serif;color:var(--text-dim);text-wrap:pretty;">Если календарная дата <span style="font:500 11.5px 'JetBrains Mono',monospace;">recordedAt</span> ≠ <span style="font:500 11.5px 'JetBrains Mono',monospace;">dutyDate</span>, в подписи появляется дата — иконка Clock (lucide).</div></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="flex:none;margin-top:1px;padding-left:9px;border-left:1.5px dashed var(--border-strong);"><span style="font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--text-dim);text-decoration:line-through;text-decoration-thickness:1px;">убрал за</span> <span style="display:inline-block;padding:1px 5px;border-radius:5px;border:1px solid var(--border);background:var(--muted);color:var(--text-3);font:600 9.5px 'JetBrains Mono',monospace;">перекрыто</span></span>
+          <div><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:var(--text);">Перекрытая запись</div><div style="font:400 12.5px/1.45 'Hanken Grotesk',sans-serif;color:var(--text-dim);text-wrap:pretty;">Вложена под актуальную, пунктирная рельса, зачёркнутая фраза. Читается — но не считается.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;">
+
+      <div id="1a" style="flex:none;display:flex;flex-direction:column;gap:12px;width:660px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font:600 11px 'JetBrains Mono',monospace;color:#fff;background:oklch(0.27 0.02 262);border-radius:5px;padding:3px 7px;">1a</span>
+          <span style="font:600 14px 'Hanken Grotesk',sans-serif;">large · светлая тема</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:oklch(0.66 0.012 262);">колонки ≈ 290 px · порог схлопывания 480 px</span>
+        </div>
+        <div class="frame" style="--success:oklch(0.58 0.13 155);height:660px;display:flex;flex-direction:column;background:var(--card);border:1px solid oklch(0.9 0.006 262);border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 20px 44px -20px rgba(30,32,55,.2);overflow:hidden;">
+          <div style="flex:none;display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;font:600 15px 'Hanken Grotesk',sans-serif;color:var(--text);">Лоток Офелии <span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 6px;">large</span></div>
+              <div style="font:400 12px 'Hanken Grotesk',sans-serif;color:var(--text-3);margin-top:1px;">Кто убирает за Офелией · чередование</div>
+            </div>
+            <span style="font:500 10px 'JetBrains Mono',monospace;color:var(--text-3);letter-spacing:.05em;">контекст · без изменений</span>
+          </div>
+          <div style="flex:none;display:flex;gap:6px;padding:14px 20px 16px;border-bottom:1px solid var(--border);">
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ПН</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ВТ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">СР</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ЧТ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ПТ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">СБ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--accent);border-radius:10px;background:var(--accent-soft);"><span style="font:600 9.5px 'JetBrains Mono',monospace;color:var(--accent);">ВС</span><span style="width:22px;height:22px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span></div>
+          </div>
+          <div style="flex:1;min-height:0;padding:14px 20px 18px;display:flex;">
+            <dc-import name="OfeliaPanels" tab="history" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 8px;max-width:820px;">
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">21 июня — своя запись</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">20 июня — убрал за, −1</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">19 июня — прощение</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">18 июня — уход в долг, +1</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">17 июня — legacy-автор</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">16 июня — 3 записи, 2 перекрыты + отметка на 2 дня позже</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">15 июня — личность грузится</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.018 262);background:oklch(1 0 0);border:1px solid oklch(0.9 0.006 262);border-radius:5px;padding:3px 7px;">14 июня — автор неизвестен</span>
+        </div>
+      </div>
+
+      <div id="1c" style="flex:none;display:flex;flex-direction:column;gap:12px;width:390px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font:600 11px 'JetBrains Mono',monospace;color:#fff;background:oklch(0.27 0.02 262);border-radius:5px;padding:3px 7px;">1c</span>
+          <span style="font:600 14px 'Hanken Grotesk',sans-serif;">мобильная ширина · вкладка «История»</span>
+        </div>
+        <div class="frame" style="height:640px;display:flex;flex-direction:column;background:var(--card);border:1px solid oklch(0.9 0.006 262);border-radius:22px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 20px 44px -20px rgba(30,32,55,.2);overflow:hidden;">
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
+            <div style="width:30px;height:30px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
+            <div style="flex:1;font:600 14px 'Hanken Grotesk',sans-serif;">Лоток Офелии</div>
+            <span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">контекст</span>
+          </div>
+          <div style="flex:1;min-height:0;padding:12px 16px 14px;display:flex;">
+            <dc-import name="OfeliaPanels" tab="history" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import>
+          </div>
+        </div>
+        <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:oklch(0.5 0.018 262);text-wrap:pretty;">Та же разметка строки: ниже 640 px колонки складываются, заголовки колонок уступают место переключателю, круг «вы вошли как» переезжает в его правый край.</div>
+      </div>
+
+      <div id="1d" style="flex:none;display:flex;flex-direction:column;gap:12px;width:390px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font:600 11px 'JetBrains Mono',monospace;color:#fff;background:oklch(0.27 0.02 262);border-radius:5px;padding:3px 7px;">1d</span>
+          <span style="font:600 14px 'Hanken Grotesk',sans-serif;">мобильная · «Комментарии»</span>
+        </div>
+        <div class="frame" style="height:640px;display:flex;flex-direction:column;background:var(--card);border:1px solid oklch(0.9 0.006 262);border-radius:22px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 20px 44px -20px rgba(30,32,55,.2);overflow:hidden;">
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
+            <div style="width:30px;height:30px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
+            <div style="flex:1;font:600 14px 'Hanken Grotesk',sans-serif;">Лоток Офелии</div>
+            <span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">контекст</span>
+          </div>
+          <div style="flex:1;min-height:0;padding:12px 16px 14px;display:flex;">
+            <dc-import name="OfeliaPanels" tab="comments" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import>
+          </div>
+        </div>
+        <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:oklch(0.5 0.018 262);text-wrap:pretty;">Однострочный композер остаётся прижатым к низу; слева от поля — круг текущего аккаунта, справа кнопка Send (lucide), <span style="font:500 11.5px 'JetBrains Mono',monospace;">aria-label="Отправить"</span>.</div>
+      </div>
+
+      <div id="1b" style="flex:none;display:flex;flex-direction:column;gap:12px;width:1180px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font:600 11px 'JetBrains Mono',monospace;color:#fff;background:oklch(0.27 0.02 262);border-radius:5px;padding:3px 7px;">1b</span>
+          <span style="font:600 14px 'Hanken Grotesk',sans-serif;">fullscreen · во всю ширину</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:oklch(0.66 0.012 262);">колонки ≈ 540 px · длинные фразы в одну строку</span>
+        </div>
+        <div class="frame" style="height:720px;display:flex;flex-direction:column;background:var(--card);border:1px solid oklch(0.9 0.006 262);border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 28px 60px -22px rgba(30,32,55,.26);overflow:hidden;">
+          <div style="flex:none;display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--border);">
+            <div style="width:38px;height:38px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;font:600 17px 'Hanken Grotesk',sans-serif;">Лоток Офелии <span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 6px;">fullscreen</span></div>
+              <div style="font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--text-3);margin-top:2px;">Кто убирает за Офелией · чередование</div>
+            </div>
+            <span style="font:500 10px 'JetBrains Mono',monospace;color:var(--text-3);">день, баланс и кнопки — без изменений, не показаны</span>
+            <span style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text-dim);display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+          </div>
+          <div style="flex:1;min-height:0;padding:18px 24px 22px;display:flex;">
+            <dc-import name="OfeliaPanels" tab="history" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import>
+          </div>
+        </div>
+      </div>
+
+      <div id="1e" data-theme="dark" style="flex:none;display:flex;flex-direction:column;gap:12px;width:660px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font:600 11px 'JetBrains Mono',monospace;color:#fff;background:oklch(0.27 0.02 262);border-radius:5px;padding:3px 7px;">1e</span>
+          <span style="font:600 14px 'Hanken Grotesk',sans-serif;color:oklch(0.27 0.02 262);">large · тёмная тема</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:oklch(0.66 0.012 262);">:root[data-theme='dark']</span>
+        </div>
+        <div class="frame" style="height:660px;display:flex;flex-direction:column;background:var(--card);border:1px solid oklch(0.32 0.012 262);border-radius:18px;overflow:hidden;">
+          <div style="flex:none;display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;font:600 15px 'Hanken Grotesk',sans-serif;color:var(--text);">Лоток Офелии <span style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 6px;">large</span></div>
+              <div style="font:400 12px 'Hanken Grotesk',sans-serif;color:var(--text-3);margin-top:1px;">Кто убирает за Офелией · чередование</div>
+            </div>
+            <span style="font:500 10px 'JetBrains Mono',monospace;color:var(--text-3);letter-spacing:.05em;">контекст · без изменений</span>
+          </div>
+          <div style="flex:none;display:flex;gap:6px;padding:14px 20px 16px;border-bottom:1px solid var(--border);">
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ПН</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ВТ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">СР</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ЧТ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">ПТ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"><span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">СБ</span><span style="width:22px;height:22px;border-radius:50%;background:var(--l-bg);color:var(--l-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">Л</span></div>
+            <div style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--accent);border-radius:10px;background:var(--accent-soft);"><span style="font:600 9.5px 'JetBrains Mono',monospace;color:var(--accent);">ВС</span><span style="width:22px;height:22px;border-radius:50%;background:var(--k-bg);color:var(--k-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;">К</span></div>
+          </div>
+          <div style="flex:1;min-height:0;padding:14px 20px 18px;display:flex;">
+            <dc-import name="OfeliaPanels" tab="history" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import>
+          </div>
+        </div>
+      </div>
+
+      <div id="1f" data-theme="dark" style="flex:none;display:flex;flex-direction:column;gap:12px;width:390px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font:600 11px 'JetBrains Mono',monospace;color:#fff;background:oklch(0.27 0.02 262);border-radius:5px;padding:3px 7px;">1f</span>
+          <span style="font:600 14px 'Hanken Grotesk',sans-serif;color:oklch(0.27 0.02 262);">мобильная · тёмная · «Комментарии»</span>
+        </div>
+        <div class="frame" style="height:640px;display:flex;flex-direction:column;background:var(--card);border:1px solid oklch(0.32 0.012 262);border-radius:22px;overflow:hidden;">
+          <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
+            <div style="width:30px;height:30px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
+            <div style="flex:1;font:600 14px 'Hanken Grotesk',sans-serif;color:var(--text);">Лоток Офелии</div>
+            <span style="font:500 9.5px 'JetBrains Mono',monospace;color:var(--text-3);">контекст</span>
+          </div>
+          <div style="flex:1;min-height:0;padding:12px 16px 14px;display:flex;">
+            <dc-import name="OfeliaPanels" tab="comments" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import>
+          </div>
+        </div>
+      </div>
+
+      <div id="1g" style="flex:none;display:flex;flex-direction:column;gap:12px;width:560px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font:600 11px 'JetBrains Mono',monospace;color:#fff;background:oklch(0.27 0.02 262);border-radius:5px;padding:3px 7px;">1g</span>
+          <span style="font:600 14px 'Hanken Grotesk',sans-serif;">пустые состояния</span>
+        </div>
+        <div class="frame" style="height:250px;display:flex;background:var(--card);border:1px solid oklch(0.9 0.006 262);border-radius:16px;padding:18px 20px;box-shadow:0 1px 2px rgba(30,32,50,.05);">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding-right:18px;border-right:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:8px;padding-bottom:10px;"><span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);">История</span></div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;border:1px dashed var(--border);border-radius:10px;font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--text-3);">Пока нет событий</div>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding-left:18px;">
+            <div style="display:flex;align-items:center;gap:8px;padding-bottom:10px;"><span style="font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);">Комментарии</span></div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;border:1px dashed var(--border);border-radius:10px;font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--text-3);">Пока нет комментариев</div>
+            <div style="flex:none;display:flex;align-items:center;gap:8px;padding-top:12px;margin-top:10px;border-top:1px solid var(--border);">
+              <span style="width:22px;height:22px;flex:none;border-radius:7px;background:var(--a1-bg);color:var(--a1-fg);display:flex;align-items:center;justify-content:center;font:600 10px 'Hanken Grotesk',sans-serif;box-shadow:0 0 0 1.5px var(--card),0 0 0 3px var(--accent);">К</span>
+              <input type="text" placeholder="Написать комментарий…" style="flex:1;min-width:0;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--bg);font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);padding:0 11px;outline:none;" />
+              <button aria-label="Отправить" style="width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border:none;border-radius:9px;background:var(--accent);color:var(--on-accent);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2L15 22 11 13 2 9l20-7z"></path></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1360,&quot;height&quot;:900}}"></script>
+</body>
+</html>

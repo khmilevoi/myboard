@@ -1,19 +1,17 @@
 import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { StorageApi, WidgetStorage } from 'widget-runtime'
+import {
+  makeStaticWidgetIdentity,
+  StorageError,
+  WidgetApiError,
+  type StorageApi,
+  type WidgetStorage,
+} from 'widget-runtime'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
-import {
-  DEBT_WARNING_THRESHOLD,
-  effectiveDuty,
-  IP_TAIL_LENGTH,
-  isDebtDay,
-  isOverDebtWarning,
-  ofeliaDutyModel,
-  otherPerson,
-  weekStartISO,
-} from './ofelia-duty'
-import type { DayResolution } from './ofelia-duty'
+import type { LedgerEntry } from '@/domain/ledger'
+
+import { ofeliaDutyModel } from './ofelia-duty'
 
 // The ledger reactive flows (subscribe -> derived projections -> append actions)
 // are covered by the Playwright e2e suite. They are intentionally not unit-tested:
@@ -47,34 +45,29 @@ afterEach(() => {
 })
 
 describe('ofeliaDutyModel server time', () => {
-  it('returns null projections and blocks actions before the first sync', async () => {
-    const storage = createStorage()
-    const model = ofeliaDutyModel({ storage, timer: createFakeTimer() })
+  it('returns null projections and sends nothing before the first sync', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer(),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
 
     expect(model.viewWeekStart()).toBeNull()
     expect(model.currentWeek()).toBeNull()
     expect(model.debtDays()).toBeNull()
 
-    await model.goIntoDebt()
-    expect(storage.shared.server.append).not.toHaveBeenCalled()
-  })
-
-  it('blocks append actions while the ledger has not synced yet', async () => {
-    const storage = createStorage()
-    const model = ofeliaDutyModel({ storage, timer: createFakeTimer({ today: D('2026-06-16') }) })
-
-    await model.confirmClean(D('2026-06-16'))
-    await model.goIntoDebt(D('2026-06-16'))
-    await model.forgive(D('2026-06-16'))
-    await model.undo(D('2026-06-16'))
-
-    expect(storage.shared.server.append).not.toHaveBeenCalled()
+    await wrap(() => model.goIntoDebt())()
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('exposes today so the view model can gate future-day controls', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     expect(model.today()?.toString()).toBe('2026-06-16')
@@ -84,6 +77,8 @@ describe('ofeliaDutyModel server time', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     return context.start(async () => {
@@ -106,6 +101,8 @@ describe('ofeliaDutyModel server time', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer({ today: Temporal.PlainDate.from('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     expect(model.selectedDate()).toBeNull()
@@ -118,107 +115,231 @@ describe('ofeliaDutyModel server time', () => {
     const model = ofeliaDutyModel({
       storage: createStorage(),
       timer: createFakeTimer(),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
     expect(model.undoAvailable()).toBe(false)
   })
 })
 
-describe('ofeliaDutyModel.currentUser', () => {
-  it('defaults to the first roster member', () => {
+describe('ofeliaDutyModel actions', () => {
+  it('invokes the clean event with the target date', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
     const model = ofeliaDutyModel({
       storage: createStorage(),
-      timer: createFakeTimer(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
-    expect(model.currentUser()).toBe('Леша')
+    await wrap(() => model.confirmClean(D('2026-06-18')))()
+
+    expect(invoke).toHaveBeenCalledWith('clean', { date: '2026-06-18' })
   })
 
-  it('loads a persisted value from shared.client on connect', async () => {
-    const storage = createStorage({
-      get: (async () => 'Карина') as StorageApi['get'],
-    })
-    const model = ofeliaDutyModel({
-      storage,
-      timer: createFakeTimer(),
-    })
-
-    await context.start(async () => {
-      const off = model.currentUser.subscribe(() => {})
-      const check = wrap(() => expect(model.currentUser()).toBe('Карина'))
-
-      await vi.waitFor(() => check())
-      off()
-    })
-  })
-
-  it('persists the selection to shared.client on change', async () => {
+  it('does not write through storage any more', async () => {
     const storage = createStorage()
     const model = ofeliaDutyModel({
       storage,
-      timer: createFakeTimer(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
     })
 
-    await context.start(async () => {
-      const off = model.currentUser.subscribe(() => {})
-      await wrap(() => model.currentUser.set('Карина'))()
+    await wrap(() => model.confirmClean(D('2026-06-16')))()
 
-      const check = wrap(() =>
-        expect(storage.shared.client.set).toHaveBeenCalledWith('currentUser', 'Карина'),
-      )
+    expect(storage.shared.server.append).not.toHaveBeenCalled()
+  })
 
-      await vi.waitFor(() => check())
-      off()
+  it('maps the remaining day actions onto their own events', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
     })
+
+    await wrap(() => model.goIntoDebt(D('2026-06-16')))()
+    await wrap(() => model.forgive(D('2026-06-17')))()
+    await wrap(() => model.undo(D('2026-06-18')))()
+
+    expect(invoke.mock.calls).toEqual([
+      ['debt', { date: '2026-06-16' }],
+      ['forgive', { date: '2026-06-17' }],
+      ['undo', { date: '2026-06-18' }],
+    ])
+  })
+
+  it('falls back to the selected day, then today', async () => {
+    const invoke = vi.fn(async () => ({ ok: true }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(() => model.confirmClean())()
+    model.selectedDate.set(D('2026-06-19'))
+    await wrap(() => model.confirmClean())()
+
+    expect(invoke.mock.calls).toEqual([
+      ['clean', { date: '2026-06-16' }],
+      ['clean', { date: '2026-06-19' }],
+    ])
   })
 })
 
-describe('ofelia-duty selectors', () => {
-  it('otherPerson returns the partner', () => {
-    expect(otherPerson('Леша')).toBe('Карина')
-    expect(otherPerson('Карина')).toBe('Леша')
+describe('ofeliaDutyModel action status (F6a)', () => {
+  it('surfaces a failed day action instead of discarding it silently', async () => {
+    // `invoke` resolves to the error VALUE — the real production shape
+    // (WidgetApi never throws); `invokeDay` is the one that re-throws it so
+    // `withAsyncData` captures the rejection.
+    const invoke = vi.fn(async () => new WidgetApiError({ reason: 'offline', code: 'network' }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    expect(model.actionPending()).toBe(false)
+    expect(model.actionError()).toBeNull()
+
+    // Before this fix nothing anywhere read `confirmClean.error()` — the
+    // widget just fired the action floating and moved on. The failure is
+    // expected here; only the surfaced state matters.
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+
+    expect(model.actionPending()).toBe(false)
+    expect(model.actionError()?.message).toContain('offline')
   })
 
-  it('weekStartISO uses the Monday of the date week', () => {
-    expect(weekStartISO(D('2026-06-16'))).toBe('2026-06-15')
+  it('clears the surfaced error once a later action succeeds', async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce(new WidgetApiError({ reason: 'offline', code: 'network' }))
+      .mockResolvedValueOnce({ ok: true })
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+    expect(model.actionError()).not.toBeNull()
+
+    await wrap(() => model.confirmClean(D('2026-06-17')))()
+    expect(model.actionError()).toBeNull()
   })
 
-  it('effectiveDuty / isDebtDay reflect projected debt days', () => {
-    const debts = { Леша: 0, Карина: 1 }
-    const today = D('2026-06-16')
-    expect(isDebtDay(D('2026-06-16'), debts, today)).toBe(true)
-    expect(effectiveDuty(D('2026-06-16'), debts, today)).toBe('Карина')
-    expect(isDebtDay(D('2026-06-17'), {}, today)).toBe(false)
-    expect(effectiveDuty(D('2026-06-17'), {}, today)).toBe('Карина')
+  // MEDIUM: the old `confirmClean.error() ?? goIntoDebt.error() ?? …` chain
+  // pinned to whichever of the four failed FIRST, regardless of what
+  // succeeded afterward — this is the case the previous test's "retry the
+  // SAME action" shape could not catch. A different action succeeding must
+  // clear the stale error too.
+  it('clears a failed action error when a DIFFERENT action later succeeds', async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce(new WidgetApiError({ reason: 'offline', code: 'network' }))
+      .mockResolvedValueOnce({ ok: true })
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+    expect(model.actionError()).not.toBeNull()
+
+    await wrap(() => model.goIntoDebt(D('2026-06-17')))()
+    expect(model.actionError()).toBeNull()
   })
 
-  it('effectiveDuty / isDebtDay skip already closed days when projecting debt', () => {
-    const debts = { Леша: 0, Карина: 1 }
-    const today = D('2026-06-16')
-    const resolution = new Map([
-      [
-        '2026-06-16',
-        {
-          status: 'closed',
-          type: 'went_into_debt',
-          actor: 'Леша',
-          onBehalfOf: 'Карина',
-        } satisfies DayResolution,
-      ],
-    ])
+  it('maps a real WidgetApiError to a Russian, user-facing message', async () => {
+    const invoke = vi.fn(async () => new WidgetApiError({ reason: 'offline', code: 'network' }))
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
 
-    expect(isDebtDay(D('2026-06-16'), debts, today, resolution)).toBe(false)
-    expect(isDebtDay(D('2026-06-18'), debts, today, resolution)).toBe(true)
-    expect(effectiveDuty(D('2026-06-18'), debts, today, resolution)).toBe('Карина')
+    expect(model.actionErrorMessage()).toBeNull()
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+
+    // Never the internal `WidgetApiError.message` ("Widget API request
+    // failed: offline") — that string must never reach a household user.
+    expect(model.actionErrorMessage()).toBe('Нет соединения с сервером')
   })
 
-  it('isOverDebtWarning fires strictly above the threshold', () => {
-    expect(DEBT_WARNING_THRESHOLD).toBe(7)
-    expect(isOverDebtWarning({ Леша: 7 }, 'Леша')).toBe(false)
-    expect(isOverDebtWarning({ Леша: 8 }, 'Леша')).toBe(true)
+  it('falls back to the generic Russian message for an unrecognised error code', async () => {
+    const invoke = vi.fn(
+      async () => new WidgetApiError({ reason: 'boom', code: 'something_unexpected' }),
+    )
+    const model = ofeliaDutyModel({
+      storage: createStorage(),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(async () => {
+      await model.confirmClean(D('2026-06-16')).catch(() => undefined)
+    })()
+
+    expect(model.actionErrorMessage()).toBe('Не удалось выполнить действие')
+  })
+})
+
+describe('ofeliaDutyModel.retryLedger (F2c)', () => {
+  it('re-fetches the ledger through the same public API and clears a previous failure', async () => {
+    // `Mock<F>` can't preserve a generic call signature (Parameters/ReturnType
+    // erase `T` to `unknown`), so a vi.fn() can never satisfy StorageApi['get']
+    // structurally. Assert the concrete instantiation this test actually drives
+    // (get('ledger', LedgerEntriesSchema) -> LedgerEntry[]) instead of `any`.
+    const get = vi.fn(async () => [] as LedgerEntry[]) as unknown as StorageApi['get']
+    const model = ofeliaDutyModel({
+      storage: createStorage({ get }),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+    model.ledgerError.set(new StorageError({ reason: 'boom' }))
+
+    await wrap(() => model.retryLedger())()
+
+    expect(get).toHaveBeenCalledWith('ledger', expect.anything())
+    expect(model.ledgerError()).toBeNull()
+    expect(model.ledgerLoading()).toBe(false)
   })
 
-  it('IP_TAIL_LENGTH is 5', () => {
-    expect(IP_TAIL_LENGTH).toBe(5)
+  it('records a failed retry rather than silently leaving the widget stuck', async () => {
+    const failure = new StorageError({ reason: 'still down' })
+    const get = vi.fn(async () => failure)
+    const model = ofeliaDutyModel({
+      storage: createStorage({ get }),
+      timer: createFakeTimer({ today: D('2026-06-16') }),
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      identity: makeStaticWidgetIdentity(),
+    })
+
+    await wrap(() => model.retryLedger())()
+
+    expect(model.ledgerError()).toBe(failure)
+    expect(model.ledgerLoading()).toBe(false)
   })
 })

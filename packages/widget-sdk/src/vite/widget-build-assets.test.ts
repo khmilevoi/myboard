@@ -18,7 +18,9 @@ function fixture() {
   mkdirSync(join(widgetsDir, 'clock', 'dist', 'assets'), { recursive: true })
   mkdirSync(join(widgetsDir, 'ofelia-poop-duty', 'dist'), { recursive: true })
   writeFileSync(join(widgetsDir, 'clock', 'package.json'), '{}')
+  writeFileSync(join(widgetsDir, 'clock', 'client.ts'), '')
   writeFileSync(join(widgetsDir, 'ofelia-poop-duty', 'package.json'), '{}')
+  writeFileSync(join(widgetsDir, 'ofelia-poop-duty', 'client.ts'), '')
   writeFileSync(join(widgetsDir, 'clock', 'dist', 'remoteEntry.js'), 'clock-entry')
   writeFileSync(join(widgetsDir, 'clock', 'dist', 'assets', 'clock.js'), 'clock-chunk')
   writeFileSync(join(widgetsDir, 'ofelia-poop-duty', 'dist', 'remoteEntry.js'), 'ofelia-entry')
@@ -58,10 +60,24 @@ describe('copyWidgetBuilds', () => {
     const { widgetsDir, outDir } = fixture()
     mkdirSync(join(widgetsDir, 'missing'), { recursive: true })
     writeFileSync(join(widgetsDir, 'missing', 'package.json'), '{}')
+    writeFileSync(join(widgetsDir, 'missing', 'client.ts'), '')
 
     const result = copyWidgetBuilds({ widgetsDir, outDir })
 
     expect(result).toBeInstanceOf(MissingWidgetBuildError)
     expect(result).toMatchObject({ widgetId: 'missing' })
+  })
+
+  it('skips a widget package with no client.ts instead of demanding a dist/', () => {
+    const { widgetsDir, outDir } = fixture()
+    // Mirrors a widget mid-rollout that only has a browser task so far (no
+    // federation remote yet, e.g. passport-checker before its UI landed):
+    // a real package.json, but no client.ts and thus never a build/dist.
+    mkdirSync(join(widgetsDir, 'browser-task-only'), { recursive: true })
+    writeFileSync(join(widgetsDir, 'browser-task-only', 'package.json'), '{}')
+
+    const result = copyWidgetBuilds({ widgetsDir, outDir })
+
+    expect(result).toEqual(['clock', 'ofelia-poop-duty'])
   })
 })

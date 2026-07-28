@@ -24,7 +24,6 @@ describe('createWidgetServerApi', () => {
       ops,
       typeId: 'demo',
       instanceId: 'placement-1',
-      ip: null,
       now: () => 123,
       browserClient: fake.client,
     })

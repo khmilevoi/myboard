@@ -10,6 +10,8 @@ describe('loadBrowserServiceConfig', () => {
       executionMs: 60_000,
       profileDir: '/profile',
       secretsDir: '/run/secrets',
+      recoverySshTarget: null,
+      novncPort: 6080,
     })
   })
 
@@ -25,8 +27,43 @@ describe('loadBrowserServiceConfig', () => {
       executionMs: 15000,
       profileDir: '/profile',
       secretsDir: '/run/secrets',
+      recoverySshTarget: null,
+      novncPort: 6080,
     })
   })
+
+  // Must stay in lockstep with docker-compose.yml's NOVNC_HOST_PORT, which
+  // drives the publish line the container itself cannot introspect.
+  it('reads a NOVNC_HOST_PORT override', () => {
+    const config = loadBrowserServiceConfig({ NOVNC_HOST_PORT: '6180' })
+    expect(config).toMatchObject({ novncPort: 6180 })
+  })
+
+  it('returns a tagged error for a non-positive-integer NOVNC_HOST_PORT', () => {
+    const result = loadBrowserServiceConfig({ NOVNC_HOST_PORT: '0' })
+    expect(result).toBeInstanceOf(BrowserServiceConfigError)
+  })
+
+  it('normalizes a usable AUTOMATION_SSH_TARGET', () => {
+    expect(loadBrowserServiceConfig({ AUTOMATION_SSH_TARGET: ' pi@myboard.local ' })).toMatchObject(
+      { recoverySshTarget: 'pi@myboard.local' },
+    )
+    expect(loadBrowserServiceConfig({ AUTOMATION_SSH_TARGET: '192.168.1.10' })).toMatchObject({
+      recoverySshTarget: '192.168.1.10',
+    })
+  })
+
+  // The value is public recovery metadata the UI shows, and config failures
+  // reach process.exit(1) in index.ts. A typo in .env must cost the SSH hint,
+  // never the whole automation service.
+  it.each(['pi@host; shutdown', '', 'pi@host/../etc'])(
+    'degrades an unusable AUTOMATION_SSH_TARGET to null instead of failing the config',
+    (value) => {
+      const config = loadBrowserServiceConfig({ AUTOMATION_SSH_TARGET: value })
+      expect(config).not.toBeInstanceOf(BrowserServiceConfigError)
+      expect(config).toMatchObject({ recoverySshTarget: null })
+    },
+  )
 
   it('reads profile and secrets directory overrides', () => {
     const config = loadBrowserServiceConfig({

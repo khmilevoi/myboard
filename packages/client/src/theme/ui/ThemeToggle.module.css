@@ -34,3 +34,44 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+.cycleButton {
+  display: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.cycleButton:hover {
+  color: var(--foreground);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+.cycleButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Pairs with MOBILE_BREAKPOINT (packages/client/src/board/model/grid-metrics.ts):
+   grid-metrics.ts treats 768 as desktop (`width < MOBILE_BREAKPOINT`), so the
+   threshold here is 767px, not 768px, to actually agree with it -- 767px is
+   this repo's "narrow" boundary, and it lands right on the measured onset of
+   the .brand/.actions collision -- swap the three-item group for the single
+   cycling button here. */
+@media (max-width: 767px) {
+  .group {
+    display: none;
+  }
+
+  .cycleButton {
+    display: grid;
+  }
+}

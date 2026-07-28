@@ -1,0 +1,85 @@
+.avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  /* Same reason as the duty circle: `justify-items` is inert once a caller
+     re-casts this box to `inline-flex`, so the inline axis is named outright. */
+  justify-content: center;
+  overflow: hidden;
+  font-weight: 600;
+  line-height: 1;
+  /* Square-with-radius is what separates an account from a duty person. */
+  border-radius: 0.375rem;
+}
+
+.avatar[data-kind='person'] {
+  border-radius: 999px;
+}
+
+.avatar[data-kind='unknown'] {
+  border: 1.5px dashed var(--border-strong);
+  color: var(--text-3);
+}
+
+.avatar[data-kind='system'] {
+  border: 1.5px solid var(--border-strong);
+  color: var(--text-3);
+  background: var(--muted);
+}
+
+/* The viewer ring is a spread shadow, so it paints outside the border box and
+   is clipped by any scroll/overflow ancestor the avatar sits flush against.
+   Every such container reserves `--ofelia-viewer-ring` of inline-start room —
+   keep the width in the token, not inlined here, or the two drift apart and the
+   ring loses its left edge again. */
+.avatar[data-viewer='true'] {
+  box-shadow:
+    0 0 0 1.5px var(--surface),
+    0 0 0 var(--ofelia-viewer-ring) var(--primary);
+}
+
+.avatar[data-tone='k'] {
+  background: var(--ofelia-k-bg);
+  color: var(--ofelia-k-fg);
+}
+
+.avatar[data-tone='l'] {
+  background: var(--ofelia-l-bg);
+  color: var(--ofelia-l-fg);
+}
+
+.avatar[data-tone='1'] {
+  background: var(--ofelia-member-1-bg);
+  color: var(--ofelia-member-1-fg);
+}
+
+.avatar[data-tone='2'] {
+  background: var(--ofelia-member-2-bg);
+  color: var(--ofelia-member-2-fg);
+}
+
+.avatar[data-tone='3'] {
+  background: var(--ofelia-member-3-bg);
+  color: var(--ofelia-member-3-fg);
+}
+
+.avatar[data-tone='4'] {
+  background: var(--ofelia-member-4-bg);
+  color: var(--ofelia-member-4-fg);
+}
+
+.avatar[data-tone='5'] {
+  background: var(--ofelia-member-5-bg);
+  color: var(--ofelia-member-5-fg);
+}
+
+.avatar[data-tone='6'] {
+  background: var(--ofelia-member-6-bg);
+  color: var(--ofelia-member-6-fg);
+}
+
+.image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}

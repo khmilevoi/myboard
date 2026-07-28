@@ -68,3 +68,28 @@
   flex: 1;
   min-height: 0;
 }
+
+/* The grip only exists to give react-draggable a small touch target on mobile;
+   on desktop the whole card is the handle and the grip is not rendered at all. */
+.grip {
+  display: none;
+}
+
+.root[data-mobile='true'] .grip {
+  position: absolute;
+  z-index: 3;
+  top: 4px;
+  left: 50%;
+  display: block;
+  width: 48px;
+  height: 16px;
+  transform: translateX(-50%);
+  border-radius: 8px;
+  background: linear-gradient(var(--border), var(--border)) center / 28px 3px no-repeat;
+  cursor: grab;
+  touch-action: none;
+}
+
+.root[data-mobile='true'] .grip:active {
+  cursor: grabbing;
+}

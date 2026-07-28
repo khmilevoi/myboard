@@ -28,11 +28,21 @@ function discoverWidgetIds(widgetsDir: string) {
   })
   if (entries instanceof Error) return entries
 
-  return entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .filter((widgetId) => existsSync(resolve(widgetsDir, widgetId, 'package.json')))
-    .sort((a, b) => a.localeCompare(b))
+  return (
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((widgetId) => existsSync(resolve(widgetsDir, widgetId, 'package.json')))
+      // A widget is a federation remote (and thus needs a staged dist/) only if
+      // it exposes ./client, same criterion scripts/codegen/client.ts uses to
+      // decide which widgets get a client-catalog entry. A package that hasn't
+      // reached that stage yet (e.g. a browser-task-only widget mid-rollout,
+      // like passport-checker before its UI landed) has a package.json but no
+      // client.ts, no vite build script, and never produces a dist/ — without
+      // this filter every host build fails on it with MissingWidgetBuildError.
+      .filter((widgetId) => existsSync(resolve(widgetsDir, widgetId, 'client.ts')))
+      .sort((a, b) => a.localeCompare(b))
+  )
 }
 
 export function copyWidgetBuilds({ widgetsDir, outDir }: CopyWidgetBuildsOptions) {

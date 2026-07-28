@@ -1,84 +1,168 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Canonical guidance for AI agents working in this repository. `AGENTS.md` is a symlink to this file,
+so Claude Code, Codex, and every other assistant read the same rules.
 
-See [AGENTS.md](./AGENTS.md) for the canonical repository guidelines (project structure, coding style, required skills, commit/PR conventions). This file adds command references and architecture notes that complement it — read both.
+Detail that is only needed sometimes lives next to the code. Claude Code exposes the first four as
+skills and loads them on demand; other agents read the files directly.
+
+| Guide | Read it when |
+| --- | --- |
+| `docs/agent/deployment.md` | deploying, pushing secrets, editing `rpi*.toml`, using the branch stand, releasing `dev` into `main` |
+| `docs/agent/test-troubleshooting.md` | a test run or a pnpm/node invocation misbehaves on this machine |
+| `docs/agent/widget-server.md` | writing a widget's `server.ts`, a cron job, or code that stamps a record's author |
+| `docs/agent/radix-stacked-dialogs.md` | closing one Radix dialog or popover also dismisses the one underneath |
+| `docs/agent/browser-history-traversal.md` | touching `overlay-history.ts`, or a test disagrees with the browser about history traversal timing |
+| `docs/architecture/overview.md` | you need the widget/storage/server picture beyond the map below |
 
 ## Required skills
 
-Before editing this repo, load the `reatom` and `errore` skills (referenced in AGENTS.md):
+- **reatom** — every atom, action, async flow, test and React integration in `packages/client/` and
+  `packages/widgets/*`.
+- **errore** — TypeScript errors-as-values (tagged errors, `instanceof` narrowing, flat early
+  returns, no throwing) across `packages/client/` and `packages/server/`.
 
-- **Reatom**: used for all atoms, actions, async flows, and React integration in `packages/client/`.
-- **errore**: used for TypeScript errors-as-values (tagged errors, `instanceof` narrowing, no throwing) across both `packages/client/` and `packages/server/`.
+## Feature workflow
+
+`main` is production and `dev` is the integration branch. Feature work never lands directly on
+either — it goes branch → PR into `dev` → dev deploy → PR from `dev` into `main`.
+
+1. **Branch off `dev` in its own worktree** under `./.worktrees/<short-name>`; the main checkout
+   stays on `dev` and is not edited while feature work is open.
+
+   ```bash
+   git fetch origin
+   git -c core.symlinks=false worktree add .worktrees/<short-name> -b feat/<short-name> origin/dev
+   git -C .worktrees/<short-name> update-index --skip-worktree AGENTS.md
+   cd .worktrees/<short-name>
+   pnpm install
+   ```
+
+   `AGENTS.md` is a committed symlink that Windows cannot materialize, so both git flags are
+   required — without them the command fails outright or leaves a permanent ` T ` typechange.
+   Branch names use the same Conventional Commit prefixes as commits: `feat/`, `fix/`, `chore/`.
+
+2. **Implement and commit inside that worktree.**
+
+3. **Run the full gate before opening the PR**, from the worktree: `pnpm check`, plus
+   `pnpm test:e2e:docker` when the change touches browser-facing behavior. There is no CI on this
+   repo — these local runs _are_ the gate.
+
+4. **Open the PR against `dev`**, never against `main`:
+   `git push -u origin feat/<short-name> && gh pr create --base dev`. Summarize scope, list the
+   verification commands actually run, link related issues, and attach screenshots or a short
+   recording for UI changes.
+
+5. **Clean up the worktree, deploy to dev, then release** — `docs/agent/deployment.md`.
+
+If dev testing turns up a defect, branch off `dev` again from step 1 — never patch `main` directly.
+Create PRs from the exact commit range that belongs to the task; do not mix publication concerns
+with implementation work.
+
+## Project structure
+
+Private pnpm workspace, everything under `packages/`: `client` (React/Vite board host, source in
+`src`, Playwright specs in `e2e` with page helpers in `e2e/pages`), `server` (the storage API on
+Valkey, bundled to `dist` with every widget server function in it), `shared`, `widget-runtime` (the
+singleton live runtime: storage, widget RPC, SSE/BroadcastChannel, server time, contracts),
+`widget-sdk` (stateless Reatom/React glue and shared widget UI), `browser-automation` (the browser
+service and generated task registry), and one package per `packages/widgets/*`.
+
+The non-obvious rules:
+
+- Client features and widgets split React/CSS/view tests into `ui/` and Reatom/domain/storage logic
+  into `model/`. Tests are colocated as `*.test.ts` or `*.test.tsx`.
+- `@/*` aliases only to `packages/client/src`, `@shared/*` to the shared package. Shared widget code
+  is imported through the `widget-runtime` / `widget-sdk` package names, never through
+  `packages/client/src`.
+- `packages/widgets/*/domain/` is dependency-free code shared by a widget's `model/` and its
+  `server.ts`; the `.oxlintrc.json` override enforces its import allowlist, because those files are
+  bundled into the server image.
+- The widget directory basename is the canonical widget ID. Root `client.ts`, `server.ts` and the
+  optional `browser.ts` export their definitions **without** an `id` / `typeId` / `widgetId` —
+  codegen injects the basename. A widget package also carries `types.ts`, a federation
+  `vite.config.ts`, and a standalone `dev/` harness for the entry points it provides.
 
 ## Commands
 
-Run from the repo root with pnpm unless noted.
+Run from the repo root. `package.json` holds the full list; these are the ones worth knowing.
 
 ```bash
-pnpm dev                      # codegen, then board + every widget dev server in parallel
-pnpm dev:server                # codegen, then server in watch mode
-pnpm build                     # codegen, build every widget remote, then typecheck/build the client host and PWA
-pnpm --filter server build     # bundle server with Rspack
-pnpm test                      # all workspace Vitest tests
-pnpm --filter client test      # client tests only
-pnpm --filter server test      # server tests only
-pnpm test:e2e                  # board Playwright e2e against the assembled production-style Vite output; needs a reachable Valkey at VALKEY_URL (e.g. `pnpm start:docker`) and ALLOW_TEST_DB_RESET=1 set
-pnpm test:e2e:docker           # same suite, fully isolated: ephemeral Valkey + browsers in one container, torn down after
-pnpm test:e2e:docker:down      # tear down the containerized e2e stack
-pnpm test:e2e:docker:headed    # dockerized Valkey + host Playwright in headed mode
-pnpm test:e2e:nginx            # gate + nginx image tests; needs `ALLOW_TEST_DB_RESET=1 pnpm start:docker` running
-pnpm typecheck                 # workspace-wide tsc --noEmit
-pnpm lint / pnpm lint:fix       # oxlint
-pnpm format / pnpm format:check # oxfmt
-pnpm check                      # lint + format:check + typecheck + test, run together (full local gate)
-pnpm dev:docker                 # Valkey + server + client with hot reload
-pnpm start:docker               # production-style Docker stack
+pnpm dev                 # codegen, then board + every widget dev server in parallel
+pnpm dev:server          # codegen, then server in watch mode
+pnpm codegen             # client catalog + server registry + browser task registry
+pnpm check               # lint + format:check + deps:check + typecheck + test (the full local gate)
+pnpm test                # codegen, then all workspace Vitest tests
+pnpm typecheck           # codegen, then workspace-wide tsc --noEmit
+pnpm build               # codegen, every widget remote, then the client host and PWA
+pnpm test:e2e:docker     # board Playwright e2e, fully isolated (ephemeral Valkey + browsers)
+pnpm start:docker        # production-style Docker stack (pnpm dev:docker for hot reload)
 ```
 
-Run a single test file or test name with Vitest directly, e.g.:
+`pnpm test:e2e` runs the same suite against a host-run stack and needs a reachable Valkey at
+`VALKEY_URL` plus `ALLOW_TEST_DB_RESET=1`. `pnpm test:e2e:nginx` adds the gate and nginx image tests
+on top of a running `ALLOW_TEST_DB_RESET=1 pnpm start:docker`.
+
+Filtering a single test — the paths are relative to the package, not the repo root:
 
 ```bash
-pnpm --filter client exec vitest run src/widget-registry/model/registry.test.ts
+pnpm --filter client exec vitest run src/board/model/board-storage.test.ts
 pnpm --filter client exec vitest run -t "test name substring"
-```
-
-Playwright specs (`packages/client/e2e`) can be filtered the same way:
-
-```bash
 pnpm --filter client exec playwright test e2e/<file>.spec.ts
 ```
 
+If any of this misbehaves on this machine, read `docs/agent/test-troubleshooting.md` before
+debugging the invocation.
+
 ## Architecture
 
-**Workspace layout**: pnpm workspace with all packages under `packages/`: the `client` Vite/React host, the `server` Node API, `shared`, singleton `widget-runtime`, stateless `widget-sdk`, and independently built `packages/widgets/*` packages. `@/*` aliases only to `packages/client/src`; shared widget code is imported through the two workspace package names.
+- **`packages/client/src/widget-registry`** — synchronous codegen-generated catalog metadata and
+  icon map. Only `loadComponent` crosses the Module Federation boundary, when a placed widget mounts.
+- **`packages/client/src/widget-host`** — mounts widget components in the board React tree; frame,
+  error boundary, fullscreen.
+- **`packages/widgets/<name>`** — one package per widget, exposing only `./ui` as a federation
+  remote. React, React DOM, Reatom and `widget-runtime` are strict federation singletons.
+- **`packages/widget-runtime/src/storage`** — per-widget instance/shared scopes, Dexie and HTTP
+  backends, SSE/BroadcastChannel fanout, Reatom bindings. Board and harnesses construct the same
+  `WidgetRuntimeProps`.
+- **`packages/server/src/index.ts`** — plain `node:http` routed with `find-my-way` over Valkey:
+  `/api/storage` REST with atomic `append` under per-key locking, an SSE stream fanned out through
+  Valkey pub/sub, Zod-validated bodies (422 on failure), errore-style control flow.
 
-### Widget system
+> ⚠️ **Storage keys are a persistence contract.** Changing how a key is derived silently orphans all
+> existing data. The rules, and the incident that proves it, are in the header comment of
+> `packages/shared/storage/scope.ts` — read it before touching a namespace, a separator, or a
+> widget's `relativeKey`.
 
-- **`packages/client/src/widget-registry`**: synchronous codegen-generated catalog metadata and icon map. Only `loadComponent` crosses the Module Federation boundary when a placed widget mounts.
-- **`packages/widgets/<widget-name>`**: one pnpm package per widget, split into `model/` and `ui/`, exposing only `./ui` as a federation remote and providing a standalone `dev/` harness. Adding a widget package and running codegen updates the client catalog, server registry, and stable port map without editing a hand-written registry.
-- **`packages/client/src/widget-host`**: mounts first-party widget components in the board React tree and provides frame/error-boundary/fullscreen behavior.
-- **`widget-runtime` / `widget-sdk`**: shared runtime contracts/connections and stateless React/UI helpers respectively. React, React DOM, Reatom, and `widget-runtime` are strict federation singletons.
+Widget `server.ts` handlers, crons and authored records: `docs/agent/widget-server.md`.
 
-### Storage system (offline-first + sync)
+## Coding style & naming conventions
 
-`packages/widget-runtime/src/storage` owns per-widget instance/shared scopes, Dexie and HTTP backends, SSE/BroadcastChannel fanout, and Reatom bindings. Board and standalone harnesses construct the same `WidgetRuntimeProps`; widgets do not import storage through `packages/client/src`.
+TypeScript and ESM imports, named exports, CSS Modules named `*.module.css`. Formatting is `oxfmt`'s
+job — run it, do not hand-tune it. React components use PascalCase filenames such as `Header.tsx`;
+utility modules use kebab-case or domain names such as `board-storage.ts`. Widget directories use
+kebab-case.
 
-> ⚠️ **Storage keys are a persistence contract — never change how a key is derived without a data migration.** Keys are `namespace + relativeKey` where the namespace comes from `instanceNamespace`/`typeNamespace` (`packages/shared/storage/scope.ts`) and the `scopeWithColon` normalization in `makeScopedStorage` (`packages/widget-runtime/src/widget-api.ts`). Any edit to the scope prefix, separator (e.g. the colon), `instanceId`/`typeId` values, or a widget's `relativeKey` **silently orphans all existing data**: deployed clients read the new key, get a 404 → fall back to the empty default, and the old data sits unreachable under the previous key in Valkey/IndexedDB. This already bit us once — commit `0027a99` "stop doubling the colon in scoped storage keys" changed `w:t:<id>::` → `w:t:<id>:` and wiped every widget's shared/instance state on deploy (the `root:`-scoped board survived only because its namespace never had the trailing colon). If you must change a key shape, ship a one-time migration (rename old keys → new) in the same release, or key data will vanish for users on the next deploy.
+All exported React function components in `packages/client/src` and `packages/widgets/*` must be
+defined with `reatomMemo` from `widget-sdk` (normally `widget-sdk/reatom/reatom-memo`). This is a
+hard rule: use it even for simple presentational components, so every component has the same Reatom
+integration and React memo wrapper. Keep business logic, derived state, timers, async flows and
+cross-component UI state in `model/` atoms/actions/computeds; leave only refs, DOM interop and truly
+tiny view glue in `ui/`. For React error boundaries, keep the class implementation internal and
+export a `reatomMemo` wrapper component.
 
-### Server (storage API)
+## Testing
 
-`packages/server/src/index.ts` is a plain `node:http` server routed with `find-my-way`, backed by Valkey (Redis-compatible):
+Vitest for unit and component tests (Testing Library + jsdom for React), Playwright for e2e.
 
-- REST-ish endpoints under `/api/storage` (`GET`/`PUT`/`DELETE` by key, prefix listing, atomic `append` via `runExclusive` per-key locking in `storage/key-lock.ts`).
-- `GET /api/storage/events` opens an SSE stream; clients `POST /api/storage/events/:connId` to subscribe/unsubscribe to key prefixes. Server-side fanout (`realtime/sse.ts`) is driven by a Valkey pub/sub subscriber on the `storage:events` channel, so writes from any server instance reach all connected SSE clients.
-- All request/response bodies are validated with Zod schemas (`storage/schemas.ts`); validation failures return 422 with a formatted Zod error.
-- Errors and control flow follow the errore pattern (tagged errors / `Error | T` unions) rather than throwing.
+## Commits
 
-### Reatom + component convention
+Conventional Commit prefixes — `feat:`, `fix:`, `build:`, `chore:` — optionally scoped
+(`fix(client): …`). Keep commits focused and imperative, for example `fix: random key generation`.
+PR expectations are part of the [feature workflow](#feature-workflow) above.
 
-Every exported React function component in `packages/client/src` and `packages/widgets/*` is wrapped with `reatomMemo` from `widget-sdk`. Business logic, derived state, timers, and async flows belong in `model/`; `ui/` keeps refs, DOM interop, and minimal view glue. Class error boundaries stay internal and expose a `reatomMemo` wrapper.
+## Security & configuration
 
-## Deployment
-
-`pi.toml` configures deployment to a Raspberry Pi target via `docker-compose.yml`, with the `client` service as the ingress (port 80) and a generous 30-minute build timeout (SPA build + server image build is slow on Pi hardware). The client image builds every widget remote first, stages them under `/widgets/<id>/`, and precaches them in the same PWA release.
+Do not commit `.env` files. Client environment examples live in `packages/client/.env.example`;
+server configuration uses `PORT` and `VALKEY_URL`. Prefer Docker commands when changes depend on
+Valkey or the full client/server stack.

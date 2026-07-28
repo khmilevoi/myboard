@@ -19,7 +19,13 @@ export type CreateWidgetServerStorageApiOptions = {
   ops: ValkeyOps
   typeId: string
   instanceId: string
-  ip: string | null
+  now: () => number
+  createId?: () => string
+}
+
+export type MakeWidgetScopedStorageOptions = {
+  ops: ValkeyOps
+  namespace: string
   now: () => number
   createId?: () => string
 }
@@ -35,18 +41,13 @@ function serialize(operation: string, key: string, value: unknown) {
   return serialized
 }
 
-export function createWidgetServerStorageApi({
+export function makeWidgetScopedStorage({
   ops,
-  typeId,
-  instanceId,
-  ip,
+  namespace,
   now,
   createId = randomUUID,
-}: CreateWidgetServerStorageApiOptions): {
-  instance: WidgetServerStorage
-  shared: WidgetServerStorage
-} {
-  const createScope = (namespace: string): WidgetServerStorage => ({
+}: MakeWidgetScopedStorageOptions): WidgetServerStorage {
+  return {
     async get<T>(key: string, schema?: z.ZodType<T>) {
       const fullKey = toFullKey(namespace, key)
       const raw = await ops.get(fullKey).catch((cause) => storageError('get', fullKey, cause))
@@ -124,7 +125,11 @@ export function createWidgetServerStorageApi({
         if (!Array.isArray(parsed)) return storageError('append.shape', fullKey)
         const current: unknown[] = parsed
 
-        const enriched = errore.try(() => ({ id: createId(), ts: now(), ip, ...entry }))
+        // `ip` is a one-release compat shim: pre-release client bundles still parse
+        // append entries with `ip: z.string()` and fail their whole z.array on a
+        // missing field. Ship an empty string (no IP is actually recorded) until
+        // no pre-release bundle can be live, then drop this field entirely.
+        const enriched = errore.try(() => ({ id: createId(), ts: now(), ip: '', ...entry }))
         if (enriched instanceof Error) return storageError('append.enrich', fullKey, enriched)
 
         const next = [...current, enriched]
@@ -146,10 +151,22 @@ export function createWidgetServerStorageApi({
         if (published instanceof Error) return published
       })
     },
-  })
+  }
+}
 
+export function createWidgetServerStorageApi({
+  ops,
+  typeId,
+  instanceId,
+  now,
+  createId = randomUUID,
+}: CreateWidgetServerStorageApiOptions): {
+  instance: WidgetServerStorage
+  shared: WidgetServerStorage
+} {
+  const scope = (namespace: string) => makeWidgetScopedStorage({ ops, namespace, now, createId })
   return {
-    instance: createScope(instanceNamespace(instanceId)),
-    shared: createScope(typeNamespace(typeId)),
+    instance: scope(instanceNamespace(instanceId)),
+    shared: scope(typeNamespace(typeId)),
   }
 }

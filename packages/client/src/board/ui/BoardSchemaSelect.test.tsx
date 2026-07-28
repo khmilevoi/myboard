@@ -68,4 +68,27 @@ describe('BoardSchemaSelect', () => {
 
     expect(onDelete).toHaveBeenCalledWith('work')
   })
+
+  it('emits a mobile layout reset', () => {
+    const onResetMobileLayout = vi.fn()
+
+    render(
+      <BoardSchemaSelect items={items} value="main" onResetMobileLayout={onResetMobileLayout} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: currentBoardTrigger }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить мобильную раскладку' }))
+
+    expect(onResetMobileLayout).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the reset entry when no mobile layout is stored', () => {
+    render(<BoardSchemaSelect items={items} value="main" />)
+
+    fireEvent.click(screen.getByRole('button', { name: currentBoardTrigger }))
+
+    expect(
+      screen.queryByRole('button', { name: 'Сбросить мобильную раскладку' }),
+    ).not.toBeInTheDocument()
+  })
 })

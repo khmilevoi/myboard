@@ -1,0 +1,278 @@
+import { describe, expect, it } from 'vitest'
+
+import { foldDebt } from './debt'
+import { LedgerEntriesSchema, LedgerEntrySchema, resolveDays } from './ledger'
+import type { LedgerEntry } from './ledger'
+
+let seq = 0
+const le = (o: Partial<LedgerEntry> = {}): LedgerEntry => ({
+  id: `e${seq++}`,
+  ts: seq,
+  date: '2026-06-16',
+  type: 'cleaned',
+  actor: 'Леша',
+  by: 'Леша',
+  ...o,
+})
+
+describe('foldDebt', () => {
+  it('is zero for an empty ledger', () => {
+    expect(foldDebt([])).toEqual({ Леша: 0, Карина: 0 })
+  })
+
+  it('a plain cleaned day changes nothing', () => {
+    expect(foldDebt([le({ date: '2026-06-16', type: 'cleaned', actor: 'Леша' })])).toEqual({
+      Леша: 0,
+      Карина: 0,
+    })
+  })
+
+  it('went_into_debt adds one to the scheduled person (onBehalfOf)', () => {
+    expect(foldDebt([le({ type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })])).toEqual(
+      { Леша: 1, Карина: 0 },
+    )
+  })
+
+  it('cleaning a debt day (cleaned + onBehalfOf) repays the cleaner', () => {
+    const entries = [
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({ ts: 2, date: '2026-06-17', type: 'cleaned', actor: 'Леша', onBehalfOf: 'Карина' }),
+    ]
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+  })
+
+  it('forgiven subtracts one from the debtor (onBehalfOf)', () => {
+    const entries = [
+      le({
+        ts: 1,
+        date: '2026-06-14',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({ ts: 2, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
+    ]
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+  })
+
+  it('latest entry per date wins for day outcomes (reset reverses the day)', () => {
+    const entries = [
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({ ts: 2, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
+    ]
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+  })
+
+  it('forgiven wins as the latest day outcome and subtracts one debtor debt', () => {
+    const entries = [
+      le({
+        ts: 1,
+        date: '2026-06-14',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({
+        ts: 2,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({ ts: 3, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
+    ]
+    // the 2026-06-16 forgiven entry replaces that date's went_into_debt outcome
+    // and forgives one existing debt.
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+  })
+
+  it('nets two-sided debt down via normalizeDebts', () => {
+    const entries = [
+      le({
+        ts: 1,
+        date: '2026-06-15',
+        type: 'went_into_debt',
+        actor: 'Леша',
+        onBehalfOf: 'Карина',
+      }),
+      le({
+        ts: 2,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+    ]
+    // each owes one → nets to zero
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+  })
+})
+
+describe('resolveDays', () => {
+  it('marks a cleaned day closed with its actor', () => {
+    const map = resolveDays([le({ date: '2026-06-16', type: 'cleaned', actor: 'Леша' })])
+    expect(map.get('2026-06-16')).toMatchObject({
+      status: 'closed',
+      type: 'cleaned',
+      actor: 'Леша',
+    })
+  })
+
+  it('marks a went_into_debt day closed and carries onBehalfOf', () => {
+    const map = resolveDays([
+      le({ date: '2026-06-16', type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')).toMatchObject({ status: 'closed', onBehalfOf: 'Леша' })
+  })
+
+  it('re-opens a day when the latest outcome is reset', () => {
+    const map = resolveDays([
+      le({ ts: 1, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      le({ ts: 2, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')?.status).toBe('pending')
+  })
+
+  it('re-opens a day when the reset shares the cleaned entry’s ts', () => {
+    // The widget server stamps ts from its injectable clock, which the e2e
+    // harness pins — so a clean/undo pair on the same day gets identical
+    // timestamps. Append order is the tie-break.
+    const map = resolveDays([
+      le({ ts: 7, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      le({ ts: 7, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')?.status).toBe('pending')
+  })
+
+  it('takes the latest by ts and keeps dates independent', () => {
+    const map = resolveDays([
+      le({ ts: 2, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      le({
+        ts: 1,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      }),
+      le({ ts: 1, date: '2026-06-17', type: 'cleaned', actor: 'Карина' }),
+    ])
+    expect(map.get('2026-06-16')?.type).toBe('cleaned')
+    expect(map.get('2026-06-17')?.actor).toBe('Карина')
+    expect(map.size).toBe(2)
+  })
+
+  it('marks a forgiven day closed with planned actor and forgiven debtor', () => {
+    const map = resolveDays([
+      le({ date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
+    ])
+    expect(map.get('2026-06-16')).toMatchObject({
+      status: 'closed',
+      type: 'forgiven',
+      actor: 'Карина',
+      onBehalfOf: 'Леша',
+    })
+  })
+})
+
+describe('LedgerEntrySchema', () => {
+  it('accepts a legacy entry and drops its ip', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e1',
+      ts: 1,
+      ip: '10.0.0.7',
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      by: 'Леша',
+    })
+
+    expect(parsed).not.toHaveProperty('ip')
+    expect(parsed.by).toBe('Леша')
+    expect(parsed.createdBy).toBeUndefined()
+  })
+
+  it('accepts an authored entry', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e2',
+      ts: 2,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { accountId: 'a1', name: 'Карина' },
+    })
+
+    expect(parsed.createdBy).toEqual({ accountId: 'a1', name: 'Карина' })
+  })
+
+  it('accepts an unattributed entry', () => {
+    const parsed = LedgerEntrySchema.parse({
+      id: 'e3',
+      ts: 3,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: null,
+    })
+
+    expect(parsed.createdBy).toBeNull()
+  })
+
+  it('accepts a system-authored entry', () => {
+    const parsed = LedgerEntrySchema.safeParse({
+      id: 'auto-1',
+      ts: 1,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { system: true },
+    })
+
+    expect(parsed.success).toBe(true)
+  })
+
+  it('still accepts an account-authored entry', () => {
+    const parsed = LedgerEntrySchema.safeParse({
+      id: 'human-1',
+      ts: 1,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { accountId: 'a1', name: 'Карина' },
+    })
+
+    expect(parsed.success).toBe(true)
+  })
+})
+
+describe('LedgerEntriesSchema', () => {
+  it('drops a single malformed element instead of failing the whole array (F2a)', () => {
+    const good = {
+      id: 'e1',
+      ts: 1,
+      date: '2026-06-16',
+      type: 'cleaned',
+      actor: 'Леша',
+      createdBy: { accountId: 'a1', name: 'Карина' },
+    }
+    const bad = { id: 'e2', ts: 2, date: '2026-06-17', type: 'cleaned', actor: 'NotAPerson' }
+
+    // z.array(LedgerEntrySchema).parse([good, bad]) would throw here before
+    // the fix, blanking the entire ledger for one bad record.
+    const parsed = LedgerEntriesSchema.parse([good, bad])
+
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0].id).toBe('e1')
+  })
+})

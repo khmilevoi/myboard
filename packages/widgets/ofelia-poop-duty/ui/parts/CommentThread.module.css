@@ -7,10 +7,15 @@
   gap: 0.5rem;
 }
 
+/* Scrolling clips the inline axis too, and every comment avatar sits flush
+   against the list's inline start, so the viewer ring needs its own room here
+   as well — see `--ofelia-viewer-ring`. */
 .list {
   display: flex;
   margin: 0;
+  margin-inline-start: calc(-1 * var(--ofelia-viewer-ring));
   padding: 0;
+  padding-inline-start: var(--ofelia-viewer-ring);
   list-style: none;
   flex: 1;
   min-height: 0;
@@ -30,10 +35,14 @@
   min-width: 0;
 }
 
+/* Three chips can share this row — name, `без аккаунта`, timestamp — so it wraps
+   instead of squeezing the name, exactly like the history signature row. */
 .meta {
   display: flex;
-  align-items: baseline;
-  gap: 0.375rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3125rem;
+  min-block-size: 1rem;
   margin-block-end: 0.1875rem;
 }
 
@@ -43,17 +52,28 @@
   color: var(--text);
 }
 
+.author[data-unknown='true'] {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.legacy {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-3);
+}
+
 .date {
   font-family: var(--font-mono);
   font-size: 0.66rem;
   color: var(--text-3);
+  white-space: nowrap;
 }
 
-.ip {
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  color: var(--text-3);
-  opacity: 0.6;
+/* The separator is decoration, never a text node — the timestamp has to stay
+   matchable on its own, as in HistoryList. */
+.date::before {
+  content: '· ';
 }
 
 .text {
@@ -69,12 +89,41 @@
   height: 100%;
 }
 
+.sendError {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--destructive);
+}
+
+.loadWarning {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--destructive);
+  padding-block-end: 0.25rem;
+}
+
 .form {
   display: flex;
   gap: 0.375rem;
   align-items: center;
   padding-top: 0.625rem;
   border-top: 1px solid var(--border);
+}
+
+.viewer {
+  flex: none;
+  display: inline-flex;
+}
+
+/* The one loading state in this feature: every record carries its own name
+   snapshot, but the viewer does not exist until the members directory arrives. */
+.viewerPending {
+  flex: none;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 0.375rem;
+  background: var(--muted);
+  border: 1px solid var(--border);
 }
 
 .input {

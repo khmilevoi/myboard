@@ -1,3 +1,4 @@
+import { PublicWidgetError } from '@shared/widgets/public-error'
 import * as errore from 'errore'
 
 class WidgetDispatchError extends Error {
@@ -60,4 +61,27 @@ export class WidgetRequestBodyError extends errore.createTaggedError({
   extends: WidgetDispatchError,
 }) {}
 
-export type PublicWidgetDispatchError = WidgetDispatchError
+/**
+ * The request carried a live session but the account behind it could not be
+ * read. Fails the dispatch instead of writing an unattributable record: the
+ * ledger is append-only, so a lost author cannot be recovered afterwards.
+ */
+export class WidgetViewerLookupError extends errore.createTaggedError({
+  name: 'WidgetViewerLookupError',
+  message: 'Could not resolve the account $accountId behind the session',
+  extends: WidgetDispatchError,
+}) {}
+
+export class InvalidCronScheduleError extends errore.createTaggedError({
+  name: 'InvalidCronScheduleError',
+  message: 'Invalid cron schedule "$schedule" for $typeId.$job',
+  extends: WidgetDispatchError,
+}) {}
+
+export class WidgetCronRunError extends errore.createTaggedError({
+  name: 'WidgetCronRunError',
+  message: 'Cron job $typeId.$job failed for scheduled moment $scheduledFor',
+  extends: WidgetDispatchError,
+}) {}
+
+export type PublicWidgetDispatchError = WidgetDispatchError | PublicWidgetError

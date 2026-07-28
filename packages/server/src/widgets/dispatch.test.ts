@@ -9,7 +9,9 @@ import {
   defineWidgetServer,
   toRuntimeWidgetServerDefinition,
   type RuntimeWidgetServerDefinition,
+  type WidgetViewer,
 } from '@shared/widgets/contracts'
+import { PublicWidgetError } from '@shared/widgets/public-error'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -42,6 +44,14 @@ const schemas = {
     payload: z.object({ value: z.string() }),
     result: z.object({ kind: z.string(), code: z.string().nullable() }),
   },
+  publicReject: {
+    payload: z.object({}),
+    result: z.object({ ok: z.boolean() }),
+  },
+  publicThrow: {
+    payload: z.object({}),
+    result: z.object({ ok: z.boolean() }),
+  },
 } as const
 
 const definition = defineWidgetServer({
@@ -57,6 +67,17 @@ const definition = defineWidgetServer({
       }
       if (result instanceof Error) return { kind: result._tag, code: null }
       return { kind: 'success', code: null }
+    },
+    publicReject() {
+      return new PublicWidgetError({
+        status: 409,
+        code: 'browser_session_required',
+        publicMessage: 'The browser session requires attention',
+        meta: { sshTarget: 'admin@pi' },
+      })
+    },
+    async publicThrow(): Promise<{ ok: boolean }> {
+      throw new PublicWidgetError({ code: 'x', publicMessage: 'x' })
     },
   },
 })
@@ -77,6 +98,7 @@ const invalidResultDefinition: RuntimeWidgetServerDefinition = {
   handlers: {
     echo: () => ({ echoed: 1, instanceId: 'placement-1' }),
   },
+  crons: {},
 }
 const invalidResultRegistry = createRegistry([invalidResultDefinition])
 
@@ -86,6 +108,7 @@ const failingDefinition: RuntimeWidgetServerDefinition = {
   handlers: {
     echo: () => new Error('handler failed'),
   },
+  crons: {},
 }
 const failingRegistry = createRegistry([failingDefinition])
 
@@ -108,6 +131,7 @@ function dispatch(overrides: DispatchTestOverrides = {}) {
     instanceId: 'placement-1',
     payload: { value: 'ok' },
     ip: '127.0.0.1',
+    viewer: null,
     now: () => 100,
     ...dispatchOverrides,
   })
@@ -144,6 +168,23 @@ describe('dispatchWidgetEvent', () => {
     )
   })
 
+  it('returns a PublicWidgetError from a handler unchanged', async () => {
+    const result = await dispatch({ event: 'publicReject', payload: {} })
+
+    expect(result).toBeInstanceOf(PublicWidgetError)
+    if (!(result instanceof PublicWidgetError)) throw new Error('expected PublicWidgetError')
+    expect(result.status).toBe(409)
+    expect(result.code).toBe('browser_session_required')
+    expect(result.publicMessage).toBe('The browser session requires attention')
+    expect(result.meta).toEqual({ sshTarget: 'admin@pi' })
+  })
+
+  it('still wraps a thrown PublicWidgetError as WidgetHandlerError', async () => {
+    // Passthrough is a return-value contract (errore style); throwing stays internal.
+    const result = await dispatch({ event: 'publicThrow', payload: {} })
+    expect(result).toBeInstanceOf(WidgetHandlerError)
+  })
+
   it.each([
     new BrowserAutomationUnavailableError({ operation: 'fetch' }),
     new BrowserAutomationDeadlineError({ timeoutMs: 100_000 }),
@@ -166,5 +207,55 @@ describe('dispatchWidgetEvent', () => {
         code: error instanceof BrowserTaskRejectedError ? error.code : null,
       },
     })
+  })
+
+  it('hands the viewer to the handler', async () => {
+    let seen: WidgetViewer | null | undefined
+    const probeDefinition: RuntimeWidgetServerDefinition = {
+      typeId: 'probe-widget',
+      schemas: { probe: { payload: z.object({}), result: z.object({ ok: z.boolean() }) } },
+      handlers: {
+        probe: (_payload, context) => {
+          seen = context.viewer
+          return { ok: true }
+        },
+      },
+      crons: {},
+    }
+
+    await dispatch({
+      registry: createRegistry([probeDefinition]),
+      typeId: 'probe-widget',
+      event: 'probe',
+      payload: {},
+      viewer: { accountId: 'a1', name: 'Карина' },
+    })
+
+    expect(seen).toEqual({ accountId: 'a1', name: 'Карина' })
+  })
+
+  it('hands null through when there is no session', async () => {
+    let seen: WidgetViewer | null | undefined
+    const probeDefinition: RuntimeWidgetServerDefinition = {
+      typeId: 'probe-widget',
+      schemas: { probe: { payload: z.object({}), result: z.object({ ok: z.boolean() }) } },
+      handlers: {
+        probe: (_payload, context) => {
+          seen = context.viewer
+          return { ok: true }
+        },
+      },
+      crons: {},
+    }
+
+    await dispatch({
+      registry: createRegistry([probeDefinition]),
+      typeId: 'probe-widget',
+      event: 'probe',
+      payload: {},
+      viewer: null,
+    })
+
+    expect(seen).toBeNull()
   })
 })

@@ -16,11 +16,16 @@
     "dev:docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
     "start:docker": "docker compose up --build -d",
     "start:docker:server": "docker compose up --build -d valkey server",
+    "start:docker:nginx-e2e": "docker compose -f docker-compose.yml -f docker-compose.nginx-e2e.yml up --build -d",
     "stop:docker": "docker compose down",
     "logs:docker": "docker compose logs -f",
     "build": "pnpm run codegen:client && concurrently -g --kill-others-on-fail \"pnpm --filter \\\"./packages/widgets/*\\\" build\" \"pnpm --filter client typecheck\" && pnpm --filter client build && pnpm --filter client build:activation",
     "build:widgets": "pnpm run codegen:client && pnpm --filter \"./packages/widgets/*\" build",
+    "icons:generate": "pnpm --filter client icons:generate",
     "preview": "pnpm --filter client preview",
+    "deploy": "rpi deploy",
+    "deploy:dev": "rpi deploy --env dev",
+    "deploy:branch": "rpi deploy --env branch",
     "test": "pnpm run codegen && pnpm run test:workspace",
     "test:unit": "vitest run",
     "test:workspace": "pnpm run test:unit && pnpm -r test",
@@ -48,6 +53,9 @@
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=26"
   },
   "packageManager": "pnpm@10.28.2"
 }

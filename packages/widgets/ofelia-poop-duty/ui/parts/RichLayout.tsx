@@ -1,18 +1,18 @@
 import { Cat, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
 import { personInitial } from '../person'
 import { ActionButtons } from './ActionButtons'
+import { ActionErrorNote } from './ActionErrorNote'
 import { Avatar } from './Avatar'
 import { AvatarWithBadge } from './AvatarWithBadge'
 import { CommentThread } from './CommentThread'
 import { HistoryList } from './HistoryList'
 import { MobileTabs } from './MobileTabs'
-import { OfeliaActionControls } from './OfeliaActionControls'
-import { UserToggle } from './UserToggle'
 import { WeekStrip } from './WeekStrip'
 
 import styles from './RichLayout.module.css'
@@ -25,18 +25,37 @@ export type RichLayoutProps = {
 
 // Connected columns: each reads only its own stream atom, so an SSE update to
 // history or comments re-renders just that column — never the selected-day panel.
+// `view.selectedIso` and not `view.selected` on purpose: the column needs to
+// know only *which* day is highlighted, so confirming or forgiving the selected
+// day does not re-render the whole history.
 const HistoryColumn = reatomMemo(() => {
-  const { history } = useOfelia()
-  return <HistoryList entries={history()} />
+  const { history, today, view } = useOfelia()
+  return (
+    <HistoryList
+      groups={history()}
+      today={today()?.toString() ?? null}
+      selectedDate={view.selectedIso()}
+    />
+  )
 }, 'HistoryColumn')
 
 const CommentsColumn = reatomMemo(() => {
-  const { comments, onSend } = useOfelia()
-  return <CommentThread comments={comments()} onSend={onSend} />
+  const { comments, commentsFailed, commentsWarning, viewer, today, onSend } = useOfelia()
+  const current = viewer()
+  return (
+    <CommentThread
+      comments={comments()}
+      failed={commentsFailed()}
+      warning={commentsWarning()}
+      viewer={current ? { kind: 'account', ...current } : null}
+      today={today()?.toString() ?? null}
+      onSend={onSend}
+    />
+  )
 }, 'CommentsColumn')
 
 export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onClose }) => {
-  const { view, currentUser, actions, nav } = useOfelia()
+  const { view, actions, nav } = useOfelia()
   const [tab, setTab] = useState<'history' | 'comments'>('history')
   const selected = view.selected()
   if (!selected) return null
@@ -46,6 +65,8 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
   const days = view.days()
   const range = formatWeekRange(days)
   const selectedDay = days.find((day) => day.iso === selected.iso)
+  const actionPending = view.actionPending()
+  const actionErrorMessage = view.actionErrorMessage()
 
   return (
     <div className={styles.root}>
@@ -62,10 +83,8 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
             <div className={styles.subtitle}>Кто убирает за Офелией · чередование</div>
           </div>
         </div>
-        <div className={styles.headerActions}>
-          <UserToggle value={currentUser()} onChange={actions.onSetUser} />
-        </div>
-        <OfeliaActionControls
+        <WidgetControls
+          placement="inline"
           className={styles.headerClose}
           onExpand={onExpand}
           onDelete={onDelete}
@@ -96,12 +115,13 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
               canUndo={selected.canUndo}
               canForgive={canForgive}
               primaryLabel="Подтвердить уборку"
-              inactive={selected.isFuture}
+              inactive={selected.isFuture || actionPending}
               onConfirm={actions.onConfirm}
               onUndo={actions.onUndo}
               onDebt={actions.onDebt}
               onForgive={actions.onForgive}
             />
+            <ActionErrorNote message={actionErrorMessage} />
           </div>
 
           <div className={styles.balance}>

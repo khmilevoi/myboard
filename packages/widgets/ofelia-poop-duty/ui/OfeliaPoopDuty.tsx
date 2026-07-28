@@ -4,10 +4,11 @@ import type { ReactNode } from 'react'
 import { getServerTime, type WidgetTier, useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
+import { useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
+import type { OfeliaEvents } from '../domain/events'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
-import type { Person } from '../model/ofelia-duty'
 import { ofeliaContext } from './ofelia-context'
 import type { OfeliaContextValue } from './ofelia-context'
 import { CompactTier } from './tiers/CompactTier'
@@ -20,16 +21,25 @@ import { makeOfeliaViewModel } from './view-model'
 import styles from './ofelia-poop-duty.module.css'
 
 export const OfeliaPoopDuty = reatomMemo(() => {
-  const { mode, tier, storage, requestFullscreen, requestClose, requestDelete } = useWidgetContext()
-  const dutyModel = useMemo(() => ofeliaDutyModel({ storage, timer: getServerTime() }), [storage])
+  const { tier, storage, api, identity, requestClose } = useWidgetContext<OfeliaEvents>()
+  // Called up here with the other hooks, not next to its use site below: this
+  // component early-returns a loading/error view before the tier switch, and a
+  // hook cannot sit behind that return. The file already keeps a fixed hook set
+  // for the same reason (see the `ready`/`loadFailed` comment below).
+  const chrome = useWidgetChrome()
+  const dutyModel = useMemo(
+    () => ofeliaDutyModel({ storage, timer: getServerTime(), api, identity }),
+    [storage, api, identity],
+  )
   const commentsModel = useMemo(
     () =>
       ofeliaCommentsModel({
         storage,
         viewWeekStart: dutyModel.viewWeekStart,
-        currentUser: dutyModel.currentUser,
+        api,
+        identity,
       }),
-    [storage, dutyModel],
+    [storage, dutyModel, api, identity],
   )
 
   // One stable, model-scoped context value. `view` is the atomic view-model — a
@@ -47,9 +57,20 @@ export const OfeliaPoopDuty = reatomMemo(() => {
 
     return {
       view,
-      currentUser: dutyModel.currentUser,
       history: dutyModel.historyView,
+      today: dutyModel.today,
       comments: commentsModel.commentThread,
+      // F14: `commentsBlocked` is only true when `comments` has never resolved
+      // for the currently viewed week — the case where trusting it would show
+      // a different week's rows. A failure on an already-loaded week is a
+      // separate, non-destructive `commentsWarning` below.
+      commentsFailed: commentsModel.commentsBlocked,
+      // LOW finding: this derived state used to be built here in the
+      // component instead of living next to `commentsBlocked` in
+      // `model/ofelia-comments.ts` — moved so both are pinned by the same
+      // model test asserting they're never simultaneously true.
+      commentsWarning: commentsModel.commentsWarning,
+      viewer: identity.viewer,
       actions: {
         onConfirm: wrap(() => {
           const date = targetDate()
@@ -70,7 +91,6 @@ export const OfeliaPoopDuty = reatomMemo(() => {
         onSelectDay: wrap((iso: string) =>
           dutyModel.selectedDate.set(Temporal.PlainDate.from(iso)),
         ),
-        onSetUser: wrap((person: Person) => dutyModel.currentUser.set(person)),
       },
       nav: {
         onPrevWeek: wrap(() => {
@@ -88,13 +108,34 @@ export const OfeliaPoopDuty = reatomMemo(() => {
       },
       onSend: wrap((text: string) => commentsModel.send(text)),
     }
-  }, [dutyModel, commentsModel])
+  }, [dutyModel, commentsModel, identity])
 
   // The loading guard subscribes to just the boolean readiness slice; the first
   // server-time sync flips it to true and the tiers (reading other slices) mount.
   // Read race-free (useSyncExternalStore) so a warm /api/time response that lands
   // in the render→subscribe window isn't dropped, leaving the card stuck loading.
-  if (!useAtomValue(value.view.ready)) {
+  // `loadFailed` is read the same way, unconditionally, so this stays a single
+  // fixed set of hooks regardless of which branch below returns (F2c): a ledger
+  // read failure otherwise pins `ready` at false forever with nothing to show
+  // for it but an endless skeleton.
+  const ready = useAtomValue(value.view.ready)
+  const loadFailed = useAtomValue(value.view.loadFailed)
+  if (!ready) {
+    if (loadFailed) {
+      return (
+        <div className={styles.widget} data-tier={tier}>
+          <div className={styles.loading}>
+            <div className={styles.loadError} role="alert">
+              <p>Не удалось загрузить виджет Офелии</p>
+              <button type="button" onClick={wrap(() => dutyModel.retryLedger())}>
+                Повторить
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className={styles.widget} data-tier={tier}>
         <div className={styles.loading}>
@@ -108,11 +149,10 @@ export const OfeliaPoopDuty = reatomMemo(() => {
     )
   }
 
-  // Card management controls (expand/delete) only make sense on the board
-  // card itself — the fullscreen dialog already provides its own close
-  // affordance, so neither callback is handed to that tier.
-  const onExpand = mode === 'small' ? requestFullscreen : undefined
-  const onDelete = mode === 'small' ? requestDelete : undefined
+  // Card management controls (expand/delete) only make sense on the board card
+  // itself; useWidgetChrome already withholds them on the fullscreen mount,
+  // which renders with mode="large".
+  const { onExpand, onDelete } = chrome
 
   let content: ReactNode = null
   switch (tier) {

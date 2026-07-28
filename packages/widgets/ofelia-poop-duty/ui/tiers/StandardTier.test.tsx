@@ -20,11 +20,6 @@ describe('StandardTier', () => {
     expect(screen.getByText('гасит долг · 2 дня')).toBeInTheDocument()
   })
 
-  it('does not render UserToggle', () => {
-    withOfelia(makeOfeliaValue(), <StandardTier />)
-    expect(screen.queryByText('Я:')).not.toBeInTheDocument()
-  })
-
   it('shows hint text with other person name', () => {
     withOfelia(makeOfeliaValue(), <StandardTier />)
     // Default fixture has Карина as selected person → other is Леша
@@ -88,6 +83,20 @@ describe('StandardTier', () => {
 
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
+  })
+
+  // F6a: a failed day action (confirm/debt/forgive/undo) used to fail
+  // floating — nothing disabled the buttons and nothing showed the error.
+  it('disables the day buttons while an action is pending and shows the last error', () => {
+    const view = makeOfeliaView({
+      actionPending: true,
+      actionErrorMessage: 'Нет соединения с сервером',
+    })
+    withOfelia(makeOfeliaValue({ view }), <StandardTier />)
+
+    expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Нет соединения с сервером')
   })
 
   it('draws its expand/delete controls when wired', () => {

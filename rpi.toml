@@ -25,12 +25,32 @@ path = "/"
 expect = "401"
 timeout = "60s"
 
+# `env` and `files` are LOCAL push sources, not deploy-time inputs: the agent
+# writes whatever the stored bundles hold. A push takes the resolved `env` +
+# `files` of the config it runs against, and the `dev` group is pushed from this
+# file too, so anything put in `.env` would reach the non-production stacks as
+# well. `.env` is comment-only on purpose — production runs on the compose
+# defaults — and environment values live in .env.dev / .env.branch.
 [secrets]
 env = ".env"
 files = [
   "packages/widgets/passport-checker/secrets/series",
   "packages/widgets/passport-checker/secrets/number",
 ]
+
+# Production deliberately has NO group of its own. This file would be the only
+# thing attaching one, and a keyless push always sends the same `env` + `files`
+# into the deploy key's own bundle, which is the last layer — so a `prod` group
+# would sit permanently shadowed by an identical copy, and a rotation pushed
+# only to the group would silently never reach production. The non-production
+# stacks are the ones that genuinely share a set (dev and the branch stand), and
+# they take it from `dev`:
+#
+#   rpi secrets push              # production: .env + the passport files
+#   rpi secrets push --group dev  # dev and the branch stand: the same files
+#
+# A declared group that is missing or empty fails the deploy naming the group;
+# `rpi secrets ls [--env <env>]` shows which layer wins each entry.
 
 # The Pi builds every widget remote, assembles the client PWA/nginx image, and
 # builds the server image in one Compose release. Keep at least five minutes of

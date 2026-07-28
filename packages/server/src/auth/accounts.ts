@@ -15,6 +15,7 @@ import {
 import { randomId } from './tokens'
 
 const DEFAULT_DEVICE_LIMIT = 10
+const ACCOUNT_KEY_PREFIX = 'account:'
 
 const IdListSchema = z.array(z.string())
 
@@ -105,4 +106,32 @@ export async function removeDeviceFromAccount(
       ids.filter((id) => id !== credentialId),
     )
   })
+}
+
+/**
+ * Scans rather than reading an index: there is no account registry, and at this
+ * scale (a household) a SCAN over `account:*` is cheaper than maintaining one
+ * and backfilling the accounts that already exist.
+ */
+export async function listAccounts(ops: ValkeyOps): Promise<AccountRecord[]> {
+  const keys = await ops.scanKeys(ACCOUNT_KEY_PREFIX)
+  const accounts: AccountRecord[] = []
+
+  for (const key of keys) {
+    // `account:<id>` only. `account:<id>:devices` is the device index, and ids
+    // are base64url (`randomId`), so they never contain a colon themselves.
+    if (key.indexOf(':', ACCOUNT_KEY_PREFIX.length) !== -1) continue
+
+    const record = await getJson(ops, key, AccountRecordSchema)
+    if (record instanceof Error) {
+      // Dropping it silently would shrink the roster and read as "an account
+      // vanished" rather than as the data corruption it is.
+      console.warn(`listAccounts: skipping unreadable account record ${key}:`, record.message)
+      continue
+    }
+    if (record === null) continue
+    accounts.push(record)
+  }
+
+  return accounts.sort((left, right) => left.createdAt - right.createdAt)
 }

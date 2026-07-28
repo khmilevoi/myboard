@@ -3,11 +3,14 @@ import { useMemo } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { AccountMenu } from '@/account/ui/AccountMenu'
-import { addBoard, removeBoard, updateBoard } from '@/board/model/board-model'
-import { activeBoardId, boards, LOCAL_BOARD_ID } from '@/board/model/board-storage'
+import { addBoard, removeBoard, resetMobileLayout, updateBoard } from '@/board/model/board-model'
+import { activeBoard, activeBoardId, boards, LOCAL_BOARD_ID } from '@/board/model/board-storage'
 import { AddWidgetMenu } from '@/board/ui/AddWidgetMenu'
 import { BoardSchemaSelect } from '@/board/ui/BoardSchemaSelect'
+import { currentAppEnv } from '@/shared/app-env/current'
 import { ThemeToggle } from '@/theme/ui/ThemeToggle'
+
+import { EnvBadge } from './EnvBadge'
 
 import styles from './Header.module.css'
 
@@ -19,6 +22,7 @@ export const Header = reatomMemo(() => {
           <span className={styles.logoMuted}>my</span>
           <span className={styles.logoStrong}>board</span>
         </span>
+        <EnvBadge env={currentAppEnv} />
         <BoardSelect />
       </div>
       <div className={styles.actions}>
@@ -33,6 +37,7 @@ export const Header = reatomMemo(() => {
 export const BoardSelect = reatomMemo(() => {
   const boardItems = boards()
   const boardId = activeBoardId()
+  const hasMobileLayout = Boolean(activeBoard()?.mobileLayout)
 
   const items = useMemo(() => {
     const remoteItems = boardItems?.map((board) => ({ id: board.id, name: board.name })) ?? []
@@ -48,6 +53,7 @@ export const BoardSelect = reatomMemo(() => {
       onDelete={wrap((id) => removeBoard(id))}
       onValueChange={wrap((id) => activeBoardId.set(id))}
       onRename={wrap((id, name) => updateBoard(id, name))}
+      onResetMobileLayout={hasMobileLayout ? wrap(() => resetMobileLayout()) : undefined}
     />
   )
 })

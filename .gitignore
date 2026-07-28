@@ -21,6 +21,10 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+# secrets bundle of the `dev` rpi environment (see .env.dev.example)
+.env.dev
+# secrets bundle of the `branch` rpi environment (see .env.branch.example)
+.env.branch
 
 # editor / os
 .DS_Store
@@ -34,6 +38,7 @@ pnpm-debug.log*
 # Playwright
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # git worktrees (local development branches)
 .worktrees/
@@ -48,10 +53,17 @@ packages/browser-automation/.dev-profile/
 packages/browser-automation/.dev-secrets/
 
 # passport-checker widget secrets: real values are local-only and delivered to
-# the Pi via `rpi secrets send` ([secrets].files in rpi.toml); only the
-# .example placeholder templates are tracked.
+# the Pi via `rpi secrets push` and `rpi secrets push --group dev`
+# ([secrets].files in rpi.toml is the push source for both); only the .example
+# placeholder templates are tracked.
 packages/widgets/passport-checker/secrets/*
 !packages/widgets/passport-checker/secrets/*.example
 
 # Looper loop scratch/observability (local only, not part of the deliverable)
 looper-output/
+
+# docs/ is local-only except the agent and architecture guides, which are the
+# canonical checked-in references (see CLAUDE.md)
+docs/*
+!docs/agent/
+!docs/architecture/

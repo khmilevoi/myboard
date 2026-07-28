@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import {
@@ -6,11 +6,12 @@ import {
   createAccount,
   getAccount,
   listAccountDeviceIds,
+  listAccounts,
   removeDeviceFromAccount,
 } from './accounts'
 import { storeDevice } from './devices'
 import { AccountNotFoundError, DeviceLimitError } from './errors'
-import type { DeviceRecord } from './records'
+import { accountKey, type DeviceRecord } from './records'
 
 function makeOps() {
   return createMemoryOps(createMemoryPubSub())
@@ -202,5 +203,42 @@ describe('removeDeviceFromAccount', () => {
 
     const ids = await listAccountDeviceIds(ops, account.id)
     expect(ids).toEqual(['cred-2'])
+  })
+})
+
+describe('listAccounts', () => {
+  it('returns every account record, oldest first', async () => {
+    const ops = makeOps()
+    const clock = makeClock(100)
+    const first = await createAccount(ops, clock.now, { name: 'Лёша', inviteId: 'inv-1' })
+    clock.set(200)
+    const second = await createAccount(ops, clock.now, { name: 'Карина', inviteId: 'inv-2' })
+
+    const accounts = await listAccounts(ops)
+
+    expect(accounts.map((account) => account.id)).toEqual([first.id, second.id])
+    expect(accounts.map((account) => account.name)).toEqual(['Лёша', 'Карина'])
+  })
+
+  it('ignores the per-account device index key', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const account = await createAccount(ops, clock.now, { name: 'Карина', inviteId: 'inv-1' })
+    await addDeviceToAccount(ops, account.id, 'cred-1', { countsAgainstLimit: false })
+
+    expect(await listAccounts(ops)).toHaveLength(1)
+  })
+
+  it('warns with the key when a record cannot be read', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const account = await createAccount(ops, clock.now, { name: 'Карина', inviteId: 'inv-1' })
+    await ops.set(accountKey(account.id), 'not json')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    expect(await listAccounts(ops)).toEqual([])
+    expect(warn.mock.calls[0][0]).toContain(accountKey(account.id))
+
+    warn.mockRestore()
   })
 })

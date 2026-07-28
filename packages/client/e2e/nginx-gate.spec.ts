@@ -63,7 +63,10 @@ test.describe('gate: seeded session', () => {
     expect(shell.status()).toBe(200)
     expect(await shell.text()).toContain('<div id="root">')
 
-    expect((await request.get('/api/storage?prefix=')).status()).toBe(200)
+    // '?prefix=root:' (rather than the empty prefix) stays inside the
+    // storage allowlist (packages/server/src/storage/access.ts) so this
+    // still exercises the auth gate, not the allowlist's own 403.
+    expect((await request.get('/api/storage?prefix=root:')).status()).toBe(200)
     expect((await request.get('/api/time')).status()).toBe(200)
   })
 
@@ -81,11 +84,18 @@ test.describe('gate: seeded session', () => {
     request,
   }) => {
     await seedSession(request)
-    const noHeader = await request.put('/api/storage/e2e%3Acsrf', { data: { value: 1 } })
+    // 'w:t:e2e:csrf' (URL-encoded) rather than the bare 'e2e:csrf' key: it
+    // sits inside the storage allowlist (packages/server/src/storage/access.ts),
+    // so both probes below still isolate the CSRF gate -- a 403 from the
+    // allowlist instead would make the with-header "positive control"
+    // indistinguishable from the without-header case this test exists to
+    // prove apart.
+    const key = 'w%3At%3Ae2e%3Acsrf'
+    const noHeader = await request.put(`/api/storage/${key}`, { data: { value: 1 } })
     expect(noHeader.status()).toBe(403)
     expect(await noHeader.json()).toEqual({ code: 'csrf_required' })
 
-    const withHeader = await request.put('/api/storage/e2e%3Acsrf', {
+    const withHeader = await request.put(`/api/storage/${key}`, {
       headers: { 'X-Requested-With': 'MyBoard' },
       data: { value: 1 },
     })
@@ -130,8 +140,22 @@ test.describe('gate: browser journeys', () => {
     // selectors add-device.spec.ts's AccountMenuPage uses (the trigger's
     // aria-label is the account's registered name, not its initials; see
     // AccountMenu.tsx).
+    // account.logout (account-model.ts) runs POST /api/auth/logout -> purge ->
+    // a hard navigate to '/'. `page.waitForURL('/')` cannot synchronize any of
+    // that: the board already IS at '/', so it resolves in the same tick as the
+    // click (measured: 3 ms after it, ~20 ms before the navigation actually
+    // lands) and every assertion behind it races the still-in-flight logout.
+    // Both halves of that race have been observed -- the session probe reading
+    // the pre-logout 200, and the reload below landing before the model's own
+    // navigation, which then re-entered the still-controlling service worker
+    // and re-rendered the precached board shell (title 'myboard'). Arming both
+    // waiters before the click is what pins the sequence down.
+    const loggedOut = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/auth/logout')
+    const renavigated = page.waitForEvent('framenavigated', (f) => f === page.mainFrame())
     await page.getByRole('button', { name: ACCOUNT_NAME }).click()
     await page.getByRole('menuitem', { name: 'Выйти' }).click()
+    await loggedOut
+    await renavigated
 
     // Logout navigates to '/'; with the session gone, nginx serves the
     // activation fallback there (the visible heading text is 'Активируйте
@@ -140,7 +164,6 @@ test.describe('gate: browser journeys', () => {
     // A follow-up reload is what a real re-opened tab would do too, and it
     // sidesteps the just-unregistered-but-not-yet-inert SW still answering
     // this exact navigation from its precache.
-    await page.waitForURL('/')
     expect((await page.request.get('/api/auth/session')).status()).toBe(401)
     await page.reload()
     await expect(page).toHaveTitle(/активация/)

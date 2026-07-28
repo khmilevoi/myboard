@@ -1,11 +1,12 @@
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 
-import { otherPerson } from '@/model/ofelia-duty'
+import { otherPerson } from '@/domain/roster'
 
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
 import { ActionButtons } from '../parts/ActionButtons'
+import { ActionErrorNote } from '../parts/ActionErrorNote'
 import { Avatar } from '../parts/Avatar'
 import { DebtChips } from '../parts/DebtChips'
 import { OfeliaMiniHeader } from '../parts/OfeliaMiniHeader'
@@ -26,6 +27,8 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
   const selected = useAtomValue(view.selected)
   const balance = useAtomValue(view.balance)
   const canForgive = useAtomValue(view.canForgive)
+  const actionPending = useAtomValue(view.actionPending)
+  const actionErrorMessage = useAtomValue(view.actionErrorMessage)
   if (!selected) return null
 
   return (
@@ -60,12 +63,13 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
         status={selected.status}
         canUndo={selected.canUndo}
         canForgive={canForgive}
-        inactive={selected.isFuture}
+        inactive={selected.isFuture || actionPending}
         onConfirm={actions.onConfirm}
         onUndo={actions.onUndo}
         onDebt={actions.onDebt}
         onForgive={actions.onForgive}
       />
+      <ActionErrorNote message={actionErrorMessage} />
     </div>
   )
 }, 'StandardTier')

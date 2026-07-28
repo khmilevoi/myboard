@@ -20,6 +20,8 @@ if (registry instanceof Error) {
 const executor = makeChromiumExecutor({
   profileDir: config.profileDir,
   secretsDir: config.secretsDir,
+  recoverySshTarget: config.recoverySshTarget,
+  novncPort: config.novncPort,
 })
 const service = makeBrowserService({ registry, executor, config })
 const app = makeBrowserHttpApp(service)
