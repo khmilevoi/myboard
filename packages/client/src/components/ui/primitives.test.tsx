@@ -1,6 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { useState } from 'react'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { resetOverlayHistory } from 'widget-runtime'
 
 import { Badge } from './badge'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from './dialog'
@@ -16,6 +18,11 @@ import { Popover, PopoverContent, PopoverTrigger } from './popover'
 import { Separator } from './separator'
 import { Skeleton } from './skeleton'
 import { ToggleGroup, ToggleGroupItem } from './toggle-group'
+
+beforeEach(() => {
+  resetOverlayHistory()
+  history.replaceState({}, '')
+})
 
 describe('ui primitives', () => {
   it('renders Input, Badge, Separator and Skeleton', () => {
@@ -91,5 +98,30 @@ describe('ui primitives', () => {
     await waitFor(() => {
       expect(screen.queryByText('first item')).not.toBeInTheDocument()
     })
+  })
+
+  it('closes a controlled popover on the platform back gesture', async () => {
+    const ControlledPopover = () => {
+      const [open, setOpen] = useState(true)
+      return (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger>open</PopoverTrigger>
+          <PopoverContent>inside</PopoverContent>
+        </Popover>
+      )
+    }
+
+    render(<ControlledPopover />)
+    expect(await screen.findByText('inside')).toBeInTheDocument()
+
+    // Dispatched from outside a React event handler, so it must be wrapped in
+    // act() or the resulting state update is not flushed before the
+    // assertion — see FullscreenOverlay.test.tsx's equivalent case.
+    history.replaceState({ overlayDepth: 0 }, '')
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }))
+    })
+
+    await waitFor(() => expect(screen.queryByText('inside')).not.toBeInTheDocument())
   })
 })
