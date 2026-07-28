@@ -147,3 +147,38 @@ test('card controls are visible and usable on a touch device without hovering', 
   await board.removeCard(0)
   await expect(board.widgetCards).toHaveCount(1)
 })
+
+// A phone has no Esc key, and the fullscreen panel is min(900px, 92vw) wide by
+// min(680px, 100dvh - 2rem) tall, so "tap outside" means hitting a margin a few
+// pixels wide. Every widget must draw its own way out.
+test('an expanded widget can be collapsed with its own close control', async ({ page }) => {
+  await seedTwoWidgets(page)
+
+  const board = new BoardPage(page)
+  await board.expandCard(0)
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByRole('button', { name: 'Закрыть' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(board.widgetCards).toHaveCount(2)
+})
+
+// Without an overlay on the history stack the platform back gesture leaves the
+// application entirely — on an installed PWA that means the board disappears
+// rather than the widget collapsing.
+test('the platform back gesture collapses an expanded widget instead of leaving the board', async ({
+  page,
+}) => {
+  await seedTwoWidgets(page)
+
+  const board = new BoardPage(page)
+  await board.expandCard(0)
+  await expect(page.getByRole('dialog')).toBeVisible()
+
+  await page.goBack()
+
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(board.widgetCards).toHaveCount(2)
+})
