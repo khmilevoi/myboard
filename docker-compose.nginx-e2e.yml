@@ -1,0 +1,25 @@
+# Local/CI overlay for `pnpm test:e2e:nginx`, layered on docker-compose.yml by
+# `pnpm start:docker:nginx-e2e`.
+#
+# The base file defaults the WebAuthn triple to production (board.iiskelo.com,
+# https), while playwright.nginx.config.ts drives http://localhost:8080. A stack
+# started without these overrides fails every passkey journey inside
+# navigator.credentials.create(): the RP-ID/origin mismatch surfaces
+# client-side as 'сбой процедуры регистрации', with POST
+# /api/auth/register/options returning 200 and no verify call after it -- an
+# error that points nowhere near the environment that caused it.
+#
+# README's "put them in a local, untracked .env" route is not always available:
+# .env is also rpi.toml's [secrets].env bundle, so localhost values parked there
+# ride along into production on the next `rpi secrets push`. An explicit overlay
+# keeps the two apart.
+#
+# ALLOW_TEST_DB_RESET turns on the /api/test/* seed and reset endpoints the gate
+# specs need. NEVER layer this file onto a real deployment.
+services:
+  server:
+    environment:
+      RP_ID: localhost
+      PUBLIC_APP_URL: http://localhost:8080
+      EXPECTED_ORIGIN: http://localhost:8080
+      ALLOW_TEST_DB_RESET: '1'
