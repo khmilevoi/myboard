@@ -23,4 +23,11 @@ describe('Header', () => {
     render(<Header />)
     expect(screen.getByRole('button', { name: 'Аккаунт' })).toBeInTheDocument()
   })
+
+  it('shows no environment badge in a production build', () => {
+    // Vitest resolves __APP_ENV__ to 'production' (vite.config.ts branches on
+    // process.env.VITEST), so this is the real default, not a stub.
+    render(<Header />)
+    expect(screen.queryByRole('status', { name: /Окружение/ })).not.toBeInTheDocument()
+  })
 })
