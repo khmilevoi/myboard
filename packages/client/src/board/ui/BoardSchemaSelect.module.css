@@ -3,7 +3,21 @@
 }
 
 .trigger {
+  /* width: 220px (kept, not replaced by flex-basis) plus flex-shrink: 1 and
+     min-width: 0, so this can give ground when the header row is short of
+     room instead of overflowing past .actions -- a plain flex-basis here
+     is not enough: .brand's own width is auto (content-based), and an
+     ancestor's auto/content sizing pass measures a flex-basis-only child by
+     its intrinsic content size, not its basis, which silently discarded the
+     220px preference and left this permanently shrunk even with room to
+     spare. An explicit width is what a content-based ancestor actually
+     measures. At comfortable widths there's slack in the row and this
+     still renders at 220px, so nothing visually changes; .triggerText's
+     ellipsis (below) is what makes shrinking below 220px look intentional
+     instead of broken. */
   width: 220px;
+  flex-shrink: 1;
+  min-width: 0;
   justify-content: space-between;
   gap: 10px;
   padding-inline: 12px;
@@ -18,7 +32,10 @@
 }
 
 .skeleton {
+  /* Mirrors .trigger -- same shrink-instead-of-overflow reasoning. */
   width: 220px;
+  flex-shrink: 1;
+  min-width: 0;
   height: 36px;
   border-radius: 8px;
 }
