@@ -28,7 +28,7 @@ export const EnvBadge = reatomMemo<EnvBadgeProps>(({ env }) => {
   return (
     <span className={styles.badge} role="status" aria-label={`Окружение: ${label}`}>
       <span className={styles.dot} aria-hidden="true" />
-      {label}
+      <span className={styles.label}>{label}</span>
     </span>
   )
 }, 'EnvBadge')
