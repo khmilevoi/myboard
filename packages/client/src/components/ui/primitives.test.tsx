@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetOverlayHistory } from 'widget-runtime'
 
 import { Badge } from './badge'
@@ -122,6 +122,48 @@ describe('ui primitives', () => {
       window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }))
     })
 
+    await waitFor(() => expect(screen.queryByText('inside')).not.toBeInTheDocument())
+  })
+
+  it('spies on history.back when a Radix-initiated Escape closes a controlled popover', async () => {
+    const ControlledPopover = () => {
+      const [open, setOpen] = useState(true)
+      return (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger>open</PopoverTrigger>
+          <PopoverContent>inside</PopoverContent>
+        </Popover>
+      )
+    }
+
+    render(<ControlledPopover />)
+    expect(await screen.findByText('inside')).toBeInTheDocument()
+
+    // The previous test only proves the popover is wired to react to a
+    // simulated popstate -- it never asks Radix to close the popover, so it
+    // cannot catch onOpenChange's `if (next) ... else requestDismiss()` split
+    // being simplified back to a bare pass-through (the exact regression
+    // Task 3 guarded against for Dialog). Escape here is Radix-initiated: it
+    // proves the *forward* direction -- that a real Radix close request is
+    // routed into requestDismiss() rather than calling the caller's
+    // onOpenChange directly. Spying on the traversal dismissOverlay issues
+    // (dismissOverlay calls history.back(); dropOverlay, used on unmount,
+    // calls history.go -- see overlay-history.ts) pins the mechanism, the
+    // same way FullscreenOverlay.test.tsx's "closes on Escape" does for
+    // Dialog: asserting only that the content disappeared would still pass
+    // if Escape bypassed history and called onOpenChange(false) directly.
+    const backSpy = vi.spyOn(history, 'back')
+    try {
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(backSpy).toHaveBeenCalledOnce()
+    } finally {
+      backSpy.mockRestore()
+    }
+
+    // Escape routes through requestDismiss -> history.back(), and jsdom (like
+    // real browsers) traverses history asynchronously, so the resulting
+    // popstate -- and the close it drives -- lands a tick later than the
+    // event.
     await waitFor(() => expect(screen.queryByText('inside')).not.toBeInTheDocument())
   })
 })
