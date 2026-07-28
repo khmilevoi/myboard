@@ -138,6 +138,17 @@ describe('OfeliaPoopDuty tier routing', () => {
     expect(screen.getByRole('button', { name: 'Закрыть' })).toBeInTheDocument()
   })
 
+  it('fullscreen — offers a close control', async () => {
+    // Every widget must give the user a way out of fullscreen: a phone has no
+    // Esc key, and the dialog panel leaves only a few pixels of backdrop to hit.
+    const widgetProps = { ...props('fullscreen'), mode: 'large' as const }
+    renderWidget(widgetProps)
+    await waitForLoaded()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    expect(widgetProps.requestClose).toHaveBeenCalledOnce()
+  })
+
   it('shows a loading state before the first server-time sync', () => {
     timerHolder.current = createFakeTimer()
     renderWidget(props('standard'))
