@@ -2,11 +2,22 @@
  * Mirrors open overlays onto browser history entries so the platform back
  * gesture collapses the topmost one instead of leaving the application.
  *
- * Browser history is the single source of truth here. Every close path — a
- * close control, Esc, a backdrop click, the OS gesture — turns into a history
- * traversal, and the `popstate` listener below is the only code that ever
- * invokes an overlay's `close`. Closing directly AND keeping history in sync
- * would maintain two truths that diverge on the first double-back.
+ * Browser history is the single source of truth here. Callers reach this
+ * module through one of two shapes. A **dismiss** — Esc, a backdrop click,
+ * `DialogClose`, a modal's own close button — is the UI asking for a close;
+ * it routes through `dismissOverlay`, which turns the request into a history
+ * traversal. A **drop** — an unmount, or an owner setting `open` to false,
+ * which is what a widget's fullscreen close control and `AddWidgetMenu`'s
+ * close button do — means the overlay is already gone by the time this
+ * module hears about it; it routes through `dropOverlay`, which hands the
+ * history entry back instead of traversing, since there is nothing left to
+ * traverse to. The platform back gesture needs no such routing — it already
+ * is a traversal. Whichever of the three starts it, the `popstate` listener
+ * below is the only code that ever invokes an overlay's `close`: a dismiss
+ * never calls it directly, and neither does a drop, because by the time
+ * `dropOverlay` runs the caller has already closed the overlay itself.
+ * Closing directly from here AND keeping history in sync would maintain two
+ * truths that diverge on the first double-back.
  *
  * Reconciliation is by depth rather than "pop one", so two fast back presses
  * and a `history.go(-3)` both resolve correctly instead of stranding an
@@ -189,10 +200,11 @@ export const dismissOverlay = (entry: OverlayEntry): void => {
  * module header for why performing it here breaks StrictMode and every
  * close-one-open-another transition.
  *
- * ## Two residuals, both needing a drop that is not the topmost entry
+ * ## Residuals and constraints, needing care from callers
  *
- * Neither is fixable from inside this module while `popstate` is the only code
- * allowed to close an overlay, so they are constraints on callers:
+ * None of these are fixable from inside this module while `popstate` is the
+ * only code allowed to close an overlay, so they are documented as
+ * constraints on callers:
  *
  * - **Do not mount two overlays in the same commit as a middle drop.** Such a
  *   drop owes more than one entry, and two pushes consume the whole debt
@@ -207,6 +219,32 @@ export const dismissOverlay = (entry: OverlayEntry): void => {
  *   stack and land further back than either intended — far enough, with enough
  *   overlays open, to leave the application. This predates the deferral: an
  *   eager `dropOverlay` had the same overshoot against an eager dismiss.
+ * - **A push landing while a flush's own traversal is in flight reads a stale
+ *   depth.** `flushOwedTraversal` clears the debt and calls `history.go`
+ *   before that call resolves — the traversal it issues is itself
+ *   asynchronous, landing roughly 25-40ms later (see the module header). A
+ *   `pushOverlay` inside that window sees no debt left to claim, so it derives
+ *   its depth from `readDepth()`, which still reflects the pre-traversal state
+ *   until the pending `popstate` lands. This is the same race the deferral
+ *   exists to avoid, recurring one level later — in the flush's own
+ *   asynchronous traversal instead of an eager one — and bookkeeping cannot
+ *   close it, because the module has no signal for "a traversal is currently
+ *   in flight", only for depths still owed. Unreachable at human speed and by
+ *   any current call site: nothing today spans the gap between a flush firing
+ *   and its `popstate` landing.
+ * - **A dismiss cannot be vetoed by its caller.** `dismissOverlay` calls
+ *   `history.back()` unconditionally once the entry is in the stack, and
+ *   `reconcile` pops it and invokes `close` as soon as the resulting
+ *   `popstate` arrives — before the owner gets a say. A caller implementing
+ *   "confirm before closing", who leaves its own state untouched inside
+ *   `close` (e.g. an `onOpenChange(false)` that shows a confirmation instead
+ *   of actually closing), finds the history entry already gone: the overlay
+ *   stays mounted with nothing behind it in history, and from then on neither
+ *   the back gesture nor its own close control does anything, because both
+ *   `dismissOverlay` and `dropOverlay` return silently once
+ *   `stack.includes(entry)` is false. A close request routed through this
+ *   module cannot be vetoed; by the time the owner learns of it, the entry is
+ *   gone.
  */
 export const dropOverlay = (entry: OverlayEntry): void => {
   const index = stack.indexOf(entry)
