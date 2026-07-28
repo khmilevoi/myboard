@@ -2,6 +2,12 @@
 
 Canonical guidance for AI agents working in this repository. `AGENTS.md` is a symlink to this file, so Claude Code, Codex, and every other assistant read the same rules.
 
+## Related guides
+
+| Guide | Read it when |
+| --- | --- |
+| `docs/agent/browser-history-traversal.md` | touching `overlay-history.ts`, or a test disagrees with the browser about history traversal timing |
+
 ## Required skills
 
 Always load and follow the `reatom` and `errore` skills before working in this repository (locally `C:\Users\Khmil\.agents\skills\reatom` and `C:\Users\Khmil\.agents\skills\errore`):
