@@ -67,6 +67,14 @@ services:
     build:
       context: .
       dockerfile: packages/client/Dockerfile
+      args:
+        # Environment branding. `rpi` injects RPI_ENV for every `--env` deploy
+        # and omits it entirely for production, and its agent applies the stack
+        # env to `compose build` as well as to `up`, so this interpolates at
+        # image-build time -- which is the only time it can, since the value is
+        # baked into the bundle. An absent RPI_ENV means production, which
+        # emits no branding at all.
+        APP_ENV: '${RPI_ENV:-production}'
     depends_on:
       server:
         condition: service_healthy

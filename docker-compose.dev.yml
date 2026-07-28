@@ -107,6 +107,9 @@ services:
     environment:
       VITE_API_PROXY: http://server:8787
       CHOKIDAR_USEPOLLING: 'true'
+      # Redundant with vite.config.ts's `vite serve` fallback, and stated
+      # anyway: this file is read as the description of what the dev stack is.
+      VITE_APP_ENV: local
     volumes: *workspace-volumes
     ports:
       - '5173:5173'

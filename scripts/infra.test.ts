@@ -451,3 +451,43 @@ describe('docker-compose.e2e.yml headed-run support', () => {
     )
   })
 })
+
+describe('environment branding delivery', () => {
+  const prodCompose = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
+
+  // rpi injects RPI_ENV for every `--env` deploy and omits it entirely for
+  // production, and its agent applies the stack env to every compose
+  // invocation INCLUDING `build` (crates/infrastructure/src/docker.rs,
+  // cmd.envs(&stack.env)) -- which is what lets it interpolate here, at image
+  // build time. This assertion is the whole chain's anchor: if the build arg
+  // is dropped, every stand silently comes up looking like production.
+  it('passes the rpi environment into the client image build', () => {
+    const clientBlock = prodCompose.slice(
+      prodCompose.indexOf('  client:'),
+      prodCompose.indexOf('  browser-automation:'),
+    )
+    expect(clientBlock).toContain('args:')
+    expect(clientBlock).toContain("APP_ENV: '${RPI_ENV:-production}'")
+  })
+
+  it('turns the build arg into the Vite variable, after the install layers', () => {
+    expect(clientDockerfile).toContain('ARG APP_ENV=production')
+    expect(clientDockerfile).toContain('ENV VITE_APP_ENV=$APP_ENV')
+    // Declared below the pnpm install / COPY layers so a dev and a branch
+    // image still share every expensive layer; only the final build differs.
+    expect(clientDockerfile.indexOf('ARG APP_ENV=production')).toBeGreaterThan(
+      clientDockerfile.indexOf('COPY packages/client ./packages/client'),
+    )
+    expect(clientDockerfile.indexOf('ENV VITE_APP_ENV=$APP_ENV')).toBeLessThan(
+      clientDockerfile.indexOf('RUN pnpm run codegen:client'),
+    )
+  })
+
+  it('marks the hot-reload stack as the local environment', () => {
+    const devClientBlock = compose.slice(
+      compose.indexOf('  client:'),
+      compose.indexOf('  browser-automation:'),
+    )
+    expect(devClientBlock).toContain('VITE_APP_ENV: local')
+  })
+})
