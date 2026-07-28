@@ -140,8 +140,22 @@ test.describe('gate: browser journeys', () => {
     // selectors add-device.spec.ts's AccountMenuPage uses (the trigger's
     // aria-label is the account's registered name, not its initials; see
     // AccountMenu.tsx).
+    // account.logout (account-model.ts) runs POST /api/auth/logout -> purge ->
+    // a hard navigate to '/'. `page.waitForURL('/')` cannot synchronize any of
+    // that: the board already IS at '/', so it resolves in the same tick as the
+    // click (measured: 3 ms after it, ~20 ms before the navigation actually
+    // lands) and every assertion behind it races the still-in-flight logout.
+    // Both halves of that race have been observed -- the session probe reading
+    // the pre-logout 200, and the reload below landing before the model's own
+    // navigation, which then re-entered the still-controlling service worker
+    // and re-rendered the precached board shell (title 'myboard'). Arming both
+    // waiters before the click is what pins the sequence down.
+    const loggedOut = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/auth/logout')
+    const renavigated = page.waitForEvent('framenavigated', (f) => f === page.mainFrame())
     await page.getByRole('button', { name: ACCOUNT_NAME }).click()
     await page.getByRole('menuitem', { name: 'Выйти' }).click()
+    await loggedOut
+    await renavigated
 
     // Logout navigates to '/'; with the session gone, nginx serves the
     // activation fallback there (the visible heading text is 'Активируйте
@@ -150,7 +164,6 @@ test.describe('gate: browser journeys', () => {
     // A follow-up reload is what a real re-opened tab would do too, and it
     // sidesteps the just-unregistered-but-not-yet-inert SW still answering
     // this exact navigation from its precache.
-    await page.waitForURL('/')
     expect((await page.request.get('/api/auth/session')).status()).toBe(401)
     await page.reload()
     await expect(page).toHaveTitle(/активация/)
