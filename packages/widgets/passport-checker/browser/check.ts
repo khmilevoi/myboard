@@ -17,28 +17,33 @@ import {
   InvalidCheckerResponseError,
   UpstreamResponseError,
 } from './errors'
+import {z} from "zod";
 
-const ukrainianPassportSeries = /^[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ]{2}$/u
-const passportNumber = /^[0-9]{6}$/
+const passportNumberRegExp = /^(?<series>[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ]{2})(?<number>[0-9]{6})$/
 
-export type PassportIdentity = { series: string; number: string }
+export const passportIdentitySchema = z.object({
+  series: z.string(),
+  number: z.string()
+})
+export type PassportIdentity = z.Infer<typeof passportIdentitySchema>
 
 export function readPassportIdentity(secrets: WidgetSecrets) {
-  const series = errore.try({
-    try: () => secrets.read('series'),
-    catch: () => new BrowserConfigurationError(),
-  })
-  if (series instanceof Error) return series
-
-  const number = errore.try({
+  const passportNumber = errore.try({
     try: () => secrets.read('number'),
     catch: () => new BrowserConfigurationError(),
   })
-  if (number instanceof Error) return number
+  if (passportNumber instanceof Error) return passportNumber
+  if(!passportNumber) return new BrowserConfigurationError()
+
+  const match = passportNumberRegExp.exec(passportNumber.trim())
+
+  if(!match || !match.groups) return new BrowserConfigurationError()
+  const numberResult = passportIdentitySchema.safeParse(match.groups);
+  if(!numberResult.success) return new BrowserConfigurationError()
+  const {series, number} = numberResult.data
 
   if (!series || !number) return new BrowserConfigurationError()
-  if (!ukrainianPassportSeries.test(series)) return new BrowserConfigurationError()
-  if (!passportNumber.test(number)) return new BrowserConfigurationError()
+  if (!passportNumberRegExp.test(passportNumber)) return new BrowserConfigurationError()
   return { series, number } satisfies PassportIdentity
 }
 
