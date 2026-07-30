@@ -33,9 +33,7 @@ timeout = "60s"
 # defaults — and environment values live in .env.dev / .env.branch.
 [secrets]
 env = ".env"
-files = [
-  "packages/widgets/passport-checker/secrets/number",
-]
+files = ["packages/widgets/passport-checker/secrets/number"]
 
 # Production deliberately has NO group of its own. This file would be the only
 # thing attaching one, and a keyless push always sends the same `env` + `files`

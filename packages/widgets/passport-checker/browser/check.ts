@@ -6,6 +6,7 @@ import {
   type ChallengeEvidence,
 } from 'browser-automation/user-input/cloudflare'
 import * as errore from 'errore'
+import { z } from 'zod'
 
 import {
   passportCheckResultSchema,
@@ -17,13 +18,13 @@ import {
   InvalidCheckerResponseError,
   UpstreamResponseError,
 } from './errors'
-import {z} from "zod";
 
-const passportNumberRegExp = /^(?<series>[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ]{2})(?<number>[0-9]{6})$/
+const passportNumberRegExp =
+  /^(?<series>[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ]{2})(?<number>[0-9]{6})$/
 
 export const passportIdentitySchema = z.object({
   series: z.string(),
-  number: z.string()
+  number: z.string(),
 })
 export type PassportIdentity = z.Infer<typeof passportIdentitySchema>
 
@@ -33,14 +34,14 @@ export function readPassportIdentity(secrets: WidgetSecrets) {
     catch: () => new BrowserConfigurationError(),
   })
   if (passportNumber instanceof Error) return passportNumber
-  if(!passportNumber) return new BrowserConfigurationError()
+  if (!passportNumber) return new BrowserConfigurationError()
 
   const match = passportNumberRegExp.exec(passportNumber.trim())
 
-  if(!match || !match.groups) return new BrowserConfigurationError()
-  const numberResult = passportIdentitySchema.safeParse(match.groups);
-  if(!numberResult.success) return new BrowserConfigurationError()
-  const {series, number} = numberResult.data
+  if (!match || !match.groups) return new BrowserConfigurationError()
+  const numberResult = passportIdentitySchema.safeParse(match.groups)
+  if (!numberResult.success) return new BrowserConfigurationError()
+  const { series, number } = numberResult.data
 
   if (!series || !number) return new BrowserConfigurationError()
   if (!passportNumberRegExp.test(passportNumber)) return new BrowserConfigurationError()

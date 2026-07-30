@@ -14,7 +14,7 @@ import {
 
 function secrets(series: string | undefined, number: string | undefined): WidgetSecrets {
   return {
-    read: (key) => ( key === 'number' ? `${series}${number}` : undefined),
+    read: (key) => (key === 'number' ? `${series}${number}` : undefined),
     has: (key) => series !== undefined && number !== undefined && key === 'number',
   }
 }
