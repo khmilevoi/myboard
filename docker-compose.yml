@@ -102,8 +102,6 @@ services:
       # widget reads to build its SSH-tunnel hint.
       NOVNC_HOST_PORT: ${NOVNC_HOST_PORT:-6080}
     secrets:
-      - source: passport_series
-        target: passport-checker_series
       - source: passport_number
         target: passport-checker_number
     expose:
@@ -144,7 +142,5 @@ networks:
   browser_internal:
 
 secrets:
-  passport_series:
-    file: ./packages/widgets/passport-checker/secrets/series
   passport_number:
     file: ./packages/widgets/passport-checker/secrets/number
