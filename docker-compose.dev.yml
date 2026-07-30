@@ -133,8 +133,6 @@ services:
       # than relying on config.ts's default coinciding with it by accident.
       NOVNC_HOST_PORT: '6080'
     secrets:
-      - source: dev_passport_series
-        target: passport-checker_series
       - source: dev_passport_number
         target: passport-checker_number
       - source: dev_diagnostics_probe
@@ -163,8 +161,6 @@ volumes:
   browser_profile_dev:
 
 secrets:
-  dev_passport_series:
-    file: ./packages/widgets/passport-checker/secrets/series.example
   dev_passport_number:
     file: ./packages/widgets/passport-checker/secrets/number.example
   dev_diagnostics_probe:
