@@ -34,7 +34,6 @@ timeout = "60s"
 [secrets]
 env = ".env"
 files = [
-  "packages/widgets/passport-checker/secrets/series",
   "packages/widgets/passport-checker/secrets/number",
 ]
 

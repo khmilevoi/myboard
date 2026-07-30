@@ -34,5 +34,4 @@ env = ".env.dev"
 # rpi.toml), not from this environment's own bundle — so `rpi secrets push
 # --env dev` uploads .env.dev alone. Groups are applied first and this key's own
 # bundle on top, per variable and per file path.
-files = []
 groups = ["dev"]
