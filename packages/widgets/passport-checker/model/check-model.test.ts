@@ -1,22 +1,72 @@
 import { context, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
-import { WidgetApiError } from 'widget-runtime'
+import { StorageError, WidgetApiError } from 'widget-runtime'
 import type { StorageApi } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
-import type { PassportCheckerEvents } from '../types'
+import type { PassportCheckerEvents, PassportCheckResult } from '../types'
 import {
   CHECK_DEADLINE_MS,
   GENERIC_RETRYABLE_MESSAGE,
   formatCheckedAt,
   lastResultSchema,
+  mergeCheckResult,
   makePassportCheckModel,
   mapCheckError,
+  normalizeStoredResult,
   PASSPORT_LAST_RESULT_KEY,
   RETRYABLE_MESSAGES,
 } from './check-model'
 
-type CheckResult = { status: number; send_status_msg: string }
+type CheckResult = PassportCheckResult
+
+const TWO_SUCCESSES: PassportCheckResult = {
+  idCard: { kind: 'success', status: 200, send_status_msg: 'ID готова' },
+  internationalPassport: {
+    kind: 'success',
+    status: 201,
+    send_status_msg: 'Загран готов',
+  },
+}
+
+const LEGACY_STORED = {
+  status: 200,
+  message: 'Старый ID результат',
+  checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+}
+
+const V2_STORED = {
+  version: 2 as const,
+  idCard: {
+    status: 200,
+    message: 'ID сохранена',
+    checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+  },
+  internationalPassport: {
+    status: 201,
+    message: 'Загран сохранён',
+    checkedAt: new Date('2026-07-23T09:05:00').getTime(),
+  },
+}
+
+const ID_SUCCESS_PASSPORT_ERROR: PassportCheckResult = {
+  idCard: { kind: 'success', status: 202, send_status_msg: 'Новый ID результат' },
+  internationalPassport: { kind: 'error', code: 'upstream_response' },
+}
+
+const ID_ERROR_PASSPORT_SUCCESS: PassportCheckResult = {
+  idCard: { kind: 'error', code: 'invalid_checker_response' },
+  internationalPassport: {
+    kind: 'success',
+    status: 203,
+    send_status_msg: 'Новый загран результат',
+  },
+}
+
+const TWO_ERRORS: PassportCheckResult = {
+  idCard: { kind: 'error', code: 'invalid_checker_response' },
+  internationalPassport: { kind: 'error', code: 'upstream_response' },
+}
 
 function makeApi() {
   const invoke =
@@ -130,7 +180,7 @@ describe('formatCheckedAt', () => {
 })
 
 describe('makePassportCheckModel', () => {
-  it('goes idle -> pending -> success with a local HH:MM stamp', async () => {
+  it('goes idle -> pending -> results with local HH:MM stamps', async () => {
     const { api, invoke } = makeApi()
     let resolveInvoke: (value: WidgetApiError | CheckResult) => void = () => {}
     invoke.mockReturnValueOnce(
@@ -152,14 +202,23 @@ describe('makePassportCheckModel', () => {
       const pending = run()
       expect(read()).toEqual({ kind: 'pending' })
 
-      resolveInvoke({ status: 200, send_status_msg: 'Документ готовий' })
+      resolveInvoke(TWO_SUCCESSES)
       await pending
 
       expect(read()).toEqual({
-        kind: 'success',
-        status: 200,
-        message: 'Документ готовий',
-        checkedAtLabel: '13:07',
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 200,
+          message: 'ID готова',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 201,
+          message: 'Загран готов',
+          checkedAtLabel: '13:07',
+        },
       })
     })
   })
@@ -181,7 +240,7 @@ describe('makePassportCheckModel', () => {
       const second = run()
       expect(invoke).toHaveBeenCalledTimes(1)
 
-      resolveInvoke({ status: 200, send_status_msg: 'ok' })
+      resolveInvoke(TWO_SUCCESSES)
       await Promise.all([first, second])
     })
   })
@@ -251,13 +310,22 @@ describe('makePassportCheckModel', () => {
 
       // A real result arrives after the fact. It must not be silently
       // dropped: the passport status is a fact the user still needs.
-      resolveInvoke({ status: 200, send_status_msg: 'Документ готовий' })
+      resolveInvoke(TWO_SUCCESSES)
       await vi.waitFor(() => {
         expect(read()).toEqual({
-          kind: 'success',
-          status: 200,
-          message: 'Документ готовий',
-          checkedAtLabel: '13:07',
+          kind: 'results',
+          idCard: {
+            kind: 'success',
+            status: 200,
+            message: 'ID готова',
+            checkedAtLabel: '13:07',
+          },
+          internationalPassport: {
+            kind: 'success',
+            status: 201,
+            message: 'Загран готов',
+            checkedAtLabel: '13:07',
+          },
         })
       })
     })
@@ -271,7 +339,7 @@ describe('makePassportCheckModel', () => {
         resolveFirst = resolve
       }),
     )
-    invoke.mockResolvedValueOnce({ status: 200, send_status_msg: 'Документ готовий' })
+    invoke.mockResolvedValueOnce(TWO_SUCCESSES)
 
     await context.start(async () => {
       const model = makePassportCheckModel({
@@ -295,24 +363,49 @@ describe('makePassportCheckModel', () => {
       // normally, taking transient back to idle with the newer result.
       await run()
       expect(read()).toEqual({
-        kind: 'success',
-        status: 200,
-        message: 'Документ готовий',
-        checkedAtLabel: '13:07',
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 200,
+          message: 'ID готова',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 201,
+          message: 'Загран готов',
+          checkedAtLabel: '13:07',
+        },
       })
 
       // Attempt A's invoke finally settles — a straggler from an attempt the
       // user has already moved past. It must not overwrite the newer result,
       // even though transient is idle (not pending) at this point.
-      resolveFirst({ status: 102, send_status_msg: 'В обробці' })
+      resolveFirst({
+        idCard: { kind: 'success', status: 102, send_status_msg: 'Старый ID' },
+        internationalPassport: {
+          kind: 'success',
+          status: 103,
+          send_status_msg: 'Старый загран',
+        },
+      })
       await Promise.resolve()
       await Promise.resolve()
 
       expect(read()).toEqual({
-        kind: 'success',
-        status: 200,
-        message: 'Документ готовий',
-        checkedAtLabel: '13:07',
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 200,
+          message: 'ID готова',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 201,
+          message: 'Загран готов',
+          checkedAtLabel: '13:07',
+        },
       })
     })
   })
@@ -324,14 +417,8 @@ describe('makePassportCheckModel', () => {
   })
 })
 
-const STORED = {
-  status: 200,
-  message: 'Документ готовий',
-  checkedAt: new Date('2026-07-24T13:07:00').getTime(),
-}
-
-async function seed(storage: StorageApi) {
-  const result = await storage.set(PASSPORT_LAST_RESULT_KEY, STORED)
+async function seed(storage: StorageApi, value: unknown) {
+  const result = await storage.set(PASSPORT_LAST_RESULT_KEY, value)
   if (result instanceof Error) throw result
 }
 
@@ -339,10 +426,105 @@ describe('lastResultSchema', () => {
   // Every other test in this file goes through createFakeStorage, which
   // explicitly skips schema validation (see its fakes), so on the real HTTP
   // backend this schema is a production-only path. This is the one place it
-  // actually runs, over the exact object shape `succeed` builds in
-  // checkPassport: { status, message, checkedAt }.
-  it('parses the shape a successful check writes', () => {
-    expect(lastResultSchema.safeParse(STORED).success).toBe(true)
+  // actually runs over both persisted generations.
+  it('accepts legacy and partial or complete v2 stored values', () => {
+    expect(lastResultSchema.safeParse(LEGACY_STORED).success).toBe(true)
+    expect(lastResultSchema.safeParse(V2_STORED).success).toBe(true)
+    expect(lastResultSchema.safeParse({ version: 2, idCard: V2_STORED.idCard }).success).toBe(true)
+  })
+
+  it('normalizes a legacy result to an in-memory v2 ID-card result', () => {
+    expect(normalizeStoredResult(LEGACY_STORED)).toEqual({
+      version: 2,
+      idCard: LEGACY_STORED,
+    })
+  })
+})
+
+describe('mergeCheckResult', () => {
+  const observationTime = new Date('2026-07-24T13:07:00').getTime()
+
+  it('replaces both stored documents from two successes at one observation time', () => {
+    expect(
+      mergeCheckResult({ stored: V2_STORED, result: TWO_SUCCESSES, checkedAt: observationTime }),
+    ).toEqual({
+      stored: {
+        version: 2,
+        idCard: { status: 200, message: 'ID готова', checkedAt: observationTime },
+        internationalPassport: {
+          status: 201,
+          message: 'Загран готов',
+          checkedAt: observationTime,
+        },
+      },
+      errors: {},
+    })
+  })
+
+  it('updates only ID card and preserves a failed international passport', () => {
+    expect(
+      mergeCheckResult({
+        stored: V2_STORED,
+        result: ID_SUCCESS_PASSPORT_ERROR,
+        checkedAt: observationTime,
+      }),
+    ).toEqual({
+      stored: {
+        version: 2,
+        idCard: { status: 202, message: 'Новый ID результат', checkedAt: observationTime },
+        internationalPassport: V2_STORED.internationalPassport,
+      },
+      errors: {
+        internationalPassport: {
+          kind: 'retryable',
+          message: 'Сервис проверки временно недоступен',
+        },
+      },
+    })
+  })
+
+  it('updates only international passport and preserves a failed ID card', () => {
+    expect(
+      mergeCheckResult({
+        stored: V2_STORED,
+        result: ID_ERROR_PASSPORT_SUCCESS,
+        checkedAt: observationTime,
+      }),
+    ).toEqual({
+      stored: {
+        version: 2,
+        idCard: V2_STORED.idCard,
+        internationalPassport: {
+          status: 203,
+          message: 'Новый загран результат',
+          checkedAt: observationTime,
+        },
+      },
+      errors: {
+        idCard: {
+          kind: 'retryable',
+          message: 'Сервис проверки вернул неожиданный ответ',
+        },
+      },
+    })
+  })
+
+  it('returns no stored write when both documents fail', () => {
+    expect(
+      mergeCheckResult({ stored: V2_STORED, result: TWO_ERRORS, checkedAt: observationTime }),
+    ).toEqual({
+      stored: null,
+      errors: {
+        idCard: {
+          kind: 'retryable',
+          message: 'Сервис проверки вернул неожиданный ответ',
+        },
+        internationalPassport: {
+          kind: 'retryable',
+          message: 'Сервис проверки временно недоступен',
+        },
+      },
+    })
   })
 })
 
@@ -357,9 +539,9 @@ describe('PASSPORT_LAST_RESULT_KEY', () => {
 })
 
 describe('makePassportCheckModel persistence', () => {
-  it('writes a successful check to the shared key', async () => {
+  it('writes two successful documents to the shared key', async () => {
     const { api, invoke } = makeApi()
-    invoke.mockResolvedValueOnce({ status: 200, send_status_msg: 'Документ готовий' })
+    invoke.mockResolvedValueOnce(TWO_SUCCESSES)
     const storage = createFakeStorage()
 
     await context.start(async () => {
@@ -375,14 +557,28 @@ describe('makePassportCheckModel persistence', () => {
     // The change hook that performs the write is flushed on a microtask, so the
     // value is not in the fake the instant `checkPassport` resolves.
     await vi.waitFor(async () => {
-      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(STORED)
+      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+        version: 2,
+        idCard: {
+          status: 200,
+          message: 'ID готова',
+          checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+        },
+        internationalPassport: {
+          status: 201,
+          message: 'Загран готов',
+          checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+        },
+      })
     })
   })
 
-  it('restores a stored result into the view state without checking', async () => {
+  it('hydrates a legacy ID-card result without an RPC or migration write', async () => {
     const { api, invoke } = makeApi()
     const storage = createFakeStorage()
-    await seed(storage)
+    const setSpy = vi.spyOn(storage, 'set')
+    await seed(storage, LEGACY_STORED)
+    setSpy.mockClear()
 
     await context.start(async () => {
       const model = makePassportCheckModel({
@@ -397,11 +593,91 @@ describe('makePassportCheckModel persistence', () => {
 
       await vi.waitFor(() => {
         expect(read()).toEqual({
+          kind: 'results',
+          idCard: {
+            kind: 'success',
+            status: 200,
+            message: 'Старый ID результат',
+            checkedAtLabel: '13:07',
+          },
+          internationalPassport: { kind: 'unchecked' },
+        })
+      })
+
+      unsubscribe()
+    })
+
+    expect(invoke).not.toHaveBeenCalled()
+    expect(setSpy).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      name: 'only ID card',
+      stored: { version: 2 as const, idCard: V2_STORED.idCard },
+      expected: {
+        kind: 'results',
+        idCard: {
           kind: 'success',
           status: 200,
-          message: 'Документ готовий',
+          message: 'ID сохранена',
           checkedAtLabel: '13:07',
-        })
+        },
+        internationalPassport: { kind: 'unchecked' },
+      },
+    },
+    {
+      name: 'only international passport',
+      stored: {
+        version: 2 as const,
+        internationalPassport: V2_STORED.internationalPassport,
+      },
+      expected: {
+        kind: 'results',
+        idCard: { kind: 'unchecked' },
+        internationalPassport: {
+          kind: 'success',
+          status: 201,
+          message: 'Загран сохранён',
+          checkedAtLabel: '23.07 09:05',
+        },
+      },
+    },
+    {
+      name: 'both documents',
+      stored: V2_STORED,
+      expected: {
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 200,
+          message: 'ID сохранена',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 201,
+          message: 'Загран сохранён',
+          checkedAtLabel: '23.07 09:05',
+        },
+      },
+    },
+  ])('hydrates v2 with $name', async ({ stored, expected }) => {
+    const { api, invoke } = makeApi()
+    const storage = createFakeStorage()
+    await seed(storage, stored)
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T21:40:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      await vi.waitFor(() => {
+        expect(read()).toEqual(expected)
       })
 
       unsubscribe()
@@ -410,33 +686,301 @@ describe('makePassportCheckModel persistence', () => {
     expect(invoke).not.toHaveBeenCalled()
   })
 
-  it('dates a restored result taken on an earlier day', async () => {
-    const { api } = makeApi()
+  it('merges an ID success, preserves and masks the failed stored international passport', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(ID_SUCCESS_PASSPORT_ERROR)
     const storage = createFakeStorage()
-    await seed(storage)
+    await seed(storage, V2_STORED)
+    const observationTime = new Date('2026-07-24T13:07:00').getTime()
 
     await context.start(async () => {
       const model = makePassportCheckModel({
         api,
         storage,
-        now: () => new Date('2026-07-26T09:00:00'),
+        now: () => new Date(observationTime),
       })
       const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
       const unsubscribe = model.viewState.subscribe(() => {})
+      await vi.waitFor(() => expect(read().kind).toBe('results'))
 
-      await vi.waitFor(() => {
-        expect(read()).toMatchObject({ kind: 'success', checkedAtLabel: '24.07 13:07' })
+      await run()
+
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 202,
+          message: 'Новый ID результат',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.upstream_response,
+        },
+      })
+      unsubscribe()
+    })
+
+    await vi.waitFor(async () => {
+      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+        version: 2,
+        idCard: {
+          status: 202,
+          message: 'Новый ID результат',
+          checkedAt: observationTime,
+        },
+        internationalPassport: V2_STORED.internationalPassport,
+      })
+    })
+  })
+
+  it('merges an international-passport success, preserves and masks the failed stored ID card', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(ID_ERROR_PASSPORT_SUCCESS)
+    const storage = createFakeStorage()
+    await seed(storage, V2_STORED)
+    const observationTime = new Date('2026-07-24T13:07:00').getTime()
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date(observationTime),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const unsubscribe = model.viewState.subscribe(() => {})
+      await vi.waitFor(() => expect(read().kind).toBe('results'))
+
+      await run()
+
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.invalid_checker_response,
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 203,
+          message: 'Новый загран результат',
+          checkedAtLabel: '13:07',
+        },
+      })
+      unsubscribe()
+    })
+
+    await vi.waitFor(async () => {
+      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+        version: 2,
+        idCard: V2_STORED.idCard,
+        internationalPassport: {
+          status: 203,
+          message: 'Новый загран результат',
+          checkedAt: observationTime,
+        },
+      })
+    })
+  })
+
+  it('does not write or delete storage when both documents fail', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(TWO_ERRORS)
+    const storage = createFakeStorage()
+    const setSpy = vi.spyOn(storage, 'set')
+    await seed(storage, V2_STORED)
+    setSpy.mockClear()
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({ api, storage })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const unsubscribe = model.viewState.subscribe(() => {})
+      await vi.waitFor(() => expect(read().kind).toBe('results'))
+
+      await run()
+
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.invalid_checker_response,
+        },
+        internationalPassport: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.upstream_response,
+        },
+      })
+      unsubscribe()
+    })
+
+    expect(setSpy).not.toHaveBeenCalled()
+    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
+  })
+
+  it('clears a document error after that document succeeds on a later aggregate', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(TWO_ERRORS).mockResolvedValueOnce(ID_SUCCESS_PASSPORT_ERROR)
+    const storage = createFakeStorage()
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T13:07:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+
+      await run()
+      expect(read()).toMatchObject({
+        kind: 'results',
+        idCard: { kind: 'retryable' },
+        internationalPassport: { kind: 'retryable' },
       })
 
+      await run()
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 202,
+          message: 'Новый ID результат',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.upstream_response,
+        },
+      })
+    })
+  })
+
+  it('applies live storage updates to an unmasked sibling while preserving the current error', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(ID_ERROR_PASSPORT_SUCCESS)
+    const storage = createFakeStorage()
+    await seed(storage, V2_STORED)
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T21:40:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const unsubscribe = model.viewState.subscribe(() => {})
+      await vi.waitFor(() => expect(read().kind).toBe('results'))
+
+      await run()
+      await vi.waitFor(async () => {
+        expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toMatchObject({
+          internationalPassport: { status: 203 },
+        })
+      })
+
+      await storage.set(PASSPORT_LAST_RESULT_KEY, {
+        version: 2,
+        idCard: {
+          status: 299,
+          message: 'ID из другого клиента',
+          checkedAt: new Date('2026-07-24T20:00:00').getTime(),
+        },
+        internationalPassport: {
+          status: 298,
+          message: 'Загран из другого клиента',
+          checkedAt: new Date('2026-07-24T20:01:00').getTime(),
+        },
+      })
+
+      await vi.waitFor(() => {
+        expect(read()).toEqual({
+          kind: 'results',
+          idCard: {
+            kind: 'retryable',
+            message: RETRYABLE_MESSAGES.invalid_checker_response,
+          },
+          internationalPassport: {
+            kind: 'success',
+            status: 298,
+            message: 'Загран из другого клиента',
+            checkedAtLabel: '20:01',
+          },
+        })
+      })
       unsubscribe()
     })
   })
 
-  it('shows a failed check without erasing the stored result', async () => {
+  it('keeps the optimistic aggregate visible when the storage write fails', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(TWO_SUCCESSES)
+    const storage = createFakeStorage()
+    vi.spyOn(storage, 'set').mockResolvedValue(new StorageError({ reason: 'offline' }))
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T13:07:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      await run()
+
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 200,
+          message: 'ID готова',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 201,
+          message: 'Загран готов',
+          checkedAtLabel: '13:07',
+        },
+      })
+      unsubscribe()
+    })
+
+    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toBeNull()
+  })
+
+  it('stays idle without an RPC when the storage subscription reports a read failure', async () => {
+    const { api, invoke } = makeApi()
+    let subscribed = false
+    const subscribe: StorageApi['subscribe'] = (_key, listener) => {
+      subscribed = true
+      listener(new StorageError({ reason: 'read failed' }))
+      return () => {}
+    }
+    const storage: StorageApi = { ...createFakeStorage(), subscribe }
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({ api, storage })
+      const read = wrap(() => model.viewState())
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      expect(read()).toEqual({ kind: 'idle' })
+      unsubscribe()
+    })
+
+    expect(subscribed).toBe(true)
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('shows a global failed check without erasing either stored document', async () => {
     const { api, invoke } = makeApi()
     invoke.mockResolvedValueOnce(apiError('browser_unavailable'))
     const storage = createFakeStorage()
-    await seed(storage)
+    await seed(storage, V2_STORED)
 
     await context.start(async () => {
       const model = makePassportCheckModel({
@@ -457,6 +1001,6 @@ describe('makePassportCheckModel persistence', () => {
       unsubscribe()
     })
 
-    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(STORED)
+    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
   })
 })
