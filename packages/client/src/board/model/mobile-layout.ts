@@ -3,14 +3,14 @@ import { findWidgetType } from '@/widget-registry/model/registry'
 import type { BoardSnapshot, LayoutItem, WidgetInstance } from './types'
 
 /**
- * Id of the one-shot migration applied by migrateBoardLayoutHeights below.
- * Recorded per board id in board-storage.ts's localBoardMigrations /
- * sharedBoardMigrations (see BoardMigrations in types.ts) once applied; a
- * board carrying this id in its applied-ids list is never re-scanned, so a
- * later deliberate shrink below a type's current defaultSize.h is never
- * undone.
+ * Ids of the one-shot migrations applied by migrateBoardLayoutHeights below.
+ * They are recorded per board id in board-storage.ts's localBoardMigrations /
+ * sharedBoardMigrations (see BoardMigrations in types.ts). The generic marker
+ * preserves user resizes below a later default height; the passport-specific
+ * marker may instead establish that widget's hard minH floor once.
  */
 export const HEIGHT_FLOOR_MIGRATION_ID = 'layout-height-floor-v1'
+export const PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID = 'passport-checker-height-floor-v1'
 
 /**
  * Projects a desktop layout onto a single column.
@@ -74,11 +74,36 @@ const bumpHeightsToDefault = (
   return { items: next, changed }
 }
 
+const bumpPassportCheckerHeightsToMinimum = (
+  items: LayoutItem[],
+  typeIdById: Map<string, string>,
+): { items: LayoutItem[]; changed: boolean } => {
+  const passportChecker = findWidgetType('passport-checker')
+  if (passportChecker instanceof Error) return { items, changed: false }
+  const minimumHeight = passportChecker.defaultSize.minH
+  if (minimumHeight === undefined) return { items, changed: false }
+
+  let changed = false
+  const next = items.map((item) => {
+    if (typeIdById.get(item.i) !== 'passport-checker') return item
+
+    const minH = Math.max(item.minH ?? 0, minimumHeight)
+    const h = Math.max(item.h, minH)
+    if (item.minH === minH && item.h === h) return item
+
+    changed = true
+    return { ...item, h, minH }
+  })
+
+  return { items: next, changed }
+}
+
 /**
- * One-shot migration: bumps a placed widget's persisted height up to its
- * type's current defaultSize.h when it falls short, then records
- * HEIGHT_FLOOR_MIGRATION_ID in the returned applied-ids list so it never
- * runs again for this board.
+ * One-shot migrations: the generic pass bumps a placed widget's persisted
+ * height up to its type's current defaultSize.h; the passport-specific pass
+ * then raises only passport-checker h and minH to its hard floor. Each records
+ * its own marker in the returned applied-ids list, so an existing board that
+ * already consumed the generic pass still receives the new passport floor.
  *
  * defaultSize is only applied when a widget is first added (see makeLayout
  * in board-model.ts) — nothing else migrates the h already persisted for a
@@ -87,11 +112,11 @@ const bumpHeightsToDefault = (
  * instance can silently sit below the new floor and render a degraded tier
  * forever.
  *
- * This must run exactly once per board, at load (see board-storage.ts), not
- * on every read: a per-read clamp would also undo a later deliberate resize
- * below the new default, since react-grid-layout legitimately allows sizes
- * down to a type's minH, which sits well below defaultSize.h for most
- * widgets. The caller supplies the ids already applied to this board
+ * Each pass runs once per board at load (see board-storage.ts), not on every
+ * read: a generic per-read clamp would undo a later deliberate resize below a
+ * new default. The passport pass is intentionally stricter because minH is
+ * its published accessibility floor. The caller supplies the ids already
+ * applied to this board
  * (persisted separately from the snapshot — see BoardMigrations in
  * types.ts, and why in board-storage.ts) rather than reading them off the
  * board itself. Both the board and the ids list come back by the same
@@ -102,17 +127,39 @@ export const migrateBoardLayoutHeights = (
   board: BoardSnapshot,
   appliedMigrationIds: readonly string[],
 ): { board: BoardSnapshot; appliedMigrationIds: string[] } => {
-  if (appliedMigrationIds.includes(HEIGHT_FLOOR_MIGRATION_ID)) {
+  const hasGenericHeightMigration = appliedMigrationIds.includes(HEIGHT_FLOOR_MIGRATION_ID)
+  const hasPassportCheckerHeightMigration = appliedMigrationIds.includes(
+    PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID,
+  )
+  if (hasGenericHeightMigration && hasPassportCheckerHeightMigration) {
     return { board, appliedMigrationIds: appliedMigrationIds as string[] }
   }
 
   const typeIdById = new Map(
     board.instances.map((instance: WidgetInstance) => [instance.id, instance.typeId]),
   )
-  const layoutResult = bumpHeightsToDefault(board.layout, typeIdById)
-  const mobileResult = board.mobileLayout
-    ? bumpHeightsToDefault(board.mobileLayout, typeIdById)
+  const defaultLayoutResult = hasGenericHeightMigration
+    ? { items: board.layout, changed: false }
+    : bumpHeightsToDefault(board.layout, typeIdById)
+  const layoutResult = hasPassportCheckerHeightMigration
+    ? defaultLayoutResult
+    : bumpPassportCheckerHeightsToMinimum(defaultLayoutResult.items, typeIdById)
+  const defaultMobileResult = board.mobileLayout
+    ? hasGenericHeightMigration
+      ? { items: board.mobileLayout, changed: false }
+      : bumpHeightsToDefault(board.mobileLayout, typeIdById)
     : null
+  const mobileResult = defaultMobileResult
+    ? hasPassportCheckerHeightMigration
+      ? defaultMobileResult
+      : bumpPassportCheckerHeightsToMinimum(defaultMobileResult.items, typeIdById)
+    : null
+
+  const appliedMigrationIdsNext = [
+    ...appliedMigrationIds,
+    ...(hasGenericHeightMigration ? [] : [HEIGHT_FLOOR_MIGRATION_ID]),
+    ...(hasPassportCheckerHeightMigration ? [] : [PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID]),
+  ]
 
   return {
     board: {
@@ -120,7 +167,7 @@ export const migrateBoardLayoutHeights = (
       layout: layoutResult.items,
       ...(mobileResult ? { mobileLayout: mobileResult.items } : {}),
     },
-    appliedMigrationIds: [...appliedMigrationIds, HEIGHT_FLOOR_MIGRATION_ID],
+    appliedMigrationIds: appliedMigrationIdsNext,
   }
 }
 

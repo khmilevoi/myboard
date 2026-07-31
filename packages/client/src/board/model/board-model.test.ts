@@ -55,6 +55,15 @@ describe('board-model', () => {
     expect(item).toMatchObject({ w: 3, h: 4, minW: 2, minH: 2 })
   })
 
+  it('adds passport checker with the published h4 resize floor', () => {
+    addInstance('passport-checker')
+
+    const id = activeBoard()?.instances[0]?.id
+    const item = activeBoard()?.layout.find((layoutItem) => layoutItem.i === id)
+
+    expect(item).toMatchObject({ w: 4, h: 4, minW: 2, minH: 4 })
+  })
+
   it('generates a non-empty id when adding an instance', () => {
     addInstance('clock')
 

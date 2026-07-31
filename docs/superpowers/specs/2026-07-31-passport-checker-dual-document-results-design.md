@@ -30,8 +30,11 @@ The widget currently performs one browser POST with `service=1`, returns one
 `lastResult`. The model exposes one success/error state, and both UI tiers render one result.
 
 This change keeps the existing widget RPC event (`check`), browser task, recovery flow, storage
-key, widget identity, tier breakpoints, and server-side passport secret. It changes the result
-contract and the state rendered behind that one action.
+key, widget identity, width breakpoints, and server-side passport secret. It changes the result
+contract and the state rendered behind that one action. The user later approved three delivery
+exceptions required to keep the result contract truthful in production: height-aware tier floors,
+a passport `minH: 4` floor with one-shot migration of older layouts, and explicit empty dev own
+secret files so the `dev` group owns the non-production combined identity.
 
 ## Scope
 
@@ -50,8 +53,10 @@ contract and the state rendered behind that one action.
   deployment secret.
 - No parallel requests. The service is exercised sequentially and predictably.
 - No result history, TTL, background polling, or automatic check on mount.
-- No change to the recovery transport, noVNC modal, widget RPC error propagation, or widget size
-  thresholds.
+- No change to the recovery transport, noVNC modal, widget RPC error propagation, or width tier
+  breakpoints. Compact/standard/large tiers use the approved 280px height floor, while the
+  passport widget's `minH: 4` and one-shot layout migration prevent users from resizing TinyTier
+  below its title, two visible outcomes, and action.
 - No new design system. The widget continues to use myboard's existing tokens and component
   language.
 
@@ -258,6 +263,10 @@ After an invocation returns:
 4. write a v2 value only if at least one document succeeded;
 5. leave storage untouched if both documents failed.
 
+Before the first storage snapshot, accepted partial successes accumulate in memory and merge over
+that snapshot. Only the latest document-error overlay remains transient, so retry feedback still
+describes the current failed document without discarding an earlier complementary success.
+
 Each document owns its own `checkedAt`. All successes delivered by one aggregate response may
 receive the same client-observation timestamp; separate fields matter because a later partial run
 can update one timestamp while preserving the other.
@@ -408,6 +417,8 @@ logged error.
 - a failed document preserves but masks its older stored success;
 - both document errors leave the stored value unchanged;
 - a later successful retry clears the affected error overlay;
+- complementary partial successes completed before delayed hydration preserve both document fields
+  and their individual timestamps;
 - per-document timestamp formatting retains the existing same-day/older-day rules;
 - live storage updates affect unmasked documents;
 - late and superseded aggregate results preserve the existing attempt-order guarantees.

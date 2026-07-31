@@ -157,6 +157,23 @@ export function mergeCheckResult({
   }
 }
 
+function mergeDeferredResult({
+  stored,
+  deferred,
+}: {
+  stored: StoredCheckResult | null
+  deferred: StoredCheckResultV2
+}): StoredCheckResultV2 {
+  const current = normalizeStoredResult(stored)
+  const idCard = deferred.idCard ?? current.idCard
+  const internationalPassport = deferred.internationalPassport ?? current.internationalPassport
+  return {
+    version: 2,
+    ...(idCard ? { idCard } : {}),
+    ...(internationalPassport ? { internationalPassport } : {}),
+  }
+}
+
 // Mirrors server.ts's DEFAULT_NOVNC_PORT (matches docker-compose.yml's
 // NOVNC_HOST_PORT default). Only used if the server response is missing or
 // malformed — the server always sends a concrete value for this stack.
@@ -277,7 +294,11 @@ export function makePassportCheckModel({
     withComputed((known) => known || (!lastResult.isLoading() && lastResult.error() === null)),
   )
   const optimisticResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.optimisticResult')
-  const deferredResult = atom<ObservedCheckResult | null>(null, 'passportCheck.deferredResult')
+  // Before the first storage snapshot, partial attempts cannot safely write:
+  // the unknown sibling may exist remotely. Keep every accepted success here
+  // until hydration so completed retries accumulate instead of replacing one
+  // another. The transient atom still owns only the latest error overlay.
+  const deferredResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.deferredResult')
   const transient = atom<TransientState>({ kind: 'idle' }, 'passportCheck.transient')
   const recoveryOpen = atom(false, 'passportCheck.recoveryOpen')
 
@@ -288,13 +309,18 @@ export function makePassportCheckModel({
   let latestAttemptId = 0
 
   const applyResult = action((observed: ObservedCheckResult) => {
-    const merged = mergeCheckResult({ stored: lastResult(), ...observed })
-    const isUnsafePartial =
-      merged.stored !== null && Object.keys(merged.errors).length > 0 && !storageSnapshotKnown()
+    const deferred = deferredResult()
+    const stored = storageSnapshotKnown() ? lastResult() : (deferred ?? lastResult())
+    const merged = mergeCheckResult({ stored, ...observed })
+    const shouldDefer =
+      !storageSnapshotKnown() &&
+      (deferred !== null || (merged.stored !== null && Object.keys(merged.errors).length > 0))
 
-    if (isUnsafePartial) {
-      deferredResult.set(observed)
-      optimisticResult.set(merged.stored)
+    if (shouldDefer) {
+      if (merged.stored !== null) {
+        deferredResult.set(merged.stored)
+        optimisticResult.set(merged.stored)
+      }
       transient.set({ kind: 'documentErrors', errors: merged.errors })
       return
     }
@@ -311,9 +337,11 @@ export function makePassportCheckModel({
 
   const flushDeferredResult = action(() => {
     if (!storageSnapshotKnown()) return
-    const observed = deferredResult()
-    if (observed === null) return
-    applyResult(observed)
+    const deferred = deferredResult()
+    if (deferred === null) return
+    deferredResult.set(null)
+    optimisticResult.set(null)
+    lastResult.set(mergeDeferredResult({ stored: lastResult(), deferred }))
   }, 'passportCheck.flushDeferredResult')
 
   const viewState = computed((): ViewState => {
@@ -355,8 +383,6 @@ export function makePassportCheckModel({
 
   const checkPassport = action(async () => {
     if (transient().kind === 'pending') return
-    deferredResult.set(null)
-    optimisticResult.set(null)
     transient.set({ kind: 'pending' })
     // Stamp this attempt before any await; `succeedLate` below closes over
     // `attemptId` and only acts while it is still the latest one issued.

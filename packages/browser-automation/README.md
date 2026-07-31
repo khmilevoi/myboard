@@ -6,33 +6,31 @@ network; no public route. See the design specs under `docs/superpowers/specs/`.
 
 ## Provisioning secrets (Raspberry Pi)
 
-The passport series and number live as plain-value files under the widget
-package, not in the deployment `.env`:
+The passport identity lives in one plain-value file under the widget package,
+not in the deployment `.env`:
 
 ```
-packages/widgets/passport-checker/secrets/series
 packages/widgets/passport-checker/secrets/number
 ```
 
-Both are git-ignored; only `series.example`/`number.example` (placeholder
-values) are committed, so an operator can see the expected shape without ever
-seeing the real values. Fill in the two real files locally (a trailing
-newline is fine — the scoped secret reader trims):
+The file is git-ignored; only `number.example` (a placeholder value) is
+committed, so an operator can see the expected shape without ever seeing the
+real value. Fill in the one local file (a trailing newline is fine — the
+scoped secret reader trims):
 
 ```
-packages/widgets/passport-checker/secrets/series   # two Ukrainian Cyrillic uppercase letters
-packages/widgets/passport-checker/secrets/number   # six digits
+packages/widgets/passport-checker/secrets/number   # two Ukrainian Cyrillic uppercase letters + six digits
 ```
 
 `AUTOMATION_SSH_TARGET` stays non-secret operational config in the deployment
 `.env` (`rpi.toml`'s `[secrets]` still declares `env = ".env"`).
 
-`rpi.toml`'s `[secrets]` section also lists both files under `files`, so `rpi`
-delivers them to the Pi verbatim at the same repo-relative path on every
-deploy. Production takes them from its own bundle; the non-production stacks
-share one copy through the **`dev` secret group**, which both overlays attach
-with `[secrets].files` cleared. Both pushes read the same two local files, from
-the repository root:
+`rpi.toml`'s `[secrets]` section lists that one file under `files`, so `rpi`
+delivers it to the Pi verbatim at the same repo-relative path on every deploy.
+Production takes it from its own bundle; the non-production stacks share one
+copy through the **`dev` secret group**, which both overlays attach with
+`[secrets].files` cleared. Both pushes read the same local file from the
+repository root:
 
 ```bash
 rpi secrets push                 # production's own bundle
@@ -45,13 +43,13 @@ stack without a full deploy, follow it with `rpi secrets push --apply
 group, then its own bundle — and recreates the affected containers.
 
 A declared group that is missing or empty fails the deploy naming the group.
-`rpi secrets ls [--env <env>]` shows which layer every entry comes from
+`rpi secrets ls [--env <env>]` shows which layer the file comes from
 (`<- key` for the environment's own bundle, `<- dev` for the group), which is
-also how you confirm the files are no longer duplicated per environment.
+also how you confirm the file is no longer duplicated per environment.
 
 Compose (`docker-compose.yml`) declares `passport_number` as a file-backed
-**runtime secret**. Its value combines the two-letter Ukrainian series and six
-digits, and it is mounted only into `browser-automation` as
+**runtime secret**. Its value is two Ukrainian Cyrillic uppercase letters plus
+six digits, and it is mounted only into `browser-automation` as
 `/run/secrets/passport-checker_number`. It never appears in the container
 environment, image layers, or logs — and being outside the Docker build
 context (`.dockerignore` excludes the whole `secrets/` directory), it never
@@ -187,9 +185,9 @@ files under `.dev-secrets/` (e.g. `.dev-secrets/__diagnostics___probe`) as neede
 ## Docker development
 
 The dev browser service is behind the `browser` Compose profile so it does not
-slow the default board dev stack. Passport secrets are file-backed and default
-to the committed `packages/widgets/passport-checker/secrets/*.example`
-placeholders, so no passport env vars are needed to bring it up:
+slow the default board dev stack. The file-backed passport secret defaults to
+the committed `packages/widgets/passport-checker/secrets/number.example`
+placeholder, so no passport env vars are needed to bring it up:
 
 ```bash
 DIAGNOSTICS_PROBE=ok \

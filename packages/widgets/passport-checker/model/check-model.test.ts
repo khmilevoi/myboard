@@ -758,6 +758,73 @@ describe('makePassportCheckModel persistence', () => {
     })
   })
 
+  it('accumulates completed complementary partial successes across retries before hydration', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(ID_SUCCESS_PASSPORT_ERROR)
+    invoke.mockResolvedValueOnce(ID_ERROR_PASSPORT_SUCCESS)
+    const base = createFakeStorage()
+    await seed(base, V2_STORED)
+    const controlled = delayStorageSubscription(base)
+    const firstCheckedAt = new Date('2026-07-24T14:00:00').getTime()
+    const secondCheckedAt = new Date('2026-07-24T15:00:00').getTime()
+    let currentTime = firstCheckedAt
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage: controlled.storage,
+        now: () => new Date(currentTime),
+      })
+      const read = wrap(() => model.viewState())
+      const readStored = wrap(() => model.lastResult())
+      const run = wrap(() => model.checkPassport())
+      const hydrate = wrap(() => controlled.emitValue(V2_STORED))
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      // Both attempts complete before the first storage snapshot. They are not
+      // late stragglers: the second retry starts only after the first result is
+      // accepted, so its ID-card error must not discard the first ID success.
+      await run()
+      currentTime = secondCheckedAt
+      await run()
+
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.invalid_checker_response,
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 203,
+          message: 'Новый загран результат',
+          checkedAtLabel: '15:00',
+        },
+      })
+
+      hydrate()
+      await vi.waitFor(async () => {
+        const expectedStored = {
+          version: 2 as const,
+          idCard: {
+            status: 202,
+            message: 'Новый ID результат',
+            checkedAt: firstCheckedAt,
+          },
+          internationalPassport: {
+            status: 203,
+            message: 'Новый загран результат',
+            checkedAt: secondCheckedAt,
+          },
+        }
+
+        expect(readStored()).toEqual(expectedStored)
+        expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(expectedStored)
+      })
+      unsubscribe()
+    })
+  })
+
   it('keeps a partial result optimistic after a storage read error without overwriting the unknown sibling', async () => {
     const { api, invoke } = makeApi()
     invoke.mockResolvedValueOnce(ID_SUCCESS_PASSPORT_ERROR)

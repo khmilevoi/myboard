@@ -5,7 +5,7 @@ import type { PassportCheckerEvents } from './types'
 export const passportCheckerWidget = defineWidgetClient<PassportCheckerEvents>({
   title: 'Паспорт',
   description: 'Проверка статуса паспорта',
-  defaultSize: { w: 4, h: 4, minW: 2, minH: 2 },
+  defaultSize: { w: 4, h: 4, minW: 2, minH: 4 },
   icon: 'IdCard',
   tiers: {
     tiny: { minWidthPx: 0, minHeightPx: 0 },
