@@ -47,10 +47,17 @@ async function runCheck(invokeResult: unknown) {
 }
 
 describe('passport checker server', () => {
-  it('passes a validated result through and sends an empty payload', async () => {
-    const { result, calls } = await runCheck({ status: 200, send_status_msg: 'Готово' })
+  it('passes a validated aggregate through and sends one empty payload', async () => {
+    const aggregate = {
+      idCard: { kind: 'success' as const, status: 200, send_status_msg: 'ID ready' },
+      internationalPassport: {
+        kind: 'error' as const,
+        code: 'upstream_response' as const,
+      },
+    }
+    const { result, calls } = await runCheck(aggregate)
 
-    expect(result).toEqual({ status: 200, send_status_msg: 'Готово' })
+    expect(result).toEqual(aggregate)
     expect(calls).toEqual([{ taskId: 'check', payload: {} }])
   })
 
