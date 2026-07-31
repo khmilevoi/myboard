@@ -100,7 +100,7 @@ function makeContext(scenario: PageScenario) {
     } as unknown as Response
   })
   const evaluate = vi.fn(async (_fn: unknown, _input: unknown) => {
-    const attempt = submissions.shift() ?? {
+    const attempt: SubmitAttempt = submissions.shift() ?? {
       kind: 'response',
       ok: true,
       body: defaultSubmitBody,
@@ -249,6 +249,7 @@ describe('passport check handler', () => {
     const { context, detectUserInput } = makeContext({})
     await makePassportCheckHandler(handlerOptions)({}, context)
 
+    expect(detectUserInput).toHaveBeenCalledTimes(3)
     expect(detectUserInput.mock.calls[0]?.[1]).toBeUndefined()
     for (const submissionOptions of [
       detectUserInput.mock.calls[1]?.[1],

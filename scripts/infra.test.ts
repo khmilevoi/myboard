@@ -410,13 +410,13 @@ describe('rpi secret groups', () => {
 
   const groupsOf = (toml: string) => /^groups = \[(.*)\]$/m.exec(settingsOf(toml))?.[1]
 
-  it('uses the combined passport file in own bundles and only the group on branch', () => {
-    // Production and dev intentionally use the base file as their own bundle
-    // source. The branch stand clears it, so it reads the shared identity only
-    // from the `dev` group.
+  it('uses the combined passport file only in production and groups on non-production', () => {
+    // Production owns the base file. Dev and the branch stand clear that local
+    // source so the shared identity has exactly one owner: the `dev` group.
     expect(baseToml).toContain('packages/widgets/passport-checker/secrets/number')
     expect(baseToml).not.toContain('packages/widgets/passport-checker/secrets/series')
-    expect(settingsOf(devOverlay)).not.toContain('files =')
+    expect(devOverlay).toContain('files = []')
+    expect(settingsOf(devOverlay)).not.toContain('passport-checker/secrets')
     expect(branchOverlay).toContain('files = []')
     expect(settingsOf(branchOverlay)).not.toContain('passport-checker/secrets')
   })

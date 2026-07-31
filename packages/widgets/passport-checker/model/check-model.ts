@@ -1,4 +1,4 @@
-import { action, atom, computed, withChangeHook, wrap } from '@reatom/core'
+import { action, atom, computed, effect, withComputed, withConnectHook, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import * as errore from 'errore'
 import { WidgetApiError, withStorageKey } from 'widget-runtime'
@@ -273,7 +273,9 @@ export function makePassportCheckModel({
   const lastResult = atom<StoredCheckResult | null>(null, 'passportCheck.lastResult').extend(
     withStorageKey({ api: storage, key: PASSPORT_LAST_RESULT_KEY, schema: lastResultSchema }),
   )
-  const storageSnapshotKnown = atom(false, 'passportCheck.storageSnapshotKnown')
+  const storageSnapshotKnown = atom(false, 'passportCheck.storageSnapshotKnown').extend(
+    withComputed((known) => known || (!lastResult.isLoading() && lastResult.error() === null)),
+  )
   const optimisticResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.optimisticResult')
   const deferredResult = atom<ObservedCheckResult | null>(null, 'passportCheck.deferredResult')
   const transient = atom<TransientState>({ kind: 'idle' }, 'passportCheck.transient')
@@ -314,17 +316,6 @@ export function makePassportCheckModel({
     applyResult(observed)
   }, 'passportCheck.flushDeferredResult')
 
-  const observeStorageSnapshot = action(() => {
-    if (storageSnapshotKnown()) return
-    if (lastResult.isLoading()) return
-    if (lastResult.error() !== null) return
-    storageSnapshotKnown.set(true)
-    flushDeferredResult()
-  }, 'passportCheck.observeStorageSnapshot')
-
-  lastResult.isLoading.extend(withChangeHook(() => observeStorageSnapshot()))
-  lastResult.error.extend(withChangeHook(() => observeStorageSnapshot()))
-
   const viewState = computed((): ViewState => {
     // Read `lastResult` unconditionally, ahead of the transient branch. Behind
     // an `if` the dependency would disappear whenever a check is pending or an
@@ -352,7 +343,15 @@ export function makePassportCheckModel({
       internationalPassport:
         errors.internationalPassport ?? storedView(visible.internationalPassport, currentTime),
     }
-  }, 'passportCheck.viewState')
+  }, 'passportCheck.viewState').extend(
+    withConnectHook(() => {
+      effect(() => {
+        if (!storageSnapshotKnown()) return
+        if (deferredResult() === null) return
+        flushDeferredResult()
+      }, 'passportCheck.flushDeferredResultOnHydration')
+    }),
+  )
 
   const checkPassport = action(async () => {
     if (transient().kind === 'pending') return
