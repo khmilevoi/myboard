@@ -1,7 +1,7 @@
 import { context, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import { StorageError, WidgetApiError } from 'widget-runtime'
-import type { StorageApi } from 'widget-runtime'
+import type { StorageApi, StorageListener } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import type { PassportCheckerEvents, PassportCheckResult } from '../types'
@@ -422,6 +422,25 @@ async function seed(storage: StorageApi, value: unknown) {
   if (result instanceof Error) throw result
 }
 
+function delayStorageSubscription(base: StorageApi) {
+  const listeners = new Set<StorageListener>()
+  const subscribe: StorageApi['subscribe'] = (_key, listener) => {
+    const storageListener = listener as StorageListener
+    listeners.add(storageListener)
+    return () => listeners.delete(storageListener)
+  }
+
+  return {
+    storage: { ...base, subscribe } satisfies StorageApi,
+    emitValue(value: unknown) {
+      for (const listener of listeners) listener({ value })
+    },
+    emitError(error: StorageError) {
+      for (const listener of listeners) listener(error)
+    },
+  }
+}
+
 describe('lastResultSchema', () => {
   // Every other test in this file goes through createFakeStorage, which
   // explicitly skips schema validation (see its fakes), so on the real HTTP
@@ -684,6 +703,100 @@ describe('makePassportCheckModel persistence', () => {
     })
 
     expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('defers a partial write until delayed hydration can preserve the unknown sibling', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(ID_SUCCESS_PASSPORT_ERROR)
+    const base = createFakeStorage()
+    await seed(base, V2_STORED)
+    const controlled = delayStorageSubscription(base)
+    const observationTime = new Date('2026-07-24T13:07:00').getTime()
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage: controlled.storage,
+        now: () => new Date(observationTime),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const hydrate = wrap(() => controlled.emitValue(V2_STORED))
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      await run()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 202,
+          message: 'Новый ID результат',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.upstream_response,
+        },
+      })
+
+      hydrate()
+      await vi.waitFor(async () => {
+        expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+          version: 2,
+          idCard: {
+            status: 202,
+            message: 'Новый ID результат',
+            checkedAt: observationTime,
+          },
+          internationalPassport: V2_STORED.internationalPassport,
+        })
+      })
+      unsubscribe()
+    })
+  })
+
+  it('keeps a partial result optimistic after a storage read error without overwriting the unknown sibling', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(ID_SUCCESS_PASSPORT_ERROR)
+    const base = createFakeStorage()
+    await seed(base, V2_STORED)
+    const controlled = delayStorageSubscription(base)
+    const observationTime = new Date('2026-07-24T13:07:00').getTime()
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage: controlled.storage,
+        now: () => new Date(observationTime),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const failRead = wrap(() => controlled.emitError(new StorageError({ reason: 'read failed' })))
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      failRead()
+      await run()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 202,
+          message: 'Новый ID результат',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'retryable',
+          message: RETRYABLE_MESSAGES.upstream_response,
+        },
+      })
+      unsubscribe()
+    })
   })
 
   it('merges an ID success, preserves and masks the failed stored international passport', async () => {

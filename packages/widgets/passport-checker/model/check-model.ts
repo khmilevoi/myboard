@@ -1,4 +1,4 @@
-import { action, atom, computed, wrap } from '@reatom/core'
+import { action, atom, computed, withChangeHook, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import * as errore from 'errore'
 import { WidgetApiError, withStorageKey } from 'widget-runtime'
@@ -256,6 +256,11 @@ export type MakePassportCheckModelOptions = {
 
 export type PassportCheckModel = ReturnType<typeof makePassportCheckModel>
 
+type ObservedCheckResult = {
+  result: PassportCheckResult
+  checkedAt: number
+}
+
 export function makePassportCheckModel({
   api,
   storage,
@@ -268,6 +273,9 @@ export function makePassportCheckModel({
   const lastResult = atom<StoredCheckResult | null>(null, 'passportCheck.lastResult').extend(
     withStorageKey({ api: storage, key: PASSPORT_LAST_RESULT_KEY, schema: lastResultSchema }),
   )
+  const storageSnapshotKnown = atom(false, 'passportCheck.storageSnapshotKnown')
+  const optimisticResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.optimisticResult')
+  const deferredResult = atom<ObservedCheckResult | null>(null, 'passportCheck.deferredResult')
   const transient = atom<TransientState>({ kind: 'idle' }, 'passportCheck.transient')
   const recoveryOpen = atom(false, 'passportCheck.recoveryOpen')
 
@@ -277,6 +285,46 @@ export function makePassportCheckModel({
   // across awaits without the module-scope-wrap trap.
   let latestAttemptId = 0
 
+  const applyResult = action((observed: ObservedCheckResult) => {
+    const merged = mergeCheckResult({ stored: lastResult(), ...observed })
+    const isUnsafePartial =
+      merged.stored !== null && Object.keys(merged.errors).length > 0 && !storageSnapshotKnown()
+
+    if (isUnsafePartial) {
+      deferredResult.set(observed)
+      optimisticResult.set(merged.stored)
+      transient.set({ kind: 'documentErrors', errors: merged.errors })
+      return
+    }
+
+    deferredResult.set(null)
+    optimisticResult.set(null)
+    if (merged.stored) lastResult.set(merged.stored)
+    transient.set(
+      Object.keys(merged.errors).length === 0
+        ? { kind: 'idle' }
+        : { kind: 'documentErrors', errors: merged.errors },
+    )
+  }, 'passportCheck.applyResult')
+
+  const flushDeferredResult = action(() => {
+    if (!storageSnapshotKnown()) return
+    const observed = deferredResult()
+    if (observed === null) return
+    applyResult(observed)
+  }, 'passportCheck.flushDeferredResult')
+
+  const observeStorageSnapshot = action(() => {
+    if (storageSnapshotKnown()) return
+    if (lastResult.isLoading()) return
+    if (lastResult.error() !== null) return
+    storageSnapshotKnown.set(true)
+    flushDeferredResult()
+  }, 'passportCheck.observeStorageSnapshot')
+
+  lastResult.isLoading.extend(withChangeHook(() => observeStorageSnapshot()))
+  lastResult.error.extend(withChangeHook(() => observeStorageSnapshot()))
+
   const viewState = computed((): ViewState => {
     // Read `lastResult` unconditionally, ahead of the transient branch. Behind
     // an `if` the dependency would disappear whenever a check is pending or an
@@ -284,9 +332,15 @@ export function makePassportCheckModel({
     // subscription — every check would then re-subscribe (and, on the HTTP
     // backend, re-GET) on the way back to idle.
     const stored = normalizeStoredResult(lastResult())
+    const optimistic = optimisticResult()
+    const visible = {
+      version: 2 as const,
+      idCard: optimistic?.idCard ?? stored.idCard,
+      internationalPassport: optimistic?.internationalPassport ?? stored.internationalPassport,
+    }
     const current = transient()
     if (current.kind !== 'idle' && current.kind !== 'documentErrors') return current
-    if (current.kind === 'idle' && !stored.idCard && !stored.internationalPassport) {
+    if (current.kind === 'idle' && !visible.idCard && !visible.internationalPassport) {
       return { kind: 'idle' }
     }
 
@@ -294,14 +348,16 @@ export function makePassportCheckModel({
     const currentTime = now()
     return {
       kind: 'results',
-      idCard: errors.idCard ?? storedView(stored.idCard, currentTime),
+      idCard: errors.idCard ?? storedView(visible.idCard, currentTime),
       internationalPassport:
-        errors.internationalPassport ?? storedView(stored.internationalPassport, currentTime),
+        errors.internationalPassport ?? storedView(visible.internationalPassport, currentTime),
     }
   }, 'passportCheck.viewState')
 
   const checkPassport = action(async () => {
     if (transient().kind === 'pending') return
+    deferredResult.set(null)
+    optimisticResult.set(null)
     transient.set({ kind: 'pending' })
     // Stamp this attempt before any await; `succeedLate` below closes over
     // `attemptId` and only acts while it is still the latest one issued.
@@ -315,27 +371,15 @@ export function makePassportCheckModel({
     // Continuations after `await` run outside the calling frame; capture the
     // frame-bound writers now (repo wrap rules — never hoist them to module scope).
     const fail = wrap((next: TransientState) => transient.set(next))
-    const applyResult = (result: PassportCheckResult, checkedAt: number) => {
-      // Both sets land in one frame — Reatom notifies subscribers only after
-      // the synchronous block finishes — so no subscriber ever observes a gap
-      // between the persisted facts and their transient document overlays.
-      const merged = mergeCheckResult({ stored: lastResult(), result, checkedAt })
-      if (merged.stored) lastResult.set(merged.stored)
-      transient.set(
-        Object.keys(merged.errors).length === 0
-          ? { kind: 'idle' }
-          : { kind: 'documentErrors', errors: merged.errors },
-      )
-    }
-    const succeed = wrap(applyResult)
+    const succeed = wrap((observed: ObservedCheckResult) => applyResult(observed))
     // Mirrors `succeed`, but for a result that arrives after the deadline
     // already put the user into `retryable`. Guarded by attempt identity, not
     // by transient state, so a late answer from this superseded attempt can
     // never clobber a result a newer attempt already wrote — whether that
     // newer attempt is still pending or has already completed.
-    const succeedLate = wrap((result: PassportCheckResult, checkedAt: number) => {
+    const succeedLate = wrap((observed: ObservedCheckResult) => {
       if (attemptId !== latestAttemptId) return
-      applyResult(result, checkedAt)
+      applyResult(observed)
     })
 
     const result = await withDeadline(api.invoke('check', {}), deadlineMs, (value) => {
@@ -345,13 +389,13 @@ export function makePassportCheckModel({
       // whether to salvage it — so a superseded-but-accepted result never
       // gets stamped with a "just now" time it doesn't deserve.
       const checkedAt = now().getTime()
-      succeedLate(value, checkedAt)
+      succeedLate({ result: value, checkedAt })
     })
     if (result instanceof Error) {
       fail(mapCheckError(result))
       return
     }
-    succeed(result, now().getTime())
+    succeed({ result, checkedAt: now().getTime() })
   }, 'passportCheck.check')
 
   return { viewState, transient, lastResult, recoveryOpen, checkPassport }
