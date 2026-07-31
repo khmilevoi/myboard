@@ -4,6 +4,9 @@ import type { ReactNode } from 'react'
 import { cn, reatomMemo } from 'widget-sdk'
 import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
+// oxlint-disable-next-line no-restricted-imports -- ui/tiers is nested two levels below the package's model/; the brief specifies this view type.
+import type { DocumentView } from '../../model/check-model'
+import { getResultsActionLabel } from '../parts/StatusBanner'
 import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
@@ -13,6 +16,31 @@ export type TinyTierProps = {
   onDelete?: () => void
   onClose?: () => void
 }
+
+const TinyDocumentRow = reatomMemo<{ label: string; view: DocumentView }>(({ label, view }) => {
+  const outcome =
+    view.kind === 'success'
+      ? String(view.status)
+      : view.kind === 'retryable'
+        ? 'ошибка'
+        : 'не проверен'
+  const modifier =
+    view.kind === 'success'
+      ? styles.tinyResultSuccess
+      : view.kind === 'retryable'
+        ? styles.tinyResultError
+        : styles.tinyResultUnchecked
+
+  return (
+    <div
+      className={cn(styles.tinyResultRow, modifier)}
+      role={view.kind === 'retryable' ? 'alert' : 'status'}
+    >
+      <span className={styles.tinyResultLabel}>{label}</span>
+      <span className={styles.tinyResultOutcome}>{outcome}</span>
+    </div>
+  )
+}, 'PassportCheckerTinyDocumentRow')
 
 export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete, onClose }: TinyTierProps) => {
   const { checkModel } = usePassportChecker()
@@ -79,43 +107,36 @@ export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete, onClose }: TinyT
       )
       break
 
-    case 'success':
+    case 'results': {
+      const label = getResultsActionLabel(view)
+      const isInitialCheck = label === 'Проверить'
       body = (
         <>
-          <div className={styles.tinyBody}>
-            <span className={cn(styles.tinyBadge, styles.tinyBadgeSuccess)} aria-hidden>
-              <Check size={21} strokeWidth={2.6} />
-            </span>
-            <span className={cn(styles.tinyLabel, styles.tinyLabelSuccess)}>{view.message}</span>
-          </div>
-          {/* The tiny tile has no room for a second banner line, but a restored
-              result can be days old, so the timestamp rides along in the same
-              chip rather than being dropped (see StandardTier's bannerMeta,
-              which shows the same fact at full size).
-
-              The chip is also the action, rather than carrying one below it,
-              because this state would otherwise be a dead end: the widget
-              deliberately offers no expand affordance, so a card narrower than
-              the 321px `standard` threshold (client.ts) that restores a stored
-              result on mount would have no way left to re-check. Folding the
-              action into the row the state already draws costs no height, so it
-              still fits the smallest tile.
-
-              The accessible name repeats the visible text after the action so
-              the name contains the label a user can see, rather than replacing
-              it. */}
+          <span className={styles.tinyTitle}>Паспорт</span>
+          <ul className={styles.tinyResultsList} role="list">
+            <li>
+              <TinyDocumentRow label="ID" view={view.idCard} />
+            </li>
+            <li>
+              <TinyDocumentRow label="Загран" view={view.internationalPassport} />
+            </li>
+          </ul>
           <button
             type="button"
-            className={styles.tinyStatusChip}
-            aria-label={`Проверить снова · СТАТУС ${view.status} · ${view.checkedAtLabel}`}
+            className={isInitialCheck ? styles.tinyButton : styles.tinySecondaryButton}
             onClick={check}
           >
-            <RefreshCw size={12} aria-hidden />
-            СТАТУС {view.status} · {view.checkedAtLabel}
+            {isInitialCheck ? (
+              <Check size={13} strokeWidth={2.2} aria-hidden />
+            ) : (
+              <RefreshCw size={13} aria-hidden />
+            )}
+            {label}
           </button>
         </>
       )
       break
+    }
 
     case 'retryable':
       body = (

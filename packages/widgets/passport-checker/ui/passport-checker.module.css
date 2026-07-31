@@ -63,6 +63,13 @@
   gap: 10px;
 }
 
+.headerText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .iconChip {
   width: 30px;
   height: 30px;
@@ -84,11 +91,18 @@
   font-size: 15px;
 }
 
+.subtitle {
+  font-size: 11.5px;
+  line-height: 1.25;
+  color: var(--text-dim, #5b5e69);
+}
+
 /* The single flexible row between the header and the action: it soaks up the
    tile's spare height so the action always sits on the bottom edge. */
 .body {
   flex: 1;
   min-height: 0;
+  width: 100%;
   display: flex;
   align-items: center;
   margin-top: 12px;
@@ -193,6 +207,33 @@
   background: var(--secondary, #f5f6f8);
 }
 
+.resultsList,
+.tinyResultsList {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resultsList {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.tinyResultsList {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+
+.resultsList > li,
+.tinyResultsList > li {
+  min-width: 0;
+}
+
 .banner {
   display: flex;
   align-items: flex-start;
@@ -224,6 +265,13 @@
 .bannerTitle {
   font-weight: 600;
   font-size: 14px;
+}
+
+.bannerLabel {
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim, #5b5e69);
 }
 
 .bannerMeta {
@@ -283,6 +331,25 @@
 
 .bannerError .bannerHint {
   color: var(--pc-error-hint);
+}
+
+.bannerError .bannerMeta {
+  color: var(--pc-error-hint);
+}
+
+.bannerNeutral {
+  background: var(--secondary, #f5f6f8);
+  border-color: var(--border, #e3e4e8);
+}
+
+.bannerNeutral .bannerIcon,
+.bannerNeutral .bannerMeta,
+.tinyResultUnchecked {
+  color: var(--text-3, #9396a0);
+}
+
+.bannerNeutral .bannerTitle {
+  color: var(--text-dim, #5b5e69);
 }
 
 .bannerMuted {
@@ -358,6 +425,37 @@
 
 .tinyBodyPending {
   gap: 12px;
+}
+
+.tinyResultRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 7px;
+}
+
+.tinyResultLabel {
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.tinyResultOutcome {
+  flex: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.tinyResultSuccess {
+  color: var(--pc-success-text);
+}
+
+.tinyResultError {
+  color: var(--pc-error-text);
 }
 
 .tinyWarning {
@@ -449,39 +547,6 @@
 .tinyMonoError {
   font-size: 10.5px;
   color: var(--pc-error-hint);
-}
-
-/* A button that keeps the chip's look — see TinyTier's success case for why the
-   status row is also the action. 36px, not the design's 30px, so it lands on
-   the same baseline as every other tiny action row (.tinyButton /
-   .tinySecondaryButton) instead of being a shorter, harder-to-hit target. */
-.tinyStatusChip {
-  width: 100%;
-  height: 36px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  background: var(--pc-success-soft);
-  color: var(--pc-success-chip-fg);
-  cursor: pointer;
-}
-
-.tinyStatusChip:hover {
-  border-color: var(--pc-success-border);
-}
-
-.tinyStatusChip:focus-visible {
-  outline: 2px solid var(--ring, var(--primary, oklch(0.55 0.17 281)));
-  outline-offset: 2px;
 }
 
 .tinyButton {

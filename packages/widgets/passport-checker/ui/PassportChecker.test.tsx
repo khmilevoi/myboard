@@ -3,9 +3,23 @@ import { makeStaticWidgetIdentity, WidgetApiError, WidgetRuntimeContext } from '
 import type { WidgetRuntimeProps } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
+import type { PassportCheckResult } from '../types'
+import { getResultsActionLabel } from './parts/StatusBanner'
 import { PassportChecker } from './PassportChecker'
 
-type InvokeResult = WidgetApiError | { status: number; send_status_msg: string }
+type InvokeResult = WidgetApiError | PassportCheckResult
+
+const twoSuccesses = (
+  idMessage = 'ID готова',
+  internationalMessage = 'Загран готов',
+): PassportCheckResult => ({
+  idCard: { kind: 'success', status: 200, send_status_msg: idMessage },
+  internationalPassport: {
+    kind: 'success',
+    status: 201,
+    send_status_msg: internationalMessage,
+  },
+})
 
 /** Isolated in-memory storage. The real host runtime would issue HTTP requests
  *  to /api/storage from jsdom now that the widget reads shared storage. */
@@ -54,6 +68,37 @@ function apiError(code: string, meta?: Record<string, unknown>) {
   return new WidgetApiError({ reason: `${code}: message`, code, meta })
 }
 
+it.each([
+  [
+    {
+      idCard: { kind: 'success', status: 200, message: 'ID', checkedAtLabel: '13:07' },
+      internationalPassport: {
+        kind: 'success',
+        status: 201,
+        message: 'International',
+        checkedAtLabel: '13:07',
+      },
+    },
+    'Проверить снова',
+  ],
+  [
+    {
+      idCard: { kind: 'success', status: 200, message: 'ID', checkedAtLabel: '13:07' },
+      internationalPassport: { kind: 'unchecked' },
+    },
+    'Проверить',
+  ],
+  [
+    {
+      idCard: { kind: 'unchecked' },
+      internationalPassport: { kind: 'retryable', message: 'Ошибка' },
+    },
+    'Повторить',
+  ],
+] as const)('uses result action precedence for %o', (documents, label) => {
+  expect(getResultsActionLabel({ kind: 'results', ...documents })).toBe(label)
+})
+
 describe('PassportChecker / standard tier', () => {
   it('renders the idle state', () => {
     renderWidget('standard', vi.fn())
@@ -72,14 +117,91 @@ describe('PassportChecker / standard tier', () => {
     expect(screen.getByRole('button', { name: /Проверить/ })).toBeDisabled()
   })
 
-  it('renders success with status and local time', async () => {
-    renderWidget('standard', async () => ({ status: 200, send_status_msg: 'Документ готовий' }))
+  it('renders two labelled successes and their independent timestamps', async () => {
+    renderWidget('standard', async () => twoSuccesses())
 
-    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
-    expect(await screen.findByText('Документ готовий')).toBeInTheDocument()
-    expect(screen.getByText(/статус 200 · проверено \d{2}:\d{2}/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Проверить снова/ })).toBeInTheDocument()
+    expect(await screen.findByText('ID готова')).toBeInTheDocument()
+    expect(screen.getByText('Загран готов')).toBeInTheDocument()
+    expect(screen.getByText('ID-карта')).toBeInTheDocument()
+    expect(screen.getByText('Загранпаспорт')).toBeInTheDocument()
+    expect(screen.getAllByText(/статус 20[01] · проверено \d{2}:\d{2}/)).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Проверить снова' })).toBeEnabled()
+  })
+
+  it('keeps a successful sibling visible beside one document alert', async () => {
+    renderWidget('standard', async () => ({
+      idCard: { kind: 'success', status: 200, send_status_msg: 'ID готова' },
+      internationalPassport: { kind: 'error', code: 'upstream_response' },
+    }))
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID готова')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Загранпаспорт')
+    expect(screen.getByRole('alert')).toHaveTextContent('Сервис проверки временно недоступен')
+    expect(screen.getByRole('alert')).toHaveTextContent('техническая ошибка')
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
+  })
+
+  it('keeps an international-passport success visible beside the ID-card alert', async () => {
+    renderWidget('standard', async () => ({
+      idCard: { kind: 'error', code: 'invalid_checker_response' },
+      internationalPassport: {
+        kind: 'success',
+        status: 201,
+        send_status_msg: 'Загран готов',
+      },
+    }))
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('Загран готов')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('ID-карта')
+    expect(screen.getByRole('alert')).toHaveTextContent('Сервис проверки вернул неожиданный ответ')
+    expect(screen.getByRole('alert')).toHaveTextContent('техническая ошибка')
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
+  })
+
+  it('renders two independent document alerts when both checks fail', async () => {
+    renderWidget('standard', async () => ({
+      idCard: { kind: 'error', code: 'upstream_response' },
+      internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
+    }))
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts).toHaveLength(2)
+    expect(alerts[0]).toHaveTextContent('ID-карта')
+    expect(alerts[1]).toHaveTextContent('Загранпаспорт')
+    expect(alerts[0]).toHaveTextContent('Сервис проверки временно недоступен')
+    expect(alerts[1]).toHaveTextContent('Сервис проверки вернул неожиданный ответ')
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
+  })
+
+  it('renders a legacy ID-card success beside an unchecked international passport', async () => {
+    const storage = makeFakeStorage()
+    await storage.shared.server.set('lastResult', {
+      status: 200,
+      message: 'Сохранённая ID-карта',
+      checkedAt: Date.now(),
+    })
+    const invoke = vi.fn<() => Promise<InvokeResult>>()
+
+    render(
+      <WidgetRuntimeContext.Provider
+        value={makeProps('standard', invoke, 'inst-legacy-standard', storage)}
+      >
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    expect(await screen.findByText('Сохранённая ID-карта')).toBeInTheDocument()
+    expect(screen.getByText('ID-карта')).toBeInTheDocument()
+    expect(screen.getByText('Загранпаспорт')).toBeInTheDocument()
+    expect(screen.getByText('Запустите общую проверку.')).toBeInTheDocument()
+    expect(screen.getByText('ещё не проверен')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Проверить' })).toBeEnabled()
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('renders a retryable error with an alert role', async () => {
@@ -120,7 +242,7 @@ describe('PassportChecker / standard tier', () => {
     const invoke = vi
       .fn<() => Promise<InvokeResult>>()
       .mockResolvedValueOnce(apiError('upstream_response'))
-      .mockResolvedValueOnce({ status: 200, send_status_msg: 'Готово' })
+      .mockResolvedValueOnce(twoSuccesses('Готово', 'Загран готов'))
     renderWidget('standard', invoke)
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
@@ -215,13 +337,76 @@ describe('PassportChecker / tiny tier', () => {
     expect(screen.getByRole('button', { name: /Повторить/ })).toBeInTheDocument()
   })
 
-  it('renders the compact success state with a status chip and timestamp', async () => {
-    renderWidget('compact', async () => ({ status: 200, send_status_msg: 'Готово' }))
+  it('renders two compact success rows without full messages or timestamps', async () => {
+    renderWidget('compact', async () => twoSuccesses())
 
-    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
-    expect(await screen.findByText('Готово')).toBeInTheDocument()
-    expect(screen.getByText(/СТАТУС 200 · \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(await screen.findByText('ID')).toBeInTheDocument()
+    expect(screen.getByText('Загран')).toBeInTheDocument()
+    expect(screen.getByText('200')).toBeInTheDocument()
+    expect(screen.getByText('201')).toBeInTheDocument()
+    expect(screen.queryByText('ID готова')).toBeNull()
+    expect(screen.queryByText('Загран готов')).toBeNull()
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Проверить снова' })).toBeEnabled()
+  })
+
+  it('renders compact ID success and international-passport error rows', async () => {
+    renderWidget('compact', async () => ({
+      idCard: { kind: 'success', status: 200, send_status_msg: 'ID готова' },
+      internationalPassport: { kind: 'error', code: 'upstream_response' },
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID')).toBeInTheDocument()
+    expect(screen.getByText('Загран')).toBeInTheDocument()
+    expect(screen.getByText('200')).toBeInTheDocument()
+    expect(screen.getByText('ошибка')).toBeInTheDocument()
+    expect(screen.queryByText('ID готова')).toBeNull()
+    expect(screen.queryByText('Сервис проверки временно недоступен')).toBeNull()
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
+  })
+
+  it('renders compact ID error and international-passport success rows', async () => {
+    renderWidget('compact', async () => ({
+      idCard: { kind: 'error', code: 'invalid_checker_response' },
+      internationalPassport: {
+        kind: 'success',
+        status: 201,
+        send_status_msg: 'Загран готов',
+      },
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID')).toBeInTheDocument()
+    expect(screen.getByText('Загран')).toBeInTheDocument()
+    expect(screen.getByText('ошибка')).toBeInTheDocument()
+    expect(screen.getByText('201')).toBeInTheDocument()
+    expect(screen.queryByText('Загран готов')).toBeNull()
+    expect(screen.queryByText('Сервис проверки вернул неожиданный ответ')).toBeNull()
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
+  })
+
+  it('renders two compact error rows without full messages or timestamps', async () => {
+    renderWidget('compact', async () => ({
+      idCard: { kind: 'error', code: 'upstream_response' },
+      internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID')).toBeInTheDocument()
+    expect(screen.getByText('Загран')).toBeInTheDocument()
+    expect(screen.getAllByText('ошибка')).toHaveLength(2)
+    expect(screen.queryByText('Сервис проверки временно недоступен')).toBeNull()
+    expect(screen.queryByText('Сервис проверки вернул неожиданный ответ')).toBeNull()
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
   })
 
   // The tiny tile offers no expand affordance (PassportChecker takes only
@@ -231,27 +416,42 @@ describe('PassportChecker / tiny tier', () => {
   it('re-runs the check from the compact success state', async () => {
     const invoke = vi
       .fn<() => Promise<InvokeResult>>()
-      .mockResolvedValueOnce({ status: 200, send_status_msg: 'Готово' })
-      .mockResolvedValueOnce({ status: 404, send_status_msg: 'Дані не знайдено!' })
+      .mockResolvedValueOnce(twoSuccesses('Готово', 'Загран готов'))
+      .mockResolvedValueOnce({
+        idCard: { kind: 'success', status: 404, send_status_msg: 'Дані не знайдено!' },
+        internationalPassport: {
+          kind: 'success',
+          status: 205,
+          send_status_msg: 'Загран оновлено',
+        },
+      })
 
     renderWidget('compact', invoke)
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
     fireEvent.click(await screen.findByRole('button', { name: /Проверить снова/ }))
 
-    expect(await screen.findByText('Дані не знайдено!')).toBeInTheDocument()
-    expect(screen.getByText(/СТАТУС 404 · \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(await screen.findByText('404')).toBeInTheDocument()
+    expect(screen.getByText('205')).toBeInTheDocument()
+    expect(screen.queryByText('Дані не знайдено!')).toBeNull()
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
     expect(invoke).toHaveBeenCalledTimes(2)
   })
 
-  it('shows a dated timestamp for a restored result, not "just now"', async () => {
+  it('omits full messages and dated timestamps for restored compact results', async () => {
     const storage = makeFakeStorage()
-    // Fixed in the past, deliberately not "today": a restored result must read
-    // as stale in the tiny tile too, not only in the standard one.
     await storage.shared.server.set('lastResult', {
-      status: 200,
-      message: 'Готово',
-      checkedAt: new Date('2020-01-01T09:05:00').getTime(),
+      version: 2,
+      idCard: {
+        status: 200,
+        message: 'ID сохранена',
+        checkedAt: new Date('2020-01-01T09:05:00').getTime(),
+      },
+      internationalPassport: {
+        status: 201,
+        message: 'Загран сохранён',
+        checkedAt: new Date('2020-01-02T10:06:00').getTime(),
+      },
     })
     const invoke = vi.fn<() => Promise<InvokeResult>>()
 
@@ -263,8 +463,40 @@ describe('PassportChecker / tiny tier', () => {
       </WidgetRuntimeContext.Provider>,
     )
 
-    expect(await screen.findByText('Готово')).toBeInTheDocument()
-    expect(screen.getByText(/СТАТУС 200 · \d{2}\.\d{2} \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(await screen.findByText('ID')).toBeInTheDocument()
+    expect(screen.getByText('Загран')).toBeInTheDocument()
+    expect(screen.getByText('200')).toBeInTheDocument()
+    expect(screen.getByText('201')).toBeInTheDocument()
+    expect(screen.queryByText('ID сохранена')).toBeNull()
+    expect(screen.queryByText('Загран сохранён')).toBeNull()
+    expect(screen.queryByText(/\d{2}\.\d{2} \d{2}:\d{2}/)).toBeNull()
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('renders a legacy compact success and unchecked row with the shared initial action', async () => {
+    const storage = makeFakeStorage()
+    await storage.shared.server.set('lastResult', {
+      status: 200,
+      message: 'Сохранённая ID-карта',
+      checkedAt: new Date('2020-01-01T09:05:00').getTime(),
+    })
+    const invoke = vi.fn<() => Promise<InvokeResult>>()
+
+    render(
+      <WidgetRuntimeContext.Provider
+        value={makeProps('compact', invoke, 'inst-legacy-tiny', storage)}
+      >
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    expect(await screen.findByText('ID')).toBeInTheDocument()
+    expect(screen.getByText('Загран')).toBeInTheDocument()
+    expect(screen.getByText('200')).toBeInTheDocument()
+    expect(screen.getByText('не проверен')).toBeInTheDocument()
+    expect(screen.queryByText('Сохранённая ID-карта')).toBeNull()
+    expect(screen.queryByText(/\d{2}\.\d{2} \d{2}:\d{2}/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Проверить' })).toBeEnabled()
     expect(invoke).not.toHaveBeenCalled()
   })
 
@@ -312,7 +544,7 @@ describe('PassportChecker / shared instance state', () => {
   }
 
   it('shares one model graph between the tile and fullscreen mounts', async () => {
-    const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
+    const invoke = vi.fn(async () => twoSuccesses('Готово', 'Загран готов'))
     renderPair(['standard', 'fullscreen'], invoke)
 
     fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
@@ -330,7 +562,7 @@ describe('PassportChecker / shared instance state', () => {
   // one of them checks — that is covered by the cross-placement test below,
   // which reuses one storage across two instance ids to isolate that axis.
   it('gives separate storages separate state', async () => {
-    const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
+    const invoke = vi.fn(async () => twoSuccesses('Готово', 'Загран готов'))
     renderPair(['standard', 'standard'], invoke, ['inst-one', 'inst-two'])
 
     fireEvent.click(screen.getAllByRole('button', { name: /Проверить/ })[0])
@@ -355,9 +587,13 @@ describe('PassportChecker / shared instance state', () => {
   it('renders a stored result on mount, without checking', async () => {
     const storage = makeFakeStorage()
     await storage.shared.server.set('lastResult', {
-      status: 200,
-      message: 'Документ готовий',
-      checkedAt: Date.now(),
+      version: 2,
+      idCard: { status: 200, message: 'Документ готовий', checkedAt: Date.now() },
+      internationalPassport: {
+        status: 201,
+        message: 'Загран готов',
+        checkedAt: Date.now(),
+      },
     })
     const invoke = vi.fn<() => Promise<InvokeResult>>()
 
@@ -371,13 +607,14 @@ describe('PassportChecker / shared instance state', () => {
 
     expect(await screen.findByText('Документ готовий')).toBeInTheDocument()
     expect(screen.getByText(/статус 200 · проверено \d{2}:\d{2}/)).toBeInTheDocument()
+    expect(screen.getByText('Загран готов')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Проверить снова/ })).toBeInTheDocument()
     expect(invoke).not.toHaveBeenCalled()
   })
 
   it('shows a check from one placement in another placement', async () => {
     const storage = makeFakeStorage()
-    const invoke = vi.fn(async () => ({ status: 200, send_status_msg: 'Готово' }))
+    const invoke = vi.fn(async () => twoSuccesses('Готово', 'Загран готов'))
 
     render(
       <>
