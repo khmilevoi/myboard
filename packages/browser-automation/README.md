@@ -49,13 +49,13 @@ A declared group that is missing or empty fails the deploy naming the group.
 (`<- key` for the environment's own bundle, `<- dev` for the group), which is
 also how you confirm the files are no longer duplicated per environment.
 
-Compose (`docker-compose.yml`) declares `passport_series`/`passport_number` as
-file-backed **runtime secrets** sourced from those same paths, mounted only
-into `browser-automation` as `/run/secrets/passport-checker_series` and
-`/run/secrets/passport-checker_number`. They never appear in the container
+Compose (`docker-compose.yml`) declares `passport_number` as a file-backed
+**runtime secret**. Its value combines the two-letter Ukrainian series and six
+digits, and it is mounted only into `browser-automation` as
+`/run/secrets/passport-checker_number`. It never appears in the container
 environment, image layers, or logs — and being outside the Docker build
-context (`.dockerignore` excludes the whole `secrets/` directory), they never
-appear in an image layer even transiently during build.
+context (`.dockerignore` excludes the whole `secrets/` directory), it never
+appears in an image layer even transiently during build.
 
 ## Browser recovery: embedded panel and SSH fallback
 

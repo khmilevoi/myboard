@@ -16,6 +16,7 @@ import { InvalidCheckerResponseError, UpstreamResponseError } from './errors'
 const run = process.env.BROWSER_IT === '1'
 const fakeSeries = 'АБ'
 const fakeNumber = '123456'
+const fakePassportNumber = `${fakeSeries}${fakeNumber}`
 
 type FixtureMode =
   | 'success'
@@ -28,8 +29,8 @@ type FixtureMode =
 
 function fixtureSecrets(): WidgetSecrets {
   return {
-    read: (key) => (key === 'series' ? fakeSeries : key === 'number' ? fakeNumber : undefined),
-    has: (key) => key === 'series' || key === 'number',
+    read: (key) => (key === 'number' ? fakePassportNumber : undefined),
+    has: (key) => key === 'number',
   }
 }
 
