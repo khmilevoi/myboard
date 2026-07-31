@@ -11,7 +11,6 @@ import { chromium, type BrowserContext } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { makePassportCheckerBrowser } from '../browser'
-import { InvalidCheckerResponseError, UpstreamResponseError } from './errors'
 
 const run = process.env.BROWSER_IT === '1'
 const fakeSeries = 'АБ'
@@ -21,11 +20,13 @@ const fakePassportNumber = `${fakeSeries}${fakeNumber}`
 type FixtureMode =
   | 'success'
   | 'navigation-challenge'
-  | 'post-challenge'
+  | 'first-post-challenge'
+  | 'second-post-challenge'
   | 'recovery-navigation-failure'
-  | 'upstream-error'
-  | 'invalid-json'
-  | 'invalid-schema'
+  | 'first-upstream-error'
+  | 'second-invalid-json'
+  | 'first-invalid-schema'
+  | 'first-identity-echo'
 
 function fixtureSecrets(): WidgetSecrets {
   return {
@@ -49,8 +50,8 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
   let checkerUrl = ''
   let profileDir = ''
   let mode: FixtureMode = 'success'
-  let receivedForm: FormData | null = null
-  let receivedContentType = ''
+  let receivedForms: FormData[] = []
+  let receivedContentTypes: string[] = []
   const requests: Array<{ method: string; url: string }> = []
 
   beforeAll(async () => {
@@ -67,20 +68,21 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
         // The post-challenge recovery navigation: kill the connection instead
         // of responding, so the browser's goto() rejects at the network level
         // (mirrors a real dropped connection during recovery).
-        if (mode === 'recovery-navigation-failure' && receivedForm !== null) {
+        if (mode === 'recovery-navigation-failure' && receivedForms.length > 0) {
           request.socket.destroy()
           return
         }
         const challenged =
           mode === 'navigation-challenge' ||
-          ((mode === 'post-challenge' || mode === 'recovery-navigation-failure') &&
-            receivedForm !== null)
+          (mode === 'first-post-challenge' && receivedForms.length >= 1) ||
+          (mode === 'second-post-challenge' && receivedForms.length >= 2)
         return handleGet(response, challenged)
       }
       if (request.method === 'POST') {
-        receivedContentType = request.headers['content-type'] ?? ''
-        receivedForm = await readForm(request)
-        return handlePost(response, mode)
+        receivedContentTypes.push(request.headers['content-type'] ?? '')
+        const form = await readForm(request)
+        receivedForms.push(form)
+        return handlePost(response, mode, receivedForms.length)
       }
       response.writeHead(405).end()
     })
@@ -92,8 +94,8 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
 
   beforeEach(() => {
     mode = 'success'
-    receivedForm = null
-    receivedContentType = ''
+    receivedForms = []
+    receivedContentTypes = []
     requests.length = 0
   })
 
@@ -128,20 +130,39 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     return { browserRequests, evaluateSpy, page, result, retain }
   }
 
-  it('submits exact browser-generated multipart fields and returns validated data', async () => {
+  it('submits both exact browser-generated multipart forms in order', async () => {
     const { browserRequests, result } = await runCheck()
 
-    expect(result).toEqual({ status: 1, send_status_msg: 'fixture ok' })
-    expect(receivedContentType).toMatch(/^multipart\/form-data; boundary=/)
-    expect(receivedForm).not.toBeNull()
-    expect(Object.fromEntries(receivedForm!.entries())).toEqual({
-      service: '1',
-      doc_1_select: '1',
-      doc_1_series: fakeSeries,
-      doc_1_number6: fakeNumber,
+    expect(result).toEqual({
+      idCard: { kind: 'success', status: 1, send_status_msg: 'ID fixture ok' },
+      internationalPassport: {
+        kind: 'success',
+        status: 2,
+        send_status_msg: 'International fixture ok',
+      },
     })
+    expect(receivedContentTypes).toHaveLength(2)
+    expect(receivedContentTypes.every((value) => /^multipart\/form-data; boundary=/.test(value))).toBe(
+      true,
+    )
+    expect(receivedForms.map((form) => Object.fromEntries(form.entries()))).toEqual([
+      {
+        service: '1',
+        doc_1_select: '1',
+        doc_1_series: fakeSeries,
+        doc_1_number6: fakeNumber,
+      },
+      {
+        service: '2',
+        doc_age: '0',
+        doc_2_select: '1',
+        doc_1_series: fakeSeries,
+        doc_1_number6: fakeNumber,
+      },
+    ])
     expect(requests).toEqual([
       { method: 'GET', url: '/solutions/checker' },
+      { method: 'POST', url: '/solutions/checker' },
       { method: 'POST', url: '/solutions/checker' },
     ])
     expect(browserRequests.every((url) => !url.includes('pasport.org.ua'))).toBe(true)
@@ -158,8 +179,8 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     await page.close()
   })
 
-  it('maps a POST challenge and prepares recovery without repeating POST', async () => {
-    mode = 'post-challenge'
+  it('maps a first POST challenge and prepares recovery without repeating POST', async () => {
+    mode = 'first-post-challenge'
     const { page, result, retain } = await runCheck()
 
     expect(result).toBeInstanceOf(UserInputRequiredError)
@@ -173,18 +194,73 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     await page.close()
   })
 
-  it.each([
-    ['upstream-error', UpstreamResponseError],
-    ['invalid-json', InvalidCheckerResponseError],
-    ['invalid-schema', InvalidCheckerResponseError],
-  ] as const)(
-    'maps %s to a typed error whose serialized result omits identity',
-    async (fixtureMode, ErrorType) => {
+  it('maps a second POST challenge, discards the first outcome, and prepares recovery', async () => {
+    mode = 'second-post-challenge'
+    const { page, result, retain } = await runCheck()
+
+    expect(result).toBeInstanceOf(UserInputRequiredError)
+    expect(retain).toHaveBeenCalledOnce()
+    expect(requests).toEqual([
+      { method: 'GET', url: '/solutions/checker' },
+      { method: 'POST', url: '/solutions/checker' },
+      { method: 'POST', url: '/solutions/checker' },
+      { method: 'GET', url: '/solutions/checker' },
+    ])
+    expect(await page.title()).toContain('Just a moment')
+    await page.close()
+  })
+
+  it('continues after the first upstream error and returns the second document result', async () => {
+    mode = 'first-upstream-error'
+
+    const { result } = await runCheck()
+
+    expect(result).toEqual({
+      idCard: { kind: 'error', code: 'upstream_response' },
+      internationalPassport: {
+        kind: 'success',
+        status: 2,
+        send_status_msg: 'International fixture ok',
+      },
+    })
+    expect(requests).toEqual([
+      { method: 'GET', url: '/solutions/checker' },
+      { method: 'POST', url: '/solutions/checker' },
+      { method: 'POST', url: '/solutions/checker' },
+    ])
+  })
+
+  it('preserves the first document result when the second response has invalid JSON', async () => {
+    mode = 'second-invalid-json'
+
+    const { result } = await runCheck()
+
+    expect(result).toEqual({
+      idCard: { kind: 'success', status: 1, send_status_msg: 'ID fixture ok' },
+      internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
+    })
+  })
+
+  it.each(['first-invalid-schema', 'first-identity-echo'] as const)(
+    'maps %s to a redacted invalid response and continues to the second POST',
+    async (fixtureMode) => {
       mode = fixtureMode
 
       const { result } = await runCheck()
 
-      expect(result).toBeInstanceOf(ErrorType)
+      expect(result).toEqual({
+        idCard: { kind: 'error', code: 'invalid_checker_response' },
+        internationalPassport: {
+          kind: 'success',
+          status: 2,
+          send_status_msg: 'International fixture ok',
+        },
+      })
+      expect(requests).toEqual([
+        { method: 'GET', url: '/solutions/checker' },
+        { method: 'POST', url: '/solutions/checker' },
+        { method: 'POST', url: '/solutions/checker' },
+      ])
       expect(JSON.stringify(result)).not.toContain(fakeSeries)
       expect(JSON.stringify(result)).not.toContain(fakeNumber)
     },
@@ -202,10 +278,8 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
     expect(JSON.stringify(warn.mock.calls)).not.toContain(fakeSeries)
     expect(JSON.stringify(warn.mock.calls)).not.toContain(fakeNumber)
     // page.evaluate is the transport for both the navigation-evidence probe
-    // and the multipart POST; a connection-reset retry by Chromium repeats
-    // the raw GET at the socket level (untracked here), but it never routes
-    // back through evaluate, so this count staying at 2 is what proves the
-    // POST itself was not repeated.
+    // and the multipart POST. Recovery preparation must only navigate the
+    // retained page; it must not submit either document again.
     expect(evaluateSpy).toHaveBeenCalledTimes(2)
     expect(requests.filter((request) => request.method === 'POST')).toEqual([
       { method: 'POST', url: '/solutions/checker' },
@@ -231,19 +305,31 @@ function handleGet(response: ServerResponse, challenged: boolean) {
   response.end('<!doctype html><title>Checker fixture</title><main>ready</main>')
 }
 
-function handlePost(response: ServerResponse, mode: FixtureMode) {
-  if (mode === 'post-challenge' || mode === 'recovery-navigation-failure') {
-    return challenge(response)
+function handlePost(response: ServerResponse, mode: FixtureMode, postNumber: number) {
+  if (mode === 'first-post-challenge' && postNumber === 1) return challenge(response)
+  if (mode === 'second-post-challenge' && postNumber === 2) return challenge(response)
+  if (mode === 'recovery-navigation-failure' && postNumber === 1) return challenge(response)
+  if (mode === 'first-upstream-error' && postNumber === 1) {
+    return response.writeHead(502).end('unavailable')
   }
-  if (mode === 'upstream-error') return response.writeHead(502).end('unavailable')
-  if (mode === 'invalid-json') {
+  if (mode === 'second-invalid-json' && postNumber === 2) {
     return response.writeHead(200, { 'content-type': 'application/json' }).end('{broken')
   }
-  if (mode === 'invalid-schema') {
+  if (mode === 'first-invalid-schema' && postNumber === 1) {
     return response
       .writeHead(200, { 'content-type': 'application/json' })
       .end(JSON.stringify({ status: 'wrong', send_status_msg: 'bad' }))
   }
+  if (mode === 'first-identity-echo' && postNumber === 1) {
+    return response
+      .writeHead(200, { 'content-type': 'application/json' })
+      .end(JSON.stringify({ status: 1, send_status_msg: `echo ${fakeSeries}${fakeNumber}` }))
+  }
+
+  const data =
+    postNumber === 1
+      ? { status: 1, send_status_msg: 'ID fixture ok', ignored: true }
+      : { status: 2, send_status_msg: 'International fixture ok', ignored: true }
   response.writeHead(200, { 'content-type': 'application/json' })
-  response.end(JSON.stringify({ status: 1, send_status_msg: 'fixture ok', ignored: true }))
+  response.end(JSON.stringify(data))
 }
