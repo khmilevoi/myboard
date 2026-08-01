@@ -5,7 +5,11 @@ import type { ChallengeEvidence } from 'browser-automation/user-input/cloudflare
 import type { Page, Response } from 'playwright'
 import { describe, expect, it, vi } from 'vitest'
 
-import { makePassportCheckHandler, readPassportIdentity } from './check'
+import {
+  makeLegacyPassportCheckHandler,
+  makePassportCheckHandler,
+  readPassportIdentity,
+} from './check'
 import { BrowserConfigurationError, UpstreamResponseError } from './errors'
 
 function secrets(series: string | undefined, number: string | undefined): WidgetSecrets {
@@ -127,6 +131,27 @@ const handlerOptions = {
 }
 
 describe('passport check handler', () => {
+  it('keeps the legacy handler to one ID-card submission and legacy result shape', async () => {
+    const { context, evaluate, goto } = makeContext({
+      submissions: [
+        {
+          kind: 'response',
+          body: { kind: 'json', data: { status: 1, send_status_msg: 'ID ok' } },
+        },
+      ],
+    })
+
+    const result = await makeLegacyPassportCheckHandler(handlerOptions)({}, context)
+
+    expect(result).toEqual({ status: 1, send_status_msg: 'ID ok' })
+    expect(goto).toHaveBeenCalledTimes(1)
+    expect(evaluate).toHaveBeenCalledTimes(1)
+    expect(evaluate.mock.calls[0]?.[1]).toEqual({
+      identity: { series: 'АБ', number: '123456' },
+      fields: { service: '1', doc_1_select: '1' },
+    })
+  })
+
   it('navigates once and submits ID card before international passport', async () => {
     const { context, evaluate, goto } = makeContext({
       submissions: [

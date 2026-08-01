@@ -15,7 +15,11 @@ import {
   type PassportDocumentResult,
   type PassportServiceResponse,
 } from '../types'
-import { BrowserConfigurationError, UpstreamResponseError } from './errors'
+import {
+  BrowserConfigurationError,
+  InvalidCheckerResponseError,
+  UpstreamResponseError,
+} from './errors'
 
 const passportNumberRegExp =
   /^(?<series>[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ]{2})(?<number>[0-9]{6})$/
@@ -158,10 +162,10 @@ async function checkDocument({
   identity: PassportIdentity
   request: PassportRequestDefinition
   checkerUrl: string
-}): Promise<Error | PassportDocumentResult> {
+}): Promise<Error | PassportServiceResponse> {
   const outcome = await submitPassport({ context, identity, request })
-  if (outcome instanceof Error) return { kind: 'error', code: 'upstream_response' }
-  if (outcome.kind === 'network_error') return { kind: 'error', code: 'upstream_response' }
+  if (outcome instanceof Error) return outcome
+  if (outcome.kind === 'network_error') return new UpstreamResponseError({ phase: 'submission' })
 
   // The POST went through fetch, so the page still shows the ordinary checker
   // form and a human in the noVNC stream would have nothing to solve. The
@@ -173,39 +177,73 @@ async function checkDocument({
     { prepare: (page) => page.goto(checkerUrl, { waitUntil: 'domcontentloaded' }) },
   )
   if (escalation instanceof Error) return escalation
-  if (!outcome.ok) return { kind: 'error', code: 'upstream_response' }
-  if (outcome.body.kind === 'invalid_json') {
-    return { kind: 'error', code: 'invalid_checker_response' }
+  if (!outcome.ok) {
+    return new UpstreamResponseError({
+      phase: 'submission',
+      status: outcome.evidence.status ?? undefined,
+    })
   }
+  if (outcome.body.kind === 'invalid_json') return new InvalidCheckerResponseError()
 
   const parsed = passportServiceResponseSchema.safeParse(outcome.body.data)
-  if (!parsed.success) return { kind: 'error', code: 'invalid_checker_response' }
-  if (containsIdentity(parsed.data, identity)) {
-    return { kind: 'error', code: 'invalid_checker_response' }
+  if (!parsed.success) return new InvalidCheckerResponseError()
+  if (containsIdentity(parsed.data, identity)) return new InvalidCheckerResponseError()
+  return parsed.data
+}
+
+async function preparePassportCheck(
+  context: BrowserTaskContext,
+  options: PassportCheckHandlerOptions,
+) {
+  const identity = readPassportIdentity(context.secrets)
+  if (identity instanceof Error) return identity
+
+  const navigation = await context.page
+    .goto(options.checkerUrl, { waitUntil: 'domcontentloaded' })
+    .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
+  if (navigation instanceof Error) return navigation
+
+  const navigationEscalation = await context.detectUserInput(makeCloudflarePageDetector(navigation))
+  if (navigationEscalation instanceof Error) return navigationEscalation
+
+  if (navigation && !navigation.ok()) {
+    return new UpstreamResponseError({ phase: 'navigation', status: navigation.status() })
   }
-  return { kind: 'success', ...parsed.data }
+  return identity
+}
+
+async function checkDocumentV2(options: Parameters<typeof checkDocument>[0]) {
+  const result = await checkDocument(options)
+  if (result instanceof UpstreamResponseError) {
+    return { kind: 'error', code: 'upstream_response' } as const
+  }
+  if (result instanceof InvalidCheckerResponseError) {
+    return { kind: 'error', code: 'invalid_checker_response' } as const
+  }
+  if (result instanceof Error) return result
+  return { kind: 'success', ...result } as const satisfies PassportDocumentResult
+}
+
+export function makeLegacyPassportCheckHandler(options: PassportCheckHandlerOptions) {
+  return async (_payload: PassportCheckPayload, context: BrowserTaskContext) => {
+    const identity = await preparePassportCheck(context, options)
+    if (identity instanceof Error) return identity
+
+    return checkDocument({
+      context,
+      identity,
+      request: PASSPORT_REQUESTS.idCard,
+      checkerUrl: options.checkerUrl,
+    })
+  }
 }
 
 export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
   return async (_payload: PassportCheckPayload, context: BrowserTaskContext) => {
-    const identity = readPassportIdentity(context.secrets)
+    const identity = await preparePassportCheck(context, options)
     if (identity instanceof Error) return identity
 
-    const navigation = await context.page
-      .goto(options.checkerUrl, { waitUntil: 'domcontentloaded' })
-      .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
-    if (navigation instanceof Error) return navigation
-
-    const navigationEscalation = await context.detectUserInput(
-      makeCloudflarePageDetector(navigation),
-    )
-    if (navigationEscalation instanceof Error) return navigationEscalation
-
-    if (navigation && !navigation.ok()) {
-      return new UpstreamResponseError({ phase: 'navigation', status: navigation.status() })
-    }
-
-    const idCard = await checkDocument({
+    const idCard = await checkDocumentV2({
       context,
       identity,
       request: PASSPORT_REQUESTS.idCard,
@@ -213,7 +251,7 @@ export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
     })
     if (idCard instanceof Error) return idCard
 
-    const internationalPassport = await checkDocument({
+    const internationalPassport = await checkDocumentV2({
       context,
       identity,
       request: PASSPORT_REQUESTS.internationalPassport,

@@ -440,7 +440,7 @@ describe('PassportChecker / tiny tier', () => {
 
   it('omits full messages and dated timestamps for restored compact results', async () => {
     const storage = makeFakeStorage()
-    await storage.shared.server.set('lastResult', {
+    await storage.shared.server.set('lastResultV2', {
       version: 2,
       idCard: {
         status: 200,
@@ -586,7 +586,7 @@ describe('PassportChecker / shared instance state', () => {
 
   it('renders a stored result on mount, without checking', async () => {
     const storage = makeFakeStorage()
-    await storage.shared.server.set('lastResult', {
+    await storage.shared.server.set('lastResultV2', {
       version: 2,
       idCard: { status: 200, message: 'Документ готовий', checkedAt: Date.now() },
       internationalPassport: {

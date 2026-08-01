@@ -18,10 +18,27 @@ describe('passport checker browser contracts', () => {
     )
     expect(passportCheckerBrowserTasks.check.id).toBe('check')
     expectTypeOf(passportCheckerBrowserTasks.check.id).toEqualTypeOf<'check'>()
+    expect(passportCheckerBrowserTasks.checkV2.id).toBe('checkV2')
+    expectTypeOf(passportCheckerBrowserTasks.checkV2.id).toEqualTypeOf<'checkV2'>()
   })
 
-  it('requires both document branches and strips successes to safe service fields', () => {
-    const result = passportCheckerBrowserSchemas.check.result.safeParse({
+  it('keeps the legacy check result contract intact', () => {
+    expect(
+      passportCheckerBrowserSchemas.check.result.safeParse({
+        status: 1,
+        send_status_msg: 'ID ok',
+        ignored: true,
+      }).data,
+    ).toEqual({ status: 1, send_status_msg: 'ID ok' })
+    expect(
+      passportCheckerBrowserSchemas.check.result.safeParse({
+        idCard: { kind: 'success', status: 1, send_status_msg: 'ID ok' },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('requires both checkV2 document branches and strips successes to safe service fields', () => {
+    const result = passportCheckerBrowserSchemas.checkV2.result.safeParse({
       idCard: {
         kind: 'success',
         status: 1,
@@ -46,7 +63,7 @@ describe('passport checker browser contracts', () => {
       },
     })
     expect(
-      passportCheckerBrowserSchemas.check.result.safeParse({
+      passportCheckerBrowserSchemas.checkV2.result.safeParse({
         idCard: { kind: 'success', status: 1, send_status_msg: 'ID ok' },
       }).success,
     ).toBe(false)
@@ -54,13 +71,13 @@ describe('passport checker browser contracts', () => {
 
   it('accepts only the two public document error codes', () => {
     expect(
-      passportCheckerBrowserSchemas.check.result.safeParse({
+      passportCheckerBrowserSchemas.checkV2.result.safeParse({
         idCard: { kind: 'error', code: 'upstream_response' },
         internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
       }).success,
     ).toBe(true)
     expect(
-      passportCheckerBrowserSchemas.check.result.safeParse({
+      passportCheckerBrowserSchemas.checkV2.result.safeParse({
         idCard: { kind: 'error', code: 'browser_configuration' },
         internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
       }).success,

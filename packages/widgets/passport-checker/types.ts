@@ -30,6 +30,10 @@ export const passportCheckResultSchema = z.object({
 export const passportCheckerBrowserSchemas = {
   check: {
     payload: passportCheckPayloadSchema,
+    result: passportServiceResponseSchema,
+  },
+  checkV2: {
+    payload: passportCheckPayloadSchema,
     result: passportCheckResultSchema,
   },
 } as const

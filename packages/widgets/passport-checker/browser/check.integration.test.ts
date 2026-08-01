@@ -125,7 +125,7 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
       secrets: fixtureSecrets(),
       detectUserInput: makeDetectUserInput({ page, recoverySshTarget: null, retain }),
     }
-    const result = await definition.handlers.check({}, context)
+    const result = await definition.handlers.checkV2({}, context)
     if (!retain.mock.calls.length) await page.close()
     return { browserRequests, evaluateSpy, page, result, retain }
   }
@@ -142,9 +142,9 @@ describe.skipIf(!run)('passport checker (real browser fixture)', () => {
       },
     })
     expect(receivedContentTypes).toHaveLength(2)
-    expect(receivedContentTypes.every((value) => /^multipart\/form-data; boundary=/.test(value))).toBe(
-      true,
-    )
+    expect(
+      receivedContentTypes.every((value) => value.startsWith('multipart/form-data; boundary=')),
+    ).toBe(true)
     expect(receivedForms.map((form) => Object.fromEntries(form.entries()))).toEqual([
       {
         service: '1',

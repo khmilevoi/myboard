@@ -1,11 +1,18 @@
 import { action, atom, computed, effect, withComputed, withConnectHook, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import * as errore from 'errore'
-import { WidgetApiError, withStorageKey } from 'widget-runtime'
+import { WidgetApiError, withStorageKey, withStorageKeyReadonly } from 'widget-runtime'
 import type { StorageApi } from 'widget-runtime'
 import { z } from 'zod'
 
-import type { PassportCheckerEvents, PassportCheckResult, PassportDocumentError } from '../types'
+import {
+  passportCheckResultSchema,
+  passportServiceResponseSchema,
+  type PassportCheckerEvents,
+  type PassportCheckResult,
+  type PassportDocumentError,
+  type PassportServiceResponse,
+} from '../types'
 
 // This deadline exists only to stop the UI from waiting forever if the
 // server itself never answers — the server's own timeout is the real
@@ -65,11 +72,11 @@ export type TransientState =
   | GlobalTransientState
   | { kind: 'documentErrors'; errors: DocumentErrorOverlay }
 
-export const PASSPORT_LAST_RESULT_KEY = 'lastResult'
+export const PASSPORT_LEGACY_LAST_RESULT_KEY = 'lastResult'
+export const PASSPORT_LAST_RESULT_V2_KEY = 'lastResultV2'
 
-// The schema is a persistence contract, same as the key. The union keeps the
-// legacy ID-only value readable while the v2 document fields stay optional;
-// hydration normalizes in memory and never writes a migration value back.
+// Each schema belongs to its own persistence key. The legacy ID-only value is
+// read as a fallback, while aggregate writes use only the versioned schema.
 export const storedDocumentResultSchema = z.object({
   status: z.number().int(),
   message: z.string(),
@@ -84,12 +91,10 @@ export const storedCheckResultV2Schema = z.object({
   internationalPassport: storedDocumentResultSchema.optional(),
 })
 
-export const lastResultSchema = z.union([legacyStoredResultSchema, storedCheckResultV2Schema])
-
 export type LegacyStoredResult = z.output<typeof legacyStoredResultSchema>
 export type StoredDocumentResult = z.output<typeof storedDocumentResultSchema>
 export type StoredCheckResultV2 = z.output<typeof storedCheckResultV2Schema>
-export type StoredCheckResult = z.output<typeof lastResultSchema>
+export type StoredCheckResult = LegacyStoredResult | StoredCheckResultV2
 
 export function normalizeStoredResult(stored: StoredCheckResult | null): StoredCheckResultV2 {
   if (stored === null) return { version: 2 }
@@ -154,6 +159,29 @@ export function mergeCheckResult({
       ...(internationalPassport ? { internationalPassport } : {}),
     },
     errors,
+  }
+}
+
+function mergeLegacyCheckResult({
+  stored,
+  result,
+  checkedAt,
+}: {
+  stored: StoredCheckResult | null
+  result: PassportServiceResponse
+  checkedAt: number
+}): { stored: StoredCheckResultV2; errors: DocumentErrorOverlay } {
+  const current = normalizeStoredResult(stored)
+  return {
+    stored: {
+      ...current,
+      idCard: {
+        status: result.status,
+        message: result.send_status_msg,
+        checkedAt,
+      },
+    },
+    errors: {},
   }
 }
 
@@ -273,9 +301,40 @@ export type MakePassportCheckModelOptions = {
 
 export type PassportCheckModel = ReturnType<typeof makePassportCheckModel>
 
+type CompatibleCheckResult =
+  | { kind: 'v2'; value: PassportCheckResult }
+  | { kind: 'legacy'; value: PassportServiceResponse }
+
 type ObservedCheckResult = {
-  result: PassportCheckResult
+  result: CompatibleCheckResult
   checkedAt: number
+}
+
+const UNSUPPORTED_V2_CODES = new Set(['unknown_event', 'unknown_task'])
+
+function invalidRpcResult(event: 'check' | 'checkV2', cause: unknown) {
+  return new WidgetApiError({
+    reason: `${event} response is invalid`,
+    code: 'invalid_response',
+    cause,
+  })
+}
+
+async function invokeCompatibleCheck(api: WidgetApi<PassportCheckerEvents, WidgetApiError>) {
+  const v2Result = await api.invoke('checkV2', {})
+  if (v2Result instanceof WidgetApiError) {
+    if (!UNSUPPORTED_V2_CODES.has(v2Result.code)) return v2Result
+
+    const legacyResult = await api.invoke('check', {})
+    if (legacyResult instanceof WidgetApiError) return legacyResult
+    const parsedLegacy = passportServiceResponseSchema.safeParse(legacyResult)
+    if (!parsedLegacy.success) return invalidRpcResult('check', parsedLegacy.error)
+    return { kind: 'legacy', value: parsedLegacy.data } as const
+  }
+
+  const parsedV2 = passportCheckResultSchema.safeParse(v2Result)
+  if (!parsedV2.success) return invalidRpcResult('checkV2', parsedV2.error)
+  return { kind: 'v2', value: parsedV2.data } as const
 }
 
 export function makePassportCheckModel({
@@ -284,14 +343,38 @@ export function makePassportCheckModel({
   deadlineMs = CHECK_DEADLINE_MS,
   now = () => new Date(),
 }: MakePassportCheckModelOptions) {
-  // Persisted across reloads, placements and devices: the passport status is a
-  // fact about the world, not a property of one tile. withStorageKey owns both
-  // directions — it subscribes on connect and writes back on local change.
-  const lastResult = atom<StoredCheckResult | null>(null, 'passportCheck.lastResult').extend(
-    withStorageKey({ api: storage, key: PASSPORT_LAST_RESULT_KEY, schema: lastResultSchema }),
+  // Aggregate state has its own key so a still-open legacy PWA can only touch
+  // the legacy ID-card value. The old key is subscribed read-only as a
+  // validated fallback and is never written by this model.
+  const lastResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.lastResultV2').extend(
+    withStorageKey({
+      api: storage,
+      key: PASSPORT_LAST_RESULT_V2_KEY,
+      schema: storedCheckResultV2Schema,
+    }),
   )
-  const storageSnapshotKnown = atom(false, 'passportCheck.storageSnapshotKnown').extend(
+  const legacyLastResult = atom<LegacyStoredResult | null>(
+    null,
+    'passportCheck.legacyLastResult',
+  ).extend(
+    withStorageKeyReadonly({
+      api: storage,
+      key: PASSPORT_LEGACY_LAST_RESULT_KEY,
+      schema: legacyStoredResultSchema,
+      fallback: null,
+    }),
+  )
+  const v2StorageSnapshotKnown = atom(false, 'passportCheck.v2StorageSnapshotKnown').extend(
     withComputed((known) => known || (!lastResult.isLoading() && lastResult.error() === null)),
+  )
+  const legacyStorageSnapshotKnown = atom(false, 'passportCheck.legacyStorageSnapshotKnown').extend(
+    withComputed(
+      (known) => known || (!legacyLastResult.isLoading() && legacyLastResult.error() === null),
+    ),
+  )
+  const storageSnapshotKnown = computed(
+    () => v2StorageSnapshotKnown() && (lastResult() !== null || legacyStorageSnapshotKnown()),
+    'passportCheck.storageSnapshotKnown',
   )
   const optimisticResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.optimisticResult')
   // Before the first storage snapshot, partial attempts cannot safely write:
@@ -311,15 +394,25 @@ export function makePassportCheckModel({
   const applyResult = action((observed: ObservedCheckResult) => {
     const deferred = deferredResult()
     const snapshotKnown = storageSnapshotKnown()
-    const stored = snapshotKnown ? lastResult() : (deferred ?? lastResult())
-    const merged = mergeCheckResult({ stored, ...observed })
+    const persisted = lastResult() ?? legacyLastResult()
+    const stored = snapshotKnown ? persisted : (deferred ?? persisted)
+    const merged =
+      observed.result.kind === 'v2'
+        ? mergeCheckResult({ stored, result: observed.result.value, checkedAt: observed.checkedAt })
+        : mergeLegacyCheckResult({
+            stored,
+            result: observed.result.value,
+            checkedAt: observed.checkedAt,
+          })
     const hasCompleteCoverage = Boolean(
       merged.stored?.idCard && merged.stored.internationalPassport,
     )
     const shouldDefer =
       !snapshotKnown &&
       !hasCompleteCoverage &&
-      (deferred !== null || (merged.stored !== null && Object.keys(merged.errors).length > 0))
+      (observed.result.kind === 'legacy' ||
+        deferred !== null ||
+        (merged.stored !== null && Object.keys(merged.errors).length > 0))
 
     if (shouldDefer) {
       if (merged.stored !== null) {
@@ -363,7 +456,7 @@ export function makePassportCheckModel({
     if (deferred === null) return
     deferredResult.set(null)
     optimisticResult.set(null)
-    lastResult.set(mergeDeferredResult({ stored: lastResult(), deferred }))
+    lastResult.set(mergeDeferredResult({ stored: lastResult() ?? legacyLastResult(), deferred }))
   }, 'passportCheck.flushDeferredResult')
 
   const viewState = computed((): ViewState => {
@@ -372,7 +465,9 @@ export function makePassportCheckModel({
     // error is showing, disconnecting the atom and tearing down its storage
     // subscription — every check would then re-subscribe (and, on the HTTP
     // backend, re-GET) on the way back to idle.
-    const stored = normalizeStoredResult(lastResult())
+    const v2Stored = lastResult()
+    const legacyStored = legacyLastResult()
+    const stored = normalizeStoredResult(v2Stored ?? legacyStored)
     const optimistic = optimisticResult()
     const visible = {
       version: 2 as const,
@@ -429,7 +524,7 @@ export function makePassportCheckModel({
       applyResult(observed)
     })
 
-    const result = await withDeadline(api.invoke('check', {}), deadlineMs, (value) => {
+    const result = await withDeadline(invokeCompatibleCheck(api), deadlineMs, (value) => {
       if (value instanceof Error) return
       // checkedAt is captured here, at the moment the invoke actually
       // settles (the observation), not later when `succeedLate` decides
@@ -445,5 +540,5 @@ export function makePassportCheckModel({
     succeed({ result, checkedAt: now().getTime() })
   }, 'passportCheck.check')
 
-  return { viewState, transient, lastResult, recoveryOpen, checkPassport }
+  return { viewState, transient, lastResult, legacyLastResult, recoveryOpen, checkPassport }
 }

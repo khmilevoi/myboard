@@ -1,6 +1,7 @@
 import { context, wrap } from '@reatom/core'
+import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 import type { WidgetApi } from '@shared/widgets/contracts'
-import { StorageError, WidgetApiError } from 'widget-runtime'
+import { makeHostRuntime, StorageError, WidgetApiError } from 'widget-runtime'
 import type { StorageApi, StorageListener } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
@@ -9,13 +10,15 @@ import {
   CHECK_DEADLINE_MS,
   GENERIC_RETRYABLE_MESSAGE,
   formatCheckedAt,
-  lastResultSchema,
+  legacyStoredResultSchema,
   mergeCheckResult,
   makePassportCheckModel,
   mapCheckError,
   normalizeStoredResult,
-  PASSPORT_LAST_RESULT_KEY,
+  PASSPORT_LAST_RESULT_V2_KEY,
+  PASSPORT_LEGACY_LAST_RESULT_KEY,
   RETRYABLE_MESSAGES,
+  storedCheckResultV2Schema,
 } from './check-model'
 
 type CheckResult = PassportCheckResult
@@ -78,10 +81,7 @@ const TWO_ERRORS: PassportCheckResult = {
 }
 
 function makeApi() {
-  const invoke =
-    vi.fn<
-      (event: 'check', payload: Record<string, never>) => Promise<WidgetApiError | CheckResult>
-    >()
+  const invoke = vi.fn<(event: string, payload: Record<string, never>) => Promise<unknown>>()
   const api = { invoke } as unknown as WidgetApi<PassportCheckerEvents, WidgetApiError>
   return { api, invoke }
 }
@@ -189,6 +189,109 @@ describe('formatCheckedAt', () => {
 })
 
 describe('makePassportCheckModel', () => {
+  it.each([
+    ['unknown_event', 404],
+    ['unknown_task', 502],
+  ])(
+    'falls back through the legacy check on unsupported checkV2 code %s and finishes with an honest partial v2 result',
+    async (unsupportedCode, status) => {
+      const { http, calls } = makeScriptedHttp({
+        '/api/widgets/passport-checker/checkV2': [
+          {
+            status,
+            body: { error: { code: unsupportedCode, message: 'Unsupported v2 boundary' } },
+          },
+        ],
+        '/api/widgets/passport-checker/check': [
+          {
+            status: 200,
+            body: { data: { status: 206, send_status_msg: 'Legacy ID ready' } },
+          },
+        ],
+      })
+      const api = makeHostRuntime({ http }).makeWidgetApi<PassportCheckerEvents>({
+        typeId: 'passport-checker',
+        instanceId: 'placement-1',
+      })
+      const storage = createFakeStorage()
+
+      await context.start(async () => {
+        const model = makePassportCheckModel({
+          api,
+          storage,
+          now: () => new Date('2026-07-24T13:07:00'),
+        })
+        const read = wrap(() => model.viewState())
+        const run = wrap(() => model.checkPassport())
+        const unsubscribe = model.viewState.subscribe(() => {})
+
+        await expect(run()).resolves.toBeUndefined()
+
+        expect(calls.map(({ url }) => url)).toEqual([
+          '/api/widgets/passport-checker/checkV2',
+          '/api/widgets/passport-checker/check',
+        ])
+        expect(read()).toEqual({
+          kind: 'results',
+          idCard: {
+            kind: 'success',
+            status: 206,
+            message: 'Legacy ID ready',
+            checkedAtLabel: '13:07',
+          },
+          internationalPassport: { kind: 'unchecked' },
+        })
+        unsubscribe()
+      })
+
+      await vi.waitFor(async () => {
+        expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual({
+          version: 2,
+          idCard: {
+            status: 206,
+            message: 'Legacy ID ready',
+            checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+          },
+        })
+      })
+      expect(await storage.get(PASSPORT_LEGACY_LAST_RESULT_KEY)).toBeNull()
+    },
+  )
+
+  it('turns a malformed checkV2 response into retryable state instead of throwing or staying pending', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/widgets/passport-checker/checkV2': [
+        {
+          status: 200,
+          body: {
+            data: {
+              idCard: null,
+              internationalPassport: { kind: 'success', status: 'wrong', send_status_msg: 42 },
+            },
+          },
+        },
+      ],
+    })
+    const api = makeHostRuntime({ http }).makeWidgetApi<PassportCheckerEvents>({
+      typeId: 'passport-checker',
+      instanceId: 'placement-1',
+    })
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({ api, storage: createFakeStorage() })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+
+      await expect(run()).resolves.toBeUndefined()
+      expect(calls).toHaveLength(1)
+      expect(calls[0]).toMatchObject({
+        method: 'POST',
+        url: '/api/widgets/passport-checker/checkV2',
+      })
+      expect(read()).toEqual({ kind: 'retryable', message: GENERIC_RETRYABLE_MESSAGE })
+    })
+  })
+
   it('goes idle -> pending -> results with local HH:MM stamps', async () => {
     const { api, invoke } = makeApi()
     let resolveInvoke: (value: WidgetApiError | CheckResult) => void = () => {}
@@ -426,39 +529,45 @@ describe('makePassportCheckModel', () => {
   })
 })
 
-async function seed(storage: StorageApi, value: unknown) {
-  const result = await storage.set(PASSPORT_LAST_RESULT_KEY, value)
+async function seed(storage: StorageApi, value: unknown, key = PASSPORT_LAST_RESULT_V2_KEY) {
+  const result = await storage.set(key, value)
   if (result instanceof Error) throw result
 }
 
 function delayStorageSubscription(base: StorageApi) {
-  const listeners = new Set<StorageListener>()
-  const subscribe: StorageApi['subscribe'] = (_key, listener) => {
+  const listeners = new Map<string, Set<StorageListener>>()
+  const subscribe: StorageApi['subscribe'] = (key, listener) => {
     const storageListener = listener as StorageListener
-    listeners.add(storageListener)
-    return () => listeners.delete(storageListener)
+    const keyListeners = listeners.get(key) ?? new Set<StorageListener>()
+    keyListeners.add(storageListener)
+    listeners.set(key, keyListeners)
+    return () => keyListeners.delete(storageListener)
   }
 
   return {
     storage: { ...base, subscribe } satisfies StorageApi,
-    emitValue(value: unknown) {
-      for (const listener of listeners) listener({ value })
+    emitValue(key: string, value: unknown) {
+      for (const listener of listeners.get(key) ?? []) listener({ value })
     },
-    emitError(error: StorageError) {
-      for (const listener of listeners) listener(error)
+    emitError(key: string, error: StorageError) {
+      for (const listener of listeners.get(key) ?? []) listener(error)
     },
   }
 }
 
-describe('lastResultSchema', () => {
+describe('versioned storage schemas', () => {
   // Every other test in this file goes through createFakeStorage, which
   // explicitly skips schema validation (see its fakes), so on the real HTTP
   // backend this schema is a production-only path. This is the one place it
   // actually runs over both persisted generations.
-  it('accepts legacy and partial or complete v2 stored values', () => {
-    expect(lastResultSchema.safeParse(LEGACY_STORED).success).toBe(true)
-    expect(lastResultSchema.safeParse(V2_STORED).success).toBe(true)
-    expect(lastResultSchema.safeParse({ version: 2, idCard: V2_STORED.idCard }).success).toBe(true)
+  it('keeps legacy and v2 values in separate validated contracts', () => {
+    expect(legacyStoredResultSchema.safeParse(LEGACY_STORED).success).toBe(true)
+    expect(legacyStoredResultSchema.safeParse(V2_STORED).success).toBe(false)
+    expect(storedCheckResultV2Schema.safeParse(V2_STORED).success).toBe(true)
+    expect(
+      storedCheckResultV2Schema.safeParse({ version: 2, idCard: V2_STORED.idCard }).success,
+    ).toBe(true)
+    expect(storedCheckResultV2Schema.safeParse(LEGACY_STORED).success).toBe(false)
   })
 
   it('normalizes a legacy result to an in-memory v2 ID-card result', () => {
@@ -556,17 +665,98 @@ describe('mergeCheckResult', () => {
   })
 })
 
-describe('PASSPORT_LAST_RESULT_KEY', () => {
+describe('passport result storage keys', () => {
   // Every test in this file reaches storage through the constant, never the
   // literal, so a silent rename here would keep the suite green while
   // orphaning every deployed user's stored result under the old key (see
   // CLAUDE.md's storage-keys-are-a-persistence-contract warning).
   it('is the literal storage key', () => {
-    expect(PASSPORT_LAST_RESULT_KEY).toBe('lastResult')
+    expect(PASSPORT_LEGACY_LAST_RESULT_KEY).toBe('lastResult')
+    expect(PASSPORT_LAST_RESULT_V2_KEY).toBe('lastResultV2')
   })
 })
 
 describe('makePassportCheckModel persistence', () => {
+  it('isolates a new aggregate write from the legacy lastResult key', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(TWO_SUCCESSES)
+    const storage = createFakeStorage()
+    await storage.set(PASSPORT_LEGACY_LAST_RESULT_KEY, LEGACY_STORED)
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T13:07:00'),
+      })
+      const run = wrap(() => model.checkPassport())
+      await run()
+    })
+
+    await vi.waitFor(async () => {
+      expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual({
+        version: 2,
+        idCard: {
+          status: 200,
+          message: 'ID готова',
+          checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+        },
+        internationalPassport: {
+          status: 201,
+          message: 'Загран готов',
+          checkedAt: new Date('2026-07-24T13:07:00').getTime(),
+        },
+      })
+    })
+    expect(await storage.get(PASSPORT_LEGACY_LAST_RESULT_KEY)).toEqual(LEGACY_STORED)
+  })
+
+  it('keeps v2 authoritative when a stale old client overwrites lastResult', async () => {
+    const { api, invoke } = makeApi()
+    const storage = createFakeStorage()
+    const staleLegacyWrite = {
+      status: 503,
+      message: 'Старый таб перезаписал ID',
+      checkedAt: new Date('2026-07-24T14:30:00').getTime(),
+    }
+    await seed(storage, V2_STORED)
+    await seed(storage, LEGACY_STORED, PASSPORT_LEGACY_LAST_RESULT_KEY)
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage,
+        now: () => new Date('2026-07-24T21:40:00'),
+      })
+      const read = wrap(() => model.viewState())
+      const unsubscribe = model.viewState.subscribe(() => {})
+      const expected = {
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 200,
+          message: 'ID сохранена',
+          checkedAtLabel: '13:07',
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 201,
+          message: 'Загран сохранён',
+          checkedAtLabel: '23.07 09:05',
+        },
+      }
+
+      await vi.waitFor(() => expect(read()).toEqual(expected))
+      await storage.set(PASSPORT_LEGACY_LAST_RESULT_KEY, staleLegacyWrite)
+      await vi.waitFor(() => expect(read()).toEqual(expected))
+      unsubscribe()
+    })
+
+    expect(invoke).not.toHaveBeenCalled()
+    expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual(V2_STORED)
+    expect(await storage.get(PASSPORT_LEGACY_LAST_RESULT_KEY)).toEqual(staleLegacyWrite)
+  })
+
   it('writes two successful documents to the shared key', async () => {
     const { api, invoke } = makeApi()
     invoke.mockResolvedValueOnce(TWO_SUCCESSES)
@@ -585,7 +775,7 @@ describe('makePassportCheckModel persistence', () => {
     // The change hook that performs the write is flushed on a microtask, so the
     // value is not in the fake the instant `checkPassport` resolves.
     await vi.waitFor(async () => {
-      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+      expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual({
         version: 2,
         idCard: {
           status: 200,
@@ -605,7 +795,7 @@ describe('makePassportCheckModel persistence', () => {
     const { api, invoke } = makeApi()
     const storage = createFakeStorage()
     const setSpy = vi.spyOn(storage, 'set')
-    await seed(storage, LEGACY_STORED)
+    await seed(storage, LEGACY_STORED, PASSPORT_LEGACY_LAST_RESULT_KEY)
     setSpy.mockClear()
 
     await context.start(async () => {
@@ -730,13 +920,13 @@ describe('makePassportCheckModel persistence', () => {
       })
       const read = wrap(() => model.viewState())
       const run = wrap(() => model.checkPassport())
-      const hydrate = wrap(() => controlled.emitValue(V2_STORED))
+      const hydrate = wrap(() => controlled.emitValue(PASSPORT_LAST_RESULT_V2_KEY, V2_STORED))
       const unsubscribe = model.viewState.subscribe(() => {})
 
       await run()
       await new Promise((resolve) => setTimeout(resolve, 0))
 
-      expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
+      expect(await base.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual(V2_STORED)
       expect(read()).toEqual({
         kind: 'results',
         idCard: {
@@ -753,7 +943,7 @@ describe('makePassportCheckModel persistence', () => {
 
       hydrate()
       await vi.waitFor(async () => {
-        expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+        expect(await base.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual({
           version: 2,
           idCard: {
             status: 202,
@@ -787,7 +977,7 @@ describe('makePassportCheckModel persistence', () => {
       const read = wrap(() => model.viewState())
       const readStored = wrap(() => model.lastResult())
       const run = wrap(() => model.checkPassport())
-      const hydrate = wrap(() => controlled.emitValue(V2_STORED))
+      const hydrate = wrap(() => controlled.emitValue(PASSPORT_LAST_RESULT_V2_KEY, V2_STORED))
       const unsubscribe = model.viewState.subscribe(() => {})
 
       // Both attempts complete before the first storage snapshot. They are not
@@ -828,7 +1018,7 @@ describe('makePassportCheckModel persistence', () => {
         }
 
         expect(readStored()).toEqual(expectedStored)
-        expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(expectedStored)
+        expect(await base.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual(expectedStored)
       })
       unsubscribe()
     })
@@ -850,14 +1040,19 @@ describe('makePassportCheckModel persistence', () => {
       })
       const read = wrap(() => model.viewState())
       const run = wrap(() => model.checkPassport())
-      const failRead = wrap(() => controlled.emitError(new StorageError({ reason: 'read failed' })))
+      const failRead = wrap(() =>
+        controlled.emitError(
+          PASSPORT_LAST_RESULT_V2_KEY,
+          new StorageError({ reason: 'read failed' }),
+        ),
+      )
       const unsubscribe = model.viewState.subscribe(() => {})
 
       failRead()
       await run()
       await new Promise((resolve) => setTimeout(resolve, 0))
 
-      expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
+      expect(await base.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual(V2_STORED)
       expect(read()).toEqual({
         kind: 'results',
         idCard: {
@@ -896,7 +1091,12 @@ describe('makePassportCheckModel persistence', () => {
       })
       const read = wrap(() => model.viewState())
       const run = wrap(() => model.checkPassport())
-      const failRead = wrap(() => controlled.emitError(new StorageError({ reason: 'read failed' })))
+      const failRead = wrap(() =>
+        controlled.emitError(
+          PASSPORT_LAST_RESULT_V2_KEY,
+          new StorageError({ reason: 'read failed' }),
+        ),
+      )
       const unsubscribe = model.viewState.subscribe(() => {})
 
       failRead()
@@ -930,8 +1130,8 @@ describe('makePassportCheckModel persistence', () => {
         },
       })
       await vi.waitFor(async () => {
-        expect(set).toHaveBeenCalledWith(PASSPORT_LAST_RESULT_KEY, expected)
-        expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(expected)
+        expect(set).toHaveBeenCalledWith(PASSPORT_LAST_RESULT_V2_KEY, expected)
+        expect(await base.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual(expected)
       })
       unsubscribe()
     })
@@ -974,7 +1174,7 @@ describe('makePassportCheckModel persistence', () => {
     })
 
     await vi.waitFor(async () => {
-      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+      expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual({
         version: 2,
         idCard: {
           status: 202,
@@ -1023,7 +1223,7 @@ describe('makePassportCheckModel persistence', () => {
     })
 
     await vi.waitFor(async () => {
-      expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual({
+      expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual({
         version: 2,
         idCard: V2_STORED.idCard,
         internationalPassport: {
@@ -1067,7 +1267,7 @@ describe('makePassportCheckModel persistence', () => {
     })
 
     expect(setSpy).not.toHaveBeenCalled()
-    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
+    expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual(V2_STORED)
   })
 
   it('clears a document error after that document succeeds on a later aggregate', async () => {
@@ -1127,12 +1327,12 @@ describe('makePassportCheckModel persistence', () => {
 
       await run()
       await vi.waitFor(async () => {
-        expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toMatchObject({
+        expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toMatchObject({
           internationalPassport: { status: 203 },
         })
       })
 
-      await storage.set(PASSPORT_LAST_RESULT_KEY, {
+      await storage.set(PASSPORT_LAST_RESULT_V2_KEY, {
         version: 2,
         idCard: {
           status: 299,
@@ -1201,7 +1401,7 @@ describe('makePassportCheckModel persistence', () => {
       unsubscribe()
     })
 
-    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toBeNull()
+    expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toBeNull()
   })
 
   it('stays idle without an RPC when the storage subscription reports a read failure', async () => {
@@ -1252,6 +1452,6 @@ describe('makePassportCheckModel persistence', () => {
       unsubscribe()
     })
 
-    expect(await storage.get(PASSPORT_LAST_RESULT_KEY)).toEqual(V2_STORED)
+    expect(await storage.get(PASSPORT_LAST_RESULT_V2_KEY)).toEqual(V2_STORED)
   })
 })
