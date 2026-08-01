@@ -29,9 +29,10 @@ The widget currently performs one browser POST with `service=1`, returns one
 `{ status, send_status_msg }` result, and persists it at the type-scoped shared-server storage key
 `lastResult`. The model exposes one success/error state, and both UI tiers render one result.
 
-This change keeps the existing widget RPC event (`check`), browser task, recovery flow, storage
-key, widget identity, width breakpoints, and server-side passport secret. It changes the result
-contract and the state rendered behind that one action. The user later approved three delivery
+The legacy widget RPC event/browser task (`check`) and `lastResult` key remain intact for old PWAs.
+The dual-document client uses the additive `checkV2` boundary and V2-only document storage keys, so
+old clients cannot parse or overwrite new-client values. The recovery flow, widget identity, width
+breakpoints, and server-side passport secret stay unchanged. The user later approved three delivery
 exceptions required to keep the result contract truthful in production: height-aware tier floors,
 passport `minW: 4` / `minH: 4` desktop floors with content-idempotent migration of older or
 partially migrated layouts, and explicit empty dev own secret files so the `dev` group owns the
@@ -43,7 +44,7 @@ non-production combined identity.
 - make the browser-task and widget-RPC result describe both documents independently;
 - continue to the second POST after a safe technical failure of the first;
 - preserve task-level Cloudflare/recovery/configuration failures;
-- migrate `lastResult` in place without losing legacy ID-card results;
+- keep `lastResult` as a read-only legacy fallback and persist V2 results by document;
 - render two document rows in standard and tiny tiers using the existing myboard theme;
 - cover the new contract, ordering, partial-result, migration, persistence, and UI behavior.
 
@@ -68,8 +69,8 @@ One browser task performs one navigation followed by two sequential POSTs:
 
 ```text
 widget check action
-  -> widget RPC check
-  -> browser task check
+  -> widget RPC checkV2 (with one structural fallback to legacy check)
+  -> browser task checkV2
       -> read and validate the existing number secret
       -> navigate to /solutions/checker once
       -> detect a navigation challenge
@@ -80,7 +81,7 @@ widget check action
       -> detect a challenge in that response
       -> convert a safe technical outcome to a document result
       -> return { idCard, internationalPassport }
-  -> merge successful document results into lastResult v2
+  -> persist each successful document to its independent V2 key
   -> overlay current document errors in memory
   -> render both rows
 ```
@@ -145,8 +146,11 @@ const passportCheckResultSchema = z.object({
 })
 ```
 
-The event name and payload stay `check` and `{}`. Keeping both branches required makes an omitted
-request a contract failure instead of silently rendering stale or incomplete data.
+The aggregate travels over additive event/task `checkV2` with payload `{}`. The legacy `check`
+event/task retains its original ID-only response for mixed-version rollout. Keeping both V2
+branches required makes an omitted request a contract failure instead of silently rendering stale
+or incomplete data. A new client falls back to legacy `check` only for structural
+`unknown_event`/`unknown_task` responses and treats that response as an ID-card fact only.
 
 ## Browser flow
 
@@ -204,8 +208,8 @@ continues to map them through the existing `PublicWidgetError` path.
 
 ## Server behavior
 
-`server.ts` keeps one `check` handler and invokes the same browser task once. A validated aggregate
-result passes through unchanged. The existing mappings for `browser_session_required`,
+`server.ts` keeps the legacy `check` handler and adds `checkV2`, which invokes the dual browser task
+once. A validated aggregate result passes through unchanged. The existing mappings for `browser_session_required`,
 `browser_configuration`, `user_input_probe`, `browser_unavailable`, `automation_timeout`, and
 `automation_protocol` remain global widget errors.
 
@@ -216,8 +220,18 @@ schema-validated data in the aggregate result.
 
 ### Storage key
 
-The key remains `lastResult` in `storage.shared.server`. Changing it would orphan the existing
-cross-placement and cross-device result, so this design migrates only the value schema.
+Legacy `lastResult` remains untouched in `storage.shared.server`. New clients subscribe to it
+read-only as an ID-card fallback; old clients continue to read and write exactly that legacy shape.
+
+V2 successes use two type-scoped shared-server relative keys:
+
+- `lastResultV2:idCard`
+- `lastResultV2:internationalPassport`
+
+There is no writable full-aggregate `lastResultV2` key. Old PWAs know none of the V2 keys, so they
+cannot parse or overwrite V2 state. Separating the document keys also moves the concurrency
+guarantee to the persistence boundary: complementary writes from clients that hydrated the same
+stale snapshot touch different records and cannot replace each other.
 
 ### Schemas
 
@@ -231,7 +245,7 @@ type LegacyStoredResult = {
 }
 ```
 
-The new shape stores successful documents independently:
+Each V2 key stores one successful document value directly:
 
 ```ts
 type StoredDocumentResult = {
@@ -239,35 +253,32 @@ type StoredDocumentResult = {
   message: string
   checkedAt: number
 }
-
-type StoredCheckResultV2 = {
-  version: 2
-  idCard?: StoredDocumentResult
-  internationalPassport?: StoredDocumentResult
-}
 ```
 
-`lastResultSchema` is a union of the legacy object and the version-2 object. The v2 schema requires
-`version: 2` and allows either document field to be absent so a partial first successful run is
-valid.
+Both V2 subscriptions validate `StoredDocumentResult`. V2 identity comes from the relative key,
+not from a version wrapper inside the value. The aggregate exists only in model/view state after
+the two branches are combined.
 
 ### Normalization and writes
 
-The model normalizes a legacy value in memory as
-`{ version: 2, idCard: legacyValue }`. Hydration does not write this normalized object back; merely
-viewing an old result must not create storage traffic or change the persistence contract.
+Initial hydration combines the two V2 subscriptions. The legacy value may fill only the ID-card
+branch, and only after the ID-card V2 snapshot validly reports that its key is absent. A V2 ID-card
+value is authoritative over legacy regardless of subscription order or later stale-tab writes.
+Hydration never writes the legacy fallback into a V2 key.
 
 After an invocation returns:
 
-1. normalize the currently stored value;
-2. replace each successful document field with its new result;
-3. preserve the stored field for each document that failed;
-4. write a v2 value only if at least one document succeeded;
-5. leave storage untouched if both documents failed.
+1. convert each successful branch to `StoredDocumentResult` with its observation timestamp;
+2. write ID-card success only to `lastResultV2:idCard`;
+3. write international-passport success only to `lastResultV2:internationalPassport`;
+4. do not write or delete a branch whose current result is a document-local error;
+5. leave both V2 keys untouched if both documents failed.
 
-Before the first storage snapshot, accepted partial successes accumulate in memory and merge over
-that snapshot. Only the latest document-error overlay remains transient, so retry feedback still
-describes the current failed document without discarding an earlier complementary success.
+Before a branch's first storage snapshot, an accepted success is both sent to its independent key
+and retained optimistically. If a delayed initial snapshot arrives with an older value, the model
+reapplies the accepted branch before clearing the optimistic guard. A read error likewise cannot
+block a successful branch write. Only the latest document-error overlay remains transient, so retry
+feedback still describes the current failed document without deleting an earlier success.
 
 Each document owns its own `checkedAt`. All successes delivered by one aggregate response may
 receive the same client-observation timestamp; separate fields matter because a later partial run
@@ -413,16 +424,19 @@ logged error.
 
 - legacy `lastResult` hydrates as ID-card success plus unchecked international passport without an
   RPC call or migration write;
-- v2 with either or both document fields hydrates correctly;
-- two successes replace both stored fields;
-- one success plus one error updates only the successful field and overlays the failed field;
+- either or both independent V2 document keys hydrate correctly in either order;
+- legacy fallback waits for a valid absent ID-card V2 snapshot, and a V2 ID-card value remains
+  authoritative over later legacy writes;
+- two successes write both document keys;
+- one success plus one error writes only the successful document key and overlays the failed field;
 - a failed document preserves but masks its older stored success;
 - both document errors leave the stored value unchanged;
 - a later successful retry clears the affected error overlay;
-- complementary partial successes completed before delayed hydration preserve both document fields
-  and their individual timestamps;
+- two clients completing complementary partial successes before storage fanout preserve both keys,
+  and a newly hydrated model renders both timestamps;
+- delayed per-key hydration cannot replace optimistic accepted successes;
 - per-document timestamp formatting retains the existing same-day/older-day rules;
-- live storage updates affect unmasked documents;
+- independent-key live storage updates affect unmasked documents;
 - late and superseded aggregate results preserve the existing attempt-order guarantees.
 
 ### UI tests
@@ -433,7 +447,7 @@ logged error.
 - standard rows expose full messages and timestamps; tiny rows expose compact outcomes only;
 - document-local alerts do not replace successful sibling content;
 - existing global idle, pending, retryable, invalidConfig, sessionRequired, shared-instance,
-  storage-fanout, fullscreen, and recovery tests stay green with aggregate fixtures.
+  storage-fanout, fullscreen, and recovery tests stay green with dual-result fixtures.
 
 ### Verification gate
 
@@ -475,10 +489,12 @@ does not authorize deployment or release work.
 
 ## Decision summary
 
-One check action remains one RPC and one browser task. That task navigates once and performs the ID
-card and international-passport POSTs sequentially. Safe technical failures become independent
-document results so the second request still runs; Cloudflare and infrastructure failures stay
-global. The existing `lastResult` key accepts both its legacy ID-only value and a versioned v2
-value, merges successful document fields, and retains failed documents' older successes without
-displaying them over a current error. Standard and tiny tiers render two rows using the current
-myboard theme and retain the existing recovery flow unchanged.
+One check action normally remains one `checkV2` RPC and one browser task; only a structural
+mixed-version incompatibility performs the single legacy `check` fallback. The dual task navigates
+once and performs the ID-card and international-passport POSTs sequentially. Safe technical
+failures become independent document results so the second request still runs; Cloudflare and
+infrastructure failures stay global. Legacy `lastResult` stays read-only to new clients, while
+successful V2 branches persist under independent document keys. That boundary preserves
+complementary cross-client writes and leaves a failed document's older success untouched. Standard
+and tiny tiers render two rows using the current myboard theme and retain the existing recovery
+flow unchanged.

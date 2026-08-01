@@ -73,10 +73,12 @@ export type TransientState =
   | { kind: 'documentErrors'; errors: DocumentErrorOverlay }
 
 export const PASSPORT_LEGACY_LAST_RESULT_KEY = 'lastResult'
-export const PASSPORT_LAST_RESULT_V2_KEY = 'lastResultV2'
+export const PASSPORT_ID_CARD_LAST_RESULT_V2_KEY = 'lastResultV2:idCard'
+export const PASSPORT_INTERNATIONAL_PASSPORT_LAST_RESULT_V2_KEY =
+  'lastResultV2:internationalPassport'
 
 // Each schema belongs to its own persistence key. The legacy ID-only value is
-// read as a fallback, while aggregate writes use only the versioned schema.
+// read as a fallback, while each V2 document success is persisted independently.
 export const storedDocumentResultSchema = z.object({
   status: z.number().int(),
   message: z.string(),
@@ -85,22 +87,8 @@ export const storedDocumentResultSchema = z.object({
 
 export const legacyStoredResultSchema = storedDocumentResultSchema
 
-export const storedCheckResultV2Schema = z.object({
-  version: z.literal(2),
-  idCard: storedDocumentResultSchema.optional(),
-  internationalPassport: storedDocumentResultSchema.optional(),
-})
-
 export type LegacyStoredResult = z.output<typeof legacyStoredResultSchema>
 export type StoredDocumentResult = z.output<typeof storedDocumentResultSchema>
-export type StoredCheckResultV2 = z.output<typeof storedCheckResultV2Schema>
-export type StoredCheckResult = LegacyStoredResult | StoredCheckResultV2
-
-export function normalizeStoredResult(stored: StoredCheckResult | null): StoredCheckResultV2 {
-  if (stored === null) return { version: 2 }
-  if ('version' in stored) return stored
-  return { version: 2, idCard: stored }
-}
 
 export const RETRYABLE_MESSAGES: Record<string, string> = {
   browser_unavailable: 'Сервис автоматизации недоступен',
@@ -126,55 +114,46 @@ function documentError(
   return { kind: 'retryable', message: RETRYABLE_MESSAGES[result.code] }
 }
 
-export function mergeCheckResult({
-  stored,
+export function mapCheckResult({
   result,
   checkedAt,
 }: {
-  stored: StoredCheckResult | null
   result: PassportCheckResult
   checkedAt: number
-}): { stored: StoredCheckResultV2 | null; errors: DocumentErrorOverlay } {
-  const current = normalizeStoredResult(stored)
-  const idCard =
-    result.idCard.kind === 'success' ? storedSuccess(result.idCard, checkedAt) : current.idCard
-  const internationalPassport =
-    result.internationalPassport.kind === 'success'
-      ? storedSuccess(result.internationalPassport, checkedAt)
-      : current.internationalPassport
+}): {
+  successes: Partial<Record<DocumentKey, StoredDocumentResult>>
+  errors: DocumentErrorOverlay
+} {
+  const successes = {
+    ...(result.idCard.kind === 'success'
+      ? { idCard: storedSuccess(result.idCard, checkedAt) }
+      : {}),
+    ...(result.internationalPassport.kind === 'success'
+      ? { internationalPassport: storedSuccess(result.internationalPassport, checkedAt) }
+      : {}),
+  }
   const errors: DocumentErrorOverlay = {
     ...(result.idCard.kind === 'error' ? { idCard: documentError(result.idCard) } : {}),
     ...(result.internationalPassport.kind === 'error'
       ? { internationalPassport: documentError(result.internationalPassport) }
       : {}),
   }
-  const hasSuccess =
-    result.idCard.kind === 'success' || result.internationalPassport.kind === 'success'
-  if (!hasSuccess) return { stored: null, errors }
 
-  return {
-    stored: {
-      version: 2,
-      ...(idCard ? { idCard } : {}),
-      ...(internationalPassport ? { internationalPassport } : {}),
-    },
-    errors,
-  }
+  return { successes, errors }
 }
 
-function mergeLegacyCheckResult({
-  stored,
+function mapLegacyCheckResult({
   result,
   checkedAt,
 }: {
-  stored: StoredCheckResult | null
   result: PassportServiceResponse
   checkedAt: number
-}): { stored: StoredCheckResultV2; errors: DocumentErrorOverlay } {
-  const current = normalizeStoredResult(stored)
+}): {
+  successes: Partial<Record<DocumentKey, StoredDocumentResult>>
+  errors: DocumentErrorOverlay
+} {
   return {
-    stored: {
-      ...current,
+    successes: {
       idCard: {
         status: result.status,
         message: result.send_status_msg,
@@ -182,23 +161,6 @@ function mergeLegacyCheckResult({
       },
     },
     errors: {},
-  }
-}
-
-function mergeDeferredResult({
-  stored,
-  deferred,
-}: {
-  stored: StoredCheckResult | null
-  deferred: StoredCheckResultV2
-}): StoredCheckResultV2 {
-  const current = normalizeStoredResult(stored)
-  const idCard = deferred.idCard ?? current.idCard
-  const internationalPassport = deferred.internationalPassport ?? current.internationalPassport
-  return {
-    version: 2,
-    ...(idCard ? { idCard } : {}),
-    ...(internationalPassport ? { internationalPassport } : {}),
   }
 }
 
@@ -343,14 +305,27 @@ export function makePassportCheckModel({
   deadlineMs = CHECK_DEADLINE_MS,
   now = () => new Date(),
 }: MakePassportCheckModelOptions) {
-  // Aggregate state has its own key so a still-open legacy PWA can only touch
-  // the legacy ID-card value. The old key is subscribed read-only as a
-  // validated fallback and is never written by this model.
-  const lastResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.lastResultV2').extend(
+  // Each V2 document owns a separate key. Complementary successes from stale
+  // clients therefore cannot replace one another, while a still-open legacy
+  // PWA remains confined to the read-only fallback key below.
+  const idCardLastResult = atom<StoredDocumentResult | null>(
+    null,
+    'passportCheck.idCardLastResultV2',
+  ).extend(
     withStorageKey({
       api: storage,
-      key: PASSPORT_LAST_RESULT_V2_KEY,
-      schema: storedCheckResultV2Schema,
+      key: PASSPORT_ID_CARD_LAST_RESULT_V2_KEY,
+      schema: storedDocumentResultSchema,
+    }),
+  )
+  const internationalPassportLastResult = atom<StoredDocumentResult | null>(
+    null,
+    'passportCheck.internationalPassportLastResultV2',
+  ).extend(
+    withStorageKey({
+      api: storage,
+      key: PASSPORT_INTERNATIONAL_PASSPORT_LAST_RESULT_V2_KEY,
+      schema: storedDocumentResultSchema,
     }),
   )
   const legacyLastResult = atom<LegacyStoredResult | null>(
@@ -364,24 +339,38 @@ export function makePassportCheckModel({
       fallback: null,
     }),
   )
-  const v2StorageSnapshotKnown = atom(false, 'passportCheck.v2StorageSnapshotKnown').extend(
-    withComputed((known) => known || (!lastResult.isLoading() && lastResult.error() === null)),
+  const idCardV2StorageSnapshotKnown = atom(
+    false,
+    'passportCheck.idCardV2StorageSnapshotKnown',
+  ).extend(
+    withComputed(
+      (known) => known || (!idCardLastResult.isLoading() && idCardLastResult.error() === null),
+    ),
+  )
+  const internationalPassportV2StorageSnapshotKnown = atom(
+    false,
+    'passportCheck.internationalPassportV2StorageSnapshotKnown',
+  ).extend(
+    withComputed(
+      (known) =>
+        known ||
+        (!internationalPassportLastResult.isLoading() &&
+          internationalPassportLastResult.error() === null),
+    ),
   )
   const legacyStorageSnapshotKnown = atom(false, 'passportCheck.legacyStorageSnapshotKnown').extend(
     withComputed(
       (known) => known || (!legacyLastResult.isLoading() && legacyLastResult.error() === null),
     ),
   )
-  const storageSnapshotKnown = computed(
-    () => v2StorageSnapshotKnown() && (lastResult() !== null || legacyStorageSnapshotKnown()),
-    'passportCheck.storageSnapshotKnown',
+  const optimisticIdCardResult = atom<StoredDocumentResult | null>(
+    null,
+    'passportCheck.optimisticIdCardResult',
   )
-  const optimisticResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.optimisticResult')
-  // Before the first storage snapshot, partial attempts cannot safely write:
-  // the unknown sibling may exist remotely. Keep every accepted success here
-  // until hydration so completed retries accumulate instead of replacing one
-  // another. The transient atom still owns only the latest error overlay.
-  const deferredResult = atom<StoredCheckResultV2 | null>(null, 'passportCheck.deferredResult')
+  const optimisticInternationalPassportResult = atom<StoredDocumentResult | null>(
+    null,
+    'passportCheck.optimisticInternationalPassportResult',
+  )
   const transient = atom<TransientState>({ kind: 'idle' }, 'passportCheck.transient')
   const recoveryOpen = atom(false, 'passportCheck.recoveryOpen')
 
@@ -392,91 +381,70 @@ export function makePassportCheckModel({
   let latestAttemptId = 0
 
   const applyResult = action((observed: ObservedCheckResult) => {
-    const deferred = deferredResult()
-    const snapshotKnown = storageSnapshotKnown()
-    const persisted = lastResult() ?? legacyLastResult()
-    const stored = snapshotKnown ? persisted : (deferred ?? persisted)
-    const merged =
+    const mapped =
       observed.result.kind === 'v2'
-        ? mergeCheckResult({ stored, result: observed.result.value, checkedAt: observed.checkedAt })
-        : mergeLegacyCheckResult({
-            stored,
+        ? mapCheckResult({
             result: observed.result.value,
             checkedAt: observed.checkedAt,
           })
-    const hasCompleteCoverage = Boolean(
-      merged.stored?.idCard && merged.stored.internationalPassport,
-    )
-    const shouldDefer =
-      !snapshotKnown &&
-      !hasCompleteCoverage &&
-      (observed.result.kind === 'legacy' ||
-        deferred !== null ||
-        (merged.stored !== null && Object.keys(merged.errors).length > 0))
+        : mapLegacyCheckResult({
+            result: observed.result.value,
+            checkedAt: observed.checkedAt,
+          })
 
-    if (shouldDefer) {
-      if (merged.stored !== null) {
-        deferredResult.set(merged.stored)
-        optimisticResult.set(merged.stored)
+    const idCard = mapped.successes.idCard
+    if (idCard) {
+      if (!idCardV2StorageSnapshotKnown()) optimisticIdCardResult.set(idCard)
+      idCardLastResult.set(idCard)
+    }
+
+    const internationalPassport = mapped.successes.internationalPassport
+    if (internationalPassport) {
+      if (!internationalPassportV2StorageSnapshotKnown()) {
+        optimisticInternationalPassportResult.set(internationalPassport)
       }
-      transient.set({ kind: 'documentErrors', errors: merged.errors })
-      return
+      internationalPassportLastResult.set(internationalPassport)
     }
 
-    // Once both documents have a fresh successful value, an unread snapshot
-    // cannot contribute a missing sibling. Persist immediately, but retain the
-    // complete deferred value as a hydration guard: if a delayed initial
-    // snapshot arrives later, flushDeferredResult merges these newer values
-    // back over it instead of letting the old snapshot win.
-    if (!snapshotKnown && merged.stored !== null) {
-      deferredResult.set(merged.stored)
-      optimisticResult.set(merged.stored)
-      lastResult.set(merged.stored)
-      transient.set(
-        Object.keys(merged.errors).length === 0
-          ? { kind: 'idle' }
-          : { kind: 'documentErrors', errors: merged.errors },
-      )
-      return
-    }
-
-    deferredResult.set(null)
-    optimisticResult.set(null)
-    if (merged.stored) lastResult.set(merged.stored)
     transient.set(
-      Object.keys(merged.errors).length === 0
+      Object.keys(mapped.errors).length === 0
         ? { kind: 'idle' }
-        : { kind: 'documentErrors', errors: merged.errors },
+        : { kind: 'documentErrors', errors: mapped.errors },
     )
   }, 'passportCheck.applyResult')
 
-  const flushDeferredResult = action(() => {
-    if (!storageSnapshotKnown()) return
-    const deferred = deferredResult()
-    if (deferred === null) return
-    deferredResult.set(null)
-    optimisticResult.set(null)
-    lastResult.set(mergeDeferredResult({ stored: lastResult() ?? legacyLastResult(), deferred }))
-  }, 'passportCheck.flushDeferredResult')
+  const flushOptimisticResults = action(() => {
+    const idCard = optimisticIdCardResult()
+    if (idCardV2StorageSnapshotKnown() && idCard !== null) {
+      idCardLastResult.set(idCard)
+      optimisticIdCardResult.set(null)
+    }
+
+    const internationalPassport = optimisticInternationalPassportResult()
+    if (internationalPassportV2StorageSnapshotKnown() && internationalPassport !== null) {
+      internationalPassportLastResult.set(internationalPassport)
+      optimisticInternationalPassportResult.set(null)
+    }
+  }, 'passportCheck.flushOptimisticResults')
 
   const viewState = computed((): ViewState => {
-    // Read `lastResult` unconditionally, ahead of the transient branch. Behind
-    // an `if` the dependency would disappear whenever a check is pending or an
-    // error is showing, disconnecting the atom and tearing down its storage
-    // subscription — every check would then re-subscribe (and, on the HTTP
-    // backend, re-GET) on the way back to idle.
-    const v2Stored = lastResult()
+    // Read every persisted branch unconditionally, ahead of the transient
+    // branch. Otherwise a pending/global-error view would disconnect storage
+    // and force fresh GETs on the way back to results.
+    const idCardV2Stored = idCardLastResult()
+    const internationalPassportV2Stored = internationalPassportLastResult()
     const legacyStored = legacyLastResult()
-    const stored = normalizeStoredResult(v2Stored ?? legacyStored)
-    const optimistic = optimisticResult()
-    const visible = {
-      version: 2 as const,
-      idCard: optimistic?.idCard ?? stored.idCard,
-      internationalPassport: optimistic?.internationalPassport ?? stored.internationalPassport,
-    }
+    const idCardV2Known = idCardV2StorageSnapshotKnown()
+    const legacyKnown = legacyStorageSnapshotKnown()
+    const visibleIdCard =
+      optimisticIdCardResult() ??
+      idCardV2Stored ??
+      (idCardV2Known && legacyKnown ? legacyStored : null)
+    const visibleInternationalPassport =
+      optimisticInternationalPassportResult() ?? internationalPassportV2Stored
     const current = transient()
     if (current.kind !== 'idle' && current.kind !== 'documentErrors') return current
-    if (current.kind === 'idle' && !visible.idCard && !visible.internationalPassport) {
+    if (current.kind === 'idle' && !visibleIdCard && !visibleInternationalPassport) {
       return { kind: 'idle' }
     }
 
@@ -484,17 +452,22 @@ export function makePassportCheckModel({
     const currentTime = now()
     return {
       kind: 'results',
-      idCard: errors.idCard ?? storedView(visible.idCard, currentTime),
+      idCard: errors.idCard ?? storedView(visibleIdCard ?? undefined, currentTime),
       internationalPassport:
-        errors.internationalPassport ?? storedView(visible.internationalPassport, currentTime),
+        errors.internationalPassport ??
+        storedView(visibleInternationalPassport ?? undefined, currentTime),
     }
   }, 'passportCheck.viewState').extend(
     withConnectHook(() => {
       effect(() => {
-        if (!storageSnapshotKnown()) return
-        if (deferredResult() === null) return
-        flushDeferredResult()
-      }, 'passportCheck.flushDeferredResultOnHydration')
+        const shouldFlushIdCard =
+          idCardV2StorageSnapshotKnown() && optimisticIdCardResult() !== null
+        const shouldFlushInternationalPassport =
+          internationalPassportV2StorageSnapshotKnown() &&
+          optimisticInternationalPassportResult() !== null
+        if (!shouldFlushIdCard && !shouldFlushInternationalPassport) return
+        flushOptimisticResults()
+      }, 'passportCheck.flushOptimisticResultsOnHydration')
     }),
   )
 
@@ -540,5 +513,13 @@ export function makePassportCheckModel({
     succeed({ result, checkedAt: now().getTime() })
   }, 'passportCheck.check')
 
-  return { viewState, transient, lastResult, legacyLastResult, recoveryOpen, checkPassport }
+  return {
+    viewState,
+    transient,
+    idCardLastResult,
+    internationalPassportLastResult,
+    legacyLastResult,
+    recoveryOpen,
+    checkPassport,
+  }
 }

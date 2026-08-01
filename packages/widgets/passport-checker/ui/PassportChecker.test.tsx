@@ -3,6 +3,10 @@ import { makeStaticWidgetIdentity, WidgetApiError, WidgetRuntimeContext } from '
 import type { WidgetRuntimeProps } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
+import {
+  PASSPORT_ID_CARD_LAST_RESULT_V2_KEY,
+  PASSPORT_INTERNATIONAL_PASSPORT_LAST_RESULT_V2_KEY,
+} from '../model/check-model'
 import type { PassportCheckResult } from '../types'
 import { getResultsActionLabel } from './parts/StatusBanner'
 import { PassportChecker } from './PassportChecker'
@@ -440,18 +444,15 @@ describe('PassportChecker / tiny tier', () => {
 
   it('omits full messages and dated timestamps for restored compact results', async () => {
     const storage = makeFakeStorage()
-    await storage.shared.server.set('lastResultV2', {
-      version: 2,
-      idCard: {
-        status: 200,
-        message: 'ID сохранена',
-        checkedAt: new Date('2020-01-01T09:05:00').getTime(),
-      },
-      internationalPassport: {
-        status: 201,
-        message: 'Загран сохранён',
-        checkedAt: new Date('2020-01-02T10:06:00').getTime(),
-      },
+    await storage.shared.server.set(PASSPORT_ID_CARD_LAST_RESULT_V2_KEY, {
+      status: 200,
+      message: 'ID сохранена',
+      checkedAt: new Date('2020-01-01T09:05:00').getTime(),
+    })
+    await storage.shared.server.set(PASSPORT_INTERNATIONAL_PASSPORT_LAST_RESULT_V2_KEY, {
+      status: 201,
+      message: 'Загран сохранён',
+      checkedAt: new Date('2020-01-02T10:06:00').getTime(),
     })
     const invoke = vi.fn<() => Promise<InvokeResult>>()
 
@@ -586,14 +587,15 @@ describe('PassportChecker / shared instance state', () => {
 
   it('renders a stored result on mount, without checking', async () => {
     const storage = makeFakeStorage()
-    await storage.shared.server.set('lastResultV2', {
-      version: 2,
-      idCard: { status: 200, message: 'Документ готовий', checkedAt: Date.now() },
-      internationalPassport: {
-        status: 201,
-        message: 'Загран готов',
-        checkedAt: Date.now(),
-      },
+    await storage.shared.server.set(PASSPORT_ID_CARD_LAST_RESULT_V2_KEY, {
+      status: 200,
+      message: 'Документ готовий',
+      checkedAt: Date.now(),
+    })
+    await storage.shared.server.set(PASSPORT_INTERNATIONAL_PASSPORT_LAST_RESULT_V2_KEY, {
+      status: 201,
+      message: 'Загран готов',
+      checkedAt: Date.now(),
     })
     const invoke = vi.fn<() => Promise<InvokeResult>>()
 
