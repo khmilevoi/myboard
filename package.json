@@ -11,6 +11,7 @@
     "dev": "pnpm run codegen:client && pnpm -r --parallel --filter \"./packages/widgets/*\" --filter client dev",
     "dev:server": "pnpm run codegen:server && pnpm --filter server dev",
     "dev:docker": "docker compose -f docker-compose.dev.yml up --build",
+    "dev:docker:browser": "docker compose -f docker-compose.dev.yml --profile browser up --build",
     "dev:docker:down": "docker compose -f docker-compose.dev.yml down",
     "dev:docker:clean": "docker compose -f docker-compose.dev.yml down -v",
     "dev:docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
