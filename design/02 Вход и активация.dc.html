@@ -65,6 +65,8 @@
 
 <div class="act" data-theme="{{ resolvedTheme }}" style="min-height:100vh;width:100%;background:var(--bg);color:var(--text);font-family:'Hanken Grotesk',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;transition:background .2s;">
 
+  <a href="00 Навигация.dc.html" style="position:fixed;top:26px;left:24px;z-index:10;font:600 11.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);text-decoration:none;">← myboard · навигация</a>
+
   <!-- theme toggle · pill -->
   <div role="group" aria-label="Тема" style="position:fixed;top:20px;right:20px;display:flex;gap:3px;padding:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;z-index:10;">
     <button onClick="{{ setLight }}" title="Светлая" aria-label="Светлая тема" style="{{ segLight }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>

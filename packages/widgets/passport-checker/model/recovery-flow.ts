@@ -1,6 +1,6 @@
-import { action, atom } from '@reatom/core'
+import { action } from '@reatom/core'
 
-import type { PassportCheckModel } from './check-model'
+import type { PassportCheckModel, RecoverySurface } from './check-model'
 import type { RecoveryModel } from './recovery-model'
 
 export type RecoveryFlowDeps = {
@@ -8,8 +8,7 @@ export type RecoveryFlowDeps = {
   recoveryModel: RecoveryModel
 }
 
-export type OpenRecoveryOptions = { fromFullscreen: boolean; collapse: () => void }
-export type FinishRecoveryOptions = { restore: () => void }
+export type OpenRecoveryOptions = { surface: RecoverySurface }
 
 export type RecoveryFlow = ReturnType<typeof makeRecoveryFlow>
 
@@ -17,35 +16,31 @@ export type RecoveryFlow = ReturnType<typeof makeRecoveryFlow>
  * Named transitions that span the two models. The check and recovery models
  * stay unaware of each other; this is the one place that composes them.
  *
- * The host callbacks arrive as arguments rather than as construction deps
- * because the two mounts of one widget do not have the same ones: only the
- * fullscreen mount has a working `requestClose`, and only the tile mount has a
- * working `requestFullscreen`. Each call therefore comes from the mount whose
- * callback is live — opening from a tier, finishing from the modal.
+ * `surface` records which mount is allowed to render the live session (see
+ * `recoverySurface` in check-model.ts) — tiny/standard always open the modal,
+ * fullscreen always opens inline. Neither surface needs to collapse or
+ * restore another mount: the modal is a portal the tile owns regardless of
+ * whether a fullscreen mount also exists, and fullscreen shows recovery in
+ * place without ever closing itself.
  */
 export function makeRecoveryFlow({ checkModel, recoveryModel }: RecoveryFlowDeps) {
-  const restorePending = atom(false, 'passportRecovery.restorePending')
-
-  const openRecovery = action(({ fromFullscreen, collapse }: OpenRecoveryOptions) => {
-    restorePending.set(fromFullscreen)
+  const openRecovery = action(({ surface }: OpenRecoveryOptions) => {
+    checkModel.recoverySurface.set(surface)
     checkModel.recoveryOpen.set(true)
-    if (fromFullscreen) collapse()
   }, 'passportRecovery.open')
 
-  const finish = (restore: () => void) => {
+  const finish = () => {
     recoveryModel.teardown()
     checkModel.recoveryOpen.set(false)
-    if (!restorePending()) return
-    restorePending.set(false)
-    restore()
+    checkModel.recoverySurface.set(null)
   }
 
-  const closeRecovery = action(({ restore }: FinishRecoveryOptions) => {
-    finish(restore)
+  const closeRecovery = action(() => {
+    finish()
   }, 'passportRecovery.close')
 
-  const retryCheck = action(({ restore }: FinishRecoveryOptions) => {
-    finish(restore)
+  const retryCheck = action(() => {
+    finish()
     void checkModel.checkPassport()
   }, 'passportRecovery.retryCheck')
 

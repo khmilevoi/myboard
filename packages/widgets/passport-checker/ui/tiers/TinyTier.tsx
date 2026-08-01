@@ -1,14 +1,14 @@
 import { wrap } from '@reatom/core'
 import {
+  BookOpen,
+  Check,
   CircleAlert,
-  CircleCheck,
-  CircleDashed,
   IdCard,
-  LoaderCircle,
   RefreshCw,
+  Settings,
   TriangleAlert,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import { cn, reatomMemo } from 'widget-sdk'
 import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
@@ -30,7 +30,7 @@ export type TinyTierProps = {
 
 type TinyResultsSummary = {
   label: string
-  updatedAt?: string
+  meta?: string
   tone: 'success' | 'warning' | 'error'
 }
 
@@ -64,9 +64,73 @@ export function getTinyResultsSummary(view: ResultsViewState): TinyResultsSummar
         : successfulCount === 1
           ? 'Обновлено частично'
           : 'Данные не обновлены',
-    updatedAt: successfulDocument ? `Обновлено ${successfulDocument.checkedAtLabel}` : undefined,
+    meta:
+      successfulCount === 2 && successfulDocument
+        ? `обновлено ${successfulDocument.checkedAtLabel}`
+        : successfulCount === 1 && successfulDocument
+          ? `1 из 2 · ${successfulDocument.checkedAtLabel}`
+          : undefined,
     tone: successfulCount === 2 ? 'success' : successfulCount === 1 ? 'warning' : 'error',
   }
+}
+
+/** The lone exclamation mark lucide draws inside CircleAlert, without
+ *  CircleAlert's own ring — the badge circle behind it already plays that role. */
+function ExclamationGlyph() {
+  return (
+    <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.4}>
+      <path d="M12 8v3.5" strokeLinecap="round" />
+      <path d="M12 16h.01" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+type ChipTone = 'neutral' | 'success' | 'errorBadge' | 'errorFlat'
+
+/**
+ * A retryable document only earns the flat, badge-less red once nothing on
+ * the tile succeeded (resultsTone === 'error'); otherwise it sits beside a
+ * success chip and the badge is what makes "1 of 2 failed" legible without
+ * opening the widget.
+ */
+function documentChipTone(
+  document: DocumentView,
+  resultsTone: TinyResultsSummary['tone'],
+): ChipTone {
+  if (document.kind === 'success') return 'success'
+  if (document.kind === 'unchecked') return 'neutral'
+  return resultsTone === 'warning' ? 'errorBadge' : 'errorFlat'
+}
+
+function DocumentChip({
+  icon: Icon,
+  tone,
+}: {
+  icon: ComponentType<{ size?: number }>
+  tone: ChipTone
+}) {
+  return (
+    <span
+      className={cn(
+        styles.tinyIconChip,
+        tone === 'errorBadge' || tone === 'errorFlat'
+          ? styles.tinyIconChipError
+          : styles.tinyIconChipNeutral,
+      )}
+    >
+      <Icon size={14} />
+      {tone === 'success' && (
+        <span className={cn(styles.tinyIconBadge, styles.tinyIconBadgeSuccess)}>
+          <Check size={7} strokeWidth={3.6} />
+        </span>
+      )}
+      {tone === 'errorBadge' && (
+        <span className={cn(styles.tinyIconBadge, styles.tinyIconBadgeError)}>
+          <ExclamationGlyph />
+        </span>
+      )}
+    </span>
+  )
 }
 
 export const TinyTier = reatomMemo(
@@ -81,19 +145,23 @@ export const TinyTier = reatomMemo(
     // be bound to THIS render's frame or it goes stale (see PassportChecker.tsx).
     const openRecovery = wrap(onOpenRecovery)
 
-    let statusLabel = ''
-    let statusMeta: string | undefined
-    let statusIcon: ReactNode = null
-    let statusTone = styles.tinyStatusMuted
-    let statusRole: 'alert' | 'status' = 'status'
+    let icons: ReactNode
+    let labelTone = styles.tinyLabelDefault
+    let label = ''
+    let meta: string | undefined
+    let role: 'alert' | 'status' = 'status'
     let action: ReactNode
+    let warning = false
 
     switch (view.kind) {
       case 'sessionRequired':
-        statusLabel = 'Требуется вход'
-        statusMeta = 'Войдите в браузер'
-        statusIcon = <TriangleAlert size={15} aria-hidden />
-        statusTone = styles.tinyStatusWarning
+        warning = true
+        icons = (
+          <span className={styles.tinyBigIcon}>
+            <TriangleAlert size={18} />
+          </span>
+        )
+        label = 'Войдите в браузер'
         action = (
           <button type="button" className={styles.tinyButton} onClick={openRecovery}>
             Открыть
@@ -102,69 +170,81 @@ export const TinyTier = reatomMemo(
         break
 
       case 'invalidConfig':
-        statusLabel = 'Не настроен'
-        statusMeta = 'Нужна настройка сервера'
-        statusIcon = <IdCard size={15} aria-hidden />
-        statusTone = styles.tinyStatusMuted
+        icons = (
+          <span className={cn(styles.tinyBigIcon, styles.tinyBigIconMuted)}>
+            <Settings size={19} />
+          </span>
+        )
+        labelTone = styles.tinyLabelMuted
+        label = 'Не настроен'
         action = null
         break
 
       case 'pending':
-        statusLabel = 'Обновляем данные'
-        statusMeta = 'Это займёт несколько секунд'
-        statusIcon = <LoaderCircle className={styles.tinyStatusLoading} size={15} aria-hidden />
-        statusTone = styles.tinyStatusMuted
+        icons = <span className={styles.spinnerLarge} />
+        labelTone = styles.tinyLabelMuted
+        label = 'Обновляем данные…'
         action = (
-          <button type="button" className={styles.tinySecondaryButton} disabled>
-            <RefreshCw size={13} aria-hidden /> Проверяем…
+          <button type="button" className={styles.tinyButton} disabled>
+            Проверить
           </button>
         )
         break
 
       case 'results': {
-        const label = getResultsActionLabel(view)
         const summary = getTinyResultsSummary(view)
-        statusLabel = summary.label
-        statusMeta = summary.updatedAt
-        statusIcon =
-          summary.tone === 'success' ? (
-            <CircleCheck size={15} aria-hidden />
-          ) : (
-            <CircleAlert size={15} aria-hidden />
-          )
-        statusTone =
+        label = summary.label
+        meta = summary.meta
+        labelTone =
           summary.tone === 'success'
-            ? styles.tinyStatusSuccess
+            ? styles.tinyLabelSuccess
             : summary.tone === 'warning'
-              ? styles.tinyStatusWarning
-              : styles.tinyStatusError
-        statusRole = summary.tone === 'error' ? 'alert' : 'status'
+              ? styles.tinyLabelWarning
+              : styles.tinyLabelError
+        role = summary.tone === 'error' ? 'alert' : 'status'
+        icons = (
+          <span className={styles.tinyIcons}>
+            <DocumentChip icon={IdCard} tone={documentChipTone(view.idCard, summary.tone)} />
+            <DocumentChip
+              icon={BookOpen}
+              tone={documentChipTone(view.internationalPassport, summary.tone)}
+            />
+          </span>
+        )
         action = (
           <button type="button" className={styles.tinySecondaryButton} onClick={check}>
-            <RefreshCw size={13} aria-hidden /> {label}
+            <RefreshCw size={13} /> {getResultsActionLabel(view)}
           </button>
         )
         break
       }
 
       case 'retryable':
-        statusLabel = 'Не удалось обновить'
-        statusMeta = 'Попробуйте ещё раз'
-        statusIcon = <CircleAlert size={15} aria-hidden />
-        statusTone = styles.tinyStatusError
-        statusRole = 'alert'
+        icons = (
+          <span className={cn(styles.tinyBigIcon, styles.tinyBigIconError)}>
+            <CircleAlert size={21} />
+          </span>
+        )
+        labelTone = styles.tinyLabelError
+        label = 'Не удалось обновить'
+        meta = 'Попробуйте ещё раз'
+        role = 'alert'
         action = (
           <button type="button" className={styles.tinySecondaryButton} onClick={check}>
-            <RefreshCw size={13} aria-hidden /> Повторить
+            <RefreshCw size={13} /> Повторить
           </button>
         )
         break
 
       case 'idle':
-        statusLabel = 'Нет данных'
-        statusMeta = 'Паспорт'
-        statusIcon = <CircleDashed size={15} aria-hidden />
-        statusTone = styles.tinyStatusMuted
+        icons = (
+          <span className={styles.tinyIcons}>
+            <DocumentChip icon={IdCard} tone="neutral" />
+            <DocumentChip icon={BookOpen} tone="neutral" />
+          </span>
+        )
+        label = 'Паспорт'
+        meta = 'Нет данных'
         action = (
           <button type="button" className={styles.tinyButton} onClick={check}>
             Проверить
@@ -178,22 +258,20 @@ export const TinyTier = reatomMemo(
     }
 
     return (
-      <div className={styles.tiny}>
-        <div className={styles.tinyHeader}>
-          <div className={cn(styles.tinyStatus, statusTone)} role={statusRole}>
-            <span className={styles.tinyStatusIcon}>{statusIcon}</span>
-            <span className={styles.tinyStatusLabel} title={statusLabel}>
-              {statusLabel}
-            </span>
-          </div>
-          <WidgetControls
-            placement="inline"
-            onExpand={onExpand}
-            onDelete={onDelete}
-            onClose={onClose}
-          />
+      <div className={cn(styles.tiny, warning && styles.tinyWarning)}>
+        <WidgetControls
+          placement="overlay"
+          onExpand={onExpand}
+          onDelete={onDelete}
+          onClose={onClose}
+        />
+        <div className={styles.tinyBody} role={role}>
+          {icons}
+          <span className={cn(styles.tinyLabel, labelTone)} title={label}>
+            {label}
+          </span>
+          {meta && <span className={styles.tinyMeta}>{meta}</span>}
         </div>
-        {statusMeta && <p className={styles.tinyMeta}>{statusMeta}</p>}
         {action}
       </div>
     )

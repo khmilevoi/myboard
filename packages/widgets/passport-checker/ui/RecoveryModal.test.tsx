@@ -84,7 +84,7 @@ function setup(
 
   const view = render(
     <passportCheckerContext.Provider value={{ checkModel, recoveryModel, recoveryFlow }}>
-      <RecoveryModal restoreFullscreen={vi.fn()} />
+      <RecoveryModal />
     </passportCheckerContext.Provider>,
   )
 

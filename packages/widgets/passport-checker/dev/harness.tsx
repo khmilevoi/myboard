@@ -31,9 +31,13 @@ export function harnessProps(
   }
 }
 
+/** `?tier=` accepts any runtime tier; tiny/compact preview at the small board
+ *  footprint they actually ship at, everything else gets the full harness page. */
 export const HarnessApp = reatomMemo(() => {
-  const tinyPreview = new URLSearchParams(window.location.search).get('tier') === 'tiny'
-  const props = tinyPreview ? harnessProps('tiny', 'small') : harnessProps()
+  const tierParam = new URLSearchParams(window.location.search).get('tier')
+  const tier = (tierParam ?? 'standard') as WidgetRuntimeProps['tier']
+  const small = tier === 'tiny' || tier === 'compact'
+  const props = harnessProps(tier, small ? 'small' : 'large')
   const widget = (
     <Suspense fallback={null}>
       <WidgetRuntimeContext.Provider value={props}>
@@ -42,8 +46,8 @@ export const HarnessApp = reatomMemo(() => {
     </Suspense>
   )
 
-  return tinyPreview ? (
-    <div data-harness-preview="tiny" style={{ width: '100%', height: 110 }}>
+  return small ? (
+    <div data-harness-preview={tier} style={{ width: '100%', height: 110 }}>
       {widget}
     </div>
   ) : (
