@@ -1,0 +1,384 @@
+/* No outer border/shadow/radius here on purpose: the host already frames this
+   tier — WidgetFrame's `.frame` gives it the full 100%×100% surface with the
+   card background, and the fullscreen Dialog panel around that already draws
+   the border, shadow and radius. Re-adding them here would double them up. */
+.fs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--card, #fff);
+  color: var(--text, #22232a);
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+.fsHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border, #e3e4e8);
+}
+
+.fsIconChip {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft, oklch(0.955 0.032 285));
+  color: var(--primary, oklch(0.55 0.17 281));
+}
+
+.fsHeaderText {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fsTitle {
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.fsSubtitle {
+  font-size: 13px;
+  color: var(--text-dim, #5b5e69);
+}
+
+.fsPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.fsPillSuccess {
+  background: var(--pc-success-soft);
+  color: var(--pc-success-text);
+}
+
+.fsPillMuted {
+  background: var(--secondary, #f5f6f8);
+  color: var(--text-dim, #5b5e69);
+}
+
+.fsPillWarning {
+  background: var(--pc-warning-chip-bg);
+  color: var(--pc-warning-chip-fg);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.fsPulseDot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentcolor;
+  animation: fs-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes fs-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.fsBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 26px;
+}
+
+/* Centered single-message states: idle, pending, retryable, invalidConfig,
+   and the sessionRequired trigger card before recovery is opened inline. */
+.fsHero {
+  height: 100%;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.fsIcons {
+  display: flex;
+  gap: 10px;
+}
+
+.fsHeroIconChip {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft, oklch(0.955 0.032 285));
+  color: var(--primary, oklch(0.55 0.17 281));
+}
+
+.fsHeroIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.fsHeroIconError {
+  background: var(--pc-error-soft);
+  color: var(--pc-error-icon);
+}
+
+.fsHeroIconMuted {
+  border-radius: 14px;
+  background: var(--secondary, #f0f1f4);
+  color: var(--text-3, #9396a0);
+}
+
+.fsHeroIconWarning {
+  border-radius: 14px;
+  background: var(--pc-warning-chip-bg);
+  color: var(--pc-warning-chip-fg);
+}
+
+.fsHeroTitle {
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.fsHeroText {
+  margin: 0;
+  max-width: 400px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-dim, #5b5e69);
+  text-wrap: pretty;
+}
+
+.fsSpinner {
+  width: 40px;
+  height: 40px;
+  border: 3.4px solid var(--primary, oklch(0.55 0.17 281));
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: pc-spin 0.7s linear infinite;
+}
+
+@keyframes pc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fsPendingRow {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 4px;
+}
+
+.fsPendingChip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #e3e4e8);
+  border-radius: 9px;
+  background: var(--secondary, #f5f6f8);
+  color: var(--text-dim, #5b5e69);
+  font-weight: 500;
+  font-size: 11.5px;
+}
+
+.fsPendingChip .fsPulseDot {
+  background: var(--primary, oklch(0.55 0.17 281));
+  color: var(--primary, oklch(0.55 0.17 281));
+}
+
+.fsPrimaryButton,
+.fsSecondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 44px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14.5px;
+  cursor: pointer;
+}
+
+.fsPrimaryButton {
+  background: var(--primary, oklch(0.55 0.17 281));
+  color: var(--primary-foreground, #fff);
+  box-shadow: 0 1px 2px rgba(20, 22, 40, 0.06);
+}
+
+.fsPrimaryButton:hover {
+  background: var(--primary-hover, color-mix(in oklch, var(--primary), black 12%));
+}
+
+.fsSecondaryButton {
+  background: var(--card, #fff);
+  border-color: var(--border, #e3e4e8);
+  color: var(--text, #22232a);
+}
+
+.fsSecondaryButton:hover {
+  background: var(--secondary, #f5f6f8);
+}
+
+.fsPrimaryButton:focus-visible,
+.fsSecondaryButton:focus-visible {
+  outline: 2px solid var(--ring, var(--primary, oklch(0.55 0.17 281)));
+  outline-offset: 2px;
+}
+
+/* Results: document cards side by side, full detail, no truncation — the
+   thing the old (enlarged-standard) fullscreen could not do. */
+.fsResults {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fsDocumentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+/* StatusBanner is a flat row by default; giving it room and its own frame
+   here is what actually makes it read as a "card" at fullscreen size. */
+.fsDocumentGrid > * {
+  padding: 6px;
+  border: 1px solid var(--border, #e3e4e8);
+  border-radius: 14px;
+}
+
+.fsPanel {
+  border: 1px solid var(--border, #e3e4e8);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.fsPanelHeading {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3, #9396a0);
+  margin-bottom: 10px;
+}
+
+.fsPanelText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim, #5b5e69);
+  text-wrap: pretty;
+}
+
+/* sessionRequired, embedded (recoverySurface === 'inline'): a page section,
+   not an overlay — see docs/superpowers/specs/designs for the rationale. */
+.fsRecovery {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100%;
+}
+
+.fsRecoveryBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: var(--pc-warning-bg);
+  border: 1px solid var(--pc-warning-border);
+  color: var(--pc-warning-text);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.fsRecoveryBanner svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--pc-warning-icon);
+}
+
+.fsRecoveryBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 22px;
+}
+
+.fsRecoveryCanvas {
+  flex: 1.4;
+  min-width: 0;
+}
+
+.fsRecoverySide {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fsCountdownRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.fsCountdownValue {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 600;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pc-warning-chip-fg);
+}
+
+.fsCountdownTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border, #e3e4e8);
+  overflow: hidden;
+}
+
+.fsCountdownFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--pc-warning-chip-fg);
+}
+
+.fsFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: none;
+  padding: 18px 22px;
+  border-top: 1px solid var(--border, #e3e4e8);
+}

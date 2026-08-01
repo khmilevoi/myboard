@@ -44,6 +44,9 @@ export class CheckDeadlineError extends errore.createTaggedError({
 
 export type DocumentKey = keyof PassportCheckResult
 
+/** Which tier renders the live recovery session: a portal modal (tiny/standard) or embedded inline (fullscreen). */
+export type RecoverySurface = 'modal' | 'inline'
+
 export type DocumentView =
   | { kind: 'success'; status: number; message: string; checkedAtLabel: string }
   | { kind: 'retryable'; message: string }
@@ -385,6 +388,13 @@ export function makePassportCheckModel({
   )
   const transient = atom<TransientState>({ kind: 'idle' }, 'passportCheck.transient')
   const recoveryOpen = atom(false, 'passportCheck.recoveryOpen')
+  // Which mount is allowed to render the live noVNC session: the tile and the
+  // fullscreen mount can be alive at the same time (the fullscreen overlay
+  // sits on top of the board, it does not unmount the tile underneath), and
+  // both watch the same `recoveryOpen` flag. Without an owner, opening
+  // recovery from one would make BOTH try to mount a canvas against the same
+  // shared `recoveryModel` session.
+  const recoverySurface = atom<RecoverySurface | null>(null, 'passportCheck.recoverySurface')
 
   // Identifies the in-flight attempt so a straggler from an abandoned run can
   // be told apart from "no newer run exists yet" (see `succeedLate` below).
@@ -532,6 +542,7 @@ export function makePassportCheckModel({
     internationalPassportLastResult,
     legacyLastResult,
     recoveryOpen,
+    recoverySurface,
     checkPassport,
   }
 }

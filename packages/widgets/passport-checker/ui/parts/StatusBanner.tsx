@@ -82,6 +82,7 @@ export const GlobalStatusBanner = reatomMemo<{ view: ViewState }>(({ view }) => 
         <TriangleAlert className={styles.bannerIcon} size={19} aria-hidden />
         <div className={styles.bannerBody}>
           <div className={styles.bannerTitle}>Требуется вход в браузер</div>
+          <div className={styles.bannerHint}>Автоматика уткнулась в капчу/вход</div>
         </div>
       </div>
     )

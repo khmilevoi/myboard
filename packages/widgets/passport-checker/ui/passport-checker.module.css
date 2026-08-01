@@ -364,6 +364,10 @@
   color: var(--pc-warning-text);
 }
 
+.bannerWarning .bannerHint {
+  color: var(--pc-warning-text);
+}
+
 .footerNote {
   display: flex;
   align-items: center;

@@ -512,6 +512,68 @@ describe('PassportChecker / tiny tier', () => {
   })
 })
 
+describe('PassportChecker / fullscreen tier', () => {
+  function renderFullscreen(invoke: () => Promise<InvokeResult>, instanceId = 'inst-fullscreen') {
+    return render(
+      <WidgetRuntimeContext.Provider
+        value={makeProps('fullscreen', invoke, instanceId, makeFakeStorage(), 'large')}
+      >
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+  }
+
+  it('renders the idle state as its own layout, not an enlarged standard card', () => {
+    renderFullscreen(vi.fn())
+
+    expect(screen.getByText('Паспорт')).toBeInTheDocument()
+    expect(screen.getByText('Нет данных о статусе')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Проверить/ })).toBeEnabled()
+  })
+
+  it('renders both documents in full, side by side, without truncation', async () => {
+    renderFullscreen(async () => twoSuccesses('ID готова', 'Загран готов'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID готова')).toBeInTheDocument()
+    expect(screen.getByText('Загран готов')).toBeInTheDocument()
+    expect(screen.getByText('Что проверяется и зачем')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Проверить снова' })).toBeEnabled()
+  })
+
+  it('renders a partial result with both a success and a document alert visible', async () => {
+    renderFullscreen(async () => ({
+      idCard: { kind: 'success', status: 200, send_status_msg: 'ID готова' },
+      internationalPassport: { kind: 'error', code: 'upstream_response' },
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID готова')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Загранпаспорт')
+    expect(screen.getByText('Обновлено частично · 1 из 2')).toBeInTheDocument()
+  })
+
+  it('renders a retryable error with the real error message, not a placeholder', async () => {
+    renderFullscreen(async () => apiError('browser_unavailable'))
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+
+    expect(await screen.findByText('Сервис автоматизации недоступен')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Повторить/ })).toBeInTheDocument()
+  })
+
+  it('renders invalidConfig without a check action', async () => {
+    renderFullscreen(async () => apiError('browser_configuration'))
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+
+    expect(await screen.findByText('Паспорт-чекер не настроен на сервере')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Проверить' })).toBeNull()
+  })
+})
+
 describe('PassportChecker / shared instance state', () => {
   afterEach(() => {
     vi.unstubAllGlobals()

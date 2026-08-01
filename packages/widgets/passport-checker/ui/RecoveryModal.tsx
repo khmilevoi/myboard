@@ -19,14 +19,12 @@ export function formatAccessCountdown(ms: number): string {
   return `${minutes}:${seconds}`
 }
 
-export type RecoveryModalProps = { restoreFullscreen: () => void }
-
-export const RecoveryModal = reatomMemo(({ restoreFullscreen }: RecoveryModalProps) => {
+export const RecoveryModal = reatomMemo(() => {
   const { checkModel, recoveryModel, recoveryFlow } = usePassportChecker()
   const rootRef = useRef<HTMLDivElement | null>(null)
 
-  const close = wrap(() => recoveryFlow.closeRecovery({ restore: restoreFullscreen }))
-  const retry = wrap(() => recoveryFlow.retryCheck({ restore: restoreFullscreen }))
+  const close = wrap(() => recoveryFlow.closeRecovery())
+  const retry = wrap(() => recoveryFlow.retryCheck())
 
   // The modal only mounts while recovery is open, so `open` is literally true.
   // `retry` deliberately does NOT go through here: it closes the modal by
