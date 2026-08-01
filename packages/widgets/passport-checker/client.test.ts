@@ -4,6 +4,15 @@ import { passportCheckerWidget } from './client'
 
 describe('passport checker client definition', () => {
   const desktopCardHeight = (rows: number) => rows * 30 + (rows - 1) * 10
+  const desktopCardWidth = (columns: number) => {
+    const containerWidth = 768
+    const gridColumns = 12
+    const gap = 10
+    const containerPadding = 10
+    const columnWidth =
+      (containerWidth - containerPadding * 2 - gap * (gridColumns - 1)) / gridColumns
+    return columnWidth * columns + gap * (columns - 1)
+  }
 
   it('uses the tiny layout for the short-wide default placement footprint', () => {
     const tiers = passportCheckerWidget.tiers
@@ -25,7 +34,7 @@ describe('passport checker client definition', () => {
     expect(passportCheckerWidget.title).toBe('Паспорт')
     expect(passportCheckerWidget.description).toBe('Проверка статуса паспорта')
     expect(passportCheckerWidget.icon).toBe('IdCard')
-    expect(passportCheckerWidget.defaultSize).toEqual({ w: 4, h: 4, minW: 2, minH: 4 })
+    expect(passportCheckerWidget.defaultSize).toEqual({ w: 4, h: 4, minW: 4, minH: 4 })
   })
 
   it('does not advertise h2 or h3 cards that clip TinyTier results and its action', () => {
@@ -36,5 +45,26 @@ describe('passport checker client definition', () => {
     expect(desktopCardHeight(3)).toBe(110)
     expect(desktopCardHeight(passportCheckerWidget.defaultSize.h)).toBe(150)
     expect(passportCheckerWidget.defaultSize.minH).toBe(4)
+  })
+
+  it('does not advertise a w2 TinyTier card that clips two result rows and the retry action', () => {
+    // At the 768px desktop boundary RGL has 12 columns, a 10px margin, and
+    // 10px container padding. TinyTier consumes 14px shell padding and 7px
+    // row padding on either side. The Cyrillic "Загран" label, unshrunk
+    // monospace "не проверен" outcome, their 8px gap, and the retry action
+    // need more than the remaining w2 budget; w4 leaves a safe budget.
+    const tinyResultRowContentWidth = (columns: number) => desktopCardWidth(columns) - 42
+    const requiredResultRowWidth = 112
+    const requiredRetryActionWidth = 140
+    const tiers = passportCheckerWidget.tiers
+    if (!tiers) throw new Error('expected a tiers config')
+
+    expect(desktopCardWidth(2)).toBeCloseTo(116.33, 2)
+    expect(tinyResultRowContentWidth(2)).toBeLessThan(requiredResultRowWidth)
+    expect(desktopCardWidth(2) - 28).toBeLessThan(requiredRetryActionWidth)
+    expect(tinyResultRowContentWidth(4)).toBeGreaterThan(requiredResultRowWidth)
+    expect(desktopCardWidth(4) - 28).toBeGreaterThan(requiredRetryActionWidth)
+    expect(resolveTier({ width: desktopCardWidth(4), height: 150 }, tiers)).toBe('tiny')
+    expect(passportCheckerWidget.defaultSize.minW).toBe(4)
   })
 })

@@ -75,7 +75,7 @@ hostname = "board-branch.iiskelo.com"
 env = ".env.branch"
 # Layers apply in the order declared, merged per variable and per file path,
 # with this key's own (empty) bundle last: `dev` carries the passport-checker
-# files shared with the dev stack, `branch` carries this hostname for the
+# file shared with the dev stack, `branch` carries this hostname for the
 # WebAuthn gate plus the host-port overrides that keep this stack off the other
 # two stacks' binds. A declared group that is missing or empty fails the deploy
 # naming the group — the deploy key's own bundle is the only layer allowed to be

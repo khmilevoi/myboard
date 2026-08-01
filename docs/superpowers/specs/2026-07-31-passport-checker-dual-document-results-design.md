@@ -33,8 +33,9 @@ This change keeps the existing widget RPC event (`check`), browser task, recover
 key, widget identity, width breakpoints, and server-side passport secret. It changes the result
 contract and the state rendered behind that one action. The user later approved three delivery
 exceptions required to keep the result contract truthful in production: height-aware tier floors,
-a passport `minH: 4` floor with one-shot migration of older layouts, and explicit empty dev own
-secret files so the `dev` group owns the non-production combined identity.
+passport `minW: 4` / `minH: 4` desktop floors with content-idempotent migration of older or
+partially migrated layouts, and explicit empty dev own secret files so the `dev` group owns the
+non-production combined identity.
 
 ## Scope
 
@@ -55,8 +56,9 @@ secret files so the `dev` group owns the non-production combined identity.
 - No result history, TTL, background polling, or automatic check on mount.
 - No change to the recovery transport, noVNC modal, widget RPC error propagation, or width tier
   breakpoints. Compact/standard/large tiers use the approved 280px height floor, while the
-  passport widget's `minH: 4` and one-shot layout migration prevent users from resizing TinyTier
-  below its title, two visible outcomes, and action.
+  passport widget's desktop `minW: 4` / `minH: 4` floors and content-idempotent layout migration
+  prevent users from resizing TinyTier below its title, two visible outcomes, and action. Mobile
+  placements remain compatible with the board's single-column `w: 1` / `minW: 1` geometry.
 - No new design system. The widget continues to use myboard's existing tokens and component
   language.
 
@@ -457,6 +459,10 @@ real headed browser unless `BROWSER_IT=1`.
 | Model/persistence | `model/check-model.ts`, `model/check-model.test.ts` |
 | UI | `ui/parts/StatusBanner.tsx`, `ui/tiers/StandardTier.tsx`, `ui/tiers/TinyTier.tsx`, `ui/passport-checker.module.css`, `ui/PassportChecker.test.tsx` |
 | Mechanical contract fixtures | Other passport-checker tests or dev-harness tests that construct the old single result |
+| Widget size and tier contract | `packages/widgets/passport-checker/client.ts`, `packages/widgets/passport-checker/client.test.ts` |
+| Board placement and layout migration | `packages/client/src/board/model/board-model.test.ts`, `packages/client/src/board/model/mobile-layout.ts`, `packages/client/src/board/model/mobile-layout.test.ts`, `packages/client/src/board/model/board-storage.ts`, `packages/client/src/board/model/types.ts` |
+| Browser automation operations | `packages/browser-automation/README.md` |
+| Deployment secret ownership | `README.md`, `rpi.toml`, `rpi.dev.toml`, `rpi.branch.toml`, `scripts/infra.test.ts` |
 
 No change is expected in recovery transport/model/modal files beyond mechanical type-fixture
 updates if their tests construct a check result directly.

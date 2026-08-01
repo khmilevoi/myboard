@@ -7,7 +7,8 @@ import type { BoardSnapshot, LayoutItem, WidgetInstance } from './types'
  * They are recorded per board id in board-storage.ts's localBoardMigrations /
  * sharedBoardMigrations (see BoardMigrations in types.ts). The generic marker
  * preserves user resizes below a later default height; the passport-specific
- * marker may instead establish that widget's hard minH floor once.
+ * marker records rollout of that widget's hard minW/minH floor. The passport
+ * floor remains content-idempotent so a marker cannot hide a failed board write.
  */
 export const HEIGHT_FLOOR_MIGRATION_ID = 'layout-height-floor-v1'
 export const PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID = 'passport-checker-height-floor-v1'
@@ -74,25 +75,35 @@ const bumpHeightsToDefault = (
   return { items: next, changed }
 }
 
-const bumpPassportCheckerHeightsToMinimum = (
-  items: LayoutItem[],
-  typeIdById: Map<string, string>,
-): { items: LayoutItem[]; changed: boolean } => {
+const enforcePassportCheckerSizeFloor = ({
+  items,
+  typeIdById,
+  isMobile,
+}: {
+  items: LayoutItem[]
+  typeIdById: Map<string, string>
+  isMobile: boolean
+}): { items: LayoutItem[]; changed: boolean } => {
   const passportChecker = findWidgetType('passport-checker')
   if (passportChecker instanceof Error) return { items, changed: false }
   const minimumHeight = passportChecker.defaultSize.minH
-  if (minimumHeight === undefined) return { items, changed: false }
+  const minimumDesktopWidth = passportChecker.defaultSize.minW
+  if (minimumHeight === undefined || minimumDesktopWidth === undefined) {
+    return { items, changed: false }
+  }
 
   let changed = false
   const next = items.map((item) => {
     if (typeIdById.get(item.i) !== 'passport-checker') return item
 
+    const minW = isMobile ? 1 : Math.max(item.minW ?? 0, minimumDesktopWidth)
+    const w = isMobile ? 1 : Math.max(item.w, minW)
     const minH = Math.max(item.minH ?? 0, minimumHeight)
     const h = Math.max(item.h, minH)
-    if (item.minH === minH && item.h === h) return item
+    if (item.w === w && item.minW === minW && item.h === h && item.minH === minH) return item
 
     changed = true
-    return { ...item, h, minH }
+    return { ...item, w, h, minW, minH }
   })
 
   return { items: next, changed }
@@ -101,9 +112,10 @@ const bumpPassportCheckerHeightsToMinimum = (
 /**
  * One-shot migrations: the generic pass bumps a placed widget's persisted
  * height up to its type's current defaultSize.h; the passport-specific pass
- * then raises only passport-checker h and minH to its hard floor. Each records
- * its own marker in the returned applied-ids list, so an existing board that
- * already consumed the generic pass still receives the new passport floor.
+ * then enforces passport-checker's hard desktop minW/minH floor and its
+ * one-column mobile geometry. Each records its own marker in the returned
+ * applied-ids list, so an existing board that already consumed the generic
+ * pass still receives the new passport floor.
  *
  * defaultSize is only applied when a widget is first added (see makeLayout
  * in board-model.ts) — nothing else migrates the h already persisted for a
@@ -112,16 +124,17 @@ const bumpPassportCheckerHeightsToMinimum = (
  * instance can silently sit below the new floor and render a degraded tier
  * forever.
  *
- * Each pass runs once per board at load (see board-storage.ts), not on every
- * read: a generic per-read clamp would undo a later deliberate resize below a
- * new default. The passport pass is intentionally stricter because minH is
- * its published accessibility floor. The caller supplies the ids already
- * applied to this board
+ * The generic pass runs once per board at load (see board-storage.ts), not on
+ * every read: a generic per-read clamp would undo a later deliberate resize
+ * below a new default. The passport pass is intentionally content-idempotent
+ * because minW/minH are published accessibility floors. It therefore repairs
+ * stale content even when its marker was persisted independently after the
+ * board write failed. The caller supplies the ids already applied to this board
  * (persisted separately from the snapshot — see BoardMigrations in
  * types.ts, and why in board-storage.ts) rather than reading them off the
- * board itself. Both the board and the ids list come back by the same
- * reference when the marker is already present, so callers can rely on
- * referential stability to skip an unnecessary write-back on either atom.
+ * board itself. Once both markers and all hard floors are satisfied, the board
+ * and ids list come back by the same reference so callers can skip unnecessary
+ * write-back on either atom.
  */
 export const migrateBoardLayoutHeights = (
   board: BoardSnapshot,
@@ -131,9 +144,6 @@ export const migrateBoardLayoutHeights = (
   const hasPassportCheckerHeightMigration = appliedMigrationIds.includes(
     PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID,
   )
-  if (hasGenericHeightMigration && hasPassportCheckerHeightMigration) {
-    return { board, appliedMigrationIds: appliedMigrationIds as string[] }
-  }
 
   const typeIdById = new Map(
     board.instances.map((instance: WidgetInstance) => [instance.id, instance.typeId]),
@@ -141,32 +151,46 @@ export const migrateBoardLayoutHeights = (
   const defaultLayoutResult = hasGenericHeightMigration
     ? { items: board.layout, changed: false }
     : bumpHeightsToDefault(board.layout, typeIdById)
-  const layoutResult = hasPassportCheckerHeightMigration
-    ? defaultLayoutResult
-    : bumpPassportCheckerHeightsToMinimum(defaultLayoutResult.items, typeIdById)
+  const passportLayoutResult = enforcePassportCheckerSizeFloor({
+    items: defaultLayoutResult.items,
+    typeIdById,
+    isMobile: false,
+  })
+  const layoutChanged = defaultLayoutResult.changed || passportLayoutResult.changed
   const defaultMobileResult = board.mobileLayout
     ? hasGenericHeightMigration
       ? { items: board.mobileLayout, changed: false }
       : bumpHeightsToDefault(board.mobileLayout, typeIdById)
     : null
-  const mobileResult = defaultMobileResult
-    ? hasPassportCheckerHeightMigration
-      ? defaultMobileResult
-      : bumpPassportCheckerHeightsToMinimum(defaultMobileResult.items, typeIdById)
+  const passportMobileResult = defaultMobileResult
+    ? enforcePassportCheckerSizeFloor({
+        items: defaultMobileResult.items,
+        typeIdById,
+        isMobile: true,
+      })
     : null
+  const mobileChanged = Boolean(defaultMobileResult?.changed || passportMobileResult?.changed)
 
-  const appliedMigrationIdsNext = [
-    ...appliedMigrationIds,
-    ...(hasGenericHeightMigration ? [] : [HEIGHT_FLOOR_MIGRATION_ID]),
-    ...(hasPassportCheckerHeightMigration ? [] : [PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID]),
-  ]
+  const appliedMigrationIdsNext =
+    hasGenericHeightMigration && hasPassportCheckerHeightMigration
+      ? (appliedMigrationIds as string[])
+      : [
+          ...appliedMigrationIds,
+          ...(hasGenericHeightMigration ? [] : [HEIGHT_FLOOR_MIGRATION_ID]),
+          ...(hasPassportCheckerHeightMigration
+            ? []
+            : [PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID]),
+        ]
+  const boardChanged = layoutChanged || mobileChanged
 
   return {
-    board: {
-      ...board,
-      layout: layoutResult.items,
-      ...(mobileResult ? { mobileLayout: mobileResult.items } : {}),
-    },
+    board: boardChanged
+      ? {
+          ...board,
+          layout: passportLayoutResult.items,
+          ...(passportMobileResult ? { mobileLayout: passportMobileResult.items } : {}),
+        }
+      : board,
     appliedMigrationIds: appliedMigrationIdsNext,
   }
 }

@@ -310,10 +310,15 @@ export function makePassportCheckModel({
 
   const applyResult = action((observed: ObservedCheckResult) => {
     const deferred = deferredResult()
-    const stored = storageSnapshotKnown() ? lastResult() : (deferred ?? lastResult())
+    const snapshotKnown = storageSnapshotKnown()
+    const stored = snapshotKnown ? lastResult() : (deferred ?? lastResult())
     const merged = mergeCheckResult({ stored, ...observed })
+    const hasCompleteCoverage = Boolean(
+      merged.stored?.idCard && merged.stored.internationalPassport,
+    )
     const shouldDefer =
-      !storageSnapshotKnown() &&
+      !snapshotKnown &&
+      !hasCompleteCoverage &&
       (deferred !== null || (merged.stored !== null && Object.keys(merged.errors).length > 0))
 
     if (shouldDefer) {
@@ -322,6 +327,23 @@ export function makePassportCheckModel({
         optimisticResult.set(merged.stored)
       }
       transient.set({ kind: 'documentErrors', errors: merged.errors })
+      return
+    }
+
+    // Once both documents have a fresh successful value, an unread snapshot
+    // cannot contribute a missing sibling. Persist immediately, but retain the
+    // complete deferred value as a hydration guard: if a delayed initial
+    // snapshot arrives later, flushDeferredResult merges these newer values
+    // back over it instead of letting the old snapshot win.
+    if (!snapshotKnown && merged.stored !== null) {
+      deferredResult.set(merged.stored)
+      optimisticResult.set(merged.stored)
+      lastResult.set(merged.stored)
+      transient.set(
+        Object.keys(merged.errors).length === 0
+          ? { kind: 'idle' }
+          : { kind: 'documentErrors', errors: merged.errors },
+      )
       return
     }
 

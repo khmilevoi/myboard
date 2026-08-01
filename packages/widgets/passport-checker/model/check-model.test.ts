@@ -63,6 +63,15 @@ const ID_ERROR_PASSPORT_SUCCESS: PassportCheckResult = {
   },
 }
 
+const COMPLETE_RETRY_SUCCESSES: PassportCheckResult = {
+  idCard: { kind: 'success', status: 204, send_status_msg: 'ID complete' },
+  internationalPassport: {
+    kind: 'success',
+    status: 205,
+    send_status_msg: 'Passport complete',
+  },
+}
+
 const TWO_ERRORS: PassportCheckResult = {
   idCard: { kind: 'error', code: 'invalid_checker_response' },
   internationalPassport: { kind: 'error', code: 'upstream_response' },
@@ -861,6 +870,68 @@ describe('makePassportCheckModel persistence', () => {
           kind: 'retryable',
           message: RETRYABLE_MESSAGES.upstream_response,
         },
+      })
+      unsubscribe()
+    })
+  })
+
+  it('persists a complete retry after a storage read error despite an earlier deferred partial', async () => {
+    const { api, invoke } = makeApi()
+    invoke.mockResolvedValueOnce(ID_SUCCESS_PASSPORT_ERROR)
+    invoke.mockResolvedValueOnce(COMPLETE_RETRY_SUCCESSES)
+    const base = createFakeStorage()
+    await seed(base, V2_STORED)
+    const set = vi.spyOn(base, 'set')
+    set.mockClear()
+    const controlled = delayStorageSubscription(base)
+    const firstCheckedAt = new Date('2026-07-24T14:00:00').getTime()
+    const completeCheckedAt = new Date('2026-07-24T15:00:00').getTime()
+    let currentTime = firstCheckedAt
+
+    await context.start(async () => {
+      const model = makePassportCheckModel({
+        api,
+        storage: controlled.storage,
+        now: () => new Date(currentTime),
+      })
+      const read = wrap(() => model.viewState())
+      const run = wrap(() => model.checkPassport())
+      const failRead = wrap(() => controlled.emitError(new StorageError({ reason: 'read failed' })))
+      const unsubscribe = model.viewState.subscribe(() => {})
+
+      failRead()
+      await run()
+      currentTime = completeCheckedAt
+      await run()
+
+      const expected = {
+        version: 2 as const,
+        idCard: { status: 204, message: 'ID complete', checkedAt: completeCheckedAt },
+        internationalPassport: {
+          status: 205,
+          message: 'Passport complete',
+          checkedAt: completeCheckedAt,
+        },
+      }
+
+      expect(read()).toEqual({
+        kind: 'results',
+        idCard: {
+          kind: 'success',
+          status: 204,
+          message: 'ID complete',
+          checkedAtLabel: '15:00',
+        },
+        internationalPassport: {
+          kind: 'success',
+          status: 205,
+          message: 'Passport complete',
+          checkedAtLabel: '15:00',
+        },
+      })
+      await vi.waitFor(async () => {
+        expect(set).toHaveBeenCalledWith(PASSPORT_LAST_RESULT_KEY, expected)
+        expect(await base.get(PASSPORT_LAST_RESULT_KEY)).toEqual(expected)
       })
       unsubscribe()
     })

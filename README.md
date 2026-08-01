@@ -67,8 +67,8 @@ rpi config show --env dev      # resolved base + overlay, without touching the a
 
 `rpi.dev.toml` clears `[secrets].files` and attaches the `dev` secret group
 instead, so `.env.dev` is the whole of this environment's own bundle. The
-passport-checker widget's two plain-value files reach every stack through a
-group pushed once from the repository root — see
+passport-checker widget's combined plain-value file reaches every stack through
+a group pushed once from the repository root — see
 `packages/browser-automation/README.md#provisioning-secrets`.
 
 Everything not repeated in the overlay is inherited, so `rpi command` works the
