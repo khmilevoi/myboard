@@ -401,170 +401,112 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 14px;
-  text-align: center;
+  min-width: 0;
+  padding: 8px;
   background: var(--card, #fff);
   border-radius: 14px;
 }
 
-.tinyCentered {
-  justify-content: center;
-  gap: 11px;
-}
-
-.tinyBody {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+.tinyHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 6px;
 }
 
-.tinyBodyPending {
-  gap: 12px;
-}
-
-.tinyResultRow {
+.tinyStatus {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
   min-width: 0;
-  padding: 5px 7px;
+  gap: 5px;
 }
 
-.tinyResultLabel {
-  min-width: 0;
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.tinyResultOutcome {
+.tinyStatusIcon {
+  display: grid;
+  place-items: center;
   flex: none;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10.5px;
-  font-weight: 600;
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
 }
 
-.tinyResultSuccess {
+.tinyStatusLabel {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tinyStatusSuccess .tinyStatusIcon {
+  background: var(--pc-success-soft);
+  color: var(--pc-success-chip-fg);
+}
+
+.tinyStatusSuccess .tinyStatusLabel {
   color: var(--pc-success-text);
 }
 
-.tinyResultError {
-  color: var(--pc-error-text);
-}
-
-.tinyWarning {
-  background: var(--pc-warning-bg);
-}
-
-.tinyChip {
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  background: var(--accent-soft, oklch(0.955 0.032 285));
-  color: var(--primary, oklch(0.55 0.17 281));
-}
-
-.tinyChipWarning {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+.tinyStatusWarning .tinyStatusIcon {
   background: var(--pc-warning-chip-bg);
   color: var(--pc-warning-chip-fg);
 }
 
-.tinyChipMuted {
-  background: var(--secondary, #eceef1);
-  color: var(--text-3, #9396a0);
+.tinyStatusWarning .tinyStatusLabel {
+  color: var(--pc-warning-text);
 }
 
-.tinyBadge {
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-}
-
-.tinyBadgeSuccess {
-  background: var(--pc-success);
-  color: var(--pc-success-fg);
-}
-
-.tinyBadgeError {
+.tinyStatusError .tinyStatusIcon {
   background: var(--pc-error-soft);
   color: var(--pc-error-icon);
 }
 
-.tinyTitle {
-  font-weight: 600;
-  font-size: 12.5px;
+.tinyStatusError .tinyStatusLabel {
+  color: var(--pc-error-text);
 }
 
-.tinyLabel {
-  font-weight: 600;
-  font-size: 12.5px;
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.tinyStatusMuted .tinyStatusIcon {
+  background: var(--secondary, #eceef1);
+  color: var(--text-3, #9396a0);
+}
+
+.tinyStatusMuted .tinyStatusLabel {
+  color: var(--text-dim, #5b5e69);
+}
+
+.tinyStatusLoading {
+  animation: pc-spin 0.7s linear infinite;
+}
+
+.tinyMeta {
+  min-width: 0;
+  margin: 3px 0 7px 25px;
   overflow: hidden;
-}
-
-.tinyLabelSuccess {
-  color: var(--pc-success-text);
-}
-
-.tinyLabelWarning {
-  font-size: 11.5px;
-  line-height: 1.3;
-  color: var(--pc-warning-text);
-}
-
-.tinyMutedLabel {
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1.4;
   color: var(--text-3, #9396a0);
-}
-
-.tinyMono {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-weight: 500;
-  font-size: 11px;
-  color: var(--text-3, #9396a0);
+  font-size: 9px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tinyMonoError {
-  font-size: 10.5px;
-  color: var(--pc-error-hint);
+.tinyButton,
+.tinySecondaryButton {
+  height: 28px;
+  gap: 5px;
+  border-radius: 8px;
+  font-size: 11px;
 }
 
 .tinyButton {
-  height: 36px;
-  gap: 6px;
-  border-radius: 10px;
   background: var(--primary, oklch(0.55 0.17 281));
   color: var(--primary-foreground, #fff);
-  font-size: 13px;
-  box-shadow: 0 1px 2px rgba(20, 22, 40, 0.06);
 }
 
 .tinySecondaryButton {
-  height: 36px;
-  gap: 5px;
-  border-radius: 10px;
-  background: var(--card, #fff);
+  background: var(--secondary, #f5f6f8);
   border-color: var(--border, #e3e4e8);
   color: var(--text, #22232a);
-  font-size: 12.5px;
 }

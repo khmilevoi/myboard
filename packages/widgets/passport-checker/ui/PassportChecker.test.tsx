@@ -328,8 +328,8 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
-    expect(await screen.findByText('Проверяем…')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Проверить/ })).toBeDisabled()
+    expect(await screen.findByText('Обновляем данные')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Проверяем…' })).toBeDisabled()
   })
 
   it('renders the compact error state', async () => {
@@ -337,26 +337,23 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
-    expect(await screen.findByText('ошибка')).toBeInTheDocument()
+    expect(await screen.findByText('Не удалось обновить')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Повторить/ })).toBeInTheDocument()
   })
 
-  it('renders two compact success rows without full messages or timestamps', async () => {
+  it('renders an updated tiny summary without full document details', async () => {
     renderWidget('compact', async () => twoSuccesses())
 
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
-    expect(await screen.findByText('ID')).toBeInTheDocument()
-    expect(screen.getByText('Загран')).toBeInTheDocument()
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('201')).toBeInTheDocument()
+    expect(await screen.findByText('Данные обновлены')).toBeInTheDocument()
+    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('ID готова')).toBeNull()
     expect(screen.queryByText('Загран готов')).toBeNull()
-    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Проверить снова' })).toBeEnabled()
   })
 
-  it('renders compact ID success and international-passport error rows', async () => {
+  it('marks a partially updated tiny result and keeps its timestamp', async () => {
     renderWidget('compact', async () => ({
       idCard: { kind: 'success', status: 200, send_status_msg: 'ID готова' },
       internationalPassport: { kind: 'error', code: 'upstream_response' },
@@ -364,17 +361,14 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
-    expect(await screen.findByText('ID')).toBeInTheDocument()
-    expect(screen.getByText('Загран')).toBeInTheDocument()
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('ошибка')).toBeInTheDocument()
+    expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
+    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('ID готова')).toBeNull()
     expect(screen.queryByText('Сервис проверки временно недоступен')).toBeNull()
-    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
   })
 
-  it('renders compact ID error and international-passport success rows', async () => {
+  it('uses the same partial summary when only the international passport updates', async () => {
     renderWidget('compact', async () => ({
       idCard: { kind: 'error', code: 'invalid_checker_response' },
       internationalPassport: {
@@ -386,17 +380,14 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
-    expect(await screen.findByText('ID')).toBeInTheDocument()
-    expect(screen.getByText('Загран')).toBeInTheDocument()
-    expect(screen.getByText('ошибка')).toBeInTheDocument()
-    expect(screen.getByText('201')).toBeInTheDocument()
+    expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
+    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('Загран готов')).toBeNull()
     expect(screen.queryByText('Сервис проверки вернул неожиданный ответ')).toBeNull()
-    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
   })
 
-  it('renders two compact error rows without full messages or timestamps', async () => {
+  it('marks a failed tiny refresh without a misleading timestamp', async () => {
     renderWidget('compact', async () => ({
       idCard: { kind: 'error', code: 'upstream_response' },
       internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
@@ -404,19 +395,26 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
-    expect(await screen.findByText('ID')).toBeInTheDocument()
-    expect(screen.getByText('Загран')).toBeInTheDocument()
-    expect(screen.getAllByText('ошибка')).toHaveLength(2)
+    expect(await screen.findByText('Данные не обновлены')).toBeInTheDocument()
     expect(screen.queryByText('Сервис проверки временно недоступен')).toBeNull()
     expect(screen.queryByText('Сервис проверки вернул неожиданный ответ')).toBeNull()
     expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
   })
 
-  // The tiny tile offers no expand affordance (PassportChecker takes only
-  // `onDelete` from useWidgetChrome), so if this state had no action of its own
-  // it would be a dead end: a card narrower than the widget's 321px standard
-  // threshold that restores a stored result on mount could never be re-checked.
+  it('opens the fullscreen details from a tiny tile', () => {
+    const props = makeProps('compact', vi.fn())
+    render(
+      <WidgetRuntimeContext.Provider value={props}>
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
+
+    expect(props.requestFullscreen).toHaveBeenCalledOnce()
+  })
+
   it('re-runs the check from the compact success state', async () => {
     const invoke = vi
       .fn<() => Promise<InvokeResult>>()
@@ -435,14 +433,12 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
     fireEvent.click(await screen.findByRole('button', { name: /Проверить снова/ }))
 
-    expect(await screen.findByText('404')).toBeInTheDocument()
-    expect(screen.getByText('205')).toBeInTheDocument()
+    expect(await screen.findByText('Данные обновлены')).toBeInTheDocument()
     expect(screen.queryByText('Дані не знайдено!')).toBeNull()
-    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
     expect(invoke).toHaveBeenCalledTimes(2)
   })
 
-  it('omits full messages and dated timestamps for restored compact results', async () => {
+  it('shows the latest persisted update time in a restored tiny result', async () => {
     const storage = makeFakeStorage()
     await storage.shared.server.set(PASSPORT_ID_CARD_LAST_RESULT_V2_KEY, {
       status: 200,
@@ -464,13 +460,10 @@ describe('PassportChecker / tiny tier', () => {
       </WidgetRuntimeContext.Provider>,
     )
 
-    expect(await screen.findByText('ID')).toBeInTheDocument()
-    expect(screen.getByText('Загран')).toBeInTheDocument()
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('201')).toBeInTheDocument()
+    expect(await screen.findByText('Данные обновлены')).toBeInTheDocument()
+    expect(screen.getByText('Обновлено 02.01 10:06')).toBeInTheDocument()
     expect(screen.queryByText('ID сохранена')).toBeNull()
     expect(screen.queryByText('Загран сохранён')).toBeNull()
-    expect(screen.queryByText(/\d{2}\.\d{2} \d{2}:\d{2}/)).toBeNull()
     expect(invoke).not.toHaveBeenCalled()
   })
 
@@ -491,12 +484,9 @@ describe('PassportChecker / tiny tier', () => {
       </WidgetRuntimeContext.Provider>,
     )
 
-    expect(await screen.findByText('ID')).toBeInTheDocument()
-    expect(screen.getByText('Загран')).toBeInTheDocument()
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('не проверен')).toBeInTheDocument()
+    expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
+    expect(screen.getByText('Обновлено 01.01 09:05')).toBeInTheDocument()
     expect(screen.queryByText('Сохранённая ID-карта')).toBeNull()
-    expect(screen.queryByText(/\d{2}\.\d{2} \d{2}:\d{2}/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Проверить' })).toBeEnabled()
     expect(invoke).not.toHaveBeenCalled()
   })
@@ -506,7 +496,7 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
-    expect(await screen.findByText('Требуется вход в браузер')).toBeInTheDocument()
+    expect(await screen.findByText('Требуется вход')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Открыть' })).toBeInTheDocument()
   })
 

@@ -5,7 +5,9 @@ import type { PassportCheckerEvents } from './types'
 export const passportCheckerWidget = defineWidgetClient<PassportCheckerEvents>({
   title: 'Паспорт',
   description: 'Проверка статуса паспорта',
-  defaultSize: { w: 4, h: 4, minW: 4, minH: 4 },
+  // h3/w3 is the smallest desktop footprint that keeps Tiny's status,
+  // management controls, timestamp, and refresh action visible together.
+  defaultSize: { w: 3, h: 3, minW: 3, minH: 3 },
   icon: 'IdCard',
   tiers: {
     tiny: { minWidthPx: 0, minHeightPx: 0 },

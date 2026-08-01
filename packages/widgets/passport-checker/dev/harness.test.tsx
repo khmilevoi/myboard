@@ -11,6 +11,13 @@ describe('passport-checker harness', () => {
     expect(typeof props.api.invoke).toBe('function')
   })
 
+  it('builds a small tiny-card preview for responsive visual checks', () => {
+    const props = harnessProps('tiny', 'small')
+
+    expect(props.tier).toBe('tiny')
+    expect(props.mode).toBe('small')
+  })
+
   it('renders the widget standalone', async () => {
     render(<HarnessApp />)
     expect(await screen.findByText('Паспорт')).toBeInTheDocument()

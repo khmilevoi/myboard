@@ -204,14 +204,26 @@ export function formatCheckedAt(checkedAt: number, now: Date): string {
   return sameDay ? time : `${pad(date.getDate())}.${pad(date.getMonth() + 1)} ${time}`
 }
 
+const documentCheckedAt = new WeakMap<Extract<DocumentView, { kind: 'success' }>, number>()
+
+/**
+ * DocumentView deliberately exposes only display data. Tiny needs the original
+ * timestamp to choose the latest result without changing that public shape.
+ */
+export function getDocumentCheckedAt(view: DocumentView): number | undefined {
+  return view.kind === 'success' ? documentCheckedAt.get(view) : undefined
+}
+
 function storedView(stored: StoredDocumentResult | undefined, now: Date): DocumentView {
   if (!stored) return { kind: 'unchecked' }
-  return {
+  const view: Extract<DocumentView, { kind: 'success' }> = {
     kind: 'success',
     status: stored.status,
     message: stored.message,
     checkedAtLabel: formatCheckedAt(stored.checkedAt, now),
   }
+  documentCheckedAt.set(view, stored.checkedAt)
+  return view
 }
 
 /**
