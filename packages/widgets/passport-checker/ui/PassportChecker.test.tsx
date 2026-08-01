@@ -328,8 +328,8 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
-    expect(await screen.findByText('Обновляем данные')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Проверяем…' })).toBeDisabled()
+    expect(await screen.findByText('Обновляем данные…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Проверить' })).toBeDisabled()
   })
 
   it('renders the compact error state', async () => {
@@ -347,7 +347,7 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
     expect(await screen.findByText('Данные обновлены')).toBeInTheDocument()
-    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(screen.getByText(/^обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('ID готова')).toBeNull()
     expect(screen.queryByText('Загран готов')).toBeNull()
     expect(screen.getByRole('button', { name: 'Проверить снова' })).toBeEnabled()
@@ -362,7 +362,7 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
     expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
-    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(screen.getByText(/^1 из 2 · \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('ID готова')).toBeNull()
     expect(screen.queryByText('Сервис проверки временно недоступен')).toBeNull()
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
@@ -381,7 +381,7 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
     expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
-    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(screen.getByText(/^1 из 2 · \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('Загран готов')).toBeNull()
     expect(screen.queryByText('Сервис проверки вернул неожиданный ответ')).toBeNull()
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
@@ -461,7 +461,7 @@ describe('PassportChecker / tiny tier', () => {
     )
 
     expect(await screen.findByText('Данные обновлены')).toBeInTheDocument()
-    expect(screen.getByText('Обновлено 02.01 10:06')).toBeInTheDocument()
+    expect(screen.getByText('обновлено 02.01 10:06')).toBeInTheDocument()
     expect(screen.queryByText('ID сохранена')).toBeNull()
     expect(screen.queryByText('Загран сохранён')).toBeNull()
     expect(invoke).not.toHaveBeenCalled()
@@ -485,7 +485,7 @@ describe('PassportChecker / tiny tier', () => {
     )
 
     expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
-    expect(screen.getByText('Обновлено 01.01 09:05')).toBeInTheDocument()
+    expect(screen.getByText('1 из 2 · 01.01 09:05')).toBeInTheDocument()
     expect(screen.queryByText('Сохранённая ID-карта')).toBeNull()
     expect(screen.getByRole('button', { name: 'Проверить' })).toBeEnabled()
     expect(invoke).not.toHaveBeenCalled()
@@ -496,7 +496,7 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
-    expect(await screen.findByText('Требуется вход')).toBeInTheDocument()
+    expect(await screen.findByText('Войдите в браузер')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Открыть' })).toBeInTheDocument()
   })
 

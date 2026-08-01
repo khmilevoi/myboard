@@ -207,30 +207,17 @@
   background: var(--secondary, #f5f6f8);
 }
 
-.resultsList,
-.tinyResultsList {
+.resultsList {
   width: 100%;
+  min-height: 0;
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.resultsList {
-  min-height: 0;
   display: grid;
   gap: 8px;
 }
 
-.tinyResultsList {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  align-content: center;
-  gap: 6px;
-}
-
-.resultsList > li,
-.tinyResultsList > li {
+.resultsList > li {
   min-width: 0;
 }
 
@@ -343,8 +330,7 @@
 }
 
 .bannerNeutral .bannerIcon,
-.bannerNeutral .bannerMeta,
-.tinyResultUnchecked {
+.bannerNeutral .bannerMeta {
   color: var(--text-3, #9396a0);
 }
 
@@ -401,103 +387,154 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
   min-width: 0;
-  padding: 8px;
+  padding: 14px;
   background: var(--card, #fff);
   border-radius: 14px;
 }
 
-.tinyHeader {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+/* The sessionRequired tile tints its whole card, not just the icon/label —
+   there is no room on a tiny tile for a separate warning banner. */
+.tinyWarning {
+  background: var(--pc-warning-bg);
+  border: 1px solid var(--pc-warning-border);
+}
+
+.tinyBody {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.tinyIcons {
+  display: flex;
   gap: 6px;
 }
 
-.tinyStatus {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 5px;
-}
-
-.tinyStatusIcon {
+.tinyIconChip {
+  position: relative;
   display: grid;
   place-items: center;
   flex: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 7px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
 }
 
-.tinyStatusLabel {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.tinyIconChipNeutral {
+  background: var(--accent-soft, oklch(0.955 0.032 285));
+  color: var(--primary, oklch(0.55 0.17 281));
 }
 
-.tinyStatusSuccess .tinyStatusIcon {
-  background: var(--pc-success-soft);
-  color: var(--pc-success-chip-fg);
-}
-
-.tinyStatusSuccess .tinyStatusLabel {
-  color: var(--pc-success-text);
-}
-
-.tinyStatusWarning .tinyStatusIcon {
-  background: var(--pc-warning-chip-bg);
-  color: var(--pc-warning-chip-fg);
-}
-
-.tinyStatusWarning .tinyStatusLabel {
-  color: var(--pc-warning-text);
-}
-
-.tinyStatusError .tinyStatusIcon {
+.tinyIconChipError {
   background: var(--pc-error-soft);
   color: var(--pc-error-icon);
 }
 
-.tinyStatusError .tinyStatusLabel {
-  color: var(--pc-error-text);
+/* A ring the card's own background, not a hard border, so the badge reads as
+   sitting on top of the chip at any card color (including .tinyWarning). */
+.tinyIconBadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--card, #fff);
 }
 
-.tinyStatusMuted .tinyStatusIcon {
+.tinyIconBadgeSuccess {
+  background: var(--pc-success);
+  color: var(--pc-success-fg);
+}
+
+.tinyIconBadgeError {
+  background: var(--pc-error-icon);
+}
+
+.tinyBigIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--pc-warning-chip-bg);
+  color: var(--pc-warning-chip-fg);
+}
+
+.tinyBigIconMuted {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
   background: var(--secondary, #eceef1);
   color: var(--text-3, #9396a0);
 }
 
-.tinyStatusMuted .tinyStatusLabel {
+.tinyBigIconError {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--pc-error-soft);
+  color: var(--pc-error-icon);
+}
+
+.tinyLabel {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-wrap: pretty;
+}
+
+.tinyLabelDefault {
+  color: var(--text, #22232a);
+}
+
+.tinyLabelMuted {
   color: var(--text-dim, #5b5e69);
 }
 
-.tinyStatusLoading {
-  animation: pc-spin 0.7s linear infinite;
+.tinyLabelSuccess {
+  color: var(--pc-success-text);
+}
+
+.tinyLabelWarning {
+  color: var(--pc-warning-text);
+}
+
+.tinyLabelError {
+  color: var(--pc-error-text);
 }
 
 .tinyMeta {
   min-width: 0;
-  margin: 3px 0 7px 25px;
+  max-width: 100%;
   overflow: hidden;
   color: var(--text-3, #9396a0);
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 9px;
-  line-height: 1.1;
+  font-weight: 500;
+  font-size: 10.5px;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .tinyButton,
 .tinySecondaryButton {
-  height: 28px;
-  gap: 5px;
-  border-radius: 8px;
-  font-size: 11px;
+  height: 34px;
+  gap: 6px;
+  border-radius: 10px;
+  font-size: 12.5px;
 }
 
 .tinyButton {
@@ -506,7 +543,7 @@
 }
 
 .tinySecondaryButton {
-  background: var(--secondary, #f5f6f8);
+  background: var(--card, #fff);
   border-color: var(--border, #e3e4e8);
   color: var(--text, #22232a);
 }
