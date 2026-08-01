@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #e6e7ea; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; }
+  a:hover { color: oklch(0.49 0.17 281); }
+  @keyframes pc-spin { to { transform: rotate(360deg); } }
+  @keyframes pc-pulse { 0% { opacity:.55; } 50% { opacity:1; } 100% { opacity:.55; } }
+</style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;padding:56px;background:#e6e7ea;font-family:'Hanken Grotesk',system-ui,sans-serif;">
+
+  <a href="00 Навигация.dc.html" style="display:inline-flex;align-items:center;gap:8px;margin:0 0 24px 2px;font:600 11.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#9396a0;text-decoration:none;">← myboard · навигация</a>
+
+  <!-- PAGE HEADER -->
+  <div style="margin:0 0 52px 2px;max-width:820px;">
+    <div style="font:600 12px/1 'JetBrains Mono',monospace;letter-spacing:.16em;color:#9396a0;text-transform:uppercase;">myboard · module-federation widget · redesign v2</div>
+    <h1 style="margin:14px 0 12px;font:700 32px/1.05 'Hanken Grotesk',sans-serif;letter-spacing:-.02em;color:#22232a;">Паспорт-чекер</h1>
+    <p style="margin:0;font:400 16px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:700px;text-wrap:pretty;">Виджет проверяет статус двух документов — <b style="color:#22232a;font-weight:600;">ID-карты</b> и <b style="color:#22232a;font-weight:600;">загранпаспорта</b> — через серверную браузерную автоматизацию; проверка занимает до ~90 секунд и иногда требует ручного шага в живом браузере. Три тира теперь — три самостоятельные раскладки: <b style="color:#22232a;font-weight:600;">tiny</b> сворачивает оба документа в один статус, <b style="color:#22232a;font-weight:600;">standard</b> показывает два баннера по документам, а <b style="color:#22232a;font-weight:600;">fullscreen</b> — не увеличенный standard, а отдельная раскладка: крупные карточки документов бок о бок, диагностика ошибок и recovery-флоу прямо в разметке.</p>
+  </div>
+
+  <!-- ============ 01 TINY ============ -->
+  <div style="margin:0 0 8px 2px;display:flex;align-items:baseline;gap:14px;">
+    <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">01</span>
+    <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Tiny — плитка на доске</h2>
+    <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— ≤ 180px · один статус с двумя мини-индикаторами по документам</span>
+  </div>
+  <div style="font:500 11.5px 'JetBrains Mono',monospace;color:#9396a0;margin:0 0 24px 2px;">плитка 156×204 · паддинг 14px · радиус 14px</div>
+
+  <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:64px;">
+
+    <!-- TINY A idle -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">A</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">idle</span></div>
+      <div style="position:relative;">
+        <div style="position:absolute;top:-13px;right:6px;display:flex;gap:1px;background:#fff;border:1px solid #e3e4e8;border-radius:8px;padding:3px;box-shadow:0 2px 10px rgba(20,22,40,.12);z-index:2;">
+          <span title="раскрыть на весь экран" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;color:#5b5e69;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"></path></svg></span>
+          <span title="удалить" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;color:#9396a0;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span>
+          <span title="закрыть" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;color:#9396a0;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+        </div>
+        <div style="width:156px;height:204px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+            <div style="display:flex;gap:6px;">
+              <span style="width:28px;height:28px;border-radius:8px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+              <span style="width:28px;height:28px;border-radius:8px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>
+            </div>
+            <div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div>
+            <div style="font:500 11px 'Hanken Grotesk',sans-serif;color:#9396a0;">Нет данных</div>
+          </div>
+          <button style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:34px;border:none;border-radius:10px;background:oklch(0.55 0.17 281);color:#fff;font:600 12.5px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);">Проверить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TINY B pending -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">B</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">pending</span></div>
+      <div style="width:156px;height:204px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+          <span style="width:26px;height:26px;border:2.6px solid oklch(0.55 0.17 281);border-right-color:transparent;border-radius:50%;display:inline-block;animation:pc-spin .7s linear infinite;"></span>
+          <div style="font:500 11px 'JetBrains Mono',monospace;color:#9396a0;text-align:center;">Обновляем<br>данные…</div>
+        </div>
+        <button disabled style="width:100%;height:34px;border:none;border-radius:10px;background:oklch(0.55 0.17 281);color:#fff;font:600 12.5px 'Hanken Grotesk',sans-serif;opacity:.4;cursor:not-allowed;">Проверить</button>
+      </div>
+    </div>
+
+    <!-- TINY C results success -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">C</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">данные обновлены</span></div>
+      <div style="width:156px;height:204px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+          <div style="display:flex;gap:6px;">
+            <span style="position:relative;width:28px;height:28px;flex:none;"><span style="width:28px;height:28px;border-radius:8px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><span style="position:absolute;right:-3px;bottom:-3px;width:12px;height:12px;border-radius:50%;background:oklch(0.55 0.13 155);border:2px solid #fff;display:flex;align-items:center;justify-content:center;"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span></span>
+            <span style="position:relative;width:28px;height:28px;flex:none;"><span style="width:28px;height:28px;border-radius:8px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span style="position:absolute;right:-3px;bottom:-3px;width:12px;height:12px;border-radius:50%;background:oklch(0.55 0.13 155);border:2px solid #fff;display:flex;align-items:center;justify-content:center;"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span></span>
+          </div>
+          <div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:oklch(0.4 0.12 155);text-align:center;line-height:1.25;">Данные<br>обновлены</div>
+          <div style="font:500 10.5px 'JetBrains Mono',monospace;color:#9396a0;">обновлено 14:32</div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:5px;width:100%;height:34px;border:1px solid #e3e4e8;border-radius:10px;background:#fff;color:#22232a;font:600 12px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Проверить снова</button>
+      </div>
+    </div>
+
+    <!-- TINY D results partial -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">D</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">обновлено частично</span></div>
+      <div style="width:156px;height:204px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+          <div style="display:flex;gap:6px;">
+            <span style="position:relative;width:28px;height:28px;flex:none;"><span style="width:28px;height:28px;border-radius:8px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><span style="position:absolute;right:-3px;bottom:-3px;width:12px;height:12px;border-radius:50%;background:oklch(0.55 0.13 155);border:2px solid #fff;display:flex;align-items:center;justify-content:center;"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span></span>
+            <span style="position:relative;width:28px;height:28px;flex:none;"><span style="width:28px;height:28px;border-radius:8px;background:oklch(0.968 0.028 27);color:oklch(0.55 0.21 27);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span style="position:absolute;right:-3px;bottom:-3px;width:12px;height:12px;border-radius:50%;background:oklch(0.55 0.21 27);border:2px solid #fff;display:flex;align-items:center;justify-content:center;"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"><path d="M12 8v3.5M12 14h.01"></path></svg></span></span>
+          </div>
+          <div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;text-align:center;line-height:1.25;">Обновлено<br>частично</div>
+          <div style="font:500 10.5px 'JetBrains Mono',monospace;color:#9396a0;">1 из 2 · 14:32</div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:5px;width:100%;height:34px;border:1px solid #e3e4e8;border-radius:10px;background:#fff;color:#22232a;font:600 12px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Проверить снова</button>
+      </div>
+    </div>
+
+    <!-- TINY E results none -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">E</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">данные не обновлены</span></div>
+      <div style="width:156px;height:204px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+          <div style="display:flex;gap:6px;">
+            <span style="width:28px;height:28px;border-radius:8px;background:oklch(0.968 0.028 27);color:oklch(0.55 0.21 27);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+            <span style="width:28px;height:28px;border-radius:8px;background:oklch(0.968 0.028 27);color:oklch(0.55 0.21 27);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>
+          </div>
+          <div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:oklch(0.5 0.13 27);text-align:center;line-height:1.25;">Данные не<br>обновлены</div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:5px;width:100%;height:34px;border:1px solid #e3e4e8;border-radius:10px;background:#fff;color:#22232a;font:600 12.5px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Повторить</button>
+      </div>
+    </div>
+
+    <!-- TINY F error global -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">F</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">ошибка проверки</span></div>
+      <div style="width:156px;height:204px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+          <span style="width:40px;height:40px;border-radius:50%;background:oklch(0.968 0.028 27);color:oklch(0.55 0.21 27);display:flex;align-items:center;justify-content:center;"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></span>
+          <div style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.13 27);text-align:center;">сервис<br>недоступен</div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:5px;width:100%;height:34px;border:1px solid #e3e4e8;border-radius:10px;background:#fff;color:#22232a;font:600 12.5px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Повторить</button>
+      </div>
+    </div>
+
+    <!-- TINY G invalidConfig -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">G</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">invalidConfig</span></div>
+      <div style="width:156px;height:204px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;text-align:center;">
+        <span style="width:40px;height:40px;border-radius:11px;background:#f0f1f4;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7"></path></svg></span>
+        <div style="font:500 11px/1.4 'Hanken Grotesk',sans-serif;color:#9396a0;">Не настроен</div>
+      </div>
+    </div>
+
+    <!-- TINY H sessionRequired -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">H</span><span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">sessionRequired</span></div>
+      <div style="width:156px;height:204px;background:oklch(0.96 0.05 80);border:1px solid oklch(0.85 0.1 80);border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:14px;display:flex;flex-direction:column;align-items:center;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;">
+          <span style="width:34px;height:34px;border-radius:9px;background:oklch(0.9 0.09 80);color:oklch(0.5 0.13 68);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3l9-16z"></path><path d="M12 10v4M12 17h.01"></path></svg></span>
+          <div style="font:600 11.5px/1.3 'Hanken Grotesk',sans-serif;color:oklch(0.4 0.09 62);">Войдите<br>в браузер</div>
+        </div>
+        <button style="width:100%;height:34px;border:none;border-radius:10px;background:oklch(0.55 0.17 281);color:#fff;font:600 12.5px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);">Открыть</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;gap:10px;align-items:flex-start;padding:14px 16px;background:#fff;border:1px solid #e3e4e8;border-radius:12px;margin:-40px 0 64px;max-width:900px;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#645fd1" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px;"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7"></path></svg>
+    <div style="font:400 13px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;"><b style="color:#22232a;font-weight:600;">Два мини-индикатора вместо одной свёртки.</b> На 156px влезают оба документа как маленькие иконки-чипы с цветной точкой-статусом — не только общая метка. Так на C/D видно, что упало именно из двух («1 из 2»), а не приходится гадать, что означает «частично».</div>
+  </div>
+
+  <!-- ============ 02 STANDARD ============ -->
+  <div style="margin:0 0 8px 2px;display:flex;align-items:baseline;gap:14px;">
+    <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">02</span>
+    <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Standard — дефолтная карточка на доске</h2>
+    <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— 321–560px · шапка + два баннера по документам + одна кнопка действия</span>
+  </div>
+  <div style="font:500 11.5px 'JetBrains Mono',monospace;color:#9396a0;margin:0 0 24px 2px;">плитка 360×292 · паддинг 16px · радиус 14px · контролы: удалить, закрыть (без «раскрыть» — оно только в tiny)</div>
+
+  <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;margin-bottom:44px;">
+
+    <!-- STD A idle -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">A</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">idle</span></div>
+      <div style="position:relative;">
+        <div style="position:absolute;top:-13px;right:8px;display:flex;gap:1px;background:#fff;border:1px solid #e3e4e8;border-radius:8px;padding:3px;box-shadow:0 2px 10px rgba(20,22,40,.12);z-index:2;">
+          <span title="удалить" style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;color:#5b5e69;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span>
+          <span title="закрыть" style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;color:#9396a0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+        </div>
+        <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:32px;height:32px;border-radius:9px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+            <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+            <div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;">Нет данных о статусе</div>
+          </div>
+          <button style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Проверить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STD B pending -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">B</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">pending</span></div>
+      <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:32px;height:32px;border-radius:9px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+          <span style="width:24px;height:24px;border:2.6px solid oklch(0.55 0.17 281);border-right-color:transparent;border-radius:50%;display:inline-block;animation:pc-spin .7s linear infinite;"></span>
+          <div style="font:500 14px 'Hanken Grotesk',sans-serif;color:#5b5e69;">Обновляем данные</div>
+          <div style="font:400 12px 'Hanken Grotesk',sans-serif;color:#9396a0;">Это займёт несколько секунд</div>
+        </div>
+        <button disabled style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;opacity:.4;cursor:not-allowed;">Проверить</button>
+      </div>
+    </div>
+
+    <!-- STD C results success -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">C</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">данные обновлены</span></div>
+      <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:32px;height:32px;border-radius:9px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:8px;margin-top:10px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:oklch(0.95 0.05 155);border:1px solid oklch(0.86 0.08 155);border-radius:10px;">
+            <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.55 0.13 155);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:oklch(0.4 0.12 155);">ID-карта · действительна</div><div style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.1 155);margin-top:2px;">статус 1 · 14:32</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:oklch(0.95 0.05 155);border:1px solid oklch(0.86 0.08 155);border-radius:10px;">
+            <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.55 0.13 155);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:oklch(0.4 0.12 155);">Загранпаспорт · действителен</div><div style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.1 155);margin-top:2px;">статус 1 · 14:32</div></div>
+          </div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#22232a;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;margin-top:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Проверить снова</button>
+      </div>
+    </div>
+
+    <!-- STD D results partial -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">D</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">обновлено частично</span></div>
+      <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:32px;height:32px;border-radius:9px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:8px;margin-top:10px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:oklch(0.95 0.05 155);border:1px solid oklch(0.86 0.08 155);border-radius:10px;">
+            <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.55 0.13 155);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:oklch(0.4 0.12 155);">ID-карта · действительна</div><div style="font:500 10.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.1 155);margin-top:2px;">статус 1 · 14:32</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 11px;background:#f5f6f8;border:1px solid #e3e4e8;border-radius:10px;">
+            <span style="width:24px;height:24px;border-radius:50%;background:oklch(0.968 0.028 27);color:oklch(0.55 0.21 27);display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Загранпаспорт · не удалось обновить</div><div style="font:500 10.5px 'JetBrains Mono',monospace;color:#9396a0;margin-top:2px;">последний раз: статус 1 · вчера 09:10</div></div>
+          </div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);margin-top:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Проверить снова</button>
+      </div>
+    </div>
+
+    <!-- STD E results none -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">E</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">данные не обновлены</span></div>
+      <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:32px;height:32px;border-radius:9px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:8px;margin-top:10px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 11px;background:oklch(0.968 0.028 27);border:1px solid oklch(0.88 0.07 27);border-radius:10px;">
+            <span style="color:oklch(0.55 0.21 27);flex:none;margin-top:1px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:oklch(0.42 0.16 27);">ID-карта · ошибка проверки</div><div style="font:400 11px 'Hanken Grotesk',sans-serif;color:oklch(0.5 0.11 27);margin-top:2px;">Нет данных о статусе</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 11px;background:oklch(0.968 0.028 27);border:1px solid oklch(0.88 0.07 27);border-radius:10px;">
+            <span style="color:oklch(0.55 0.21 27);flex:none;margin-top:1px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 13px 'Hanken Grotesk',sans-serif;color:oklch(0.42 0.16 27);">Загранпаспорт · ошибка проверки</div><div style="font:400 11px 'Hanken Grotesk',sans-serif;color:oklch(0.5 0.11 27);margin-top:2px;">Нет данных о статусе</div></div>
+          </div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#22232a;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;margin-top:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Повторить</button>
+      </div>
+    </div>
+
+    <!-- STD F error global -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">F</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">ошибка · retryable</span></div>
+      <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:32px;height:32px;border-radius:9px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;margin-top:12px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;width:100%;padding:11px 13px;background:oklch(0.968 0.028 27);border:1px solid oklch(0.88 0.07 27);border-radius:11px;">
+            <span style="color:oklch(0.55 0.21 27);flex:none;margin-top:1px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 14px 'Hanken Grotesk',sans-serif;color:oklch(0.42 0.16 27);">Сервис браузера недоступен</div><div style="font:400 12px 'Hanken Grotesk',sans-serif;color:oklch(0.5 0.11 27);margin-top:2px;">Проверка не запустилась. Попробуйте ещё раз.</div></div>
+          </div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#22232a;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Повторить</button>
+      </div>
+    </div>
+
+    <!-- STD G invalidConfig -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">G</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">invalidConfig</span></div>
+      <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:32px;height:32px;border-radius:9px;background:#f0f1f4;color:#9396a0;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;margin-top:12px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;width:100%;padding:11px 13px;background:#f5f6f8;border:1px solid #e3e4e8;border-radius:11px;">
+            <span style="color:#9396a0;flex:none;margin-top:1px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 14px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Паспорт-чекер не настроен</div><div style="font:400 12px/1.4 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;text-wrap:pretty;">Задайте параметры в настройках виджета.</div></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;height:40px;font:500 12px 'JetBrains Mono',monospace;color:#9396a0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg>действие недоступно · нужна настройка сервера</div>
+      </div>
+    </div>
+
+    <!-- STD H sessionRequired -->
+    <div style="flex:none;">
+      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">H</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">sessionRequired</span></div>
+      <div style="width:360px;height:292px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);padding:16px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:32px;height:32px;border-radius:9px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Проверка ID-карты и загранпаспорта</div></div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;margin-top:12px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 13px;background:oklch(0.96 0.05 80);border:1px solid oklch(0.85 0.1 80);border-radius:11px;">
+            <span style="color:oklch(0.58 0.13 70);flex:none;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3l9-16z"></path><path d="M12 10v4M12 17h.01"></path></svg></span>
+            <div style="flex:1;min-width:0;"><div style="font:600 14px 'Hanken Grotesk',sans-serif;color:oklch(0.42 0.09 62);">Требуется вход в браузер</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:oklch(0.48 0.09 65);margin-top:2px;">Автоматика уткнулась в капчу/вход</div></div>
+          </div>
+        </div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 8h18"></path></svg>Открыть восстановление</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ 03 FULLSCREEN ============ -->
+  <div style="margin:0 0 8px 2px;display:flex;align-items:baseline;gap:14px;">
+    <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">03</span>
+    <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Fullscreen — редизайн</h2>
+    <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— не увеличенный standard: крупные карточки документов бок о бок, диагностика, recovery-флоу в разметке</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:flex-start;padding:16px 18px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;margin:0 0 30px 2px;max-width:1180px;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#645fd1" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px;"><path d="M12 5v14M5 12h14"></path></svg>
+    <div style="font:400 13px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Три вещи, которых не было в старом fullscreen (просто увеличенном standard): <b style="color:#22232a;font-weight:600;">1)</b> карточки документов достаточно крупные, чтобы показывать код статуса, сообщение и мету одновременно, без сокращений; <b style="color:#22232a;font-weight:600;">2)</b> место под объяснение, что проверяется и зачем, плюс журнал последних попыток; <b style="color:#22232a;font-weight:600;">3)</b> recovery (живой браузер + SSH-фолбэк + таймер) встроен прямо в макет, а не всплывает модалкой поверх.</div>
+  </div>
+
+  <!-- FS 1: idle + pending -->
+  <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">A / B</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">idle → pending</span></div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:44px;">
+    <div style="flex:1;min-width:520px;background:#fff;border:1px solid #e3e4e8;border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid #eceef1;">
+        <div style="display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:11px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 17px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;">Проверка ID-карты и загранпаспорта</div></div></div>
+        <div style="display:flex;gap:6px;"><span title="удалить" style="width:32px;height:32px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#5b5e69;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span><span title="закрыть" style="width:32px;height:32px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></div>
+      </div>
+      <div style="padding:44px 32px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;">
+        <div style="display:flex;gap:10px;">
+          <span style="width:52px;height:52px;border-radius:14px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span>
+          <span style="width:52px;height:52px;border-radius:14px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>
+        </div>
+        <div style="font:600 16px 'Hanken Grotesk',sans-serif;color:#22232a;">Нет данных о статусе</div>
+        <div style="font:400 13.5px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:360px;text-wrap:pretty;">Проверьте статус ID-карты и загранпаспорта через автоматизированный вход в портал ведомства. Это займёт до 90 секунд.</div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:9px;height:44px;padding:0 22px;border:none;border-radius:12px;background:oklch(0.55 0.17 281);color:#fff;font:600 14.5px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Проверить</button>
+      </div>
+    </div>
+    <div style="flex:1;min-width:520px;background:#fff;border:1px solid #e3e4e8;border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid #eceef1;">
+        <div style="display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:11px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 17px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;">Проверка ID-карты и загранпаспорта</div></div></div>
+        <div style="display:flex;gap:6px;"><span title="удалить" style="width:32px;height:32px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#5b5e69;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span><span title="закрыть" style="width:32px;height:32px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></div>
+      </div>
+      <div style="padding:44px 32px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;">
+        <span style="width:44px;height:44px;border:3.4px solid oklch(0.55 0.17 281);border-right-color:transparent;border-radius:50%;display:inline-block;animation:pc-spin .7s linear infinite;"></span>
+        <div style="font:600 16px 'Hanken Grotesk',sans-serif;color:#22232a;">Обновляем данные</div>
+        <div style="font:400 13.5px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:340px;">Входим в портал и опрашиваем статус по обоим документам. Обычно занимает до 90 секунд — можно закрыть окно, проверка продолжится в фоне.</div>
+        <div style="display:flex;gap:10px;width:100%;max-width:300px;margin-top:4px;">
+          <div style="flex:1;display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #e3e4e8;border-radius:9px;background:#f5f6f8;font:500 11.5px 'Hanken Grotesk',sans-serif;color:#5b5e69;"><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.55 0.17 281);animation:pc-pulse 1.4s ease-in-out infinite;"></span>ID-карта</div>
+          <div style="flex:1;display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #e3e4e8;border-radius:9px;background:#f5f6f8;font:500 11.5px 'Hanken Grotesk',sans-serif;color:#5b5e69;"><span style="width:6px;height:6px;border-radius:50%;background:oklch(0.55 0.17 281);animation:pc-pulse 1.4s ease-in-out .3s infinite;"></span>Загранпаспорт</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FS 2: results success — hero redesign -->
+  <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">C</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">данные обновлены — карточки документов + контекст</span></div>
+  <div style="width:1180px;background:#fff;border:1px solid #e3e4e8;border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);overflow:hidden;margin-bottom:44px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 26px;border-bottom:1px solid #eceef1;">
+      <div style="display:flex;align-items:center;gap:14px;"><span style="width:44px;height:44px;border-radius:12px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 18px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;">Проверка ID-карты и загранпаспорта</div></div></div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:oklch(0.95 0.05 155);color:oklch(0.4 0.12 155);font:600 12px 'Hanken Grotesk',sans-serif;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Обновлено 14:32</div>
+        <div style="display:flex;gap:6px;"><span title="удалить" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#5b5e69;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span><span title="закрыть" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:28px;padding:26px;align-items:flex-start;">
+      <div style="flex:1.6;min-width:0;display:flex;flex-direction:column;gap:20px;">
+        <div style="display:flex;gap:18px;">
+          <div style="flex:1;border:1px solid oklch(0.86 0.08 155);background:oklch(0.975 0.025 155);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;gap:11px;"><span style="width:38px;height:38px;border-radius:10px;background:#fff;color:oklch(0.5 0.13 155);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">ID-карта</div></div>
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:oklch(0.55 0.13 155);color:#fff;font:600 12.5px 'Hanken Grotesk',sans-serif;width:fit-content;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Действительна</div>
+            <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;">Данные подтверждены порталом, расхождений не найдено.</div>
+            <div style="height:1px;background:oklch(0.87 0.06 155);"></div>
+            <div style="display:flex;justify-content:space-between;font:500 11px 'JetBrains Mono',monospace;color:oklch(0.5 0.1 155);"><span>статус 1</span><span>проверено 14:32</span></div>
+          </div>
+          <div style="flex:1;border:1px solid oklch(0.86 0.08 155);background:oklch(0.975 0.025 155);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;gap:11px;"><span style="width:38px;height:38px;border-radius:10px;background:#fff;color:oklch(0.5 0.13 155);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Загранпаспорт</div></div>
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:oklch(0.55 0.13 155);color:#fff;font:600 12.5px 'Hanken Grotesk',sans-serif;width:fit-content;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Действителен</div>
+            <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;">Срок действия в порядке, ограничений на выезд не найдено.</div>
+            <div style="height:1px;background:oklch(0.87 0.06 155);"></div>
+            <div style="display:flex;justify-content:space-between;font:500 11px 'JetBrains Mono',monospace;color:oklch(0.5 0.1 155);"><span>статус 1</span><span>проверено 14:32</span></div>
+          </div>
+        </div>
+        <div style="border:1px solid #e3e4e8;border-radius:14px;padding:18px 20px;">
+          <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:12px;">Журнал последних проверок</div>
+          <div style="display:flex;flex-direction:column;gap:0;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f2f4;"><span style="width:16px;height:16px;border-radius:50%;background:oklch(0.95 0.05 155);color:oklch(0.5 0.13 155);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span><span style="flex:1;font:400 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Оба документа обновлены</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#9396a0;">сегодня 14:32</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f2f4;"><span style="width:16px;height:16px;border-radius:50%;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect></svg></span><span style="flex:1;font:400 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Пройден ручной шаг входа в браузере</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#9396a0;">вчера 09:04</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><span style="width:16px;height:16px;border-radius:50%;background:oklch(0.968 0.028 27);color:oklch(0.55 0.21 27);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></span><span style="flex:1;font:400 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Сервис браузера был недоступен</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#9396a0;">вчера 08:58</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:320px;display:flex;flex-direction:column;gap:14px;">
+        <div style="border:1px solid #e3e4e8;border-radius:14px;padding:20px;background:#fbfbfc;">
+          <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:10px;">Что проверяется и зачем</div>
+          <div style="font:400 13px/1.6 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Виджет заходит на портал ведомства под вашей учётной записью и сверяет два документа: срок действия <b style="color:#22232a;font-weight:600;">ID-карты</b> и наличие ограничений на выезд по <b style="color:#22232a;font-weight:600;">загранпаспорту</b>. Полезно перед поездкой или продлением — не нужно заходить на портал вручную.</div>
+        </div>
+        <div style="border:1px solid #e3e4e8;border-radius:14px;padding:18px 20px;">
+          <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:11px;">Расписание</div>
+          <div style="font:400 13px/1.6 'Hanken Grotesk',sans-serif;color:#5b5e69;">Автопроверка — раз в сутки, в 06:00. Ручной запуск — без ограничений.</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 26px;border-top:1px solid #eceef1;">
+      <button style="display:flex;align-items:center;gap:8px;height:42px;padding:0 20px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#22232a;font:600 13.5px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Проверить снова</button>
+    </div>
+  </div>
+
+  <!-- FS 3: results partial / error diagnostics -->
+  <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">D / E</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">частичная ошибка — явная диагностика по документу</span></div>
+  <div style="width:1180px;background:#fff;border:1px solid #e3e4e8;border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);overflow:hidden;margin-bottom:44px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 26px;border-bottom:1px solid #eceef1;">
+      <div style="display:flex;align-items:center;gap:14px;"><span style="width:44px;height:44px;border-radius:12px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 18px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;">Проверка ID-карты и загранпаспорта</div></div></div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:#f5f6f8;color:#5b5e69;font:600 12px 'Hanken Grotesk',sans-serif;">Обновлено частично · 1 из 2</div>
+        <div style="display:flex;gap:6px;"><span title="удалить" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#5b5e69;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span><span title="закрыть" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:18px;padding:26px;">
+      <div style="flex:1;border:1px solid oklch(0.86 0.08 155);background:oklch(0.975 0.025 155);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:11px;"><span style="width:38px;height:38px;border-radius:10px;background:#fff;color:oklch(0.5 0.13 155);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">ID-карта</div></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:oklch(0.55 0.13 155);color:#fff;font:600 12.5px 'Hanken Grotesk',sans-serif;width:fit-content;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Действительна</div>
+        <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;">Данные подтверждены порталом, расхождений не найдено.</div>
+        <div style="height:1px;background:oklch(0.87 0.06 155);"></div>
+        <div style="display:flex;justify-content:space-between;font:500 11px 'JetBrains Mono',monospace;color:oklch(0.5 0.1 155);"><span>статус 1</span><span>проверено 14:32</span></div>
+      </div>
+      <div style="flex:1;border:1px solid oklch(0.88 0.07 27);background:oklch(0.985 0.012 27);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:11px;"><span style="width:38px;height:38px;border-radius:10px;background:#fff;color:oklch(0.55 0.21 27);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">Загранпаспорт</div></div>
+          <button style="display:flex;align-items:center;gap:5px;height:28px;padding:0 10px;border:1px solid oklch(0.88 0.07 27);border-radius:8px;background:#fff;color:oklch(0.5 0.15 27);font:600 11.5px 'Hanken Grotesk',sans-serif;cursor:pointer;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Повторить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:oklch(0.968 0.028 27);color:oklch(0.42 0.16 27);font:600 12.5px 'Hanken Grotesk',sans-serif;width:fit-content;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg>Не удалось обновить</div>
+        <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;">Портал вернул неожиданный ответ на шаге сверки данных. Показаны последние известные данные.</div>
+        <div style="border:1px dashed oklch(0.88 0.07 27);border-radius:10px;padding:11px 13px;background:#fff;">
+          <div style="display:flex;justify-content:space-between;font:500 10.5px 'JetBrains Mono',monospace;color:#9396a0;margin-bottom:6px;"><span>ДИАГНОСТИКА</span><span>ошибка · unexpected_response</span></div>
+          <div style="font:400 12px/1.5 'JetBrains Mono',monospace;color:#5b5e69;">шаг: сверка данных · код: PC-EC-409<br>запрос: req_8f21ac0e · длительность: 34.2с</div>
+        </div>
+        <div style="height:1px;background:oklch(0.9 0.03 27);"></div>
+        <div style="display:flex;justify-content:space-between;font:500 11px 'JetBrains Mono',monospace;color:#9396a0;"><span>последний успех: статус 1</span><span>вчера 09:10</span></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 26px;border-top:1px solid #eceef1;">
+      <button style="display:flex;align-items:center;gap:8px;height:42px;padding:0 20px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 13.5px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a8 8 0 0 1 14-4l3 3M21 6v4h-4"></path><path d="M21 14a8 8 0 0 1-14 4l-3-3M3 18v-4h4"></path></svg>Проверить снова</button>
+    </div>
+  </div>
+
+  <!-- FS 4: invalidConfig -->
+  <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">G</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">invalidConfig</span></div>
+  <div style="width:1180px;background:#fff;border:1px solid #e3e4e8;border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);overflow:hidden;margin-bottom:44px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 26px;border-bottom:1px solid #eceef1;">
+      <div style="display:flex;align-items:center;gap:14px;"><span style="width:44px;height:44px;border-radius:12px;background:#f0f1f4;color:#9396a0;display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 18px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;">Проверка ID-карты и загранпаспорта</div></div></div>
+      <div style="display:flex;gap:6px;"><span title="удалить" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#5b5e69;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span><span title="закрыть" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></div>
+    </div>
+    <div style="padding:40px 26px;display:flex;gap:32px;align-items:flex-start;justify-content:center;">
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;text-align:center;max-width:340px;gap:14px;">
+        <span style="width:52px;height:52px;border-radius:14px;background:#f0f1f4;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7"></path></svg></span>
+        <div style="font:600 17px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт-чекер не настроен на сервере</div>
+        <div style="font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Виджет установлен, но администратор ещё не задал параметры доступа к порталу. Действия недоступны, пока конфигурация не завершена.</div>
+      </div>
+      <div style="flex:none;width:1px;align-self:stretch;background:#eceef1;"></div>
+      <div style="flex:none;width:360px;">
+        <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:12px;">Чего не хватает</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e3e4e8;border-radius:10px;"><span style="width:8px;height:8px;border-radius:50%;background:oklch(0.55 0.21 27);flex:none;"></span><span style="flex:1;font:500 13px 'Hanken Grotesk',sans-serif;color:#3a3b44;">URL портала ведомства</span><span style="font:500 11px 'JetBrains Mono',monospace;color:oklch(0.55 0.21 27);">не задан</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e3e4e8;border-radius:10px;"><span style="width:8px;height:8px;border-radius:50%;background:oklch(0.55 0.21 27);flex:none;"></span><span style="flex:1;font:500 13px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Учётные данные для входа</span><span style="font:500 11px 'JetBrains Mono',monospace;color:oklch(0.55 0.21 27);">не заданы</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e3e4e8;border-radius:10px;"><span style="width:8px;height:8px;border-radius:50%;background:oklch(0.55 0.13 155);flex:none;"></span><span style="flex:1;font:500 13px 'Hanken Grotesk',sans-serif;color:#3a3b44;">SSH-таргет для recovery</span><span style="font:500 11px 'JetBrains Mono',monospace;color:oklch(0.5 0.13 155);">задан</span></div>
+        </div>
+        <div style="margin-top:14px;font:400 12px/1.5 'Hanken Grotesk',sans-serif;color:#9396a0;">Настраивается в панели администратора myboard, не в этом виджете.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FS 5: sessionRequired — embedded recovery -->
+  <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">H</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">sessionRequired — recovery встроен в разметку, не модалкой</span></div>
+  <div style="width:1180px;background:#fff;border:1px solid #e3e4e8;border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);overflow:hidden;margin-bottom:26px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 26px;border-bottom:1px solid #eceef1;">
+      <div style="display:flex;align-items:center;gap:14px;"><span style="width:44px;height:44px;border-radius:12px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 18px 'Hanken Grotesk',sans-serif;color:#22232a;">Паспорт</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:2px;">Проверка ID-карты и загранпаспорта</div></div></div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:oklch(0.9 0.09 80);color:oklch(0.5 0.13 68);font:600 12px 'Hanken Grotesk',sans-serif;"><span style="width:7px;height:7px;border-radius:50%;background:oklch(0.65 0.18 145);animation:pc-pulse 1.6s ease-in-out infinite;"></span>доступ · 4:38</div>
+        <div style="display:flex;gap:6px;"><span title="удалить" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#5b5e69;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg></span><span title="закрыть" style="width:34px;height:34px;border-radius:9px;border:1px solid #e3e4e8;background:#fff;color:#9396a0;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin:18px 26px 0;padding:12px 14px;background:oklch(0.96 0.05 80);border:1px solid oklch(0.85 0.1 80);border-radius:11px;">
+      <span style="color:oklch(0.58 0.13 70);flex:none;margin-top:1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3l9-16z"></path><path d="M12 10v4M12 17h.01"></path></svg></span>
+      <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:oklch(0.42 0.09 62);"><b style="font-weight:600;">Автоматика уткнулась в проверку человека</b> на портале ведомства (капча/повторный вход). Пройдите этот шаг ниже в живом окне браузера — проверка продолжится сама, как только шаг будет пройден.</div>
+    </div>
+    <div style="display:flex;gap:22px;padding:18px 26px 26px;">
+      <div style="flex:1.4;min-width:0;">
+        <div style="position:relative;width:100%;aspect-ratio:16/9;background:#16171d;border:1px solid #2a2c36;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          <div style="position:relative;width:100%;height:100%;background-image:repeating-linear-gradient(135deg,#1c1e26 0,#1c1e26 12px,#191b22 12px,#191b22 24px);display:flex;align-items:center;justify-content:center;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:#5b5e69;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6a6d7a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 8h20"></path><circle cx="5" cy="6" r=".6" fill="#6a6d7a"></circle><circle cx="7.4" cy="6" r=".6" fill="#6a6d7a"></circle></svg>
+              <span style="font:500 12px 'JetBrains Mono',monospace;color:#7c7f8c;">noVNC · Chromium 1280×720</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#575a66;">Cloudflare challenge — «Verify you are human»</span>
+            </div>
+          </div>
+          <div style="position:absolute;top:10px;left:10px;display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);"><span style="width:7px;height:7px;border-radius:50%;background:oklch(0.65 0.18 145);animation:pc-pulse 1.6s ease-in-out infinite;"></span><span style="font:600 10.5px 'JetBrains Mono',monospace;color:#e6e7ea;letter-spacing:.06em;">LIVE · 1280×720</span></div>
+        </div>
+        <button style="margin-top:12px;display:flex;align-items:center;gap:9px;width:100%;padding:11px 13px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;cursor:pointer;text-align:left;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9396a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"></path></svg>
+          <span style="flex:1;font:600 12.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Запасной вход по SSH</span>
+          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:#9396a0;">для продвинутых</span>
+        </button>
+      </div>
+      <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:14px;">
+        <div style="border:1px solid #e3e4e8;border-radius:14px;padding:18px 20px;">
+          <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:10px;">Что сейчас происходит</div>
+          <div style="font:400 13px/1.6 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Портал попросил подтвердить, что вы не бот. Кликните в окне слева и пройдите проверку так же, как в обычном браузере — курсор и клавиатура передаются напрямую в удалённую сессию.</div>
+        </div>
+        <div style="border:1px solid #e3e4e8;border-radius:14px;padding:18px 20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;">Доступ истекает через</span><span style="font:600 15px 'JetBrains Mono',monospace;color:oklch(0.55 0.13 70);font-variant-numeric:tabular-nums;">4:38</span></div>
+          <div style="height:6px;border-radius:999px;background:#e3e4e8;overflow:hidden;"><div style="width:78%;height:100%;background:oklch(0.6 0.13 70);border-radius:999px;"></div></div>
+          <div style="margin-top:8px;font:400 11.5px 'Hanken Grotesk',sans-serif;color:#9396a0;">Одноразовая ссылка на удалённую сессию, живёт 6 минут.</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:9px;">
+          <button style="flex:1;height:42px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#22232a;font:600 13.5px 'Hanken Grotesk',sans-serif;cursor:pointer;">Закрыть</button>
+          <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:42px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 13.5px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Повторить проверку</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="font:400 13px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:900px;margin-bottom:64px;text-wrap:pretty;">В fullscreen recovery — часть страницы, не оверлей: видно контекст (шапка, таймер, диагностика) одновременно с живым браузером. В tiny/standard, где нет места на noVNC-канвас, «Открыть восстановление» по-прежнему открывает модалку — она описана в разделе 04.</div>
+
+  <!-- ============ 04 RECOVERY MODAL (tiny/standard trigger) ============ -->
+  <div style="margin:0 0 8px 2px;display:flex;align-items:baseline;gap:14px;">
+    <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">04</span>
+    <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Модалка восстановления — только для tiny/standard</h2>
+    <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— portal-оверлей над бордой · тот же noVNC-канвас, что и в fullscreen</span>
+  </div>
+  <div style="font:500 11.5px 'JetBrains Mono',monospace;color:#9396a0;margin:0 0 24px 2px;">920×620 desktop · радиус 18px · shadow-lg · backdrop rgba(20,22,40,.45) blur · Esc закрывает · focus-trap</div>
+
+  <div style="position:relative;width:1180px;height:640px;border-radius:20px;overflow:hidden;background:#e6e7ea;border:1px solid #d0d2d8;margin-bottom:26px;">
+    <div style="position:absolute;inset:0;background:oklch(0.96 0.004 255);background-image:radial-gradient(oklch(0.84 0.006 255) 1px,transparent 1px);background-size:22px 22px;opacity:.6;"></div>
+    <div style="position:absolute;inset:0;background:rgba(20,22,40,.45);backdrop-filter:blur(2px);"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:920px;background:#fff;border:1px solid #e3e4e8;border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.4);overflow:hidden;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid #eceef1;">
+        <span style="width:30px;height:30px;border-radius:8px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 8h18M8 21h8"></path></svg></span>
+        <div style="flex:1;min-width:0;"><div style="font:600 15.5px 'Hanken Grotesk',sans-serif;color:#22232a;">Восстановление сессии браузера</div><div style="font:400 12px 'Hanken Grotesk',sans-serif;color:#9396a0;margin-top:1px;">Пройдите проверку в живом окне Chromium</div></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid #e3e4e8;border-radius:999px;background:#f5f6f8;"><span style="width:7px;height:7px;border-radius:50%;background:oklch(0.55 0.13 155);"></span><span style="font:600 12px 'JetBrains Mono',monospace;color:#5b5e69;font-variant-numeric:tabular-nums;">доступ · 4:38</span></div>
+        <button title="Закрыть (Esc)" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #e3e4e8;border-radius:9px;background:#fff;color:#5b5e69;cursor:pointer;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="padding:16px 18px;background:#f5f6f8;">
+        <div style="position:relative;width:100%;aspect-ratio:16/9;background:#16171d;border:1px solid #2a2c36;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          <div style="position:relative;width:100%;height:100%;background-image:repeating-linear-gradient(135deg,#1c1e26 0,#1c1e26 12px,#191b22 12px,#191b22 24px);display:flex;align-items:center;justify-content:center;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:#5b5e69;">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#6a6d7a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 8h20"></path><circle cx="5" cy="6" r=".6" fill="#6a6d7a"></circle><circle cx="7.4" cy="6" r=".6" fill="#6a6d7a"></circle></svg>
+              <span style="font:500 12px 'JetBrains Mono',monospace;color:#7c7f8c;">noVNC · Chromium 1280×720</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#575a66;">Cloudflare challenge — кликните «Verify you are human»</span>
+            </div>
+          </div>
+          <div style="position:absolute;top:10px;left:10px;display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);"><span style="width:7px;height:7px;border-radius:50%;background:oklch(0.65 0.18 145);animation:pc-pulse 1.6s ease-in-out infinite;"></span><span style="font:600 10.5px 'JetBrains Mono',monospace;color:#e6e7ea;letter-spacing:.06em;">LIVE · 1280×720</span></div>
+          <div style="position:absolute;bottom:10px;right:12px;font:400 10px 'JetBrains Mono',monospace;color:#575a66;">масштаб по ширине · letterbox по высоте</div>
+        </div>
+        <button style="margin-top:14px;display:flex;align-items:center;gap:9px;width:100%;padding:12px 14px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;cursor:pointer;text-align:left;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9396a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"></path></svg>
+          <span style="flex:1;font:600 13px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Запасной вход по SSH</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#9396a0;">для продвинутых</span>
+        </button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:9px;padding:14px 18px;border-top:1px solid #eceef1;">
+        <button style="height:40px;padding:0 18px;border:1px solid #e3e4e8;border-radius:11px;background:#fff;color:#22232a;font:600 13.5px 'Hanken Grotesk',sans-serif;cursor:pointer;">Закрыть</button>
+        <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 20px;border:none;border-radius:11px;background:oklch(0.55 0.17 281);color:#fff;font:600 13.5px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,40,.06);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Повторить проверку</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 05 DARK THEME ============ -->
+  <div style="margin:0 0 8px 2px;display:flex;align-items:baseline;gap:14px;">
+    <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">05</span>
+    <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Тёмная тема</h2>
+    <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— ключевые состояния standard + один fullscreen-пример, те же токены hue 268–270</span>
+  </div>
+
+  <div style="padding:28px;border-radius:16px;background:oklch(0.19 0.008 262);margin-bottom:34px;">
+    <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;">
+
+      <div style="flex:none;">
+        <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:oklch(0.55 0.012 262);">A</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:oklch(0.85 0.008 262);">idle</span></div>
+        <div style="width:340px;height:260px;background:oklch(0.225 0.01 262);border:1px solid oklch(0.3 0.012 262);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;"><span style="width:32px;height:32px;border-radius:9px;background:oklch(0.32 0.07 285);color:oklch(0.68 0.15 285);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:oklch(0.95 0.005 262);">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.012 262);margin-top:1px;">ID-карта и загранпаспорт</div></div></div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;"><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.012 262);">Нет данных о статусе</div></div>
+          <button style="width:100%;height:40px;border:none;border-radius:11px;background:oklch(0.68 0.15 285);color:oklch(0.18 0.03 285);font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;">Проверить</button>
+        </div>
+      </div>
+
+      <div style="flex:none;">
+        <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:oklch(0.55 0.012 262);">C</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:oklch(0.85 0.008 262);">данные обновлены</span></div>
+        <div style="width:340px;height:260px;background:oklch(0.225 0.01 262);border:1px solid oklch(0.3 0.012 262);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;"><span style="width:32px;height:32px;border-radius:9px;background:oklch(0.32 0.07 285);color:oklch(0.68 0.15 285);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:oklch(0.95 0.005 262);">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.012 262);margin-top:1px;">ID-карта и загранпаспорт</div></div></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:8px;margin-top:10px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:oklch(0.28 0.07 155);border:1px solid oklch(0.36 0.09 155);border-radius:10px;"><span style="width:22px;height:22px;border-radius:50%;background:oklch(0.74 0.15 152);color:oklch(0.24 0.06 152);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span><div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:oklch(0.85 0.1 155);">ID-карта · действительна</div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:oklch(0.28 0.07 155);border:1px solid oklch(0.36 0.09 155);border-radius:10px;"><span style="width:22px;height:22px;border-radius:50%;background:oklch(0.74 0.15 152);color:oklch(0.24 0.06 152);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span><div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:oklch(0.85 0.1 155);">Загранпаспорт · действителен</div></div>
+          </div>
+          <button style="width:100%;height:40px;border:1px solid oklch(0.3 0.012 262);border-radius:11px;background:oklch(0.225 0.01 262);color:oklch(0.95 0.005 262);font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;margin-top:10px;">Проверить снова</button>
+        </div>
+      </div>
+
+      <div style="flex:none;">
+        <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:oklch(0.55 0.012 262);">F</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:oklch(0.85 0.008 262);">ошибка · retryable</span></div>
+        <div style="width:340px;height:260px;background:oklch(0.225 0.01 262);border:1px solid oklch(0.3 0.012 262);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;"><span style="width:32px;height:32px;border-radius:9px;background:oklch(0.32 0.07 285);color:oklch(0.68 0.15 285);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:oklch(0.95 0.005 262);">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.012 262);margin-top:1px;">ID-карта и загранпаспорт</div></div></div>
+          <div style="flex:1;display:flex;align-items:center;margin-top:12px;"><div style="display:flex;align-items:flex-start;gap:10px;width:100%;padding:11px 13px;background:oklch(0.3 0.08 27);border:1px solid oklch(0.38 0.1 27);border-radius:11px;"><span style="color:oklch(0.78 0.15 27);flex:none;margin-top:1px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 16h.01"></path></svg></span><div><div style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:oklch(0.85 0.11 27);">Сервис браузера недоступен</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:oklch(0.68 0.09 27);margin-top:2px;">Попробуйте ещё раз.</div></div></div></div>
+          <button style="width:100%;height:40px;border:1px solid oklch(0.3 0.012 262);border-radius:11px;background:oklch(0.225 0.01 262);color:oklch(0.95 0.005 262);font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;">Повторить</button>
+        </div>
+      </div>
+
+      <div style="flex:none;">
+        <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:oklch(0.55 0.012 262);">H</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:oklch(0.85 0.008 262);">sessionRequired</span></div>
+        <div style="width:340px;height:260px;background:oklch(0.225 0.01 262);border:1px solid oklch(0.3 0.012 262);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;"><span style="width:32px;height:32px;border-radius:9px;background:oklch(0.32 0.07 285);color:oklch(0.68 0.15 285);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 15px 'Hanken Grotesk',sans-serif;color:oklch(0.95 0.005 262);">Паспорт</div><div style="font:400 11.5px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.012 262);margin-top:1px;">ID-карта и загранпаспорт</div></div></div>
+          <div style="flex:1;display:flex;align-items:center;margin-top:12px;"><div style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 13px;background:oklch(0.3 0.07 80);border:1px solid oklch(0.38 0.09 80);border-radius:11px;"><span style="color:oklch(0.82 0.13 80);flex:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3l9-16z"></path><path d="M12 10v4M12 17h.01"></path></svg></span><div style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:oklch(0.87 0.1 80);">Требуется вход в браузер</div></div></div>
+          <button style="width:100%;height:40px;border:none;border-radius:11px;background:oklch(0.68 0.15 285);color:oklch(0.18 0.03 285);font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;">Открыть восстановление</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 11px 2px;"><span style="font:600 11px 'JetBrains Mono',monospace;color:#a2a4ad;">FS</span><span style="font:600 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">fullscreen dark — sessionRequired</span></div>
+  <div style="width:1180px;background:oklch(0.19 0.008 262);border:1px solid oklch(0.3 0.012 262);border-radius:18px;overflow:hidden;margin-bottom:64px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 26px;border-bottom:1px solid oklch(0.3 0.012 262);">
+      <div style="display:flex;align-items:center;gap:14px;"><span style="width:44px;height:44px;border-radius:12px;background:oklch(0.32 0.07 285);color:oklch(0.68 0.15 285);display:flex;align-items:center;justify-content:center;flex:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><circle cx="12" cy="9.5" r="2.6"></circle><path d="M9 15.5h6"></path></svg></span><div><div style="font:600 18px 'Hanken Grotesk',sans-serif;color:oklch(0.95 0.005 262);">Паспорт</div><div style="font:400 13px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.012 262);margin-top:2px;">Проверка ID-карты и загранпаспорта</div></div></div>
+      <div style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:oklch(0.3 0.07 80);color:oklch(0.87 0.1 80);font:600 12px 'Hanken Grotesk',sans-serif;"><span style="width:7px;height:7px;border-radius:50%;background:oklch(0.65 0.18 145);animation:pc-pulse 1.6s ease-in-out infinite;"></span>доступ · 4:38</div>
+    </div>
+    <div style="display:flex;gap:22px;padding:22px 26px 26px;">
+      <div style="flex:1.4;min-width:0;"><div style="position:relative;width:100%;aspect-ratio:16/9;background:#0f1015;border:1px solid oklch(0.3 0.012 262);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;"><div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:oklch(0.5 0.012 262);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="oklch(0.45 0.012 262)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 8h20"></path></svg><span style="font:500 11.5px 'JetBrains Mono',monospace;color:oklch(0.5 0.012 262);">noVNC · Chromium 1280×720</span></div></div></div>
+      <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font:400 12.5px/1.55 'Hanken Grotesk',sans-serif;color:oklch(0.72 0.012 262);">Тот же layout, что и в light: контекст остаётся видимым рядом с живым окном.</div>
+        <div style="flex:1;"></div>
+        <button style="display:flex;align-items:center;justify-content:center;gap:7px;height:40px;border:none;border-radius:11px;background:oklch(0.68 0.15 285);color:oklch(0.18 0.03 285);font:600 13px 'Hanken Grotesk',sans-serif;cursor:pointer;">Повторить проверку</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 06 SPEC ============ -->
+  <div style="margin:0 0 24px 2px;display:flex;align-items:baseline;gap:14px;">
+    <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">06</span>
+    <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Спека</h2>
+  </div>
+
+  <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;max-width:1180px;margin-bottom:22px;">
+    <div style="flex:1;min-width:340px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;padding:18px 20px;">
+      <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:13px;">Размеры по тирам</div>
+      <div style="display:flex;flex-direction:column;gap:9px;font:400 13px/1.5 'Hanken Grotesk',sans-serif;color:#5b5e69;">
+        <div style="display:flex;gap:12px;"><span style="flex:none;width:96px;font:600 12px 'JetBrains Mono',monospace;color:#22232a;">tiny</span><span>156×204 · один статус + 2 мини-индикатора + 1 кнопка + expand/удалить/закрыть</span></div>
+        <div style="display:flex;gap:12px;"><span style="flex:none;width:96px;font:600 12px 'JetBrains Mono',monospace;color:#22232a;">standard</span><span>360×292 · шапка + 2 баннера по документам + 1 контекстная кнопка + удалить/закрыть</span></div>
+        <div style="display:flex;gap:12px;"><span style="flex:none;width:96px;font:600 12px 'JetBrains Mono',monospace;color:#22232a;">fullscreen</span><span>1180px · крупные карточки бок о бок + контекст/журнал + recovery в разметке + удалить/закрыть</span></div>
+      </div>
+      <div style="height:1px;background:#eceef1;margin:15px 0;"></div>
+      <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:11px;">Радиусы</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;font:600 11.5px 'JetBrains Mono',monospace;color:#5b5e69;">
+        <span style="background:#f5f6f8;border:1px solid #e3e4e8;border-radius:6px;padding:4px 9px;">7–9 контролы</span>
+        <span style="background:#f5f6f8;border:1px solid #e3e4e8;border-radius:6px;padding:4px 9px;">10–12 баннеры/кнопки</span>
+        <span style="background:#f5f6f8;border:1px solid #e3e4e8;border-radius:6px;padding:4px 9px;">14 карточки документов</span>
+        <span style="background:#f5f6f8;border:1px solid #e3e4e8;border-radius:6px;padding:4px 9px;">18 виджет/модалка</span>
+        <span style="background:#f5f6f8;border:1px solid #e3e4e8;border-radius:6px;padding:4px 9px;">999 индикатор/пилюля</span>
+      </div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;padding:18px 20px;">
+      <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:13px;">Состояние документа (унифицировано во всех тирах)</div>
+      <div style="font:400 13px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Каждый из двух документов независимо может быть <b style="color:#22232a;font-weight:600;">unchecked</b> (серая иконка, «нет данных»), <b style="color:oklch(0.4 0.12 155);font-weight:600;">success</b> (код статуса + сообщение + время последней проверки) или <b style="color:oklch(0.42 0.16 27);font-weight:600;">retryable</b> (если раньше был успех — показываются последние известные данные + отметка «не удалось обновить»; если нет — просто ошибка). Роллап-статус (для tiny и заголовка) — «обновлено», «частично» или «не обновлено» — считается по этим двум состояниям, а не хранится отдельно.</div>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e3e4e8;border-radius:14px;padding:18px 20px;max-width:1180px;">
+    <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#9396a0;margin-bottom:13px;">Recovery · где живёт noVNC</div>
+    <div style="display:flex;gap:32px;flex-wrap:wrap;font:400 13px/1.6 'Hanken Grotesk',sans-serif;color:#5b5e69;">
+      <div style="flex:1;min-width:280px;"><div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#22232a;margin-bottom:6px;">Tiny / Standard</div><div style="text-wrap:pretty;">На доске нет места под живой noVNC-канвас — «Открыть восстановление» открывает portal-модалку 920px поверх борды (раздел 04). Esc и клик по backdrop закрывают, фокус возвращается на кнопку.</div></div>
+      <div style="flex:1;min-width:280px;"><div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#22232a;margin-bottom:6px;">Fullscreen</div><div style="text-wrap:pretty;">Виджет уже занимает весь экран — модалка поверх модалки была бы избыточной. Recovery встроен прямо в тело: canvas 16:9 слева, контекст/таймер/кнопки справа, SSH-фолбэк сворачиваемой строкой снизу.</div></div>
+      <div style="flex:1;min-width:280px;"><div style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:#22232a;margin-bottom:6px;">Общее для обоих</div><div style="text-wrap:pretty;">Один и тот же canvas 1280×720, масштаб contain, letterbox по высоте, бейдж LIVE + разрешение, одноразовый таймер доступа ~6 минут, SSH — тот же таргет и срок жизни.</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:44px;padding-top:22px;border-top:1px solid #d4d6dc;font:400 12.5px/1.6 'Hanken Grotesk',sans-serif;color:#9396a0;max-width:780px;">Источник токенов и компонентов: <a href="01 Дизайн-система.dc.html">01 Дизайн-система</a>. Оболочка виджета и тиры: <a href="05 Виджет - Лоток Офелии.dc.html">05 Виджет — Лоток Офелии</a>.</div>
+
+</div>
+
+</x-dc>
+</body>
+</html>

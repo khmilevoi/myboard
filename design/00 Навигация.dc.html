@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #e6e7ea; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; }
+  a:hover { color: oklch(0.49 0.17 281); }
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:56px 56px 96px;background:#e6e7ea;font-family:'Hanken Grotesk',system-ui,sans-serif;">
+
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <div style="margin:0 0 52px 2px;max-width:780px;">
+      <div style="font:600 12px/1 'JetBrains Mono',monospace;letter-spacing:.16em;color:#9396a0;text-transform:uppercase;">myboard · карта дизайна</div>
+      <h1 style="margin:14px 0 12px;font:700 34px/1.05 'Hanken Grotesk',sans-serif;letter-spacing:-.02em;color:#22232a;">Навигация</h1>
+      <p style="margin:0;font:400 16px/1.6 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:680px;text-wrap:pretty;">Корневой файл проекта. Дизайн разбит на шесть блоков, у каждой темы один файл-владелец: экран, компонент или поиск живёт ровно в одном месте, остальные файлы на него ссылаются, а не повторяют.</p>
+    </div>
+
+    <!-- ============ A · ОСНОВА ============ -->
+    <div style="margin:0 0 18px 2px;display:flex;align-items:baseline;gap:14px;">
+      <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">A</span>
+      <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Основа</h2>
+      <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— общий словарь, из которого собраны все экраны</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-bottom:56px;">
+      <a href="01 Дизайн-система.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">01</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">Дизайн-система</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Единственное место, где описаны цвета, светлая и тёмная темы, типографика, скругления, тени, кнопки, поля, аватары, оболочка виджета и иконография.</span>
+        <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;">
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">токены</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">типографика</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">компоненты</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">тиры виджетов</span>
+        </span>
+        <span style="display:block;margin-top:16px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">01 Дизайн-система.dc.html</span>
+      </a>
+    </div>
+
+    <!-- ============ B · ДОСТУП И УСТРОЙСТВА ============ -->
+    <div style="margin:0 0 18px 2px;display:flex;align-items:baseline;gap:14px;">
+      <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">B</span>
+      <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Доступ и устройства</h2>
+      <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— как человек попадает в борду и как связывает устройства</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-bottom:56px;">
+      <a href="02 Вход и активация.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">02</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">Вход и активация</span>
+          <span style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:oklch(0.55 0.17 281);background:oklch(0.955 0.032 285);border-radius:5px;padding:2px 7px;">прототип</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Живой экран: passkey, валидация имени, состояния загрузки и ошибки сервера, реальный QR-сканер с камерой. Состояния переключаются пропом screen — вход, активация, нет кода, приглашение использовано.</span>
+        <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;">
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">passkey</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">QR-сканер</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">светлая / тёмная</span>
+        </span>
+        <span style="display:block;margin-top:16px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">02 Вход и активация.dc.html</span>
+      </a>
+      <a href="03 Устройства и аккаунт.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">03</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">Устройства и аккаунт</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Хедер с меню аккаунта, диалог «Мои устройства», модалка добавления с QR и кодом, подтверждение и отказ на основном устройстве, анимации переходов. Экраны passkey и сканера не повторяются — они в файле 02.</span>
+        <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;">
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">меню аккаунта</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">парное добавление</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">анимации</span>
+        </span>
+        <span style="display:block;margin-top:16px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">03 Устройства и аккаунт.dc.html</span>
+      </a>
+    </div>
+
+    <!-- ============ C · БОРДА ============ -->
+    <div style="margin:0 0 18px 2px;display:flex;align-items:baseline;gap:14px;">
+      <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">C</span>
+      <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Борда</h2>
+      <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— контейнер, в который живут все виджеты</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-bottom:56px;">
+      <a href="04 Борда.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">04</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">Борда</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Пустая борда, борда с виджетами и режимом редактирования, каталог виджетов, тёмная тема, полноэкранный виджет, изоляция сломанного виджета. Прогрессивные тиры показаны на нейтральном примере «Часов».</span>
+        <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;">
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">сетка и ресайз</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">каталог</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">ошибка виджета</span>
+        </span>
+        <span style="display:block;margin-top:16px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">04 Борда.dc.html</span>
+      </a>
+    </div>
+
+    <!-- ============ D · ВИДЖЕТЫ ============ -->
+    <div style="margin:0 0 18px 2px;display:flex;align-items:baseline;gap:14px;">
+      <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">D</span>
+      <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Виджеты</h2>
+      <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— по одному файлу на виджет: тиры, состояния, контролы</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-bottom:56px;">
+      <a href="05 Виджет - Лоток Офелии.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">05</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">Лоток Офелии</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Полный флоу виджета дежурства: четыре тира, светлая и тёмная тема, состояния standard-карточки, контролы, полноэкранный режим. Владеет всем, что касается этого виджета.</span>
+        <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;">
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">tiny → large</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">долг и прощение</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">использует OpheliaLarge</span>
+        </span>
+        <span style="display:block;margin-top:16px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">05 Виджет — Лоток Офелии.dc.html</span>
+      </a>
+      <a href="06 Виджет - Паспорт-чекер.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">06</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">Паспорт-чекер</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Виджет проверки статуса паспорта через серверный RPC: плитка в тирах tiny и standard для всех состояний, модалка восстановления сессии браузера, спека интеграции.</span>
+        <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;">
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">одно действие</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">состояния RPC</span>
+          <span style="font:500 11px 'JetBrains Mono',monospace;color:#5b5e69;background:#f4f4f7;border-radius:5px;padding:3px 8px;">спека</span>
+        </span>
+        <span style="display:block;margin-top:16px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">06 Виджет — Паспорт-чекер.dc.html</span>
+      </a>
+    </div>
+
+    <!-- ============ E · ОБЩИЕ КОМПОНЕНТЫ ============ -->
+    <div style="margin:0 0 18px 2px;display:flex;align-items:baseline;gap:14px;">
+      <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">E</span>
+      <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Общие компоненты</h2>
+      <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— вставляются в другие файлы, поэтому существуют один раз</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-bottom:56px;">
+      <a href="OpheliaLarge.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fbfbfc;border:1px dashed #d2d4da;border-radius:14px;" style-hover="border-color: #c8bffa; background: #fff;">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">E1</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">OpheliaLarge</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Содержимое large-режима «Лотка Офелии»: сегодняшнее дежурство, неделя, баланс, история. Один и тот же компонент отвечает и за тир large, и за полноэкранный режим.</span>
+        <span style="display:block;margin-top:14px;font:500 11.5px 'Hanken Grotesk',sans-serif;color:#7c7f8a;">Вставляется в: <span style="color:oklch(0.55 0.17 281);font-weight:600;">05 Лоток Офелии</span></span>
+        <span style="display:block;margin-top:12px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">OpheliaLarge.dc.html</span>
+      </a>
+      <a href="OfeliaPanels.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fbfbfc;border:1px dashed #d2d4da;border-radius:14px;" style-hover="border-color: #c8bffa; background: #fff;">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">E2</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">OfeliaPanels</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Панели истории и комментариев с адаптацией по ширине контейнера: две колонки на широких, табы на узких. Даты сгруппированы, знаки дежурства и аккаунта различаются формой.</span>
+        <span style="display:block;margin-top:14px;font:500 11.5px 'Hanken Grotesk',sans-serif;color:#7c7f8a;">Вставляется в: <span style="color:oklch(0.55 0.17 281);font-weight:600;">08 История и комментарии</span></span>
+        <span style="display:block;margin-top:12px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">OfeliaPanels.dc.html</span>
+      </a>
+    </div>
+
+    <!-- ============ F · ПОИСКИ ============ -->
+    <div style="margin:0 0 18px 2px;display:flex;align-items:baseline;gap:14px;">
+      <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">F</span>
+      <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Поиски и варианты</h2>
+      <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— черновики решений, ещё не перенесённые в основные файлы</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-bottom:56px;">
+      <a href="07 Поиск - компактная карточка.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">07</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">Компактная карточка</span>
+          <span style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#7c7f8a;background:#f1f2f4;border-radius:5px;padding:2px 7px;">поиск</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Три варианта редизайна compact-тира «Лотка Офелии» рядом с текущим состоянием: действие в фокусе, баланс в фокусе, минимум. Канвас — можно свободно двигать и сравнивать.</span>
+        <span style="display:block;margin-top:14px;font:500 11.5px 'Hanken Grotesk',sans-serif;color:#7c7f8a;">Итог переносится в: <span style="color:oklch(0.55 0.17 281);font-weight:600;">05 Лоток Офелии</span></span>
+        <span style="display:block;margin-top:12px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">07 Поиск — компактная карточка.dc.html</span>
+      </a>
+      <a href="08 Поиск - история и комментарии.dc.html" style="display:flex;flex-direction:column;padding:20px 22px;background:#fff;border:1px solid #e3e4e8;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,40,.05),0 2px 8px rgba(20,22,40,.05);" style-hover="border-color: #c8bffa; box-shadow: 0 1px 2px rgba(20,22,40,.05), 0 14px 30px -14px rgba(30,32,55,.28);">
+        <span style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font:600 12px 'JetBrains Mono',monospace;color:#a2a4ad;">08</span>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#22232a;">История и комментарии</span>
+          <span style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#7c7f8a;background:#f1f2f4;border-radius:5px;padding:2px 7px;">поиск</span>
+        </span>
+        <span style="display:block;margin-top:9px;font:400 13.5px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;text-wrap:pretty;">Читаемый гроссбух: человеческие даты, разделение знаков дежурства и аккаунта, поведение панелей на разных размерах виджета. Собран на компоненте OfeliaPanels, поэтому разметка не дублируется.</span>
+        <span style="display:block;margin-top:14px;font:500 11.5px 'Hanken Grotesk',sans-serif;color:#7c7f8a;">Итог переносится в: <span style="color:oklch(0.55 0.17 281);font-weight:600;">OpheliaLarge</span></span>
+        <span style="display:block;margin-top:12px;font:500 11px 'JetBrains Mono',monospace;color:#b1b3bb;">08 Поиск — история и комментарии.dc.html</span>
+      </a>
+    </div>
+
+    <!-- ============ ПРАВИЛА ============ -->
+    <sc-if value="{{ showRules }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="margin:0 0 18px 2px;display:flex;align-items:baseline;gap:14px;">
+          <span style="font:600 13px 'JetBrains Mono',monospace;color:#a2a4ad;">G</span>
+          <h2 style="margin:0;font:600 18px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:#2a2b33;">Кто чем владеет</h2>
+          <span style="font:400 13px 'Hanken Grotesk',sans-serif;color:#a2a4ad;">— чтобы не появлялось вторых копий</span>
+        </div>
+        <div style="background:#fff;border:1px solid #e3e4e8;border-radius:14px;overflow:hidden;margin-bottom:20px;">
+          <div style="display:flex;font:600 10px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#9396a0;padding:11px 20px;border-bottom:1px solid #eceef1;"><span style="flex:1;">тема</span><span style="width:260px;flex:none;">файл-владелец</span></div>
+          <div style="display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid #f1f2f4;"><span style="flex:1;font:400 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Цвета, темы, шрифты, тени, базовые компоненты</span><span style="width:260px;flex:none;font:600 13px 'Hanken Grotesk',sans-serif;"><a href="01 Дизайн-система.dc.html">01 Дизайн-система</a></span></div>
+          <div style="display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid #f1f2f4;"><span style="flex:1;font:400 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Passkey, вход, активация, QR-сканер</span><span style="width:260px;flex:none;font:600 13px 'Hanken Grotesk',sans-serif;"><a href="02 Вход и активация.dc.html">02 Вход и активация</a></span></div>
+          <div style="display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid #f1f2f4;"><span style="flex:1;font:400 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Список устройств, парное добавление, подтверждение и отказ</span><span style="width:260px;flex:none;font:600 13px 'Hanken Grotesk',sans-serif;"><a href="03 Устройства и аккаунт.dc.html">03 Устройства и аккаунт</a></span></div>
+          <div style="display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid #f1f2f4;"><span style="flex:1;font:400 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Оболочка борды, сетка, каталог, ошибка виджета</span><span style="width:260px;flex:none;font:600 13px 'Hanken Grotesk',sans-serif;"><a href="04 Борда.dc.html">04 Борда</a></span></div>
+          <div style="display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid #f1f2f4;"><span style="flex:1;font:400 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Тиры, состояния и контролы «Лотка Офелии»</span><span style="width:260px;flex:none;font:600 13px 'Hanken Grotesk',sans-serif;"><a href="05 Виджет - Лоток Офелии.dc.html">05 Лоток Офелии</a></span></div>
+          <div style="display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid #f1f2f4;"><span style="flex:1;font:400 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Содержимое large / полноэкранного режима</span><span style="width:260px;flex:none;font:600 13px 'Hanken Grotesk',sans-serif;"><a href="OpheliaLarge.dc.html">OpheliaLarge</a></span></div>
+          <div style="display:flex;align-items:center;padding:12px 20px;"><span style="flex:1;font:400 13.5px 'Hanken Grotesk',sans-serif;color:#3a3b44;">Панели истории и комментариев</span><span style="width:260px;flex:none;font:600 13px 'Hanken Grotesk',sans-serif;"><a href="OfeliaPanels.dc.html">OfeliaPanels</a></span></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ ЧТО ИЗМЕНИЛОСЬ ============ -->
+    <sc-if value="{{ showChangelog }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:12px;align-items:flex-start;padding:16px 18px;background:oklch(0.95 0.05 155);border:1px solid oklch(0.8 0.1 155);border-radius:12px;max-width:900px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.45 0.13 155)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:3px;"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+        <div style="font:400 13px/1.6 'Hanken Grotesk',sans-serif;color:oklch(0.35 0.1 155);text-wrap:pretty;"><strong style="font-weight:600;">Убрано при сборке структуры.</strong> Из файла 04 удалён фрейм с тирами «Лотка Офелии» — они живут в файле 05, на его место поставлена ссылка. Из файла 03 удалены экраны выбора способа, сканера, отказа камеры и создания passkey — их живые версии в файле 02; остались только состояния парного добавления, которых в прототипе нет. Ссылки в дизайн-системе ведут на реальные файлы, у каждого файла сверху ссылка назад в навигацию.</div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showRules&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Блоки&quot;},&quot;showChangelog&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Блоки&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showRules: this.props.showRules ?? true,
+      showChangelog: this.props.showChangelog ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>
