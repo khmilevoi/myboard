@@ -21,13 +21,14 @@ describe('passport checker client definition', () => {
     expect(resolveTier({ width: 395, height: 150 }, tiers)).toBe('tiny')
   })
 
-  it('enables the expanded layouts only at their 280px height floor', () => {
+  it('keeps the compact layout through the default-height placement', () => {
     const tiers = passportCheckerWidget.tiers
     if (!tiers) throw new Error('expected a tiers config')
 
     expect(resolveTier({ width: 395, height: 279 }, tiers)).toBe('tiny')
-    expect(resolveTier({ width: 320, height: 280 }, tiers)).toBe('compact')
-    expect(resolveTier({ width: 321, height: 280 }, tiers)).toBe('large')
+    expect(resolveTier({ width: 320, height: 399 }, tiers)).toBe('compact')
+    expect(resolveTier({ width: 321, height: 399 }, tiers)).toBe('compact')
+    expect(resolveTier({ width: 321, height: 400 }, tiers)).toBe('large')
   })
 
   it('declares the passport catalog metadata', () => {

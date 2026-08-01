@@ -10,8 +10,11 @@ export const passportCheckerWidget = defineWidgetClient<PassportCheckerEvents>({
   tiers: {
     tiny: { minWidthPx: 0, minHeightPx: 0 },
     compact: { minWidthPx: 0, minHeightPx: 280 },
-    standard: { minWidthPx: 321, minHeightPx: 280 },
-    large: { minWidthPx: 321, minHeightPx: 280 },
+    // Two full document banners need more vertical room than the default
+    // board placement provides. Keep the compact summary until the card can
+    // show both messages without crowding the action below them.
+    standard: { minWidthPx: 321, minHeightPx: 400 },
+    large: { minWidthPx: 321, minHeightPx: 400 },
   },
   loadComponent: () =>
     import('./ui/PassportChecker').then(({ PassportChecker }) => ({ default: PassportChecker })),
