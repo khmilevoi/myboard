@@ -60,9 +60,9 @@ export type BoardSnapshots = z.infer<typeof BoardSnapshotsShema>
 // which is exactly the population this migration marker has to survive
 // during a release window. Living at its own storage key sidesteps that: an
 // old bundle never references this key, so it never reads or writes it, so
-// it can never strip it. A migration id in this list must never be
-// re-applied, even if a later deliberate edit (e.g. the user shrinking a
-// widget below the height the migration set) would otherwise look like it
-// needs the same bump again.
+// it can never strip it. Generic default-size migrations in this list must
+// never be re-applied after a later deliberate resize. A published hard layout
+// floor may additionally verify content idempotently so a successfully stored
+// marker cannot hide a failed board-snapshot write.
 export const BoardMigrationsSchema = z.record(z.string(), z.array(z.string()))
 export type BoardMigrations = z.infer<typeof BoardMigrationsSchema>

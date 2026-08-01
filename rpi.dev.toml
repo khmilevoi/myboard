@@ -30,7 +30,7 @@ hostname = "board-dev.iiskelo.com"
 # Separate bundle from production: carries the dev hostname for the WebAuthn
 # gate plus host-port overrides that keep this stack off production's binds.
 env = ".env.dev"
-# The passport-checker files come from the `dev` secret group (pushed once from
+# The passport-checker file comes from the `dev` secret group (pushed once from
 # rpi.toml), not from this environment's own bundle — so `rpi secrets push
 # --env dev` uploads .env.dev alone. Groups are applied first and this key's own
 # bundle on top, per variable and per file path.

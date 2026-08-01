@@ -1,166 +1,202 @@
 import { wrap } from '@reatom/core'
-import { Check, CircleAlert, IdCard, RefreshCw, TriangleAlert } from 'lucide-react'
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  IdCard,
+  LoaderCircle,
+  RefreshCw,
+  TriangleAlert,
+} from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn, reatomMemo } from 'widget-sdk'
 import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
+// oxlint-disable-next-line no-restricted-imports -- ui/tiers is nested two levels below the package's model/; the brief specifies this view type.
+import { getDocumentCheckedAt } from '../../model/check-model'
+// oxlint-disable-next-line no-restricted-imports -- ui/tiers is nested two levels below the package's model/; the brief specifies this view type.
+import type { DocumentView, ResultsViewState } from '../../model/check-model'
+import { getResultsActionLabel } from '../parts/StatusBanner'
 import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
 
 export type TinyTierProps = {
   onOpenRecovery: () => void
+  onExpand?: () => void
   onDelete?: () => void
   onClose?: () => void
 }
 
-export const TinyTier = reatomMemo(({ onOpenRecovery, onDelete, onClose }: TinyTierProps) => {
-  const { checkModel } = usePassportChecker()
-  const view = checkModel.viewState()
-  const check = wrap(() => {
-    void checkModel.checkPassport()
-  })
-  // Wrapped here, not in PassportChecker: this component re-renders on its
-  // own viewState() changes independently of the parent, so the closure must
-  // be bound to THIS render's frame or it goes stale (see PassportChecker.tsx).
-  const openRecovery = wrap(onOpenRecovery)
+type TinyResultsSummary = {
+  label: string
+  updatedAt?: string
+  tone: 'success' | 'warning' | 'error'
+}
 
-  // Every state shares one shell, so the widget chrome is mounted once rather
-  // than repeated in each branch. Only the modifier class, the ARIA role and
-  // the body differ.
-  let modifier: string | undefined
-  let role: string | undefined
-  let body: ReactNode
+function latestSuccessfulDocument(
+  view: ResultsViewState,
+): Extract<DocumentView, { kind: 'success' }> | null {
+  const successes = [view.idCard, view.internationalPassport].filter(
+    (document): document is Extract<DocumentView, { kind: 'success' }> =>
+      document.kind === 'success',
+  )
+  if (successes.length === 0) return null
 
-  switch (view.kind) {
-    case 'sessionRequired':
-      modifier = styles.tinyWarning
-      body = (
-        <>
-          <div className={styles.tinyBody}>
-            <span className={cn(styles.tinyChip, styles.tinyChipWarning)} aria-hidden>
-              <TriangleAlert size={19} />
-            </span>
-            <span className={cn(styles.tinyLabel, styles.tinyLabelWarning)}>
-              Требуется вход в браузер
-            </span>
-          </div>
+  return successes.reduce((latest, document) =>
+    (getDocumentCheckedAt(document) ?? Number.NEGATIVE_INFINITY) >
+    (getDocumentCheckedAt(latest) ?? Number.NEGATIVE_INFINITY)
+      ? document
+      : latest,
+  )
+}
+
+export function getTinyResultsSummary(view: ResultsViewState): TinyResultsSummary {
+  const successfulDocument = latestSuccessfulDocument(view)
+  const successfulCount = [view.idCard, view.internationalPassport].filter(
+    (document) => document.kind === 'success',
+  ).length
+
+  return {
+    label:
+      successfulCount === 2
+        ? 'Данные обновлены'
+        : successfulCount === 1
+          ? 'Обновлено частично'
+          : 'Данные не обновлены',
+    updatedAt: successfulDocument ? `Обновлено ${successfulDocument.checkedAtLabel}` : undefined,
+    tone: successfulCount === 2 ? 'success' : successfulCount === 1 ? 'warning' : 'error',
+  }
+}
+
+export const TinyTier = reatomMemo(
+  ({ onOpenRecovery, onExpand, onDelete, onClose }: TinyTierProps) => {
+    const { checkModel } = usePassportChecker()
+    const view = checkModel.viewState()
+    const check = wrap(() => {
+      void checkModel.checkPassport()
+    })
+    // Wrapped here, not in PassportChecker: this component re-renders on its
+    // own viewState() changes independently of the parent, so the closure must
+    // be bound to THIS render's frame or it goes stale (see PassportChecker.tsx).
+    const openRecovery = wrap(onOpenRecovery)
+
+    let statusLabel = ''
+    let statusMeta: string | undefined
+    let statusIcon: ReactNode = null
+    let statusTone = styles.tinyStatusMuted
+    let statusRole: 'alert' | 'status' = 'status'
+    let action: ReactNode
+
+    switch (view.kind) {
+      case 'sessionRequired':
+        statusLabel = 'Требуется вход'
+        statusMeta = 'Войдите в браузер'
+        statusIcon = <TriangleAlert size={15} aria-hidden />
+        statusTone = styles.tinyStatusWarning
+        action = (
           <button type="button" className={styles.tinyButton} onClick={openRecovery}>
             Открыть
           </button>
-        </>
-      )
-      break
+        )
+        break
 
-    case 'invalidConfig':
-      modifier = styles.tinyCentered
-      body = (
-        <>
-          <span className={cn(styles.tinyChip, styles.tinyChipMuted)} aria-hidden>
-            <IdCard size={20} />
-          </span>
-          <span className={styles.tinyMutedLabel}>Не настроен</span>
-        </>
-      )
-      break
+      case 'invalidConfig':
+        statusLabel = 'Не настроен'
+        statusMeta = 'Нужна настройка сервера'
+        statusIcon = <IdCard size={15} aria-hidden />
+        statusTone = styles.tinyStatusMuted
+        action = null
+        break
 
-    case 'pending':
-      role = 'status'
-      body = (
-        <>
-          <div className={cn(styles.tinyBody, styles.tinyBodyPending)}>
-            <span className={cn(styles.spinner, styles.spinnerLarge)} aria-hidden />
-            <span className={styles.tinyMono}>Проверяем…</span>
-          </div>
-          <button type="button" className={styles.tinyButton} disabled>
-            Проверить
+      case 'pending':
+        statusLabel = 'Обновляем данные'
+        statusMeta = 'Это займёт несколько секунд'
+        statusIcon = <LoaderCircle className={styles.tinyStatusLoading} size={15} aria-hidden />
+        statusTone = styles.tinyStatusMuted
+        action = (
+          <button type="button" className={styles.tinySecondaryButton} disabled>
+            <RefreshCw size={13} aria-hidden /> Проверяем…
           </button>
-        </>
-      )
-      break
+        )
+        break
 
-    case 'success':
-      body = (
-        <>
-          <div className={styles.tinyBody}>
-            <span className={cn(styles.tinyBadge, styles.tinyBadgeSuccess)} aria-hidden>
-              <Check size={21} strokeWidth={2.6} />
-            </span>
-            <span className={cn(styles.tinyLabel, styles.tinyLabelSuccess)}>{view.message}</span>
-          </div>
-          {/* The tiny tile has no room for a second banner line, but a restored
-              result can be days old, so the timestamp rides along in the same
-              chip rather than being dropped (see StandardTier's bannerMeta,
-              which shows the same fact at full size).
-
-              The chip is also the action, rather than carrying one below it,
-              because this state would otherwise be a dead end: the widget
-              deliberately offers no expand affordance, so a card narrower than
-              the 321px `standard` threshold (client.ts) that restores a stored
-              result on mount would have no way left to re-check. Folding the
-              action into the row the state already draws costs no height, so it
-              still fits the smallest tile.
-
-              The accessible name repeats the visible text after the action so
-              the name contains the label a user can see, rather than replacing
-              it. */}
-          <button
-            type="button"
-            className={styles.tinyStatusChip}
-            aria-label={`Проверить снова · СТАТУС ${view.status} · ${view.checkedAtLabel}`}
-            onClick={check}
-          >
-            <RefreshCw size={12} aria-hidden />
-            СТАТУС {view.status} · {view.checkedAtLabel}
+      case 'results': {
+        const label = getResultsActionLabel(view)
+        const summary = getTinyResultsSummary(view)
+        statusLabel = summary.label
+        statusMeta = summary.updatedAt
+        statusIcon =
+          summary.tone === 'success' ? (
+            <CircleCheck size={15} aria-hidden />
+          ) : (
+            <CircleAlert size={15} aria-hidden />
+          )
+        statusTone =
+          summary.tone === 'success'
+            ? styles.tinyStatusSuccess
+            : summary.tone === 'warning'
+              ? styles.tinyStatusWarning
+              : styles.tinyStatusError
+        statusRole = summary.tone === 'error' ? 'alert' : 'status'
+        action = (
+          <button type="button" className={styles.tinySecondaryButton} onClick={check}>
+            <RefreshCw size={13} aria-hidden /> {label}
           </button>
-        </>
-      )
-      break
+        )
+        break
+      }
 
-    case 'retryable':
-      body = (
-        <>
-          <div className={styles.tinyBody}>
-            <span className={cn(styles.tinyBadge, styles.tinyBadgeError)} aria-hidden>
-              <CircleAlert size={21} />
-            </span>
-            <span className={cn(styles.tinyMono, styles.tinyMonoError)}>ошибка</span>
-          </div>
+      case 'retryable':
+        statusLabel = 'Не удалось обновить'
+        statusMeta = 'Попробуйте ещё раз'
+        statusIcon = <CircleAlert size={15} aria-hidden />
+        statusTone = styles.tinyStatusError
+        statusRole = 'alert'
+        action = (
           <button type="button" className={styles.tinySecondaryButton} onClick={check}>
             <RefreshCw size={13} aria-hidden /> Повторить
           </button>
-        </>
-      )
-      break
+        )
+        break
 
-    case 'idle':
-      body = (
-        <>
-          <div className={styles.tinyBody}>
-            <span className={styles.tinyChip} aria-hidden>
-              <IdCard size={21} />
-            </span>
-            <span className={styles.tinyTitle}>Паспорт</span>
-          </div>
+      case 'idle':
+        statusLabel = 'Нет данных'
+        statusMeta = 'Паспорт'
+        statusIcon = <CircleDashed size={15} aria-hidden />
+        statusTone = styles.tinyStatusMuted
+        action = (
           <button type="button" className={styles.tinyButton} onClick={check}>
             Проверить
           </button>
-        </>
-      )
-      break
+        )
+        break
 
-    default:
-      // `ReactNode` already includes `undefined`, so a missing case here
-      // would NOT trip TypeScript's used-before-assignment check on `body` —
-      // this is the guard that actually makes a missing case a compile error.
-      view satisfies never
-      break
-  }
+      default:
+        view satisfies never
+        break
+    }
 
-  return (
-    <div className={cn(styles.tiny, modifier)} role={role}>
-      <WidgetControls onDelete={onDelete} onClose={onClose} />
-      {body}
-    </div>
-  )
-}, 'PassportCheckerTinyTier')
+    return (
+      <div className={styles.tiny}>
+        <div className={styles.tinyHeader}>
+          <div className={cn(styles.tinyStatus, statusTone)} role={statusRole}>
+            <span className={styles.tinyStatusIcon}>{statusIcon}</span>
+            <span className={styles.tinyStatusLabel} title={statusLabel}>
+              {statusLabel}
+            </span>
+          </div>
+          <WidgetControls
+            placement="inline"
+            onExpand={onExpand}
+            onDelete={onDelete}
+            onClose={onClose}
+          />
+        </div>
+        {statusMeta && <p className={styles.tinyMeta}>{statusMeta}</p>}
+        {action}
+      </div>
+    )
+  },
+  'PassportCheckerTinyTier',
+)

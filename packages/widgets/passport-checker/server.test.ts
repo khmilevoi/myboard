@@ -46,12 +46,55 @@ async function runCheck(invokeResult: unknown) {
   return { result, calls }
 }
 
-describe('passport checker server', () => {
-  it('passes a validated result through and sends an empty payload', async () => {
-    const { result, calls } = await runCheck({ status: 200, send_status_msg: 'Готово' })
+async function runEvent(event: string, invokeResult: unknown) {
+  const definition = makePassportCheckerServer()
+  const { context, calls } = makeContext(invokeResult)
+  const handler = Reflect.get(definition.handlers, event) as
+    | ((payload: unknown, context: WidgetServerContext) => Promise<unknown> | unknown)
+    | undefined
+  expect(handler, `${event} handler`).toBeTypeOf('function')
+  if (!handler) throw new Error(`missing ${event} handler`)
+  const result = await handler({}, context)
+  const schema = Reflect.get(definition.schemas, event) as
+    | { result: { safeParse(value: unknown): { success: boolean; data?: unknown } } }
+    | undefined
+  return { result, calls, schema }
+}
 
-    expect(result).toEqual({ status: 200, send_status_msg: 'Готово' })
+describe('passport checker server', () => {
+  it('keeps the legacy check round trip and old-client storage shape intact', async () => {
+    const { result, calls, schema } = await runEvent('check', {
+      status: 200,
+      send_status_msg: 'ID ready',
+    })
+    const parsed = schema?.result.safeParse(result)
+
+    expect(parsed).toMatchObject({
+      success: true,
+      data: { status: 200, send_status_msg: 'ID ready' },
+    })
+    expect(result).toEqual({ status: 200, send_status_msg: 'ID ready' })
+    expect({
+      status: (result as { status: number }).status,
+      message: (result as { send_status_msg: string }).send_status_msg,
+      checkedAt: 123,
+    }).toEqual({ status: 200, message: 'ID ready', checkedAt: 123 })
     expect(calls).toEqual([{ taskId: 'check', payload: {} }])
+  })
+
+  it('passes a validated aggregate through checkV2 and sends one empty browser payload', async () => {
+    const aggregate = {
+      idCard: { kind: 'success' as const, status: 200, send_status_msg: 'ID ready' },
+      internationalPassport: {
+        kind: 'error' as const,
+        code: 'upstream_response' as const,
+      },
+    }
+    const { result, calls, schema } = await runEvent('checkV2', aggregate)
+
+    expect(result).toEqual(aggregate)
+    expect(schema?.result.safeParse(result)).toMatchObject({ success: true, data: aggregate })
+    expect(calls).toEqual([{ taskId: 'checkV2', payload: {} }])
   })
 
   it.each([
@@ -63,6 +106,7 @@ describe('passport checker server', () => {
     ],
     [rejected('browser_session_required'), 409, 'browser_session_required', { novncPort: 6080 }],
     [rejected('browser_configuration'), 500, 'browser_configuration', undefined],
+    [rejected('unknown_task'), 502, 'unknown_task', undefined],
     [
       rejected('upstream_response', { phase: 'submission', status: 502 }),
       502,

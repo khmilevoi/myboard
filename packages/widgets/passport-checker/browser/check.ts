@@ -9,9 +9,11 @@ import * as errore from 'errore'
 import { z } from 'zod'
 
 import {
-  passportCheckResultSchema,
+  passportServiceResponseSchema,
   type PassportCheckPayload,
   type PassportCheckResult,
+  type PassportDocumentResult,
+  type PassportServiceResponse,
 } from '../types'
 import {
   BrowserConfigurationError,
@@ -57,11 +59,29 @@ type SubmitOutcome =
       body: { kind: 'json'; data: unknown } | { kind: 'invalid_json' }
     }
 
+type PassportRequestDefinition = {
+  fields: Readonly<Record<string, string>>
+}
+
+const PASSPORT_REQUESTS = {
+  idCard: {
+    fields: { service: '1', doc_1_select: '1' },
+  },
+  internationalPassport: {
+    fields: { service: '2', doc_age: '0', doc_2_select: '1' },
+  },
+} as const satisfies Record<'idCard' | 'internationalPassport', PassportRequestDefinition>
+
+type SubmitPassportInput = {
+  identity: PassportIdentity
+  fields: Readonly<Record<string, string>>
+}
+
 export type PassportCheckHandlerOptions = {
   checkerUrl: string
 }
 
-function containsIdentity(result: PassportCheckResult, identity: PassportIdentity) {
+function containsIdentity(result: PassportServiceResponse, identity: PassportIdentity) {
   return (
     result.send_status_msg.includes(identity.series) ||
     result.send_status_msg.includes(identity.number)
@@ -81,14 +101,13 @@ function containsIdentity(result: PassportCheckResult, identity: PassportIdentit
 // uses the same proven function+arg serialization path every other
 // page.evaluate call in this file already relies on.
 const submitPassportInPage = new Function(
-  `return (async ({ series, number }) => {
+  `return (async ({ identity, fields }) => {
     const evidenceFromResponseText = ${evidenceFromResponseText.toString()}
 
     const formData = new FormData()
-    formData.set('service', '1')
-    formData.set('doc_1_select', '1')
-    formData.set('doc_1_series', series)
-    formData.set('doc_1_number6', number)
+    for (const [key, value] of Object.entries(fields)) formData.set(key, value)
+    formData.set('doc_1_series', identity.series)
+    formData.set('doc_1_number6', identity.number)
 
     const response = await fetch('/solutions/checker', {
       method: 'POST',
@@ -114,64 +133,132 @@ const submitPassportInPage = new Function(
 
     return { kind: 'response', evidence, ok: response.ok, body }
   })`,
-)() as (identity: PassportIdentity) => Promise<SubmitOutcome>
+)() as (input: SubmitPassportInput) => Promise<SubmitOutcome>
 
-async function submitPassport(
-  context: BrowserTaskContext,
-  identity: PassportIdentity,
-): Promise<UpstreamResponseError | SubmitOutcome> {
+async function submitPassport({
+  context,
+  identity,
+  request,
+}: {
+  context: BrowserTaskContext
+  identity: PassportIdentity
+  request: PassportRequestDefinition
+}): Promise<UpstreamResponseError | SubmitOutcome> {
   return context.page
-    .evaluate<SubmitOutcome, PassportIdentity>(submitPassportInPage, identity)
+    .evaluate<SubmitOutcome, SubmitPassportInput>(submitPassportInPage, {
+      identity,
+      fields: request.fields,
+    })
     .catch((cause) => new UpstreamResponseError({ phase: 'submission', cause }))
+}
+
+async function checkDocument({
+  context,
+  identity,
+  request,
+  checkerUrl,
+}: {
+  context: BrowserTaskContext
+  identity: PassportIdentity
+  request: PassportRequestDefinition
+  checkerUrl: string
+}): Promise<Error | PassportServiceResponse> {
+  const outcome = await submitPassport({ context, identity, request })
+  if (outcome instanceof Error) return outcome
+  if (outcome.kind === 'network_error') return new UpstreamResponseError({ phase: 'submission' })
+
+  // The POST went through fetch, so the page still shows the ordinary checker
+  // form and a human in the noVNC stream would have nothing to solve. The
+  // prepare hook re-navigates so the retained page carries the real challenge;
+  // it runs only if the detector matched, and its failure does not cancel the
+  // escalation.
+  const escalation = await context.detectUserInput(
+    makeCloudflareEvidenceDetector(outcome.evidence),
+    { prepare: (page) => page.goto(checkerUrl, { waitUntil: 'domcontentloaded' }) },
+  )
+  if (escalation instanceof Error) return escalation
+  if (!outcome.ok) {
+    return new UpstreamResponseError({
+      phase: 'submission',
+      status: outcome.evidence.status ?? undefined,
+    })
+  }
+  if (outcome.body.kind === 'invalid_json') return new InvalidCheckerResponseError()
+
+  const parsed = passportServiceResponseSchema.safeParse(outcome.body.data)
+  if (!parsed.success) return new InvalidCheckerResponseError()
+  if (containsIdentity(parsed.data, identity)) return new InvalidCheckerResponseError()
+  return parsed.data
+}
+
+async function preparePassportCheck(
+  context: BrowserTaskContext,
+  options: PassportCheckHandlerOptions,
+) {
+  const identity = readPassportIdentity(context.secrets)
+  if (identity instanceof Error) return identity
+
+  const navigation = await context.page
+    .goto(options.checkerUrl, { waitUntil: 'domcontentloaded' })
+    .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
+  if (navigation instanceof Error) return navigation
+
+  const navigationEscalation = await context.detectUserInput(makeCloudflarePageDetector(navigation))
+  if (navigationEscalation instanceof Error) return navigationEscalation
+
+  if (navigation && !navigation.ok()) {
+    return new UpstreamResponseError({ phase: 'navigation', status: navigation.status() })
+  }
+  return identity
+}
+
+async function checkDocumentV2(options: Parameters<typeof checkDocument>[0]) {
+  const result = await checkDocument(options)
+  if (result instanceof UpstreamResponseError) {
+    return { kind: 'error', code: 'upstream_response' } as const
+  }
+  if (result instanceof InvalidCheckerResponseError) {
+    return { kind: 'error', code: 'invalid_checker_response' } as const
+  }
+  if (result instanceof Error) return result
+  return { kind: 'success', ...result } as const satisfies PassportDocumentResult
+}
+
+export function makeLegacyPassportCheckHandler(options: PassportCheckHandlerOptions) {
+  return async (_payload: PassportCheckPayload, context: BrowserTaskContext) => {
+    const identity = await preparePassportCheck(context, options)
+    if (identity instanceof Error) return identity
+
+    return checkDocument({
+      context,
+      identity,
+      request: PASSPORT_REQUESTS.idCard,
+      checkerUrl: options.checkerUrl,
+    })
+  }
 }
 
 export function makePassportCheckHandler(options: PassportCheckHandlerOptions) {
   return async (_payload: PassportCheckPayload, context: BrowserTaskContext) => {
-    const identity = readPassportIdentity(context.secrets)
+    const identity = await preparePassportCheck(context, options)
     if (identity instanceof Error) return identity
 
-    const navigation = await context.page
-      .goto(options.checkerUrl, { waitUntil: 'domcontentloaded' })
-      .catch((cause) => new UpstreamResponseError({ phase: 'navigation', cause }))
-    if (navigation instanceof Error) return navigation
+    const idCard = await checkDocumentV2({
+      context,
+      identity,
+      request: PASSPORT_REQUESTS.idCard,
+      checkerUrl: options.checkerUrl,
+    })
+    if (idCard instanceof Error) return idCard
 
-    const navigationEscalation = await context.detectUserInput(
-      makeCloudflarePageDetector(navigation),
-    )
-    if (navigationEscalation instanceof Error) return navigationEscalation
+    const internationalPassport = await checkDocumentV2({
+      context,
+      identity,
+      request: PASSPORT_REQUESTS.internationalPassport,
+      checkerUrl: options.checkerUrl,
+    })
+    if (internationalPassport instanceof Error) return internationalPassport
 
-    if (navigation && !navigation.ok()) {
-      return new UpstreamResponseError({ phase: 'navigation', status: navigation.status() })
-    }
-
-    const outcome = await submitPassport(context, identity)
-    if (outcome instanceof Error) return outcome
-    if (outcome.kind === 'network_error') {
-      return new UpstreamResponseError({ phase: 'submission' })
-    }
-
-    // The POST went through fetch, so the page still shows the ordinary checker
-    // form and a human in the noVNC stream would have nothing to solve. The
-    // prepare hook re-navigates so the retained page carries the real challenge;
-    // it runs only if the detector matched, and its failure does not cancel the
-    // escalation.
-    const submissionEscalation = await context.detectUserInput(
-      makeCloudflareEvidenceDetector(outcome.evidence),
-      { prepare: (page) => page.goto(options.checkerUrl, { waitUntil: 'domcontentloaded' }) },
-    )
-    if (submissionEscalation instanceof Error) return submissionEscalation
-
-    if (!outcome.ok) {
-      return new UpstreamResponseError({
-        phase: 'submission',
-        status: outcome.evidence.status ?? undefined,
-      })
-    }
-    if (outcome.body.kind === 'invalid_json') return new InvalidCheckerResponseError()
-
-    const parsed = passportCheckResultSchema.safeParse(outcome.body.data)
-    if (!parsed.success) return new InvalidCheckerResponseError()
-    if (containsIdentity(parsed.data, identity)) return new InvalidCheckerResponseError()
-    return parsed.data
+    return { idCard, internationalPassport } satisfies PassportCheckResult
   }
 }

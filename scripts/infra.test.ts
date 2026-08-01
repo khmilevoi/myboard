@@ -206,14 +206,14 @@ describe('browser-automation service wiring', () => {
     expect(prod).not.toContain('8788:8788')
   })
 
-  it('mounts passport secrets as scoped /run/secrets targets', () => {
-    expect(prod).toContain('target: passport-checker_series')
+  it('mounts the combined passport identity as a scoped /run/secrets target', () => {
     expect(prod).toContain('target: passport-checker_number')
+    expect(prod).not.toContain('target: passport-checker_series')
   })
 
-  it('sources runtime secrets from file-backed paths under the widget package', () => {
-    expect(prod).toContain('file: ./packages/widgets/passport-checker/secrets/series')
+  it('sources the combined passport identity from its file under the widget package', () => {
     expect(prod).toContain('file: ./packages/widgets/passport-checker/secrets/number')
+    expect(prod).not.toContain('file: ./packages/widgets/passport-checker/secrets/series')
   })
 
   it('keeps the browser profile in a named volume', () => {
@@ -410,16 +410,15 @@ describe('rpi secret groups', () => {
 
   const groupsOf = (toml: string) => /^groups = \[(.*)\]$/m.exec(settingsOf(toml))?.[1]
 
-  it('delivers the passport files through a group instead of per-environment bundles', () => {
-    // The base file is the push source for both production's own bundle and
-    // the `dev` group ([secrets].files is read locally by `rpi secrets push`,
-    // never at deploy time); the overlays clear it so nothing carries a second
-    // copy that would shadow the group.
-    expect(baseToml).toContain('packages/widgets/passport-checker/secrets/series')
-    for (const overlay of [devOverlay, branchOverlay]) {
-      expect(overlay).toContain('files = []')
-      expect(settingsOf(overlay)).not.toContain('passport-checker/secrets')
-    }
+  it('uses the combined passport file only in production and groups on non-production', () => {
+    // Production owns the base file. Dev and the branch stand clear that local
+    // source so the shared identity has exactly one owner: the `dev` group.
+    expect(baseToml).toContain('packages/widgets/passport-checker/secrets/number')
+    expect(baseToml).not.toContain('packages/widgets/passport-checker/secrets/series')
+    expect(devOverlay).toContain('files = []')
+    expect(settingsOf(devOverlay)).not.toContain('passport-checker/secrets')
+    expect(branchOverlay).toContain('files = []')
+    expect(settingsOf(branchOverlay)).not.toContain('passport-checker/secrets')
   })
 
   it('gives production no group of its own', () => {

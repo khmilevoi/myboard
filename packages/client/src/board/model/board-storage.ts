@@ -110,8 +110,9 @@ export const sharedBoardMigrations = atom<BoardMigrations>(
  * applied-migrations marker have loaded from client storage, and writes back
  * whichever of the board / marker actually changed. migrateBoardLayoutHeights
  * is idempotent and returns both inputs by the same reference once the
- * marker is present, so this only ever writes once per board — the re-run
- * triggered by that write itself is a no-op and does not loop.
+ * markers and hard passport floors are satisfied, so the re-run triggered by
+ * a successful write is a no-op. A stale passport layout is repaired even if
+ * its independently stored marker is already present.
  */
 export const migrateLocalBoardHeights = effect(() => {
   if (localBoard.isLoading()) return

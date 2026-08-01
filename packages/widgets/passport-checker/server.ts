@@ -3,6 +3,7 @@ import {
   BrowserAutomationProtocolError,
   BrowserAutomationUnavailableError,
   BrowserTaskRejectedError,
+  type BrowserGatewayError,
 } from '@shared/widgets/browser-errors'
 import { defineWidgetServer } from '@shared/widgets/contracts'
 import { PublicWidgetError } from '@shared/widgets/public-error'
@@ -60,37 +61,53 @@ export function mapRejectedTask(error: BrowserTaskRejectedError): PublicWidgetEr
   })
 }
 
+function isBrowserGatewayError(value: unknown): value is BrowserGatewayError {
+  return (
+    value instanceof BrowserTaskRejectedError ||
+    value instanceof BrowserAutomationUnavailableError ||
+    value instanceof BrowserAutomationDeadlineError ||
+    value instanceof BrowserAutomationProtocolError
+  )
+}
+
+function mapBrowserError(error: BrowserGatewayError): PublicWidgetError {
+  if (error instanceof BrowserTaskRejectedError) return mapRejectedTask(error)
+  if (error instanceof BrowserAutomationUnavailableError) {
+    return new PublicWidgetError({
+      status: 503,
+      code: 'browser_unavailable',
+      publicMessage: 'Browser automation is unavailable',
+      cause: error,
+    })
+  }
+  if (error instanceof BrowserAutomationDeadlineError) {
+    return new PublicWidgetError({
+      status: 504,
+      code: 'automation_timeout',
+      publicMessage: 'The passport check timed out',
+      cause: error,
+    })
+  }
+  return new PublicWidgetError({
+    status: 502,
+    code: 'automation_protocol',
+    publicMessage: 'Browser automation returned an unexpected response',
+    cause: error,
+  })
+}
+
 export function makePassportCheckerServer() {
   return defineWidgetServer({
     schemas: passportCheckerBrowserSchemas,
     handlers: {
       async check(_payload, context) {
         const result = await context.api.browser.invoke(passportCheckerBrowserTasks.check, {})
-        if (result instanceof BrowserTaskRejectedError) return mapRejectedTask(result)
-        if (result instanceof BrowserAutomationUnavailableError) {
-          return new PublicWidgetError({
-            status: 503,
-            code: 'browser_unavailable',
-            publicMessage: 'Browser automation is unavailable',
-            cause: result,
-          })
-        }
-        if (result instanceof BrowserAutomationDeadlineError) {
-          return new PublicWidgetError({
-            status: 504,
-            code: 'automation_timeout',
-            publicMessage: 'The passport check timed out',
-            cause: result,
-          })
-        }
-        if (result instanceof BrowserAutomationProtocolError) {
-          return new PublicWidgetError({
-            status: 502,
-            code: 'automation_protocol',
-            publicMessage: 'Browser automation returned an unexpected response',
-            cause: result,
-          })
-        }
+        if (isBrowserGatewayError(result)) return mapBrowserError(result)
+        return result
+      },
+      async checkV2(_payload, context) {
+        const result = await context.api.browser.invoke(passportCheckerBrowserTasks.checkV2, {})
+        if (isBrowserGatewayError(result)) return mapBrowserError(result)
         return result
       },
     },

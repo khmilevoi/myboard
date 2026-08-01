@@ -43,8 +43,8 @@ files = ["packages/widgets/passport-checker/secrets/number"]
 # stacks are the ones that genuinely share a set (dev and the branch stand), and
 # they take it from `dev`:
 #
-#   rpi secrets push              # production: .env + the passport files
-#   rpi secrets push --group dev  # dev and the branch stand: the same files
+#   rpi secrets push              # production: .env + the passport file
+#   rpi secrets push --group dev  # dev and the branch stand: the same file
 #
 # A declared group that is missing or empty fails the deploy naming the group;
 # `rpi secrets ls [--env <env>]` shows which layer wins each entry.

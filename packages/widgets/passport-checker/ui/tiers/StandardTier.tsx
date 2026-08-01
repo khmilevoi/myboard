@@ -3,7 +3,7 @@ import { AppWindow, Check, CircleAlert, IdCard, RefreshCw } from 'lucide-react'
 import { cn, reatomMemo } from 'widget-sdk'
 import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
-import { StatusBanner } from '../parts/StatusBanner'
+import { getResultsActionLabel, GlobalStatusBanner, StatusBanner } from '../parts/StatusBanner'
 import { usePassportChecker } from '../passport-checker-context'
 
 import styles from '../passport-checker.module.css'
@@ -25,6 +25,7 @@ export const StandardTier = reatomMemo(
     // own viewState() changes independently of the parent, so the closure must
     // be bound to THIS render's frame or it goes stale (see PassportChecker.tsx).
     const openRecovery = wrap(onOpenRecovery)
+    const resultsActionLabel = view.kind === 'results' ? getResultsActionLabel(view) : null
 
     return (
       <div className={styles.standard}>
@@ -36,7 +37,10 @@ export const StandardTier = reatomMemo(
           >
             <IdCard size={16} />
           </span>
-          <span className={styles.title}>Паспорт</span>
+          <span className={styles.headerText}>
+            <span className={styles.title}>Паспорт</span>
+            <span className={styles.subtitle}>Проверка ID-карты и загранпаспорта</span>
+          </span>
         </header>
 
         {/* One flexible row, so every state lands its action on the same baseline:
@@ -49,7 +53,17 @@ export const StandardTier = reatomMemo(
               Проверяем…
             </div>
           )}
-          <StatusBanner view={view} />
+          {view.kind === 'results' && (
+            <ul className={styles.resultsList} role="list">
+              <li>
+                <StatusBanner label="ID-карта" view={view.idCard} />
+              </li>
+              <li>
+                <StatusBanner label="Загранпаспорт" view={view.internationalPassport} />
+              </li>
+            </ul>
+          )}
+          <GlobalStatusBanner view={view} />
         </div>
 
         {(view.kind === 'idle' || view.kind === 'pending') && (
@@ -62,9 +76,20 @@ export const StandardTier = reatomMemo(
             <Check size={15} strokeWidth={2.2} aria-hidden /> Проверить
           </button>
         )}
-        {view.kind === 'success' && (
-          <button type="button" className={styles.secondaryButton} onClick={check}>
-            <RefreshCw size={14} aria-hidden /> Проверить снова
+        {view.kind === 'results' && resultsActionLabel !== null && (
+          <button
+            type="button"
+            className={
+              resultsActionLabel === 'Проверить' ? styles.primaryButton : styles.secondaryButton
+            }
+            onClick={check}
+          >
+            {resultsActionLabel === 'Проверить' ? (
+              <Check size={15} strokeWidth={2.2} aria-hidden />
+            ) : (
+              <RefreshCw size={14} aria-hidden />
+            )}
+            {resultsActionLabel}
           </button>
         )}
         {view.kind === 'retryable' && (

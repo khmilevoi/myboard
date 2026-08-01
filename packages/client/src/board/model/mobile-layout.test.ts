@@ -5,6 +5,7 @@ import {
   deriveMobileLayout,
   HEIGHT_FLOOR_MIGRATION_ID,
   migrateBoardLayoutHeights,
+  PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID,
   reconcileMobileLayout,
   resolveBoardLayout,
 } from './mobile-layout'
@@ -136,6 +137,83 @@ describe('migrateBoardLayoutHeights', () => {
     })
   })
 
+  it('raises passport checker desktop layouts to their w4/h4 floors after the generic migration ran', () => {
+    const board: BoardSnapshot = {
+      id: 'b1',
+      name: 'Board',
+      instances: [{ id: 'passport', typeId: 'passport-checker' }],
+      layout: [{ i: 'passport', x: 0, y: 0, w: 4, h: 2, minW: 2, minH: 2 }],
+      mobileLayout: [{ i: 'passport', x: 0, y: 0, w: 1, h: 3, minW: 1, minH: 2 }],
+    }
+
+    const { board: migrated, appliedMigrationIds } = migrateBoardLayoutHeights(board, [
+      HEIGHT_FLOOR_MIGRATION_ID,
+    ])
+
+    expect(migrated.layout).toEqual([{ i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 }])
+    expect(migrated.mobileLayout).toEqual([
+      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+    ])
+    expect(appliedMigrationIds).toContain('passport-checker-height-floor-v1')
+  })
+
+  it('normalizes an explicit passport mobile placement to the one-column width floor', () => {
+    const board: BoardSnapshot = {
+      id: 'b1',
+      name: 'Board',
+      instances: [{ id: 'passport', typeId: 'passport-checker' }],
+      layout: [{ i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 }],
+      mobileLayout: [{ i: 'passport', x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 }],
+    }
+
+    const { board: migrated } = migrateBoardLayoutHeights(board, [HEIGHT_FLOOR_MIGRATION_ID])
+
+    expect(migrated.mobileLayout).toEqual([
+      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+    ])
+  })
+
+  it('derives a compatible one-column passport layout from the migrated desktop floor', () => {
+    const board: BoardSnapshot = {
+      id: 'b1',
+      name: 'Board',
+      instances: [{ id: 'passport', typeId: 'passport-checker' }],
+      layout: [{ i: 'passport', x: 0, y: 0, w: 2, h: 2, minW: 2, minH: 2 }],
+    }
+
+    const { board: migrated } = migrateBoardLayoutHeights(board, [HEIGHT_FLOOR_MIGRATION_ID])
+
+    expect(migrated.layout).toEqual([{ i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 }])
+    expect(resolveBoardLayout(migrated, true)).toEqual([
+      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+    ])
+  })
+
+  it('recovers a stale passport layout when its marker was stored without its floor write', () => {
+    const staleBoard: BoardSnapshot = {
+      id: 'b1',
+      name: 'Board',
+      instances: [{ id: 'passport', typeId: 'passport-checker' }],
+      layout: [{ i: 'passport', x: 0, y: 0, w: 2, h: 2, minW: 2, minH: 2 }],
+      mobileLayout: [{ i: 'passport', x: 0, y: 0, w: 1, h: 3, minW: 1, minH: 2 }],
+    }
+    const appliedIds = [HEIGHT_FLOOR_MIGRATION_ID, PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID]
+
+    const recovered = migrateBoardLayoutHeights(staleBoard, appliedIds)
+
+    expect(recovered.board.layout).toEqual([
+      { i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 },
+    ])
+    expect(recovered.board.mobileLayout).toEqual([
+      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+    ])
+    expect(recovered.appliedMigrationIds).toBe(appliedIds)
+
+    const settled = migrateBoardLayoutHeights(recovered.board, recovered.appliedMigrationIds)
+    expect(settled.board).toBe(recovered.board)
+    expect(settled.appliedMigrationIds).toBe(recovered.appliedMigrationIds)
+  })
+
   it('leaves an item already at or above its default untouched', () => {
     const board: BoardSnapshot = {
       id: 'b1',
@@ -165,7 +243,7 @@ describe('migrateBoardLayoutHeights', () => {
       instances: [{ id: 'duty', typeId: CATALOGED_TYPE_ID }],
       layout: [{ i: 'duty', x: 0, y: 0, w: 4, h: 4, minW: 2, minH: 3 }],
     }
-    const appliedIds = [HEIGHT_FLOOR_MIGRATION_ID]
+    const appliedIds = [HEIGHT_FLOOR_MIGRATION_ID, PASSPORT_CHECKER_HEIGHT_FLOOR_MIGRATION_ID]
 
     const result = migrateBoardLayoutHeights(board, appliedIds)
 

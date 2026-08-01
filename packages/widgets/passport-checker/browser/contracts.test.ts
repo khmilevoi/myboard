@@ -11,26 +11,77 @@ import {
 } from './errors'
 
 describe('passport checker browser contracts', () => {
-  it('requires a strict empty payload and an integer checker result', () => {
+  it('requires a strict empty payload and task id', () => {
     expect(passportCheckerBrowserSchemas.check.payload.safeParse({}).success).toBe(true)
     expect(passportCheckerBrowserSchemas.check.payload.safeParse({ series: 'АБ' }).success).toBe(
       false,
     )
+    expect(passportCheckerBrowserTasks.check.id).toBe('check')
+    expectTypeOf(passportCheckerBrowserTasks.check.id).toEqualTypeOf<'check'>()
+    expect(passportCheckerBrowserTasks.checkV2.id).toBe('checkV2')
+    expectTypeOf(passportCheckerBrowserTasks.checkV2.id).toEqualTypeOf<'checkV2'>()
+  })
+
+  it('keeps the legacy check result contract intact', () => {
     expect(
       passportCheckerBrowserSchemas.check.result.safeParse({
         status: 1,
-        send_status_msg: 'ok',
+        send_status_msg: 'ID ok',
         ignored: true,
       }).data,
-    ).toEqual({ status: 1, send_status_msg: 'ok' })
+    ).toEqual({ status: 1, send_status_msg: 'ID ok' })
     expect(
       passportCheckerBrowserSchemas.check.result.safeParse({
-        status: 1.5,
-        send_status_msg: 'bad',
+        idCard: { kind: 'success', status: 1, send_status_msg: 'ID ok' },
       }).success,
     ).toBe(false)
-    expect(passportCheckerBrowserTasks.check.id).toBe('check')
-    expectTypeOf(passportCheckerBrowserTasks.check.id).toEqualTypeOf<'check'>()
+  })
+
+  it('requires both checkV2 document branches and strips successes to safe service fields', () => {
+    const result = passportCheckerBrowserSchemas.checkV2.result.safeParse({
+      idCard: {
+        kind: 'success',
+        status: 1,
+        send_status_msg: 'ID ok',
+        ignored: true,
+      },
+      internationalPassport: {
+        kind: 'success',
+        status: 2,
+        send_status_msg: 'International ok',
+        ignored: true,
+      },
+      ignored: true,
+    })
+
+    expect(result.data).toEqual({
+      idCard: { kind: 'success', status: 1, send_status_msg: 'ID ok' },
+      internationalPassport: {
+        kind: 'success',
+        status: 2,
+        send_status_msg: 'International ok',
+      },
+    })
+    expect(
+      passportCheckerBrowserSchemas.checkV2.result.safeParse({
+        idCard: { kind: 'success', status: 1, send_status_msg: 'ID ok' },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts only the two public document error codes', () => {
+    expect(
+      passportCheckerBrowserSchemas.checkV2.result.safeParse({
+        idCard: { kind: 'error', code: 'upstream_response' },
+        internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
+      }).success,
+    ).toBe(true)
+    expect(
+      passportCheckerBrowserSchemas.checkV2.result.safeParse({
+        idCard: { kind: 'error', code: 'browser_configuration' },
+        internationalPassport: { kind: 'error', code: 'invalid_checker_response' },
+      }).success,
+    ).toBe(false)
   })
 
   it('serializes only stable public codes, messages, and safe metadata', () => {

@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest'
 import browser, { makePassportCheckerBrowser, PASSPORT_CHECKER_URL } from './browser'
 
 describe('passport checker browser definition', () => {
-  it('exports exactly the check schema and handler for the fixed production URL', () => {
+  it('exports the legacy and v2 schemas and handlers for the fixed production URL', () => {
     expect(PASSPORT_CHECKER_URL).toBe('https://pasport.org.ua/solutions/checker')
-    expect(Object.keys(browser.schemas)).toEqual(['check'])
-    expect(Object.keys(browser.handlers)).toEqual(['check'])
+    expect(Object.keys(browser.schemas)).toEqual(['check', 'checkV2'])
+    expect(Object.keys(browser.handlers)).toEqual(['check', 'checkV2'])
   })
 
   it('creates a fixture definition without exposing URL as task input', () => {
@@ -15,5 +15,6 @@ describe('passport checker browser definition', () => {
       checkerUrl: 'http://127.0.0.1:3000/solutions/checker',
     })
     expect(Object.keys(fixture.schemas.check.payload.shape)).toEqual([])
+    expect(Object.keys(fixture.schemas.checkV2.payload.shape)).toEqual([])
   })
 })
