@@ -30,13 +30,11 @@ import { PassportChecker } from './PassportChecker'
 // Each Escape-closing test now waits for that effect's other, synchronous
 // side effect (moving focus into the dialog) before dispatching Escape, which
 // proves the same effect has also run and attached the listener.
-// `ROUND_TRIP_TIMEOUT_MS` stays as a modest safety margin for the two
-// multi-mount tests below under ordinary whole-suite worker contention. Two
-// tests in this file keep the shared default instead: "opens the modal from
-// sessionRequired, closes on Esc and returns focus" above (a single-mount
-// test, despite firing Escape) and "collapses fullscreen…" below (which never
-// reaches the Escape-close path); both would still fail fast if they ever
-// regressed.
+// `ROUND_TRIP_TIMEOUT_MS` stays as a modest safety margin for "does not
+// collapse when recovery opens from the tile" below under ordinary
+// whole-suite worker contention. Every other test in this file keeps the
+// shared default instead — none of the fullscreen-inline-recovery tests fire
+// Escape at all, so they would still fail fast if they ever regressed.
 const ROUND_TRIP_TIMEOUT_MS = 10_000
 
 function renderSessionRequired() {
@@ -114,8 +112,8 @@ describe('recovery flow from the tile', () => {
 
 // The model graph is module-scoped and keyed by instanceId (Task 3), and
 // Reatom's disposal is a microtask — so each call below needs its own id, or
-// a live model from one test (recoveryOpen/restorePending still true) leaks
-// into the next. The id must match between the props and the storage below.
+// a live model from one test (recoveryOpen still true) leaks into the next.
+// The id must match between the props and the storage below.
 function renderSessionRequiredIn(tier: WidgetRuntimeProps['tier'], instanceId: string) {
   vi.stubGlobal(
     'fetch',
@@ -157,13 +155,41 @@ function renderSessionRequiredIn(tier: WidgetRuntimeProps['tier'], instanceId: s
 }
 
 describe('recovery flow across tiers', () => {
-  it('collapses fullscreen when recovery opens from the fullscreen mount', async () => {
+  it('opens recovery inline in fullscreen instead of collapsing to the tile modal', async () => {
     const { requestClose } = renderSessionRequiredIn('fullscreen', 'inst-passport-tier-fullscreen')
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
     fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
 
-    expect(requestClose).toHaveBeenCalledTimes(1)
+    // The embedded recovery section renders in place — no portal dialog, and
+    // the fullscreen mount never asks the host to close it.
+    expect(await screen.findByRole('button', { name: /Повторить проверку/ })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(requestClose).not.toHaveBeenCalled()
+  })
+
+  it('returns to the trigger card when inline recovery is closed, without touching fullscreen', async () => {
+    const { requestClose, requestFullscreen } = renderSessionRequiredIn(
+      'fullscreen',
+      'inst-passport-tier-fullscreen-close',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
+    await screen.findByRole('button', { name: /Повторить проверку/ })
+
+    // Two buttons share the accessible name "Закрыть" here: the widget's own
+    // header close (mode="large" chrome, always present) and the recovery
+    // footer's — the last one rendered is the footer's, same disambiguation
+    // the RecoveryModal tests below already rely on for its header/footer pair.
+    const closeButtons = screen.getAllByRole('button', { name: 'Закрыть' })
+    fireEvent.click(closeButtons[closeButtons.length - 1])
+
+    expect(
+      await screen.findByRole('button', { name: /Открыть восстановление/ }),
+    ).toBeInTheDocument()
+    expect(requestClose).not.toHaveBeenCalled()
+    expect(requestFullscreen).not.toHaveBeenCalled()
   })
 
   it(
@@ -192,44 +218,6 @@ describe('recovery flow across tiers', () => {
 
       expect(requestClose).not.toHaveBeenCalled()
       expect(requestFullscreen).not.toHaveBeenCalled()
-    },
-    ROUND_TRIP_TIMEOUT_MS,
-  )
-
-  // The flow model is module-scoped and keyed by instanceId (Task 3), so a
-  // `restorePending` set by opening recovery from a fullscreen mount is
-  // still visible when a later mount for the SAME instanceId (the tile,
-  // after the host collapses the fullscreen overlay) renders the modal.
-  // This is the only test that asserts the actual handoff: that closing the
-  // modal from the tile calls the TILE's requestFullscreen, not a no-op.
-  it(
-    'restores fullscreen through the tile mount after recovery opened from the fullscreen mount',
-    async () => {
-      const instanceId = 'inst-passport-tier-handoff'
-      const fullscreenMount = renderSessionRequiredIn('fullscreen', instanceId)
-
-      fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
-      fireEvent.click(await screen.findByRole('button', { name: /Открыть восстановление/ }))
-      expect(fullscreenMount.requestClose).toHaveBeenCalledTimes(1)
-
-      // Mirrors what the host does when requestClose collapses the fullscreen
-      // overlay: the fullscreen mount goes away and the tile mount (same
-      // instanceId, tier 'standard') takes over.
-      fullscreenMount.view.unmount()
-
-      const tileMount = renderSessionRequiredIn('standard', instanceId)
-      // recoveryOpen was already true on the shared model, so the modal
-      // renders immediately — no need to click through sessionRequired again.
-      const dialog = await screen.findByRole('dialog')
-      // See the sibling test above: wait for useModalIsolation's mount
-      // effect (focus-in) so we know its Escape listener is attached too.
-      await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
-
-      fireEvent.keyDown(document, { key: 'Escape' })
-      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-
-      expect(tileMount.requestFullscreen).toHaveBeenCalledTimes(1)
-      expect(fullscreenMount.requestFullscreen).not.toHaveBeenCalled()
     },
     ROUND_TRIP_TIMEOUT_MS,
   )

@@ -22,63 +22,44 @@ function setup() {
 }
 
 describe('makeRecoveryFlow', () => {
-  it('collapses fullscreen when recovery opens from the fullscreen mount', () => {
+  it('opens the modal surface for the tile', () => {
     const { checkModel, flow } = setup()
-    const collapse = vi.fn()
 
-    flow.openRecovery({ fromFullscreen: true, collapse })
+    flow.openRecovery({ surface: 'modal' })
 
     expect(checkModel.recoveryOpen()).toBe(true)
-    expect(collapse).toHaveBeenCalledTimes(1)
+    expect(checkModel.recoverySurface()).toBe('modal')
   })
 
-  it('does not collapse when recovery opens from the tile', () => {
+  it('opens the inline surface for fullscreen', () => {
     const { checkModel, flow } = setup()
-    const collapse = vi.fn()
 
-    flow.openRecovery({ fromFullscreen: false, collapse })
+    flow.openRecovery({ surface: 'inline' })
 
     expect(checkModel.recoveryOpen()).toBe(true)
-    expect(collapse).not.toHaveBeenCalled()
+    expect(checkModel.recoverySurface()).toBe('inline')
   })
 
-  it('restores fullscreen on close only when it collapsed it', () => {
-    const { flow, teardown } = setup()
-    const restore = vi.fn()
+  it('tears down and clears both flags on close, regardless of surface', () => {
+    const { checkModel, flow, teardown } = setup()
 
-    flow.openRecovery({ fromFullscreen: true, collapse: vi.fn() })
-    flow.closeRecovery({ restore })
+    flow.openRecovery({ surface: 'inline' })
+    flow.closeRecovery()
 
     expect(teardown).toHaveBeenCalledTimes(1)
-    expect(restore).toHaveBeenCalledTimes(1)
-
-    flow.openRecovery({ fromFullscreen: false, collapse: vi.fn() })
-    flow.closeRecovery({ restore })
-
-    expect(restore).toHaveBeenCalledTimes(1)
+    expect(checkModel.recoveryOpen()).toBe(false)
+    expect(checkModel.recoverySurface()).toBeNull()
   })
 
-  it('restores at most once per collapse', () => {
-    const { flow } = setup()
-    const restore = vi.fn()
-
-    flow.openRecovery({ fromFullscreen: true, collapse: vi.fn() })
-    flow.closeRecovery({ restore })
-    flow.closeRecovery({ restore })
-
-    expect(restore).toHaveBeenCalledTimes(1)
-  })
-
-  it('restores fullscreen and re-runs the check on retry', async () => {
+  it('tears down, clears both flags, and re-runs the check on retry', async () => {
     const { checkModel, flow, invoke, teardown } = setup()
-    const restore = vi.fn()
 
-    flow.openRecovery({ fromFullscreen: true, collapse: vi.fn() })
-    flow.retryCheck({ restore })
+    flow.openRecovery({ surface: 'modal' })
+    flow.retryCheck()
 
     expect(checkModel.recoveryOpen()).toBe(false)
+    expect(checkModel.recoverySurface()).toBeNull()
     expect(teardown).toHaveBeenCalledTimes(1)
-    expect(restore).toHaveBeenCalledTimes(1)
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(1))
   })
 })

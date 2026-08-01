@@ -328,8 +328,8 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
-    expect(await screen.findByText('Обновляем данные')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Проверяем…' })).toBeDisabled()
+    expect(await screen.findByText('Обновляем данные…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Проверить' })).toBeDisabled()
   })
 
   it('renders the compact error state', async () => {
@@ -347,7 +347,7 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
     expect(await screen.findByText('Данные обновлены')).toBeInTheDocument()
-    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(screen.getByText(/^обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('ID готова')).toBeNull()
     expect(screen.queryByText('Загран готов')).toBeNull()
     expect(screen.getByRole('button', { name: 'Проверить снова' })).toBeEnabled()
@@ -362,7 +362,7 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
     expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
-    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(screen.getByText(/^1 из 2 · \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('ID готова')).toBeNull()
     expect(screen.queryByText('Сервис проверки временно недоступен')).toBeNull()
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
@@ -381,7 +381,7 @@ describe('PassportChecker / tiny tier', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
 
     expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
-    expect(screen.getByText(/^Обновлено \d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(screen.getByText(/^1 из 2 · \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.queryByText('Загран готов')).toBeNull()
     expect(screen.queryByText('Сервис проверки вернул неожиданный ответ')).toBeNull()
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
@@ -461,7 +461,7 @@ describe('PassportChecker / tiny tier', () => {
     )
 
     expect(await screen.findByText('Данные обновлены')).toBeInTheDocument()
-    expect(screen.getByText('Обновлено 02.01 10:06')).toBeInTheDocument()
+    expect(screen.getByText('обновлено 02.01 10:06')).toBeInTheDocument()
     expect(screen.queryByText('ID сохранена')).toBeNull()
     expect(screen.queryByText('Загран сохранён')).toBeNull()
     expect(invoke).not.toHaveBeenCalled()
@@ -485,7 +485,7 @@ describe('PassportChecker / tiny tier', () => {
     )
 
     expect(await screen.findByText('Обновлено частично')).toBeInTheDocument()
-    expect(screen.getByText('Обновлено 01.01 09:05')).toBeInTheDocument()
+    expect(screen.getByText('1 из 2 · 01.01 09:05')).toBeInTheDocument()
     expect(screen.queryByText('Сохранённая ID-карта')).toBeNull()
     expect(screen.getByRole('button', { name: 'Проверить' })).toBeEnabled()
     expect(invoke).not.toHaveBeenCalled()
@@ -496,7 +496,7 @@ describe('PassportChecker / tiny tier', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
 
-    expect(await screen.findByText('Требуется вход')).toBeInTheDocument()
+    expect(await screen.findByText('Войдите в браузер')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Открыть' })).toBeInTheDocument()
   })
 
@@ -508,6 +508,68 @@ describe('PassportChecker / tiny tier', () => {
     expect(await screen.findByText('Не настроен')).toBeInTheDocument()
     // A delete button (widget chrome) is expected here; only the check action
     // is meant to be absent when the widget has no server-side config.
+    expect(screen.queryByRole('button', { name: 'Проверить' })).toBeNull()
+  })
+})
+
+describe('PassportChecker / fullscreen tier', () => {
+  function renderFullscreen(invoke: () => Promise<InvokeResult>, instanceId = 'inst-fullscreen') {
+    return render(
+      <WidgetRuntimeContext.Provider
+        value={makeProps('fullscreen', invoke, instanceId, makeFakeStorage(), 'large')}
+      >
+        <PassportChecker />
+      </WidgetRuntimeContext.Provider>,
+    )
+  }
+
+  it('renders the idle state as its own layout, not an enlarged standard card', () => {
+    renderFullscreen(vi.fn())
+
+    expect(screen.getByText('Паспорт')).toBeInTheDocument()
+    expect(screen.getByText('Нет данных о статусе')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Проверить/ })).toBeEnabled()
+  })
+
+  it('renders both documents in full, side by side, without truncation', async () => {
+    renderFullscreen(async () => twoSuccesses('ID готова', 'Загран готов'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID готова')).toBeInTheDocument()
+    expect(screen.getByText('Загран готов')).toBeInTheDocument()
+    expect(screen.getByText('Что проверяется и зачем')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Проверить снова' })).toBeEnabled()
+  })
+
+  it('renders a partial result with both a success and a document alert visible', async () => {
+    renderFullscreen(async () => ({
+      idCard: { kind: 'success', status: 200, send_status_msg: 'ID готова' },
+      internationalPassport: { kind: 'error', code: 'upstream_response' },
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить' }))
+
+    expect(await screen.findByText('ID готова')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Загранпаспорт')
+    expect(screen.getByText('Обновлено частично · 1 из 2')).toBeInTheDocument()
+  })
+
+  it('renders a retryable error with the real error message, not a placeholder', async () => {
+    renderFullscreen(async () => apiError('browser_unavailable'))
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+
+    expect(await screen.findByText('Сервис автоматизации недоступен')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Повторить/ })).toBeInTheDocument()
+  })
+
+  it('renders invalidConfig without a check action', async () => {
+    renderFullscreen(async () => apiError('browser_configuration'))
+
+    fireEvent.click(screen.getByRole('button', { name: /Проверить/ }))
+
+    expect(await screen.findByText('Паспорт-чекер не настроен на сервере')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Проверить' })).toBeNull()
   })
 })
