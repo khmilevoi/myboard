@@ -62,11 +62,29 @@ type ManagedBrowserTaskContext = BrowserTaskContext & {
   widgetId: string
 }
 
+// Serialized into Chromium by context.addInitScript, so the browser global
+// exists at runtime; declaring it module-locally keeps the DOM lib out of
+// this Node-only package's tsconfig (same reasoning as the declares atop
+// user-input/cloudflare.ts).
+declare const navigator: { webdriver?: boolean }
+
+// Cloudflare Turnstile (the challenge cloudflare.ts detects) treats
+// navigator.webdriver as a bot signal even while a real human is driving the
+// page through the noVNC recovery view: the page stays a Playwright-owned CDP
+// target the whole time, human clicks included. Hiding the cheapest of those
+// signals — plus the launch flag below — is what lets a genuine human click
+// actually clear the challenge instead of being silently rejected.
+function hideWebdriverFlag() {
+  Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
+}
+
 async function launchPersistentChromium(profileDir: string) {
-  return chromium.launchPersistentContext(profileDir, {
+  const context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
-    args: ['--disable-dev-shm-usage'],
+    args: ['--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
   })
+  await context.addInitScript(hideWebdriverFlag)
+  return context
 }
 
 async function closePage(page: Page) {
