@@ -137,7 +137,7 @@ describe('migrateBoardLayoutHeights', () => {
     })
   })
 
-  it('raises passport checker desktop layouts to their w4/h4 floors after the generic migration ran', () => {
+  it('raises passport checker desktop layouts to their w3/h3 floors after the generic migration ran', () => {
     const board: BoardSnapshot = {
       id: 'b1',
       name: 'Board',
@@ -150,9 +150,9 @@ describe('migrateBoardLayoutHeights', () => {
       HEIGHT_FLOOR_MIGRATION_ID,
     ])
 
-    expect(migrated.layout).toEqual([{ i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 }])
+    expect(migrated.layout).toEqual([{ i: 'passport', x: 0, y: 0, w: 4, h: 3, minW: 3, minH: 3 }])
     expect(migrated.mobileLayout).toEqual([
-      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+      { i: 'passport', x: 0, y: 0, w: 1, h: 3, minW: 1, minH: 3 },
     ])
     expect(appliedMigrationIds).toContain('passport-checker-height-floor-v1')
   })
@@ -162,14 +162,14 @@ describe('migrateBoardLayoutHeights', () => {
       id: 'b1',
       name: 'Board',
       instances: [{ id: 'passport', typeId: 'passport-checker' }],
-      layout: [{ i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 }],
+      layout: [{ i: 'passport', x: 0, y: 0, w: 3, h: 3, minW: 3, minH: 3 }],
       mobileLayout: [{ i: 'passport', x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 }],
     }
 
     const { board: migrated } = migrateBoardLayoutHeights(board, [HEIGHT_FLOOR_MIGRATION_ID])
 
     expect(migrated.mobileLayout).toEqual([
-      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+      { i: 'passport', x: 0, y: 0, w: 1, h: 3, minW: 1, minH: 3 },
     ])
   })
 
@@ -183,9 +183,9 @@ describe('migrateBoardLayoutHeights', () => {
 
     const { board: migrated } = migrateBoardLayoutHeights(board, [HEIGHT_FLOOR_MIGRATION_ID])
 
-    expect(migrated.layout).toEqual([{ i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 }])
+    expect(migrated.layout).toEqual([{ i: 'passport', x: 0, y: 0, w: 3, h: 3, minW: 3, minH: 3 }])
     expect(resolveBoardLayout(migrated, true)).toEqual([
-      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+      { i: 'passport', x: 0, y: 0, w: 1, h: 3, minW: 1, minH: 3 },
     ])
   })
 
@@ -202,10 +202,10 @@ describe('migrateBoardLayoutHeights', () => {
     const recovered = migrateBoardLayoutHeights(staleBoard, appliedIds)
 
     expect(recovered.board.layout).toEqual([
-      { i: 'passport', x: 0, y: 0, w: 4, h: 4, minW: 4, minH: 4 },
+      { i: 'passport', x: 0, y: 0, w: 3, h: 3, minW: 3, minH: 3 },
     ])
     expect(recovered.board.mobileLayout).toEqual([
-      { i: 'passport', x: 0, y: 0, w: 1, h: 4, minW: 1, minH: 4 },
+      { i: 'passport', x: 0, y: 0, w: 1, h: 3, minW: 1, minH: 3 },
     ])
     expect(recovered.appliedMigrationIds).toBe(appliedIds)
 
