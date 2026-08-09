@@ -316,4 +316,23 @@ describe('LedgerEntriesSchema', () => {
     expect(parsed).toHaveLength(1)
     expect(parsed[0].id).toBe('e1')
   })
+
+  it('drops a row whose date is not a day that exists, so no consumer parses it', () => {
+    // `date` reaches Temporal in foldDebt, toHistoryGroups, the draft builders
+    // and the nightly cron, and Temporal reports a bad string by throwing. A
+    // row hand-written through the generic storage endpoint must therefore be
+    // rejected here — otherwise one of them throws and blanks the widget,
+    // bypassing the per-element tolerance above. The shape check alone is not
+    // enough: '2026-13-45' matches /^\d{4}-\d{2}-\d{2}$/.
+    const good = { id: 'e1', ts: 1, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }
+    const parsed = LedgerEntriesSchema.parse([
+      good,
+      { id: 'e2', ts: 2, date: 'not-a-date', type: 'cleaned', actor: 'Леша' },
+      { id: 'e3', ts: 3, date: '2026-13-45', type: 'cleaned', actor: 'Леша' },
+      { id: 'e4', ts: 4, date: '2026-02-30', type: 'cleaned', actor: 'Леша' },
+    ])
+
+    expect(parsed.map((entry) => entry.id)).toEqual(['e1'])
+    expect(() => foldDebt(parsed)).not.toThrow()
+  })
 })
