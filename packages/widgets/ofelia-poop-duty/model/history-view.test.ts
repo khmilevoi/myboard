@@ -64,8 +64,16 @@ describe('toHistoryGroups', () => {
     const [plain, onBehalf, debt, forgiven] = [
       call([entry({ id: '1', ts: 1 })])[0].current,
       call([entry({ id: '2', ts: 1, actor: 'Карина', onBehalfOf: 'Леша' })])[0].current,
+      // 06-17 is Карина's own rotation day, so missing it is a genuine new debt.
       call([
-        entry({ id: '3', ts: 1, type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
+        entry({
+          id: '3',
+          ts: 1,
+          date: '2026-06-17',
+          type: 'went_into_debt',
+          actor: 'Леша',
+          onBehalfOf: 'Карина',
+        }),
       ])[0].current,
       call([entry({ id: '4', ts: 1, type: 'forgiven', actor: 'Леша', onBehalfOf: 'Карина' })])[0]
         .current,
@@ -75,6 +83,17 @@ describe('toHistoryGroups', () => {
     expect(onBehalf.debtDelta).toEqual({ person: 'Карина', amount: -1 })
     expect(debt.debtDelta).toEqual({ person: 'Карина', amount: 1 })
     expect(forgiven.debtDelta).toEqual({ person: 'Карина', amount: -1 })
+  })
+
+  it('shows no delta when an unpaid repayment day is recorded as debt', () => {
+    // 06-16 is Лёша's own rotation day; it only reads as Карина's because her
+    // existing debt reassigned it to her. He was cleaning it either way, so the
+    // badge must not claim another +1 — the total (foldDebt) doesn't move.
+    const view = call([
+      entry({ id: '1', ts: 1, type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
+    ])[0].current
+
+    expect(view.debtDelta).toBeNull()
   })
 
   it('flags a record written on a different calendar day than the duty day', () => {

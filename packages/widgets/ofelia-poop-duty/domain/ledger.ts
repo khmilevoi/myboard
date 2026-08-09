@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { PersonSchema } from './roster'
+import { CalendarDateSchema, PersonSchema } from './roster'
 import type { Person } from './roster'
 
 export const LEDGER_KEY = 'ledger'
@@ -35,7 +35,7 @@ export const LedgerEntrySchema = z.object({
     .describe(
       'Серверная метка времени создания записи для сортировки и выбора последнего решения дня',
     ),
-  date: z.string().describe('ISO-дата дежурства, к которому относится действие'),
+  date: CalendarDateSchema.describe('ISO-дата дежурства, к которому относится действие'),
   type: LedgerTypeSchema.describe(
     'Тип действия: уборка, уход в долг, сброс решения или прощение долга',
   ),

@@ -39,10 +39,19 @@ describe('makeCleanDraft', () => {
   })
 
   it('credits the debtor and names the scheduled person on a debt day', () => {
-    const entries = [entry({ type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' })]
-    // Карина owes one day, so the next day that is not hers (06-17 is hers,
-    // 06-18 is Лешa's) becomes her debt day.
-    const draft = makeCleanDraft({ ...base, entries, target: D('2026-06-18') })
+    // The debt has to land on Карина's OWN day (06-17) to count at all —
+    // missing a day already reassigned to her repays nothing and charges
+    // nothing. That entry also closes 06-17, so the next day that is not hers
+    // (06-18, Лешa's) becomes her debt day.
+    const entries = [
+      entry({ date: '2026-06-17', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
+    ]
+    const draft = makeCleanDraft({
+      ...base,
+      entries,
+      today: D('2026-06-17'),
+      target: D('2026-06-18'),
+    })
 
     expect(draft).toEqual({
       date: '2026-06-18',
@@ -164,9 +173,15 @@ describe('makeForgiveDraft', () => {
   })
 
   it('forgives the debtor on a debt day', () => {
-    const entries = [entry({ type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' })]
+    // 06-17 is Карина's own day, so missing it is a real debt; 06-18 is then
+    // her debt day. See makeCleanDraft's debt-day test for the same shape.
+    const entries = [
+      entry({ date: '2026-06-17', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
+    ]
 
-    expect(makeForgiveDraft({ ...base, entries, target: D('2026-06-18') })).toEqual({
+    expect(
+      makeForgiveDraft({ ...base, entries, today: D('2026-06-17'), target: D('2026-06-18') }),
+    ).toEqual({
       date: '2026-06-18',
       type: 'forgiven',
       actor: 'Леша',
@@ -228,8 +243,15 @@ describe('main-era compatibility (F2a)', () => {
   })
 
   it('makeForgiveDraft emits a legacy `by` matching the actor', () => {
-    const entries = [entry({ type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' })]
-    const draft = makeForgiveDraft({ ...base, entries, target: D('2026-06-18') })
+    const entries = [
+      entry({ date: '2026-06-17', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
+    ]
+    const draft = makeForgiveDraft({
+      ...base,
+      entries,
+      today: D('2026-06-17'),
+      target: D('2026-06-18'),
+    })
     expect(draft).not.toBeNull()
     expect(PersonSchema.safeParse(draft?.by).success).toBe(true)
     expect(draft?.by).toBe(draft?.actor)
