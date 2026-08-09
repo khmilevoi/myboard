@@ -23,17 +23,47 @@ export type DebtDay = {
   person: DutyPerson
 }
 
+export type DebtDelta = { person: Person; amount: 1 | -1 }
+
+/**
+ * How one day's outcome moves the balance, or null when it leaves it alone.
+ * The single source of truth for both the running total (`foldDebt`) and the
+ * per-entry badge the history list renders — the two used to carry separate
+ * copies of these branches and could drift apart.
+ */
+export function debtDeltaFor(entry: LedgerEntry): DebtDelta | null {
+  if (!entry.onBehalfOf) return null
+
+  if (entry.type === 'went_into_debt') {
+    // Charge a missed turn only when the day was the debtor's own. A debt day
+    // is a *repayment* slot carved out of the creditor's rotation day — they
+    // were cleaning it either way, so a repayment that fails to happen leaves
+    // the balance untouched rather than billing the same absence twice.
+    //
+    // Without this the debt compounds: every unpaid repayment day mints a
+    // fresh debt day, which mints another, so a single missed turn grows
+    // without bound while the debtor is away. Production reached six days
+    // against four real misses this way.
+    return getOfeliaDutyByDate(Temporal.PlainDate.from(entry.date)) === entry.onBehalfOf
+      ? { person: entry.onBehalfOf, amount: 1 }
+      : null
+  }
+
+  // Cleaning a day that wasn't yours repays you — `cleaned` only ever carries
+  // `onBehalfOf` on a debt day, so it is already scoped to that case.
+  if (entry.type === 'cleaned') return { person: entry.actor, amount: -1 }
+  // Forgiveness is an explicit manual waiver: it applies wherever recorded.
+  if (entry.type === 'forgiven') return { person: entry.onBehalfOf, amount: -1 }
+
+  return null
+}
+
 export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
   const debt: Partial<NumberOfDebts> = {}
 
   for (const entry of latestOutcomesByDate(entries).values()) {
-    if (entry.type === 'went_into_debt' && entry.onBehalfOf) {
-      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) + 1
-    } else if (entry.type === 'cleaned' && entry.onBehalfOf) {
-      debt[entry.actor] = (debt[entry.actor] ?? 0) - 1
-    } else if (entry.type === 'forgiven' && entry.onBehalfOf) {
-      debt[entry.onBehalfOf] = (debt[entry.onBehalfOf] ?? 0) - 1
-    }
+    const delta = debtDeltaFor(entry)
+    if (delta) debt[delta.person] = (debt[delta.person] ?? 0) + delta.amount
   }
 
   return normalizeDebts(debt)

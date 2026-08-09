@@ -1,4 +1,5 @@
 import { resolveEntryAuthor, type EntryAuthor, type MemberLookup } from '@/domain/author'
+import { debtDeltaFor, type DebtDelta } from '@/domain/debt'
 import { latestOutcomesByDate, type LedgerEntry, type LedgerType } from '@/domain/ledger'
 import { DUTY_TIME_ZONE, plainDateIn, weekStartISO, type Person } from '@/domain/roster'
 
@@ -12,7 +13,7 @@ export type HistoryEntryView = {
   recordedBy: EntryAuthor
   isViewerRecord: boolean
   recordedLate: boolean
-  debtDelta: { person: Person; amount: 1 | -1 } | null
+  debtDelta: DebtDelta | null
 }
 
 export type HistoryDayGroup = {
@@ -21,15 +22,6 @@ export type HistoryDayGroup = {
   current: HistoryEntryView
   /** Everything the live outcome overrides, newest first. */
   superseded: HistoryEntryView[]
-}
-
-/** Mirrors foldDebt: the same branches, expressed per entry. */
-function debtDelta(entry: LedgerEntry): HistoryEntryView['debtDelta'] {
-  if (!entry.onBehalfOf) return null
-  if (entry.type === 'went_into_debt') return { person: entry.onBehalfOf, amount: 1 }
-  if (entry.type === 'cleaned') return { person: entry.actor, amount: -1 }
-  if (entry.type === 'forgiven') return { person: entry.onBehalfOf, amount: -1 }
-  return null
 }
 
 export type ToHistoryGroupsOptions = {
@@ -65,7 +57,7 @@ export function toHistoryGroups({
         viewerAccountId !== null &&
         recordedBy.accountId === viewerAccountId,
       recordedLate: plainDateIn(DUTY_TIME_ZONE, entry.ts).toString() !== entry.date,
-      debtDelta: debtDelta(entry),
+      debtDelta: debtDeltaFor(entry),
     }
   }
 
