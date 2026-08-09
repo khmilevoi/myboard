@@ -13,9 +13,39 @@ export type DutyPerson = (typeof DUTY_ROTATION)[number]
 export type Person = DutyPerson
 
 export const PersonSchema = z.enum(DUTY_ROTATION)
+/**
+ * Shape only. Request payloads use this: a date that parses as a shape but not
+ * as a day is caught downstream by `errore.try` in the server's
+ * `readDraftInput`, which answers with an Error value rather than a rejection.
+ */
 export const IsoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected an ISO calendar date')
+/**
+ * Shape *and* existence — `IsoDateSchema` accepts `2026-13-45` and
+ * `2026-02-30`; only Temporal knows whether the components spell a real day.
+ *
+ * For stored rows the distinction matters, because every consumer of a stored
+ * date parses it (`foldDebt`, `toHistoryGroups`, the draft builders, the
+ * nightly cron) and `Temporal.PlainDate.from` reports a bad string by throwing
+ * rather than by returning a value. There is no `errore.try` between the store
+ * and those readers, so an unparseable date has to be rejected at the parse
+ * boundary: `LedgerEntriesSchema` then drops that one element, which is its
+ * documented contract, instead of a single row hand-written through the generic
+ * storage endpoint throwing out of the balance computation and blanking the
+ * widget for everyone.
+ *
+ * Temporal is touched inside the refinement body only, so this module stays
+ * importable before the browser polyfill is installed.
+ */
+export const CalendarDateSchema = IsoDateSchema.refine((value) => {
+  try {
+    Temporal.PlainDate.from(value)
+    return true
+  } catch {
+    return false
+  }
+}, 'expected a calendar date that exists')
 
 export function plainDateIn(timeZone: string, epochMs: number): Temporal.PlainDate {
   return Temporal.Instant.fromEpochMilliseconds(epochMs).toZonedDateTimeISO(timeZone).toPlainDate()

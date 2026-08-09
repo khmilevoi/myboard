@@ -98,6 +98,47 @@ describe('foldDebt', () => {
     expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 
+  it('an unpaid repayment day adds nothing on top of the miss it was meant to repay', () => {
+    // Карина misses her own day (06-15), which reassigns Лёша's next day
+    // (06-16) to her as a repayment slot. She is still away, so that slot goes
+    // unpaid too — but 06-16 was Лёша's turn anyway, so it must not compound.
+    const entries = [
+      le({
+        ts: 1,
+        date: '2026-06-15',
+        type: 'went_into_debt',
+        actor: 'Леша',
+        onBehalfOf: 'Карина',
+      }),
+      le({
+        ts: 2,
+        date: '2026-06-16',
+        type: 'went_into_debt',
+        actor: 'Леша',
+        onBehalfOf: 'Карина',
+      }),
+    ]
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 1 })
+  })
+
+  it('a stretch of missed days charges only the debtor’s own turns', () => {
+    // The production shape: Лёша cleaned every day of 06-15..06-20 while Карина
+    // was away. Three of those six days were hers, so she owes three — not one
+    // per elapsed day, which is what the compounding bug produced.
+    const away = [
+      '2026-06-15',
+      '2026-06-16',
+      '2026-06-17',
+      '2026-06-18',
+      '2026-06-19',
+      '2026-06-20',
+    ]
+    const entries = away.map((date, index) =>
+      le({ ts: index + 1, date, type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
+    )
+    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 3 })
+  })
+
   it('nets two-sided debt down via normalizeDebts', () => {
     const entries = [
       le({
@@ -274,5 +315,24 @@ describe('LedgerEntriesSchema', () => {
 
     expect(parsed).toHaveLength(1)
     expect(parsed[0].id).toBe('e1')
+  })
+
+  it('drops a row whose date is not a day that exists, so no consumer parses it', () => {
+    // `date` reaches Temporal in foldDebt, toHistoryGroups, the draft builders
+    // and the nightly cron, and Temporal reports a bad string by throwing. A
+    // row hand-written through the generic storage endpoint must therefore be
+    // rejected here — otherwise one of them throws and blanks the widget,
+    // bypassing the per-element tolerance above. The shape check alone is not
+    // enough: '2026-13-45' matches /^\d{4}-\d{2}-\d{2}$/.
+    const good = { id: 'e1', ts: 1, date: '2026-06-16', type: 'cleaned', actor: 'Леша' }
+    const parsed = LedgerEntriesSchema.parse([
+      good,
+      { id: 'e2', ts: 2, date: 'not-a-date', type: 'cleaned', actor: 'Леша' },
+      { id: 'e3', ts: 3, date: '2026-13-45', type: 'cleaned', actor: 'Леша' },
+      { id: 'e4', ts: 4, date: '2026-02-30', type: 'cleaned', actor: 'Леша' },
+    ])
+
+    expect(parsed.map((entry) => entry.id)).toEqual(['e1'])
+    expect(() => foldDebt(parsed)).not.toThrow()
   })
 })
