@@ -91,12 +91,12 @@ export const TileContent = reatomMemo<TileContentProps>(({ model, forms, open, e
         <button
           className={styles.primary}
           onClick={wrap(() => open('food'))}
-          aria-label="Кормление"
+          aria-label="Еда"
           title="Записать кормление"
           data-testid="cat-care-quick-food"
         >
           <Plus size={17} aria-hidden />
-          <span className={styles.tileFoodLabel}>Кормление</span>
+          <span className={styles.tileFoodLabel}>Еда</span>
         </button>
         <button
           className={`${styles.secondary} ${styles.tileSecondary}`}

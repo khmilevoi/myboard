@@ -71,10 +71,13 @@ export function createCatCareForms(model: CatCareModel) {
   const foodOriginal = atom<FoodRecord | null>(null, 'catCare.forms.foodOriginal')
   const productOriginal = atom<Product | null>(null, 'catCare.forms.productOriginal')
   const editing = atom(false, 'catCare.forms.editing')
+  const detailsOpen = atom(false, 'catCare.forms.detailsOpen')
+  const waterUnit = atom<'ml' | 'g'>('ml', 'catCare.forms.waterUnit')
   const knownTime = atom<KnownTime | null>(null, 'catCare.forms.knownTime')
   const knownObservation = atom<KnownTime | null>(null, 'catCare.forms.knownObservation')
   const productReturnsToFood = atom(false, 'catCare.forms.productReturnsToFood')
   const savedFoodDraftId = atom('', 'catCare.forms.savedFoodDraftId')
+  const savedFoodDetailsOpen = atom(false, 'catCare.forms.savedFoodDetailsOpen')
   const targetSource = atom<'manual' | 'estimate'>('manual', 'catCare.forms.targetSource')
   const profileOriginalFields = atom<Record<string, string>>(
     {},
@@ -101,7 +104,10 @@ export function createCatCareForms(model: CatCareModel) {
   }
   const readTime = (value: string, known = knownTime()) => {
     const result = resolveDraftTime(value, model.profile().timeZone, known)
-    if (result instanceof Error) feedback.set(result.publicMessage)
+    if (result instanceof Error) {
+      detailsOpen.set(true)
+      feedback.set(result.publicMessage)
+    }
     return result
   }
 
@@ -117,7 +123,7 @@ export function createCatCareForms(model: CatCareModel) {
     },
     {
       name: 'catCare.forms.food',
-      validateOnBlur: true,
+      validateOnBlur: false,
       schema: z.object({
         productId: z.string().min(1, 'Выберите продукт'),
         occurredAt: timeText,
@@ -159,6 +165,7 @@ export function createCatCareForms(model: CatCareModel) {
           note: values.note,
         })
         if (!parsed.success) {
+          detailsOpen.set(true)
           feedback.set(describeInvalid(parsed.error))
           return false
         }
@@ -259,6 +266,7 @@ export function createCatCareForms(model: CatCareModel) {
           draftId.set(savedFoodDraftId())
           active.set('food')
           editing.set(foodOriginal() !== null)
+          detailsOpen.set(savedFoodDetailsOpen())
           productReturnsToFood.set(false)
         } else finish('Продукт сохранён')
         return true
@@ -278,7 +286,7 @@ export function createCatCareForms(model: CatCareModel) {
   const water = reatomForm(
     {
       occurredAt: '',
-      kind: 'replace',
+      kind: 'topup',
       addedMl: '',
       remainingMl: '',
       discardedMl: '0',
@@ -287,7 +295,7 @@ export function createCatCareForms(model: CatCareModel) {
     },
     {
       name: 'catCare.forms.water',
-      validateOnBlur: true,
+      validateOnBlur: false,
       schema: z.object({
         occurredAt: timeText,
         kind: z.enum(['replace', 'topup']),
@@ -303,6 +311,7 @@ export function createCatCareForms(model: CatCareModel) {
         if (occurredAt instanceof Error) return false
         const parsed = WaterRecordSchema.safeParse({ ...values, id: draftId(), occurredAt })
         if (!parsed.success) {
+          detailsOpen.set(true)
           feedback.set(describeInvalid(parsed.error))
           return false
         }
@@ -316,7 +325,7 @@ export function createCatCareForms(model: CatCareModel) {
     { occurredAt: '', kilograms: '', note: '' },
     {
       name: 'catCare.forms.weight',
-      validateOnBlur: true,
+      validateOnBlur: false,
       schema: z.object({
         occurredAt: timeText,
         kilograms: positive().pipe(z.number().max(50, 'Проверьте вес: укажите его в килограммах')),
@@ -411,6 +420,11 @@ export function createCatCareForms(model: CatCareModel) {
     feedback.set(null)
     notice.set(null)
     deletion.set(null)
+    detailsOpen.set(original !== null)
+    if (!original && (kind === 'food' || kind === 'water' || kind === 'weight')) {
+      model.activeTab.set('today')
+      model.selectedDate.set(null)
+    }
   }
   const chooseProduct = action((id: string, supplied?: Product) => {
     food.fields.productId.set(id)
@@ -423,7 +437,6 @@ export function createCatCareForms(model: CatCareModel) {
     food.fields.grams.set(formatNumber(last?.grams ?? item?.defaultPortionGrams ?? null))
     if ((last?.grams ?? item?.defaultPortionGrams ?? 0) > 0)
       food.fields.grams.validation.clearErrors('schema')
-    food.fields.mode.set(last?.mode ?? 'eaten')
   }, 'catCare.forms.chooseProduct')
   const openFood = action((original: FoodRecord | null = null) => {
     begin('food', original)
@@ -449,7 +462,10 @@ export function createCatCareForms(model: CatCareModel) {
     }
   }, 'catCare.forms.openFood')
   const openProduct = action((original: Product | null = null, returnToFood = false) => {
-    if (returnToFood) savedFoodDraftId.set(draftId())
+    if (returnToFood) {
+      savedFoodDraftId.set(draftId())
+      savedFoodDetailsOpen.set(detailsOpen())
+    }
     productReturnsToFood.set(returnToFood)
     begin('product', original)
     productOriginal.set(original)
@@ -473,10 +489,10 @@ export function createCatCareForms(model: CatCareModel) {
     knownTime.set(known)
     const latest = [...model.water()]
       .sort((a, b) => b.occurredAt - a.occurredAt)
-      .find((record) => record.kind === 'replace')
+      .find((record) => record.kind === 'topup')
     water.reset({
       occurredAt: known.value,
-      kind: original?.kind ?? 'replace',
+      kind: original?.kind ?? 'topup',
       addedMl: formatNumber(original?.addedMl ?? latest?.addedMl ?? null),
       remainingMl: formatNumber(original?.remainingMl ?? null),
       discardedMl: formatNumber(original?.discardedMl ?? 0),
@@ -554,6 +570,7 @@ export function createCatCareForms(model: CatCareModel) {
       draftId.set(savedFoodDraftId())
       active.set('food')
       editing.set(foodOriginal() !== null)
+      detailsOpen.set(savedFoodDetailsOpen())
       productReturnsToFood.set(false)
       feedback.set(null)
       return
@@ -573,6 +590,28 @@ export function createCatCareForms(model: CatCareModel) {
         return false
       }),
     )
+    const hiddenFields = {
+      food: [
+        food.fields.occurredAt,
+        food.fields.mode,
+        food.fields.remainingGrams,
+        food.fields.observedAt,
+        food.fields.note,
+      ],
+      water: [
+        water.fields.occurredAt,
+        water.fields.kind,
+        water.fields.remainingMl,
+        water.fields.discardedMl,
+        water.fields.unmeasuredLoss,
+        water.fields.note,
+      ],
+      weight: [weight.fields.occurredAt, weight.fields.note],
+      product: [],
+      profile: [],
+    }
+    if (active() === kind && hiddenFields[kind].some((field) => field.validation().error))
+      detailsOpen.set(true)
     return result
   }, 'catCare.forms.submit')
   const confirmDelete = action(async () => {
@@ -603,6 +642,17 @@ export function createCatCareForms(model: CatCareModel) {
         .sort((a, b) => b.occurredAt - a.occurredAt),
     'catCare.forms.dayFoods',
   )
+  const recentProducts = computed(() => {
+    const activeProducts = model.products()
+    const byId = new Map(activeProducts.map((item) => [item.id, item]))
+    const ids = new Set([
+      ...[...model.foods()]
+        .sort((a, b) => b.occurredAt - a.occurredAt)
+        .map((record) => record.productId),
+      ...activeProducts.map((item) => item.id),
+    ])
+    return [...ids].flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).slice(0, 3)
+  }, 'catCare.forms.recentProducts')
   const timeline = computed(
     () =>
       [
@@ -620,6 +670,9 @@ export function createCatCareForms(model: CatCareModel) {
     feedback,
     notice,
     editing,
+    detailsOpen,
+    waterUnit,
+    recentProducts,
     deletion,
     historyLimit,
     food,

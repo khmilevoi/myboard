@@ -493,6 +493,7 @@
   border-color: var(--destructive);
 }
 .field small {
+  min-height: 1.5em;
   font-size: 11px;
   color: var(--muted-foreground);
   line-height: 1.5;
@@ -947,7 +948,8 @@
   flex: 1;
 }
 .tileActions .tileSecondary {
-  display: none;
+  display: inline-flex;
+  flex: 1;
 }
 @container (min-height: 250px) {
   .tileTiming {
@@ -1092,5 +1094,207 @@
   }
   .tileFoodLabel {
     display: inline;
+  }
+}
+
+.home {
+  max-width: 680px;
+  margin: 0 auto;
+}
+.homeActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 30px;
+}
+.homeAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 76px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 600;
+}
+.homeAction svg {
+  color: var(--primary);
+}
+.homeAction:hover {
+  background: var(--muted);
+  border-color: var(--primary);
+}
+.homeSummary {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.homeSummary .sectionHeading {
+  margin-bottom: 12px;
+}
+.homeSummary .energyNumber strong {
+  font-size: 32px;
+}
+.homeSummary .energy > .fine {
+  margin-top: 8px;
+}
+.nutritionDetails {
+  margin-top: 16px;
+}
+.nutritionDetails .macros {
+  margin-top: 0;
+  border-top: 0;
+}
+.homeRecent {
+  padding-top: 24px;
+}
+.homeRecent > h2 {
+  margin-bottom: 12px;
+}
+.homeDetails {
+  margin-top: 20px;
+}
+.homeDetails .sideCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.entryDetails > summary {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 400;
+}
+.entryDetails[open] > summary {
+  margin-bottom: 18px;
+}
+.amountWithUnit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  gap: 10px;
+  align-items: start;
+}
+.unitField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+}
+.unitField > label {
+  font-weight: 550;
+}
+.unitField select {
+  min-height: 42px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--foreground);
+  background: var(--card);
+}
+.unitField select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+@container (max-width: 450px) {
+  .homeActions {
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .homeAction {
+    flex-direction: column;
+    min-height: 78px;
+    gap: 6px;
+    padding: 10px 6px;
+    font-size: 14px;
+  }
+  .homeDetails .sideCards {
+    grid-template-columns: 1fr;
+  }
+  .editor {
+    padding: 16px;
+  }
+  .editor h2 {
+    margin: 10px 0 18px;
+  }
+}
+@container (min-width: 220px) and (min-height: 170px) {
+  .tileActions .tileSecondary {
+    display: inline-flex;
+    flex: 1;
+  }
+}
+@container (min-width: 300px) and (max-width: 519px) and (max-height: 150px) {
+  .tileActions {
+    gap: 4px;
+    padding-right: 8px;
+  }
+  .tileActions .tileSecondary {
+    display: inline-flex;
+    padding: 8px;
+  }
+  .tileActions .tileSecondary > span {
+    display: none;
+  }
+}
+.editor .formActions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-top: 10px;
+  padding-bottom: 2px;
+  background: var(--card);
+}
+/* Even the smallest desktop card keeps all three recording actions direct. */
+@container (max-width: 299px) and (max-height: 150px) {
+  .tileMain {
+    flex-direction: column;
+  }
+  .tileScroll {
+    padding: 0 8px;
+  }
+  .tileSummary .eyebrow {
+    display: none;
+  }
+  .tileSummary .energyNumber strong {
+    font-size: 20px;
+  }
+  .tileSummary .energyNumber > span,
+  .tileSummary .hint,
+  .tilePending {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .tileActions {
+    padding: 2px 8px 5px;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .tileActions > button,
+  .tileActions .primary,
+  .tileActions .tileSecondary {
+    display: inline-flex;
+    flex: 1;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 4px;
+    font-size: 10px;
+  }
+  .tileFoodLabel {
+    display: inline;
+  }
+}
+@container (max-width: 170px) and (max-height: 150px) {
+  .tileSummary .energyNumber strong {
+    font-size: 18px;
+  }
+  .tileSummary .hint,
+  .tilePending {
+    font-size: 9px;
+  }
+  .tileFoodLabel,
+  .tileActions .tileSecondary > span {
+    display: none;
   }
 }
