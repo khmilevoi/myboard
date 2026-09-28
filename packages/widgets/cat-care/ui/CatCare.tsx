@@ -25,7 +25,7 @@ import { createCatCareForms, type CatCareForms } from '../model/forms'
 import { catCareInstance } from '../model/instance-store'
 import { Editor } from './Editor'
 import { date, number, stamp, time } from './format'
-import { AuthorLine, ViewerBadge } from './Identity'
+import { AuthorLine } from './Identity'
 import { TileContent } from './TileContent'
 
 import styles from './cat-care.module.css'
@@ -772,7 +772,6 @@ export const CatCare = reatomMemo(() => {
           </div>
         </div>
         <div className={styles.headerActions}>
-          <ViewerBadge model={model} compact={!fullscreen} />
           {fullscreen && !forms.active() && (
             <button
               className={styles.iconButton}
