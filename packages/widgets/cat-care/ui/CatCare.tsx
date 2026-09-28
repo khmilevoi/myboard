@@ -764,7 +764,7 @@ export const CatCare = reatomMemo(() => {
       <header className={styles.header}>
         <div className={styles.title}>
           <span className={styles.catIcon}>
-            <Cat size={20} />
+            <Cat size={fullscreen ? 21 : 16} aria-hidden />
           </span>
           <div>
             <h1 title={model.profile().name}>{model.profile().name}</h1>
