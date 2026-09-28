@@ -146,3 +146,82 @@ test('mobile can reach the last navigation tab and save a tall profile form', as
   ).toBeVisible()
   await expect(cat.dialog).toContainText('240 ккал')
 })
+
+test('real board sizes keep summary and primary controls visible and usable', async ({ page }) => {
+  test.setTimeout(90_000)
+  const runtimeErrors: string[] = []
+  page.on('pageerror', (error) => runtimeErrors.push(error.message))
+  const cat = new CatCarePage(page)
+  await cat.add()
+  await cat.addProduct('Сухой корм с очень длинным названием продукта для проверки переноса', '400')
+  await cat.feed()
+  await cat.tab('Профиль')
+  await cat.dialog.getByRole('button', { name: 'Изменить профиль', exact: true }).click()
+  await cat.dialog
+    .getByLabel('Имя кошки', { exact: true })
+    .fill('КошечкаСОченьДлиннымИменемБезПробеловДляПроверкиКарточки')
+  await cat.save()
+  await cat.close()
+  const card = new BoardPage(page).getCard(0)
+  const tile = card.getByTestId('cat-care-widget')
+  const matrix = [
+    { name: 'minimum', w: 2, h: 3, tier: 'tiny' },
+    { name: 'compact', w: 3, h: 5, tier: 'compact' },
+    { name: 'standard', w: 4, h: 8, tier: 'standard' },
+    { name: 'large', w: 5, h: 11, tier: 'large' },
+    { name: 'wide short', w: 8, h: 3, tier: 'tiny' },
+    { name: 'narrow tall', w: 2, h: 12, tier: 'tiny' },
+    { name: 'default', w: 5, h: 8, tier: 'standard' },
+    { name: 'narrow desktop minimum', w: 2, h: 3, tier: 'tiny', viewport: 834 },
+    { name: 'mobile minimum', w: 1, h: 3, tier: 'tiny', viewport: 390 },
+  ] as const
+  for (const size of matrix) {
+    await test.step(size.name, async () => {
+      if ('viewport' in size) await page.setViewportSize({ width: size.viewport, height: 1000 })
+      await cat.resizeCard(size.w, size.h)
+      await expect(tile).toHaveAttribute('data-tier', size.tier)
+      await expect(tile.getByTestId('cat-care-eaten-kcal')).toHaveText('120')
+      await card.hover()
+      const bounds = (await tile.boundingBox())!
+      for (const name of ['Кормление', 'Развернуть']) {
+        const control = tile.getByRole('button', { name, exact: true })
+        await expect(control).toBeVisible()
+        const box = (await control.boundingBox())!
+        expect(box.x, `${name}: left edge`).toBeGreaterThanOrEqual(bounds.x - 1)
+        expect(box.y, `${name}: top edge`).toBeGreaterThanOrEqual(bounds.y - 1)
+        expect(box.x + box.width, `${name}: right edge`).toBeLessThanOrEqual(
+          bounds.x + bounds.width + 1,
+        )
+        expect(box.y + box.height, `${name}: bottom edge`).toBeLessThanOrEqual(
+          bounds.y + bounds.height + 1,
+        )
+        await control.click({ trial: true })
+      }
+      expect(await tile.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
+        true,
+      )
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+        ),
+      ).toBe(true)
+      const screenshot = test.info().outputPath(`cat-care-${size.name.replaceAll(' ', '-')}.png`)
+      await card.screenshot({ path: screenshot })
+      await test.info().attach(`cat-care-${size.name.replaceAll(' ', '-')}`, {
+        path: screenshot,
+        contentType: 'image/png',
+      })
+      await tile.getByRole('button', { name: 'Кормление', exact: true }).click()
+      await expect(cat.dialog).toHaveCount(1)
+      await expect(cat.dialog.getByLabel('Порция, г', { exact: true })).toBeVisible()
+      await expect(cat.dialog.getByRole('button', { name: 'Сохранить', exact: true })).toHaveCount(
+        1,
+      )
+      await cat.dialog
+        .getByRole('button', { name: 'Сохранить', exact: true })
+        .click({ trial: true })
+      await cat.close()
+    })
+  }
+  expect(runtimeErrors).toEqual([])
+})

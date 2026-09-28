@@ -437,36 +437,6 @@
   margin: 0 auto 12px;
   font-size: 13px;
 }
-.tileContent .records {
-  margin-top: 14px;
-}
-.tileContent > .textButton {
-  margin-top: 12px;
-}
-.widget[data-tier='tiny'] .header,
-.widget[data-tier='compact'] .header {
-  padding: 12px;
-}
-.widget[data-tier='tiny'] .body,
-.widget[data-tier='compact'] .body {
-  padding: 12px;
-}
-.widget[data-tier='tiny'] .catIcon,
-.widget[data-tier='compact'] .catIcon {
-  display: none;
-}
-.widget[data-tier='tiny'] .dayToolbar,
-.widget[data-tier='compact'] .dayToolbar {
-  margin-bottom: 6px;
-}
-.widget[data-tier='tiny'] .energy .fine,
-.widget[data-tier='compact'] .energy .fine {
-  display: none;
-}
-.widget[data-tier='tiny'] .quickActions,
-.widget[data-tier='compact'] .quickActions {
-  margin-top: 12px;
-}
 .editor {
   background: var(--card);
   border: 1px solid var(--border);
@@ -862,4 +832,265 @@
 .widget input,
 .widget textarea {
   caret-color: var(--primary);
+}
+
+/* Board tiles respond to both container axes; the host tier alone cannot
+   distinguish a short, wide card from a tall, narrow one. */
+.widget[data-view='tile'] {
+  container-type: size;
+}
+.widget[data-view='tile'] .header {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 6px 12px;
+  gap: 6px;
+}
+.widget[data-view='tile'] .title {
+  flex: 1;
+}
+.widget[data-view='tile'] .title > div {
+  min-width: 0;
+}
+.widget[data-view='tile'] .title h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.widget[data-view='tile'] .catIcon {
+  display: none;
+}
+.widget[data-view='tile'] .headerActions {
+  flex-shrink: 0;
+}
+.tileMain {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.tileScroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 14px 16px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.tileSummary {
+  min-width: 0;
+}
+.tileSummary .energyNumber {
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin: 0;
+}
+.tileSummary .energyNumber strong {
+  font-size: clamp(28px, 7cqi, 40px);
+}
+.tileSummary .energyNumber > span {
+  font-size: 13px;
+}
+.tilePending {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.tileTiming {
+  display: none;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  margin-top: 8px !important;
+}
+.tileDetails {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 14px;
+}
+.tileDetails h3 {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.tileRecord {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1px 8px;
+  padding: 8px 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.tileRecord strong {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+.tileDetails > .textButton {
+  margin-top: 6px;
+}
+.tileActions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px 12px;
+}
+.tileActions > button {
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.tileActions .primary {
+  flex: 1;
+}
+.tileActions .tileSecondary {
+  display: none;
+}
+@container (min-height: 250px) {
+  .tileTiming {
+    display: block;
+  }
+  .tileActions .tileSecondary {
+    display: inline-flex;
+    flex: 1;
+  }
+}
+@container (min-height: 290px) {
+  .tileDetails {
+    display: block;
+  }
+}
+@container (max-width: 280px) and (min-height: 250px) {
+  .tileActions .primary {
+    flex-basis: 100%;
+  }
+}
+@container (max-height: 249px) {
+  .tileScroll {
+    padding: 8px 12px 4px;
+  }
+  .tileSummary .progress {
+    display: none;
+  }
+  .tileActions {
+    padding: 6px 12px 10px;
+  }
+}
+@container (max-height: 150px) {
+  .widget[data-view='tile'] .header {
+    min-height: 34px;
+    padding: 2px 8px;
+  }
+  .tileMain {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .tileScroll {
+    padding: 5px 8px;
+  }
+  .tileSummary .eyebrow {
+    display: block;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .tileSummary .energyNumber {
+    gap: 0 6px;
+  }
+  .tileSummary .energyNumber strong {
+    font-size: 23px;
+    line-height: 1.2;
+  }
+  .tileSummary .energyNumber > span,
+  .tileSummary .hint,
+  .tilePending {
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  .tileActions {
+    align-items: center;
+    padding: 6px 10px 6px 0;
+  }
+  .tileActions .primary {
+    flex: 0 0 auto;
+    min-width: 36px;
+  }
+}
+@container (max-height: 150px) and (max-width: 300px) {
+  .tileFoodLabel {
+    display: none;
+  }
+  .tileActions .primary {
+    padding: 8px;
+  }
+}
+@container (max-height: 150px) and (min-width: 520px) {
+  .tileMain {
+    align-items: center;
+  }
+  .tileScroll {
+    overflow: auto;
+    max-height: 100%;
+  }
+  .tileSummary {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0 20px;
+  }
+  .tileSummary .eyebrow {
+    grid-column: 1;
+  }
+  .tileSummary .energyNumber {
+    grid-column: 1;
+  }
+  .tileSummary > .hint,
+  .tilePending {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    font-size: 12px;
+  }
+  .tileActions .tileSecondary {
+    display: inline-flex;
+  }
+}
+@media (pointer: coarse) {
+  .tileActions > button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+@container (max-width: 170px) and (max-height: 150px) {
+  .tileMain {
+    flex-direction: column;
+  }
+  .tileScroll {
+    padding: 0 8px;
+  }
+  .tileSummary .eyebrow {
+    display: none;
+  }
+  .tileSummary .energyNumber strong {
+    font-size: 18px;
+  }
+  .tileSummary .energyNumber > span,
+  .tileSummary .hint,
+  .tilePending {
+    font-size: 9px;
+    line-height: 1.2;
+  }
+  .tileActions {
+    padding: 2px 8px 5px;
+  }
+  .tileActions .primary {
+    flex: 1;
+    min-height: 28px;
+    padding: 4px;
+    font-size: 10px;
+  }
+  .tileFoodLabel {
+    display: inline;
+  }
 }

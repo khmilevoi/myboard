@@ -24,6 +24,7 @@ import { createCatCareForms, type CatCareForms } from '../model/forms'
 import { catCareInstance } from '../model/instance-store'
 import { Editor } from './Editor'
 import { date, number, stamp, time } from './format'
+import { TileContent } from './TileContent'
 
 import styles from './cat-care.module.css'
 
@@ -630,7 +631,6 @@ export const CatCare = reatomMemo(() => {
   })()
   const chrome = useWidgetChrome()
   const fullscreen = tier === 'fullscreen'
-  const compact = tier === 'tiny' || tier === 'compact'
   const open = (kind: 'food' | 'water' | 'weight' | 'profile') => {
     ;({
       food: forms.openFood,
@@ -647,19 +647,24 @@ export const CatCare = reatomMemo(() => {
     { id: 'profile', label: 'Профиль' },
   ] as const
   return (
-    <div className={styles.widget} data-tier={tier} data-testid="cat-care-widget">
+    <div
+      className={styles.widget}
+      data-tier={tier}
+      data-view={fullscreen ? 'fullscreen' : 'tile'}
+      data-testid="cat-care-widget"
+    >
       <header className={styles.header}>
         <div className={styles.title}>
           <span className={styles.catIcon}>
             <Cat size={20} />
           </span>
           <div>
-            <h1>{model.profile().name}</h1>
-            {!compact && <span>Питание и забота</span>}
+            <h1 title={model.profile().name}>{model.profile().name}</h1>
+            {fullscreen && <span>Питание и забота</span>}
           </div>
         </div>
         <div className={styles.headerActions}>
-          {!compact && (
+          {fullscreen && (
             <button
               className={styles.iconButton}
               aria-label="Настроить профиль кошки"
@@ -682,6 +687,8 @@ export const CatCare = reatomMemo(() => {
             Повторить загрузку
           </button>
         </div>
+      ) : !fullscreen ? (
+        <TileContent model={model} forms={forms} open={open} expand={chrome.onExpand} />
       ) : (
         <>
           {fullscreen && (
@@ -769,50 +776,7 @@ export const CatCare = reatomMemo(() => {
                     {fullscreen && <span className={styles.fine}>{model.profile().timeZone}</span>}
                   </div>
                 )}
-                {!fullscreen ? (
-                  <div className={styles.tileContent}>
-                    <EnergySummary model={model} compact />
-                    <div className={styles.quickActions}>
-                      <button className={styles.primary} onClick={wrap(() => open('food'))}>
-                        <Plus size={17} />
-                        Кормление
-                      </button>
-                      {!compact && (
-                        <>
-                          <button className={styles.secondary} onClick={wrap(() => open('water'))}>
-                            <Droplets size={17} />
-                            Вода
-                          </button>
-                          <button className={styles.secondary} onClick={wrap(() => open('weight'))}>
-                            <Scale size={17} />
-                            Вес
-                          </button>
-                        </>
-                      )}
-                    </div>
-                    {!compact && (
-                      <>
-                        <ul className={styles.records}>
-                          {forms
-                            .dayFoods()
-                            .slice(0, 2)
-                            .map((record) => (
-                              <FoodRow
-                                key={record.id}
-                                record={record}
-                                model={model}
-                                forms={forms}
-                                compact
-                              />
-                            ))}
-                        </ul>
-                        <button className={styles.textButton} onClick={chrome.onExpand}>
-                          Открыть дневник <ArrowUpRight size={15} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ) : model.activeTab() === 'today' ? (
+                {model.activeTab() === 'today' ? (
                   <div className={styles.contentGrid}>
                     <div className={styles.stack}>
                       <div className={styles.card}>

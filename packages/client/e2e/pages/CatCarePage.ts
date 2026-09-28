@@ -31,6 +31,53 @@ export class CatCarePage {
     await expect(this.dialog).toHaveCount(0)
   }
 
+  async resizeCard(width: number, height: number): Promise<void> {
+    const card = new BoardPage(this.page).getCard(0)
+    // ResizeObserver updates the grid after the viewport changes, then RGL
+    // animates the card. A stable handle sampled before that update is stale.
+    await card.evaluate(async (element) => {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      )
+      await Promise.all(
+        element
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished.catch(() => {})),
+      )
+    })
+    await card.locator('.react-resizable-handle-se').hover()
+    const grid = await this.page.getByTestId('board-grid-container').boundingBox()
+    const before = await card.boundingBox()
+    expect(grid).not.toBeNull()
+    expect(before).not.toBeNull()
+    const mobile = grid!.width < 768
+    const scale = mobile ? 1 : Math.min(Math.max(grid!.width / 1920, 1), 2.5)
+    const columns = mobile ? 1 : 12
+    const gap = 10 * scale
+    const row = mobile ? 40 : 30 * scale
+    const column = (grid!.width - (columns + 1) * gap) / columns
+    const targetWidth = column * width + gap * (width - 1)
+    const targetHeight = row * height + gap * (height - 1)
+    const handle = await card.locator('.react-resizable-handle-se').boundingBox()
+    expect(handle).not.toBeNull()
+    const start = { x: handle!.x + handle!.width / 2, y: handle!.y + handle!.height / 2 }
+    await this.page.mouse.move(start.x, start.y)
+    await this.page.mouse.down()
+    await expect(this.page.locator('[data-interacting="true"]')).toBeVisible()
+    await this.page.mouse.move(
+      start.x + targetWidth - before!.width,
+      start.y + targetHeight - before!.height,
+      { steps: 10 },
+    )
+    await this.page.mouse.up()
+    await expect
+      .poll(async () => {
+        const current = (await card.boundingBox())!
+        return Math.abs(current.width - targetWidth) + Math.abs(current.height - targetHeight)
+      })
+      .toBeLessThan(2)
+  }
+
   async tab(name: 'Дневник' | 'История и статистика' | 'Продукты' | 'Профиль'): Promise<void> {
     await this.dialog.getByRole('button', { name, exact: true }).click()
   }
