@@ -7,6 +7,7 @@ import {
   withStorageKeyReadonly,
   type ServerTime,
   type WidgetStorage,
+  type WidgetIdentity,
 } from 'widget-runtime'
 import { z } from 'zod'
 
@@ -26,6 +27,7 @@ import {
 import { getWeightSeries, summarizeDay, summarizePeriod } from '../domain/statistics'
 import { getLocalDate } from '../domain/time'
 import { computeWaterIntervals } from '../domain/water'
+import { projectRecordAuthors } from './record-authors'
 
 export type EntryPreference = { grams: number; mode: 'eaten' | 'offered' }
 export type CatCareTab = 'today' | 'history' | 'products' | 'profile'
@@ -33,6 +35,7 @@ export type CreateCatCareModelOptions = {
   storage: WidgetStorage
   api: WidgetApi<CatCareEvents>
   timer: ServerTime
+  identity: WidgetIdentity
 }
 
 const PreferencesSchema = z.record(
@@ -59,7 +62,7 @@ function publicError(error: Error | null | undefined): string | null {
   return 'Не удалось сохранить данные. Попробуйте ещё раз.'
 }
 
-export function createCatCareModel({ storage, api, timer }: CreateCatCareModelOptions) {
+export function createCatCareModel({ storage, api, timer, identity }: CreateCatCareModelOptions) {
   const ledger = atom<LedgerEntry[] | null>(null, 'catCare.ledger').extend(
     withStorageKeyReadonly({
       api: storage.instance.server,
@@ -69,6 +72,10 @@ export function createCatCareModel({ storage, api, timer }: CreateCatCareModelOp
     }),
   )
   const state = computed(() => foldLedger(ledger() ?? []), 'catCare.state')
+  const recordAuthors = computed(
+    () => projectRecordAuthors({ entries: ledger() ?? [], members: identity.members() }),
+    'catCare.recordAuthors',
+  )
   const profile = computed(() => state().profile, 'catCare.profile')
   const allProducts = computed(() => state().products, 'catCare.allProducts')
   const products = computed(
@@ -287,6 +294,8 @@ export function createCatCareModel({ storage, api, timer }: CreateCatCareModelOp
 
   return {
     state,
+    viewer: identity.viewer,
+    recordAuthors,
     profile,
     products,
     allProducts,

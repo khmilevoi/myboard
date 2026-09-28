@@ -5,6 +5,7 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import type { CatCareModel } from '../model/cat-care'
 import type { CatCareForms } from '../model/forms'
 import { number, time } from './format'
+import { AuthorLine } from './Identity'
 
 import styles from './cat-care.module.css'
 
@@ -76,6 +77,7 @@ export const TileContent = reatomMemo<TileContentProps>(({ model, forms, open, e
                   <time dateTime={new Date(record.occurredAt).toISOString()}>
                     {time(record.occurredAt, model.profile().timeZone)}
                   </time>
+                  <AuthorLine model={model} kind="food" recordId={record.id} />
                 </li>
               ))}
             </ul>

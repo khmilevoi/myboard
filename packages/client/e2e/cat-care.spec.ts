@@ -1,8 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+import { ActivatePage } from './pages/ActivatePage.js'
 import { BoardPage } from './pages/BoardPage.js'
 import { CatCarePage } from './pages/CatCarePage.js'
 import { HeaderPage } from './pages/HeaderPage.js'
+import { seedInvite } from './support/seed.js'
+import { enableVirtualAuthenticator } from './support/webauthn.js'
 
 const PINNED_ISO = '2026-09-28T12:00:00+02:00'
 const WRITE_PATH = '/api/widgets/cat-care/write'
@@ -53,6 +56,13 @@ test('quick entries need only the amount, keep details optional and record topup
   await cat.dialog.getByLabel('Съедено, г', { exact: true }).fill('25')
   await cat.dialog.getByLabel('Съедено, г', { exact: true }).press('Enter')
   await expect(cat.eaten).toHaveText('100')
+  for (const name of ['Еда', 'Вода', 'Вес']) {
+    const button = cat.dialog.getByRole('button', { name, exact: true })
+    const box = (await button.boundingBox())!
+    expect(box.y, `${name} stays in the first short screen`).toBeGreaterThanOrEqual(0)
+    expect(box.y + box.height, `${name} stays in the first short screen`).toBeLessThanOrEqual(500)
+    await button.click({ trial: true })
+  }
   await capture('mobile-home')
   expect(commands.find((command) => command.kind === 'food.save')?.food).toMatchObject({
     grams: 25,
@@ -327,4 +337,101 @@ test('real board sizes keep summary and primary controls visible and usable', as
     })
   }
   expect(runtimeErrors).toEqual([])
+})
+
+test('real session identity owns new records, while another viewer cannot replace their creator', async ({
+  page,
+}) => {
+  test.setTimeout(120_000)
+  const authenticator = await enableVirtualAuthenticator(page)
+  const register = async (name: string) => {
+    const { token } = await seedInvite(page.request, { label: 'cat-care-identity-e2e' })
+    const activation = new ActivatePage(page)
+    await activation.gotoActivate(token)
+    await activation.fillName(name)
+    await activation.submitRegister()
+    await activation.waitForBoardRedirect()
+    const response = await page.request.get('/api/auth/session')
+    expect(response.ok()).toBe(true)
+    return ((await response.json()) as { accountId: string }).accountId
+  }
+  const annaId = await register('Анна Тестовая')
+  const cat = new CatCarePage(page)
+  let instanceId = ''
+  page.on('request', (request) => {
+    if (request.url().endsWith(WRITE_PATH)) instanceId = request.postDataJSON().instanceId
+  })
+  await new HeaderPage(page).addWidget('Питание кошки')
+  await cat.open()
+  await expect(cat.dialog.getByTestId('cat-care-viewer')).toContainText('Анна Тестовая')
+  await cat.addProduct()
+  await cat.feed()
+  await cat.dialog.getByRole('button', { name: 'Вода', exact: true }).click()
+  await cat.dialog.getByLabel('Долито, мл', { exact: true }).fill('80')
+  await cat.save()
+  await cat.dialog.getByRole('button', { name: 'Вес', exact: true }).click()
+  await cat.dialog.getByLabel('Вес, кг', { exact: true }).fill('4,2')
+  await cat.save()
+  const authors = cat.dialog.getByTestId('cat-care-record-author')
+  await expect(authors).toHaveCount(3)
+  for (const row of await authors.all())
+    await expect(row.locator(':scope > span').last()).toHaveText('Анна Тестовая · вы')
+  const before = test.info().outputPath('identity-current-viewer.png')
+  await cat.dialog.screenshot({ path: before })
+  await test.info().attach('identity-current-viewer', { path: before, contentType: 'image/png' })
+  await cat.close()
+  // Registration excludes existing credentials: Boris owns a different passkey.
+  await authenticator.client.send('WebAuthn.removeVirtualAuthenticator', {
+    authenticatorId: authenticator.authenticatorId,
+  })
+  await authenticator.client.detach()
+  await enableVirtualAuthenticator(page)
+  const borisId = await register('Борис Тестовый')
+  expect(borisId).not.toBe(annaId)
+  await cat.open()
+  await expect(cat.dialog.getByTestId('cat-care-viewer')).toContainText('Борис Тестовый')
+  await page.route(`**${WRITE_PATH}`, async (route) => {
+    const body = route.request().postDataJSON()
+    body.payload.createdBy = { accountId: annaId, name: 'Поддельный автор' }
+    await route.continue({ postData: JSON.stringify(body) })
+  })
+  await cat.dialog
+    .getByTestId('cat-care-food-record')
+    .getByRole('button', { name: /Изменить/ })
+    .click()
+  await cat.dialog.getByLabel('Съедено, г', { exact: true }).fill('25')
+  await cat.save()
+  await expect(cat.eaten).toHaveText('100')
+  await expect(
+    cat.dialog
+      .getByTestId('cat-care-food-record')
+      .getByTestId('cat-care-record-author')
+      .locator(':scope > span')
+      .last(),
+  ).toHaveText('Анна Тестовая')
+  const response = await page.request.get(
+    `/api/storage/${encodeURIComponent(`w:i:${instanceId}:ledger`)}`,
+  )
+  expect(response.ok()).toBe(true)
+  const body = await response.json()
+  const ledger = (Array.isArray(body) ? body : body.value) as Array<{
+    command: { kind: string }
+    createdBy: { accountId: string; name: string } | null
+  }>
+  const meals = ledger.filter((entry) => entry.command.kind === 'food.save')
+  expect(meals.map((entry) => entry.createdBy)).toEqual([
+    { accountId: annaId, name: 'Анна Тестовая' },
+    { accountId: borisId, name: 'Борис Тестовый' },
+  ])
+  await page.reload()
+  await cat.open()
+  await expect(cat.dialog.getByTestId('cat-care-viewer')).toContainText('Борис Тестовый')
+  await expect(
+    cat.dialog
+      .getByTestId('cat-care-food-record')
+      .getByTestId('cat-care-record-author')
+      .locator(':scope > span')
+      .last(),
+  ).toHaveText('Анна Тестовая')
+  await cat.dialog.screenshot({ path: test.info().outputPath('identity-original-creator.png') })
 })

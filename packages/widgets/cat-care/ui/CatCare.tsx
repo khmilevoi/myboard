@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
   Settings2,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { getServerTime, useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { WidgetControls, useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
@@ -24,6 +25,7 @@ import { createCatCareForms, type CatCareForms } from '../model/forms'
 import { catCareInstance } from '../model/instance-store'
 import { Editor } from './Editor'
 import { date, number, stamp, time } from './format'
+import { AuthorLine, ViewerBadge } from './Identity'
 import { TileContent } from './TileContent'
 
 import styles from './cat-care.module.css'
@@ -73,6 +75,7 @@ const FoodRow = reatomMemo<Models & { record: FoodRecord; compact?: boolean; rec
                 : `Съедено ${number(portion.eatenGrams)} из ${number(record.grams)} г`}
             {!compact && !recent && record.note ? ` · ${record.note}` : ''}
           </span>
+          <AuthorLine model={model} kind="food" recordId={record.id} />
         </div>
         <div className={styles.recordAmount}>
           <strong>
@@ -97,8 +100,8 @@ const FoodRow = reatomMemo<Models & { record: FoodRecord; compact?: boolean; rec
   'CatCare.FoodRow',
 )
 
-const EnergySummary = reatomMemo<{ model: CatCareModel; compact?: boolean }>(
-  ({ model, compact }) => {
+const EnergySummary = reatomMemo<{ model: CatCareModel; compact?: boolean; children?: ReactNode }>(
+  ({ model, compact, children }) => {
     const day = model.daySummary()
     const progress = day.targetKcal ? Math.min((day.eatenKcal / day.targetKcal) * 100, 100) : 0
     return (
@@ -139,6 +142,7 @@ const EnergySummary = reatomMemo<{ model: CatCareModel; compact?: boolean }>(
             Ожидает уточнения: до {number(day.pendingKcal)} ккал · {day.pendingCount} порц.
           </p>
         )}
+        {children}
         {!compact && (
           <details className={styles.nutritionDetails}>
             <summary>БЖУ и состав еды</summary>
@@ -322,32 +326,47 @@ const SideCards = reatomMemo<Models>(({ model, forms }) => {
 const DailyHome = reatomMemo<Models & { open: (kind: 'food' | 'water' | 'weight') => void }>(
   ({ model, forms, open }) => (
     <div className={styles.home}>
-      <section aria-label="Добавить запись" className={styles.homeActions}>
-        <button className={styles.homeAction} onClick={wrap(() => open('food'))}>
-          <Utensils size={24} aria-hidden />
-          <span>Еда</span>
-        </button>
-        <button className={styles.homeAction} onClick={wrap(() => open('water'))}>
-          <Droplets size={24} aria-hidden />
-          <span>Вода</span>
-        </button>
-        <button className={styles.homeAction} onClick={wrap(() => open('weight'))}>
-          <Scale size={24} aria-hidden />
-          <span>Вес</span>
-        </button>
-      </section>
       <section className={styles.homeSummary}>
         <div className={styles.sectionHeading}>
           <h2>{model.selectedDate() ?? 'Сегодня'}</h2>
+          <span className={styles.dayCount}>{model.daySummary().foodCount} кормл.</span>
         </div>
-        <EnergySummary model={model} />
+        <EnergySummary model={model}>
+          <section aria-label="Добавить запись" className={styles.homeActions}>
+            <button
+              className={`${styles.homeAction} ${styles.homeFoodAction}`}
+              onClick={wrap(() => open('food'))}
+            >
+              <Utensils size={18} aria-hidden />
+              <span>Еда</span>
+            </button>
+            <button className={styles.homeAction} onClick={wrap(() => open('water'))}>
+              <Droplets size={18} aria-hidden />
+              <span>Вода</span>
+            </button>
+            <button className={styles.homeAction} onClick={wrap(() => open('weight'))}>
+              <Scale size={18} aria-hidden />
+              <span>Вес</span>
+            </button>
+          </section>
+        </EnergySummary>
       </section>
       <section className={styles.homeRecent} aria-label="Последние записи">
-        <h2>Последние записи</h2>
+        <div className={styles.sectionHeading}>
+          <h2>Последние записи</h2>
+          <button
+            className={styles.textButton}
+            onClick={wrap(() => model.activeTab.set('history'))}
+          >
+            Вся история <ArrowUpRight size={14} aria-hidden />
+          </button>
+        </div>
         {!forms.timeline().length ? (
-          <p className={styles.hint}>
-            Выберите еду, воду или вес выше — первая запись появится здесь.
-          </p>
+          <div className={styles.homeEmpty}>
+            <Utensils size={24} aria-hidden />
+            <h3>Начните с первой записи</h3>
+            <p>Добавьте еду, воду или вес — здесь будет видно, когда и кто добавил запись.</p>
+          </div>
         ) : (
           <ul className={styles.records}>
             {forms
@@ -374,6 +393,7 @@ const DailyHome = reatomMemo<Models & { open: (kind: 'food' | 'water' | 'weight'
                           : `Вес ${number(item.record.kilograms, 2)} кг`}
                       </strong>
                       <span>{stamp(item.record.occurredAt, model.profile().timeZone)}</span>
+                      <AuthorLine model={model} kind={item.kind} recordId={item.record.id} />
                     </div>
                     {item.kind === 'water' ? (
                       <RecordActions
@@ -550,6 +570,7 @@ const History = reatomMemo<Models>(({ model, forms }) => {
                     />
                   </>
                 )}
+                <AuthorLine model={model} kind={item.kind} recordId={item.record.id} />
               </li>
             ))}
           </ul>
@@ -711,9 +732,9 @@ const Profile = reatomMemo<Models>(
 )
 
 export const CatCare = reatomMemo(() => {
-  const { tier, instanceId, api, storage } = useWidgetContext<CatCareEvents>()
+  const { tier, instanceId, api, storage, identity } = useWidgetContext<CatCareEvents>()
   const { model, forms } = catCareInstance(instanceId, () => {
-    const model = createCatCareModel({ storage, api, timer: getServerTime() })
+    const model = createCatCareModel({ storage, api, timer: getServerTime(), identity })
     return { model, forms: createCatCareForms(model) }
   })()
   const chrome = useWidgetChrome()
@@ -751,6 +772,7 @@ export const CatCare = reatomMemo(() => {
           </div>
         </div>
         <div className={styles.headerActions}>
+          <ViewerBadge model={model} compact={!fullscreen} />
           {fullscreen && !forms.active() && (
             <button
               className={styles.iconButton}

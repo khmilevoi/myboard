@@ -1,7 +1,15 @@
-import { context, wrap } from '@reatom/core'
+import { atom, computed, context, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { StorageError, WidgetApiError, type StorageApi, type WidgetStorage } from 'widget-runtime'
+import {
+  StorageError,
+  WidgetApiError,
+  type StorageApi,
+  type WidgetStorage,
+  type WidgetIdentity,
+  type BoardMember,
+  makeStaticWidgetIdentity,
+} from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
@@ -42,7 +50,14 @@ const FOOD: FoodRecord = {
   note: '',
 }
 
-function fixture(options: { server?: StorageApi; client?: StorageApi; now?: () => number } = {}) {
+function fixture(
+  options: {
+    server?: StorageApi
+    client?: StorageApi
+    now?: () => number
+    identity?: WidgetIdentity
+  } = {},
+) {
   const server = options.server ?? createFakeStorage()
   const client = options.client ?? createFakeStorage()
   const storage: WidgetStorage = {
@@ -64,7 +79,12 @@ function fixture(options: { server?: StorageApi; client?: StorageApi; now?: () =
   })
   const timer = createFakeTimer({ nowMs: NOW })
   if (options.now) timer.nowMs = options.now
-  const model = createCatCareModel({ storage, timer, api: { invoke } as WidgetApi<CatCareEvents> })
+  const model = createCatCareModel({
+    storage,
+    timer,
+    identity: options.identity ?? makeStaticWidgetIdentity(),
+    api: { invoke } as WidgetApi<CatCareEvents>,
+  })
   return { model, server, client, invoke, calls }
 }
 
@@ -74,6 +94,60 @@ afterEach(() => {
 })
 
 describe('cat care instance model', () => {
+  it('keeps the current viewer separate from original authors and reacts to roster changes', () =>
+    context.start(async () => {
+      const anna = { accountId: 'anna', name: 'Анна' }
+      const boris = { accountId: 'boris', name: 'Борис' }
+      const roster = atom<ReadonlyMap<string, BoardMember>>(
+        new Map([
+          ['anna', anna],
+          ['boris', boris],
+        ]),
+      )
+      const viewerId = atom('boris')
+      const identity: WidgetIdentity = {
+        viewer: computed(() => roster().get(viewerId()) ?? null),
+        members: computed(() => roster()),
+      }
+      const { model, server } = fixture({ identity })
+      const entries: LedgerEntry[] = [
+        {
+          id: 'created',
+          mutationId: 'created',
+          ts: NOW,
+          createdBy: anna,
+          command: { kind: 'food.save', food: FOOD },
+        },
+        {
+          id: 'edited',
+          mutationId: 'edited',
+          ts: NOW + 1,
+          createdBy: boris,
+          command: { kind: 'food.save', food: { ...FOOD, grams: 20 } },
+        },
+      ]
+      await wrap(server.set('ledger', entries))
+      const unsubscribe = model.recordAuthors.subscribe(() => {})
+      await wrap(model.retryLoad())
+      expect(model.viewer()).toEqual(boris)
+      expect(model.recordAuthors().food.get(FOOD.id)).toEqual(anna)
+      roster.set(
+        new Map<string, BoardMember>([
+          ['anna', { ...anna, name: 'Анна Новая', avatarUrl: '/anna.png' }],
+          ['boris', boris],
+        ]),
+      )
+      expect(model.recordAuthors().food.get(FOOD.id)).toMatchObject({
+        name: 'Анна Новая',
+        avatarUrl: '/anna.png',
+      })
+      roster.set(new Map([['boris', boris]]))
+      expect(model.recordAuthors().food.get(FOOD.id)).toEqual(anna)
+      viewerId.set('unknown')
+      expect(model.viewer()).toBeNull()
+      unsubscribe()
+    }))
+
   it('restores per-product entry preferences when this diary reconnects', () =>
     context.start(async () => {
       const client = createFakeStorage()
