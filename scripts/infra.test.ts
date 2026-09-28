@@ -387,8 +387,10 @@ describe('rpi branch environment overlay', () => {
     expect(envValue('EXPECTED_ORIGIN')).toBe(`https://${hostname(branchOverlay)}`)
   })
 
-  it('keeps the untracked branch secrets source out of git', () => {
+  it('keeps the branch secrets source out of git and Docker images', () => {
     expect(gitignore).toContain('.env.branch')
+    const dockerignore = readFileSync(resolve(root, '.dockerignore'), 'utf8')
+    expect(dockerignore.split(/\r?\n/)).toContain('.env.branch')
     expect(branchOverlay).toContain('env = ".env.branch"')
   })
 
