@@ -17,40 +17,78 @@ const Field = reatomMemo<{
   type?: string
   inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode']
   children?: ReactNode
+  focusTarget?: boolean
+  reserveHelp?: boolean
+  helpLines?: 1 | 2
   onValue?: (value: string) => void
-}>(({ field, label, hint, type = 'text', inputMode, children, onValue }) => {
-  const id = useId()
-  const { error, ...binding } = bindField(field)
-  const shared = {
-    ...binding,
-    id,
-    'aria-invalid': !!error,
-    'aria-describedby': hint || error ? `${id}-help` : undefined,
-    onChange: onValue
-      ? wrap(
-          (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-            onValue(event.target.value),
-        )
-      : binding.onChange,
-  }
-  return (
-    <div className={styles.field}>
-      <label htmlFor={id}>{label}</label>
-      {children ? (
-        <select {...shared}>{children}</select>
-      ) : type === 'textarea' ? (
-        <textarea {...shared} rows={2} />
-      ) : (
-        <input {...shared} type={type} inputMode={inputMode} />
-      )}
-      {(hint || error) && (
-        <small id={`${id}-help`} className={error ? styles.errorText : undefined}>
-          {error || hint}
-        </small>
-      )}
-    </div>
-  )
-}, 'CatCare.Field')
+}>(
+  ({
+    field,
+    label,
+    hint,
+    type = 'text',
+    inputMode,
+    children,
+    focusTarget,
+    reserveHelp,
+    helpLines = 1,
+    onValue,
+  }) => {
+    const id = useId()
+    const { error, ...binding } = bindField(field)
+    const shared = {
+      ...binding,
+      id,
+      'aria-invalid': !!error,
+      'aria-describedby': hint || error ? `${id}-help` : undefined,
+      'data-entry-focus': focusTarget || undefined,
+      onChange: onValue
+        ? wrap(
+            (
+              event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+            ) => onValue(event.target.value),
+          )
+        : binding.onChange,
+    }
+    return (
+      <div className={styles.field}>
+        <label htmlFor={id}>{label}</label>
+        {children ? (
+          <select {...shared}>{children}</select>
+        ) : type === 'textarea' ? (
+          <textarea {...shared} rows={2} />
+        ) : (
+          <input {...shared} type={type} inputMode={inputMode} />
+        )}
+        {(hint || error || reserveHelp) && (
+          <small
+            id={`${id}-help`}
+            className={error ? styles.errorText : undefined}
+            aria-hidden={(!hint && !error) || undefined}
+            style={{ minHeight: `${helpLines * 1.5}em` }}
+          >
+            {error || hint}
+          </small>
+        )}
+      </div>
+    )
+  },
+  'CatCare.Field',
+)
+
+const EntryDetails = reatomMemo<{ forms: CatCareForms; children: ReactNode }>(
+  ({ forms, children }) => (
+    <details
+      className={styles.entryDetails}
+      open={forms.detailsOpen()}
+      onToggle={wrap((event) => forms.detailsOpen.set(event.currentTarget.open))}
+    >
+      <summary>Время и подробности</summary>
+      <div className={styles.fields}>{children}</div>
+    </details>
+  ),
+  'CatCare.EntryDetails',
+)
 
 const estimateReasons: Record<string, string> = {
   missing_weight: 'Добавьте актуальный вес для расчёта.',
@@ -65,13 +103,17 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
   ({ model, forms }) => {
     const kind = forms.active()
     const ref = useRef<HTMLDivElement>(null)
+    const waterUnitId = useId()
     useEffect(() => {
       ref.current?.scrollIntoView({ block: 'start' })
-      ref.current?.querySelector<HTMLInputElement>('input, select')?.focus({ preventScroll: true })
+      const target =
+        ref.current?.querySelector<HTMLInputElement>('[data-entry-focus]') ??
+        ref.current?.querySelector<HTMLInputElement>('input, select')
+      target?.focus({ preventScroll: true })
+      if (target instanceof HTMLInputElement && target.type === 'text') target.select()
     }, [kind])
     if (!kind) return null
     const busy = model.mutationPending()
-    const f = forms[kind].fields
     const names = {
       food: 'Кормление',
       water: 'Вода',
@@ -94,13 +136,18 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
         </button>
         <h2>
           {forms.editing() ? 'Изменить: ' : ''}
-          {names[kind]}
+          {kind === 'water' && !forms.editing() ? 'Добавить воду' : names[kind]}
         </h2>
         <form
           noValidate
-          onSubmit={wrap((event) => {
+          onSubmit={wrap(async (event) => {
             event.preventDefault()
-            void forms.submit()
+            await wrap(forms.submit())
+            requestAnimationFrame(() => {
+              ref.current
+                ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+                ?.focus({ preventScroll: false })
+            })
           })}
         >
           <fieldset disabled={busy} className={styles.fields}>
@@ -109,70 +156,90 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
                 <Field
                   field={forms.food.fields.productId}
                   label="Продукт"
+                  reserveHelp
+                  focusTarget={!forms.food.fields.productId()}
                   onValue={(id) => forms.chooseProduct(id)}
                 >
                   <option value="">Выберите продукт</option>
-                  {model
-                    .allProducts()
-                    .filter((item) => !item.archived || item.id === forms.food.fields.productId())
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                        {item.archived ? ' (в архиве)' : ''}
-                      </option>
-                    ))}
+                  {forms.recentProducts().map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                  <optgroup label="Другие продукты">
+                    {model
+                      .allProducts()
+                      .filter(
+                        (item) =>
+                          (!item.archived || item.id === forms.food.fields.productId()) &&
+                          !forms.recentProducts().some((recent) => recent.id === item.id),
+                      )
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                          {item.archived ? ' (в архиве)' : ''}
+                        </option>
+                      ))}
+                  </optgroup>
                 </Field>
                 <button
                   type="button"
-                  className={styles.textButton}
+                  className={model.products().length ? styles.textButton : styles.secondary}
                   onClick={wrap(() => forms.openProduct(null, true))}
                 >
-                  <Plus size={16} />
-                  Новый продукт
+                  <Plus size={16} /> Добавить продукт
                 </button>
-                <div className={styles.formColumns}>
-                  <Field
-                    field={forms.food.fields.grams}
-                    label="Порция, г"
-                    inputMode="decimal"
-                    hint="Запоминаем последнюю порцию этого продукта"
-                  />
+                {!model.products().length && (
+                  <p className={styles.hint}>
+                    Добавьте название и калорийность один раз. Потом достаточно выбрать продукт и
+                    порцию.
+                  </p>
+                )}
+                <Field
+                  field={forms.food.fields.grams}
+                  label={forms.food.fields.mode() === 'eaten' ? 'Съедено, г' : 'Выдано, г'}
+                  inputMode="decimal"
+                  focusTarget={!!forms.food.fields.productId()}
+                  reserveHelp
+                />
+                {forms.foodEnergy() && (
+                  <p className={styles.hint}>
+                    {forms.foodEnergy()?.pending ? 'Ожидает уточнения: до' : 'Будет учтено'}{' '}
+                    <strong>{number(forms.foodEnergy()?.kcal ?? null)} ккал</strong>
+                    {!forms.foodEnergy()?.pending && ' съеденного'}
+                  </p>
+                )}
+                <EntryDetails forms={forms}>
                   <Field field={forms.food.fields.mode} label="Что измерили">
                     <option value="eaten">Съедено</option>
                     <option value="offered">Выдано в миску</option>
                   </Field>
-                </div>
-                <Field
-                  field={forms.food.fields.occurredAt}
-                  label="Когда кормили"
-                  type="datetime-local"
-                />
-                {forms.food.fields.mode() === 'offered' && (
-                  <div className={styles.inset}>
-                    <Field
-                      field={forms.food.fields.remainingGrams}
-                      label="Осталось, г"
-                      inputMode="decimal"
-                      hint="Пусто — ещё не измеряли. 0 — съедено всё. До измерения порция не входит в съеденные калории."
-                    />
-                    {forms.food.fields.remainingGrams().trim() !== '' && (
+                  <Field
+                    field={forms.food.fields.occurredAt}
+                    label="Когда кормили"
+                    type="datetime-local"
+                  />
+                  {forms.food.fields.mode() === 'offered' && (
+                    <div className={styles.inset}>
                       <Field
-                        field={forms.food.fields.observedAt}
-                        label="Когда измерили остаток"
-                        type="datetime-local"
-                        hint="Съеденное будет отнесено к дате кормления, точное время неизвестно."
+                        field={forms.food.fields.remainingGrams}
+                        label="Осталось, г"
+                        inputMode="decimal"
+                        hint="Пусто — ещё не измеряли. 0 — съедено всё. До измерения порция не входит в съеденные калории."
                       />
-                    )}
-                  </div>
-                )}
-                {forms.foodEnergy() && (
-                  <p className={styles.hint}>
-                    {forms.foodEnergy()?.pending ? 'Порция содержит до' : 'Будет учтено'}{' '}
-                    <strong>{number(forms.foodEnergy()?.kcal ?? null)} ккал</strong>
-                    {forms.foodEnergy()?.pending ? ' · ожидает измерения остатка' : ' съеденного'}
-                  </p>
-                )}
-                <Field field={forms.food.fields.note} label="Заметка" type="textarea" />
+                      {forms.food.fields.remainingGrams().trim() !== '' && (
+                        <Field
+                          field={forms.food.fields.observedAt}
+                          label="Когда измерили остаток"
+                          type="datetime-local"
+                          hint="Съеденное будет отнесено к дате кормления, точное время неизвестно."
+                        />
+                      )}
+                    </div>
+                  )}
+                  <Field field={forms.food.fields.note} label="Заметка" type="textarea" />
+                  <p className={styles.hint}>Время: {model.profile().timeZone}</p>
+                </EntryDetails>
               </>
             )}
             {kind === 'product' && (
@@ -257,34 +324,51 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
             )}
             {kind === 'water' && (
               <>
+                <div className={styles.amountWithUnit}>
+                  <Field
+                    field={forms.water.fields.addedMl}
+                    label={`${forms.water.fields.kind() === 'topup' ? 'Долито' : 'Налито'}, ${forms.waterUnit() === 'g' ? 'г' : 'мл'}`}
+                    inputMode="decimal"
+                    focusTarget
+                    reserveHelp
+                  />
+                  <div className={styles.unitField}>
+                    <label htmlFor={waterUnitId}>Единица</label>
+                    <select
+                      id={waterUnitId}
+                      value={forms.waterUnit()}
+                      onChange={wrap((event) =>
+                        forms.waterUnit.set(event.target.value as 'ml' | 'g'),
+                      )}
+                    >
+                      <option value="ml">мл</option>
+                      <option value="g">г</option>
+                    </select>
+                  </div>
+                </div>
                 <p className={styles.hint}>
-                  Измеряйте остаток до того, как вылить воду. Разница даёт приблизительное
-                  потребление за интервал между измерениями.
+                  {forms.water.fields.kind() === 'topup'
+                    ? 'Долив к воде в миске.'
+                    : 'Замена всей воды в миске.'}{' '}
+                  Записываем добавленное.
+                  {forms.waterUnit() === 'g' && ' Для воды 1 г ≈ 1 мл.'}
                 </p>
-                <Field field={forms.water.fields.kind} label="Действие с водой">
-                  <option value="replace">Заменили всю воду</option>
-                  <option value="topup">Долили воду</option>
-                </Field>
-                <div className={styles.formColumns}>
+                <EntryDetails forms={forms}>
+                  <Field field={forms.water.fields.kind} label="Действие с водой">
+                    <option value="topup">Долили воду</option>
+                    <option value="replace">Заменили всю воду</option>
+                  </Field>
                   <Field
                     field={forms.water.fields.remainingMl}
                     label="Осталось до замены / долива, мл"
                     inputMode="decimal"
-                    hint="Не измеряли — оставьте пустым. Пустая миска — 0."
+                    hint="Не измеряли — оставьте пустым. Пустая миска — 0. Потребление оцениваем только по измерениям."
                   />
                   <Field
-                    field={forms.water.fields.addedMl}
-                    label="Налили свежей воды, мл"
-                    inputMode="decimal"
+                    field={forms.water.fields.occurredAt}
+                    label="Когда меняли / доливали"
+                    type="datetime-local"
                   />
-                </div>
-                <Field
-                  field={forms.water.fields.occurredAt}
-                  label="Когда меняли / доливали"
-                  type="datetime-local"
-                />
-                <details>
-                  <summary>Проливы и другие потери</summary>
                   <Field
                     field={forms.water.fields.discardedMl}
                     label="Известные потери, мл"
@@ -301,11 +385,9 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
                     />
                     Были неизмеренные потери
                   </label>
-                  <p className={styles.hint}>
-                    В этом случае потребление за интервал останется неизвестным.
-                  </p>
-                </details>
-                <Field field={forms.water.fields.note} label="Заметка" type="textarea" />
+                  <Field field={forms.water.fields.note} label="Заметка" type="textarea" />
+                  <p className={styles.hint}>Время: {model.profile().timeZone}</p>
+                </EntryDetails>
               </>
             )}
             {kind === 'weight' && (
@@ -314,14 +396,20 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
                   field={forms.weight.fields.kilograms}
                   label="Вес, кг"
                   inputMode="decimal"
-                  hint="Например, 4,2. Старайтесь взвешивать в похожих условиях."
+                  focusTarget
+                  hint="Например, 4,2"
+                  reserveHelp
+                  helpLines={2}
                 />
-                <Field
-                  field={forms.weight.fields.occurredAt}
-                  label="Когда взвешивали"
-                  type="datetime-local"
-                />
-                <Field field={forms.weight.fields.note} label="Заметка" type="textarea" />
+                <EntryDetails forms={forms}>
+                  <Field
+                    field={forms.weight.fields.occurredAt}
+                    label="Когда взвешивали"
+                    type="datetime-local"
+                  />
+                  <Field field={forms.weight.fields.note} label="Заметка" type="textarea" />
+                  <p className={styles.hint}>Время: {model.profile().timeZone}</p>
+                </EntryDetails>
               </>
             )}
             {kind === 'profile' && (
@@ -395,7 +483,7 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
                 </div>
               </>
             )}
-            {'occurredAt' in f && <p className={styles.hint}>Время: {model.profile().timeZone}</p>}
+
             {feedback && (
               <p role="alert" className={styles.error}>
                 {feedback}

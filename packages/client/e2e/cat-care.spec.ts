@@ -13,6 +13,95 @@ test.beforeEach(async ({ request }) => {
   expect((await request.post('/api/test/time', { data: { iso: PINNED_ISO } })).ok()).toBe(true)
 })
 
+test('quick entries need only the amount, keep details optional and record topups honestly', async ({
+  page,
+}) => {
+  const cat = new CatCarePage(page)
+  const capture = async (name: string) => {
+    const path = test.info().outputPath(`quick-${name}.png`)
+    await cat.dialog.screenshot({ path })
+    await test.info().attach(`quick-${name}`, { path, contentType: 'image/png' })
+  }
+  const expectQuickSaveReachable = async () => {
+    const save = cat.dialog.getByRole('button', { name: 'Сохранить', exact: true })
+    const box = (await save.boundingBox())!
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.y + box.height).toBeLessThanOrEqual(500)
+    await save.click({ trial: true })
+  }
+  const commands: Array<{
+    kind: string
+    food?: { mode: string; grams: number }
+    water?: { kind: string; addedMl: number; remainingMl: number | null }
+  }> = []
+  page.on('request', (request) => {
+    if (request.url().endsWith(WRITE_PATH)) commands.push(request.postDataJSON().payload.command)
+  })
+  await cat.add()
+  await cat.addProduct()
+  await capture('desktop-home')
+  await cat.dialog.getByRole('button', { name: 'Еда', exact: true }).click()
+  await capture('desktop-food')
+  await page.setViewportSize({ width: 390, height: 500 })
+  await capture('mobile-food')
+  await expect(
+    cat.dialog.locator('form input:visible, form select:visible, form textarea:visible'),
+  ).toHaveCount(2)
+  await expect(cat.dialog.getByLabel('Когда кормили', { exact: true })).toBeHidden()
+  await expectQuickSaveReachable()
+  await expect(cat.dialog.getByLabel('Съедено, г', { exact: true })).toBeFocused()
+  await cat.dialog.getByLabel('Съедено, г', { exact: true }).fill('25')
+  await cat.dialog.getByLabel('Съедено, г', { exact: true }).press('Enter')
+  await expect(cat.eaten).toHaveText('100')
+  await capture('mobile-home')
+  expect(commands.find((command) => command.kind === 'food.save')?.food).toMatchObject({
+    grams: 25,
+    mode: 'eaten',
+  })
+
+  await cat.dialog.getByRole('button', { name: 'Вода', exact: true }).click()
+  await expect(
+    cat.dialog.locator('form input:visible, form select:visible, form textarea:visible'),
+  ).toHaveCount(2)
+  await expect(cat.dialog.getByLabel('Когда меняли / доливали', { exact: true })).toBeHidden()
+  await expectQuickSaveReachable()
+  await capture('mobile-water')
+  await cat.dialog.getByLabel('Единица', { exact: true }).selectOption('g')
+  await expect(cat.dialog.getByText('Введите число', { exact: true })).toHaveCount(0)
+  await cat.dialog.getByLabel('Долито, г', { exact: true }).fill('75,5')
+  await cat.dialog.getByLabel('Долито, г', { exact: true }).press('Enter')
+  await expect(cat.dialog.getByRole('button', { name: 'Сохранить', exact: true })).toHaveCount(0)
+  expect(commands.find((command) => command.kind === 'water.save')?.water).toMatchObject({
+    kind: 'topup',
+    addedMl: 75.5,
+    remainingMl: null,
+  })
+  await cat.dialog.locator('summary', { hasText: 'Вода и вес подробно' }).click()
+  await expect(cat.dialog.getByTestId('cat-care-water-interval')).toHaveText('Нет оценки')
+  await cat.dialog.getByRole('button', { name: 'Вода', exact: true }).click()
+  await expect(cat.dialog.getByLabel('Долито, г', { exact: true })).toHaveValue('75,5')
+  await cat.save()
+
+  await cat.dialog.getByRole('button', { name: 'Вес', exact: true }).click()
+  await expect(
+    cat.dialog.locator('form input:visible, form select:visible, form textarea:visible'),
+  ).toHaveCount(1)
+  await expectQuickSaveReachable()
+  await capture('mobile-weight')
+  await cat.dialog.getByLabel('Вес, кг', { exact: true }).fill('4,2')
+  await cat.dialog.getByLabel('Вес, кг', { exact: true }).press('Enter')
+  await expect(cat.dialog.getByRole('button', { name: 'Сохранить', exact: true })).toHaveCount(0)
+
+  await cat.dialog.getByRole('button', { name: 'Еда', exact: true }).click()
+  await cat.details()
+  await cat.dialog.getByLabel('Заметка', { exact: true }).fill('x'.repeat(2001))
+  await cat.dialog.locator('summary', { hasText: 'Время и подробности' }).click()
+  await cat.dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  await expect(cat.dialog.getByLabel('Заметка', { exact: true })).toBeVisible()
+  await expect(cat.dialog.getByLabel('Заметка', { exact: true })).toBeFocused()
+  await expect(cat.dialog).toContainText('Не более 2000 символов')
+})
+
 test('catalog, eaten/offered meals, historical snapshots, reload and separate placements', async ({
   page,
 }) => {
@@ -64,18 +153,25 @@ test('water observations, weight graph and adopted daily goal use the real serve
   const cat = new CatCarePage(page)
   await cat.add()
   await cat.dialog.getByRole('button', { name: 'Вода', exact: true }).click()
-  await cat.dialog.getByLabel('Налили свежей воды, мл', { exact: true }).fill('250')
+  await cat.details()
+  await cat.dialog.getByLabel('Действие с водой', { exact: true }).selectOption('replace')
+  await cat.dialog.getByLabel('Налито, мл', { exact: true }).fill('250')
   await cat.dialog.getByLabel('Когда меняли / доливали', { exact: true }).fill('2026-09-27T12:00')
   await cat.save()
+  await cat.dialog.locator('summary', { hasText: 'Вода и вес подробно' }).click()
   await expect(cat.dialog.getByTestId('cat-care-water-interval')).toHaveText('Нет оценки')
   await cat.dialog.getByRole('button', { name: 'Вода', exact: true }).click()
-  await cat.dialog.getByLabel('Налили свежей воды, мл', { exact: true }).fill('300')
+  await cat.details()
+  await cat.dialog.getByLabel('Действие с водой', { exact: true }).selectOption('replace')
+  await cat.dialog.getByLabel('Налито, мл', { exact: true }).fill('300')
   await cat.dialog.getByLabel('Осталось до замены / долива, мл', { exact: true }).fill('150')
   await cat.save()
+  await cat.dialog.locator('summary', { hasText: 'Вода и вес подробно' }).click()
   await expect(cat.dialog.getByTestId('cat-care-water-interval').first()).toContainText('100')
 
   await cat.dialog.getByRole('button', { name: 'Вес', exact: true }).click()
   await cat.dialog.getByLabel('Вес, кг', { exact: true }).fill('4,2')
+  await cat.details()
   // The test API's clock is frozen while the browser clock advances between
   // re-syncs. Use a measured past time so a resync cannot put this fixture a
   // few milliseconds in the future. Fresh-now behavior has a model regression.
@@ -114,11 +210,11 @@ test('a failed save keeps the draft and retries the same operation once', async 
     }
     await route.continue()
   })
-  await cat.dialog.getByRole('button', { name: 'Кормление', exact: true }).click()
-  await cat.dialog.getByLabel('Порция, г', { exact: true }).fill('42')
+  await cat.dialog.getByRole('button', { name: 'Еда', exact: true }).click()
+  await cat.dialog.getByLabel('Съедено, г', { exact: true }).fill('42')
   await cat.dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
   await expect(cat.dialog.getByRole('alert')).toContainText('соединения')
-  await expect(cat.dialog.getByLabel('Порция, г', { exact: true })).toHaveValue('42')
+  await expect(cat.dialog.getByLabel('Съедено, г', { exact: true })).toHaveValue('42')
   await cat.save()
   await expect(cat.eaten).toHaveText('168')
   expect(mutationIds).toHaveLength(2)
@@ -148,7 +244,7 @@ test('mobile can reach the last navigation tab and save a tall profile form', as
 })
 
 test('real board sizes keep summary and primary controls visible and usable', async ({ page }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(120_000)
   const runtimeErrors: string[] = []
   page.on('pageerror', (error) => runtimeErrors.push(error.message))
   const cat = new CatCarePage(page)
@@ -183,7 +279,7 @@ test('real board sizes keep summary and primary controls visible and usable', as
       await expect(tile.getByTestId('cat-care-eaten-kcal')).toHaveText('120')
       await card.hover()
       const bounds = (await tile.boundingBox())!
-      for (const name of ['Кормление', 'Развернуть']) {
+      for (const name of ['Еда', 'Вода', 'Вес', 'Развернуть']) {
         const control = tile.getByRole('button', { name, exact: true })
         await expect(control).toBeVisible()
         const box = (await control.boundingBox())!
@@ -211,16 +307,23 @@ test('real board sizes keep summary and primary controls visible and usable', as
         path: screenshot,
         contentType: 'image/png',
       })
-      await tile.getByRole('button', { name: 'Кормление', exact: true }).click()
-      await expect(cat.dialog).toHaveCount(1)
-      await expect(cat.dialog.getByLabel('Порция, г', { exact: true })).toBeVisible()
-      await expect(cat.dialog.getByRole('button', { name: 'Сохранить', exact: true })).toHaveCount(
-        1,
-      )
-      await cat.dialog
-        .getByRole('button', { name: 'Сохранить', exact: true })
-        .click({ trial: true })
-      await cat.close()
+      for (const [name, field] of [
+        ['Еда', 'Съедено, г'],
+        ['Вода', 'Долито, мл'],
+        ['Вес', 'Вес, кг'],
+      ]) {
+        await tile.getByRole('button', { name, exact: true }).click()
+        await expect(cat.dialog).toHaveCount(1)
+        await expect(cat.dialog.getByLabel(field!, { exact: true })).toBeVisible()
+        await expect(
+          cat.dialog.getByRole('button', { name: 'Сохранить', exact: true }),
+        ).toHaveCount(1)
+        await cat.dialog
+          .getByRole('button', { name: 'Сохранить', exact: true })
+          .click({ trial: true })
+        await cat.dialog.getByRole('button', { name: 'Назад к дневнику', exact: true }).click()
+        await cat.close()
+      }
     })
   }
   expect(runtimeErrors).toEqual([])

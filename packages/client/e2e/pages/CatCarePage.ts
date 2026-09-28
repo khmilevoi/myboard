@@ -23,7 +23,7 @@ export class CatCarePage {
   async open(index = 0): Promise<void> {
     await new BoardPage(this.page).expandCard(index)
     await expect(this.dialog).toBeVisible()
-    await expect(this.dialog.getByRole('button', { name: 'Кормление', exact: true })).toBeVisible()
+    await expect(this.dialog.getByTestId('cat-care-widget')).toBeVisible()
   }
 
   async close(): Promise<void> {
@@ -79,7 +79,18 @@ export class CatCarePage {
   }
 
   async tab(name: 'Дневник' | 'История и статистика' | 'Продукты' | 'Профиль'): Promise<void> {
-    await this.dialog.getByRole('button', { name, exact: true }).click()
+    await this.dialog
+      .getByRole('navigation', { name: 'Разделы дневника' })
+      .getByRole('button', { name, exact: true })
+      .click()
+  }
+
+  async details(): Promise<void> {
+    const details = this.dialog
+      .locator('details')
+      .filter({ has: this.page.locator('summary', { hasText: 'Время и подробности' }) })
+    if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open)))
+      await details.locator('summary').click()
   }
 
   async save(): Promise<void> {
@@ -100,11 +111,14 @@ export class CatCarePage {
   async feed(
     options: { grams?: string; mode?: 'eaten' | 'offered'; time?: string } = {},
   ): Promise<void> {
-    await this.dialog.getByRole('button', { name: 'Кормление', exact: true }).click()
-    if (options.grams)
-      await this.dialog.getByLabel('Порция, г', { exact: true }).fill(options.grams)
+    await this.dialog.getByRole('button', { name: 'Еда', exact: true }).click()
+    if (options.mode || options.time) await this.details()
     if (options.mode)
       await this.dialog.getByLabel('Что измерили', { exact: true }).selectOption(options.mode)
+    if (options.grams)
+      await this.dialog
+        .getByLabel(options.mode === 'offered' ? 'Выдано, г' : 'Съедено, г', { exact: true })
+        .fill(options.grams)
     if (options.time)
       await this.dialog.getByLabel('Когда кормили', { exact: true }).fill(options.time)
     await this.save()

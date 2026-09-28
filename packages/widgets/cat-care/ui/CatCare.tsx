@@ -55,8 +55,8 @@ const RecordActions = reatomMemo<{ edit: () => void; remove: () => void; name: s
   'CatCare.RecordActions',
 )
 
-const FoodRow = reatomMemo<Models & { record: FoodRecord; compact?: boolean }>(
-  ({ model, forms, record, compact }) => {
+const FoodRow = reatomMemo<Models & { record: FoodRecord; compact?: boolean; recent?: boolean }>(
+  ({ model, forms, record, compact, recent }) => {
     const portion = calculateFoodNutrition(record)
     return (
       <li className={styles.record} data-testid="cat-care-food-record">
@@ -71,7 +71,7 @@ const FoodRow = reatomMemo<Models & { record: FoodRecord; compact?: boolean }>(
               : portion.eatenGrams === null
                 ? `Выдано ${number(record.grams)} г · остаток не измерен`
                 : `Съедено ${number(portion.eatenGrams)} из ${number(record.grams)} г`}
-            {!compact && record.note ? ` · ${record.note}` : ''}
+            {!compact && !recent && record.note ? ` · ${record.note}` : ''}
           </span>
         </div>
         <div className={styles.recordAmount}>
@@ -79,7 +79,9 @@ const FoodRow = reatomMemo<Models & { record: FoodRecord; compact?: boolean }>(
             {portion.eatenKcal === null ? 'ожидает' : `${number(portion.eatenKcal)} ккал`}
           </strong>
           <time dateTime={new Date(record.occurredAt).toISOString()}>
-            {time(record.occurredAt, model.profile().timeZone)}
+            {recent
+              ? stamp(record.occurredAt, model.profile().timeZone)
+              : time(record.occurredAt, model.profile().timeZone)}
           </time>
         </div>
         {!compact && (
@@ -138,7 +140,8 @@ const EnergySummary = reatomMemo<{ model: CatCareModel; compact?: boolean }>(
           </p>
         )}
         {!compact && (
-          <>
+          <details className={styles.nutritionDetails}>
+            <summary>БЖУ и состав еды</summary>
             <div className={styles.macros}>
               {[
                 ['Белки', day.proteinGrams],
@@ -159,7 +162,7 @@ const EnergySummary = reatomMemo<{ model: CatCareModel; compact?: boolean }>(
                 Не весь состав указан на этикетках — неизвестное не считаем нулём.
               </p>
             )}
-          </>
+          </details>
         )}
         <p className={styles.fine}>
           По времени записей кормления
@@ -254,8 +257,8 @@ const SideCards = reatomMemo<Models>(({ model, forms }) => {
           {water
             ? `${stamp(water.startAt, zone)} → ${stamp(water.endAt, zone)}`
             : lastWater
-              ? `Первое измерение ${stamp(lastWater.occurredAt, zone)}. Следующее завершит интервал.`
-              : 'Начните с объёма свежей воды в миске.'}
+              ? `Последняя запись: ${stamp(lastWater.occurredAt, zone)}. Для оценки потребления нужны измерения остатка.`
+              : 'Записывайте доливы воды. Для оценки потребления добавьте измерения остатка.'}
         </p>
         {water && water.durationHours > 24 && water.normalizedMlPerDay !== null && (
           <p className={styles.hint}>
@@ -315,6 +318,90 @@ const SideCards = reatomMemo<Models>(({ model, forms }) => {
     </aside>
   )
 }, 'CatCare.SideCards')
+
+const DailyHome = reatomMemo<Models & { open: (kind: 'food' | 'water' | 'weight') => void }>(
+  ({ model, forms, open }) => (
+    <div className={styles.home}>
+      <section aria-label="Добавить запись" className={styles.homeActions}>
+        <button className={styles.homeAction} onClick={wrap(() => open('food'))}>
+          <Utensils size={24} aria-hidden />
+          <span>Еда</span>
+        </button>
+        <button className={styles.homeAction} onClick={wrap(() => open('water'))}>
+          <Droplets size={24} aria-hidden />
+          <span>Вода</span>
+        </button>
+        <button className={styles.homeAction} onClick={wrap(() => open('weight'))}>
+          <Scale size={24} aria-hidden />
+          <span>Вес</span>
+        </button>
+      </section>
+      <section className={styles.homeSummary}>
+        <div className={styles.sectionHeading}>
+          <h2>{model.selectedDate() ?? 'Сегодня'}</h2>
+        </div>
+        <EnergySummary model={model} />
+      </section>
+      <section className={styles.homeRecent} aria-label="Последние записи">
+        <h2>Последние записи</h2>
+        {!forms.timeline().length ? (
+          <p className={styles.hint}>
+            Выберите еду, воду или вес выше — первая запись появится здесь.
+          </p>
+        ) : (
+          <ul className={styles.records}>
+            {forms
+              .timeline()
+              .slice(0, 3)
+              .map((item) =>
+                item.kind === 'food' ? (
+                  <FoodRow
+                    key={`food:${item.record.id}`}
+                    model={model}
+                    forms={forms}
+                    record={item.record}
+                    recent
+                  />
+                ) : (
+                  <li key={`${item.kind}:${item.record.id}`} className={styles.record}>
+                    <span className={styles.recordIcon}>
+                      {item.kind === 'water' ? <Droplets size={17} /> : <Scale size={17} />}
+                    </span>
+                    <div className={styles.recordBody}>
+                      <strong>
+                        {item.kind === 'water'
+                          ? `${item.record.kind === 'topup' ? 'Долили' : 'Налили при замене'} ${number(item.record.addedMl)} мл`
+                          : `Вес ${number(item.record.kilograms, 2)} кг`}
+                      </strong>
+                      <span>{stamp(item.record.occurredAt, model.profile().timeZone)}</span>
+                    </div>
+                    {item.kind === 'water' ? (
+                      <RecordActions
+                        name="запись о воде"
+                        edit={() => forms.openWater(item.record)}
+                        remove={() => forms.deletion.set({ entity: 'water', id: item.record.id })}
+                      />
+                    ) : (
+                      <RecordActions
+                        name="измерение веса"
+                        edit={() => forms.openWeight(item.record)}
+                        remove={() => forms.deletion.set({ entity: 'weight', id: item.record.id })}
+                      />
+                    )}
+                  </li>
+                ),
+              )}
+          </ul>
+        )}
+      </section>
+      <details className={styles.homeDetails}>
+        <summary>Вода и вес подробно</summary>
+        <SideCards model={model} forms={forms} />
+      </details>
+    </div>
+  ),
+  'CatCare.DailyHome',
+)
 
 const History = reatomMemo<Models>(({ model, forms }) => {
   const summary = model.periodSummary()
@@ -664,7 +751,7 @@ export const CatCare = reatomMemo(() => {
           </div>
         </div>
         <div className={styles.headerActions}>
-          {fullscreen && (
+          {fullscreen && !forms.active() && (
             <button
               className={styles.iconButton}
               aria-label="Настроить профиль кошки"
@@ -691,7 +778,7 @@ export const CatCare = reatomMemo(() => {
         <TileContent model={model} forms={forms} open={open} expand={chrome.onExpand} />
       ) : (
         <>
-          {fullscreen && (
+          {fullscreen && !forms.active() && (
             <nav className={styles.tabs} aria-label="Разделы дневника">
               {tabs.map((tab) => (
                 <button
@@ -722,12 +809,10 @@ export const CatCare = reatomMemo(() => {
                     {model.mutationError()}
                   </p>
                 )}
-                {(!fullscreen ||
-                  model.activeTab() === 'today' ||
-                  model.activeTab() === 'history') && (
+                {model.activeTab() === 'history' && (
                   <div className={styles.dayToolbar}>
                     <div className={styles.dayPicker}>
-                      {fullscreen && (
+                      {fullscreen && !forms.active() && (
                         <button
                           className={styles.iconButton}
                           aria-label="Предыдущий день"
@@ -754,7 +839,7 @@ export const CatCare = reatomMemo(() => {
                           {model.selectedDate() ? model.selectedDate() : 'Сегодня'}
                         </span>
                       )}
-                      {fullscreen && (
+                      {fullscreen && !forms.active() && (
                         <button
                           className={styles.iconButton}
                           aria-label="Следующий день"
@@ -777,58 +862,7 @@ export const CatCare = reatomMemo(() => {
                   </div>
                 )}
                 {model.activeTab() === 'today' ? (
-                  <div className={styles.contentGrid}>
-                    <div className={styles.stack}>
-                      <div className={styles.card}>
-                        <div className={styles.quickActions}>
-                          <button className={styles.primary} onClick={wrap(() => open('food'))}>
-                            <Plus size={17} />
-                            Кормление
-                          </button>
-                          <button className={styles.secondary} onClick={wrap(() => open('water'))}>
-                            <Droplets size={17} />
-                            Вода
-                          </button>
-                          <button className={styles.secondary} onClick={wrap(() => open('weight'))}>
-                            <Scale size={17} />
-                            Вес
-                          </button>
-                        </div>
-                        <EnergySummary model={model} />
-                      </div>
-                      <section className={styles.card}>
-                        <div className={styles.sectionHeading}>
-                          <h2>Кормления</h2>
-                          <span className={styles.hint}>{forms.dayFoods().length} записей</span>
-                        </div>
-                        {forms.dayFoods().length ? (
-                          <ul className={styles.records}>
-                            {forms.dayFoods().map((record) => (
-                              <FoodRow
-                                key={record.id}
-                                record={record}
-                                model={model}
-                                forms={forms}
-                              />
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className={styles.empty}>
-                            <Utensils size={28} />
-                            <h3>Начнём с первого кормления</h3>
-                            <p>Добавьте продукт и порцию. В следующий раз мы вспомним ваш выбор.</p>
-                            <button
-                              className={styles.textButton}
-                              onClick={wrap(() => open('food'))}
-                            >
-                              Записать кормление <ArrowUpRight size={15} />
-                            </button>
-                          </div>
-                        )}
-                      </section>
-                    </div>
-                    <SideCards model={model} forms={forms} />
-                  </div>
+                  <DailyHome model={model} forms={forms} open={open} />
                 ) : model.activeTab() === 'history' ? (
                   <History model={model} forms={forms} />
                 ) : model.activeTab() === 'products' ? (
