@@ -363,7 +363,6 @@ test('real session identity owns new records, while another viewer cannot replac
   })
   await new HeaderPage(page).addWidget('Питание кошки')
   await cat.open()
-  await expect(cat.dialog.getByTestId('cat-care-viewer')).toContainText('Анна Тестовая')
   await cat.addProduct()
   await cat.feed()
   await cat.dialog.getByRole('button', { name: 'Вода', exact: true }).click()
@@ -376,9 +375,9 @@ test('real session identity owns new records, while another viewer cannot replac
   await expect(authors).toHaveCount(3)
   for (const row of await authors.all())
     await expect(row.locator(':scope > span').last()).toHaveText('Анна Тестовая · вы')
-  const before = test.info().outputPath('identity-current-viewer.png')
+  const before = test.info().outputPath('record-authors.png')
   await cat.dialog.screenshot({ path: before })
-  await test.info().attach('identity-current-viewer', { path: before, contentType: 'image/png' })
+  await test.info().attach('record-authors', { path: before, contentType: 'image/png' })
   await cat.close()
   // Registration excludes existing credentials: Boris owns a different passkey.
   await authenticator.client.send('WebAuthn.removeVirtualAuthenticator', {
@@ -389,7 +388,6 @@ test('real session identity owns new records, while another viewer cannot replac
   const borisId = await register('Борис Тестовый')
   expect(borisId).not.toBe(annaId)
   await cat.open()
-  await expect(cat.dialog.getByTestId('cat-care-viewer')).toContainText('Борис Тестовый')
   await page.route(`**${WRITE_PATH}`, async (route) => {
     const body = route.request().postDataJSON()
     body.payload.createdBy = { accountId: annaId, name: 'Поддельный автор' }
@@ -425,7 +423,6 @@ test('real session identity owns new records, while another viewer cannot replac
   ])
   await page.reload()
   await cat.open()
-  await expect(cat.dialog.getByTestId('cat-care-viewer')).toContainText('Борис Тестовый')
   await expect(
     cat.dialog
       .getByTestId('cat-care-food-record')

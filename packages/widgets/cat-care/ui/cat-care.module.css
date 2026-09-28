@@ -1162,30 +1162,6 @@
   color: var(--primary-foreground);
   filter: brightness(0.94);
 }
-.viewer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: none;
-}
-.viewerName {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  max-width: 140px;
-}
-.viewerName small {
-  font-size: 10px;
-  color: var(--muted-foreground);
-}
-.viewerName strong {
-  font-size: 12px;
-  font-weight: 550;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
 .authorLine,
 .recordBody > .authorLine {
   display: flex;
@@ -1212,25 +1188,12 @@
   grid-column: 1 / -1;
   margin-top: 0;
 }
-.widget[data-view='tile'] .viewerName {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
 @container (max-width: 450px) {
   .headerActions {
     gap: 6px;
   }
   .headerActions > .iconButton {
     display: none;
-  }
-  .viewerName {
-    max-width: 76px;
-  }
-  .viewerName strong {
-    font-size: 11px;
   }
   .header .title {
     gap: 8px;
@@ -1242,11 +1205,6 @@
     text-overflow: ellipsis;
   }
   .header .catIcon {
-    display: none;
-  }
-}
-@container (max-width: 300px) {
-  .widget[data-view='tile'] .viewer {
     display: none;
   }
 }

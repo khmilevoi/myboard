@@ -5,32 +5,6 @@ import type { CatCareModel } from '../model/cat-care'
 
 import styles from './cat-care.module.css'
 
-export const ViewerBadge = reatomMemo<{ model: CatCareModel; compact?: boolean }>(
-  ({ model, compact }) => {
-    const viewer = model.viewer()
-    return (
-      <div
-        className={styles.viewer}
-        data-testid="cat-care-viewer"
-        title={viewer ? `Вы вошли как ${viewer.name}` : 'Пользователь пока не определён'}
-      >
-        <UserAvatar
-          name={viewer?.name}
-          avatarUrl={viewer?.avatarUrl}
-          identityKey={viewer?.accountId}
-          px={compact ? 22 : 28}
-          decorative
-        />
-        <span className={styles.viewerName}>
-          <small>{viewer ? 'Вы' : 'Аккаунт'}</small>
-          <strong>{viewer?.name ?? 'Не определён'}</strong>
-        </span>
-      </div>
-    )
-  },
-  'CatCare.ViewerBadge',
-)
-
 export const AuthorLine = reatomMemo<{
   model: CatCareModel
   kind: 'food' | 'water' | 'weight'
