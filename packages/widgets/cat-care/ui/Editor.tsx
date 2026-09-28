@@ -13,6 +13,7 @@ import styles from './cat-care.module.css'
 const Field = reatomMemo<{
   field: FieldAtom<string>
   label: string
+  labelAction?: ReactNode
   hint?: string
   type?: string
   inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode']
@@ -25,6 +26,7 @@ const Field = reatomMemo<{
   ({
     field,
     label,
+    labelAction,
     hint,
     type = 'text',
     inputMode,
@@ -52,7 +54,10 @@ const Field = reatomMemo<{
     }
     return (
       <div className={styles.field}>
-        <label htmlFor={id}>{label}</label>
+        <div className={styles.fieldLabel}>
+          <label htmlFor={id}>{label}</label>
+          {labelAction}
+        </div>
         {children ? (
           <select {...shared}>{children}</select>
         ) : type === 'textarea' ? (
@@ -156,6 +161,15 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
                 <Field
                   field={forms.food.fields.productId}
                   label="Продукт"
+                  labelAction={
+                    <button
+                      type="button"
+                      className={styles.textButton}
+                      onClick={wrap(() => forms.openProduct(null, true))}
+                    >
+                      <Plus size={14} aria-hidden /> Добавить продукт
+                    </button>
+                  }
                   reserveHelp
                   focusTarget={!forms.food.fields.productId()}
                   onValue={(id) => forms.chooseProduct(id)}
@@ -182,13 +196,6 @@ export const Editor = reatomMemo<{ model: CatCareModel; forms: CatCareForms }>(
                       ))}
                   </optgroup>
                 </Field>
-                <button
-                  type="button"
-                  className={model.products().length ? styles.textButton : styles.secondary}
-                  onClick={wrap(() => forms.openProduct(null, true))}
-                >
-                  <Plus size={16} /> Добавить продукт
-                </button>
                 {!model.products().length && (
                   <p className={styles.hint}>
                     Добавьте название и калорийность один раз. Потом достаточно выбрать продукт и
