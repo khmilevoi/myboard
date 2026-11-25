@@ -27,7 +27,11 @@ describe('makeModuleApi', () => {
 
     expectTypeOf(result).toEqualTypeOf<ModuleApiError | { id: string }>()
     expect(result).toEqual({ id: 'entry-1' })
-    expect(calls[0]).toEqual({ method: 'POST', url: URL_SAVE, json: { payload: { value: 'hello' } } })
+    expect(calls[0]).toEqual({
+      method: 'POST',
+      url: URL_SAVE,
+      json: { payload: { value: 'hello' } },
+    })
   })
 
   it('maps an error envelope to ModuleApiError with its code', async () => {

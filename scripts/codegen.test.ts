@@ -2,10 +2,11 @@ import fs from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = fs
 
+import type { ModuleScope as SharedModuleScope } from '../packages/shared/modules/contracts'
 import { emitBrowserList, generateBrowser } from './codegen/browser'
 import {
   emitCatalog,
@@ -20,6 +21,7 @@ import {
   ReservedWidgetNameError,
   UnknownModuleReferenceError,
 } from './codegen/modules'
+import type { ModuleScope as CodegenModuleScope } from './codegen/modules'
 import { emitScopedOwners, emitServerList, generateServer } from './codegen/server'
 import {
   assignPorts,
@@ -405,6 +407,23 @@ describe('codegen modules', () => {
     expect(output).toContain('@modules/notes/server')
     expect(output).toContain('moduleId: "notes"')
     expect(output).not.toContain('plain')
+    expect(output).toContain('export const moduleServerList: RuntimeModuleServerDefinition[] = [')
+    expect(output).toContain('type RuntimeModuleServerDefinition')
+  })
+
+  it('types an empty module server list instead of leaving it never[]', async () => {
+    const paths = createTempCodegenPaths('modules-server-list-empty')
+    addModule(paths, 'plain')
+    expect(await generateModules(paths)).not.toBeInstanceOf(Error)
+    const output = readFileSync(paths.moduleServerListFile, 'utf8')
+    expect(output).toContain(
+      "import type { RuntimeModuleServerDefinition } from '@shared/modules/contracts'",
+    )
+    expect(output).toContain('export const moduleServerList: RuntimeModuleServerDefinition[] = []')
+  })
+
+  it('keeps the codegen ModuleScope mirror identical to the shared one', () => {
+    expectTypeOf<CodegenModuleScope>().toEqualTypeOf<SharedModuleScope>()
   })
 
   it('maps module package names to their package versions', async () => {

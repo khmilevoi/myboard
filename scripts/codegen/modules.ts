@@ -15,7 +15,8 @@ import {
   type ModulesCodegenPaths,
 } from './shared'
 
-// Mirrors ModuleScope in packages/shared/modules/contracts.ts (scripts cannot use the alias).
+// Mirrors ModuleScope in packages/shared/modules/contracts.ts (scripts cannot import it: deep
+// relative imports are linted). Drift is a compile error in scripts/codegen.test.ts.
 export type ModuleScope = 'shared' | 'account'
 
 export type ModuleMeta = {
@@ -70,8 +71,9 @@ export function emitModulePackages(modules: ModuleMeta[]) {
 export function emitModuleServerList(modules: ModuleMeta[]) {
   const serverDirs = modules.filter((meta) => meta.hasServer).map((meta) => meta.dir)
   if (serverDirs.length === 0) {
-    return `${BANNER}export const moduleServerList = [
-]
+    return `${BANNER}import type { RuntimeModuleServerDefinition } from '@shared/modules/contracts'
+
+export const moduleServerList: RuntimeModuleServerDefinition[] = []
 `
   }
   const bindings = uniqueBindings(serverDirs)
@@ -86,10 +88,13 @@ export function emitModuleServerList(modules: ModuleMeta[]) {
   })`,
     )
     .join(',\n')
-  return `${BANNER}import { toRuntimeModuleServerDefinition } from '@shared/modules/contracts'
+  return `${BANNER}import {
+  toRuntimeModuleServerDefinition,
+  type RuntimeModuleServerDefinition,
+} from '@shared/modules/contracts'
 ${imports}
 
-export const moduleServerList = [
+export const moduleServerList: RuntimeModuleServerDefinition[] = [
 ${list}
 ]
 `

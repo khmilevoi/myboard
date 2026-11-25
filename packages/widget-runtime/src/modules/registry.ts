@@ -36,11 +36,14 @@ export function makeModuleRegistry({ makeContext }: ModuleRegistryDeps): ModuleR
   const cache = new Map<string, Promise<ModuleLoadError | unknown>>()
 
   const load = (module: AnyModuleRef): Promise<ModuleLoadError | unknown> => {
-    const context = makeContext(module)
     const loadModel = module.loadModel
-    if (!loadModel) return Promise.resolve({ api: context.api })
-    return loadModel()
-      .then((factory) => factory(context))
+    // makeContext and loadModel run inside the chain so a synchronous throw becomes a
+    // ModuleLoadError instead of escaping get().
+    return Promise.resolve()
+      .then(() => makeContext(module))
+      .then((context) =>
+        loadModel ? loadModel().then((factory) => factory(context)) : { api: context.api },
+      )
       .catch((cause: unknown) => new ModuleLoadError({ moduleId: module.id, cause }))
   }
 

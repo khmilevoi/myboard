@@ -154,7 +154,7 @@ export function makeCronScheduler(options: CronSchedulerOptions): CronScheduler 
         const failures = state.failures + 1
         console.error(
           new WidgetCronRunError({
-            typeId: scheduled.ownerId,
+            typeId: scheduled.id.startsWith('module:') ? scheduled.id : scheduled.ownerId,
             job: scheduled.name,
             scheduledFor: new Date(scheduledFor).toISOString(),
             cause: outcome,

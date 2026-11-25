@@ -65,6 +65,26 @@ describe('makeModuleRegistry', () => {
     expect(loadModel).toHaveBeenCalledTimes(2)
   })
 
+  it('turns a synchronous loadModel throw into a ModuleLoadError and retries later', async () => {
+    const model = { notes: [] }
+    const boom = new Error('sync boom')
+    const loadModel = vi
+      .fn<() => Promise<(ctx: unknown) => typeof model>>()
+      .mockImplementationOnce(() => {
+        throw boom
+      })
+      .mockResolvedValueOnce(() => model)
+    const ref = bindModule('notes', { scopes: ['shared'], actions: {}, loadModel })
+    const modules = makeModuleRegistry({ makeContext }).forWidget(['notes'])
+
+    const failed = await modules.get(ref)
+    expect(failed).toBeInstanceOf(ModuleLoadError)
+    expect((failed as ModuleLoadError).cause).toBe(boom)
+
+    expect(await modules.get(ref)).toBe(model)
+    expect(loadModel).toHaveBeenCalledTimes(2)
+  })
+
   it('serves a server-only module as { api }', async () => {
     const api = { invoke: async () => null }
     const ref = bindModule('pings', defineModule({ scopes: ['shared'], actions: {} }))
