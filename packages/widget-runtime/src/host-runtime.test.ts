@@ -1,8 +1,85 @@
+import 'fake-indexeddb/auto'
+import { context } from '@reatom/core'
 import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { makeHostRuntime } from './host-runtime'
+import { makeStaticWidgetIdentity } from './identity'
+import { db } from './storage/client/db'
+import { resetClientStorage } from './storage/test/fakes'
+
+afterEach(async () => {
+  context.reset()
+  await resetClientStorage()
+})
+
+const viewer = (accountId: string) =>
+  makeStaticWidgetIdentity({
+    members: [{ accountId, name: accountId }],
+    viewerAccountId: accountId,
+  })
+
+describe('makeHostRuntime account storage', () => {
+  it('builds a runtime and its widget storage without sending any request', () => {
+    const { http, calls } = makeScriptedHttp({})
+    const runtime = makeHostRuntime({ http })
+    runtime.makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+    runtime.makeBranchStorage({ owner: 'module', id: 'ofelia', scope: 'account' })
+    expect(calls).toEqual([])
+  })
+
+  it('returns account_unavailable from direct account operations on a host with no viewer', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const runtime = makeHostRuntime({ http, identity: makeStaticWidgetIdentity() })
+    const storage = runtime.makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+
+    expect(await storage.account.client.get('k')).toMatchObject({ reason: 'account_unavailable' })
+    expect(await storage.account.client.set('k', 1)).toMatchObject({
+      reason: 'account_unavailable',
+    })
+    expect(await storage.account.server.get('k')).toMatchObject({ reason: 'account_unavailable' })
+    expect(calls).toEqual([])
+  })
+
+  it('returns account_unavailable without hanging while a session-less identity answers 401', async () => {
+    const { http } = makeScriptedHttp({ '/api/auth/accounts': [{ status: 401 }] })
+    const runtime = makeHostRuntime({ http })
+    const storage = runtime.makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+
+    expect(await storage.account.client.get('k')).toMatchObject({ reason: 'account_unavailable' })
+  })
+
+  it("stores the viewer's account rows under the account namespace and keeps accounts apart", async () => {
+    const { http } = makeScriptedHttp({})
+    const a1 = makeHostRuntime({ http, identity: viewer('a1') }).makeWidgetStorage({
+      instanceId: 'inst-1',
+      typeId: 'clock',
+    })
+    const a2 = makeHostRuntime({ http, identity: viewer('a2') }).makeWidgetStorage({
+      instanceId: 'inst-1',
+      typeId: 'clock',
+    })
+
+    expect(await a1.account.client.set('k', 1)).toBeUndefined()
+    expect((await db.entries.get('w:a:clock:a1:k'))?.value).toBe(1)
+    expect(await a2.account.client.get('k')).toBeNull()
+    expect(await a2.account.client.keys()).toEqual([])
+    expect(await a1.account.client.get('k')).toBe(1)
+  })
+
+  it('routes account server storage to the scoped branch path', async () => {
+    const url = '/api/storage/scoped/widget/clock/account/k'
+    const { http, calls } = makeScriptedHttp({ [url]: [{ status: 200, body: { value: 3 } }] })
+    const storage = makeHostRuntime({ http, identity: viewer('a1') }).makeWidgetStorage({
+      instanceId: 'inst-1',
+      typeId: 'clock',
+    })
+
+    expect(await storage.account.server.get('k')).toBe(3)
+    expect(calls.map((c) => c.url)).toEqual([url])
+  })
+})
 
 describe('makeHostRuntime', () => {
   it('scopes widget storage to instance and type namespaces over the injected port', async () => {

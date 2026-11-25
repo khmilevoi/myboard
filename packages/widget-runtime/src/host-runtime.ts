@@ -1,12 +1,19 @@
 import { HttpClient, type HttpLike } from '@shared/http/client'
 import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
+import type { ScopedBranch, ScopedStorageRef } from '@shared/storage/scoped'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 
 import { makeWidgetIdentity, type WidgetIdentity } from './identity'
 import type { ScopedStorage, WidgetStorage } from './storage'
+import {
+  localNamespaceFor,
+  makeAccountGatedStorage,
+  makeIdentityAccountGate,
+} from './storage/account-gate'
 import { makeDexieStorage } from './storage/client/dexie-storage'
 import { instanceNamespace, typeNamespace } from './storage/scope'
 import { makeHttpStorage } from './storage/server/http-storage'
+import { makeScopedHttpStorage } from './storage/server/scoped-http-storage'
 import { makeSseManager, type SseDeliver, type SseManager } from './storage/server/sse-client'
 import { makeWidgetApi as makeWidgetApiWith, type WidgetApiError } from './widget-api'
 
@@ -14,12 +21,15 @@ export type HostRuntimeOptions = {
   serverBaseUrl?: string // default '/api/storage'
   http?: HttpLike // the host's shared client (the board passes its retry-hooked one); default: bare new HttpClient()
   openEventStream?: OpenEventStream // test seam for the lazily built SSE manager; default: makeEventSourceStream()
+  identity?: WidgetIdentity // test seam; default: makeWidgetIdentity({ http })
 }
 
 export type HostRuntime = {
   identity: WidgetIdentity
   makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage
   makeScopedStorage(scope: string): ScopedStorage
+  /** Scoped-route storage for one branch; account branches are gated on the viewer's account. */
+  makeBranchStorage(branch: ScopedBranch): ScopedStorage
   makeWidgetApi<Events extends WidgetEventMap>(options: {
     instanceId: string
     typeId: string
@@ -48,6 +58,8 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
       openEventStream: options.openEventStream ?? makeEventSourceStream(),
     }))
   const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
+  const registerScoped = (ref: ScopedStorageRef, deliver: SseDeliver) =>
+    getSse().addScoped(ref, deliver)
 
   const makeScoped = (scope: string): ScopedStorage => {
     // The trailing colon is part of the persistence contract — read the header comment in
@@ -60,14 +72,33 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
   }
 
   // Cheap to construct — the request itself is deferred to the first subscriber.
-  const identity = makeWidgetIdentity({ http })
+  const identity = options.identity ?? makeWidgetIdentity({ http })
+  // Lazy too: the gate first subscribes to identity.viewer on its first use, never here.
+  const accountGate = makeIdentityAccountGate(identity)
+
+  const makeBranchStorage = (branch: ScopedBranch): ScopedStorage => {
+    const server = makeScopedHttpStorage(branch, { baseUrl, http, registerScoped })
+    if (branch.scope !== 'account') {
+      return { client: makeDexieStorage(localNamespaceFor(branch, null)), server }
+    }
+    // The server branch resolves the account from the session itself; gating it too keeps both
+    // halves of an account branch failing and waiting the same way while no account is known.
+    return {
+      client: makeAccountGatedStorage(accountGate, (accountId) =>
+        makeDexieStorage(localNamespaceFor(branch, accountId)),
+      ),
+      server: makeAccountGatedStorage(accountGate, () => server),
+    }
+  }
 
   return {
     identity,
     makeScopedStorage: makeScoped,
+    makeBranchStorage,
     makeWidgetStorage: ({ instanceId, typeId }) => ({
       instance: makeScoped(instanceNamespace(instanceId)),
       shared: makeScoped(typeNamespace(typeId)),
+      account: makeBranchStorage({ owner: 'widget', id: typeId, scope: 'account' }),
     }),
     makeWidgetApi: ({ instanceId, typeId }) => makeWidgetApiWith({ instanceId, typeId, http }),
   }

@@ -30,9 +30,11 @@ const twoSuccesses = (
 function makeFakeStorage(): WidgetRuntimeProps['storage'] {
   const instance = createFakeStorage()
   const shared = createFakeStorage()
+  const account = createFakeStorage()
   return {
     instance: { client: instance, server: instance },
     shared: { client: shared, server: shared },
+    account: { client: account, server: account },
   }
 }
 
