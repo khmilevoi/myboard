@@ -47,6 +47,8 @@ import {
   TestTimeSchema,
   formatZodError,
 } from './storage/schemas'
+import type { ScopedOwners } from './storage/scoped'
+import { registerScopedStorageRoutes } from './storage/scoped-routes'
 import type { ValkeyOps } from './storage/valkey'
 import { makeCronScheduler } from './widgets/cron-scheduler'
 import { dispatchWidgetEvent } from './widgets/dispatch'
@@ -80,6 +82,7 @@ export type AppDeps = {
   widgetRegistry: WidgetServerRegistry
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
+  scopedOwners: ScopedOwners
   recovery: {
     tokenTtlMs: number
     maxSessionMs: number
@@ -97,7 +100,7 @@ export type App = {
 
 export function createApp(deps: AppDeps): App {
   const { ops, now } = deps
-  const router = Router({ ignoreTrailingSlash: true })
+  const router = Router({ ignoreTrailingSlash: true, maxParamLength: 512 })
   const registry = new SseRegistry()
   const audit = deps.audit ?? makeAuditLogger()
   const authDeps = { ops, config: deps.authConfig, now, audit }
@@ -184,6 +187,7 @@ export function createApp(deps: AppDeps): App {
   }
 
   registerAuthRoutes({ router, ...authDeps })
+  registerScopedStorageRoutes({ router, ops, authDeps, owners: deps.scopedOwners })
 
   router.on('GET', '/api/storage/events', (req, res) => {
     res.writeHead(200, {
