@@ -46,6 +46,7 @@ function makeOpsThatFailsNthSet(ops: ValkeyOps, key: string, failOnCall: number)
     get: ops.get,
     del: ops.del,
     getdel: ops.getdel,
+    pttl: ops.pttl,
     scanKeys: ops.scanKeys,
     publish: ops.publish,
     async set(setKey, value, ttlMs) {
