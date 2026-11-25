@@ -137,6 +137,10 @@ export function makeAccountGatedStorage(
       let unsubscribeInner: (() => void) | undefined
       let closed = false
 
+      // On an account switch this unsubscribes and resubscribes in one tick. The SSE frame key
+      // has no account in it, so the sync diff nets to zero and the server subscription keeps the
+      // old account's fullKey (see addScoped in server/sse-client.ts). Safe today: identity loads
+      // the viewer once per document. A future account-switch feature must force-resubscribe.
       const unsubscribeGate = gate.subscribe((accountId) => {
         if (closed || accountId === active) return
         unsubscribeInner?.()

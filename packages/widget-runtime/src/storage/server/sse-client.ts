@@ -27,6 +27,12 @@ const StorageEventSchema = z.object({
   value: z.unknown(),
 })
 
+// 4xx the same request can never recover from; 401 heals through the client's auth hook,
+// 408/429 are transient.
+function isPermanentRejection(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 401 && status !== 408 && status !== 429
+}
+
 export function makeSseManager(deps: SseManagerDeps): SseManager {
   const subscribers = new Map<string, Set<SseDeliver>>()
   const desired = new Set<string>()
@@ -172,6 +178,23 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
       return
     }
 
+    if (
+      !(result instanceof Error) &&
+      !result.ok &&
+      hasScoped &&
+      isPermanentRejection(result.status)
+    ) {
+      // The server answers the POST atomically, so one rejected scoped ref (422/404/403) would
+      // otherwise block plain registration forever. Drop the rejected scoped entries and
+      // re-sync, so the plain part of the diff registers.
+      console.warn('storage SSE scoped registration rejected', result.status)
+      for (const ref of scopedSubscribe) desiredScoped.delete(scopedEventKey(ref))
+      for (const ref of scopedUnsubscribe) registeredScoped.delete(scopedEventKey(ref))
+      syncDirty = false
+      scheduleSync()
+      return
+    }
+
     if (result instanceof Error || !result.ok) {
       console.warn(
         'storage SSE registration failed',
@@ -196,6 +219,10 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
 
   return {
     addScoped(ref, deliver) {
+      // Caveat: the frame key carries no account, so when the account gate switches accounts the
+      // unsubscribe + subscribe inside one sync tick nets to a zero diff and the server keeps the
+      // old account's fullKey. Identity loads the viewer once per document, so this cannot happen
+      // today; a future account-switch feature must force-resubscribe scoped entries.
       const key = scopedEventKey(ref)
       let set = subscribers.get(key)
       if (!set) {

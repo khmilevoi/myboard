@@ -28,11 +28,12 @@ export function makeScopedHttpStorage(
   const { http, baseUrl } = deps
   const branchUrl = `${baseUrl}${scopedBranchPath(branch)}`
   const keyUrl = (key: string) => `${branchUrl}/${encodeURIComponent(key)}`
-  const invalidKey = (key: string) => new StorageError({ reason: `invalid_key: ${key}` })
+  // The reason never embeds the key: it is caller-supplied text that would leak into logs.
+  const invalidKey = () => new StorageError({ reason: 'invalid_key' })
 
   return {
     async get<T>(key: string, schema?: z.ZodType<T>): Promise<StorageError | T | null> {
-      if (!isValidRelativeKey(key)) return invalidKey(key)
+      if (!isValidRelativeKey(key)) return invalidKey()
       const res = await http.get(keyUrl(key))
       if (res instanceof Error) return new StorageError({ reason: 'server GET failed', cause: res })
       if (res.status === 404) return null
@@ -45,14 +46,14 @@ export function makeScopedHttpStorage(
     },
 
     async set<T>(key: string, value: T, options?: StorageOptions): Promise<StorageError | void> {
-      if (!isValidRelativeKey(key)) return invalidKey(key)
+      if (!isValidRelativeKey(key)) return invalidKey()
       const res = await http.put(keyUrl(key), { json: { value, ttlMs: options?.ttlMs } })
       if (res instanceof Error) return new StorageError({ reason: 'server PUT failed', cause: res })
       if (!res.ok) return new StorageError({ reason: `server PUT ${res.status}` })
     },
 
     async delete(key: string): Promise<StorageError | void> {
-      if (!isValidRelativeKey(key)) return invalidKey(key)
+      if (!isValidRelativeKey(key)) return invalidKey()
       const res = await http.delete(keyUrl(key))
       if (res instanceof Error) {
         return new StorageError({ reason: 'server DELETE failed', cause: res })
@@ -61,7 +62,7 @@ export function makeScopedHttpStorage(
     },
 
     async has(key: string): Promise<StorageError | boolean> {
-      if (!isValidRelativeKey(key)) return invalidKey(key)
+      if (!isValidRelativeKey(key)) return invalidKey()
       const res = await http.get(keyUrl(key))
       if (res instanceof Error) return new StorageError({ reason: 'server HAS failed', cause: res })
       if (res.status === 404) return false
@@ -70,6 +71,7 @@ export function makeScopedHttpStorage(
     },
 
     async keys(prefix?: string): Promise<StorageError | string[]> {
+      if (prefix && !isValidRelativeKey(prefix)) return invalidKey()
       const url = prefix ? `${branchUrl}?prefix=${encodeURIComponent(prefix)}` : branchUrl
       const res = await http.get(url)
       if (res instanceof Error)
@@ -87,7 +89,7 @@ export function makeScopedHttpStorage(
       entry: T,
       options?: { cap?: number },
     ): Promise<StorageError | void> {
-      if (!isValidRelativeKey(key)) return invalidKey(key)
+      if (!isValidRelativeKey(key)) return invalidKey()
       const res = await http.post(`${keyUrl(key)}/append`, {
         json: { entry, ...(options?.cap !== undefined ? { cap: options.cap } : {}) },
       })
@@ -98,6 +100,16 @@ export function makeScopedHttpStorage(
     },
 
     subscribe<T>(key: string, listener: StorageListener<T>, schema?: z.ZodType<T>): () => void {
+      if (!isValidRelativeKey(key)) {
+        // Never register an invalid ref: the server rejects the whole events POST atomically.
+        let active = true
+        void Promise.resolve().then(() => {
+          if (active) listener(invalidKey())
+        })
+        return () => {
+          active = false
+        }
+      }
       return subscribeStorageKey({
         getCurrent: () => this.get<T>(key, schema),
         register: (deliver) => deps.registerScoped({ ...branch, key }, deliver),

@@ -190,4 +190,24 @@ describe('makeSseManager scoped subscriptions', () => {
     streams[0].emit(undefined, { key: 'scoped:module/notes/account/k', value: 2 })
     expect(seen).toEqual([2])
   })
+
+  it('a scoped POST rejected with 422 does not block plain registration', async () => {
+    const post: ReturnType<typeof vi.fn<PostFn>> = vi.fn(async (_url, options) => {
+      const json = options?.json as { scoped?: unknown }
+      return json.scoped
+        ? { status: 422, ok: false, body: undefined }
+        : { status: 204, ok: true, body: undefined }
+    })
+    const { manager, streams } = setup({ http: makeStubHttp(post).http })
+    const ref = { owner: 'module', id: 'notes', scope: 'account', key: 'k' } as const
+    manager.addScoped(ref, () => {})
+    manager.add('plain', () => {})
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => {
+      expect(post).toHaveBeenLastCalledWith('/api/storage/events/c1', {
+        json: { subscribe: ['plain'], unsubscribe: [] },
+      })
+    })
+    expect(post).toHaveBeenCalledTimes(2)
+  })
 })

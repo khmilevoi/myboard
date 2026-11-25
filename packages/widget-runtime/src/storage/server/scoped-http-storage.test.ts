@@ -36,7 +36,27 @@ describe('makeScopedHttpStorage', () => {
     const { storage, calls } = storageWith({})
     const result = await storage.get('a b')
     expect(result).toBeInstanceOf(StorageError)
-    expect((result as StorageError).reason).toContain('invalid_key')
+    expect((result as StorageError).reason).toBe('invalid_key')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('keys rejects an invalid prefix without a request', async () => {
+    const { storage, calls } = storageWith({})
+    const result = await storage.keys('a b')
+    expect(result).toBeInstanceOf(StorageError)
+    expect((result as StorageError).reason).toBe('invalid_key')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('subscribe with an invalid key emits invalid_key and registers nothing', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const registerScoped = vi.fn(() => () => {})
+    const storage = makeScopedHttpStorage(BRANCH, { baseUrl: BASE, http, registerScoped })
+    const listener = vi.fn()
+    storage.subscribe('a b', listener)
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(1))
+    expect((listener.mock.calls[0][0] as StorageError).reason).toBe('invalid_key')
+    expect(registerScoped).not.toHaveBeenCalled()
     expect(calls).toHaveLength(0)
   })
 })
