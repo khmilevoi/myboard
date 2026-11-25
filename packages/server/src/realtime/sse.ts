@@ -1,5 +1,9 @@
 import type { ServerResponse } from 'node:http'
 
+// `keys` maps one full storage key to ONE frame key. Plain subscriptions use frame key = full key;
+// scoped ones use a `scoped:` frame key. The two can never target the same full key: scoped
+// namespaces (w:a:, m:) lie outside ALLOWED_STORAGE_NAMESPACES, and the events POST refuses any
+// plain subscribe outside that allowlist (pinned in storage/scoped-events.test.ts).
 export type SseConnection = { id: string; res: ServerResponse; keys: Map<string, string> }
 
 export class SseRegistry {

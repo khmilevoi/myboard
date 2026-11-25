@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { openSse, startTestApp, type TestApp } from '../test/app-fixture'
-import { makeScopedOwners } from './scoped'
+import { isAllowedStorageKey } from './access'
+import { makeScopedOwners, resolveScopedNamespace } from './scoped'
 
 const owners = makeScopedOwners({
   widgetTypeIds: [],
@@ -141,6 +142,23 @@ describe('scoped SSE subscriptions', () => {
       expect(await Promise.race([s.nextFrame(), settle()])).toBe('none')
     } finally {
       s.close()
+    }
+  })
+
+  it('keeps every scoped namespace outside the plain-subscribe allowlist', () => {
+    const o = makeScopedOwners({
+      widgetTypeIds: ['notes-widget'],
+      moduleScopes: { notes: ['shared', 'account'] },
+    })
+    const branches = [
+      { owner: 'widget', id: 'notes-widget', scope: 'account' },
+      { owner: 'module', id: 'notes', scope: 'shared' },
+      { owner: 'module', id: 'notes', scope: 'account' },
+    ] as const
+    for (const branch of branches) {
+      const ns = resolveScopedNamespace({ owners: o, branch, accountId: 'acc1' })
+      expect(ns).not.toBeInstanceOf(Error)
+      expect(isAllowedStorageKey(`${ns as string}k`)).toBe(false)
     }
   })
 })
