@@ -1,6 +1,5 @@
-import { action, atom, withAsync, withConnectHook, wrap } from '@reatom/core'
+import { abortVar, action, atom, withAsync, withConnectHook, wrap } from '@reatom/core'
 import type { Action, Atom } from '@reatom/core'
-import * as errore from 'errore'
 import type { ModuleAccessError, ModuleLoadError, WidgetModules } from 'widget-runtime'
 import type { ModuleRef } from 'widget-runtime/define-module'
 
@@ -22,7 +21,8 @@ export type ReatomModule<Model> = {
 
 /**
  * A widget's handle on one of its declared modules. The load starts when `model` first gains a
- * subscriber, and a loaded model is never dropped or reloaded.
+ * subscriber and runs to completion even if that subscriber leaves meanwhile; a loaded model is
+ * never dropped or reloaded. After a failure, the next connect or `retry` loads again.
  */
 export function reatomModule<Model>({
   modules,
@@ -48,10 +48,14 @@ export function reatomModule<Model>({
   model.extend(
     withConnectHook(() => {
       if (model() !== null || load.pending() > 0) return
-      // A disconnect mid-load aborts the connect frame; the next connect finds
-      // `model` still null and starts over, so the abort itself is not a failure.
-      void load().catch((cause: unknown) => {
-        if (errore.isAbortError(cause)) return
+      // Spawned outside the connect frame's abort: a loaded model is kept for
+      // good, so a disconnect has nothing to cancel. Under StrictMode (or any
+      // unmount + remount in one commit) the hooks run connect -> abort ->
+      // connect in one tick; were the load tied to the first connect, the abort
+      // would cancel it while the second connect still saw it pending, and the
+      // widget would sit on its skeleton forever. Detached, the first load
+      // simply lands and the second connect finds it in flight.
+      void abortVar.spawn(load).catch((cause: unknown) => {
         console.warn(`${name}: module load failed unexpectedly`, cause)
       })
     }),

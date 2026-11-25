@@ -3,6 +3,7 @@ import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ofeliaModule, type OfeliaModel } from 'module-ofelia'
 import { LEDGER_KEY } from 'module-ofelia/domain/keys'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -217,6 +218,24 @@ describe('OfeliaPoopDuty ledger load failure (F2c)', () => {
     expect(screen.queryByLabelText('Загрузка виджета Офелии')).not.toBeInTheDocument()
 
     fireEvent.click(retry)
+
+    await waitFor(() => {
+      expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    })
+  })
+})
+
+// The board renders under StrictMode, which mounts, unmounts and remounts in
+// one commit — the module load must survive that and still reach the tree.
+describe('OfeliaPoopDuty under StrictMode', () => {
+  it('loads the module and renders the widget', async () => {
+    render(
+      <StrictMode>
+        <WidgetRuntimeContext.Provider value={props('standard')}>
+          <OfeliaPoopDuty />
+        </WidgetRuntimeContext.Provider>
+      </StrictMode>,
+    )
 
     await waitFor(() => {
       expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()

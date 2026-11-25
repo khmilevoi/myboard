@@ -60,6 +60,27 @@ describe('reatomModule', () => {
     })
   })
 
+  // StrictMode (and any unmount + remount in one commit) subscribes,
+  // unsubscribes and subscribes again in one tick: the connect hook runs, its
+  // frame is aborted, and it runs again. The load must still land.
+  it('loads the model when subscribe, unsubscribe and subscribe happen in one tick', async () => {
+    const model: FakeModel = { label: 'ready' }
+    const modules = fakeModules(model, model)
+    const mod = reatomModule({ modules, module: fakeModule, name: 'test.module' })
+
+    await context.start(async () => {
+      const readModel = wrap(() => mod.model())
+      const readError = wrap(() => mod.error())
+      const offFirst = mod.model.subscribe(() => {})
+      offFirst()
+      const off = mod.model.subscribe(() => {})
+
+      await vi.waitFor(() => expect(readModel()).toBe(model))
+      expect(readError()).toBeNull()
+      off()
+    })
+  })
+
   it('surfaces a ModuleLoadError in error, and retry loads on the second attempt', async () => {
     const model: FakeModel = { label: 'second time lucky' }
     const failure = new ModuleLoadError({ moduleId: 'fake' })
