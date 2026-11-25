@@ -1,8 +1,9 @@
 import { wrap } from '@reatom/core'
-import type { OfeliaActions } from 'module-ofelia/domain/actions'
+import { ofeliaModule, type OfeliaModel } from 'module-ofelia'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { getServerTime, type WidgetTier, useWidgetContext } from 'widget-runtime'
+import { type WidgetTier, useWidgetContext } from 'widget-runtime'
+import { reatomModule } from 'widget-sdk/modules/reatom-module'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 import { useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
@@ -20,26 +21,68 @@ import { makeOfeliaViewModel } from './view-model'
 
 import styles from './ofelia-poop-duty.module.css'
 
+function renderLoading(tier: WidgetTier) {
+  return (
+    <div className={styles.widget} data-tier={tier}>
+      <div className={styles.loading}>
+        <div
+          data-slot="skeleton"
+          aria-label="Загрузка виджета Офелии"
+          className={`animate-pulse rounded-md bg-accent ${styles.loadingSkeleton}`}
+        />
+      </div>
+    </div>
+  )
+}
+
+function renderLoadError(tier: WidgetTier, onRetry: () => void) {
+  return (
+    <div className={styles.widget} data-tier={tier}>
+      <div className={styles.loading}>
+        <div className={styles.loadError} role="alert">
+          <p>Не удалось загрузить виджет Офелии</p>
+          <button type="button" onClick={onRetry}>
+            Повторить
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export const OfeliaPoopDuty = reatomMemo(() => {
-  const { tier, storage, api, identity, requestClose } = useWidgetContext<OfeliaActions>()
+  const { tier, modules } = useWidgetContext()
+  // One module handle per mount: the load starts when `model` gains this
+  // component as a subscriber, and the model is kept once it arrives.
+  const ofeliaHandle = useMemo(
+    () => reatomModule({ modules, module: ofeliaModule, name: 'ofeliaPoopDuty.module' }),
+    [modules],
+  )
+  const onRetry = useMemo(() => wrap(() => ofeliaHandle.retry()), [ofeliaHandle])
+
+  const ofelia = useAtomValue(ofeliaHandle.model)
+  const loadError = useAtomValue(ofeliaHandle.error)
+  if (ofelia === null) {
+    // A module chunk that failed to load is a real failure with a way out, not
+    // an endless skeleton.
+    if (loadError) return renderLoadError(tier, onRetry)
+    return renderLoading(tier)
+  }
+
+  return <OfeliaPoopDutyReady ofelia={ofelia} />
+}, 'OfeliaPoopDuty')
+
+const OfeliaPoopDutyReady = reatomMemo(({ ofelia }: { ofelia: OfeliaModel }) => {
+  const { tier, identity, requestClose } = useWidgetContext()
   // Called up here with the other hooks, not next to its use site below: this
   // component early-returns a loading/error view before the tier switch, and a
   // hook cannot sit behind that return. The file already keeps a fixed hook set
   // for the same reason (see the `ready`/`loadFailed` comment below).
   const chrome = useWidgetChrome()
-  const dutyModel = useMemo(
-    () => ofeliaDutyModel({ storage, timer: getServerTime(), api, identity }),
-    [storage, api, identity],
-  )
+  const dutyModel = useMemo(() => ofeliaDutyModel({ ofelia }), [ofelia])
   const commentsModel = useMemo(
-    () =>
-      ofeliaCommentsModel({
-        storage,
-        viewWeekStart: dutyModel.viewWeekStart,
-        api,
-        identity,
-      }),
-    [storage, dutyModel, api, identity],
+    () => ofeliaCommentsModel({ ofelia, viewWeekStart: dutyModel.viewWeekStart }),
+    [ofelia, dutyModel],
   )
 
   // One stable, model-scoped context value. `view` is the atomic view-model — a
@@ -122,31 +165,13 @@ export const OfeliaPoopDuty = reatomMemo(() => {
   const loadFailed = useAtomValue(value.view.loadFailed)
   if (!ready) {
     if (loadFailed) {
-      return (
-        <div className={styles.widget} data-tier={tier}>
-          <div className={styles.loading}>
-            <div className={styles.loadError} role="alert">
-              <p>Не удалось загрузить виджет Офелии</p>
-              <button type="button" onClick={wrap(() => dutyModel.retryLedger())}>
-                Повторить
-              </button>
-            </div>
-          </div>
-        </div>
+      return renderLoadError(
+        tier,
+        wrap(() => dutyModel.retryLedger()),
       )
     }
 
-    return (
-      <div className={styles.widget} data-tier={tier}>
-        <div className={styles.loading}>
-          <div
-            data-slot="skeleton"
-            aria-label="Загрузка виджета Офелии"
-            className={`animate-pulse rounded-md bg-accent ${styles.loadingSkeleton}`}
-          />
-        </div>
-      </div>
-    )
+    return renderLoading(tier)
   }
 
   // Card management controls (expand/delete) only make sense on the board card
@@ -178,4 +203,4 @@ export const OfeliaPoopDuty = reatomMemo(() => {
       <ofeliaContext.Provider value={value}>{content}</ofeliaContext.Provider>
     </div>
   )
-}, 'OfeliaPoopDuty')
+}, 'OfeliaPoopDutyReady')

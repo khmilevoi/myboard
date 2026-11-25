@@ -1,4 +1,4 @@
-import { makeStaticWidgetIdentity } from 'widget-runtime'
+import { makeStaticWidgetIdentity, type StorageApi, type WidgetIdentity } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
@@ -13,6 +13,10 @@ export type MakeTestOfeliaModelOptions = {
   todayIso?: string
   /** Answers every API call. Omitted, every call resolves to `{ ok: true }`. */
   invoke?: (action: string, payload: unknown) => Promise<unknown>
+  /** Backs the shared scope (client and server). Omitted, an in-memory fake. */
+  storage?: StorageApi
+  /** Omitted, a static identity with no members and no viewer. */
+  identity?: WidgetIdentity
 }
 
 export type TestOfeliaModel = {
@@ -23,7 +27,7 @@ export type TestOfeliaModel = {
 
 /** An `OfeliaModel` over in-memory storage, a fake clock and a recording API. */
 export function makeTestOfeliaModel(options: MakeTestOfeliaModelOptions = {}): TestOfeliaModel {
-  const storage = createFakeStorage()
+  const storage = options.storage ?? createFakeStorage()
   // The fake's `set` writes synchronously before its first await, so the key is
   // seeded by the time the model's connect hook subscribes.
   if (options.entries) void storage.set(LEDGER_KEY, options.entries)
@@ -44,7 +48,7 @@ export function makeTestOfeliaModel(options: MakeTestOfeliaModelOptions = {}): T
     timer: createFakeTimer({
       today: options.todayIso ? Temporal.PlainDate.from(options.todayIso) : null,
     }),
-    identity: makeStaticWidgetIdentity(),
+    identity: options.identity ?? makeStaticWidgetIdentity(),
   })
 
   return { model, calls }
