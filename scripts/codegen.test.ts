@@ -14,7 +14,7 @@ import {
   InvalidWidgetClientDefinitionError,
   type WidgetMeta,
 } from './codegen/client'
-import { emitServerList, generateServer } from './codegen/server'
+import { emitScopedOwners, emitServerList, generateServer } from './codegen/server'
 import {
   assignPorts,
   identifierFromDirectory,
@@ -72,6 +72,14 @@ describe('codegen emitters', () => {
     expect(out).toContain('typeId: "clock"')
     expect(out).toContain('definition: clock')
     expect(out).toContain('definition: ofeliaPoopDuty')
+  })
+
+  it('emits scoped owners for every widget dir and empty module scopes', () => {
+    const out = emitScopedOwners({ widgetDirs: ['clock', 'no-server'], moduleScopes: {} })
+    expect(out).toContain('export const scopedOwnerList')
+    expect(out).toContain('"clock"')
+    expect(out).toContain('"no-server"')
+    expect(out).toContain('moduleScopes: {}')
   })
 
   it('disambiguates directory names with the same camel-case binding', () => {
@@ -141,7 +149,11 @@ describe('codegen generation', () => {
     writeFileSync(join(widgetDir, 'package.json'), '{"name":"widgets-probe"}')
     writeFileSync(join(widgetDir, 'server.ts'), 'export default {}')
     writeFileSync(join(widgetDir, 'client.ts'), "throw new Error('must not import client')")
-    const result = generateServer({ widgetsDir, serverListFile })
+    const result = generateServer({
+      widgetsDir,
+      serverListFile,
+      scopedOwnersFile: join(root, 'scoped-owners.generated.ts'),
+    })
     expect(result).not.toBeInstanceOf(Error)
     expect(readFileSync(serverListFile, 'utf8')).toContain('@widgets/probe/server')
   })
@@ -363,6 +375,7 @@ function createTempCodegenPaths(name: string): CodegenPaths {
   writeFileSync(join(widgetDir, 'package.json'), '{"name":"widgets-probe"}')
   return {
     widgetsDir,
+    scopedOwnersFile: join(root, 'scoped-owners.generated.ts'),
     portsFile: join(widgetsDir, '.ports.json'),
     clientCatalogFile: join(root, 'widget-catalog.generated.ts'),
     clientIconsFile: join(root, 'widget-icons.generated.ts'),
