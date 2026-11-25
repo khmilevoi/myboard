@@ -46,7 +46,7 @@ export function findWidgetServer(
  * objects. croner throws on a malformed pattern or an unknown zone, and this is
  * the one place that throw is converted into a value.
  */
-function tryParseCron(schedule: string, timeZone: string): Error | Cron {
+export function tryParseCron(schedule: string, timeZone: string): Error | Cron {
   try {
     const cron = new Cron(schedule, { timezone: timeZone })
     if (cron.nextRun() === null) return new Error(`schedule "${schedule}" never runs`)

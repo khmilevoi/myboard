@@ -1,7 +1,7 @@
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import * as errore from 'errore'
 
-class WidgetDispatchError extends Error {
+export class WidgetDispatchError extends Error {
   status = 500
   code = 'internal_error'
   publicMessage = 'Widget event failed'
