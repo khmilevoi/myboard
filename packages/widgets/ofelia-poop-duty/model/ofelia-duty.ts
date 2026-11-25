@@ -1,14 +1,14 @@
 import { action, atom, computed, withAsyncData, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
+import type { OfeliaActions } from 'module-ofelia/domain/actions'
+import { foldDebt, getDebtDays } from 'module-ofelia/domain/debt'
+import type { DebtDay } from 'module-ofelia/domain/debt'
+import { LEDGER_KEY } from 'module-ofelia/domain/keys'
+import { LedgerEntriesSchema, resolveDays } from 'module-ofelia/domain/ledger'
+import type { DayResolution, LedgerEntry } from 'module-ofelia/domain/ledger'
+import { DUTY_TIME_ZONE, getOfeliaDutyByDate, getStartOfWeek } from 'module-ofelia/domain/roster'
 import { WidgetApiError, withStorageKeyReadonly } from 'widget-runtime'
 import type { ServerTime, WidgetIdentity, WidgetStorage } from 'widget-runtime'
-
-import { foldDebt, getDebtDays } from '@/domain/debt'
-import type { DebtDay } from '@/domain/debt'
-import type { OfeliaEvents } from '@/domain/events'
-import { LEDGER_KEY, LedgerEntriesSchema, resolveDays } from '@/domain/ledger'
-import type { DayResolution, LedgerEntry } from '@/domain/ledger'
-import { DUTY_TIME_ZONE, getOfeliaDutyByDate, getStartOfWeek } from '@/domain/roster'
 
 import { toHistoryGroups } from './history-view'
 import type { HistoryDayGroup } from './history-view'
@@ -18,7 +18,7 @@ export type { HistoryDayGroup, HistoryEntryView, ToHistoryGroupsOptions } from '
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage
   timer: ServerTime
-  api: WidgetApi<OfeliaEvents>
+  api: WidgetApi<OfeliaActions>
   /** Read by the history view to resolve authors and mark the viewer's own records. */
   identity: WidgetIdentity
 }

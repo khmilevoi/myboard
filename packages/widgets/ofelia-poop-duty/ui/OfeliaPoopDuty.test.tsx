@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { LEDGER_KEY } from 'module-ofelia/domain/keys'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   makeHostRuntime,
@@ -15,8 +16,6 @@ import {
 } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
-
-import { LEDGER_KEY } from '@/domain/ledger'
 
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 

@@ -1,27 +1,32 @@
-import { toRuntimeWidgetServerDefinition } from '@shared/widgets/contracts'
-import ofeliaServer from '@widgets/ofelia-poop-duty/server'
+import ofeliaServer from '@modules/ofelia/server'
+import { toRuntimeModuleServerDefinition } from '@shared/modules/contracts'
 import { describe, expect, it } from 'vitest'
 
 import { makeFakeBrowserAutomationClient } from '../browser/testing/fake-client'
 import type { ValkeyOps } from '../storage/valkey'
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
-import { makeCronScheduler } from './cron-scheduler'
-import { createWidgetServerRegistry } from './registry'
+import { makeCronScheduler } from '../widgets/cron-scheduler'
+import { createWidgetServerRegistry } from '../widgets/registry'
+import { makeModuleServerRegistry } from './registry'
 
-const LEDGER_KEY = 'w:t:ofelia-poop-duty:ledger'
+const LEDGER_KEY = 'm:ofelia:s:duty/ledger'
+const CURSOR_KEY = 'cron:module:ofelia:autoApproveDay'
 const NOON_0616 = Date.parse('2026-06-16T12:00:00+02:00')
 const AFTER_MIDNIGHT_0617 = Date.parse('2026-06-17T00:06:00+02:00')
 
 function makeSetup(wrapOps: (ops: ReturnType<typeof createMemoryOps>) => ValkeyOps = (ops) => ops) {
   const ops = createMemoryOps(createMemoryPubSub())
-  const registry = createWidgetServerRegistry([
-    toRuntimeWidgetServerDefinition({ typeId: 'ofelia-poop-duty', definition: ofeliaServer }),
+  const registry = makeModuleServerRegistry([
+    toRuntimeModuleServerDefinition({ moduleId: 'ofelia', definition: ofeliaServer }),
   ])
   if (registry instanceof Error) throw registry
 
   let nowMs = NOON_0616
+  const emptyWidgets = createWidgetServerRegistry([])
+  if (emptyWidgets instanceof Error) throw emptyWidgets
   const scheduler = makeCronScheduler({
-    registry,
+    registry: emptyWidgets,
+    moduleRegistry: registry,
     ops: wrapOps(ops),
     browserClient: makeFakeBrowserAutomationClient().client,
     now: () => nowMs,
@@ -85,6 +90,10 @@ describe('ofelia auto-approve cron end to end', () => {
     const { ops, scheduler } = makeSetup()
     await seedLedger(ops)
     await scheduler.tick()
+
+    // The seeding tick records the module cursor under the module-namespaced key.
+    expect(await ops.get(CURSOR_KEY)).not.toBeNull()
+    expect(await ops.get('cron:ofelia-poop-duty:autoApproveDay')).toBeNull()
 
     // Drop the seed record: it predates the auto-approve window and is only
     // there to mark the widget as already used.

@@ -1,4 +1,5 @@
-import { DUTY_TIME_ZONE, plainDateIn, type Person } from '@/domain/roster'
+import { DUTY_TIME_ZONE, plainDateIn, type Person } from 'module-ofelia/domain/roster'
+
 import type { HistoryEntryView } from '@/model/history-view'
 
 import { MONTHS_GENITIVE } from './format'

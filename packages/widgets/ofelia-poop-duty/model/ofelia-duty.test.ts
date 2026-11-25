@@ -1,4 +1,5 @@
 import { context, wrap } from '@reatom/core'
+import type { LedgerEntry } from 'module-ofelia/domain/ledger'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -8,8 +9,6 @@ import {
   type WidgetStorage,
 } from 'widget-runtime'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
-
-import type { LedgerEntry } from '@/domain/ledger'
 
 import { ofeliaDutyModel } from './ofelia-duty'
 
@@ -323,7 +322,7 @@ describe('ofeliaDutyModel.retryLedger (F2c)', () => {
 
     await wrap(() => model.retryLedger())()
 
-    expect(get).toHaveBeenCalledWith('ledger', expect.anything())
+    expect(get).toHaveBeenCalledWith('duty/ledger', expect.anything())
     expect(model.ledgerError()).toBeNull()
     expect(model.ledgerLoading()).toBe(false)
   })

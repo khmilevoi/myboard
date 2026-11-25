@@ -1,7 +1,6 @@
+import type { LedgerEntry } from 'module-ofelia/domain/ledger'
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-
-import type { LedgerEntry } from '@/domain/ledger'
 
 import { toHistoryGroups } from './history-view'
 

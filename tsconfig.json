@@ -7,7 +7,8 @@
     "types": ["node"],
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": { "@shared/*": ["./packages/shared/*"] }
   },
   "include": ["scripts/**/*.ts"]
 }

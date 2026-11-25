@@ -1,9 +1,9 @@
 import { atom } from '@reatom/core'
+import type { DayResolution } from 'module-ofelia/domain/ledger'
+import type { Person } from 'module-ofelia/domain/roster'
 import { describe, expect, it } from 'vitest'
 import type { StorageError } from 'widget-runtime'
 
-import type { DayResolution } from '../domain/ledger'
-import type { Person } from '../domain/roster'
 import { makeOfeliaViewModel, resolveSelected, toBalance, toWeekDays } from './view-model'
 import type { DutyDay } from './view-model'
 

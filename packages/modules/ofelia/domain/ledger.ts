@@ -3,8 +3,6 @@ import { z } from 'zod'
 import { CalendarDateSchema, PersonSchema } from './roster'
 import type { Person } from './roster'
 
-export const LEDGER_KEY = 'ledger'
-
 export const LedgerTypeSchema = z.enum(['cleaned', 'went_into_debt', 'reset', 'forgiven'])
 export type LedgerType = z.infer<typeof LedgerTypeSchema>
 

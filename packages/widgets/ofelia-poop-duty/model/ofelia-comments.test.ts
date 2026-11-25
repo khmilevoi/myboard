@@ -1,4 +1,7 @@
 import { atom, context, wrap } from '@reatom/core'
+import type { Comment } from 'module-ofelia/domain/comments'
+import { commentsKey } from 'module-ofelia/domain/keys'
+import { weekStartISO } from 'module-ofelia/domain/roster'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -7,10 +10,6 @@ import {
   type StorageListener,
   type WidgetStorage,
 } from 'widget-runtime'
-
-import { commentsKey } from '@/domain/comments'
-import type { Comment } from '@/domain/comments'
-import { weekStartISO } from '@/domain/roster'
 
 import { ofeliaCommentsModel } from './ofelia-comments'
 
@@ -88,9 +87,9 @@ afterEach(() => {
 
 describe('commentsKey', () => {
   it('keys by the Monday of the week', () => {
-    expect(commentsKey(weekStartISO(D('2026-06-16')))).toBe('comments:2026-06-15')
-    expect(commentsKey(weekStartISO(D('2026-06-21')))).toBe('comments:2026-06-15')
-    expect(commentsKey(weekStartISO(D('2026-06-22')))).toBe('comments:2026-06-22')
+    expect(commentsKey(weekStartISO(D('2026-06-16')))).toBe('duty/comments:2026-06-15')
+    expect(commentsKey(weekStartISO(D('2026-06-21')))).toBe('duty/comments:2026-06-15')
+    expect(commentsKey(weekStartISO(D('2026-06-22')))).toBe('duty/comments:2026-06-22')
   })
 })
 
@@ -114,13 +113,13 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
 
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'hi' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'hi' })])
 
       await vi.waitFor(() => expect(readComments()).toHaveLength(1))
       expect(readComments()[0]?.text).toBe('hi')
@@ -140,7 +139,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
@@ -150,7 +149,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-22',
+          'duty/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -178,7 +177,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
@@ -217,12 +216,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
       // replay to late subscribers).
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [
+      emit('duty/comments:2026-06-15', [
         { id: 'c1', ts: 2, text: 'мой', createdBy: { accountId: 'a1', name: 'старое' } },
         { id: 'c2', ts: 1, text: 'старый', author: 'Леша' },
       ])
@@ -264,18 +263,18 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       setWeek(D('2026-06-22'))
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-22',
+          'duty/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -310,12 +309,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       // A later event on the SAME subscription fails (no week switch).
@@ -351,12 +350,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       expect(readBlocked()).toBe(false)
@@ -392,18 +391,18 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       setWeek(D('2026-06-22'))
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-22',
+          'duty/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),

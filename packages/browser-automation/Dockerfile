@@ -6,6 +6,9 @@
 FROM node:26-alpine AS widget-manifests
 COPY packages/widgets /widgets
 RUN find /widgets -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
+# Module packages get the same treatment: manifests only, sources arrive after the install.
+COPY packages/modules /modules
+RUN find /modules -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
 
 # --- build stage: codegen:browser (generated registry is git/docker-ignored and
 # MUST be generated here) + rspack bundle to dist/index.cjs ---
@@ -16,7 +19,7 @@ WORKDIR /app
 # corepack release would only surface as a failed manual deploy.
 RUN npm install -g corepack@0.35.0 && corepack enable
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.json ./
 COPY patches ./patches
 COPY packages/browser-automation/package.json ./packages/browser-automation/
 COPY packages/client/package.json ./packages/client/
@@ -25,11 +28,13 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
 COPY --from=widget-manifests /widgets ./packages/widgets
+COPY --from=widget-manifests /modules ./packages/modules
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile --store-dir /pnpm-store
 
 COPY packages/shared ./packages/shared
 COPY packages/widgets ./packages/widgets
+COPY packages/modules ./packages/modules
 COPY scripts ./scripts
 COPY packages/browser-automation ./packages/browser-automation
 
@@ -72,6 +77,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
 COPY --from=widget-manifests /widgets ./packages/widgets
+COPY --from=widget-manifests /modules ./packages/modules
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     pnpm install --frozen-lockfile --filter browser-automation --prod --store-dir /pnpm-store
 

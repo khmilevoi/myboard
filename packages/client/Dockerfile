@@ -8,6 +8,9 @@
 FROM node:26-alpine AS widget-manifests
 COPY packages/widgets /widgets
 RUN find /widgets -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
+# Module packages get the same treatment: manifests only, sources arrive after the install.
+COPY packages/modules /modules
+RUN find /modules -mindepth 2 -maxdepth 2 ! -name package.json -exec rm -rf {} +
 
 # --- build stage: build every widget remote, then assemble the host PWA ---
 FROM node:26-alpine AS build
@@ -17,7 +20,7 @@ WORKDIR /app
 # corepack release would only surface as a failed manual deploy.
 RUN npm install -g corepack@0.35.0 && corepack enable
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.json ./
 COPY patches ./patches
 COPY packages/client/package.json ./packages/client/
 COPY packages/server/package.json ./packages/server/
@@ -25,6 +28,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
 COPY --from=widget-manifests /widgets ./packages/widgets
+COPY --from=widget-manifests /modules ./packages/modules
 # The store lives in a BuildKit cache mount, so even when this layer is
 # invalidated the packages come from the persistent builder cache instead of
 # the network (pnpm copies out of the mount since hardlinks can't cross it).
@@ -35,6 +39,7 @@ COPY packages/shared ./packages/shared
 COPY packages/widget-runtime ./packages/widget-runtime
 COPY packages/widget-sdk ./packages/widget-sdk
 COPY packages/widgets ./packages/widgets
+COPY packages/modules ./packages/modules
 COPY scripts ./scripts
 COPY packages/client ./packages/client
 

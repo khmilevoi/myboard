@@ -1,4 +1,5 @@
 import { wrap } from '@reatom/core'
+import type { OfeliaActions } from 'module-ofelia/domain/actions'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { getServerTime, type WidgetTier, useWidgetContext } from 'widget-runtime'
@@ -6,7 +7,6 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 import { useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
-import type { OfeliaEvents } from '../domain/events'
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
 import { ofeliaContext } from './ofelia-context'
@@ -21,7 +21,7 @@ import { makeOfeliaViewModel } from './view-model'
 import styles from './ofelia-poop-duty.module.css'
 
 export const OfeliaPoopDuty = reatomMemo(() => {
-  const { tier, storage, api, identity, requestClose } = useWidgetContext<OfeliaEvents>()
+  const { tier, storage, api, identity, requestClose } = useWidgetContext<OfeliaActions>()
   // Called up here with the other hooks, not next to its use site below: this
   // component early-returns a loading/error view before the tier switch, and a
   // hook cannot sit behind that return. The file already keeps a fixed hook set

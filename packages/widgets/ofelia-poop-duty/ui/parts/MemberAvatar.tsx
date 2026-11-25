@@ -1,7 +1,6 @@
 import { Clock } from 'lucide-react'
+import type { EntryAuthor } from 'module-ofelia/domain/author'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import type { EntryAuthor } from '@/domain/author'
 
 import { memberInitial, memberTone } from '../member'
 import { personInitial, personTone } from '../person'

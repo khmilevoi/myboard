@@ -1,13 +1,13 @@
 import { action, atom, computed, withAsyncData, withChangeHook, wrap } from '@reatom/core'
 import type { AtomLike } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
+import type { OfeliaActions } from 'module-ofelia/domain/actions'
+import { resolveEntryAuthor, type EntryAuthor } from 'module-ofelia/domain/author'
+import { CommentsSchema } from 'module-ofelia/domain/comments'
+import type { Comment } from 'module-ofelia/domain/comments'
+import { commentsKey } from 'module-ofelia/domain/keys'
+import { weekStartISO } from 'module-ofelia/domain/roster'
 import { withStorageKeyReadonly, type WidgetIdentity, type WidgetStorage } from 'widget-runtime'
-
-import { resolveEntryAuthor, type EntryAuthor } from '@/domain/author'
-import { commentsKey, CommentsSchema } from '@/domain/comments'
-import type { Comment } from '@/domain/comments'
-import type { OfeliaEvents } from '@/domain/events'
-import { weekStartISO } from '@/domain/roster'
 
 export type CommentView = {
   id: string
@@ -20,7 +20,7 @@ export type CommentView = {
 export interface OfeliaCommentsModelProps {
   storage: WidgetStorage
   viewWeekStart: AtomLike<Temporal.PlainDate | null>
-  api: WidgetApi<OfeliaEvents>
+  api: WidgetApi<OfeliaActions>
   /** Read by the comment view; the comment itself is stamped server-side. */
   identity: WidgetIdentity
 }
