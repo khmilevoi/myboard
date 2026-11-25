@@ -1,9 +1,13 @@
 import type { HttpLike } from '@shared/http/client'
 import type { EventStream, OpenEventStream } from '@shared/http/event-stream'
+import { scopedEventKey, type ScopedStorageRef } from '@shared/storage/scoped'
 import { z } from 'zod'
 
 export type SseDeliver = (rawValue: unknown) => void
-export type SseManager = { add(fullKey: string, deliver: SseDeliver): () => void }
+export type SseManager = {
+  add(fullKey: string, deliver: SseDeliver): () => void
+  addScoped(ref: ScopedStorageRef, deliver: SseDeliver): () => void
+}
 
 export type SseManagerDeps = {
   baseUrl: string
@@ -27,6 +31,8 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
   const subscribers = new Map<string, Set<SseDeliver>>()
   const desired = new Set<string>()
   let registered = new Set<string>()
+  const desiredScoped = new Map<string, ScopedStorageRef>()
+  let registeredScoped = new Map<string, ScopedStorageRef>()
   let connId: string | undefined
   let syncScheduled = false
   let syncInFlight = false
@@ -63,7 +69,8 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
       retryTimer = undefined
     }
     connId = parsed.data.connId
-    registered = new Set() // new connection: server knows nothing yet
+    registered = new Set()
+    registeredScoped = new Map() // new connection: server knows nothing yet
     scheduleSync()
   }
 
@@ -135,13 +142,27 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
     if (!connId) return
     const subscribe = [...desired].filter((key) => !registered.has(key))
     const unsubscribe = [...registered].filter((key) => !desired.has(key))
-    if (subscribe.length === 0 && unsubscribe.length === 0) return
+    const scopedSubscribe = [...desiredScoped]
+      .filter(([key]) => !registeredScoped.has(key))
+      .map(([, ref]) => ref)
+    const scopedUnsubscribe = [...registeredScoped]
+      .filter(([key]) => !desiredScoped.has(key))
+      .map(([, ref]) => ref)
+    const hasScoped = scopedSubscribe.length > 0 || scopedUnsubscribe.length > 0
+    if (subscribe.length === 0 && unsubscribe.length === 0 && !hasScoped) return
 
     const requestConnId = connId
     const nextRegistered = new Set(desired)
+    const nextRegisteredScoped = new Map(desiredScoped)
     syncInFlight = true
     const result = await deps.http.post(`${deps.baseUrl}/events/${requestConnId}`, {
-      json: { subscribe, unsubscribe },
+      json: {
+        subscribe,
+        unsubscribe,
+        ...(hasScoped
+          ? { scoped: { subscribe: scopedSubscribe, unsubscribe: scopedUnsubscribe } }
+          : {}),
+      },
     })
     syncInFlight = false
 
@@ -162,15 +183,37 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
     }
 
     registered = nextRegistered
+    registeredScoped = nextRegisteredScoped
     const needsResync =
       syncDirty ||
       [...desired].some((key) => !registered.has(key)) ||
-      [...registered].some((key) => !desired.has(key))
+      [...registered].some((key) => !desired.has(key)) ||
+      [...desiredScoped.keys()].some((key) => !registeredScoped.has(key)) ||
+      [...registeredScoped.keys()].some((key) => !desiredScoped.has(key))
     syncDirty = false
     if (needsResync) scheduleSync()
   }
 
   return {
+    addScoped(ref, deliver) {
+      const key = scopedEventKey(ref)
+      let set = subscribers.get(key)
+      if (!set) {
+        set = new Set()
+        subscribers.set(key, set)
+      }
+      set.add(deliver)
+      desiredScoped.set(key, ref)
+      scheduleSync()
+      return () => {
+        set.delete(deliver)
+        if (set.size === 0) {
+          subscribers.delete(key)
+          desiredScoped.delete(key)
+          scheduleSync()
+        }
+      }
+    },
     add(fullKey, deliver) {
       let set = subscribers.get(fullKey)
       if (!set) {

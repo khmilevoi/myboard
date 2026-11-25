@@ -174,3 +174,20 @@ describe('makeSseManager', () => {
     expect(seen).toEqual([])
   })
 })
+
+describe('makeSseManager scoped subscriptions', () => {
+  it('posts scoped.subscribe after ready and delivers scoped frames', async () => {
+    const { manager, streams, post } = setup()
+    const ref = { owner: 'module', id: 'notes', scope: 'account', key: 'k' } as const
+    const seen: unknown[] = []
+    manager.addScoped(ref, (raw) => seen.push(raw))
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => {
+      expect(post).toHaveBeenCalledWith('/api/storage/events/c1', {
+        json: { subscribe: [], unsubscribe: [], scoped: { subscribe: [ref], unsubscribe: [] } },
+      })
+    })
+    streams[0].emit(undefined, { key: 'scoped:module/notes/account/k', value: 2 })
+    expect(seen).toEqual([2])
+  })
+})
