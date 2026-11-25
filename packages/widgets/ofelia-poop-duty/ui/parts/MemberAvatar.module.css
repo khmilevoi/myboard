@@ -77,3 +77,9 @@
   background: var(--ofelia-member-6-bg);
   color: var(--ofelia-member-6-fg);
 }
+
+.image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}

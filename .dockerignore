@@ -7,7 +7,6 @@ playwright-report
 .git
 *.log
 .env
-.env.branch
 .env.local
 .env.*.local
 **/*.generated.ts
