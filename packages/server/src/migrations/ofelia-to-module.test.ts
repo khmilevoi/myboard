@@ -50,8 +50,14 @@ describe('ofeliaToModuleMigration', () => {
     const ops = makeOps()
     await ops.set('w:t:ofelia-poop-duty:ledger', '[]')
     await ops.set('w:t:ofelia-poop-duty:comments:x', '[]', 5000)
+    await ops.set('cron:ofelia-poop-duty:autoApproveDay', '"d"', 9000)
 
+    const spy = vi.spyOn(ops, 'set')
     await ofeliaToModuleMigration.run(ops)
+
+    expect(spy).toHaveBeenCalledWith('m:ofelia:s:duty/ledger', '[]', undefined)
+    expect(spy).toHaveBeenCalledWith('m:ofelia:s:duty/comments:x', '[]', 5000)
+    expect(await ops.pttl('cron:module:ofelia:autoApproveDay')).toBe(9000)
 
     expect(await ops.pttl('w:t:ofelia-poop-duty:ledger')).toBe(-1)
     expect(await ops.pttl('m:ofelia:s:duty/ledger')).toBe(-1)
