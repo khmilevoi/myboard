@@ -1,0 +1,36 @@
+{
+  "name": "widgets-cat-care",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite-build-exit",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "catalog:",
+    "@reatom/core": "catalog:",
+    "@reatom/react": "catalog:",
+    "errore": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "widget-runtime": "workspace:*",
+    "widget-sdk": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "catalog:",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

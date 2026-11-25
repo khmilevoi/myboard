@@ -1,9 +1,9 @@
 import { Clock } from 'lucide-react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { UserAvatar } from 'widget-sdk/ui/UserAvatar'
 
 import type { EntryAuthor } from '@/domain/author'
 
-import { memberInitial, memberTone } from '../member'
 import { personInitial, personTone } from '../person'
 import { AVATAR_INITIAL_RATIO } from './Avatar'
 
@@ -74,21 +74,17 @@ export const MemberAvatar = reatomMemo<MemberAvatarProps>(
     // got announced a second time right before the written name, e.g.
     // "Карина отметил(а) Карина" (F17).
     return (
-      <span
+      <UserAvatar
         className={styles.avatar}
         data-kind="account"
-        data-tone={memberTone(author.accountId)}
         data-viewer={isViewer}
-        style={style}
-        title={author.name}
-        aria-hidden
-      >
-        {author.avatarUrl ? (
-          <img className={styles.image} src={author.avatarUrl} alt="" />
-        ) : (
-          memberInitial(author.name)
-        )}
-      </span>
+        name={author.name}
+        identityKey={author.accountId}
+        avatarUrl={author.avatarUrl}
+        px={px}
+        shape="rounded"
+        decorative
+      />
     )
   },
   'MemberAvatar',
