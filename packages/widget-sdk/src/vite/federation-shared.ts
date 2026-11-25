@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-import { modulePackages } from './module-packages.generated'
+import { modulePackages } from './module-packages.generated.ts'
 
 type PackageJson = {
   dependencies?: Record<string, string>
