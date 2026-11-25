@@ -15,6 +15,55 @@ export type TestApp = {
   close(): Promise<void>
 }
 
+export type OpenSse = {
+  connId: string
+  nextFrame(): Promise<{ key: string; value: unknown }>
+  close(): void
+}
+
+/** Opens `/api/storage/events` and yields its unnamed `data:` frames one at a time. */
+export async function openSse(base: string, cookie?: string): Promise<OpenSse> {
+  const controller = new AbortController()
+  const res = await fetch(`${base}/api/storage/events`, {
+    headers: cookie ? { cookie } : {},
+    signal: controller.signal,
+  })
+  const reader = res.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  const nextBlock = async (): Promise<string> => {
+    for (;;) {
+      const at = buffer.indexOf('\n\n')
+      if (at >= 0) {
+        const block = buffer.slice(0, at)
+        buffer = buffer.slice(at + 2)
+        return block
+      }
+      const chunk = await reader.read()
+      if (chunk.done) throw new Error('SSE stream ended')
+      buffer += decoder.decode(chunk.value, { stream: true })
+    }
+  }
+  const parse = (block: string) => ({
+    event: /^event: (.*)$/m.exec(block)?.[1] ?? null,
+    data: /^data: (.*)$/m.exec(block)?.[1],
+  })
+  const ready = parse(await nextBlock())
+  const connId = (JSON.parse(ready.data ?? '{}') as { connId: string }).connId
+  return {
+    connId,
+    async nextFrame() {
+      for (;;) {
+        const frame = parse(await nextBlock())
+        if (frame.event === null && frame.data !== undefined) {
+          return JSON.parse(frame.data) as { key: string; value: unknown }
+        }
+      }
+    },
+    close: () => controller.abort(),
+  }
+}
+
 /** A listening app over in-memory ops; `cookie` is a ready `Cookie` header value. */
 export async function startTestApp(
   options: { scopedOwners?: ScopedOwners; widgetRegistry?: WidgetServerRegistry } = {},

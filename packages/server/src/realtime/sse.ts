@@ -1,13 +1,13 @@
 import type { ServerResponse } from 'node:http'
 
-export type SseConnection = { id: string; res: ServerResponse; keys: Set<string> }
+export type SseConnection = { id: string; res: ServerResponse; keys: Map<string, string> }
 
 export class SseRegistry {
   private connections = new Map<string, SseConnection>()
   private keyIndex = new Map<string, Set<string>>()
 
   add(id: string, res: ServerResponse): SseConnection {
-    const conn: SseConnection = { id, res, keys: new Set() }
+    const conn: SseConnection = { id, res, keys: new Map() }
     this.connections.set(id, conn)
     return conn
   }
@@ -15,21 +15,42 @@ export class SseRegistry {
   remove(id: string): void {
     const conn = this.connections.get(id)
     if (!conn) return
-    for (const key of conn.keys) this.dropFromKey(id, key)
+    for (const key of conn.keys.keys()) this.dropFromKey(id, key)
     this.connections.delete(id)
   }
 
   subscribe(id: string, keys: string[]): void {
     const conn = this.connections.get(id)
     if (!conn) return
-    for (const key of keys) {
-      conn.keys.add(key)
-      let set = this.keyIndex.get(key)
+    this.subscribeScoped(
+      id,
+      keys.map((key) => ({ fullKey: key, frameKey: key })),
+    )
+  }
+
+  /** Subscribes to full storage keys but delivers them under the caller's frame key. */
+  subscribeScoped(id: string, entries: { fullKey: string; frameKey: string }[]): void {
+    const conn = this.connections.get(id)
+    if (!conn) return
+    for (const { fullKey, frameKey } of entries) {
+      conn.keys.set(fullKey, frameKey)
+      let set = this.keyIndex.get(fullKey)
       if (!set) {
         set = new Set()
-        this.keyIndex.set(key, set)
+        this.keyIndex.set(fullKey, set)
       }
       set.add(id)
+    }
+  }
+
+  unsubscribeFrames(id: string, frameKeys: string[]): void {
+    const conn = this.connections.get(id)
+    if (!conn) return
+    const frames = new Set(frameKeys)
+    for (const [fullKey, frameKey] of [...conn.keys]) {
+      if (!frames.has(frameKey)) continue
+      conn.keys.delete(fullKey)
+      this.dropFromKey(id, fullKey)
     }
   }
 
@@ -66,6 +87,8 @@ export function writeSseEvent(res: ServerResponse, event: string | undefined, da
 export function fanout(registry: SseRegistry, message: { key: string; value: unknown }): void {
   for (const id of registry.subscribersOf(message.key)) {
     const conn = registry.connection(id)
-    if (conn) writeSseEvent(conn.res, undefined, message)
+    if (!conn) continue
+    const key = conn.keys.get(message.key) ?? message.key
+    writeSseEvent(conn.res, undefined, { ...message, key })
   }
 }

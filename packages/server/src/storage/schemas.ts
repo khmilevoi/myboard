@@ -30,9 +30,22 @@ export function formatZodError(err: ZodError): {
   }
 }
 
+export const ScopedStorageRefSchema = z.object({
+  owner: z.enum(['widget', 'module']),
+  id: z.string().min(1),
+  scope: z.enum(['shared', 'account']),
+  key: z.string(),
+})
+
 export const EventsBodySchema = z.object({
   subscribe: z.array(z.string()).optional(),
   unsubscribe: z.array(z.string()).optional(),
+  scoped: z
+    .object({
+      subscribe: z.array(ScopedStorageRefSchema).optional(),
+      unsubscribe: z.array(ScopedStorageRefSchema).optional(),
+    })
+    .optional(),
 })
 
 export type EventsBody = z.infer<typeof EventsBodySchema>
