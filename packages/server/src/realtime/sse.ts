@@ -51,7 +51,8 @@ export class SseRegistry {
     const conn = this.connections.get(id)
     if (!conn) return
     const frames = new Set(frameKeys)
-    for (const [fullKey, frameKey] of [...conn.keys]) {
+    // Snapshot: entries are deleted from conn.keys while iterating.
+    for (const [fullKey, frameKey] of Array.from(conn.keys)) {
       if (!frames.has(frameKey)) continue
       conn.keys.delete(fullKey)
       this.dropFromKey(id, fullKey)
