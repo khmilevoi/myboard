@@ -64,6 +64,6 @@ declares `account` answers `401 account_required` to a request with no session, 
 refuses it **before** the handler runs, so a handler never executes half-authenticated.
 
 Crons run without a viewer and so need the `shared` scope (the registry rejects a module that
-declares crons without it). Module crons are declared on the server definition but are not yet run
-by a scheduler; when one lands, its per-job cursor key must be documented here and must not collide
-with the widget `cron:<typeId>:<jobName>` keys.
+declares crons without it). Module crons now run on the shared scheduler, with the cursor key `cron:module:<moduleId>:<job>`
+(which cannot collide with the widget `cron:<typeId>:<jobName>` keys). They get shared storage only, no
+viewer.

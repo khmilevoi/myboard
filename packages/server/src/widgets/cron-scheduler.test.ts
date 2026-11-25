@@ -1,3 +1,4 @@
+import type { ModuleCronContext } from '@shared/modules/contracts'
 import type {
   RuntimeWidgetServerDefinition,
   WidgetCronContext,
@@ -7,9 +8,10 @@ import { Cron } from 'croner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { makeFakeBrowserAutomationClient } from '../browser/testing/fake-client'
+import { makeModuleServerRegistry } from '../modules/registry'
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import { dueOccurrence, makeCronScheduler } from './cron-scheduler'
-import { readCronState, writeCronState } from './cron-state'
+import { readCronState, readCronStateAt, writeCronState } from './cron-state'
 import { createWidgetServerRegistry, type WidgetServerRegistry } from './registry'
 
 const NOON_0616 = Date.parse('2026-06-16T12:00:00+02:00')
@@ -235,5 +237,61 @@ describe('cron scheduler', () => {
     await vi.advanceTimersByTimeAsync(500)
 
     expect(run).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('cron scheduler with modules', () => {
+  it('seeds, then runs a module job with shared storage and advances its cursor', async () => {
+    const ops = createMemoryOps(createMemoryPubSub())
+    let nowMs = NOON_0616
+    const seen: ModuleCronContext[] = []
+    const moduleRegistry = makeModuleServerRegistry([
+      {
+        moduleId: 'notes',
+        scopes: ['shared'],
+        actions: {},
+        handlers: {},
+        crons: {
+          tidy: {
+            schedule: '5 0 * * *',
+            timeZone: 'Europe/Warsaw',
+            run: async (context) => {
+              seen.push(context)
+              return context.api.storage.shared.set('tidied', true)
+            },
+          },
+        },
+      },
+    ])
+    if (moduleRegistry instanceof Error) throw moduleRegistry
+    const widgetRegistry = createWidgetServerRegistry([])
+    if (widgetRegistry instanceof Error) throw widgetRegistry
+    const scheduler = makeCronScheduler({
+      registry: widgetRegistry,
+      moduleRegistry,
+      ops,
+      browserClient: makeFakeBrowserAutomationClient().client,
+      now: () => nowMs,
+    })
+
+    await scheduler.tick()
+    expect(seen).toHaveLength(0)
+    expect(await readCronStateAt(ops, 'cron:module:notes:tidy')).toEqual({
+      cursorMs: NOON_0616,
+      failures: 0,
+    })
+
+    nowMs = NOON_0619
+    await scheduler.tick()
+
+    expect(seen).toHaveLength(1)
+    expect(seen[0].moduleId).toBe('notes')
+    expect(seen[0].scheduledFor).toBe(MIDNIGHT_0619)
+    expect(Object.keys(seen[0].api.storage)).toEqual(['shared'])
+    expect(await ops.get('m:notes:s:tidied')).not.toBeNull()
+    expect(await readCronStateAt(ops, 'cron:module:notes:tidy')).toEqual({
+      cursorMs: MIDNIGHT_0619,
+      failures: 0,
+    })
   })
 })

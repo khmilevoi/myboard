@@ -126,6 +126,7 @@ export function createApp(deps: AppDeps): App {
 
   const cronScheduler = makeCronScheduler({
     registry: deps.widgetRegistry,
+    moduleRegistry: deps.moduleRegistry,
     ops,
     browserClient,
     now,

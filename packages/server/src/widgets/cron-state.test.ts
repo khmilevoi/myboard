@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
-import { cronStateKey, readCronState, writeCronState } from './cron-state'
+import {
+  cronStateKey,
+  moduleCronStateKey,
+  readCronState,
+  readCronStateAt,
+  writeCronState,
+  writeCronStateAt,
+} from './cron-state'
 
 const makeOps = () => createMemoryOps(createMemoryPubSub())
 
@@ -28,5 +35,19 @@ describe('cron state', () => {
     await ops.set(cronStateKey('w', 'j'), '{"cursorMs":"nope"}')
 
     expect(await readCronState(ops, 'w', 'j')).toBeInstanceOf(Error)
+  })
+})
+
+describe('module cron state', () => {
+  it('derives a module key that cannot collide with a widget key', () => {
+    expect(moduleCronStateKey('notes', 'tidy')).toBe('cron:module:notes:tidy')
+  })
+
+  it('round-trips through the key-addressed helpers', async () => {
+    const ops = makeOps()
+    const key = moduleCronStateKey('notes', 'tidy')
+    expect(await readCronStateAt(ops, key)).toBeNull()
+    await writeCronStateAt(ops, key, { cursorMs: 7, failures: 1 })
+    expect(await readCronStateAt(ops, key)).toEqual({ cursorMs: 7, failures: 1 })
   })
 })
