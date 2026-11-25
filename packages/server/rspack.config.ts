@@ -38,6 +38,7 @@ export default defineConfig({
         !request.startsWith('.') &&
         !request.startsWith('@shared') &&
         !request.startsWith('@widgets') &&
+        !request.startsWith('@modules') &&
         // errore ships ESM-only (no "require" export condition), so it can't
         // be left as a plain `require('errore')` in the CommonJS output.
         // Bundle it instead of externalizing it.
@@ -66,6 +67,7 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(import.meta.dirname, '../shared'),
       '@widgets': path.resolve(import.meta.dirname, '../widgets'),
+      '@modules': path.resolve(import.meta.dirname, '../modules'),
     },
     extensions: ['.ts', '.js'],
   },

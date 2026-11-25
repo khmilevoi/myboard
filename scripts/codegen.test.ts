@@ -14,6 +14,12 @@ import {
   InvalidWidgetClientDefinitionError,
   type WidgetMeta,
 } from './codegen/client'
+import {
+  generateModules,
+  InvalidModuleDefinitionError,
+  ReservedWidgetNameError,
+  UnknownModuleReferenceError,
+} from './codegen/modules'
 import { emitScopedOwners, emitServerList, generateServer } from './codegen/server'
 import {
   assignPorts,
@@ -127,6 +133,7 @@ describe('codegen emitters', () => {
     expect(parseCodegenTarget('invalid')).toBeInstanceOf(InvalidCodegenTargetError)
     expect(parseCodegenTarget('server')).toBe('server')
     expect(parseCodegenTarget('browser')).toBe('browser')
+    expect(parseCodegenTarget('modules')).toBe('modules')
   })
 
   it('creates readable, legal, and reserved-safe bindings', () => {
@@ -140,7 +147,7 @@ describe('codegen emitters', () => {
 })
 
 describe('codegen generation', () => {
-  it('generates a server registry without importing client entrypoints', () => {
+  it('generates a server registry without importing client entrypoints', async () => {
     const root = mkdtempSync(join(tmpdir(), 'server-codegen-'))
     const widgetsDir = join(root, 'widgets')
     const widgetDir = join(widgetsDir, 'probe')
@@ -149,7 +156,8 @@ describe('codegen generation', () => {
     writeFileSync(join(widgetDir, 'package.json'), '{"name":"widgets-probe"}')
     writeFileSync(join(widgetDir, 'server.ts'), 'export default {}')
     writeFileSync(join(widgetDir, 'client.ts'), "throw new Error('must not import client')")
-    const result = generateServer({
+    const result = await generateServer({
+      ...createTempCodegenPaths('server-no-client'),
       widgetsDir,
       serverListFile,
       scopedOwnersFile: join(root, 'scoped-owners.generated.ts'),
@@ -183,10 +191,10 @@ describe('codegen generation', () => {
     expect(JSON.parse(readFileSync(paths.portsFile, 'utf8'))).toEqual({})
   })
 
-  it('omits widgets without server.ts from server codegen', () => {
+  it('omits widgets without server.ts from server codegen', async () => {
     const paths = createTempCodegenPaths('missing-server')
     writeFileSync(join(paths.widgetsDir, 'probe', 'client.ts'), 'export default {}')
-    expect(generateServer(paths)).not.toBeInstanceOf(Error)
+    expect(await generateServer(paths)).not.toBeInstanceOf(Error)
     const output = readFileSync(paths.serverListFile, 'utf8')
     expect(output).toBe(emitServerList([]))
     expect(output).not.toContain('@widgets/probe/server')
@@ -367,6 +375,82 @@ describe('codegen generation', () => {
   })
 })
 
+describe('codegen modules', () => {
+  it('binds each module to its directory id', async () => {
+    const paths = createTempCodegenPaths('modules-bind')
+    const moduleDir = addModule(paths, 'notes')
+    expect(await generateModules(paths)).not.toBeInstanceOf(Error)
+    expect(readFileSync(join(moduleDir, 'generated', 'module.ts'), 'utf8')).toContain(
+      "export const notesModule = bindModule('notes', definition)",
+    )
+  })
+
+  it('lists module ids in the catalog entry of a widget that declares them', async () => {
+    const paths = createTempCodegenPaths('modules-catalog')
+    addModule(paths, 'notes')
+    writeFileSync(
+      join(paths.widgetsDir, 'probe', 'client.ts'),
+      clientDefinition("modules: [{ id: 'notes' }]"),
+    )
+    expect(await generateClient(paths)).not.toBeInstanceOf(Error)
+    expect(readFileSync(paths.clientCatalogFile, 'utf8')).toContain('modules: ["notes"]')
+  })
+
+  it('lists only modules that have a server.ts in the module server list', async () => {
+    const paths = createTempCodegenPaths('modules-server-list')
+    addModule(paths, 'notes', { server: true })
+    addModule(paths, 'plain')
+    expect(await generateModules(paths)).not.toBeInstanceOf(Error)
+    const output = readFileSync(paths.moduleServerListFile, 'utf8')
+    expect(output).toContain('@modules/notes/server')
+    expect(output).toContain('moduleId: "notes"')
+    expect(output).not.toContain('plain')
+  })
+
+  it('maps module package names to their package versions', async () => {
+    const paths = createTempCodegenPaths('modules-packages')
+    addModule(paths, 'notes', { version: '4.5.6' })
+    expect(await generateModules(paths)).not.toBeInstanceOf(Error)
+    expect(readFileSync(paths.modulePackagesFile, 'utf8')).toContain("'module-notes': '4.5.6'")
+  })
+
+  it('carries module scopes into the scoped owners output', async () => {
+    const paths = createTempCodegenPaths('modules-scopes')
+    addModule(paths, 'notes', {
+      definition: "export default { scopes: ['shared', 'account'], actions: {} }",
+    })
+    expect(await generateServer(paths)).not.toBeInstanceOf(Error)
+    expect(readFileSync(paths.scopedOwnersFile, 'utf8')).toContain('"notes": ["shared","account"]')
+  })
+
+  it('fails when a widget references a module that has no package', async () => {
+    const paths = createTempCodegenPaths('modules-unknown')
+    writeFileSync(
+      join(paths.widgetsDir, 'probe', 'client.ts'),
+      clientDefinition("modules: [{ id: 'ghost' }]"),
+    )
+    const result = await generateClient(paths)
+    expect(result).toBeInstanceOf(UnknownModuleReferenceError)
+    expect((result as Error).message).toBe('Widget probe references unknown module ghost')
+  })
+
+  it('rejects a widget directory named module', async () => {
+    const paths = createTempCodegenPaths('modules-reserved')
+    const reserved = join(paths.widgetsDir, 'module')
+    mkdirSync(reserved, { recursive: true })
+    writeFileSync(join(reserved, 'package.json'), '{"name":"widgets-module"}')
+    expect(await generateModules(paths)).toBeInstanceOf(ReservedWidgetNameError)
+  })
+
+  it('rejects duplicate module scopes', async () => {
+    const paths = createTempCodegenPaths('modules-duplicate-scopes')
+    addModule(paths, 'notes', {
+      definition: "export default { scopes: ['shared', 'shared'], actions: {} }",
+    })
+    expect(await generateModules(paths)).toBeInstanceOf(InvalidModuleDefinitionError)
+  })
+})
+
 function createTempCodegenPaths(name: string): CodegenPaths {
   const root = mkdtempSync(join(tmpdir(), `${name}-`))
   const widgetsDir = join(root, 'widgets')
@@ -381,7 +465,29 @@ function createTempCodegenPaths(name: string): CodegenPaths {
     clientIconsFile: join(root, 'widget-icons.generated.ts'),
     serverListFile: join(root, 'widget-server-list.generated.ts'),
     browserListFile: join(root, 'widget-browser-list.generated.ts'),
+    modulesDir: join(root, 'modules'),
+    modulePackagesFile: join(root, 'module-packages.generated.ts'),
+    moduleServerListFile: join(root, 'module-server-list.generated.ts'),
   }
+}
+
+function addModule(
+  paths: CodegenPaths,
+  dir: string,
+  options: { server?: boolean; definition?: string; version?: string } = {},
+) {
+  const moduleDir = join(paths.modulesDir, dir)
+  mkdirSync(moduleDir, { recursive: true })
+  writeFileSync(
+    join(moduleDir, 'package.json'),
+    JSON.stringify({ name: `module-${dir}`, version: options.version ?? '1.2.3' }),
+  )
+  writeFileSync(
+    join(moduleDir, 'module.ts'),
+    options.definition ?? "export default { scopes: ['shared'], actions: {} }",
+  )
+  if (options.server) writeFileSync(join(moduleDir, 'server.ts'), 'export default {}')
+  return moduleDir
 }
 
 function validClientDefinition() {

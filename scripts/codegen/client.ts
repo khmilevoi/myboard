@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 
 import * as errore from 'errore'
 
+import { generateModules, UnknownModuleReferenceError, type ModuleMeta } from './modules'
 import {
   assignPorts,
   BANNER,
@@ -24,8 +25,12 @@ type WidgetClientLike = {
   tiers?: unknown
   icon: string
   loadComponent: unknown
+  modules?: { id: string }[]
 }
-export type WidgetMeta = Omit<WidgetClientLike, 'loadComponent'> & { dir: string }
+export type WidgetMeta = Omit<WidgetClientLike, 'loadComponent' | 'modules'> & {
+  dir: string
+  modules?: string[]
+}
 
 export class WidgetClientImportError extends errore.createTaggedError({
   name: 'WidgetClientImportError',
@@ -44,7 +49,7 @@ export function emitCatalog(metas: WidgetMeta[]) {
     title: ${JSON.stringify(meta.title)},
     description: ${JSON.stringify(meta.description)},
     defaultSize: ${stableJson(meta.defaultSize).replace(/\n/g, '\n    ')},
-    icon: ${JSON.stringify(meta.icon)},${meta.tiers ? `\n    tiers: ${stableJson(meta.tiers).replace(/\n/g, '\n    ')},` : ''}
+    icon: ${JSON.stringify(meta.icon)},${meta.modules?.length ? `\n    modules: ${JSON.stringify(meta.modules)},` : ''}${meta.tiers ? `\n    tiers: ${stableJson(meta.tiers).replace(/\n/g, '\n    ')},` : ''}
     loadComponent: () => loadRemoteModule(${JSON.stringify(meta.dir)}),
   })`,
     )
@@ -89,7 +94,10 @@ export const WIDGET_ICONS: Record<WidgetIconName, LucideIcon> = { ${icons.join('
 `
 }
 
-export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | GeneratedOutput[]> {
+export async function prepareClient(
+  paths: ClientCodegenPaths,
+  modules: ModuleMeta[],
+): Promise<Error | GeneratedOutput[]> {
   const widgetDirs = discoverWidgetDirs(paths.widgetsDir)
   if (widgetDirs instanceof Error) return widgetDirs
   const clientWidgetDirs = widgetDirs.filter((dir) =>
@@ -110,6 +118,7 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
   const clientPorts = Object.fromEntries(
     Object.entries(currentPorts).filter(([widgetId]) => clientWidgetDirSet.has(widgetId)),
   )
+  const moduleIds = new Set(modules.map((meta) => meta.dir))
   const metas: WidgetMeta[] = []
   for (const dir of clientWidgetDirs) {
     const entrypoint = path.resolve(paths.widgetsDir, dir, 'client.ts')
@@ -121,6 +130,10 @@ export async function prepareClient(paths: ClientCodegenPaths): Promise<Error | 
     if (meta instanceof InvalidWidgetClientDefinitionError) return meta
     if (meta instanceof Error) {
       return new InvalidWidgetClientDefinitionError({ widgetId: dir, cause: meta })
+    }
+    const unknownModule = (meta.modules ?? []).find((id) => !moduleIds.has(id))
+    if (unknownModule !== undefined) {
+      return new UnknownModuleReferenceError({ widgetId: dir, moduleId: unknownModule })
     }
     metas.push(meta)
   }
@@ -163,7 +176,8 @@ function isWidgetClientLike(value: unknown): value is WidgetClientLike {
     dimensions.h > 0 &&
     isOptionalPositiveFiniteNumber(dimensions.minW) &&
     isOptionalPositiveFiniteNumber(dimensions.minH) &&
-    isTierConfig(definition.tiers)
+    isTierConfig(definition.tiers) &&
+    isModuleReferenceList(definition.modules)
   )
 }
 
@@ -179,12 +193,26 @@ function extractWidgetMeta(
     defaultSize: value.defaultSize,
     tiers: value.tiers,
     icon: value.icon,
+    ...(value.modules === undefined
+      ? {}
+      : { modules: value.modules.map((reference) => reference.id) }),
   }
   const serialized = errore.try(() => stableJson(meta))
   if (serialized instanceof Error) {
     return new InvalidWidgetClientDefinitionError({ widgetId: dir, cause: serialized })
   }
   return meta
+}
+
+function isModuleReferenceList(value: unknown) {
+  if (value === undefined) return true
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (reference) =>
+        reference !== null && typeof reference === 'object' && typeof reference.id === 'string',
+    )
+  )
 }
 
 function isOptionalPositiveFiniteNumber(value: unknown) {
@@ -215,7 +243,9 @@ function isNonnegativeFiniteNumber(value: unknown) {
 }
 
 export async function generateClient(paths: ClientCodegenPaths): Promise<Error | void> {
-  const outputs = await prepareClient(paths)
+  const modules = await generateModules(paths)
+  if (modules instanceof Error) return modules
+  const outputs = await prepareClient(paths, modules)
   if (outputs instanceof Error) return outputs
   return writeGeneratedOutputs(outputs)
 }

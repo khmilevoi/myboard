@@ -10,7 +10,8 @@
     "types": ["node"],
     "paths": {
       "@shared/*": ["../shared/*"],
-      "@widgets/*": ["../widgets/*"]
+      "@widgets/*": ["../widgets/*"],
+      "@modules/*": ["../modules/*"]
     }
   },
   "include": ["**/*.ts"]
