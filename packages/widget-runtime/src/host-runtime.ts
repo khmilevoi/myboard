@@ -1,9 +1,12 @@
 import { HttpClient, type HttpLike } from '@shared/http/client'
 import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
+import type { ModuleScope } from '@shared/modules/contracts'
 import type { ScopedBranch, ScopedStorageRef } from '@shared/storage/scoped'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 
 import { makeWidgetIdentity, type WidgetIdentity } from './identity'
+import { makeModuleApi } from './modules/module-api'
+import { makeModuleRegistry, type WidgetModules } from './modules/registry'
 import type { ScopedStorage, WidgetStorage } from './storage'
 import {
   localNamespaceFor,
@@ -15,6 +18,7 @@ import { instanceNamespace, typeNamespace } from './storage/scope'
 import { makeHttpStorage } from './storage/server/http-storage'
 import { makeScopedHttpStorage } from './storage/server/scoped-http-storage'
 import { makeSseManager, type SseDeliver, type SseManager } from './storage/server/sse-client'
+import { getServerTime } from './timer/server-time'
 import { makeWidgetApi as makeWidgetApiWith, type WidgetApiError } from './widget-api'
 
 export type HostRuntimeOptions = {
@@ -30,6 +34,8 @@ export type HostRuntime = {
   makeScopedStorage(scope: string): ScopedStorage
   /** Scoped-route storage for one branch; account branches are gated on the viewer's account. */
   makeBranchStorage(branch: ScopedBranch): ScopedStorage
+  /** The widget's view of the runtime's module registry, limited to the modules it declared. */
+  makeWidgetModules(declared: readonly string[]): WidgetModules
   makeWidgetApi<Events extends WidgetEventMap>(options: {
     instanceId: string
     typeId: string
@@ -91,10 +97,27 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
     }
   }
 
+  // One registry per runtime: a module's model lives as long as the runtime does.
+  const moduleRegistry = makeModuleRegistry({
+    makeContext: (module) => ({
+      moduleId: module.id,
+      storage: Object.fromEntries(
+        module.scopes.map((scope) => [
+          scope,
+          makeBranchStorage({ owner: 'module', id: module.id, scope }),
+        ]),
+      ) as { [S in ModuleScope]: ScopedStorage },
+      api: makeModuleApi({ moduleId: module.id, http }),
+      timer: getServerTime(),
+      identity,
+    }),
+  })
+
   return {
     identity,
     makeScopedStorage: makeScoped,
     makeBranchStorage,
+    makeWidgetModules: (declared) => moduleRegistry.forWidget(declared),
     makeWidgetStorage: ({ instanceId, typeId }) => ({
       instance: makeScoped(instanceNamespace(instanceId)),
       shared: makeScoped(typeNamespace(typeId)),

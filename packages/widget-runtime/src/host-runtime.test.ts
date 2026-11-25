@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { makeHostRuntime } from './host-runtime'
 import { makeStaticWidgetIdentity } from './identity'
+import { bindModule, type ModuleContext } from './modules/define-module'
 import { db } from './storage/client/db'
 import { resetClientStorage } from './storage/test/fakes'
 
@@ -115,6 +116,24 @@ describe('makeHostRuntime', () => {
     })
     expect(await api.invoke('echo', {})).toBe(7)
     expect(calls[0]?.method).toBe('POST')
+  })
+
+  it('gives a module a context holding exactly its declared storage scopes', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const runtime = makeHostRuntime({ http, identity: makeStaticWidgetIdentity() })
+    const ref = bindModule('notes', {
+      scopes: ['shared'],
+      actions: {},
+      loadModel: async () => (context: ModuleContext<{}, 'shared'>) => context,
+    })
+
+    const context = await runtime.makeWidgetModules(['notes']).get(ref)
+    if (context instanceof Error) throw context
+    expect(context.moduleId).toBe('notes')
+    expect(Object.keys(context.storage)).toEqual(['shared'])
+    expect(context.storage).not.toHaveProperty('account')
+    expect(context.identity).toBe(runtime.identity)
+    expect(calls).toEqual([])
   })
 
   it('opens the SSE stream lazily through the injected openEventStream', () => {
