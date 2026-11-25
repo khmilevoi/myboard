@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net'
 import { createApp } from '../app'
 import { issueSession } from '../auth/sessions'
 import { makeFakeBrowserAutomationClient } from '../browser/testing/fake-client'
+import type { ModuleServerRegistry } from '../modules/registry'
 import { makeScopedOwners, type ScopedOwners } from '../storage/scoped'
 import { createWidgetServerRegistry, type WidgetServerRegistry } from '../widgets/registry'
 import { seedAccountWithDevice, makeClock, makeConfig } from './auth-fixtures'
@@ -66,7 +67,11 @@ export async function openSse(base: string, cookie?: string): Promise<OpenSse> {
 
 /** A listening app over in-memory ops; `cookie` is a ready `Cookie` header value. */
 export async function startTestApp(
-  options: { scopedOwners?: ScopedOwners; widgetRegistry?: WidgetServerRegistry } = {},
+  options: {
+    scopedOwners?: ScopedOwners
+    widgetRegistry?: WidgetServerRegistry
+    moduleRegistry?: ModuleServerRegistry
+  } = {},
 ): Promise<TestApp> {
   const pubsub = createMemoryPubSub()
   const ops = createMemoryOps(pubsub)
@@ -80,6 +85,7 @@ export async function startTestApp(
     subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
     now: clock.now,
     widgetRegistry: options.widgetRegistry ?? emptyRegistry,
+    moduleRegistry: options.moduleRegistry ?? new Map(),
     browserClient: makeFakeBrowserAutomationClient().client,
     authConfig: config,
     recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },

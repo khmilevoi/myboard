@@ -20,6 +20,8 @@ import type { BrowserAutomationClient } from './browser/client'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
+import { dispatchModuleAction } from './modules/dispatch'
+import type { ModuleServerRegistry } from './modules/registry'
 import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
 import { makeRecoveryCapabilityStore } from './recovery/capability'
 import { recoveryCookieName } from './recovery/cookie'
@@ -68,6 +70,8 @@ const WidgetRequestSchema = z.object({
   payload: z.unknown(),
 })
 
+const ModuleRequestSchema = z.object({ payload: z.unknown() })
+
 const SeedInviteBodySchema = z.object({
   ttlMs: z.number().positive().optional(),
   maxUses: z.number().int().positive().optional(),
@@ -86,6 +90,7 @@ export type AppDeps = {
   subscribe: (onMessage: (message: string) => void) => () => void
   now: () => number
   widgetRegistry: WidgetServerRegistry
+  moduleRegistry: ModuleServerRegistry
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
   scopedOwners: ScopedOwners
@@ -406,7 +411,13 @@ export function createApp(deps: AppDeps): App {
     await publishChange(ops, key, null)
   })
 
-  router.on('POST', '/api/widgets/:typeId/:event', async (req, res, params) => {
+  // Reads and validates a widget/module request body; a failure has already been answered.
+  async function readWidgetRequestBody<S extends z.ZodType>(
+    req: IncomingMessage,
+    res: ServerResponse,
+    schema: S,
+    invalidMessage: string,
+  ): Promise<z.output<S> | null> {
     const raw = await readJsonBody(req).catch((cause) => new WidgetRequestBodyError({ cause }))
     if (raw instanceof WidgetRequestBodyError) {
       const tooLarge = raw.cause instanceof Error && raw.cause.message === 'request body too large'
@@ -419,19 +430,26 @@ export function createApp(deps: AppDeps): App {
           },
         }),
       )
-      return
+      return null
     }
 
-    const body = WidgetRequestSchema.safeParse(raw)
+    const body = schema.safeParse(raw)
     if (!body.success) {
       res.writeHead(422, { 'content-type': 'application/json' })
-      res.end(
-        JSON.stringify({
-          error: { code: 'request_invalid', message: 'Widget request is invalid' },
-        }),
-      )
-      return
+      res.end(JSON.stringify({ error: { code: 'request_invalid', message: invalidMessage } }))
+      return null
     }
+    return body.data
+  }
+
+  router.on('POST', '/api/widgets/:typeId/:event', async (req, res, params) => {
+    const body = await readWidgetRequestBody(
+      req,
+      res,
+      WidgetRequestSchema,
+      'Widget request is invalid',
+    )
+    if (body === null) return
 
     const viewer = await resolveWidgetViewer(authDeps, req)
     if (viewer instanceof Error) {
@@ -445,9 +463,42 @@ export function createApp(deps: AppDeps): App {
       browserClient,
       typeId: decodeURIComponent(params.typeId as string),
       event: decodeURIComponent(params.event as string),
-      instanceId: body.data.instanceId,
-      payload: body.data.payload,
+      instanceId: body.instanceId,
+      payload: body.payload,
       ip: clientIp(req),
+      viewer,
+      now,
+    })
+    if (result instanceof Error) {
+      sendWidgetError(res, result)
+      return
+    }
+
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(result))
+  })
+
+  router.on('POST', '/api/modules/:moduleId/actions/:action', async (req, res, params) => {
+    const body = await readWidgetRequestBody(
+      req,
+      res,
+      ModuleRequestSchema,
+      'Module request is invalid',
+    )
+    if (body === null) return
+
+    const viewer = await resolveWidgetViewer(authDeps, req)
+    if (viewer instanceof Error) {
+      sendWidgetError(res, viewer)
+      return
+    }
+
+    const result = await dispatchModuleAction({
+      registry: deps.moduleRegistry,
+      ops,
+      moduleId: decodeURIComponent(params.moduleId as string),
+      action: decodeURIComponent(params.action as string),
+      payload: body.payload,
       viewer,
       now,
     })

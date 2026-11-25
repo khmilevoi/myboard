@@ -2,6 +2,7 @@ import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
+import { productionModuleServerRegistry } from './modules/production-registry'
 import { productionScopedOwners } from './storage/production-scoped-owners'
 import { createValkeySubscriber, createValkeyTestOps } from './storage/valkey'
 import { productionWidgetServerRegistry } from './widgets/production-registry'
@@ -39,6 +40,7 @@ const { server } = createApp({
   subscribe: (onMessage) => createValkeySubscriber('storage:events', onMessage),
   now: () => currentNow,
   widgetRegistry: productionWidgetServerRegistry,
+  moduleRegistry: productionModuleServerRegistry,
   browserClient,
   authConfig,
   scopedOwners: productionScopedOwners,
