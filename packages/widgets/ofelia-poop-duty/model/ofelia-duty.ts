@@ -1,5 +1,7 @@
 import { action, atom, computed, withAsyncData, wrap } from '@reatom/core'
 import type { WidgetApi } from '@shared/widgets/contracts'
+import { toHistoryGroups } from 'module-ofelia'
+import type { HistoryDayGroup } from 'module-ofelia'
 import type { OfeliaActions } from 'module-ofelia/domain/actions'
 import { foldDebt, getDebtDays } from 'module-ofelia/domain/debt'
 import type { DebtDay } from 'module-ofelia/domain/debt'
@@ -10,10 +12,7 @@ import { DUTY_TIME_ZONE, getOfeliaDutyByDate, getStartOfWeek } from 'module-ofel
 import { WidgetApiError, withStorageKeyReadonly } from 'widget-runtime'
 import type { ServerTime, WidgetIdentity, WidgetStorage } from 'widget-runtime'
 
-import { toHistoryGroups } from './history-view'
-import type { HistoryDayGroup } from './history-view'
-
-export type { HistoryDayGroup, HistoryEntryView, ToHistoryGroupsOptions } from './history-view'
+export type { HistoryDayGroup, HistoryEntryView, ToHistoryGroupsOptions } from 'module-ofelia'
 
 export interface OfeliaDutyModelProps {
   storage: WidgetStorage

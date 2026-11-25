@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "catalog:",
+    "@reatom/core": "catalog:",
     "errore": "catalog:",
     "widget-runtime": "workspace:*",
     "zod": "catalog:"
