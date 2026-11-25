@@ -55,6 +55,18 @@ export class WidgetHandlerError extends errore.createTaggedError({
   extends: WidgetDispatchError,
 }) {}
 
+/**
+ * A widget touched `api.storage.account` on a request with no live session.
+ * Public: it crosses dispatch verbatim as a 401 so the client can prompt for
+ * sign-in instead of seeing an internal error.
+ */
+export class AccountRequiredError extends PublicWidgetError {
+  constructor() {
+    super({ code: 'account_required', publicMessage: 'Sign-in required', status: 401 })
+    this.name = 'AccountRequiredError'
+  }
+}
+
 export class WidgetRequestBodyError extends errore.createTaggedError({
   name: 'WidgetRequestBodyError',
   message: 'Widget request body could not be read',
