@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, request as playwrightRequest, test } from '@playwright/test'
 
 import { ActivatePage } from './pages/ActivatePage.js'
 import {
@@ -8,6 +8,12 @@ import {
   seedSession,
 } from './support/gate.js'
 import { enableVirtualAuthenticator } from './support/webauthn.js'
+
+// An 8x6 RGB PNG (the same fixture account-avatar.spec.ts uploads through the browser).
+const AVATAR_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAYElEQVR4nBXMMRVEIQwAwSihRgQiUqNklFBHBCJSo+j+bTvvbUQYYYUdhBNueCFiGtOa9mQ6053e/CCNtNJO0kk3vfyAwWL7d7i87xpllFV2UU655dUHbbTVdtNOu+21H11/PPF87Or0AAAAAElFTkSuQmCC',
+  'base64',
+)
 
 test.describe('gate: no session', () => {
   test('a navigation gets the activation page with status 401', async ({ request }) => {
@@ -38,6 +44,18 @@ test.describe('gate: no session', () => {
         })
       ).status(),
     ).toBe(401)
+  })
+
+  test('file blobs and file uploads are blocked', async ({ request }) => {
+    const blob = await request.get('/files/AbCdEfGhIjKlMnOpQrStUv')
+    expect(blob.status()).toBe(401)
+    expect(await blob.text()).not.toContain('активация')
+
+    const upload = await request.put('/api/files/account/avatar', {
+      headers: { 'content-type': 'image/png', 'X-Requested-With': 'MyBoard' },
+      data: AVATAR_PNG,
+    })
+    expect(upload.status()).toBe(401)
   })
 
   test('the auth allowlist is reachable', async ({ request }) => {
@@ -126,6 +144,53 @@ async function activateToBoard(page: import('@playwright/test').Page): Promise<{
   await activate.waitForBoardRedirect()
   return { token }
 }
+
+test.describe('gate: files through Garage', () => {
+  // nginx answers /files/<blobId> itself: its auth_request verifier checks the session and the
+  // blob's access rule, then the bytes come straight from Garage's website endpoint with the
+  // same headers the Node fallback sends. The first upload after a fresh stack may race the
+  // server's Garage bootstrap, which answers 503 until it is done.
+  test('an uploaded avatar is served from Garage with private, immutable, sandboxed headers', async ({
+    request,
+  }) => {
+    await seedSession(request)
+
+    const upload = () =>
+      request.put('/api/files/account/avatar', {
+        headers: { 'content-type': 'image/png', 'X-Requested-With': 'MyBoard' },
+        data: AVATAR_PNG,
+      })
+    let res = await upload()
+    await expect
+      .poll(
+        async () => {
+          if (res.status() === 503) res = await upload()
+          return res.status()
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(200)
+    const { value } = (await res.json()) as { value: { url: string; mime: string } }
+    expect(value.url).toMatch(/^\/files\/[A-Za-z0-9_-]{16,64}$/)
+
+    const blob = await request.get(value.url)
+    expect(blob.status()).toBe(200)
+    expect(blob.headers()['content-type']).toBe('image/png')
+    expect(blob.headers()['cache-control']).toBe('private, max-age=31536000, immutable')
+    expect(blob.headers()['x-content-type-options']).toBe('nosniff')
+    expect(blob.headers()['content-security-policy']).toBe("default-src 'none'; sandbox")
+    expect(blob.headers()['content-disposition']).toMatch(/^inline/)
+    expect(blob.headers()['etag']).toBeUndefined()
+    expect(Buffer.from(await blob.body())).toEqual(AVATAR_PNG)
+
+    const anonymous = await playwrightRequest.newContext({ baseURL: 'http://localhost:8080' })
+    expect((await anonymous.get(value.url)).status()).toBe(401)
+    await anonymous.dispose()
+
+    // auth_request turns any verifier status but 2xx/401/403 into a 500; the config restores 404.
+    expect((await request.get('/files/NoSuchBlobAtAll000000')).status()).toBe(404)
+  })
+})
 
 test.describe('gate: browser journeys', () => {
   test('invite → activation → board → logout purge → passkey re-login', async ({ page }) => {
