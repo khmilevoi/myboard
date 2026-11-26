@@ -64,8 +64,8 @@ function makeOpsThatFailsNthSet(ops: ValkeyOps, key: string, failOnCall: number)
   }
 }
 
-async function readLedger(ops: ReturnType<typeof createMemoryOps>) {
-  const raw = await ops.get(LEDGER_KEY)
+async function readLedger(ops: ReturnType<typeof createMemoryOps>, key = LEDGER_KEY) {
+  const raw = await ops.get(key)
   return raw === null ? [] : (JSON.parse(raw) as { date: string; createdBy: unknown }[])
 }
 
@@ -81,8 +81,53 @@ const SEED_ENTRY = {
   createdBy: null,
 }
 
-async function seedLedger(ops: ReturnType<typeof createMemoryOps>) {
-  await ops.set(LEDGER_KEY, JSON.stringify([{ id: 'seed', ts: 0, ...SEED_ENTRY }]))
+type MemoryOps = ReturnType<typeof createMemoryOps>
+
+const BUSYA_LEDGER_KEY = 'm:cats:s:litter/busya/ledger'
+const BUSYA_SETTINGS_KEY = 'm:cats:s:litter/busya/settings'
+
+async function seedRegistry(ops: MemoryOps, catIds: string[], archived: string[] = []) {
+  const events = [
+    ...catIds.map((catId, index) => ({ id: `add-${catId}`, ts: index + 1, catId, op: 'add' })),
+    ...archived.map((catId, index) => ({
+      id: `archive-${catId}`,
+      ts: 100 + index,
+      catId,
+      op: 'archive',
+    })),
+  ]
+  await ops.set('m:cats:s:registry/cats', JSON.stringify(events))
+  await ops.set(
+    'm:cats:s:registry/litters',
+    JSON.stringify(
+      catIds.map((litterId, index) => ({
+        id: `l-${litterId}`,
+        ts: index + 1,
+        litterId,
+        op: 'add',
+      })),
+    ),
+  )
+  for (const catId of catIds) {
+    await ops.set(
+      `m:cats:s:cat/${catId}/profile`,
+      JSON.stringify({
+        name: catId,
+        breed: null,
+        birthDate: null,
+        sex: null,
+        sterilized: 'unknown',
+        bodyCondition: null,
+        avatar: null,
+        litterId: catId,
+      }),
+    )
+  }
+}
+
+async function seedLedger(ops: MemoryOps, key = LEDGER_KEY) {
+  await ops.set(key, JSON.stringify([{ id: 'seed', ts: 0, ...SEED_ENTRY }]))
+  if (key === LEDGER_KEY) await seedRegistry(ops, ['ofelia'])
 }
 
 describe('cats auto-approve cron end to end', () => {
@@ -193,5 +238,96 @@ describe('cats auto-approve cron end to end', () => {
       '2026-06-16',
     ])
     expect(new Set(ledger.map((record) => record.date)).size).toBe(7)
+  })
+
+  describe('with several litters', () => {
+    const seedTwoLitters = async (ops: MemoryOps, archived: string[] = []) => {
+      await seedRegistry(ops, ['ofelia', 'busya'], archived)
+      await seedLedger(ops, LEDGER_KEY)
+      await seedLedger(ops, BUSYA_LEDGER_KEY)
+      await seedRegistry(ops, ['ofelia', 'busya'], archived)
+    }
+    const nonSeed = async (ops: MemoryOps, key: string) =>
+      (await readLedger(ops, key)).filter((record) => record.date !== SEED_ENTRY.date)
+
+    it('closes every active cat litter', async () => {
+      const { ops, scheduler, setNow } = makeSetup()
+      await seedTwoLitters(ops)
+      await scheduler.tick()
+      setNow(AFTER_MIDNIGHT_0617)
+      await scheduler.tick()
+
+      for (const key of [LEDGER_KEY, BUSYA_LEDGER_KEY]) {
+        const closed = await nonSeed(ops, key)
+        expect(closed.map((record) => record.date)).toContain('2026-06-16')
+        expect(closed.every((record) => (record.createdBy as { system?: true })?.system)).toBe(true)
+      }
+    })
+
+    it("skips an archived cat's litter", async () => {
+      const { ops, scheduler, setNow } = makeSetup()
+      await seedTwoLitters(ops, ['busya'])
+      await scheduler.tick()
+      setNow(AFTER_MIDNIGHT_0617)
+      await scheduler.tick()
+
+      expect((await nonSeed(ops, LEDGER_KEY)).length).toBeGreaterThan(0)
+      expect(await readLedger(ops, BUSYA_LEDGER_KEY)).toHaveLength(1)
+    })
+
+    it('writes nothing, and still advances the cursor, with no registry', async () => {
+      const { ops, scheduler, setNow } = makeSetup()
+      await ops.set(LEDGER_KEY, JSON.stringify([{ id: 'seed', ts: 0, ...SEED_ENTRY }]))
+      await scheduler.tick()
+      const seededCursor = await ops.get(CURSOR_KEY)
+      setNow(AFTER_MIDNIGHT_0617)
+      await scheduler.tick()
+
+      expect(await readLedger(ops)).toHaveLength(1)
+      const cursor = await ops.get(CURSOR_KEY)
+      expect(cursor).not.toBeNull()
+      expect(cursor).not.toBe(seededCursor)
+    })
+
+    it('does not let one failing litter stop the others, and retries it later', async () => {
+      const { ops, scheduler, setNow } = makeSetup((memoryOps) =>
+        makeOpsThatFailsNthSet(memoryOps, LEDGER_KEY, 1),
+      )
+      await seedTwoLitters(ops)
+      await scheduler.tick()
+      const seededCursor = await ops.get(CURSOR_KEY)
+      setNow(AFTER_MIDNIGHT_0617)
+      await scheduler.tick()
+
+      expect(await nonSeed(ops, LEDGER_KEY)).toEqual([])
+      const busyaDates = (await nonSeed(ops, BUSYA_LEDGER_KEY)).map((record) => record.date)
+      expect(busyaDates).toContain('2026-06-16')
+      const cursorMs = async () => JSON.parse((await ops.get(CURSOR_KEY)) as string).cursorMs
+      expect(await cursorMs()).toBe(JSON.parse(seededCursor as string).cursorMs)
+
+      await scheduler.tick()
+
+      expect((await nonSeed(ops, LEDGER_KEY)).map((record) => record.date)).toContain('2026-06-16')
+      const retried = (await nonSeed(ops, BUSYA_LEDGER_KEY)).map((record) => record.date)
+      expect(retried).toEqual(busyaDates)
+      expect(new Set(retried).size).toBe(retried.length)
+    })
+
+    it("closes each litter by its own settings' rotation", async () => {
+      const { ops, scheduler, setNow } = makeSetup()
+      await seedTwoLitters(ops)
+      await ops.set(
+        BUSYA_SETTINGS_KEY,
+        JSON.stringify({ rotation: ['Карина', 'Леша'], baseDate: '2026-06-16' }),
+      )
+      await scheduler.tick()
+      setNow(AFTER_MIDNIGHT_0617)
+      await scheduler.tick()
+
+      const day = (records: { date: string; actor?: unknown }[]) =>
+        records.find((record) => record.date === '2026-06-16')
+      expect(day(await nonSeed(ops, LEDGER_KEY))?.actor).toBe('Леша')
+      expect(day(await nonSeed(ops, BUSYA_LEDGER_KEY))?.actor).toBe('Карина')
+    })
   })
 })

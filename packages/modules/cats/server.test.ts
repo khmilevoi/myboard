@@ -261,8 +261,14 @@ function makeCronContext(
   settings: unknown = null,
 ) {
   const append = vi.fn<WidgetServerStorage['append']>(async () => undefined)
+  const answer = answerGet(stored, settings)
   const shared = {
-    get: answerGet(stored, settings),
+    get: vi.fn(async (key: string, schema?: unknown) => {
+      if (key === CATS_REGISTRY_KEY) return [catAdd(OFELIA_ID, 1)] as never
+      if (key === LITTERS_REGISTRY_KEY) return [litterAdd(OFELIA_ID, 1)] as never
+      if (key === catProfileKey(OFELIA_ID)) return defaultCatProfile('Офелия', OFELIA_ID) as never
+      return (answer as (k: string, s?: unknown) => Promise<never>)(key, schema)
+    }),
     set: vi.fn(async () => undefined),
     delete: vi.fn(async () => undefined),
     has: vi.fn(async () => false),
@@ -337,6 +343,30 @@ describe('cats auto-approve cron', () => {
     expect(append).not.toHaveBeenCalled()
   })
 
+  it('closes nothing when the active cat profile is absent or does not parse', async () => {
+    for (const profile of [null, { name: '' }]) {
+      const { context, append } = makeCronContext([SEED_ENTRY])
+      const baseGet = context.api.storage.shared.get
+      context.api.storage.shared.get = vi.fn(async (key: string, schema?: never) =>
+        key === catProfileKey(OFELIA_ID) ? (profile as never) : baseGet(key, schema),
+      )
+
+      expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+      expect(append).not.toHaveBeenCalled()
+    }
+  })
+
+  it('returns the profile read error without closing any litter', async () => {
+    const { context, append } = makeCronContext([SEED_ENTRY])
+    const baseGet = context.api.storage.shared.get
+    context.api.storage.shared.get = vi.fn(async (key: string, schema?: never) =>
+      key === catProfileKey(OFELIA_ID) ? (new Error('valkey down') as never) : baseGet(key, schema),
+    )
+
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeInstanceOf(Error)
+    expect(append).not.toHaveBeenCalled()
+  })
+
   it('is a no-op, with no append, when the ledger key does not exist (F11)', async () => {
     // Every stack ships this module's server.ts, so its cron is registered
     // everywhere regardless of whether the widget was ever placed on a
@@ -372,8 +402,9 @@ describe('cats auto-approve cron', () => {
 
     let calls = 0
     const { context, append } = makeCronContext([SEED_ENTRY])
-    context.api.storage.shared.get = vi.fn(async (key: string) => {
-      if (key !== ledgerKey(OFELIA_ID)) return null as never
+    const baseGet = context.api.storage.shared.get
+    context.api.storage.shared.get = vi.fn(async (key: string, schema?: never) => {
+      if (key !== ledgerKey(OFELIA_ID)) return baseGet(key, schema)
       calls += 1
       return (calls >= 5 ? [SEED_ENTRY, manualClose] : [SEED_ENTRY]) as never
     })

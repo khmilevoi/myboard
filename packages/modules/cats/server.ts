@@ -4,7 +4,12 @@ import { PublicWidgetError } from '@shared/widgets/public-error'
 import * as errore from 'errore'
 import type { z } from 'zod'
 
-import { defaultCatProfile, type CatProfile, type LitterChoice } from './domain/cat'
+import {
+  CatProfileSchema,
+  defaultCatProfile,
+  type CatProfile,
+  type LitterChoice,
+} from './domain/cat'
 import { catsContract } from './domain/contract'
 import { autoApproveDrafts } from './domain/day-close'
 import {
@@ -15,7 +20,6 @@ import {
   makeUndoDraft,
   type DraftInput,
 } from './domain/drafts'
-import { OFELIA_ID } from './domain/ids'
 import {
   CATS_REGISTRY_KEY,
   LITTERS_REGISTRY_KEY,
@@ -119,6 +123,63 @@ async function readRegistryWith(
     publicMessage: 'Unknown cat',
     meta: { catId },
   })
+}
+
+/**
+ * The litters an active cat uses, in litter-registry order. A profile that is absent or does not
+ * parse contributes nothing; only a storage failure is an Error.
+ */
+async function readLitterIdsInUse(storage: WidgetServerStorage): Promise<Error | string[]> {
+  const cats = await readCatRegistry(storage)
+  if (cats instanceof Error) return cats
+  const litterEvents = await readEvents(storage, LITTERS_REGISTRY_KEY, LitterRegistryEventsSchema)
+  if (litterEvents instanceof Error) return litterEvents
+
+  const used = new Set<string>()
+  for (const catId of cats.active) {
+    const raw = await storage.get(catProfileKey(catId))
+    if (raw instanceof Error) return raw
+    const profile = CatProfileSchema.safeParse(raw)
+    if (profile.success) used.add(profile.data.litterId)
+  }
+  return foldLitterRegistry(litterEvents).filter((litterId) => used.has(litterId))
+}
+
+/** Closes the unresolved days of one litter's ledger with system entries. */
+async function closeLitterDay(
+  storage: WidgetServerStorage,
+  litterId: string,
+  scheduledFor: number,
+): Promise<Error | undefined> {
+  const key = ledgerKey(litterId)
+  const entries = await storage.get(key, LedgerEntriesSchema)
+  if (entries instanceof Error) return entries
+
+  // No key (or a key that resolved to nothing after filtering) means nobody has ever used this
+  // litter: there is no history to auto-approve. Without this, every stack that never used it —
+  // including every disposable branch deploy — would grow a ledger by one fabricated `cleaned`
+  // record a night forever (F11). Returning normally still advances the cron cursor.
+  if (entries === null || entries.length === 0) return
+
+  const settings = await readLitterSettings(storage, litterId)
+  if (settings instanceof Error) return settings
+
+  // Derived from this fresh read, so a caught-up or retried run cannot duplicate a day that was
+  // closed in the meantime.
+  const drafts = autoApproveDrafts({ settings, entries, scheduledForMs: scheduledFor })
+
+  for (const draft of drafts) {
+    // The initial read decided WHICH days still need closing, but it is outside any lock. A manual
+    // close dispatched before this specific append would otherwise be overridden by the system
+    // entry for the same date (F10): `latestOutcomesByDate` resolves ties by insertion order.
+    // Re-check this one day from a fresh read right before writing it.
+    const fresh = await storage.get(key, LedgerEntriesSchema)
+    if (fresh instanceof Error) return fresh
+    if (resolveDays(fresh ?? []).get(draft.date)?.status === 'closed') continue
+
+    const appended = await storage.append(key, draft)
+    if (appended instanceof Error) return appended
+  }
 }
 
 async function appendCatEvent(
@@ -288,42 +349,18 @@ const catsServer = defineModuleServer(catsContract, {
       schedule: '5 0 * * *',
       timeZone: DUTY_TIME_ZONE,
       run: async ({ scheduledFor, api }) => {
-        // Only Ofelia's litter is closed until the cron iterates the litter registry.
-        const key = ledgerKey(OFELIA_ID)
-        const entries = await api.storage.shared.get(key, LedgerEntriesSchema)
-        if (entries instanceof Error) return entries
+        const storage = api.storage.shared
+        const litterIds = await readLitterIdsInUse(storage)
+        // An incomplete picture of the registry must not advance the cursor.
+        if (litterIds instanceof Error) return litterIds
 
-        // No key (or a key that resolved to nothing after filtering) means
-        // nobody has ever used this widget on this stack: there is no history
-        // to auto-approve. Without this, every stack that has never even
-        // placed the widget — including every disposable branch deploy —
-        // would still grow a ledger by one fabricated `cleaned` record a
-        // night forever (F11). Returning normally (not an Error) still
-        // advances the cron cursor, so this is a real no-op, not a retry.
-        if (entries === null || entries.length === 0) return
-
-        const settings = await readLitterSettings(api.storage.shared, OFELIA_ID)
-        if (settings instanceof Error) return settings
-
-        // Derived from this fresh read, so a caught-up or retried run cannot
-        // duplicate a day that was closed in the meantime.
-        const drafts = autoApproveDrafts({ settings, entries, scheduledForMs: scheduledFor })
-
-        for (const draft of drafts) {
-          // The initial read above decided WHICH days still need closing, but
-          // that read is outside any lock. A manual close dispatched between
-          // it and this specific append is invisible to `drafts`, and would
-          // otherwise be silently overridden by this job's own system entry
-          // for the same date (F10) — `latestOutcomesByDate` resolves ties by
-          // insertion order, so the later-appended system entry wins. Re-check
-          // this one day from a fresh read right before writing it.
-          const fresh = await api.storage.shared.get(key, LedgerEntriesSchema)
-          if (fresh instanceof Error) return fresh
-          if (resolveDays(fresh ?? []).get(draft.date)?.status === 'closed') continue
-
-          const appended = await api.storage.shared.append(key, draft)
-          if (appended instanceof Error) return appended
+        // Attempt every litter so one failure does not starve the others, then report the first.
+        let firstError: Error | undefined
+        for (const litterId of litterIds) {
+          const closed = await closeLitterDay(storage, litterId, scheduledFor)
+          if (closed instanceof Error) firstError ??= closed
         }
+        return firstError
       },
     },
   },
