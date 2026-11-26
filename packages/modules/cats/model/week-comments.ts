@@ -16,7 +16,7 @@ export type CommentView = {
   isViewerComment: boolean
 }
 
-export type OfeliaWeekComments = {
+export type LitterWeekComments = {
   comments: Atom<Comment[]>
   /** The last failed read of the viewed week's comments, or null. */
   commentsError: Atom<StorageError | null>
@@ -28,6 +28,8 @@ export type OfeliaWeekComments = {
 export type MakeWeekCommentsOptions = {
   storage: ScopedStorage
   identity: WidgetIdentity
+  /** The litter whose comment threads this view reads. */
+  litterId: string
   weekStart: AtomLike<Temporal.PlainDate | null>
 }
 
@@ -38,14 +40,17 @@ export type MakeWeekCommentsOptions = {
 export function makeWeekComments({
   storage,
   identity,
+  litterId,
   weekStart,
-}: MakeWeekCommentsOptions): OfeliaWeekComments {
+}: MakeWeekCommentsOptions): LitterWeekComments {
+  const name = (suffix: string) => `cats.litter.${litterId}.weekComments.${suffix}`
+
   const key = computed(() => {
     const week = weekStart()
-    return week ? commentsKey(weekStartISO(week)) : null
-  }, 'ofelia.weekComments.key')
+    return week ? commentsKey(litterId, weekStartISO(week)) : null
+  }, name('key'))
 
-  const comments = atom<Comment[]>([], 'ofelia.weekComments.comments').extend(
+  const comments = atom<Comment[]>([], name('comments')).extend(
     withStorageKeyReadonly({
       api: storage.server,
       key,
@@ -68,7 +73,7 @@ export function makeWeekComments({
   // the key it was for. (Two consecutive keys that both resolve to the empty
   // `fallback` array share that exact reference, so the hook can be skipped for
   // one of them; harmless, since `comments()` is `[]` under both keys anyway.)
-  const loadedKey = atom<string | null>(null, 'ofelia.weekComments.loadedKey')
+  const loadedKey = atom<string | null>(null, name('loadedKey'))
   comments.extend(
     withChangeHook(() => {
       loadedKey.set(key())
@@ -84,7 +89,7 @@ export function makeWeekComments({
   // instead of blanking a thread the reader was already looking at.
   const commentsBlocked = computed(
     () => commentsError() != null && loadedKey() !== key(),
-    'ofelia.weekComments.commentsBlocked',
+    name('commentsBlocked'),
   )
 
   // The mirror case: an error is present, but `commentsBlocked` is false
@@ -92,7 +97,7 @@ export function makeWeekComments({
   // exclusive with `commentsBlocked` by construction.
   const commentsWarning = computed(
     () => commentsError() != null && !commentsBlocked(),
-    'ofelia.weekComments.commentsWarning',
+    name('commentsWarning'),
   )
 
   const commentThread = computed<CommentView[]>(() => {
@@ -116,7 +121,7 @@ export function makeWeekComments({
             author.accountId === viewerAccountId,
         }
       })
-  }, 'ofelia.weekComments.commentThread')
+  }, name('commentThread'))
 
   return { comments, commentsError, commentsBlocked, commentsWarning, commentThread }
 }

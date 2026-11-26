@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { foldDebt } from 'module-cats/domain/debt'
 import type { LedgerEntry } from 'module-cats/domain/ledger'
 import type { Person } from 'module-cats/domain/roster'
-import { makeTestOfeliaModel } from 'module-cats/testing'
+import { makeTestCatsModel } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -75,7 +75,7 @@ describe('OfeliaStats', () => {
       cleaned(TODAY, 'Леша'),
       entry('went_into_debt', '2026-06-15', 'Карина', { onBehalfOf: 'Карина' }),
     ]
-    const { model } = makeTestOfeliaModel({ entries, todayIso: TODAY })
+    const { model } = makeTestCatsModel({ entries, todayIso: TODAY })
     renderStats({ get: async () => model } as unknown as WidgetModules)
 
     await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
@@ -93,7 +93,7 @@ describe('OfeliaStats', () => {
   })
 
   it('shows a retry button after a load error, and retrying loads again', async () => {
-    const { model } = makeTestOfeliaModel({ entries: [cleaned(TODAY, 'Леша')], todayIso: TODAY })
+    const { model } = makeTestCatsModel({ entries: [cleaned(TODAY, 'Леша')], todayIso: TODAY })
     const get = vi
       .fn()
       .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'cats', cause: new Error('x') }))
@@ -121,7 +121,7 @@ describe('OfeliaStats', () => {
         return () => {}
       },
     }
-    const { model } = makeTestOfeliaModel({ storage: failing, todayIso: TODAY })
+    const { model } = makeTestCatsModel({ storage: failing, todayIso: TODAY })
     renderStats({ get: async () => model } as unknown as WidgetModules)
 
     const retry = await screen.findByRole('button', { name: 'Повторить' })

@@ -1,8 +1,9 @@
 import { atom, context, wrap, type Atom } from '@reatom/core'
 import type { Comment } from 'module-cats/domain/comments'
+import { OFELIA_ID } from 'module-cats/domain/ids'
 import { commentsKey } from 'module-cats/domain/keys'
 import { weekStartISO } from 'module-cats/domain/roster'
-import { makeTestOfeliaModel } from 'module-cats/testing'
+import { makeTestLitterModel } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -37,7 +38,7 @@ type CommentsDeps = {
 // The comments model now sits on the shared ofelia module model; the storage
 // fake backs that module model's shared scope.
 function commentsModel({ storage, viewWeekStart, invoke, identity }: CommentsDeps) {
-  const { model } = makeTestOfeliaModel({ storage, invoke, identity })
+  const { model } = makeTestLitterModel({ storage, invoke, identity })
   return ofeliaCommentsModel({ ofelia: model, viewWeekStart })
 }
 
@@ -96,9 +97,15 @@ afterEach(() => {
 
 describe('commentsKey', () => {
   it('keys by the Monday of the week', () => {
-    expect(commentsKey(weekStartISO(D('2026-06-16')))).toBe('duty/comments:2026-06-15')
-    expect(commentsKey(weekStartISO(D('2026-06-21')))).toBe('duty/comments:2026-06-15')
-    expect(commentsKey(weekStartISO(D('2026-06-22')))).toBe('duty/comments:2026-06-22')
+    expect(commentsKey(OFELIA_ID, weekStartISO(D('2026-06-16')))).toBe(
+      'litter/ofelia/comments:2026-06-15',
+    )
+    expect(commentsKey(OFELIA_ID, weekStartISO(D('2026-06-21')))).toBe(
+      'litter/ofelia/comments:2026-06-15',
+    )
+    expect(commentsKey(OFELIA_ID, weekStartISO(D('2026-06-22')))).toBe(
+      'litter/ofelia/comments:2026-06-22',
+    )
   })
 })
 
@@ -122,13 +129,13 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
 
-      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'hi' })])
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'c1', text: 'hi' })])
 
       await vi.waitFor(() => expect(readComments()).toHaveLength(1))
       expect(readComments()[0]?.text).toBe('hi')
@@ -148,7 +155,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
@@ -158,7 +165,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-22',
+          'litter/ofelia/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -186,7 +193,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
@@ -225,12 +232,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
       // replay to late subscribers).
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('duty/comments:2026-06-15', [
+      emit('litter/ofelia/comments:2026-06-15', [
         { id: 'c1', ts: 2, text: 'мой', createdBy: { accountId: 'a1', name: 'старое' } },
         { id: 'c2', ts: 1, text: 'старый', author: 'Леша' },
       ])
@@ -272,18 +279,18 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       setWeek(D('2026-06-22'))
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-22',
+          'litter/ofelia/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -318,12 +325,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       // A later event on the SAME subscription fails (no week switch).
@@ -359,12 +366,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       expect(readBlocked()).toBe(false)
@@ -400,18 +407,18 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-15',
+          'litter/ofelia/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       setWeek(D('2026-06-22'))
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'duty/comments:2026-06-22',
+          'litter/ofelia/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -440,6 +447,7 @@ describe('ofeliaCommentsModel.send', () => {
     await wrap(() => model.send('  Привет  '))()
 
     expect(invoke).toHaveBeenCalledWith('comment', {
+      litterId: 'ofelia',
       weekStart: '2026-06-15',
       text: '  Привет  ',
     })
@@ -484,6 +492,7 @@ describe('ofeliaCommentsModel.send', () => {
     await wrap(() => model.send('next week note'))()
 
     expect(invoke).toHaveBeenCalledWith('comment', {
+      litterId: 'ofelia',
       weekStart: '2026-06-22',
       text: 'next week note',
     })

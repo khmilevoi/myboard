@@ -1,13 +1,13 @@
 import { action, atom, computed, withAsyncData, wrap } from '@reatom/core'
-import type { OfeliaModel } from 'module-cats'
+import type { LitterModel } from 'module-cats'
 import { getOfeliaDutyByDate, getStartOfWeek } from 'module-cats/domain/roster'
 import { ModuleApiError } from 'widget-runtime'
 
 export type { HistoryDayGroup, HistoryEntryView } from 'module-cats'
 
 export interface OfeliaDutyModelProps {
-  /** The shared ofelia module model: ledger, debts and day actions. */
-  ofelia: OfeliaModel
+  /** Ofelia's litter model from the cats module: ledger, debts and day actions. */
+  ofelia: LitterModel
 }
 
 // A day action's failure reaches the board as `ModuleApiError.message`, which

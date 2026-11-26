@@ -6,7 +6,7 @@ import type { ModuleContext } from 'widget-runtime/define-module'
 
 import type { catsActionSchemas } from '../domain/actions'
 import { foldDebt, getDebtDays, type DebtDay, type NumberOfDebts } from '../domain/debt'
-import { LEDGER_KEY } from '../domain/keys'
+import { ledgerKey } from '../domain/keys'
 import {
   LedgerEntriesSchema,
   resolveDays,
@@ -14,15 +14,16 @@ import {
   type LedgerEntry,
 } from '../domain/ledger'
 import { DUTY_TIME_ZONE, weekStartISO } from '../domain/roster'
-import { STATS_WINDOW_DAYS, memberStats, type OfeliaMemberStats } from '../domain/stats'
+import { STATS_WINDOW_DAYS, memberStats, type LitterMemberStats } from '../domain/stats'
 import { toHistoryGroups, type HistoryDayGroup } from './history-view'
-import { makeWeekComments, type OfeliaWeekComments } from './week-comments'
+import { makeWeekComments, type LitterWeekComments } from './week-comments'
 
-export type OfeliaModuleContext = ModuleContext<typeof catsActionSchemas, 'shared'>
+export type CatsModuleContext = ModuleContext<typeof catsActionSchemas, 'shared'>
 
-export type OfeliaDayAction = 'clean' | 'debt' | 'forgive' | 'undo'
+export type LitterDayAction = 'clean' | 'debt' | 'forgive' | 'undo'
 
-export type OfeliaModel = {
+/** One litter's duty state: its ledger, debts, history, comments and day actions. */
+export type LitterModel = {
   ledger: Atom<LedgerEntry[] | null>
   ledgerError: Atom<StorageError | null>
   ledgerLoading: Atom<boolean>
@@ -31,26 +32,32 @@ export type OfeliaModel = {
   numberOfDebts: Computed<NumberOfDebts | null>
   dayResolution: Computed<Map<string, DayResolution>>
   debtDays: Computed<Map<string, DebtDay> | null>
-  memberStats: Computed<OfeliaMemberStats[] | null>
+  memberStats: Computed<LitterMemberStats[] | null>
   historyFor(weekStart: AtomLike<Temporal.PlainDate | null>): Computed<HistoryDayGroup[]>
-  weekComments(weekStart: AtomLike<Temporal.PlainDate | null>): OfeliaWeekComments
-  runDayAction(action: OfeliaDayAction, date: Temporal.PlainDate): Promise<ModuleApiError | void>
+  weekComments(weekStart: AtomLike<Temporal.PlainDate | null>): LitterWeekComments
+  runDayAction(action: LitterDayAction, date: Temporal.PlainDate): Promise<ModuleApiError | void>
   sendComment(weekStart: Temporal.PlainDate, text: string): Promise<ModuleApiError | void>
 }
 
-export function makeOfeliaModel(context: OfeliaModuleContext): OfeliaModel {
+/**
+ * The model of one litter. Every key it reads and every payload it sends carries
+ * `litterId`; build it through `CatsModel.litter(id)`, which memoizes it.
+ */
+export function makeLitterModel(context: CatsModuleContext, litterId: string): LitterModel {
   const { storage, timer, identity, api } = context
   const shared = storage.shared
+  const key = ledgerKey(litterId)
+  const name = (suffix: string) => `cats.litter.${litterId}.${suffix}`
 
   // Reactive mirror of the append-only, server-owned ledger key. null is the
   // "not loaded yet" sentinel the computeds below branch on. The connect hook
   // lives on the atom itself: Reatom's dependency graph connects `ledger` when
   // any derived computed gains a subscriber and disconnects (auto-unsubscribing
   // the SSE listener) when the last one goes away — no manual ref-counting.
-  const ledger = atom<LedgerEntry[] | null>(null, 'ofelia.ledger').extend(
+  const ledger = atom<LedgerEntry[] | null>(null, name('ledger')).extend(
     withStorageKeyReadonly({
       api: shared.server,
-      key: LEDGER_KEY,
+      key,
       schema: LedgerEntriesSchema,
       fallback: [],
     }),
@@ -70,7 +77,7 @@ export function makeOfeliaModel(context: OfeliaModuleContext): OfeliaModel {
   // is built on.
   const retryLedger = action(async () => {
     ledgerLoading.set(true)
-    const result = await wrap(shared.server.get(LEDGER_KEY, LedgerEntriesSchema))
+    const result = await wrap(shared.server.get(key, LedgerEntriesSchema))
     ledgerLoading.set(false)
     if (result instanceof Error) {
       ledgerError.set(result)
@@ -78,19 +85,19 @@ export function makeOfeliaModel(context: OfeliaModuleContext): OfeliaModel {
     }
     ledgerError.set(null)
     ledger.set(result ?? [])
-  }, 'ofelia.retryLedger')
+  }, name('retryLedger'))
 
-  const today = computed(() => timer.today(DUTY_TIME_ZONE), 'ofelia.today')
+  const today = computed(() => timer.today(DUTY_TIME_ZONE), name('today'))
 
   const numberOfDebts = computed(() => {
     const entries = ledger()
     return entries === null ? null : foldDebt(entries)
-  }, 'ofelia.numberOfDebts')
+  }, name('numberOfDebts'))
 
   const dayResolution = computed(() => {
     const entries = ledger()
     return entries === null ? new Map<string, DayResolution>() : resolveDays(entries)
-  }, 'ofelia.dayResolution')
+  }, name('dayResolution'))
 
   const debtDays = computed(() => {
     const currentToday = today()
@@ -100,14 +107,14 @@ export function makeOfeliaModel(context: OfeliaModuleContext): OfeliaModel {
       acc.set(debtDay.date.toString(), debtDay)
       return acc
     }, new Map<string, DebtDay>())
-  }, 'ofelia.debtDays')
+  }, name('debtDays'))
 
   const stats = computed(() => {
     const currentToday = today()
     const entries = ledger()
     if (!currentToday || entries === null) return null
     return memberStats({ entries, today: currentToday, windowDays: STATS_WINDOW_DAYS })
-  }, 'ofelia.memberStats')
+  }, name('memberStats'))
 
   // One computed per view: each caller owns the week atom it navigates.
   const historyFor = (weekStart: AtomLike<Temporal.PlainDate | null>) =>
@@ -122,21 +129,21 @@ export function makeOfeliaModel(context: OfeliaModuleContext): OfeliaModel {
         members: identity.members(),
         viewerAccountId: identity.viewer()?.accountId ?? null,
       })
-    }, 'ofelia.history')
+    }, name('history'))
 
   const weekComments = (weekStart: AtomLike<Temporal.PlainDate | null>) =>
-    makeWeekComments({ storage: shared, identity, weekStart })
+    makeWeekComments({ storage: shared, identity, litterId, weekStart })
 
   // Every day action is pure intent: which day, which event. Who the actor is,
   // whose debt moves and whether the event applies at all is derived by the
   // module server, which also stamps the authenticated account. Failures are
   // returned as values; nothing after the await touches an atom.
   const runDayAction = action(
-    async (event: OfeliaDayAction, date: Temporal.PlainDate): Promise<ModuleApiError | void> => {
-      const result = await wrap(api.invoke(event, { date: date.toString() }))
+    async (event: LitterDayAction, date: Temporal.PlainDate): Promise<ModuleApiError | void> => {
+      const result = await wrap(api.invoke(event, { litterId, date: date.toString() }))
       if (result instanceof Error) return result
     },
-    'ofelia.runDayAction',
+    name('runDayAction'),
   )
 
   // The server trims and stamps the authoring account; the empty-text check
@@ -144,10 +151,12 @@ export function makeOfeliaModel(context: OfeliaModuleContext): OfeliaModel {
   const sendComment = action(
     async (weekStart: Temporal.PlainDate, text: string): Promise<ModuleApiError | void> => {
       if (text.trim().length === 0) return
-      const result = await wrap(api.invoke('comment', { weekStart: weekStartISO(weekStart), text }))
+      const result = await wrap(
+        api.invoke('comment', { litterId, weekStart: weekStartISO(weekStart), text }),
+      )
       if (result instanceof Error) return result
     },
-    'ofelia.sendComment',
+    name('sendComment'),
   )
 
   return {

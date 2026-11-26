@@ -9,7 +9,7 @@ import { makeCronScheduler } from '../widgets/cron-scheduler'
 import { createWidgetServerRegistry } from '../widgets/registry'
 import { makeModuleServerRegistry } from './registry'
 
-const LEDGER_KEY = 'm:cats:s:duty/ledger'
+const LEDGER_KEY = 'm:cats:s:litter/ofelia/ledger'
 const CURSOR_KEY = 'cron:module:cats:autoApproveDay'
 const NOON_0616 = Date.parse('2026-06-16T12:00:00+02:00')
 const AFTER_MIDNIGHT_0617 = Date.parse('2026-06-17T00:06:00+02:00')

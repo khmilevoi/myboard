@@ -1,11 +1,12 @@
 export { catsModule } from './generated/module'
 export type {
+  CatsModel,
   CommentView,
   HistoryDayGroup,
   HistoryEntryView,
-  OfeliaDayAction,
-  OfeliaMemberStats,
-  OfeliaModel,
-  OfeliaWeekComments,
+  LitterDayAction,
+  LitterMemberStats,
+  LitterModel,
+  LitterWeekComments,
   ToHistoryGroupsOptions,
 } from './model'

@@ -10,12 +10,13 @@ import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import { foldDebt } from '../domain/debt'
-import { LEDGER_KEY } from '../domain/keys'
+import { OFELIA_ID } from '../domain/ids'
+import { ledgerKey } from '../domain/keys'
 import type { LedgerEntry } from '../domain/ledger'
 import { memberStats } from '../domain/stats'
 import { toHistoryGroups } from './history-view'
-import { makeOfeliaModel, type OfeliaModuleContext } from './ofelia-model'
-import { makeTestOfeliaModel } from './testing'
+import { makeLitterModel, type CatsModuleContext } from './litter-model'
+import { makeTestLitterModel } from './testing'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
@@ -37,12 +38,12 @@ const ENTRIES: LedgerEntry[] = [
 function makeContext(
   overrides: Partial<StorageApi> = {},
   today: Temporal.PlainDate | null = D('2026-06-17'),
-): OfeliaModuleContext {
+): CatsModuleContext {
   const api = { ...createFakeStorage(), ...overrides }
   return {
     moduleId: 'cats',
     storage: { shared: { client: api, server: api } },
-    api: { invoke: vi.fn(async () => ({ ok: true })) } as OfeliaModuleContext['api'],
+    api: { invoke: vi.fn(async () => ({ ok: true })) } as CatsModuleContext['api'],
     timer: createFakeTimer({ today }),
     identity: makeStaticWidgetIdentity(),
   }
@@ -52,9 +53,9 @@ afterEach(() => {
   context.reset()
 })
 
-describe('makeOfeliaModel before the ledger and the clock arrive', () => {
+describe('makeLitterModel before the ledger and the clock arrive', () => {
   it('returns null projections and an empty resolution map', () => {
-    const { model } = makeTestOfeliaModel()
+    const { model } = makeTestLitterModel()
 
     expect(model.today()).toBeNull()
     expect(model.ledger()).toBeNull()
@@ -65,9 +66,9 @@ describe('makeOfeliaModel before the ledger and the clock arrive', () => {
   })
 })
 
-describe('makeOfeliaModel ledger projections', () => {
+describe('makeLitterModel ledger projections', () => {
   it('loads the ledger and derives debts, resolutions, debt days and stats', async () => {
-    const { model } = makeTestOfeliaModel({ entries: ENTRIES, todayIso: '2026-06-17' })
+    const { model } = makeTestLitterModel({ entries: ENTRIES, todayIso: '2026-06-17' })
 
     await context.start(async () => {
       const offs = [model.debtDays.subscribe(() => {}), model.memberStats.subscribe(() => {})]
@@ -101,7 +102,7 @@ describe('makeOfeliaModel ledger projections', () => {
   })
 
   it('groups the history of the week its own atom points at', async () => {
-    const { model } = makeTestOfeliaModel({ entries: ENTRIES, todayIso: '2026-06-17' })
+    const { model } = makeTestLitterModel({ entries: ENTRIES, todayIso: '2026-06-17' })
     const week = atom<Temporal.PlainDate | null>(D('2026-06-15'), 'test.week')
     const history = model.historyFor(week)
 
@@ -131,15 +132,15 @@ describe('makeOfeliaModel ledger projections', () => {
   })
 })
 
-describe('makeOfeliaModel.retryLedger (F2c)', () => {
+describe('makeLitterModel.retryLedger (F2c)', () => {
   it('re-fetches the ledger through the same public API and clears a previous failure', async () => {
     const get = vi.fn(async () => [] as LedgerEntry[]) as unknown as StorageApi['get']
-    const model = makeOfeliaModel(makeContext({ get }))
+    const model = makeLitterModel(makeContext({ get }), OFELIA_ID)
     model.ledgerError.set(new StorageError({ reason: 'boom' }))
 
     await wrap(() => model.retryLedger())()
 
-    expect(get).toHaveBeenCalledWith(LEDGER_KEY, expect.anything())
+    expect(get).toHaveBeenCalledWith(ledgerKey(OFELIA_ID), expect.anything())
     expect(model.ledgerError()).toBeNull()
     expect(model.ledgerLoading()).toBe(false)
     expect(model.ledger()).toEqual([])
@@ -148,7 +149,7 @@ describe('makeOfeliaModel.retryLedger (F2c)', () => {
   it('records a failed retry rather than silently leaving the model stuck', async () => {
     const failure = new StorageError({ reason: 'still down' })
     const get = vi.fn(async () => failure) as unknown as StorageApi['get']
-    const model = makeOfeliaModel(makeContext({ get }))
+    const model = makeLitterModel(makeContext({ get }), OFELIA_ID)
 
     await wrap(() => model.retryLedger())()
 
@@ -157,9 +158,9 @@ describe('makeOfeliaModel.retryLedger (F2c)', () => {
   })
 })
 
-describe('makeOfeliaModel.runDayAction', () => {
+describe('makeLitterModel.runDayAction', () => {
   it('invokes the matching action with the ISO date', async () => {
-    const { model, calls } = makeTestOfeliaModel({ todayIso: '2026-06-16' })
+    const { model, calls } = makeTestLitterModel({ todayIso: '2026-06-16' })
 
     expect(await wrap(() => model.runDayAction('clean', D('2026-06-18')))()).toBeUndefined()
     await wrap(() => model.runDayAction('debt', D('2026-06-16')))()
@@ -167,37 +168,42 @@ describe('makeOfeliaModel.runDayAction', () => {
     await wrap(() => model.runDayAction('undo', D('2026-06-19')))()
 
     expect(calls).toEqual([
-      { action: 'clean', payload: { date: '2026-06-18' } },
-      { action: 'debt', payload: { date: '2026-06-16' } },
-      { action: 'forgive', payload: { date: '2026-06-17' } },
-      { action: 'undo', payload: { date: '2026-06-19' } },
+      { action: 'clean', payload: { litterId: 'ofelia', date: '2026-06-18' } },
+      { action: 'debt', payload: { litterId: 'ofelia', date: '2026-06-16' } },
+      { action: 'forgive', payload: { litterId: 'ofelia', date: '2026-06-17' } },
+      { action: 'undo', payload: { litterId: 'ofelia', date: '2026-06-19' } },
     ])
   })
 
   it('returns the ModuleApiError the API returns instead of throwing', async () => {
     const failure = new ModuleApiError({ reason: 'offline', code: 'network' })
-    const { model, calls } = makeTestOfeliaModel({ invoke: async () => failure })
+    const { model, calls } = makeTestLitterModel({ invoke: async () => failure })
 
     const result = await wrap(() => model.runDayAction('clean', D('2026-06-18')))()
 
-    expect(calls).toEqual([{ action: 'clean', payload: { date: '2026-06-18' } }])
+    expect(calls).toEqual([
+      { action: 'clean', payload: { litterId: 'ofelia', date: '2026-06-18' } },
+    ])
     expect(result).toBe(failure)
   })
 })
 
-describe('makeOfeliaModel.sendComment', () => {
+describe('makeLitterModel.sendComment', () => {
   it('invokes the comment action for the Monday of the given week', async () => {
-    const { model, calls } = makeTestOfeliaModel()
+    const { model, calls } = makeTestLitterModel()
 
     await wrap(() => model.sendComment(D('2026-06-17'), '  Привет  '))()
 
     expect(calls).toEqual([
-      { action: 'comment', payload: { weekStart: '2026-06-15', text: '  Привет  ' } },
+      {
+        action: 'comment',
+        payload: { litterId: 'ofelia', weekStart: '2026-06-15', text: '  Привет  ' },
+      },
     ])
   })
 
   it('ignores empty or whitespace-only text', async () => {
-    const { model, calls } = makeTestOfeliaModel()
+    const { model, calls } = makeTestLitterModel()
 
     await wrap(() => model.sendComment(D('2026-06-15'), '   '))()
 
@@ -206,7 +212,7 @@ describe('makeOfeliaModel.sendComment', () => {
 
   it('returns the ModuleApiError the API returns', async () => {
     const failure = new ModuleApiError({ reason: 'boom', code: 'internal_error' })
-    const { model } = makeTestOfeliaModel({ invoke: async () => failure })
+    const { model } = makeTestLitterModel({ invoke: async () => failure })
 
     expect(await wrap(() => model.sendComment(D('2026-06-15'), 'hi'))()).toBe(failure)
   })

@@ -11,7 +11,8 @@ import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import type { Comment } from '../domain/comments'
-import { makeOfeliaModel, type OfeliaModuleContext } from './ofelia-model'
+import { OFELIA_ID } from '../domain/ids'
+import { makeLitterModel, type CatsModuleContext } from './litter-model'
 
 type SubscribeCall = {
   key: string
@@ -28,13 +29,16 @@ function makeCommentsModel(identity: WidgetIdentity = makeStaticWidgetIdentity()
   }) as unknown as StorageApi['subscribe']
   const api: StorageApi = { ...createFakeStorage(), subscribe }
 
-  const model = makeOfeliaModel({
-    moduleId: 'cats',
-    storage: { shared: { client: api, server: api } },
-    api: { invoke: vi.fn(async () => ({ ok: true })) } as OfeliaModuleContext['api'],
-    timer: createFakeTimer(),
-    identity,
-  })
+  const model = makeLitterModel(
+    {
+      moduleId: 'cats',
+      storage: { shared: { client: api, server: api } },
+      api: { invoke: vi.fn(async () => ({ ok: true })) } as CatsModuleContext['api'],
+      timer: createFakeTimer(),
+      identity,
+    },
+    OFELIA_ID,
+  )
 
   const emit = (key: string, value: Comment[] | null) => {
     for (const call of calls) {
@@ -85,7 +89,7 @@ describe('weekComments.comments', () => {
       expect(subscribe).not.toHaveBeenCalled()
 
       setWeek(D('2026-06-15'))
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-15'))
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-15'))
 
       off()
     })
@@ -100,9 +104,9 @@ describe('weekComments.comments', () => {
       const off = view.comments.subscribe(() => {})
       const setWeek = wrap((next: Temporal.PlainDate) => week.set(next))
 
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-15'))
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-15'))
       setWeek(D('2026-06-22'))
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-22'))
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-22'))
       expect(calls[0]?.unsubscribe).toHaveBeenCalled()
 
       off()
@@ -122,17 +126,17 @@ describe('weekComments.comments', () => {
       const readB = wrap(() => b.commentThread().map((comment) => comment.text))
       const setWeekA = wrap((next: Temporal.PlainDate) => weekA.set(next))
 
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-15'))
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-22'))
-      emit('duty/comments:2026-06-15', [cm({ id: 'a1', text: 'week one' })])
-      emit('duty/comments:2026-06-22', [cm({ id: 'b1', text: 'week two' })])
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-15'))
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-22'))
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'a1', text: 'week one' })])
+      emit('litter/ofelia/comments:2026-06-22', [cm({ id: 'b1', text: 'week two' })])
 
       await vi.waitFor(() => expect(readA()).toEqual(['week one']))
       await vi.waitFor(() => expect(readB()).toEqual(['week two']))
 
       setWeekA(D('2026-06-29'))
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-29'))
-      emit('duty/comments:2026-06-29', [cm({ id: 'a2', text: 'week three' })])
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-29'))
+      emit('litter/ofelia/comments:2026-06-29', [cm({ id: 'a2', text: 'week three' })])
 
       await vi.waitFor(() => expect(readA()).toEqual(['week three']))
       expect(readB()).toEqual(['week two'])
@@ -156,8 +160,8 @@ describe('weekComments.commentThread', () => {
       const off = view.commentThread.subscribe(() => {})
       const readThread = wrap(() => view.commentThread())
 
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-15'))
-      emit('duty/comments:2026-06-15', [
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-15'))
+      emit('litter/ofelia/comments:2026-06-15', [
         { id: 'c1', ts: 2, text: 'мой', createdBy: { accountId: 'a1', name: 'старое' } },
         { id: 'c2', ts: 1, text: 'старый', author: 'Леша' },
       ])
@@ -194,12 +198,12 @@ describe('weekComments.commentThread', () => {
       const readWarning = wrap(() => view.commentsWarning())
       const setWeek = wrap((next: Temporal.PlainDate) => week.set(next))
 
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-15'))
-      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-15'))
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       setWeek(D('2026-06-22'))
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-22'))
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-22'))
       calls.at(-1)?.listener(new StorageError({ reason: 'boom' }))
 
       await vi.waitFor(() => expect(readError()).not.toBeNull())
@@ -224,8 +228,8 @@ describe('weekComments.commentThread', () => {
       const readBlocked = wrap(() => view.commentsBlocked())
       const readWarning = wrap(() => view.commentsWarning())
 
-      await vi.waitFor(() => subscribedTo(subscribe, 'duty/comments:2026-06-15'))
-      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      await vi.waitFor(() => subscribedTo(subscribe, 'litter/ofelia/comments:2026-06-15'))
+      emit('litter/ofelia/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
       expect(readBlocked()).toBe(false)
       expect(readWarning()).toBe(false)

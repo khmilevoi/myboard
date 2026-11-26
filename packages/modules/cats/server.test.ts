@@ -4,7 +4,9 @@ import type { ModuleCronContext, ModuleServerContext } from '@shared/modules/con
 import type { WidgetServerStorage } from '@shared/widgets/contracts'
 import { describe, expect, it, vi } from 'vitest'
 
-import { LEDGER_KEY } from './domain/keys'
+import { catsActionSchemas } from './domain/actions'
+import { OFELIA_ID } from './domain/ids'
+import { ledgerKey } from './domain/keys'
 import catsServer from './server'
 
 const KARINA = { accountId: 'a1', name: 'Карина' }
@@ -42,12 +44,14 @@ const run = (
     context,
   )
 
-describe('ofelia server', () => {
+describe('cats server', () => {
   it('appends a cleaned entry stamped with the viewer', async () => {
     const { context, append } = makeContext([])
 
-    expect(await run('clean', { date: '2026-06-16' }, context)).toEqual({ ok: true })
-    expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
+    expect(await run('clean', { litterId: OFELIA_ID, date: '2026-06-16' }, context)).toEqual({
+      ok: true,
+    })
+    expect(append).toHaveBeenCalledWith(ledgerKey(OFELIA_ID), {
       date: '2026-06-16',
       type: 'cleaned',
       actor: 'Леша',
@@ -59,29 +63,31 @@ describe('ofelia server', () => {
   it('stamps null when there is no session', async () => {
     const { context, append } = makeContext([], null as never)
 
-    await run('clean', { date: '2026-06-16' }, context)
+    await run('clean', { litterId: OFELIA_ID, date: '2026-06-16' }, context)
 
     expect(append.mock.calls[0][1]).toMatchObject({ createdBy: null })
   })
 
   it('half 1: the clean payload schema strips a forged createdBy/actor before parsing', () => {
     const parsed = catsServer.contract.actions.clean.payload.parse({
+      litterId: OFELIA_ID,
       date: '2026-06-16',
       createdBy: { accountId: 'evil', name: 'Мимо' },
       actor: 'Карина',
     })
 
-    expect(parsed).toEqual({ date: '2026-06-16' })
+    expect(parsed).toEqual({ litterId: OFELIA_ID, date: '2026-06-16' })
   })
 
   it('half 1: the comment payload schema strips a forged createdBy before parsing', () => {
     const parsed = catsServer.contract.actions.comment.payload.parse({
+      litterId: OFELIA_ID,
       weekStart: '2026-06-15',
       text: 'привет',
       createdBy: { accountId: 'evil', name: 'Мимо' },
     })
 
-    expect(parsed).toEqual({ weekStart: '2026-06-15', text: 'привет' })
+    expect(parsed).toEqual({ litterId: OFELIA_ID, weekStart: '2026-06-15', text: 'привет' })
   })
 
   it('half 2: the clean handler ignores createdBy/actor even when a caller bypasses the schema', async () => {
@@ -90,13 +96,14 @@ describe('ofelia server', () => {
     // that still carries createdBy/actor, as if the schema had already let
     // them through, to prove the handler itself never reads them.
     const forgedPayload = {
+      litterId: OFELIA_ID,
       date: '2026-06-16',
       createdBy: { accountId: 'evil', name: 'Мимо' },
       actor: 'Карина',
     } as unknown as Parameters<(typeof catsServer.handlers)['clean']>[0]
 
     expect(await catsServer.handlers.clean(forgedPayload, context)).toEqual({ ok: true })
-    expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
+    expect(append).toHaveBeenCalledWith(ledgerKey(OFELIA_ID), {
       date: '2026-06-16',
       type: 'cleaned',
       actor: 'Леша',
@@ -108,8 +115,10 @@ describe('ofelia server', () => {
   it('appends a debt entry stamped with the viewer', async () => {
     const { context, append } = makeContext([])
 
-    expect(await run('debt', { date: '2026-06-16' }, context)).toEqual({ ok: true })
-    expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
+    expect(await run('debt', { litterId: OFELIA_ID, date: '2026-06-16' }, context)).toEqual({
+      ok: true,
+    })
+    expect(append).toHaveBeenCalledWith(ledgerKey(OFELIA_ID), {
       date: '2026-06-16',
       type: 'went_into_debt',
       actor: 'Карина',
@@ -122,33 +131,70 @@ describe('ofelia server', () => {
   it('is a silent no-op when forgiving a day that carries no debt', async () => {
     const { context, append } = makeContext([])
 
-    expect(await run('forgive', { date: '2026-06-16' }, context)).toEqual({ ok: true })
+    expect(await run('forgive', { litterId: OFELIA_ID, date: '2026-06-16' }, context)).toEqual({
+      ok: true,
+    })
     expect(append).not.toHaveBeenCalled()
   })
 
   it('is a silent no-op when undoing an open day', async () => {
     const { context, append } = makeContext([])
 
-    expect(await run('undo', { date: '2026-06-16' }, context)).toEqual({ ok: true })
+    expect(await run('undo', { litterId: OFELIA_ID, date: '2026-06-16' }, context)).toEqual({
+      ok: true,
+    })
     expect(append).not.toHaveBeenCalled()
   })
 
   it('appends a comment under the viewed week key', async () => {
     const { context, append } = makeContext([])
 
-    await run('comment', { weekStart: '2026-06-15', text: '  привет ' }, context)
+    await run(
+      'comment',
+      { litterId: OFELIA_ID, weekStart: '2026-06-15', text: '  привет ' },
+      context,
+    )
 
-    expect(append).toHaveBeenCalledWith('duty/comments:2026-06-15', {
+    expect(append).toHaveBeenCalledWith('litter/ofelia/comments:2026-06-15', {
       text: 'привет',
       createdBy: KARINA,
       author: 'Карина',
     })
   })
 
+  it("appends a day action to the payload litter's own ledger", async () => {
+    const { context, append } = makeContext([])
+
+    expect(await run('clean', { litterId: 'busya', date: '2026-06-16' }, context)).toEqual({
+      ok: true,
+    })
+    expect(context.api.storage.shared.get).toHaveBeenCalledWith(
+      'litter/busya/ledger',
+      expect.anything(),
+    )
+    expect(append).toHaveBeenCalledWith('litter/busya/ledger', expect.anything())
+  })
+
+  it("appends a comment under the payload litter's week key", async () => {
+    const { context, append } = makeContext([])
+
+    await run('comment', { litterId: 'busya', weekStart: '2026-06-15', text: 'привет' }, context)
+
+    expect(append).toHaveBeenCalledWith('litter/busya/comments:2026-06-15', expect.anything())
+  })
+
+  it('rejects a litter id that is not a key-safe entity id', () => {
+    expect(
+      catsActionSchemas.clean.payload.safeParse({ litterId: 'a/b', date: '2026-06-16' }).success,
+    ).toBe(false)
+  })
+
   it('rejects a calendar-invalid date as a value instead of throwing', async () => {
     const { context, append } = makeContext([])
 
-    expect(await run('clean', { date: '2026-02-30' }, context)).toBeInstanceOf(Error)
+    expect(await run('clean', { litterId: OFELIA_ID, date: '2026-02-30' }, context)).toBeInstanceOf(
+      Error,
+    )
     expect(append).not.toHaveBeenCalled()
   })
 
@@ -156,7 +202,7 @@ describe('ofelia server', () => {
     const failure = new Error('valkey down')
     const { context, append } = makeContext(failure)
 
-    expect(await run('clean', { date: '2026-06-16' }, context)).toBe(failure)
+    expect(await run('clean', { litterId: OFELIA_ID, date: '2026-06-16' }, context)).toBe(failure)
     expect(append).not.toHaveBeenCalled()
   })
 })
@@ -198,13 +244,13 @@ const SEED_ENTRY = {
   createdBy: null,
 }
 
-describe('ofelia auto-approve cron', () => {
+describe('cats auto-approve cron', () => {
   it('closes the unresolved window with system-authored entries', async () => {
     const { context, append } = makeCronContext([SEED_ENTRY])
 
     expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
     expect(append).toHaveBeenCalledTimes(7)
-    expect(append).toHaveBeenLastCalledWith(LEDGER_KEY, {
+    expect(append).toHaveBeenLastCalledWith(ledgerKey(OFELIA_ID), {
       date: '2026-06-16',
       type: 'cleaned',
       actor: 'Леша',
@@ -268,8 +314,8 @@ describe('ofelia auto-approve cron', () => {
     // time this job re-checked that specific day.
     expect(append).toHaveBeenCalledTimes(6)
     expect(append).not.toHaveBeenCalledWith(
-      LEDGER_KEY,
-      expect.objectContaining({ date: '2026-06-13' }),
+      ledgerKey(OFELIA_ID),
+      expect.objectContaining({ litterId: OFELIA_ID, date: '2026-06-13' }),
     )
   })
 })

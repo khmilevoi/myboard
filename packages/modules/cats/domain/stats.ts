@@ -5,7 +5,7 @@ import { DUTY_ROTATION, type Person } from './roster'
 /** How many days, today included, the member statistics look back over. */
 export const STATS_WINDOW_DAYS = 30
 
-export type OfeliaMemberStats = { person: Person; cleanings: number; debt: number }
+export type LitterMemberStats = { person: Person; cleanings: number; debt: number }
 
 export type MemberStatsInput = {
   entries: LedgerEntry[]
@@ -24,7 +24,7 @@ export type MemberStatsInput = {
  * - `forgiven` — the day's own duty person, who cleaned it and waived the debtor's repayment.
  * A `reset` reopens the day (status `pending`), so an undone day counts for nobody.
  */
-export function memberStats({ entries, today, windowDays }: MemberStatsInput): OfeliaMemberStats[] {
+export function memberStats({ entries, today, windowDays }: MemberStatsInput): LitterMemberStats[] {
   const windowStart = today.subtract({ days: windowDays - 1 })
   const cleanings = new Map<Person, number>()
 

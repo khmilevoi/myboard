@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { catsModule, type OfeliaModel } from 'module-cats'
-import { LEDGER_KEY } from 'module-cats/domain/keys'
+import { catsModule, type CatsModel } from 'module-cats'
+import { OFELIA_ID } from 'module-cats/domain/ids'
+import { ledgerKey } from 'module-cats/domain/keys'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -24,9 +25,9 @@ import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 
 const timerHolder = { current: null as ServerTime | null }
 
-// Builds the real ofelia module model, at mount time, over whatever storage the
+// Builds the real cats module model, at mount time, over whatever storage the
 // test left on the props — the same shape the host's module registry hands out.
-async function loadOfeliaModel(widgetProps: WidgetRuntimeProps): Promise<OfeliaModel> {
+async function loadCatsModel(widgetProps: WidgetRuntimeProps): Promise<CatsModel> {
   const loadModel = catsModule.loadModel
   if (!loadModel || !timerHolder.current) throw new Error('test setup: no model loader or timer')
   const factory = await loadModel()
@@ -70,7 +71,7 @@ function props(tier: WidgetTier): WidgetRuntimeProps {
     storage: fakeWidgetStorage(),
     api: { invoke: vi.fn() },
     identity: makeStaticWidgetIdentity(),
-    modules: fakeModules(() => loadOfeliaModel(widgetProps)),
+    modules: fakeModules(() => loadCatsModel(widgetProps)),
   }
   return widgetProps
 }
@@ -188,14 +189,14 @@ function fakeWidgetStorageWithFailingLedger(): WidgetStorage {
   const sharedServer: StorageApi = {
     ...baseSharedServer,
     subscribe: vi.fn((key: string, listener: (event: unknown) => void, schema?: unknown) => {
-      if (key === LEDGER_KEY) {
+      if (key === ledgerKey(OFELIA_ID)) {
         listener(new StorageError({ reason: 'boom' }))
         return () => {}
       }
       return baseSharedServer.subscribe(key, listener as never, schema as never)
     }) as unknown as StorageApi['subscribe'],
     get: vi.fn(async (key: string) =>
-      key === LEDGER_KEY ? [] : null,
+      key === ledgerKey(OFELIA_ID) ? [] : null,
     ) as unknown as StorageApi['get'],
   }
 
@@ -249,7 +250,7 @@ describe('OfeliaPoopDuty module load failure', () => {
     const get = vi
       .fn()
       .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'cats' }))
-      .mockImplementationOnce(() => loadOfeliaModel(widgetProps))
+      .mockImplementationOnce(() => loadCatsModel(widgetProps))
     widgetProps.modules = fakeModules(get)
     renderWidget(widgetProps)
 
