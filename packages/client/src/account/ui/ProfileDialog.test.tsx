@@ -156,11 +156,15 @@ describe('ProfileDialog', () => {
     expect(within(dialog).getByTestId('profile-avatar-image')).toBeInTheDocument()
   })
 
-  it('hands over to the devices dialog and renders its nested child', async () => {
+  it('opens the devices dialog from the whole devices row and renders its nested child', async () => {
     const { dialog, onOpenDevices } = await renderProfile()
 
     expect(within(dialog).getByTestId('nested-child')).toBeInTheDocument()
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Мои устройства' }))
+    // One compact row, not a separate text button: its name carries the summary.
+    const row = within(dialog).getByRole('button', { name: /^Мои устройства: \d+ устройств/ })
+    expect(row).toHaveAttribute('data-testid', 'profile-open-devices')
+    expect(within(row).getByTestId('profile-device-summary')).toBeInTheDocument()
+    fireEvent.click(row)
     expect(onOpenDevices).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { Camera, CircleAlert, Monitor, Trash2, X } from 'lucide-react'
+import { Camera, ChevronRight, CircleAlert, Monitor, Trash2, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
@@ -127,25 +127,31 @@ export const ProfileDialog = reatomMemo<ProfileDialogProps>(
           ) : null}
 
           <div className={styles.sectionLabel}>Устройства</div>
-          <div className={styles.devicesCard}>
-            <div className={styles.devicesIcon}>
+          {/* The whole row opens "Мои устройства": a separate text button squeezed the summary
+            into four lines on a phone. */}
+          <button
+            type="button"
+            className={styles.devicesCard}
+            aria-label={`Мои устройства: ${deviceSummary}`}
+            data-testid="profile-open-devices"
+            onClick={onOpenDevices}
+          >
+            <span className={styles.devicesIcon}>
               <Monitor size={17} strokeWidth={1.8} aria-hidden />
-            </div>
-            <div className={styles.devicesText}>
-              <div className={styles.devicesSummary} data-testid="profile-device-summary">
+            </span>
+            <span className={styles.devicesText}>
+              <span className={styles.devicesSummary} data-testid="profile-device-summary">
                 {deviceSummary}
-              </div>
-              <div className={styles.devicesSub}>Вход по ключу доступа</div>
-            </div>
-            <button
-              type="button"
-              className={styles.devicesButton}
-              data-testid="profile-open-devices"
-              onClick={onOpenDevices}
-            >
-              Мои устройства
-            </button>
-          </div>
+              </span>
+              <span className={styles.devicesSub}>Вход по ключу доступа</span>
+            </span>
+            <ChevronRight
+              size={18}
+              strokeWidth={1.9}
+              className={styles.devicesChevron}
+              aria-hidden
+            />
+          </button>
 
           {children}
         </DialogContent>

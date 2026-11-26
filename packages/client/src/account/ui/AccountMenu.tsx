@@ -81,6 +81,13 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
     const cropDialog = (
       <AvatarCropDialog model={crop} firstName={firstNameOf(name)} onPickAnother={openPicker} />
     )
+    const devicesDialog = (
+      <MyDevicesDialog
+        model={model}
+        open={surfaces.myDevicesOpen()}
+        onOpenChange={wrap((next: boolean) => surfaces.myDevicesOpen.set(next))}
+      />
+    )
     const hasPending = pending.length > 0
     const deviceCountLabel = `${devices.length} ${pluralize(devices.length, 'устройство', 'устройства', 'устройств')}`
     const pendingLabel = `${pending.length} ${pluralize(pending.length, 'запрос', 'запроса', 'запросов')} на подключение`
@@ -214,16 +221,14 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
           onOpenDevices={wrap(() => surfaces.openDevicesFromProfile())}
         >
           {profileOpen ? cropDialog : null}
+          {profileOpen ? devicesDialog : null}
         </ProfileDialog>
-        {/* Over the profile the crop lives in the profile's React tree (see ProfileDialog's
-          `children`); from the menu it stands alone. Never both: the profile cannot close while
-          the crop, a modal over it, is open. */}
+        {/* Over the profile the crop and the devices dialog live in the profile's React tree (see
+          ProfileDialog's `children`), so Radix treats them as nested layers and closing one returns
+          to the profile instead of dismissing both. From the menu they stand alone. Never both:
+          the profile cannot close while a modal over it is open. */}
         {profileOpen ? null : cropDialog}
-        <MyDevicesDialog
-          model={model}
-          open={surfaces.myDevicesOpen()}
-          onOpenChange={wrap((next: boolean) => surfaces.myDevicesOpen.set(next))}
-        />
+        {profileOpen ? null : devicesDialog}
       </>
     )
   },

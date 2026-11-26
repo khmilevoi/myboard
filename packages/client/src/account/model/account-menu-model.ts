@@ -10,7 +10,10 @@ export interface AccountMenuModel {
   menuOpen: Atom<boolean>
   profileOpen: Atom<boolean>
   myDevicesOpen: Atom<boolean>
-  /** "Мои устройства" in the profile: the profile gives way to the devices dialog. */
+  /**
+   * "Мои устройства" in the profile: the devices dialog opens over the profile, which stays open
+   * underneath, so closing the devices returns to the profile.
+   */
   openDevicesFromProfile: Action<[], void>
   /**
    * A photo was picked — from the menu's camera badge or from the profile. The menu closes; the
@@ -25,7 +28,6 @@ export function makeAccountMenuModel(crop: Pick<AvatarCropModel, 'openFile'>): A
   const myDevicesOpen = atom(false, 'accountMenu.myDevicesOpen')
 
   const openDevicesFromProfile = action(() => {
-    profileOpen.set(false)
     myDevicesOpen.set(true)
   }, 'accountMenu.openDevicesFromProfile')
 

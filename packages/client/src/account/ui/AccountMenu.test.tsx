@@ -154,7 +154,7 @@ describe('AccountMenu', () => {
     expect(items).toEqual(['Профиль', 'Мои устройства', 'Выйти'])
   })
 
-  it('opens the profile from the menu and hands over to the devices dialog', async () => {
+  it('opens the devices dialog over the profile; closing it returns to the profile', async () => {
     const { model } = createTestModel([device({ credentialId: 'c1', label: 'Chrome on Windows' })])
 
     render(<AccountMenu model={model} />)
@@ -168,7 +168,24 @@ describe('AccountMenu', () => {
 
     const devices = await screen.findByTestId('my-devices-dialog')
     expect(within(devices).getByText('Chrome on Windows')).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByTestId('profile-dialog')).toBeNull())
+    // Stacked, not replaced: the profile stays open underneath.
+    expect(screen.getByTestId('profile-dialog')).toBeInTheDocument()
+
+    fireEvent.click(within(devices).getByRole('button', { name: 'Закрыть' }))
+
+    await waitFor(() => expect(screen.queryByTestId('my-devices-dialog')).toBeNull())
+    expect(screen.getByTestId('profile-dialog')).toBeInTheDocument()
+  })
+
+  it('opens the devices dialog from the menu on its own, without a profile', async () => {
+    const { model } = createTestModel([device({ credentialId: 'c1', label: 'Chrome on Windows' })])
+
+    render(<AccountMenu model={model} />)
+    await openMenu()
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Мои устройства' }))
+
+    expect(await screen.findByTestId('my-devices-dialog')).toBeInTheDocument()
+    expect(screen.queryByTestId('profile-dialog')).toBeNull()
   })
 
   describe('avatar', () => {

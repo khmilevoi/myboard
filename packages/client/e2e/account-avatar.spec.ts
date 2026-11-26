@@ -149,3 +149,43 @@ test('an unreadable file opens the crop dialog with its error and no stage', asy
   await menu.cropDialog.waitFor({ state: 'detached' })
   await expect(menu.triggerImage).toHaveCount(0)
 })
+
+test('the devices dialog opens over the profile and its close button returns to the profile', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const menu = new AccountMenuPage(page, SEEDED_NAME)
+  await menu.openProfile()
+
+  await menu.profileDialog.getByTestId('profile-open-devices').click()
+  const devices = page.getByTestId('my-devices-dialog')
+  await devices.waitFor()
+  await expect(menu.profileDialog).toBeVisible()
+
+  await devices.getByRole('button', { name: 'Закрыть' }).click()
+  await devices.waitFor({ state: 'detached' })
+  // Only the top dialog closed: the profile is still there.
+  await expect(menu.profileDialog).toBeVisible()
+  await menu.closeProfile()
+})
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('the profile keeps the devices row compact: one line each, no squeezed text', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    const menu = new AccountMenuPage(page, SEEDED_NAME)
+    await menu.openProfile()
+
+    const row = menu.profileDialog.getByTestId('profile-open-devices')
+    const summary = row.getByTestId('profile-device-summary')
+    const summaryBox = await summary.boundingBox()
+    const rowBox = await row.boundingBox()
+    if (!summaryBox || !rowBox) throw new Error('the devices row has no layout box')
+    // A single 14px line, not the four-line wrap a separate text button used to force.
+    expect(summaryBox.height).toBeLessThan(24)
+    expect(rowBox.height).toBeLessThan(72)
+  })
+})

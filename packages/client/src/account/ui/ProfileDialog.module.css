@@ -160,14 +160,27 @@
   text-transform: uppercase;
   color: var(--text-3);
 }
+/* One clickable row: icon, summary, chevron. */
 .devicesCard {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 12px;
   padding: 12px 13px;
   background: var(--muted);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   border: 1px solid var(--border);
   border-radius: 13px;
+  cursor: pointer;
+}
+.devicesCard:hover {
+  background: var(--secondary);
+}
+.devicesCard:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 .devicesIcon {
   display: flex;
@@ -182,8 +195,10 @@
   box-shadow: var(--shadow-card);
 }
 .devicesText {
-  flex: 1;
+  display: flex;
   min-width: 0;
+  flex: 1;
+  flex-direction: column;
 }
 .devicesSummary {
   font: 600 14px var(--font-sans);
@@ -194,17 +209,7 @@
   font: 400 12.5px var(--font-sans);
   color: var(--muted-foreground);
 }
-.devicesButton {
-  height: 34px;
+.devicesChevron {
   flex: none;
-  padding: 0 12px;
-  background: var(--card);
-  color: var(--foreground);
-  font: 600 13px var(--font-sans);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  cursor: pointer;
-}
-.devicesButton:hover {
-  background: var(--secondary);
+  color: var(--muted-foreground);
 }
