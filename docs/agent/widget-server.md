@@ -78,3 +78,13 @@ and the `registry/cats` / `registry/litters` registries. The cron cursor is
 `cron:module:cats:autoApproveDay`, and the cron closes the day for each litter that at least one
 active cat points at. The `ofelia-to-cats` migration copies the old `m:ofelia:s:duty/*` data into
 litter `ofelia` and seeds cat `ofelia`.
+
+Two consequences to expect:
+
+- **Restoring a cat back-fills its litter.** While every cat on a litter is archived, the cron
+  skips that litter. After a restore, the next run closes up to 7 open days of it with system
+  `cleaned` entries, including days on which the litter was not in use, and those closes may
+  settle a debt.
+- **Stale clients get a 404 after the deploy.** Tabs and PWA bundles still on the pre-cats release
+  call `/api/modules/ofelia/actions/*`, which now answers `404 unknown_module`. Their writes fail
+  as values and nothing is lost, but the card shows an error until the page is reloaded.
