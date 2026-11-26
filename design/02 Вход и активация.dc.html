@@ -182,7 +182,7 @@
     <div role="dialog" aria-modal="true" aria-label="Сканирование QR-кода" style="position:fixed;inset:0;z-index:60;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;">
 
       <sc-if value="{{ showVideo }}" hint-placeholder-val="{{ false }}">
-        <video ref="{{ videoRef }}" autoPlay="{{ true }}" playsInline="{{ true }}" muted="{{ true }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
+        <video ref="{{ videoRef }}" autoPlay="{{ true }}" playsInline="{{ true }}" muted="{{ true }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;"></video>
       </sc-if>
 
       <sc-if value="{{ showCameraFallback }}" hint-placeholder-val="{{ true }}">
@@ -192,11 +192,11 @@
       </sc-if>
 
       <!-- scrim with cutout frame -->
-      <div aria-hidden="true" style="width:250px;height:250px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border-radius:20px;position:relative;">
-        <div style="position:absolute;top:-2px;left:-2px;width:34px;height:34px;border-top:3px solid #fff;border-left:3px solid #fff;border-top-left-radius:16px;"></div>
-        <div style="position:absolute;top:-2px;right:-2px;width:34px;height:34px;border-top:3px solid #fff;border-right:3px solid #fff;border-top-right-radius:16px;"></div>
-        <div style="position:absolute;bottom:-2px;left:-2px;width:34px;height:34px;border-bottom:3px solid #fff;border-left:3px solid #fff;border-bottom-left-radius:16px;"></div>
-        <div style="position:absolute;bottom:-2px;right:-2px;width:34px;height:34px;border-bottom:3px solid #fff;border-right:3px solid #fff;border-bottom-right-radius:16px;"></div>
+      <div aria-hidden="true" style="{{ scanFrame }}">
+        <div style="{{ scanCornerTl }}"></div>
+        <div style="{{ scanCornerTr }}"></div>
+        <div style="{{ scanCornerBl }}"></div>
+        <div style="{{ scanCornerBr }}"></div>
       </div>
 
       <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:22px 20px;">
@@ -204,15 +204,41 @@
         <button onClick="{{ closeScanner }}" aria-label="Закрыть сканер" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:none;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
       </div>
 
-      <div style="position:absolute;bottom:56px;left:24px;right:24px;text-align:center;font:500 14px/1.5 'Hanken Grotesk',sans-serif;color:rgba(255,255,255,.85);text-wrap:pretty;">
-        <sc-if value="{{ cameraError }}" hint-placeholder-val="{{ false }}">Камера недоступна — наведите устройство с доступом к камере на QR-код активации.</sc-if>
-        <sc-if value="{{ notCameraError }}" hint-placeholder-val="{{ true }}">Наведите камеру на QR-код активации</sc-if>
-      </div>
+      <!-- (b2) checking / (b3) foreign QR: status pill above the hint; scanning continues under (b3) -->
+      <sc-if value="{{ scanChecking }}" hint-placeholder-val="{{ false }}">
+        <p role="status" style="position:absolute;bottom:104px;left:50%;transform:translateX(-50%);margin:0;padding:8px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;white-space:nowrap;background:rgba(255,255,255,.92);color:#1c1d33;font:600 13.5px 'Hanken Grotesk',sans-serif;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Проверяем код…</p>
+      </sc-if>
+      <sc-if value="{{ scanForeign }}" hint-placeholder-val="{{ false }}">
+        <p role="status" style="position:absolute;bottom:104px;left:50%;transform:translateX(-50%);margin:0;padding:8px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;white-space:nowrap;background:#faeeda;color:#633806;font:600 13.5px 'Hanken Grotesk',sans-serif;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7"></path></svg>Это не QR-код myboard</p>
+      </sc-if>
+
+      <sc-if value="{{ scanHintVisible }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;bottom:56px;left:24px;right:24px;text-align:center;font:500 14px/1.5 'Hanken Grotesk',sans-serif;color:rgba(255,255,255,.85);text-wrap:pretty;">
+          <sc-if value="{{ cameraError }}" hint-placeholder-val="{{ false }}">Камера недоступна — наведите устройство с доступом к камере на QR-код активации.</sc-if>
+          <sc-if value="{{ scanIdleHint }}" hint-placeholder-val="{{ true }}">Наведите камеру на QR-код из окна «Добавить устройство»</sc-if>
+          <sc-if value="{{ scanChecking }}" hint-placeholder-val="{{ false }}">Код K7QP-3M9X</sc-if>
+        </div>
+      </sc-if>
+
+      <!-- (b4)-(b6) unusable code: a panel over the live preview, which keeps running behind it -->
+      <sc-if value="{{ scanSheet }}" hint-placeholder-val="{{ false }}">
+        <div role="alert" style="position:absolute;left:12px;right:12px;bottom:12px;max-width:420px;margin:0 auto;padding:18px 18px 16px;border-radius:20px;background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg);">
+          <div aria-hidden="true" style="{{ scanSheetIcon }}">
+            <sc-if value="{{ scanOtherOrigin }}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg></sc-if>
+            <sc-if value="{{ scanRejected }}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2h4M12 14l3-3M4.6 9.1A8 8 0 1 0 12 6M2 2l20 20"></path></svg></sc-if>
+            <sc-if value="{{ scanNetwork }}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5.2-2.8M19 13a10 10 0 0 0-2-1.6M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 11 5M12 20h.01"></path></svg></sc-if>
+          </div>
+          <p style="margin:0 0 6px;font:600 16px 'Hanken Grotesk',sans-serif;">{{ scanSheetTitle }}</p>
+          <p style="margin:0 0 16px;font:400 14px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-wrap:pretty;overflow-wrap:anywhere;">{{ scanSheetText }}</p>
+          <button type="button" onClick="{{ resumeScan }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);">{{ scanSheetPrimary }}</button>
+          <button type="button" onClick="{{ closeScanner }}" style="{{ scanBtn }}" style-hover="{{ scanBtnHover }}">Ввести код вручную</button>
+        </div>
+      </sc-if>
     </div>
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:720},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;auto&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;home&quot;,&quot;activate&quot;,&quot;activate-no-code&quot;,&quot;activate-used&quot;],&quot;tsType&quot;:&quot;'auto' | 'home' | 'activate' | 'activate-no-code' | 'activate-used'&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showServerError&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:720},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;auto&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;home&quot;,&quot;activate&quot;,&quot;activate-no-code&quot;,&quot;activate-used&quot;],&quot;tsType&quot;:&quot;'auto' | 'home' | 'activate' | 'activate-no-code' | 'activate-used'&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showServerError&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;scanState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;closed&quot;,&quot;options&quot;:[&quot;closed&quot;,&quot;idle&quot;,&quot;checking&quot;,&quot;foreign&quot;,&quot;other-origin&quot;,&quot;rejected&quot;,&quot;network&quot;],&quot;tsType&quot;:&quot;&#39;closed&#39; | &#39;idle&#39; | &#39;checking&#39; | &#39;foreign&#39; | &#39;other-origin&#39; | &#39;rejected&#39; | &#39;network&#39;&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   state = {
     themeMode: (() => { try { return localStorage.getItem('myboard.activate.theme') || 'system'; } catch (e) { return 'system'; } })(),
@@ -345,6 +371,26 @@ class Component extends DCLogic {
   }
 
   renderVals() {
+    const scanState = this.props.scanState ?? 'closed';
+    const scanSheet = scanState === 'other-origin' || scanState === 'rejected' || scanState === 'network';
+    const sheetCopy = {
+      'other-origin': {
+        title: 'QR-код с другого адреса',
+        text: 'Он создан на board.iiskelo.com, а вы на board-branch.iiskelo.com. Откройте добавление устройства на том же адресе, где создан код.',
+        primary: 'Сканировать снова',
+      },
+      rejected: {
+        title: 'Код не подходит',
+        text: 'Он истёк (код действует 5 минут), уже использован или неверный. Создайте новый QR-код на устройстве, где вы вошли.',
+        primary: 'Сканировать снова',
+      },
+      network: {
+        title: 'Не удалось проверить код',
+        text: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.',
+        primary: 'Повторить',
+      },
+    }[scanState] ?? { title: '', text: '', primary: '' };
+    const corner = scanState === 'checking' ? 'var(--accent)' : '#fff';
     const screen = this.resolveScreen();
     const isActivate = screen === 'activate';
     const isNoCode = screen === 'activate-no-code';
@@ -423,7 +469,31 @@ class Component extends DCLogic {
       scanBtnHover: { background: 'var(--surface-2)' },
       openScanner: () => this.openScanner(),
       closeScanner: () => this.closeScanner(),
-      scannerOpen: this.state.scannerOpen,
+      scannerOpen: this.state.scannerOpen || scanState !== 'closed',
+      scanFrame: `width:250px;height:250px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border-radius:20px;position:relative;${scanSheet ? 'margin-bottom:38vh;' : ''}`,
+      scanCornerTl: `position:absolute;top:-2px;left:-2px;width:34px;height:34px;border-top:3px solid ${corner};border-left:3px solid ${corner};border-top-left-radius:16px;`,
+      scanCornerTr: `position:absolute;top:-2px;right:-2px;width:34px;height:34px;border-top:3px solid ${corner};border-right:3px solid ${corner};border-top-right-radius:16px;`,
+      scanCornerBl: `position:absolute;bottom:-2px;left:-2px;width:34px;height:34px;border-bottom:3px solid ${corner};border-left:3px solid ${corner};border-bottom-left-radius:16px;`,
+      scanCornerBr: `position:absolute;bottom:-2px;right:-2px;width:34px;height:34px;border-bottom:3px solid ${corner};border-right:3px solid ${corner};border-bottom-right-radius:16px;`,
+      scanChecking: scanState === 'checking',
+      scanForeign: scanState === 'foreign',
+      scanIdleHint: !this.state.cameraError && scanState !== 'checking',
+      scanHintVisible: !scanSheet,
+      scanSheet,
+      scanOtherOrigin: scanState === 'other-origin',
+      scanRejected: scanState === 'rejected',
+      scanNetwork: scanState === 'network',
+      scanSheetIcon: `width:38px;height:38px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;border-radius:50%;${
+        scanState === 'other-origin'
+          ? 'background:#faeeda;color:#854f0b;'
+          : scanState === 'rejected'
+            ? 'background:var(--destructive-soft);color:var(--destructive);'
+            : 'background:var(--surface-2);color:var(--text-2);'
+      }`,
+      scanSheetTitle: sheetCopy.title,
+      scanSheetText: sheetCopy.text,
+      scanSheetPrimary: sheetCopy.primary,
+      resumeScan: () => {},
       videoRef: (el) => this.setVideoRef(el),
       showVideo: this.state.cameraReady && !this.state.cameraError,
       showCameraFallback: !this.state.cameraReady || this.state.cameraError,
