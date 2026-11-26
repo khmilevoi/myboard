@@ -14,16 +14,22 @@ export type MemberStatsInput = {
 }
 
 /**
- * One row per rotation member, in rotation order. `cleanings` counts the days in
- * `[today − (windowDays − 1), today]` whose live outcome is a closed `cleaned`
- * day with that member as the actor; `debt` is the member's current balance.
+ * One row per rotation member, in rotation order. `debt` is the member's current balance.
+ *
+ * `cleanings` counts the days in `[today − (windowDays − 1), today]` that member physically
+ * cleaned: every day whose live outcome is closed, credited to the outcome's `actor`. Each closed
+ * outcome type names the person who actually cleaned (see drafts.ts):
+ * - `cleaned` — the duty person, or the debtor repaying on a debt day;
+ * - `went_into_debt` — the other member, who covered the scheduled person's day;
+ * - `forgiven` — the day's own duty person, who cleaned it and waived the debtor's repayment.
+ * A `reset` reopens the day (status `pending`), so an undone day counts for nobody.
  */
 export function memberStats({ entries, today, windowDays }: MemberStatsInput): OfeliaMemberStats[] {
   const windowStart = today.subtract({ days: windowDays - 1 })
   const cleanings = new Map<Person, number>()
 
   for (const [iso, resolution] of resolveDays(entries)) {
-    if (resolution.status !== 'closed' || resolution.type !== 'cleaned') continue
+    if (resolution.status !== 'closed') continue
     const date = Temporal.PlainDate.from(iso)
     if (Temporal.PlainDate.compare(date, windowStart) < 0) continue
     if (Temporal.PlainDate.compare(date, today) > 0) continue
