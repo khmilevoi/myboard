@@ -2,8 +2,10 @@ import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
+import { makeEntryBlobStore } from './files/production-blob-store'
 import { productionMigrations, runMigrations } from './migrations'
 import { productionModuleServerRegistry } from './modules/production-registry'
+import { productionFilePolicies } from './storage/production-file-policies'
 import { productionScopedOwners } from './storage/production-scoped-owners'
 import { createValkeySubscriber, createValkeyTestOps } from './storage/valkey'
 import { productionWidgetServerRegistry } from './widgets/production-registry'
@@ -36,6 +38,9 @@ if (authConfig instanceof Error) {
 
 const browserClient = createHttpBrowserAutomationClient(browserConfig)
 
+// Task 6 (Garage bootstrap) resolves this store once it has S3 credentials.
+const blobs = makeEntryBlobStore(process.env)
+
 const { server } = createApp({
   ops,
   subscribe: (onMessage) => createValkeySubscriber('storage:events', onMessage),
@@ -45,6 +50,7 @@ const { server } = createApp({
   browserClient,
   authConfig,
   scopedOwners: productionScopedOwners,
+  files: { blobs, policies: productionFilePolicies },
   recovery: browserConfig.recovery,
   testControls: {
     setNow: (ms) => {

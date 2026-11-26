@@ -14,6 +14,7 @@ import { runExclusive } from '../storage/key-lock'
 import type { ValkeyOps } from '../storage/valkey'
 import type { BlobStore } from './blob-store'
 import {
+  FileError,
   FileForbiddenError,
   FileNotFoundError,
   FileSessionRequiredError,
@@ -24,12 +25,13 @@ import { contentDisposition, inspectUpload } from './upload'
 
 /**
  * How the service reaches one slot. `read` answers the blob id the slot holds now; `write` stores
- * the new ref (or clears it with null). Both run inside `runExclusive(lockKey)`.
+ * the new ref (or clears it with null). Both run inside `runExclusive(lockKey)`, and both may
+ * return an error — a rejection (a Valkey outage) is turned into one too.
  */
 export type SlotIO = {
   lockKey: string
-  read: () => Promise<string | null>
-  write: (ref: FileRef | null) => Promise<void>
+  read: () => Promise<string | null | Error>
+  write: (ref: FileRef | null) => Promise<void | Error>
 }
 
 export type FileUpload = {
@@ -60,14 +62,14 @@ export function makeFileService(deps: { ops: ValkeyOps; blobs: BlobStore; now: (
   async function swap(io: SlotIO, ref: FileRef | null) {
     const operation = ref === null ? 'clear' : 'swap'
     const blobId = ref?.blobId ?? 'none'
+    const fail = (cause: unknown) =>
+      cause instanceof FileError ? cause : new FileStoreError({ operation, blobId, cause })
     return runExclusive(io.lockKey, async () => {
-      const old = await io.read().catch((cause) => new FileStoreError({ operation, blobId, cause }))
-      if (old instanceof Error) return old
+      const old = await io.read().catch(fail)
+      if (old instanceof Error) return fail(old)
       if (ref === null && old === null) return
-      const written = await io
-        .write(ref)
-        .catch((cause) => new FileStoreError({ operation, blobId, cause }))
-      if (written instanceof Error) return written
+      const written = await io.write(ref).catch(fail)
+      if (written instanceof Error) return fail(written)
       if (old !== null && old !== ref?.blobId) await discard(old)
     })
   }

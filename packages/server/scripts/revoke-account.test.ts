@@ -1,8 +1,14 @@
+import { AVATAR_POLICY } from '@shared/files/contract'
 import { describe, expect, it } from 'vitest'
 
 import { addDeviceToAccount, createAccount, getAccount } from '../src/auth/accounts'
 import { getDevice, storeDevice } from '../src/auth/devices'
 import { AccountNotFoundError, DeviceNotFoundError } from '../src/auth/errors'
+import { accountAvatarIO, avatarSlotName } from '../src/files/account-avatar'
+import { makeMemoryBlobStore } from '../src/files/memory-blob-store'
+import { blobRecordKey } from '../src/files/records'
+import { makeFileService } from '../src/files/service'
+import { pngBytes } from '../src/test/file-fixtures'
 import { createMemoryOps, createMemoryPubSub } from '../src/test/memory-ops'
 import { runRevokeAccount } from './revoke-account'
 
@@ -29,10 +35,49 @@ describe('runRevokeAccount', () => {
     }
 
     const result = await runRevokeAccount(ops, account.id)
-    expect(result).toEqual({ devices: 2 })
+    expect(result).toEqual({ devices: 2, avatar: false })
     expect(await getAccount(ops, account.id)).toBeInstanceOf(AccountNotFoundError)
     expect(await getDevice(ops, 'c1')).toBeInstanceOf(DeviceNotFoundError)
     expect(await getDevice(ops, 'c2')).toBeInstanceOf(DeviceNotFoundError)
+  })
+
+  it('deletes the avatar blob and its record', async () => {
+    const ops = createMemoryOps(createMemoryPubSub())
+    const blobs = makeMemoryBlobStore()
+    const account = await createAccount(ops, now, { name: 'Dana', inviteId: 'inv' })
+    const ref = await makeFileService({ ops, blobs, now }).writeSlot({
+      slot: avatarSlotName(account.id),
+      access: { kind: 'members' },
+      policy: AVATAR_POLICY,
+      upload: { bytes: pngBytes(4, 4), declaredType: 'image/png', name: null },
+      io: accountAvatarIO(ops, account.id),
+    })
+    if (ref instanceof Error) throw ref
+
+    expect(await runRevokeAccount(ops, account.id, { blobs })).toEqual({
+      devices: 0,
+      avatar: true,
+    })
+    expect(blobs.ids()).toEqual([])
+    expect(await ops.get(blobRecordKey(ref.blobId))).toBeNull()
+  })
+
+  it('without a blob store still drops the avatar record', async () => {
+    const ops = createMemoryOps(createMemoryPubSub())
+    const blobs = makeMemoryBlobStore()
+    const account = await createAccount(ops, now, { name: 'Eve', inviteId: 'inv' })
+    const ref = await makeFileService({ ops, blobs, now }).writeSlot({
+      slot: avatarSlotName(account.id),
+      access: { kind: 'members' },
+      policy: AVATAR_POLICY,
+      upload: { bytes: pngBytes(4, 4), declaredType: 'image/png', name: null },
+      io: accountAvatarIO(ops, account.id),
+    })
+    if (ref instanceof Error) throw ref
+
+    await runRevokeAccount(ops, account.id)
+    expect(await ops.get(blobRecordKey(ref.blobId))).toBeNull()
+    expect(blobs.ids()).toEqual([ref.blobId])
   })
 
   it('returns AccountNotFoundError for an unknown account', async () => {

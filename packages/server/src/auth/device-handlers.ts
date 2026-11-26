@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http'
 
+import { fileUrl } from '@shared/files/contract'
 import type {
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
@@ -46,7 +47,7 @@ import {
 } from './handlers'
 import type { AuthDeps, AuthResult } from './handlers'
 import { consumePendingTicket, issuePendingTicket, readPendingTicket } from './pending-tickets'
-import { type DeviceRecord, deviceKey } from './records'
+import { type AccountRecord, type DeviceRecord, deviceKey } from './records'
 import {
   AddDeviceRegisterOptionsBodySchema,
   AddDeviceRegisterVerifyBodySchema,
@@ -314,6 +315,10 @@ async function assertOwnedDevice(
   return device
 }
 
+function accountAvatarUrl(avatar: AccountRecord['avatar']): string | null {
+  return avatar === undefined ? null : fileUrl(avatar.blobId)
+}
+
 export async function getAccountInfo(deps: AuthDeps, req: IncomingMessage): Promise<AuthResult> {
   const session = await requireSession(deps, req)
   if (isAuthResult(session)) return session
@@ -321,9 +326,15 @@ export async function getAccountInfo(deps: AuthDeps, req: IncomingMessage): Prom
   const account = await getAccount(deps.ops, session.accountId)
   if (account instanceof Error) return toAuthResult(account)
 
+  const avatarUrl = accountAvatarUrl(account.avatar)
   return {
     status: 200,
-    body: { id: account.id, name: account.name, deviceLimit: account.deviceLimit },
+    body: {
+      id: account.id,
+      name: account.name,
+      deviceLimit: account.deviceLimit,
+      ...(avatarUrl !== null ? { avatarUrl } : {}),
+    },
   }
 }
 
@@ -336,7 +347,14 @@ export async function getAccounts(deps: AuthDeps, req: IncomingMessage): Promise
   return {
     status: 200,
     body: {
-      accounts: accounts.map((account) => ({ accountId: account.id, name: account.name })),
+      accounts: accounts.map((account) => {
+        const avatarUrl = accountAvatarUrl(account.avatar)
+        return {
+          accountId: account.id,
+          name: account.name,
+          ...(avatarUrl !== null ? { avatarUrl } : {}),
+        }
+      }),
       viewerAccountId: session.accountId,
     },
   }
