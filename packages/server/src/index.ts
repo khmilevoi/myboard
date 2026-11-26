@@ -26,7 +26,7 @@ const browserClient = createHttpBrowserAutomationClient(browserConfig)
 const ops = createValkeyOps()
 const testSetup = process.env.ALLOW_TEST_DB_RESET === '1' ? makeTestControls(ops) : undefined
 
-const { server } = createApp({
+const { server, startCron } = createApp({
   ops,
   subscribe: (onMessage) => createValkeySubscriber('storage:events', onMessage),
   now: testSetup?.now ?? Date.now,
@@ -50,4 +50,5 @@ void runMigrations(ops, productionMigrations, Date.now).then((migrated) => {
   server.listen(port, () => {
     console.log(`storage-api listening on :${port}`)
   })
+  startCron()
 })
