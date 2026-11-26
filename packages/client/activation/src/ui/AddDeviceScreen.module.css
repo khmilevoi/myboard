@@ -153,12 +153,17 @@
   background: #000;
 }
 
+/* `contain`, not `cover`: the camera stream's aspect ratio rarely matches the
+   viewport (a landscape 4:3 / 16:9 frame on a portrait phone), and `cover`
+   crops it down to a narrow centre strip -- a 2-3x apparent zoom that makes
+   aiming at a QR code impossible. Letterboxing onto the black overlay shows
+   the camera's true field of view. */
 .scannerOverlayVideo {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .scannerFrame {

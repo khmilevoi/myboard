@@ -27,6 +27,20 @@ export type AddDeviceScreenProps = {
 // waiting failures).
 const CAMERA_DENIED_MESSAGE = 'Разрешите доступ к камере в настройках браузера или вернитесь назад'
 
+// react-zxing's default constraints are a bare `facingMode: 'environment'`, so
+// browsers fall back to their 640x480 default stream. Blown up to fill a
+// portrait phone screen that reads as a heavy, blurry zoom. Asking for a
+// high-resolution stream keeps the preview sharp and gives the decoder more
+// pixels; `ideal` (never `exact`) so cameras that cannot reach it still open.
+const SCANNER_CAMERA_CONSTRAINTS: MediaStreamConstraints = {
+  audio: false,
+  video: {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+  },
+}
+
 // View-only formatting for the manual code field (uppercase, strip
 // separators, group as XXXX-XXXX) -- distinct from the model's
 // `extractAddCode`/`normalizeAddCode`, which validate and normalize a
@@ -68,6 +82,7 @@ type ScannerOverlayProps = {
 // eagerly loads — only mounts once the user actually reaches the scanner.
 function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProps) {
   const { ref: videoRef } = useZxing({
+    constraints: SCANNER_CAMERA_CONSTRAINTS,
     onDecodeResult: (result) => onDecode(result.rawValue),
     onError: onCameraError,
   })
