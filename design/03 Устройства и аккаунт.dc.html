@@ -144,6 +144,222 @@
     </div>
 
     <!-- ======================================================= -->
+    <!-- 1b · ФОТО ПРОФИЛЯ -->
+    <!-- ======================================================= -->
+    <div data-screen-label="1b · Фото профиля" style="margin-bottom:76px;">
+      <div style="margin:0 0 10px 2px;display:flex;align-items:baseline;gap:14px;">
+        <span style="font:600 13px 'JetBrains Mono',monospace;color:var(--text-3);">1b</span>
+        <h2 style="margin:0;font:600 20px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--foreground);">Фото профиля: загрузка, смена, удаление</h2>
+      </div>
+      <p style="margin:0 0 22px 2px;max-width:760px;font:400 14px/1.6 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);text-wrap:pretty;">Аватар в шапке меню — кнопка выбора файла (значок камеры). Фото обрезается по центру в квадрат 256×256 и сохраняется в WebP прямо в браузере, оригинал не хранится. Новое фото сразу видят все участники доски: триггер в хедере и аватары авторов в виджетах (история Офелии). Без фото — инициалы, как сейчас.</p>
+
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+
+        <!-- (d) closed, with photo -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(d) Фото есть · меню закрыто</div>
+          <div style="width:440px;padding:36px 28px;background:var(--muted);border-radius:16px;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;">
+              <span style="font:700 17px 'Hanken Grotesk',sans-serif;color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <button aria-label="Анна Ковалёва" style="width:36px;height:36px;padding:0;border:none;border-radius:50%;cursor:pointer;background:radial-gradient(circle at 50% 38%, oklch(0.86 0.05 70) 0 21%, transparent 22%), radial-gradient(ellipse 62% 48% at 50% 100%, oklch(0.7 0.08 55) 0 99%, transparent 100%), linear-gradient(160deg, oklch(0.76 0.08 230), oklch(0.56 0.11 255));"></button>
+            </div>
+          </div>
+          <div style="max-width:440px;font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);">Триггер — тот же круг 36px, фото заполняет его целиком (object-fit: cover). Бейдж запроса (c) рисуется поверх фото так же.</div>
+        </div>
+
+        <!-- (e) open, with photo -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(e) Фото есть · меню открыто</div>
+          <div style="width:440px;padding:36px 28px 330px;background:var(--muted);border-radius:16px;position:relative;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:relative;">
+              <span style="font:700 17px 'Hanken Grotesk',sans-serif;color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <button aria-label="Анна Ковалёва" style="width:36px;height:36px;padding:0;border:none;border-radius:50%;cursor:pointer;background:radial-gradient(circle at 50% 38%, oklch(0.86 0.05 70) 0 21%, transparent 22%), radial-gradient(ellipse 62% 48% at 50% 100%, oklch(0.7 0.08 55) 0 99%, transparent 100%), linear-gradient(160deg, oklch(0.76 0.08 230), oklch(0.56 0.11 255));"></button>
+              <div style="position:absolute;top:70px;right:18px;width:264px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-elevated);overflow:hidden;">
+                <div style="padding:14px 16px 12px;display:flex;align-items:center;gap:12px;">
+                  <div style="position:relative;flex:none;width:44px;height:44px;">
+                    <div aria-hidden="true" style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 50% 38%, oklch(0.86 0.05 70) 0 21%, transparent 22%), radial-gradient(ellipse 62% 48% at 50% 100%, oklch(0.7 0.08 55) 0 99%, transparent 100%), linear-gradient(160deg, oklch(0.76 0.08 230), oklch(0.56 0.11 255));"></div>
+                    <button aria-label="Сменить фото" style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;padding:0;border-radius:50%;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-card);color:var(--foreground);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="background:var(--secondary);"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></button>
+                  </div>
+                  <div style="min-width:0;flex:1;">
+                    <div style="font:600 14px 'Hanken Grotesk',sans-serif;color:var(--foreground);">Анна Ковалёва</div>
+                    <div style="margin-top:3px;font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);">3 устройства</div>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Сменить фото</span>
+                  </button>
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Удалить фото</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Мои устройства</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--destructive);text-align:left;" style-hover="background:var(--destructive-soft);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Выйти</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (f) open, no photo -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(f) Фото нет · меню открыто</div>
+          <div style="width:440px;padding:36px 28px 290px;background:var(--muted);border-radius:16px;position:relative;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:relative;">
+              <span style="font:700 17px 'Hanken Grotesk',sans-serif;color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <button aria-label="Анна Ковалёва" style="width:36px;height:36px;padding:0;border:none;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;">АК</button>
+              <div style="position:absolute;top:70px;right:18px;width:264px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-elevated);overflow:hidden;">
+                <div style="padding:14px 16px 12px;display:flex;align-items:center;gap:12px;">
+                  <div style="position:relative;flex:none;width:44px;height:44px;">
+                    <div aria-hidden="true" style="width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 16px 'Hanken Grotesk',sans-serif;">АК</div>
+                    <button aria-label="Загрузить фото" style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;padding:0;border-radius:50%;background:var(--primary);border:2px solid var(--popover);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></button>
+                  </div>
+                  <div style="min-width:0;flex:1;">
+                    <div style="font:600 14px 'Hanken Grotesk',sans-serif;color:var(--foreground);">Анна Ковалёва</div>
+                    <div style="margin-top:3px;font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);">3 устройства</div>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Загрузить фото</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Мои устройства</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--destructive);text-align:left;" style-hover="background:var(--destructive-soft);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Выйти</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- (g) uploading -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(g) Загрузка</div>
+          <div style="width:440px;padding:36px 28px 290px;background:var(--muted);border-radius:16px;position:relative;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:relative;">
+              <span style="font:700 17px 'Hanken Grotesk',sans-serif;color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <button aria-label="Анна Ковалёва" style="width:36px;height:36px;padding:0;border:none;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;">АК</button>
+              <div style="position:absolute;top:70px;right:18px;width:264px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-elevated);overflow:hidden;">
+                <div style="padding:14px 16px 12px;display:flex;align-items:center;gap:12px;">
+                  <div style="position:relative;flex:none;width:44px;height:44px;">
+                    <div aria-hidden="true" style="width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 16px 'Hanken Grotesk',sans-serif;opacity:.45;">АК</div>
+                    <div role="status" aria-label="Загружаем фото" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+                      <span aria-hidden="true" style="width:20px;height:20px;border-radius:50%;border:2.5px solid var(--accent-soft);border-top-color:var(--primary);animation:mb-spin .8s linear infinite;"></span>
+                    </div>
+                  </div>
+                  <div style="min-width:0;flex:1;">
+                    <div style="font:600 14px 'Hanken Grotesk',sans-serif;color:var(--foreground);">Анна Ковалёва</div>
+                    <div style="margin-top:3px;font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);">3 устройства</div>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="padding:6px;">
+                  <button disabled style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:default;color:var(--muted-foreground);text-align:left;">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Загружаем фото…</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Мои устройства</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--destructive);text-align:left;" style-hover="background:var(--destructive-soft);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Выйти</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="max-width:440px;font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);">Меню не закрывается, пока идёт загрузка; пункт фото заблокирован, остальные работают.</div>
+        </div>
+
+        <!-- (h) error -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="align-self:flex-start;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);background:var(--secondary);border:1px solid var(--border);border-radius:6px;padding:4px 9px;">(h) Ошибка загрузки</div>
+          <div style="width:440px;padding:36px 28px 340px;background:var(--muted);border-radius:16px;position:relative;">
+            <div style="width:100%;height:60px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:relative;">
+              <span style="font:700 17px 'Hanken Grotesk',sans-serif;color:var(--foreground);letter-spacing:-.01em;">myboard</span>
+              <button aria-label="Анна Ковалёва" style="width:36px;height:36px;padding:0;border:none;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;">АК</button>
+              <div style="position:absolute;top:70px;right:18px;width:264px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-elevated);overflow:hidden;">
+                <div style="padding:14px 16px 12px;display:flex;align-items:center;gap:12px;">
+                  <div style="position:relative;flex:none;width:44px;height:44px;">
+                    <div aria-hidden="true" style="width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font:600 16px 'Hanken Grotesk',sans-serif;">АК</div>
+                    <button aria-label="Загрузить фото" style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;padding:0;border-radius:50%;background:var(--primary);border:2px solid var(--popover);color:var(--primary-foreground);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></button>
+                  </div>
+                  <div style="min-width:0;flex:1;">
+                    <div style="font:600 14px 'Hanken Grotesk',sans-serif;color:var(--foreground);">Анна Ковалёва</div>
+                    <div style="margin-top:3px;font:400 12.5px 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);">3 устройства</div>
+                  </div>
+                </div>
+                <div role="alert" style="margin:0 10px 10px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;border-radius:10px;background:var(--destructive-soft);color:var(--destructive);">
+                  <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <span style="font:500 12.5px/1.45 'Hanken Grotesk',sans-serif;">Не получилось прочитать файл. Выберите фото в JPEG, PNG или WebP.</span>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Загрузить фото</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--foreground);text-align:left;" style-hover="background:var(--secondary);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Мои устройства</span>
+                  </button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:0 6px;width:calc(100% - 12px);"></div>
+                <div style="padding:6px;">
+                  <button style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;color:var(--destructive);text-align:left;" style-hover="background:var(--destructive-soft);">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span style="font:500 13.5px 'Hanken Grotesk',sans-serif;">Выйти</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="max-width:440px;font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:var(--muted-foreground);">Тексты ошибок: «Не получилось прочитать файл. Выберите фото в JPEG, PNG или WebP.» · «Не удалось загрузить фото. Проверьте подключение и попробуйте ещё раз.» Ошибка исчезает при следующей попытке или закрытии меню.</div>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- ======================================================= -->
     <!-- 2 · ДИАЛОГ УСТРОЙСТВ -->
     <!-- ======================================================= -->
     <div data-screen-label="2 · Диалог устройств" style="margin-bottom:76px;">
