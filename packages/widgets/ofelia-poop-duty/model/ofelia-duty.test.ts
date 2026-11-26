@@ -1,6 +1,6 @@
 import { context, wrap } from '@reatom/core'
-import type { LedgerEntry } from 'module-ofelia/domain/ledger'
-import { makeTestOfeliaModel, type MakeTestOfeliaModelOptions } from 'module-ofelia/testing'
+import type { LedgerEntry } from 'module-cats/domain/ledger'
+import { makeTestOfeliaModel, type MakeTestOfeliaModelOptions } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModuleApiError, StorageError, type StorageApi } from 'widget-runtime'
 

@@ -1,4 +1,4 @@
-export { ofeliaModule } from './generated/module'
+export { catsModule } from './generated/module'
 export type {
   CommentView,
   HistoryDayGroup,

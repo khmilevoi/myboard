@@ -40,7 +40,7 @@ function makeContext(
 ): OfeliaModuleContext {
   const api = { ...createFakeStorage(), ...overrides }
   return {
-    moduleId: 'ofelia',
+    moduleId: 'cats',
     storage: { shared: { client: api, server: api } },
     api: { invoke: vi.fn(async () => ({ ok: true })) } as OfeliaModuleContext['api'],
     timer: createFakeTimer({ today }),

@@ -1,5 +1,5 @@
 import { wrap } from '@reatom/core'
-import { ofeliaModule, type OfeliaModel } from 'module-ofelia'
+import { catsModule, type OfeliaModel } from 'module-cats'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { type WidgetTier, useWidgetContext } from 'widget-runtime'
@@ -55,7 +55,7 @@ export const OfeliaPoopDuty = reatomMemo(() => {
   // One module handle per mount: the load starts when `model` gains this
   // component as a subscriber, and the model is kept once it arrives.
   const ofeliaHandle = useMemo(
-    () => reatomModule({ modules, module: ofeliaModule, name: 'ofeliaPoopDuty.module' }),
+    () => reatomModule({ modules, module: catsModule, name: 'ofeliaPoopDuty.module' }),
     [modules],
   )
   const onRetry = useMemo(() => wrap(() => ofeliaHandle.retry()), [ofeliaHandle])

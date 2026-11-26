@@ -1,5 +1,5 @@
 import { atom } from '@reatom/core'
-import type { Person } from 'module-ofelia/domain/roster'
+import type { Person } from 'module-cats/domain/roster'
 import type { BoardMember } from 'widget-runtime'
 
 import type { CommentView } from '../model/ofelia-comments'

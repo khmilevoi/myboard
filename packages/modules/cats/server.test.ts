@@ -5,7 +5,7 @@ import type { WidgetServerStorage } from '@shared/widgets/contracts'
 import { describe, expect, it, vi } from 'vitest'
 
 import { LEDGER_KEY } from './domain/keys'
-import ofeliaServer from './server'
+import catsServer from './server'
 
 const KARINA = { accountId: 'a1', name: 'Карина' }
 // 2026-06-16 12:00 Europe/Warsaw
@@ -23,7 +23,7 @@ function makeContext(stored: unknown = null, viewer = KARINA) {
   }
 
   const context = {
-    moduleId: 'ofelia',
+    moduleId: 'cats',
     viewer,
     now: () => NOW,
     api: { storage: { shared } },
@@ -33,12 +33,12 @@ function makeContext(stored: unknown = null, viewer = KARINA) {
 }
 
 const run = (
-  event: keyof typeof ofeliaServer.handlers,
+  event: keyof typeof catsServer.handlers,
   payload: unknown,
   context: ModuleServerContext<'shared'>,
 ) =>
-  ofeliaServer.handlers[event](
-    ofeliaServer.contract.actions[event].payload.parse(payload) as never,
+  catsServer.handlers[event](
+    catsServer.contract.actions[event].payload.parse(payload) as never,
     context,
   )
 
@@ -65,7 +65,7 @@ describe('ofelia server', () => {
   })
 
   it('half 1: the clean payload schema strips a forged createdBy/actor before parsing', () => {
-    const parsed = ofeliaServer.contract.actions.clean.payload.parse({
+    const parsed = catsServer.contract.actions.clean.payload.parse({
       date: '2026-06-16',
       createdBy: { accountId: 'evil', name: 'Мимо' },
       actor: 'Карина',
@@ -75,7 +75,7 @@ describe('ofelia server', () => {
   })
 
   it('half 1: the comment payload schema strips a forged createdBy before parsing', () => {
-    const parsed = ofeliaServer.contract.actions.comment.payload.parse({
+    const parsed = catsServer.contract.actions.comment.payload.parse({
       weekStart: '2026-06-15',
       text: 'привет',
       createdBy: { accountId: 'evil', name: 'Мимо' },
@@ -93,9 +93,9 @@ describe('ofelia server', () => {
       date: '2026-06-16',
       createdBy: { accountId: 'evil', name: 'Мимо' },
       actor: 'Карина',
-    } as unknown as Parameters<(typeof ofeliaServer.handlers)['clean']>[0]
+    } as unknown as Parameters<(typeof catsServer.handlers)['clean']>[0]
 
-    expect(await ofeliaServer.handlers.clean(forgedPayload, context)).toEqual({ ok: true })
+    expect(await catsServer.handlers.clean(forgedPayload, context)).toEqual({ ok: true })
     expect(append).toHaveBeenCalledWith(LEDGER_KEY, {
       date: '2026-06-16',
       type: 'cleaned',
@@ -176,7 +176,7 @@ function makeCronContext(
   } as unknown as WidgetServerStorage
 
   const context = {
-    moduleId: 'ofelia',
+    moduleId: 'cats',
     now: () => scheduledFor,
     scheduledFor,
     api: { storage: { shared } },
@@ -202,7 +202,7 @@ describe('ofelia auto-approve cron', () => {
   it('closes the unresolved window with system-authored entries', async () => {
     const { context, append } = makeCronContext([SEED_ENTRY])
 
-    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
     expect(append).toHaveBeenCalledTimes(7)
     expect(append).toHaveBeenLastCalledWith(LEDGER_KEY, {
       date: '2026-06-16',
@@ -217,7 +217,7 @@ describe('ofelia auto-approve cron', () => {
     const { context, append } = makeCronContext(null)
     context.api.storage.shared.get = vi.fn(async () => new Error('valkey down') as never)
 
-    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeInstanceOf(Error)
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeInstanceOf(Error)
     expect(append).not.toHaveBeenCalled()
   })
 
@@ -228,14 +228,14 @@ describe('ofelia auto-approve cron', () => {
     // to auto-approve, and the job must not fabricate history by writing.
     const { context, append } = makeCronContext(null)
 
-    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
     expect(append).not.toHaveBeenCalled()
   })
 
   it('is a no-op, with no append, when the ledger key resolves to an empty array (F11)', async () => {
     const { context, append } = makeCronContext([])
 
-    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
     expect(append).not.toHaveBeenCalled()
   })
 
@@ -261,7 +261,7 @@ describe('ofelia auto-approve cron', () => {
       return (calls >= 5 ? [SEED_ENTRY, manualClose] : [SEED_ENTRY]) as never
     })
 
-    expect(await ofeliaServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
 
     // 06-10, 06-11, 06-12, 06-14, 06-15, 06-16 still get the system close;
     // 06-13 does not, because the manual close already resolved it by the

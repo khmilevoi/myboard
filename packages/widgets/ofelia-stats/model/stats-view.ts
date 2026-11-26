@@ -1,5 +1,5 @@
 import { action, computed, wrap } from '@reatom/core'
-import { ofeliaModule } from 'module-ofelia'
+import { catsModule } from 'module-cats'
 import type { WidgetModules } from 'widget-runtime'
 import { reatomModule } from 'widget-sdk/modules/reatom-module'
 
@@ -10,7 +10,7 @@ export type StatsRow = { person: string; cleanings: number; debt: number }
  * themselves are computed by the module; nothing is calculated here.
  */
 export function makeStatsView(modules: WidgetModules) {
-  const handle = reatomModule({ modules, module: ofeliaModule, name: 'ofeliaStats.module' })
+  const handle = reatomModule({ modules, module: catsModule, name: 'ofeliaStats.module' })
 
   const rows = computed<StatsRow[] | null>(() => {
     const model = handle.model()

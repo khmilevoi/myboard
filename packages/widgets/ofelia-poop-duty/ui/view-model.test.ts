@@ -1,6 +1,6 @@
 import { atom } from '@reatom/core'
-import type { DayResolution } from 'module-ofelia/domain/ledger'
-import type { Person } from 'module-ofelia/domain/roster'
+import type { DayResolution } from 'module-cats/domain/ledger'
+import type { Person } from 'module-cats/domain/roster'
 import { describe, expect, it } from 'vitest'
 import type { StorageError } from 'widget-runtime'
 

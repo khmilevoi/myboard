@@ -42,7 +42,7 @@ export function makeTestOfeliaModel(options: MakeTestOfeliaModelOptions = {}): T
   } as OfeliaModuleContext['api']
 
   const model = makeOfeliaModel({
-    moduleId: 'ofelia',
+    moduleId: 'cats',
     storage: { shared: { client: storage, server: storage } },
     api,
     timer: createFakeTimer({

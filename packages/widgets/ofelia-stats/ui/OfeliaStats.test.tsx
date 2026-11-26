@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { foldDebt } from 'module-ofelia/domain/debt'
-import type { LedgerEntry } from 'module-ofelia/domain/ledger'
-import type { Person } from 'module-ofelia/domain/roster'
-import { makeTestOfeliaModel } from 'module-ofelia/testing'
+import { foldDebt } from 'module-cats/domain/debt'
+import type { LedgerEntry } from 'module-cats/domain/ledger'
+import type { Person } from 'module-cats/domain/roster'
+import { makeTestOfeliaModel } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -96,7 +96,7 @@ describe('OfeliaStats', () => {
     const { model } = makeTestOfeliaModel({ entries: [cleaned(TODAY, 'Леша')], todayIso: TODAY })
     const get = vi
       .fn()
-      .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'ofelia', cause: new Error('x') }))
+      .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'cats', cause: new Error('x') }))
       .mockResolvedValue(model)
     renderStats({ get } as unknown as WidgetModules)
 

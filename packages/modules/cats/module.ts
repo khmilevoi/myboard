@@ -1,8 +1,8 @@
 import { defineModule } from 'widget-runtime/define-module'
 
-import { ofeliaContract } from './domain/contract'
+import { catsContract } from './domain/contract'
 
 export default defineModule({
-  ...ofeliaContract,
+  ...catsContract,
   loadModel: () => import('./model').then((m) => m.makeOfeliaModel),
 })

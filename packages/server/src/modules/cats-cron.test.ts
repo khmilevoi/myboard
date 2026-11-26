@@ -1,4 +1,4 @@
-import ofeliaServer from '@modules/ofelia/server'
+import catsServer from '@modules/cats/server'
 import { toRuntimeModuleServerDefinition } from '@shared/modules/contracts'
 import { describe, expect, it } from 'vitest'
 
@@ -9,15 +9,15 @@ import { makeCronScheduler } from '../widgets/cron-scheduler'
 import { createWidgetServerRegistry } from '../widgets/registry'
 import { makeModuleServerRegistry } from './registry'
 
-const LEDGER_KEY = 'm:ofelia:s:duty/ledger'
-const CURSOR_KEY = 'cron:module:ofelia:autoApproveDay'
+const LEDGER_KEY = 'm:cats:s:duty/ledger'
+const CURSOR_KEY = 'cron:module:cats:autoApproveDay'
 const NOON_0616 = Date.parse('2026-06-16T12:00:00+02:00')
 const AFTER_MIDNIGHT_0617 = Date.parse('2026-06-17T00:06:00+02:00')
 
 function makeSetup(wrapOps: (ops: ReturnType<typeof createMemoryOps>) => ValkeyOps = (ops) => ops) {
   const ops = createMemoryOps(createMemoryPubSub())
   const registry = makeModuleServerRegistry([
-    toRuntimeModuleServerDefinition({ moduleId: 'ofelia', definition: ofeliaServer }),
+    toRuntimeModuleServerDefinition({ moduleId: 'cats', definition: catsServer }),
   ])
   if (registry instanceof Error) throw registry
 
@@ -85,7 +85,7 @@ async function seedLedger(ops: ReturnType<typeof createMemoryOps>) {
   await ops.set(LEDGER_KEY, JSON.stringify([{ id: 'seed', ts: 0, ...SEED_ENTRY }]))
 }
 
-describe('ofelia auto-approve cron end to end', () => {
+describe('cats auto-approve cron end to end', () => {
   it('writes nothing on the seeding tick', async () => {
     const { ops, scheduler } = makeSetup()
     await seedLedger(ops)

@@ -1,8 +1,8 @@
 import { atom, context, wrap, type Atom } from '@reatom/core'
-import type { Comment } from 'module-ofelia/domain/comments'
-import { commentsKey } from 'module-ofelia/domain/keys'
-import { weekStartISO } from 'module-ofelia/domain/roster'
-import { makeTestOfeliaModel } from 'module-ofelia/testing'
+import type { Comment } from 'module-cats/domain/comments'
+import { commentsKey } from 'module-cats/domain/keys'
+import { weekStartISO } from 'module-cats/domain/roster'
+import { makeTestOfeliaModel } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,

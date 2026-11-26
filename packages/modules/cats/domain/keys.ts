@@ -1,6 +1,6 @@
 /**
- * Storage keys are a persistence contract: the ofelia migration copies the old widget data to
- * `m:ofelia:s:duty/<relative>`, and module storage prefixes `m:ofelia:s:` onto what is built here.
+ * Storage keys are a persistence contract: the ofelia-to-module migration copies the old widget data to
+ * `m:cats:s:duty/<relative>`, and module storage prefixes `m:cats:s:` onto what is built here.
  * Changing any of these silently orphans existing data.
  */
 export function dutyKey(relative: string): string {

@@ -6,7 +6,7 @@ import { OfeliaPage } from './pages/OfeliaPage.js'
 // getOfeliaDutyByDate(2026-06-16) → Леша (diffDays 0 from BASE_DUTY_DATE, even).
 const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
-const LEDGER_URL = `/api/storage/scoped/module/ofelia/shared/${encodeURIComponent('duty/ledger')}`
+const LEDGER_URL = `/api/storage/scoped/module/cats/shared/${encodeURIComponent('duty/ledger')}`
 
 // Every assertion here is StandardTier UI — `ofelia-duty-person` exists only in
 // ui/tiers/StandardTier.tsx — and this widget only resolves `standard` once its
@@ -139,7 +139,7 @@ test('a confirmed day is written through the ofelia module action', async ({ pag
   await ofelia.seedOfeliaWidget()
 
   const request = page.waitForRequest((candidate) =>
-    candidate.url().includes('/api/modules/ofelia/actions/clean'),
+    candidate.url().includes('/api/modules/cats/actions/clean'),
   )
   await ofelia.confirmButton.click()
   await request

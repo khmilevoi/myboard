@@ -1,9 +1,9 @@
 import { action, atom, computed, withAsyncData, wrap } from '@reatom/core'
-import type { OfeliaModel } from 'module-ofelia'
-import { getOfeliaDutyByDate, getStartOfWeek } from 'module-ofelia/domain/roster'
+import type { OfeliaModel } from 'module-cats'
+import { getOfeliaDutyByDate, getStartOfWeek } from 'module-cats/domain/roster'
 import { ModuleApiError } from 'widget-runtime'
 
-export type { HistoryDayGroup, HistoryEntryView } from 'module-ofelia'
+export type { HistoryDayGroup, HistoryEntryView } from 'module-cats'
 
 export interface OfeliaDutyModelProps {
   /** The shared ofelia module model: ledger, debts and day actions. */

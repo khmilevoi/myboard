@@ -1,4 +1,4 @@
-import { otherPerson } from 'module-ofelia/domain/roster'
+import { otherPerson } from 'module-cats/domain/roster'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 

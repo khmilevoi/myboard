@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ofeliaModule, type OfeliaModel } from 'module-ofelia'
-import { LEDGER_KEY } from 'module-ofelia/domain/keys'
+import { catsModule, type OfeliaModel } from 'module-cats'
+import { LEDGER_KEY } from 'module-cats/domain/keys'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -27,11 +27,11 @@ const timerHolder = { current: null as ServerTime | null }
 // Builds the real ofelia module model, at mount time, over whatever storage the
 // test left on the props — the same shape the host's module registry hands out.
 async function loadOfeliaModel(widgetProps: WidgetRuntimeProps): Promise<OfeliaModel> {
-  const loadModel = ofeliaModule.loadModel
+  const loadModel = catsModule.loadModel
   if (!loadModel || !timerHolder.current) throw new Error('test setup: no model loader or timer')
   const factory = await loadModel()
   return factory({
-    moduleId: ofeliaModule.id,
+    moduleId: catsModule.id,
     storage: { shared: widgetProps.storage.shared },
     api: { invoke: vi.fn() } as never,
     timer: timerHolder.current,
@@ -248,7 +248,7 @@ describe('OfeliaPoopDuty module load failure', () => {
     const widgetProps = props('standard')
     const get = vi
       .fn()
-      .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'ofelia' }))
+      .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'cats' }))
       .mockImplementationOnce(() => loadOfeliaModel(widgetProps))
     widgetProps.modules = fakeModules(get)
     renderWidget(widgetProps)

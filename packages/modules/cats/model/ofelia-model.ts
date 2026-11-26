@@ -4,7 +4,7 @@ import { withStorageKeyReadonly } from 'widget-runtime'
 import type { ModuleApiError, StorageError } from 'widget-runtime'
 import type { ModuleContext } from 'widget-runtime/define-module'
 
-import type { ofeliaActionSchemas } from '../domain/actions'
+import type { catsActionSchemas } from '../domain/actions'
 import { foldDebt, getDebtDays, type DebtDay, type NumberOfDebts } from '../domain/debt'
 import { LEDGER_KEY } from '../domain/keys'
 import {
@@ -18,7 +18,7 @@ import { STATS_WINDOW_DAYS, memberStats, type OfeliaMemberStats } from '../domai
 import { toHistoryGroups, type HistoryDayGroup } from './history-view'
 import { makeWeekComments, type OfeliaWeekComments } from './week-comments'
 
-export type OfeliaModuleContext = ModuleContext<typeof ofeliaActionSchemas, 'shared'>
+export type OfeliaModuleContext = ModuleContext<typeof catsActionSchemas, 'shared'>
 
 export type OfeliaDayAction = 'clean' | 'debt' | 'forgive' | 'undo'
 

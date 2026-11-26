@@ -1,8 +1,8 @@
 import { action, withAsyncData, wrap } from '@reatom/core'
 import type { AtomLike } from '@reatom/core'
-import type { OfeliaModel } from 'module-ofelia'
+import type { OfeliaModel } from 'module-cats'
 
-export type { CommentView } from 'module-ofelia'
+export type { CommentView } from 'module-cats'
 
 export interface OfeliaCommentsModelProps {
   /** The shared ofelia module model: the comment threads and the send action. */

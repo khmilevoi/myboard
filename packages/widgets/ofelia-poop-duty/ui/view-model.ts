@@ -1,9 +1,9 @@
 import { computed } from '@reatom/core'
 import type { AtomLike, Computed } from '@reatom/core'
-import { isOverDebtWarning } from 'module-ofelia/domain/debt'
-import type { DayResolution } from 'module-ofelia/domain/ledger'
-import { DUTY_ROTATION } from 'module-ofelia/domain/roster'
-import type { Person } from 'module-ofelia/domain/roster'
+import { isOverDebtWarning } from 'module-cats/domain/debt'
+import type { DayResolution } from 'module-cats/domain/ledger'
+import { DUTY_ROTATION } from 'module-cats/domain/roster'
+import type { Person } from 'module-cats/domain/roster'
 import type { StorageError } from 'widget-runtime'
 
 const WEEKDAY_LABELS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'] as const

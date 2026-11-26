@@ -1,7 +1,7 @@
 import { defineModuleServer, type ModuleServerContext } from '@shared/modules/contracts'
 import * as errore from 'errore'
 
-import { ofeliaContract } from './domain/contract'
+import { catsContract } from './domain/contract'
 import { autoApproveDrafts } from './domain/day-close'
 import {
   makeCleanDraft,
@@ -50,7 +50,7 @@ async function appendLedger(
   return OK
 }
 
-const ofeliaServer = defineModuleServer(ofeliaContract, {
+const catsServer = defineModuleServer(catsContract, {
   handlers: {
     clean: async ({ date }, context) => {
       const input = await readDraftInput(context, date)
@@ -128,4 +128,4 @@ const ofeliaServer = defineModuleServer(ofeliaContract, {
   },
 })
 
-export default ofeliaServer
+export default catsServer
