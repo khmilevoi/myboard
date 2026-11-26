@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 
+import { ingestMeasurement } from '@modules/health/domain/ingest'
+import { MeasurementSchema } from '@modules/health/domain/measurement'
+import { moduleAccountNamespace } from '@shared/storage/scope'
 import { scopedEventKey, type ScopedStorageRef } from '@shared/storage/scoped'
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import Router from 'find-my-way'
@@ -67,6 +70,7 @@ import { makeCronScheduler } from './widgets/cron-scheduler'
 import { dispatchWidgetEvent } from './widgets/dispatch'
 import { WidgetRequestBodyError, type PublicWidgetDispatchError } from './widgets/errors'
 import type { WidgetServerRegistry } from './widgets/registry'
+import { makeWidgetScopedStorage } from './widgets/storage'
 import { resolveWidgetViewer } from './widgets/viewer'
 
 const HEARTBEAT_MS = 25_000
@@ -635,6 +639,44 @@ export function createApp(deps: AppDeps): App {
       const appUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:5173'
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ token, activateUrl: `${appUrl}/activate?token=${token}` }))
+    })
+
+    // Plan 2's gateway ingest reuses ingestMeasurement; this seeds the same path for e2e. Never
+    // log the measurement: health values stay out of logs.
+    router.on('POST', '/api/test/health/measurements', async (req, res) => {
+      const session = await requireSession(authDeps, req)
+      if (isAuthResult(session)) {
+        res.writeHead(session.status, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(session.body))
+        return
+      }
+      let raw: unknown
+      try {
+        raw = await readJsonBody(req)
+      } catch {
+        res.writeHead(400)
+        res.end()
+        return
+      }
+      const parsed = z.object({ measurement: MeasurementSchema }).safeParse(raw ?? {})
+      if (!parsed.success) {
+        res.writeHead(422, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(formatZodError(parsed.error)))
+        return
+      }
+      const storage = makeWidgetScopedStorage({
+        ops,
+        namespace: moduleAccountNamespace('health', session.accountId),
+        now,
+      })
+      const result = await ingestMeasurement(storage, parsed.data.measurement)
+      if (result instanceof Error) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'ingest_failed' }))
+        return
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(result))
     })
 
     router.on('POST', '/api/test/seed-session', async (_req, res) => {

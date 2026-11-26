@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 Оборудование</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #e6e7ea; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; }
+  a:hover { color: oklch(0.49 0.17 281); }
+  p, h2, h3 { margin: 0; }
+  @keyframes hw-spin { to { transform: rotate(360deg); } }
+
+  .ds-scope[data-theme="light"] {
+    --bg: oklch(0.975 0.003 255); --surface: oklch(1 0 0); --surface-2: oklch(0.972 0.004 255);
+    --border: oklch(0.91 0.005 255); --border-strong: oklch(0.84 0.006 255);
+    --text: oklch(0.27 0.02 262); --text-2: oklch(0.5 0.018 262); --text-3: oklch(0.6 0.012 262);
+    --accent: oklch(0.55 0.17 281); --accent-soft: oklch(0.955 0.032 285); --on-accent: #ffffff; --ring: oklch(0.55 0.17 281 / .35);
+    --success: oklch(0.55 0.13 155); --success-soft: oklch(0.95 0.05 155); --on-success: oklch(0.45 0.13 155);
+    --destructive: oklch(0.55 0.21 27); --destructive-soft: oklch(0.968 0.028 27);
+    --scrim: oklch(0.45 0.02 262 / 0.34);
+    --shadow-btn: 0 1px 2px rgba(20,22,40,.06);
+    --shadow: 0 1px 2px rgba(20,22,40,.05), 0 2px 8px rgba(20,22,40,.05);
+    --shadow-pop: 0 16px 44px rgba(20,22,40,.2);
+  }
+  .ds-scope[data-theme="dark"] {
+    --bg: oklch(0.185 0.012 268); --surface: oklch(0.23 0.013 270); --surface-2: oklch(0.265 0.014 270);
+    --border: oklch(0.315 0.014 270); --border-strong: oklch(0.36 0.014 262);
+    --text: oklch(0.95 0.006 260); --text-2: oklch(0.71 0.013 262); --text-3: oklch(0.62 0.012 262);
+    --accent: oklch(0.675 0.155 285); --accent-soft: oklch(0.315 0.06 285); --on-accent: oklch(0.18 0.03 285); --ring: oklch(0.67 0.16 285 / .45);
+    --success: oklch(0.74 0.15 152); --success-soft: oklch(0.3 0.07 152); --on-success: oklch(0.86 0.1 152);
+    --destructive: oklch(0.72 0.17 25); --destructive-soft: oklch(0.3 0.07 25);
+    --scrim: oklch(0.1 0.01 262 / 0.62);
+    --shadow-btn: 0 1px 2px rgba(0,0,0,.35);
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.35);
+    --shadow-pop: 0 20px 50px rgba(0,0,0,.5);
+  }
+  .ds-scope { color: var(--text); font: 400 14px/1.45 'Hanken Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+
+  .sec { margin: 0 0 26px 2px; display: flex; align-items: baseline; gap: 14px; }
+  .sec h2 { font: 600 18px 'Hanken Grotesk', sans-serif; letter-spacing: -.01em; color: #2a2b33; }
+  .sec span { font: 400 13px 'Hanken Grotesk', sans-serif; color: #6f7280; }
+  .grid { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; margin-bottom: 72px; max-width: 1560px; }
+  .fr { display: flex; flex-direction: column; gap: 12px; }
+  .tag { align-self: flex-start; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: #5b5e69; background: #f4f4f7; border: 1px solid #e3e4e8; border-radius: 6px; padding: 4px 9px; }
+  .stage { width: 480px; padding: 40px 32px; background: var(--scrim); border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+  .dlg { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-pop); padding: 24px 24px 22px; }
+  .dh { display: flex; align-items: flex-start; gap: 8px; }
+  .dh h3 { flex: 1; font: 700 23px/1.2 'Hanken Grotesk', sans-serif; letter-spacing: -.01em; }
+  .ib { width: 32px; height: 32px; flex: none; border: none; background: transparent; color: var(--text-2); border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+  .dsub { margin-top: 6px; font-size: 14px; line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+  .lbl { display: block; margin: 20px 0 8px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+  .tile { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); color: var(--text-2); display: flex; align-items: center; justify-content: center; flex: none; }
+  .tile.on { background: var(--accent-soft); color: var(--accent); }
+  .r { display: flex; align-items: center; gap: 12px; padding: 11px 0; }
+  .r + .r { border-top: 1px solid var(--border); }
+  .rm { flex: 1; min-width: 0; }
+  .rt { font: 600 14px 'Hanken Grotesk', sans-serif; }
+  .rs { margin-top: 2px; font-size: 12.5px; color: var(--text-2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .st { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+  .st::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .st.ok { color: var(--on-success); }
+  .st.off { color: var(--text-3); }
+  .gd { height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: transparent; color: var(--destructive); font: 600 12.5px 'Hanken Grotesk', sans-serif; cursor: pointer; flex: none; }
+  .gs { height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font: 600 12.5px 'Hanken Grotesk', sans-serif; cursor: pointer; flex: none; }
+  .gp { height: 34px; padding: 0 13px; border: 0; border-radius: 9px; background: var(--accent); color: var(--on-accent); font: 600 12.5px 'Hanken Grotesk', sans-serif; cursor: pointer; flex: none; box-shadow: var(--shadow-btn); }
+  .lk { border: 0; background: none; padding: 0; font: 600 12.5px 'Hanken Grotesk', sans-serif; color: var(--accent); cursor: pointer; }
+  .lk.d { color: var(--destructive); }
+  .hw { border: 1px solid var(--border); border-radius: 14px; padding: 4px 14px; }
+  .pr { display: flex; align-items: center; gap: 10px; padding: 10px 0 10px 48px; border-top: 1px solid var(--border); font-size: 13.5px; }
+  .pr .pn { flex: 1; min-width: 0; }
+  .pr .pn span { color: var(--text-3); }
+  .bp { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; height: 46px; margin-top: 20px; border: none; border-radius: 13px; background: var(--accent); color: var(--on-accent); font: 600 15px 'Hanken Grotesk', sans-serif; cursor: pointer; box-shadow: var(--shadow-btn); }
+  .bp[disabled] { opacity: .45; cursor: not-allowed; }
+  .bs { display: flex; align-items: center; justify-content: center; width: 100%; height: 46px; margin-top: 10px; border: 1px solid var(--border); border-radius: 13px; background: transparent; color: var(--text); font: 600 14px 'Hanken Grotesk', sans-serif; cursor: pointer; }
+  .note { margin-top: 14px; padding: 11px 13px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+  .note.acc { background: var(--accent-soft); border-color: transparent; color: var(--text); }
+  .empty { margin-top: 18px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 22px 14px 4px; }
+  .ico { width: 52px; height: 52px; border-radius: 14px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .ico.ok { background: var(--success-soft); color: var(--on-success); }
+  .ico.bad { background: var(--destructive-soft); color: var(--destructive); }
+  .et { font: 600 17px 'Hanken Grotesk', sans-serif; }
+  .ec { font-size: 13.5px; line-height: 1.5; color: var(--text-2); max-width: 340px; text-wrap: pretty; }
+  .code { font: 700 27px 'JetBrains Mono', monospace; letter-spacing: .1em; }
+  .wait { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 16px; font-size: 13px; color: var(--text-2); }
+  .spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--accent); animation: hw-spin .9s linear infinite; flex: none; }
+  .steps { display: flex; gap: 6px; margin-top: 14px; }
+  .steps span { flex: 1; display: flex; flex-direction: column; gap: 6px; font: 500 11.5px 'Hanken Grotesk', sans-serif; color: var(--text-3); }
+  .steps span::before { content: ""; height: 3px; border-radius: 3px; background: var(--border); }
+  .steps .done { color: var(--text-2); }
+  .steps .done::before { background: var(--accent); opacity: .45; }
+  .steps .now { color: var(--text); font-weight: 600; }
+  .steps .now::before { background: var(--accent); }
+  .fl { display: block; font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
+  .inp { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); padding: 0 12px; font: 400 14px 'Hanken Grotesk', sans-serif; color: var(--text); }
+  .inp.f { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); background: var(--surface); }
+  .inp.e { border-color: var(--destructive); box-shadow: 0 0 0 3px oklch(0.55 0.21 27 / .2); background: var(--surface); }
+  .inp.big { height: 58px; font: 500 28px 'JetBrains Mono', monospace; letter-spacing: .3em; text-align: center; }
+  .err { margin-top: 8px; font-size: 13px; color: var(--destructive); }
+  .hint { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
+  .opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 13px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+  .opt + .opt { margin-top: 8px; }
+  .opt[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .opt[disabled] { opacity: .5; cursor: not-allowed; }
+  .rad { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border-strong); flex: none; }
+  .opt[aria-pressed="true"] .rad { border: 5px solid var(--accent); }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+  .seg button { flex: 1; height: 36px; border: 0; border-radius: 999px; background: transparent; font: 500 13px 'Hanken Grotesk', sans-serif; color: var(--text-2); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-btn); }
+  .cf { display: flex; flex-direction: column; gap: 10px; padding: 13px 14px; background: var(--destructive-soft); border: 1px solid var(--destructive); border-radius: 13px; }
+  .cf p { font-size: 13px; line-height: 1.45; text-wrap: pretty; }
+  .cf .bb { display: flex; gap: 8px; }
+  .cf .bb button { flex: 1; height: 38px; border-radius: 9px; font: 600 12.5px 'Hanken Grotesk', sans-serif; cursor: pointer; }
+  .menu { width: 252px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-pop); overflow: hidden; }
+  .mi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font: 500 13.5px 'Hanken Grotesk', sans-serif; cursor: pointer; text-align: left; }
+  .ncard { background: #fff; border: 1px solid #e3e4e8; border-radius: 12px; padding: 14px 16px; }
+  .ncard h3 { font: 600 13px 'Hanken Grotesk', sans-serif; color: #22232a; margin-bottom: 5px; }
+  .ncard p { font: 400 12.5px/1.5 'Hanken Grotesk', sans-serif; color: #5b5e69; text-wrap: pretty; }
+</style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:56px;background:#e6e7ea;font-family:'Hanken Grotesk',system-ui,sans-serif;">
+
+  <a href="00 Навигация.dc.html" style="display:inline-flex;align-items:center;gap:8px;margin:0 0 24px 2px;font:600 11.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#6f7280;">← myboard · навигация</a>
+
+  <div style="margin:0 0 52px 2px;max-width:780px;">
+    <div style="font:600 12px/1 'JetBrains Mono',monospace;letter-spacing:.16em;color:#6f7280;text-transform:uppercase;">myboard · design board · оборудование</div>
+    <h1 style="margin:14px 0 12px;font:700 32px/1.05 'Hanken Grotesk',sans-serif;letter-spacing:-.02em;color:#22232a;">Оборудование</h1>
+    <p style="margin:0;font:400 16px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:680px;text-wrap:pretty;">Физические устройства борды: шлюз на Raspberry Pi и то, что к нему подключено по Bluetooth. Сейчас это весы Beurer BF 950. Здесь подключают шлюз, находят и сопрягают весы и привязывают свой профиль на весах к аккаунту. Без телефона и приложения производителя. Не путать с «Моими устройствами» (03): там браузеры и passkey.</p>
+  </div>
+
+  <!-- ============ 1 · ВХОД ============ -->
+  <div class="sec"><h2>1 · Вход: меню аккаунта</h2><span>новый пункт между «Моими устройствами» и «Выйти»</span></div>
+  <div class="grid ds-scope" data-theme="light">
+    <div class="fr">
+      <div class="tag">(a) Меню открыто</div>
+      <div style="width:440px;padding:36px 28px 36px;background:var(--surface-2);border-radius:16px;">
+        <div style="height:60px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;padding:0 18px;">
+          <span style="font:700 17px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;">myboard</span>
+          <button type="button" aria-label="Меню аккаунта" aria-expanded="true" style="width:36px;height:36px;border:0;border-radius:.375rem;background:var(--accent-soft);color:var(--accent);font:600 14px 'Hanken Grotesk',sans-serif;cursor:pointer;">АК</button>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <div class="menu">
+            <div style="padding:14px 16px 12px;"><p style="font:600 14px 'Hanken Grotesk',sans-serif;">Анна Ковалёва</p><p style="margin-top:3px;font-size:12.5px;color:var(--text-2);">3 устройства</p></div>
+            <div style="height:1px;background:var(--border);"></div>
+            <div style="padding:6px;">
+              <button class="mi" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Мои устройства</button>
+              <button class="mi" type="button" style="background:var(--surface-2);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg>Оборудование</button>
+            </div>
+            <div style="height:1px;background:var(--border);margin:0 6px;"></div>
+            <div style="padding:6px;"><button class="mi" type="button" style="color:var(--destructive);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Выйти</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2 · ОКНО ============ -->
+  <div class="sec"><h2>2 · Окно «Оборудование»</h2><span>общее для борды: видят все участники, свои профили — только владелец</span></div>
+  <div class="grid ds-scope" data-theme="light">
+
+    <div class="fr">
+      <div class="tag">(a) Ничего не подключено</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="empty">
+          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <p class="et">Сначала нужен шлюз</p>
+          <p class="ec">Шлюз — небольшая программа на Raspberry Pi рядом с весами. Через неё борда говорит с ними по Bluetooth.</p>
+        </div>
+        <button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить шлюз</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(b) Шлюз и весы на связи</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <span class="lbl">Шлюз</span>
+        <div class="r">
+          <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st ok">в сети</span>· на связи только что</p></div>
+          <button class="gd" type="button">Отозвать</button>
+        </div>
+        <span class="lbl">Подключено</span>
+        <div class="hw">
+          <div class="r">
+            <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">батарея 80% · взвешивание сегодня, 08:12</p></div>
+            <button class="gd" type="button">Отключить</button>
+          </div>
+          <div class="pr"><p class="pn">Профиль 1 <span>· ваш</span></p><button class="lk" type="button">Код согласия</button><button class="lk d" type="button">Отвязать</button></div>
+          <div class="pr"><p class="pn">Профиль 2 <span>· другой аккаунт</span></p></div>
+        </div>
+        <button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c) Весы есть, вашего профиля нет</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <span class="lbl">Шлюз</span>
+        <div class="r">
+          <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st ok">в сети</span>· на связи только что</p></div>
+          <button class="gd" type="button">Отозвать</button>
+        </div>
+        <span class="lbl">Подключено</span>
+        <div class="hw">
+          <div class="r">
+            <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">батарея 80% · взвешивание вчера, 21:40</p></div>
+            <button class="gd" type="button">Отключить</button>
+          </div>
+          <div class="pr"><p class="pn">Профиль 1 <span>· другой аккаунт</span></p></div>
+          <div class="pr" style="padding-left:48px;"><p class="pn" style="color:var(--text-2);">Ваших взвешиваний с этих весов нет</p><button class="gp" type="button">Подключить профиль</button></div>
+        </div>
+        <button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(d) Шлюз не в сети</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <span class="lbl">Шлюз</span>
+        <div class="r">
+          <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st off">не в сети</span>· был на связи 3 ч назад</p></div>
+          <button class="gd" type="button">Отозвать</button>
+        </div>
+        <div class="note">Проверьте, что Raspberry Pi включён и шлюз запущен. Взвешивания не потеряются: весы хранят их, пока шлюз не заберёт.</div>
+        <span class="lbl">Подключено</span>
+        <div class="hw">
+          <div class="r">
+            <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">батарея 80% · взвешивание сегодня, 08:12</p></div>
+          </div>
+        </div>
+        <button class="bp" type="button" disabled aria-describedby="off-hint"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button>
+        <p id="off-hint" class="hint" style="text-align:center;">Добавлять и отключать можно, когда шлюз в сети</p>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(e) После переезда на другую борду</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <span class="lbl">Шлюз</span>
+        <div class="r">
+          <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st ok">в сети</span>· подключён 2 мин назад</p></div>
+          <button class="gd" type="button">Отозвать</button>
+        </div>
+        <span class="lbl">Уже сопряжено с Raspberry Pi</span>
+        <div class="hw" style="border-style:dashed;border-color:var(--border-strong);">
+          <div class="r">
+            <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">на этой борде ещё не добавлены</p></div>
+            <button class="gp" type="button">Добавить</button>
+          </div>
+        </div>
+        <div class="note acc">Сопрягать заново не нужно. После добавления подключите свой профиль на весах кодом согласия. Код можно посмотреть в «Оборудовании» прежней борды.</div>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(f) Тёмная тема</div>
+      <div class="ds-scope" data-theme="dark" style="border-radius:16px;">
+      <div class="stage" style="background:oklch(0.165 0.01 268);"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <span class="lbl">Шлюз</span>
+        <div class="r">
+          <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st ok">в сети</span>· на связи только что</p></div>
+          <button class="gd" type="button">Отозвать</button>
+        </div>
+        <span class="lbl">Подключено</span>
+        <div class="hw">
+          <div class="r">
+            <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">батарея 80% · взвешивание сегодня, 08:12</p></div>
+            <button class="gd" type="button">Отключить</button>
+          </div>
+          <div class="pr"><p class="pn">Профиль 1 <span>· ваш</span></p><button class="lk" type="button">Код согласия</button><button class="lk d" type="button">Отвязать</button></div>
+        </div>
+        <button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button>
+      </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3 · ДОБАВИТЬ ШЛЮЗ ============ -->
+  <div class="sec"><h2>3 · Добавить шлюз</h2><span>одноразовый код, как при добавлении устройства в 03</span></div>
+  <div class="grid ds-scope" data-theme="light">
+
+    <div class="fr">
+      <div class="tag">(a) Код для запуска</div>
+      <div class="stage"><div class="dlg" style="text-align:center;">
+        <div class="dh"><h3 style="text-align:left;">Добавить шлюз</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <p class="dsub" style="text-align:left;">Запустите шлюз на Raspberry Pi и введите этот код, когда он спросит. Код нужен один раз: дальше шлюз помнит борду сам.</p>
+        <div style="margin-top:22px;padding:18px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);"><p class="code">K7QP-3M9X</p></div>
+        <button class="bs" type="button" style="margin-top:12px;">Скопировать код</button>
+        <div class="wait"><span class="spin"></span>Ждём шлюз…</div>
+        <p class="hint" style="margin-top:6px;">Код активен ещё 4:52</p>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(b) Шлюз подключился</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Добавить шлюз</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="empty">
+          <div class="ico ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+          <p class="et">Шлюз подключён</p>
+          <p class="ec">Raspberry Pi в сети. Теперь можно добавить весы.</p>
+        </div>
+        <button class="bp" type="button">Добавить оборудование</button>
+        <button class="bs" type="button">Готово</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c) Код истёк</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Добавить шлюз</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="empty">
+          <div class="ico bad"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <p class="et">Срок действия кода истёк</p>
+          <p class="ec">Шлюз так и не подключился. Создайте новый код и запустите шлюз с ним.</p>
+        </div>
+        <button class="bp" type="button">Новый код</button>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ============ 4 · ДОБАВИТЬ ОБОРУДОВАНИЕ ============ -->
+  <div class="sec"><h2>4 · Добавить оборудование</h2><span>поиск → сопряжение → профиль на весах; всё идёт через шлюз</span></div>
+  <div class="grid ds-scope" data-theme="light">
+
+    <div class="fr">
+      <div class="tag">(a) Поиск</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Добавить оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 1 из 3"><span class="now">Поиск</span><span>Сопряжение</span><span>Профиль</span></div>
+        <p class="dsub" style="margin-top:16px;">Встаньте на весы, чтобы они проснулись. Показываем только модели, которые борда умеет читать.</p>
+        <span class="lbl">Рядом</span>
+        <div class="r">
+          <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+          <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">весы · сигнал хороший</p></div>
+          <button class="gp" type="button">Выбрать</button>
+        </div>
+        <div class="wait" style="justify-content:flex-start;"><span class="spin"></span>Ищем…</div>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(a2) Ничего не нашлось</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Добавить оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 1 из 3"><span class="now">Поиск</span><span>Сопряжение</span><span>Профиль</span></div>
+        <div class="empty">
+          <p class="et">Весы не нашлись</p>
+          <p class="ec">Проверьте, что весы проснулись и горит экран. Если весы сопряжены с телефоном, выключите на нём Bluetooth: весы говорят только с одним устройством сразу.</p>
+        </div>
+        <button class="bp" type="button">Искать ещё раз</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(b) Код сопряжения</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><button class="ib" type="button" aria-label="Назад" style="margin-left:-6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 2 из 3"><span class="done">Поиск</span><span class="now">Сопряжение</span><span>Профиль</span></div>
+        <div style="margin-top:20px;"><label class="fl" for="pin-a">Код с экрана весов</label><input class="inp big f" id="pin-a" inputmode="numeric" autocomplete="one-time-code" value="482913"><p class="hint">Весы показывают его, пока идёт сопряжение.</p></div>
+        <button class="bp" type="button">Сопрячь</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(b2) Код не подошёл</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><button class="ib" type="button" aria-label="Назад" style="margin-left:-6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 2 из 3"><span class="done">Поиск</span><span class="now">Сопряжение</span><span>Профиль</span></div>
+        <div style="margin-top:20px;"><label class="fl" for="pin-b">Код с экрана весов</label><input class="inp big e" id="pin-b" inputmode="numeric" value="482931" aria-invalid="true" aria-describedby="pin-b-err"><p class="err" id="pin-b-err">Код не подошёл. Весы покажут новый — введите его.</p></div>
+        <button class="bp" type="button">Сопрячь</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c) Профиль на весах</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 3 из 3"><span class="done">Поиск</span><span class="done">Сопряжение</span><span class="now">Профиль</span></div>
+        <p class="dsub" style="margin-top:16px;">На весах до восьми профилей, по одному на человека. По профилю весы понимают, чьё взвешивание, и считают состав тела.</p>
+        <div style="margin-top:16px;">
+          <button class="opt" type="button" aria-pressed="true"><span class="rad"></span><span class="rm"><span class="rt" style="display:block;">Создать новый профиль</span><span class="rs" style="display:block;">рост 182 см · 34 года · мужской — из вашего профиля</span></span></button>
+          <button class="opt" type="button" aria-pressed="false"><span class="rad"></span><span class="rm"><span class="rt" style="display:block;">Подключить существующий</span><span class="rs" style="display:block;">понадобится код согласия этого профиля</span></span></button>
+        </div>
+        <button class="bp" type="button">Создать профиль</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c2) Профиль здоровья не заполнен</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><button class="ib" type="button" aria-label="Назад" style="margin-left:-6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><h3>Новый профиль</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 3 из 3"><span class="done">Поиск</span><span class="done">Сопряжение</span><span class="now">Профиль</span></div>
+        <div class="note acc">Весы считают состав тела по росту, возрасту и полу. Заполните их один раз — они сохранятся в вашем профиле здоровья.</div>
+        <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="fl" for="p-h">Рост, см</label><input class="inp f" id="p-h" inputmode="numeric" value="182" style="font-family:'JetBrains Mono',monospace;"></div>
+          <div><label class="fl" for="p-b">Дата рождения</label><input class="inp" id="p-b" value="14.03.1992" style="font-family:'JetBrains Mono',monospace;"></div>
+        </div>
+        <div style="margin-top:14px;"><span class="fl">Пол</span><div class="seg" role="group" aria-label="Пол"><button type="button" aria-pressed="true">Мужской</button><button type="button" aria-pressed="false">Женский</button></div></div>
+        <button class="bp" type="button">Сохранить и создать профиль</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c3) Подключить существующий</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><button class="ib" type="button" aria-label="Назад" style="margin-left:-6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><h3>Подключить профиль</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 3 из 3"><span class="done">Поиск</span><span class="done">Сопряжение</span><span class="now">Профиль</span></div>
+        <span class="lbl">Профили на весах</span>
+        <button class="opt" type="button" aria-pressed="true"><span class="rad"></span><span class="rm"><span class="rt" style="display:block;">Профиль 1</span><span class="rs" style="display:block;">не привязан на этой борде</span></span></button>
+        <button class="opt" type="button" aria-pressed="false" disabled><span class="rad"></span><span class="rm"><span class="rt" style="display:block;">Профиль 2</span><span class="rs" style="display:block;">привязан к другому аккаунту</span></span></button>
+        <div style="margin-top:16px;"><label class="fl" for="cc">Код согласия</label><input class="inp f" id="cc" inputmode="numeric" value="48" style="font:500 18px 'JetBrains Mono',monospace;letter-spacing:.3em;"><p class="hint">Его показали при создании профиля. Если профиль создавали на другой борде, код есть в её «Оборудовании».</p></div>
+        <button class="bp" type="button">Подключить профиль</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(d) Готово</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="empty" style="padding-top:12px;">
+          <div class="ico ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+          <p class="et">Весы подключены</p>
+          <p class="ec">Встаньте на весы — вес появится на карточке «Вес».</p>
+        </div>
+        <div style="margin-top:18px;padding:13px 14px;border-radius:13px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;gap:14px;">
+          <div class="rm"><p class="rt" style="font-size:13px;">Код согласия · профиль 1</p><p class="hint" style="margin-top:3px;">Нужен, чтобы подключить этот профиль на другой борде. Посмотреть его можно в «Оборудовании».</p></div>
+          <span class="mono" style="font:700 24px 'JetBrains Mono',monospace;letter-spacing:.12em;">4821</span>
+        </div>
+        <button class="bp" type="button">Готово</button>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ============ 5 · ПОДТВЕРЖДЕНИЯ ============ -->
+  <div class="sec"><h2>5 · Код, отвязка, отключение</h2><span>подтверждение прямо в строке, как отзыв устройства в 03</span></div>
+  <div class="grid ds-scope" data-theme="light">
+
+    <div class="fr">
+      <div class="tag">(a) Код согласия показан</div>
+      <div class="stage"><div class="dlg">
+        <div class="hw">
+          <div class="r">
+            <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">батарея 80% · взвешивание сегодня, 08:12</p></div>
+          </div>
+          <div class="pr"><p class="pn">Профиль 1 <span>· ваш</span></p><span class="mono" style="font:700 16px 'JetBrains Mono',monospace;letter-spacing:.12em;">4821</span><button class="lk" type="button">Скрыть</button></div>
+        </div>
+        <p class="hint">Код видите только вы. Другие участники борды его не получают.</p>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(b) Отвязать профиль?</div>
+      <div class="stage"><div class="dlg">
+        <div class="cf">
+          <p><b>Отвязать профиль 1?</b> Новые взвешивания перестанут приходить в ваш аккаунт. Профиль останется на весах, прошлые измерения — у вас.</p>
+          <div class="bb"><button type="button" style="border:1px solid var(--border);background:var(--surface);color:var(--text);">Отмена</button><button type="button" style="border:0;background:var(--destructive);color:#fff;">Отвязать</button></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c) Отключить весы?</div>
+      <div class="stage"><div class="dlg">
+        <div class="cf">
+          <p><b>Отключить Beurer BF 950?</b> Сопряжение разорвётся, профили отвяжутся у всех участников. Чтобы вернуть весы, их придётся сопрячь заново.</p>
+          <div class="bb"><button type="button" style="border:1px solid var(--border);background:var(--surface);color:var(--text);">Отмена</button><button type="button" style="border:0;background:var(--destructive);color:#fff;">Отключить</button></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(d) Отозвать шлюз?</div>
+      <div class="stage"><div class="dlg">
+        <div class="cf">
+          <p><b>Отозвать шлюз?</b> Raspberry Pi перестанет связываться с этой бордой, взвешивания перестанут приходить. Сопряжения на нём останутся: после нового подключения весы добавятся без сопряжения.</p>
+          <div class="bb"><button type="button" style="border:1px solid var(--border);background:var(--surface);color:var(--text);">Отмена</button><button type="button" style="border:0;background:var(--destructive);color:#fff;">Отозвать</button></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ============ FLOW NOTES ============ -->
+  <div class="sec"><h2>Заметки по флоу</h2></div>
+  <div style="display:flex;gap:14px;max-width:1560px;margin-bottom:64px;">
+    <div class="ncard" style="flex:1;"><h3>Кто что видит</h3><p>Шлюз и весы принадлежат борде: их видит и меняет любой участник. В списке нет ни одного значения веса — только время последнего взвешивания. Профиль на весах принадлежит аккаунту: отвязать его или увидеть код может только владелец.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Код согласия</h3><p>При создании профиля код придумывает борда (4 цифры) и хранит у себя: шлюзу он нужен при каждом чтении весов. В списках его нет, показывается только владельцу по кнопке.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Профиль меняется — весы тоже</h3><p>Если поменять рост, дату рождения или пол в профиле здоровья, новые значения уйдут на весы при следующем подключении. Иначе состав тела будет считаться по старым.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Всё живое</h3><p>Статус шлюза, найденные весы и ход сопряжения приходят без перезагрузки. Шаги «Добавить оборудование» доступны, только пока шлюз в сети.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Уточнится на Pi</h3><p>Длина кода сопряжения (здесь 6 цифр), как именно будить весы, поля профиля на весах и диапазон кода согласия — до проверки на Raspberry Pi это предположения.</p></div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

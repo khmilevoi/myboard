@@ -33,6 +33,7 @@
     "errore": "catalog:",
     "lucide-react": "catalog:",
     "module-cats": "workspace:*",
+    "module-health": "workspace:*",
     "nanoid": "^5.1.15",
     "qr-code-styling": "^1.9.2",
     "radix-ui": "catalog:",

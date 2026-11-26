@@ -81,6 +81,18 @@
       "path": "CatsLarge.dc.html",
       "title": "Кошки — полный экран",
       "kind": "component"
+    },
+    {
+      "path": "11 Виджет - Вес.dc.html",
+      "title": "11 Виджет — Вес",
+      "name": "11 Виджет — Вес",
+      "kind": "page"
+    },
+    {
+      "path": "12 Оборудование.dc.html",
+      "title": "12 Оборудование",
+      "name": "12 Оборудование",
+      "kind": "page"
     }
   ],
   "migratorVersion": "artifact-migrator (claude-design-backend 1a1b12dd776d)",
