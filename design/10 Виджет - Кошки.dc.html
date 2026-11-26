@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10 Виджет — Кошки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #e6e7ea; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; }
+  a:hover { color: oklch(0.49 0.17 281); }
+  p, h2, h3 { margin: 0; }
+
+  .ds-scope[data-theme="light"] {
+    --bg: oklch(0.975 0.003 255); --surface: oklch(1 0 0); --surface-2: oklch(0.972 0.004 255);
+    --border: oklch(0.91 0.005 255); --border-strong: oklch(0.84 0.006 255);
+    --text: oklch(0.27 0.02 262); --text-2: oklch(0.5 0.018 262); --text-3: oklch(0.6 0.012 262);
+    --accent: oklch(0.55 0.17 281); --accent-soft: oklch(0.955 0.032 285); --on-accent: #ffffff; --ring: oklch(0.55 0.17 281 / .35);
+    --success: oklch(0.55 0.13 155); --success-soft: oklch(0.95 0.05 155); --on-success: oklch(0.45 0.13 155);
+    --shadow-btn: 0 1px 2px rgba(20,22,40,.06);
+    --shadow: 0 1px 2px rgba(20,22,40,.05), 0 2px 8px rgba(20,22,40,.05);
+    --shadow-pop: 0 16px 44px rgba(20,22,40,.2);
+    --dry: oklch(0.79 0.085 285); --wet: oklch(0.55 0.17 281); --treat: oklch(0.38 0.12 285); --hatch: oklch(0.55 0.17 281 / .55);
+    --k-bg: oklch(0.9 0.05 345); --k-fg: oklch(0.41 0.13 345); --l-bg: oklch(0.9 0.045 255); --l-fg: oklch(0.4 0.11 258);
+    --cat-a-bg: oklch(0.92 0.05 45); --cat-a-fg: oklch(0.45 0.11 40); --cat-b-bg: oklch(0.92 0.05 170); --cat-b-fg: oklch(0.42 0.08 170);
+  }
+  .ds-scope[data-theme="dark"] {
+    --bg: oklch(0.185 0.012 268); --surface: oklch(0.23 0.013 270); --surface-2: oklch(0.265 0.014 270);
+    --border: oklch(0.315 0.014 270); --border-strong: oklch(0.36 0.014 262);
+    --text: oklch(0.95 0.006 260); --text-2: oklch(0.71 0.013 262); --text-3: oklch(0.62 0.012 262);
+    --accent: oklch(0.675 0.155 285); --accent-soft: oklch(0.315 0.06 285); --on-accent: oklch(0.18 0.03 285); --ring: oklch(0.67 0.16 285 / .45);
+    --success: oklch(0.74 0.15 152); --success-soft: oklch(0.3 0.07 152); --on-success: oklch(0.86 0.1 152);
+    --shadow-btn: 0 1px 2px rgba(0,0,0,.35);
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.35);
+    --shadow-pop: 0 20px 50px rgba(0,0,0,.5);
+    --dry: oklch(0.84 0.07 285); --wet: oklch(0.675 0.155 285); --treat: oklch(0.5 0.13 285); --hatch: oklch(0.675 0.155 285 / .6);
+    --k-bg: oklch(0.37 0.085 345); --k-fg: oklch(0.92 0.06 345); --l-bg: oklch(0.36 0.07 256); --l-fg: oklch(0.92 0.05 256);
+    --cat-a-bg: oklch(0.4 0.07 42); --cat-a-fg: oklch(0.93 0.05 50); --cat-b-bg: oklch(0.39 0.06 170); --cat-b-fg: oklch(0.93 0.05 170);
+  }
+  .ds-scope { color: var(--text); font: 400 14px/1.45 'Hanken Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .hov { position: absolute; top: 0; right: 0; display: flex; gap: 1px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; box-shadow: 0 2px 10px rgba(20,22,40,.12); }
+  .hov button { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: none; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; }
+  .tn { font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #645fd1; }
+  .td { font: 500 11.5px 'JetBrains Mono', monospace; color: #8a8d97; margin-top: 2px; }
+  .lbl { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .sm { font-size: 12.5px; color: var(--text-3); }
+  .div { height: 1px; background: var(--border); margin: 13px 0; }
+  .ibx { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text-2); cursor: pointer; padding: 0; }
+  .bp { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 600 13.5px 'Hanken Grotesk', sans-serif; box-shadow: var(--shadow-btn); cursor: pointer; }
+  .bs { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: 600 13px 'Hanken Grotesk', sans-serif; cursor: pointer; }
+  .av { flex: none; border-radius: .375rem; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; font-family: 'Hanken Grotesk', sans-serif; }
+  .av-k { background: var(--k-bg); color: var(--k-fg); }
+  .av-l { background: var(--l-bg); color: var(--l-fg); box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 3px var(--accent); }
+  .bowl { display: flex; gap: 3px; }
+  .bowl span { display: block; border-radius: 4px; }
+  .pend { background: repeating-linear-gradient(135deg, var(--hatch) 0 3px, transparent 3px 7px); box-shadow: inset 0 0 0 1.5px var(--hatch); }
+  .ticks { display: flex; gap: 3px; margin-top: 5px; font: 500 10.5px 'JetBrains Mono', monospace; color: var(--text-3); }
+  .ticks span { display: block; white-space: nowrap; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .chip { display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font: 500 12.5px 'Hanken Grotesk', sans-serif; text-align: left; cursor: pointer; min-width: 0; }
+  .chip .bx { flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; }
+  .chip[aria-pressed="true"] { background: var(--success-soft); border-color: transparent; color: var(--on-success); }
+  .chip[aria-pressed="true"] .bx { background: var(--success); border-color: var(--success); color: var(--surface); }
+  .chip .t { margin-left: auto; font: 500 11px 'JetBrains Mono', monospace; opacity: .8; }
+  .note { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--accent-soft); font-size: 12.5px; line-height: 1.35; color: var(--text); }
+  .note a { font-weight: 600; white-space: nowrap; color: var(--accent); }
+
+  .sheet { width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-pop); display: flex; flex-direction: column; overflow: hidden; }
+  .sh-h { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .sh-h h3 { font: 600 17px 'Hanken Grotesk', sans-serif; flex: 1; }
+  .x { width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+  .sh-b { padding: 16px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .sh-f { padding: 14px 18px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+  .fl { display: block; font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
+  .inp { width: 100%; height: 42px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); padding: 0 12px; font: 400 14px 'Hanken Grotesk', sans-serif; color: var(--text); }
+  .inp.f { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); background: var(--surface); }
+  .big { display: flex; align-items: baseline; gap: 8px; padding: 4px 14px 8px; border: 1px solid var(--accent); box-shadow: 0 0 0 3px var(--ring); border-radius: 12px; }
+  .big input { width: 120px; border: 0; outline: 0; background: transparent; font: 500 34px 'JetBrains Mono', monospace; letter-spacing: -.02em; color: var(--text); padding: 0; }
+  .big span { font-size: 16px; color: var(--text-2); }
+  .opt { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text); font: 500 14px 'Hanken Grotesk', sans-serif; text-align: left; cursor: pointer; }
+  .opt[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .opt .k { margin-left: auto; font: 500 11.5px 'JetBrains Mono', monospace; color: var(--text-3); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 500 13px 'Hanken Grotesk', sans-serif; cursor: pointer; }
+  .pill.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .pill.add { border-style: dashed; border-color: var(--border-strong); color: var(--accent); font-weight: 600; }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+  .seg button { flex: 1; height: 32px; border: 0; border-radius: 999px; background: transparent; font: 500 13px 'Hanken Grotesk', sans-serif; color: var(--text-2); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-btn); }
+  .when { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .when a { margin-left: auto; font-weight: 600; }
+  .ncard { background: #fff; border: 1px solid #e3e4e8; border-radius: 12px; padding: 14px 16px; }
+  .ncard h3 { font: 600 13px 'Hanken Grotesk', sans-serif; color: #22232a; margin-bottom: 5px; }
+  .ncard p { font: 400 12.5px/1.5 'Hanken Grotesk', sans-serif; color: #5b5e69; text-wrap: pretty; }
+  .sec { margin: 0 0 26px 2px; display: flex; align-items: baseline; gap: 14px; }
+  .sec h2 { font: 600 18px 'Hanken Grotesk', sans-serif; letter-spacing: -.01em; color: #2a2b33; }
+  .sec span { font: 400 13px 'Hanken Grotesk', sans-serif; color: #7a7d88; }
+  .flab { display: flex; align-items: center; gap: 9px; margin: 0 0 12px 2px; }
+  .flab b { font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #645fd1; }
+  .flab span { font: 500 12px 'Hanken Grotesk', sans-serif; color: #8a8d97; }
+  .cav { flex: none; clip-path: polygon(0 100%, 0 24%, 15% 0, 33% 17%, 67% 17%, 85% 0, 100% 24%, 100% 100%); padding-top: .3em; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; font-family: 'Hanken Grotesk', sans-serif; }
+  .cav-a { background: var(--cat-a-bg); color: var(--cat-a-fg); }
+  .cav-b { background: var(--cat-b-bg); color: var(--cat-b-fg); }
+  .sw { flex: none; display: inline-flex; align-items: center; gap: 3px; height: 30px; padding: 0 6px 0 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-2); cursor: pointer; }
+  .spark { display: block; width: 100%; }
+  .kv { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+  .kv .k { color: var(--text-3); font-size: 12.5px; }
+</style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:56px;background:#e6e7ea;font-family:'Hanken Grotesk',system-ui,sans-serif;">
+
+  <a href="00 Навигация.dc.html" style="display:inline-flex;align-items:center;gap:8px;margin:0 0 24px 2px;font:600 11.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#6f7280;">← myboard · навигация</a>
+
+  <div style="margin:0 0 52px 2px;max-width:760px;">
+    <div style="font:600 12px/1 'JetBrains Mono',monospace;letter-spacing:.16em;color:#6f7280;text-transform:uppercase;">myboard · widget flow · модуль cats</div>
+    <h1 style="margin:14px 0 12px;font:700 32px/1.05 'Hanken Grotesk',sans-serif;letter-spacing:-.02em;color:#22232a;">Кошки — флоу виджета</h1>
+    <p style="margin:0;font:400 16px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:640px;text-wrap:pretty;">Паспорт одной кошки на борде: имя, порода, возраст, вес и его тренд, упитанность и суточная цель. Здесь же — профиль, история веса и список всех кошек: добавить, убрать в архив, вернуть. Остальные кошачьи виджеты (питание, лоток) только читают отсюда кошку и её параметры.</p>
+  </div>
+
+  <!-- ============ TIERS (LIGHT) ============ -->
+  <div class="sec"><h2>Прогрессивные тиры</h2></div>
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:20px;align-items:flex-start;margin-bottom:64px;">
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>
+      <div class="card" style="width:152px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;">
+        <span class="cav cav-a" style="width:52px;height:52px;border-radius:14px;font-size:22px;">О</span>
+        <span style="font:600 15px 'Hanken Grotesk',sans-serif;">Офелия</span>
+        <span class="mono" style="font-size:20px;font-weight:500;letter-spacing:-.02em;">4,32 <span style="font-size:12px;color:var(--text-3);">кг</span></span>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">tiny</div><div class="td">≤ 180px · кто и сколько весит</div></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>
+      <div class="card" style="width:268px;height:200px;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="cav cav-a" style="width:36px;height:36px;border-radius:10px;font-size:16px;">О</span>
+          <div style="min-width:0;"><p style="font-weight:600;font-size:15px;">Офелия</p><p class="sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская · 3 года</p></div>
+        </div>
+        <div>
+          <p style="display:flex;align-items:baseline;gap:8px;"><span class="mono" style="font-size:30px;font-weight:500;letter-spacing:-.03em;line-height:1;">4,32</span><span style="font-size:13px;color:var(--text-2);">кг</span><span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--on-success);">−80 г/мес</span></p>
+          <div style="margin-top:8px;"><svg class="spark" role="img" aria-label="Вес за 3 месяца: с 4,44 до 4,32 кг" viewBox="0 0 300 28" preserveAspectRatio="none" style="height:28px;"><polyline points="0,3 50,7 100,11 150,9 200,14 250,19 300,24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="300" cy="24" r="3.5" fill="var(--accent)"/></svg></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">compact</div><div class="td">181–320px · порода, возраст, тренд веса</div></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
+          <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
+          
+        </div>
+        <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;"><span class="lbl">Вес</span><span class="sm" style="margin-left:auto;">взвешивали 5 дней назад · Л</span></div>
+        <p style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="mono" style="font-size:36px;font-weight:500;letter-spacing:-.03em;line-height:1;">4,32</span><span style="font-size:14px;color:var(--text-2);">кг</span><span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--on-success);">−80 г за месяц</span></p>
+        <div style="margin-top:10px;"><svg class="spark" role="img" aria-label="Вес Офелия за 3 месяца" viewBox="0 0 300 44" preserveAspectRatio="none" style="height:44px;"><polyline points="0,5 50,11 100,17 150,14 200,22 250,30 300,38" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="300" cy="38" r="3.5" fill="var(--accent)"/></svg></div>
+        <div class="ticks" aria-hidden="true" style="justify-content:space-between;"><span>СЕН</span><span>ОКТ</span><span>НОЯ</span></div>
+        
+        <div class="div"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div><span class="lbl">Упитанность</span><p class="mono" style="font-size:18px;font-weight:500;margin-top:4px;">5 / 9</p></div>
+          <div><span class="lbl">Цель в сутки</span><p style="margin-top:4px;"><span class="mono" style="font-size:18px;font-weight:500;">240</span> <span class="sm">ккал</span></p></div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;">
+          <button class="bp" type="button" style="flex:1;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>Взвесить</button>
+          <button class="bs" type="button">Профиль</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">standard</div><div class="td">321–560px · паспорт + быстрые действия</div></div>
+    </div>
+
+    <div style="flex:none;padding-top:18px;">
+      <div style="width:300px;height:452px;background:#fff;border:1px dashed #c7c9d0;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:28px;">
+        <div style="width:48px;height:48px;border-radius:13px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
+        <div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">large = полный экран</div>
+        <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:#7a7d88;text-wrap:pretty;">При &gt; 560px виджет показывает вкладки полноэкранного режима ниже.</div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">large</div><div class="td">&gt; 560px · = fullscreen</div></div>
+    </div>
+  </div>
+
+  <!-- ============ TIERS (DARK) ============ -->
+  <div class="sec"><h2>Тёмная тема</h2></div>
+  <div class="ds-scope" data-theme="dark" style="display:inline-flex;gap:20px;align-items:flex-start;margin-bottom:64px;padding:28px 28px 22px;border-radius:18px;background:oklch(0.165 0.01 268);">
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      
+      <div class="card" style="width:152px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;">
+        <span class="cav cav-a" style="width:52px;height:52px;border-radius:14px;font-size:22px;">О</span>
+        <span style="font:600 15px 'Hanken Grotesk',sans-serif;">Офелия</span>
+        <span class="mono" style="font-size:20px;font-weight:500;letter-spacing:-.02em;">4,32 <span style="font-size:12px;color:var(--text-3);">кг</span></span>
+      </div>
+      <div style="margin-top:10px;"><div class="tn" style="color:oklch(0.75 0.12 285);">tiny</div></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      
+      <div class="card" style="width:268px;height:200px;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="cav cav-a" style="width:36px;height:36px;border-radius:10px;font-size:16px;">О</span>
+          <div style="min-width:0;"><p style="font-weight:600;font-size:15px;">Офелия</p><p class="sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская · 3 года</p></div>
+        </div>
+        <div>
+          <p style="display:flex;align-items:baseline;gap:8px;"><span class="mono" style="font-size:30px;font-weight:500;letter-spacing:-.03em;line-height:1;">4,32</span><span style="font-size:13px;color:var(--text-2);">кг</span><span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--on-success);">−80 г/мес</span></p>
+          <div style="margin-top:8px;"><svg class="spark" role="img" aria-label="Вес за 3 месяца: с 4,44 до 4,32 кг" viewBox="0 0 300 28" preserveAspectRatio="none" style="height:28px;"><polyline points="0,3 50,7 100,11 150,9 200,14 250,19 300,24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="300" cy="24" r="3.5" fill="var(--accent)"/></svg></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn" style="color:oklch(0.75 0.12 285);">compact</div></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
+          <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
+          <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Офелия" aria-haspopup="menu"><span class="cav cav-a" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">О</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        </div>
+        <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;"><span class="lbl">Вес</span><span class="sm" style="margin-left:auto;">взвешивали 5 дней назад · Л</span></div>
+        <p style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="mono" style="font-size:36px;font-weight:500;letter-spacing:-.03em;line-height:1;">4,32</span><span style="font-size:14px;color:var(--text-2);">кг</span><span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--on-success);">−80 г за месяц</span></p>
+        <div style="margin-top:10px;"><svg class="spark" role="img" aria-label="Вес Офелия за 3 месяца" viewBox="0 0 300 44" preserveAspectRatio="none" style="height:44px;"><polyline points="0,5 50,11 100,17 150,14 200,22 250,30 300,38" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="300" cy="38" r="3.5" fill="var(--accent)"/></svg></div>
+        <div class="ticks" aria-hidden="true" style="justify-content:space-between;"><span>СЕН</span><span>ОКТ</span><span>НОЯ</span></div>
+        
+        <div class="div"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div><span class="lbl">Упитанность</span><p class="mono" style="font-size:18px;font-weight:500;margin-top:4px;">5 / 9</p></div>
+          <div><span class="lbl">Цель в сутки</span><p style="margin-top:4px;"><span class="mono" style="font-size:18px;font-weight:500;">240</span> <span class="sm">ккал</span></p></div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;">
+          <button class="bp" type="button" style="flex:1;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>Взвесить</button>
+          <button class="bs" type="button">Профиль</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn" style="color:oklch(0.75 0.12 285);">standard</div></div>
+    </div>
+  </div>
+
+  <!-- ============ STATES ============ -->
+  <div class="sec"><h2>Состояния standard-карточки</h2><span>выбор кошки хранится у каждой карточки отдельно</span></div>
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:20px;align-items:flex-start;margin-bottom:64px;">
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
+          <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
+          
+        </div>
+        <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;"><span class="lbl">Вес</span><span class="sm" style="margin-left:auto;">взвешивали 5 дней назад · Л</span></div>
+        <p style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="mono" style="font-size:36px;font-weight:500;letter-spacing:-.03em;line-height:1;">4,32</span><span style="font-size:14px;color:var(--text-2);">кг</span><span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--on-success);">−80 г за месяц</span></p>
+        <div style="margin-top:10px;"><svg class="spark" role="img" aria-label="Вес Офелия за 3 месяца" viewBox="0 0 300 44" preserveAspectRatio="none" style="height:44px;"><polyline points="0,5 50,11 100,17 150,14 200,22 250,30 300,38" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="300" cy="38" r="3.5" fill="var(--accent)"/></svg></div>
+        <div class="ticks" aria-hidden="true" style="justify-content:space-between;"><span>СЕН</span><span>ОКТ</span><span>НОЯ</span></div>
+        
+        <div class="div"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div><span class="lbl">Упитанность</span><p class="mono" style="font-size:18px;font-weight:500;margin-top:4px;">5 / 9</p></div>
+          <div><span class="lbl">Цель в сутки</span><p style="margin-top:4px;"><span class="mono" style="font-size:18px;font-weight:500;">240</span> <span class="sm">ккал</span></p></div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;">
+          <button class="bp" type="button" style="flex:1;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>Взвесить</button>
+          <button class="bs" type="button">Профиль</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">A</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Одна кошка — аватар без шеврона</span></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="cav cav-b" style="width:56px;height:56px;border-radius:14px;font-size:23px;">Б</span>
+          <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Буся</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Беспородная</p></div>
+          <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Буся" aria-haspopup="menu"><span class="cav cav-b" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">Б</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        </div>
+        <p style="margin-top:10px;font-size:13px;color:var(--text-2);">8 мес · кошка · не стерилизована</p>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;"><span class="lbl">Вес</span><span class="sm" style="margin-left:auto;">взвешивали 3 дня назад · К</span></div>
+        <p style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="mono" style="font-size:36px;font-weight:500;letter-spacing:-.03em;line-height:1;">3,10</span><span style="font-size:14px;color:var(--text-2);">кг</span><span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--text-2);">+260 г за месяц</span></p>
+        <div style="margin-top:10px;"><svg class="spark" role="img" aria-label="Вес Буся за 3 месяца" viewBox="0 0 300 44" preserveAspectRatio="none" style="height:44px;"><polyline points="0,5 50,11 100,17 150,14 200,22 250,30 300,38" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="300" cy="38" r="3.5" fill="var(--accent)"/></svg></div>
+        <div class="ticks" aria-hidden="true" style="justify-content:space-between;"><span>СЕН</span><span>ОКТ</span><span>НОЯ</span></div>
+        
+        <div class="div"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div><span class="lbl">Упитанность</span><p class="mono" style="font-size:18px;font-weight:500;margin-top:4px;">4 / 9</p></div>
+          <div><span class="lbl">Цель в сутки</span><p style="margin-top:4px;"><span class="mono" style="font-size:18px;font-weight:500;">220</span> <span class="sm">ккал</span></p></div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;">
+          <button class="bp" type="button" style="flex:1;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>Взвесить</button>
+          <button class="bs" type="button">Профиль</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">B</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Две кошки — эта карточка показывает Бусю</span></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
+          <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
+          <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Офелия" aria-haspopup="menu"><span class="cav cav-a" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">О</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        </div>
+        <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;"><span class="lbl">Вес</span><span class="sm" style="margin-left:auto;">взвешивали 14 дней назад</span></div>
+        <p style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="mono" style="font-size:36px;font-weight:500;letter-spacing:-.03em;line-height:1;">4,32</span><span style="font-size:14px;color:var(--text-2);">кг</span><span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--on-success);">−80 г за месяц</span></p>
+        <div class="note" style="margin-top:12px;"><span style="flex:1;">Не взвешивали две недели — цель по калориям считается по старому весу</span><a href="#">Взвесить</a></div>
+        <div class="div"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div><span class="lbl">Упитанность</span><p class="mono" style="font-size:18px;font-weight:500;margin-top:4px;">5 / 9</p></div>
+          <div><span class="lbl">Цель в сутки</span><p style="margin-top:4px;"><span class="mono" style="font-size:18px;font-weight:500;">240</span> <span class="sm">ккал</span></p></div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;">
+          <button class="bp" type="button" style="flex:1;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>Взвесить</button>
+          <button class="bs" type="button">Профиль</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">C</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Давно не взвешивали</span></div>
+    </div>
+  </div>
+
+  <!-- ============ FULLSCREEN ============ -->
+  <div class="sec"><h2>Полноэкранный режим (large)</h2><span>вкладки: Профиль · Вес · Все кошки</span></div>
+
+  <div style="display:flex;gap:44px;align-items:flex-start;margin-bottom:44px;">
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>профиль</b><span>desktop · две колонки · поля переехали из «Офелия: питание»</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="CatsLarge" tab="profile" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>профиль · тёмная тема</b><span>theme="dark"</span></div>
+      <div style="width:100%;height:640px;border-radius:18px;background:oklch(0.165 0.01 268);"><dc-import name="CatsLarge" tab="profile" theme="dark" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+
+    <div style="flex:none;width:390px;">
+      <div class="flab"><b>телефон</b><span>≤ 680px · одна колонка, скролл</span></div>
+      <div class="ds-scope" data-theme="light" style="width:390px;height:820px;background:var(--surface);border:1px solid rgba(20,22,40,.08);border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);display:flex;flex-direction:column;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 16px 10px;">
+          <span class="cav cav-a" style="width:34px;height:34px;border-radius:9px;font-size:15px;">О</span>
+          <span style="flex:1;min-width:0;font:600 16px 'Hanken Grotesk',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</span>
+          <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Офелия" aria-haspopup="menu"><span class="cav cav-a" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">О</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          <button class="x" type="button" aria-label="Закрыть полноэкранный режим"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div style="padding:0 16px 10px;"><div class="seg" role="group" aria-label="Разделы"><button type="button" aria-pressed="true">Профиль</button><button type="button" aria-pressed="false">Вес</button><button type="button" aria-pressed="false">Все кошки</button></div></div>
+        <div style="flex:1;overflow:hidden;padding:6px 16px 16px;display:flex;flex-direction:column;gap:14px;">
+          <div><label class="fl" for="ph-n">Имя</label><input class="inp" id="ph-n" value="Офелия"></div>
+          <div><label class="fl" for="ph-b">Порода</label><input class="inp" id="ph-b" value="Британская короткошёрстная"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><label class="fl" for="ph-d">Дата рождения</label><input class="inp" id="ph-d" value="12.09.2023" style="font-family:'JetBrains Mono',monospace;"></div>
+            <div><span class="fl">Пол</span><div class="seg" role="group" aria-label="Пол"><button type="button" aria-pressed="true">Кошка</button><button type="button" aria-pressed="false">Кот</button></div></div>
+          </div>
+          <div><span class="fl">Стерилизована</span><div class="seg" role="group" aria-label="Стерилизована"><button type="button" aria-pressed="true">Да</button><button type="button" aria-pressed="false">Нет</button><button type="button" aria-pressed="false">Не знаю</button></div></div>
+          <div><span class="fl">Упитанность · 1–9</span><div class="seg" role="group" aria-label="Упитанность"><button type="button" aria-pressed="false">1</button><button type="button" aria-pressed="false">2</button><button type="button" aria-pressed="false">3</button><button type="button" aria-pressed="false">4</button><button type="button" aria-pressed="true">5</button><button type="button" aria-pressed="false">6</button><button type="button" aria-pressed="false">7</button><button type="button" aria-pressed="false">8</button><button type="button" aria-pressed="false">9</button></div></div>
+          <div style="padding:12px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);"><span class="lbl">Суточная цель</span><p style="margin-top:6px;"><span class="mono" style="font-size:26px;font-weight:500;">240</span> <span class="sm">ккал · с 1 ноября</span></p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:44px;align-items:flex-start;margin-bottom:64px;">
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>вес</b><span>график и история взвешиваний · пишется и из питания</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="CatsLarge" tab="weight" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>все кошки</b><span>добавить · в архив · вернуть</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="CatsLarge" tab="all" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+  </div>
+
+  <!-- ============ FORMS ============ -->
+  <div class="sec"><h2>Формы</h2><span>на десктопе — поверх полноэкранного режима, на телефоне — на весь экран</span></div>
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:24px;align-items:flex-start;margin-bottom:64px;">
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Новая кошка</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div><label class="fl" for="nc-n">Имя</label><input class="inp f" id="nc-n" value="Буся"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="fl" for="nc-d">Дата рождения</label><input class="inp" id="nc-d" value="примерно 03.2026" style="font-family:'JetBrains Mono',monospace;"></div>
+          <div><span class="fl">Пол</span><div class="seg" role="group" aria-label="Пол"><button type="button" aria-pressed="true">Кошка</button><button type="button" aria-pressed="false">Кот</button></div></div>
+        </div>
+        <div><span class="fl">Лоток</span>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button class="opt" type="button" aria-pressed="false"><span class="cav cav-a" style="width:20px;height:20px;border-radius:6px;font-size:9.5px;">О</span>Общий с Офелией<span class="k">та же очередь</span></button>
+            <button class="opt" type="button" aria-pressed="true"><span style="width:20px;height:20px;border-radius:6px;border:1.5px dashed var(--border-strong);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:13px;line-height:1;">+</span>Свой лоток<span class="k">новая очередь</span></button>
+          </div>
+        </div>
+        <p class="sm">Порода, вес, упитанность и цель — потом, в профиле. Сразу после сохранения Буся появится в переключателе у всех кошачьих карточек.</p>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">Добавить кошку</button></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Вес · Офелия</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div><label class="fl" for="wt10">Сколько весит</label><div class="big"><input id="wt10" inputmode="decimal" value="4,30"><span>кг</span></div><p class="sm" style="margin-top:8px;">Удобно: взвеситься с кошкой на руках и вычесть свой вес.</p></div>
+        <div style="padding:10px 12px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);font-size:13.5px;">Прошлый раз <span class="mono">4,32 кг</span>, 21 ноября — <b style="color:var(--on-success);">−20 г</b></div>
+        <div class="when"><span class="sm" style="font-size:13.5px;color:var(--text-2);">Сейчас, <span class="mono">21:45</span></span><a href="#">Время или заметка</a></div>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">Сохранить вес</button></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Все кошки · одна кошка</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="cav cav-a" style="width:40px;height:40px;border-radius:11px;font-size:17px;">О</span>
+          <div style="flex:1;min-width:0;"><p style="font-weight:600;">Офелия</p><p class="sm">Британская · 3 года · 4,32 кг</p></div>
+          <button class="bs" type="button" disabled aria-describedby="one-cat-hint" style="opacity:.45;cursor:not-allowed;">В архив</button>
+        </div>
+        <p id="one-cat-hint" class="sm">Последнюю кошку в архив не убрать — на борде всегда есть кого показывать. Сначала добавьте другую.</p>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">+ Добавить кошку</button></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Убрать Бусю в архив?</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <p style="font-size:14px;line-height:1.5;color:var(--text-2);text-wrap:pretty;">Буся пропадёт из переключателей. Карточки, где была выбрана она, покажут Офелию. История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».</p>
+        <div style="padding:10px 12px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);font-size:13px;color:var(--text-2);">Лоток · Буся больше никому не нужен: ночные отметки по нему остановятся.</div>
+      </div>
+      <div class="sh-f" style="flex-direction:row;"><button class="bs" type="button" style="flex:1;height:44px;">Отмена</button><button class="bp" type="button" style="flex:1;height:44px;border-radius:11px;">В архив</button></div>
+    </div>
+  </div>
+
+  <!-- ============ FLOW NOTES ============ -->
+  <div class="sec"><h2>Заметки по флоу</h2></div>
+  <div style="display:flex;gap:14px;max-width:1260px;margin-bottom:64px;">
+    <div class="ncard" style="flex:1;"><h3>Выбор кошки</h3><p>Каждая карточка на борде помнит свою кошку: два виджета рядом — две кошки. Новая карточка берёт первую кошку и ничего себе не записывает. Пока кошка одна, переключателя нет (компонент — 01 Дизайн-система, 06а).</p></div>
+    <div class="ncard" style="flex:1;"><h3>Вес и цель — у кошки</h3><p>Взвешивание из питания и отсюда — одна история. Суточная цель живёт в профиле, «миска дня» её только читает; прошлые дни считаются по цели, что действовала тогда.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Архив, не удаление</h3><p>Кошка в архиве пропадает из переключателей, история остаётся. Последнюю активную кошку убрать нельзя.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Лоток</h3><p>Лоток — отдельная вещь со своей очередью и долгом. Кошка ссылается на лоток: общий для двоих или свой у каждой. Лоток без кошек не показывается и не закрывает дни ночью.</p></div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
