@@ -470,7 +470,7 @@ class Component extends DCLogic {
       openScanner: () => this.openScanner(),
       closeScanner: () => this.closeScanner(),
       scannerOpen: this.state.scannerOpen || scanState !== 'closed',
-      scanFrame: `width:250px;height:250px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border-radius:20px;position:relative;${scanSheet ? 'margin-bottom:38vh;' : ''}`,
+      scanFrame: `width:250px;height:250px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border-radius:20px;position:relative;margin-bottom:18vh;`,
       scanCornerTl: `position:absolute;top:-2px;left:-2px;width:34px;height:34px;border-top:3px solid ${corner};border-left:3px solid ${corner};border-top-left-radius:16px;`,
       scanCornerTr: `position:absolute;top:-2px;right:-2px;width:34px;height:34px;border-top:3px solid ${corner};border-right:3px solid ${corner};border-top-right-radius:16px;`,
       scanCornerBl: `position:absolute;bottom:-2px;left:-2px;width:34px;height:34px;border-bottom:3px solid ${corner};border-left:3px solid ${corner};border-bottom-left-radius:16px;`,
