@@ -131,15 +131,31 @@ await fetch('/widgets/<id>/remoteEntry.js', { cache: 'reload' })  // then naviga
 ```
 
 The `{cache: 'reload'}` fetch matters on its own: `remoteEntry.js` also sits in the HTTP disk cache,
-which `caches.delete` does not touch.
+which `caches.delete` does not touch (this only bites a copy cached before the entries went
+`no-store`, see below). Navigate twice: `unregister()` does not release the page that called it, so
+the first navigation can still be served by the old worker.
 
 **URL-stable, content-changing files are exposed to the edge cache.** Almost every asset is
 content-hashed, but `/remoteEntry.js` and `/sw.js` are not — their URLs stay put while their
 contents change every release, so Cloudflare's default `max-age` served the previous release's copy
-and produced the same RUNTIME-009. Both now carry `Cache-Control: no-cache` in
-`packages/client/nginx.conf`, asserted by `packages/client/e2e/nginx-smoke.spec.ts`. Any new file
-with that shape needs the same rule, and a header only affects the *next* fetch — an object already
-at the edge must be purged by URL or waited out.
+and produced the same RUNTIME-009. They, and every `/widgets/<id>/remoteEntry.js`, now carry
+`Cache-Control: no-store` in `packages/client/nginx.conf`, asserted by
+`packages/client/e2e/nginx-smoke.spec.ts`. Any new file with that shape needs the same rule, and a
+header only affects the *next* fetch — an object already at the edge must be purged by URL or waited
+out, and a copy already in a browser's disk cache lives until its old `max-age` runs out.
+
+It has to be `no-store`, not `no-cache`. Cloudflare's zone Browser Cache TTL (4 hours by default)
+rewrites any origin `Cache-Control` it considers shorter than itself — `no-cache` included — to
+`max-age=14400` on the way to the browser, for every response it treats as a static asset (`.js`,
+`.svg`; HTML and `/api` come back `DYNAMIC` and untouched). With `no-cache` the edge stayed fresh
+but every browser kept the previous release's entries in its HTTP disk cache, so any load that
+reached the network instead of the service worker — an evicted or unregistered worker, or the
+recipe above — mixed two builds in one federation share scope and crashed the host
+(`makeWidgetModules is not a function`, 2026-11-26). `no-store` arrives untouched with
+`cf-cache-status: BYPASS`; the service worker's precache is unaffected, because the Cache API
+ignores `Cache-Control`. The other fix — Browser Cache TTL set to *Respect Existing Headers* — is a
+zone-wide Cloudflare setting shared with the other sites on `iiskelo.com`, so the repository does
+not rely on it.
 
 **So read response headers before reading any bundle.** `cf-cache-status: HIT` with a non-zero `age`
 and a `last-modified` older than the deploy is the whole answer. Comparing the chunk hashes in the
