@@ -35,18 +35,24 @@ export function chooseScannerCamera(devices: readonly CameraDevice[]): string | 
   return main?.deviceId ?? null
 }
 
+// Chrome resizes by default (`resizeMode: 'crop-and-scale'`): to honour a size
+// or aspect the camera has no native mode for, it crops the frame, and on
+// Android it would rather crop a 16:9 video mode than open a native 4:3 one.
+// That crop narrows the field of view like a zoom, so the scanner allows only
+// native camera modes. Not in lib.dom yet.
+type ScannerVideoConstraints = MediaTrackConstraints & { resizeMode?: 'none' | 'crop-and-scale' }
+
 // 4:3 is the native sensor shape of phone cameras; asking for 16:9 (e.g.
 // 1920x1080) makes the camera crop the sensor, which narrows the field of view
 // like a zoom. `ideal`, never `exact`, so a camera that cannot match still opens.
 export function buildScannerConstraints(deviceId: string | null): MediaStreamConstraints {
-  return {
-    audio: false,
-    video: {
-      ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'environment' } }),
-      width: { ideal: 1920 },
-      aspectRatio: { ideal: 4 / 3 },
-    },
+  const video: ScannerVideoConstraints = {
+    ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'environment' } }),
+    width: { ideal: 1920 },
+    aspectRatio: { ideal: 4 / 3 },
+    resizeMode: 'none',
   }
+  return { audio: false, video }
 }
 
 // The subset of a video track the tuning needs; `getCapabilities` is missing in
@@ -56,15 +62,48 @@ export type TunableTrack = {
     focusMode?: string[]
     zoom?: { min?: number }
   }
+  getSettings?: () => MediaTrackSettings
   applyConstraints: (constraints: MediaTrackConstraints) => Promise<void>
 }
 
-// Asks the opened track for continuous autofocus and its widest zoom, where
-// the browser exposes either (Chrome on Android does; Safari mostly does not).
-// Best effort: a refusal leaves the stream exactly as it was.
+const SCAN_LONG_SIDE = 1920
+
+// The constraints that put an open track into a native mode with the full
+// sensor shape, or null when it is already in one (or the browser does not say).
+// The sensor shape is the aspect of the largest mode the camera reports; a mode
+// of any other shape is a crop of it.
+export function fullSensorConstraints(track: TunableTrack): ScannerVideoConstraints | null {
+  const capabilities = track.getCapabilities?.()
+  const maxWidth = capabilities?.width?.max
+  const maxHeight = capabilities?.height?.max
+  if (!maxWidth || !maxHeight) return null
+  const sensorAspect = maxWidth / maxHeight
+  const settings = track.getSettings?.()
+  if (settings?.width && settings.height) {
+    const aspect = settings.width / settings.height
+    if (Math.abs(aspect - sensorAspect) < 0.02) return null
+  }
+  const width = Math.min(
+    maxWidth,
+    Math.round(sensorAspect >= 1 ? SCAN_LONG_SIDE : SCAN_LONG_SIDE * sensorAspect),
+  )
+  return {
+    width: { ideal: width },
+    height: { ideal: Math.round(width / sensorAspect) },
+    aspectRatio: { ideal: sensorAspect },
+    resizeMode: 'none',
+  }
+}
+
+// Brings an opened track to the camera's full field of view: a native mode of
+// the sensor's own shape, continuous autofocus and the widest zoom, as far as
+// the browser exposes each (Chrome on Android does; Safari mostly does not).
+// Best effort: every refusal leaves the stream as it was.
 export async function tuneScannerTrack(track: TunableTrack): Promise<void> {
   const capabilities = track.getCapabilities?.()
   if (!capabilities) return
+  const fullSensor = fullSensorConstraints(track)
+  if (fullSensor) await track.applyConstraints(fullSensor).catch(() => undefined)
   const advanced: Record<string, unknown> = {}
   if (capabilities.focusMode?.includes('continuous')) advanced.focusMode = 'continuous'
   if (typeof capabilities.zoom?.min === 'number') advanced.zoom = capabilities.zoom.min
@@ -85,8 +124,12 @@ export class CameraUnavailableError extends errore.createTaggedError({
 // empty before it), reads the camera list, and closes it again so the scanner
 // can open the chosen device. A failure here is the same "no camera" outcome
 // the scanner itself would hit.
+//
+// `cameraIndex` (the `?cam=` debug override) opens that entry of the camera
+// list instead of the automatic choice, to compare lenses on a real phone.
 export async function resolveScannerConstraints(
   media: ScannerMediaDevices | undefined,
+  cameraIndex: number | null = null,
 ): Promise<CameraUnavailableError | MediaStreamConstraints> {
   if (!media?.getUserMedia) return new CameraUnavailableError({ reason: 'нет mediaDevices' })
   const probe = await media
@@ -99,5 +142,6 @@ export async function resolveScannerConstraints(
   const cameras = devices
     .filter((device) => device.kind === 'videoinput')
     .map((device) => ({ deviceId: device.deviceId, label: device.label }))
-  return buildScannerConstraints(chooseScannerCamera(cameras))
+  const forced = cameraIndex === null ? undefined : cameras[cameraIndex]?.deviceId
+  return buildScannerConstraints(forced || chooseScannerCamera(cameras))
 }
