@@ -122,8 +122,17 @@ export interface AddDeviceDeps {
   startRegistrationCeremony: typeof browserStartRegistration
   // Camera access for the scanner; undefined where the browser has none.
   mediaDevices: ScannerMediaDevices | undefined
+  // `?cam=<index>` debug override: open that camera from the device list.
+  cameraIndex: number | null
   // Continues a scanned invite QR on the invite card (the activate route).
   openInvite: (token: string) => void
+}
+
+function defaultCameraIndex(): number | null {
+  if (typeof location === 'undefined') return null
+  const raw = new URLSearchParams(location.search).get('cam')
+  if (raw === null || !/^\d+$/.test(raw)) return null
+  return Number(raw)
 }
 
 function defaultOrigin(): string {
@@ -346,6 +355,7 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     openInvite:
       overrides.openInvite ??
       ((inviteToken) => window.location.assign(`/activate?token=${inviteToken}`)),
+    cameraIndex: overrides.cameraIndex ?? defaultCameraIndex(),
     mediaDevices:
       'mediaDevices' in overrides
         ? overrides.mediaDevices
@@ -616,7 +626,7 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
 
   const prepareCamera = action(async () => {
     camera.set({ kind: 'pending' })
-    const constraints = await wrap(resolveScannerConstraints(deps.mediaDevices))
+    const constraints = await wrap(resolveScannerConstraints(deps.mediaDevices, deps.cameraIndex))
     if (constraints instanceof Error) {
       camera.set({ kind: 'unavailable' })
       error.set(CAMERA_DENIED_MESSAGE)

@@ -90,6 +90,7 @@ function ScannerVideo({ constraints, onDecode, onCameraError }: ScannerVideoProp
     onError: onCameraError,
   })
   const [debugInfo, setDebugInfo] = useState('')
+  const [debugCameras, setDebugCameras] = useState<string[]>([])
 
   // DOM interop: the opened track is only reachable through the element.
   function handleLoadedMetadata() {
@@ -102,17 +103,32 @@ function ScannerVideo({ constraints, onDecode, onCameraError }: ScannerVideoProp
       const settings = track.getSettings() as MediaTrackSettings & {
         zoom?: number
         focusMode?: string
+        resizeMode?: string
       }
+      const caps = track.getCapabilities?.() as
+        | (MediaTrackCapabilities & { zoom?: { min?: number; max?: number } })
+        | undefined
       setDebugInfo(
         [
           track.label,
           `${video.videoWidth}×${video.videoHeight}`,
-          settings.zoom !== undefined ? `zoom ${settings.zoom}` : '',
+          caps?.width?.max ? `max ${caps.width.max}×${caps.height?.max}` : '',
+          settings.resizeMode ? `resize ${settings.resizeMode}` : '',
+          settings.zoom !== undefined
+            ? `zoom ${settings.zoom} (${caps?.zoom?.min}–${caps?.zoom?.max})`
+            : '',
           settings.focusMode ?? '',
         ]
           .filter(Boolean)
           .join(' · '),
       )
+      void navigator.mediaDevices
+        ?.enumerateDevices()
+        .then((devices) =>
+          setDebugCameras(
+            devices.filter((device) => device.kind === 'videoinput').map((device) => device.label),
+          ),
+        )
     })
   }
 
@@ -125,7 +141,16 @@ function ScannerVideo({ constraints, onDecode, onCameraError }: ScannerVideoProp
         onLoadedMetadata={handleLoadedMetadata}
         className={styles.scannerOverlayVideo}
       />
-      {debugInfo ? <p className={styles.scannerDebug}>{debugInfo}</p> : null}
+      {debugInfo ? (
+        <div className={styles.scannerDebug}>
+          <p>{debugInfo}</p>
+          {debugCameras.map((label, index) => (
+            <a key={index} href={`?scan=1&camdebug&cam=${index}`}>
+              {index}: {label || '(без названия)'}
+            </a>
+          ))}
+        </div>
+      ) : null}
     </>
   )
 }

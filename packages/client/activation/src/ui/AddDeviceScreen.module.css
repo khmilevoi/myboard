@@ -192,6 +192,19 @@
   color: #fff;
   font: 500 11px/1.4 var(--font-mono, monospace);
   word-break: break-all;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scannerDebug p {
+  margin: 0;
+}
+
+.scannerDebug a {
+  color: #9cd2ff;
+  padding: 4px 0;
 }
 
 .scannerCorner {
