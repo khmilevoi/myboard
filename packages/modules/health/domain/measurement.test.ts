@@ -38,6 +38,14 @@ describe('MeasurementSchema', () => {
     expect(MeasurementSchema.safeParse({ ...valid, takenAt: -1 }).success).toBe(false)
   })
 
+  it('rejects an unknown metric kind', () => {
+    const r = MeasurementSchema.safeParse({
+      ...valid,
+      metrics: { weight: { value: 70, unit: 'kg' }, steps: { value: 1, unit: 'n' } },
+    })
+    expect(r.success).toBe(false)
+  })
+
   it('strips extra fields', () => {
     const parsed = MeasurementSchema.parse({ ...valid, ts: 5, ip: '1.2.3.4' })
     expect(parsed).toEqual(valid)

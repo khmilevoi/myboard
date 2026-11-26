@@ -73,6 +73,39 @@ describe('ingestMeasurement', () => {
     expect(data.get(latestKey('body-fat'))).toEqual(fat)
   })
 
+  it('heals latest on a retry after the first latest write failed', async () => {
+    const { data, storage } = fakeStorage()
+    const boom = new Error('boom')
+    let failNextSet = true
+    const flaky: WidgetServerStorage = {
+      ...storage,
+      set: async (key, value) => {
+        if (failNextSet) {
+          failNextSet = false
+          return boom
+        }
+        return storage.set(key, value)
+      },
+    }
+    const m = reading('a', T, kg(70))
+
+    expect(await ingestMeasurement(flaky, m)).toBe(boom)
+    expect(data.get(latestKey('weight'))).toBeUndefined()
+
+    expect(await ingestMeasurement(flaky, m)).toEqual({ stored: false })
+    expect(data.get(monthKey(T))).toHaveLength(1)
+    expect(data.get(latestKey('weight'))).toEqual(m)
+  })
+
+  it('leaves latest unchanged for a reading with an equal takenAt', async () => {
+    const { data, storage } = fakeStorage()
+    const first = reading('a', T, kg(70))
+    await ingestMeasurement(storage, first)
+    await ingestMeasurement(storage, reading('b', T, kg(71)))
+
+    expect(data.get(latestKey('weight'))).toEqual(first)
+  })
+
   it('returns storage errors as values', async () => {
     const { storage } = fakeStorage()
     const boom = new Error('boom')
