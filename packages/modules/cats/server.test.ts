@@ -231,10 +231,30 @@ describe('cats server', () => {
     expect(append).toHaveBeenCalledWith('litter/busya/comments:2026-06-15', expect.anything())
   })
 
-  it('rejects a litter id that is not a key-safe entity id', () => {
+  const FORGED_IDS = ['a/b', 'a:b', 'Ofelia'] as const
+
+  it.each(
+    (['clean', 'debt', 'forgive', 'undo'] as const).flatMap((event) =>
+      FORGED_IDS.map((litterId) => [event, litterId] as const),
+    ),
+  )('the %s payload schema rejects the litter id %s', (event, litterId) => {
     expect(
-      catsActionSchemas.clean.payload.safeParse({ litterId: 'a/b', date: '2026-06-16' }).success,
+      catsActionSchemas[event].payload.safeParse({ litterId, date: '2026-06-16' }).success,
     ).toBe(false)
+    // The same payload with a key-safe id parses, so the id alone is what is rejected.
+    expect(
+      catsActionSchemas[event].payload.safeParse({ litterId: 'busya', date: '2026-06-16' }).success,
+    ).toBe(true)
+  })
+
+  it.each(FORGED_IDS)('the comment payload schema rejects the litter id %s', (litterId) => {
+    const payload = { weekStart: '2026-06-15', text: 'привет' }
+    expect(catsActionSchemas.comment.payload.safeParse({ ...payload, litterId }).success).toBe(
+      false,
+    )
+    expect(
+      catsActionSchemas.comment.payload.safeParse({ ...payload, litterId: 'busya' }).success,
+    ).toBe(true)
   })
 
   it('rejects a calendar-invalid date as a value instead of throwing', async () => {
@@ -744,6 +764,15 @@ describe('cats server: registries, profile, goal and weight', () => {
     ['weigh', { catId: 'Ofelia', kg: 4, at: '2026-06-16' }],
     ['setGoal', { catId: 'a/b', kcal: 220, since: '2026-06-16' }],
     ['saveProfile', { catId: 'a:b', profile: PROFILE_FIELDS, litter: { kind: 'new' } }],
+    ['addCat', { name: 'Буся', litter: { kind: 'existing', litterId: 'a:b' } }],
+    ['archiveCat', { catId: 'Ofelia' }],
+    ['restoreCat', { catId: 'a/b' }],
+    ['weigh', { catId: 'a:b', kg: 4, at: '2026-06-16' }],
+    ['setGoal', { catId: 'Ofelia', kcal: 220, since: '2026-06-16' }],
+    [
+      'saveProfile',
+      { catId: OFELIA_ID, profile: PROFILE_FIELDS, litter: { kind: 'existing', litterId: 'a/b' } },
+    ],
   ] as const)('the %s payload schema rejects a forged id', (event, payload) => {
     expect(catsActionSchemas[event].payload.safeParse(payload).success).toBe(false)
   })
