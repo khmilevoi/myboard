@@ -8,7 +8,7 @@ skills and loads them on demand; other agents read the files directly.
 
 | Guide | Read it when |
 | --- | --- |
-| `docs/agent/deployment.md` | deploying, pushing secrets, editing `rpi*.toml`, using the branch stand, releasing `dev` into `main` |
+| `docs/agent/deployment.md` | deploying, pushing secrets, editing `rpi*.toml`, using the branch stand, signing an agent into a stand (`pnpm stand:login`), releasing `dev` into `main` |
 | `docs/agent/test-troubleshooting.md` | a test run or a pnpm/node invocation misbehaves on this machine |
 | `docs/agent/widget-server.md` | writing a widget's `server.ts`, a cron job, or code that stamps a record's author |
 | `docs/agent/radix-stacked-dialogs.md` | closing one Radix dialog or popover also dismisses the one underneath |

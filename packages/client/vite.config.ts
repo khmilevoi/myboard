@@ -339,6 +339,7 @@ export default defineConfig(({ command }) => {
       include: [
         'src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
         'activation/src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+        'scripts/**/*.test.ts',
       ],
       environment: 'jsdom',
       setupFiles: ['./src/vitest.setup.ts'],

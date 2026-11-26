@@ -8,6 +8,7 @@
     "build": "vite-build-exit",
     "build:activation": "vite build --config vite.activation.config.ts",
     "icons:generate": "tsx scripts/generate-env-icons.ts",
+    "stand:login": "tsx scripts/stand-login/stand-login.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
