@@ -333,6 +333,7 @@ export async function getAccountInfo(deps: AuthDeps, req: IncomingMessage): Prom
       id: account.id,
       name: account.name,
       deviceLimit: account.deviceLimit,
+      createdAt: account.createdAt,
       ...(avatarUrl !== null ? { avatarUrl } : {}),
     },
   }

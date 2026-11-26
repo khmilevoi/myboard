@@ -599,9 +599,9 @@ describe('getAccountInfo', () => {
     expect(result.status).toBe(401)
   })
 
-  it('returns id/name/deviceLimit for the session account', async () => {
+  it('returns id/name/deviceLimit/createdAt for the session account', async () => {
     const ops = makeOps()
-    const clock = makeClock(0)
+    const clock = makeClock(1_765_000_000_000)
     const config = makeConfig()
     const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
     const session = await issueSession(ops, config, clock.now, {
@@ -616,7 +616,12 @@ describe('getAccountInfo', () => {
     )
 
     expect(result.status).toBe(200)
-    expect(result.body).toEqual({ id: account.id, name: 'Acc', deviceLimit: account.deviceLimit })
+    expect(result.body).toEqual({
+      id: account.id,
+      name: 'Acc',
+      deviceLimit: account.deviceLimit,
+      createdAt: 1_765_000_000_000,
+    })
   })
 })
 
@@ -685,6 +690,7 @@ describe('avatarUrl', () => {
       id: account.id,
       name: 'Acc',
       deviceLimit: account.deviceLimit,
+      createdAt: account.createdAt,
       avatarUrl: '/files/AvatarAvatarAvatar0001',
     })
     expect((await getAccounts(deps, req())).body).toEqual({
