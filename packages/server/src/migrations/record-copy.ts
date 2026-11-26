@@ -22,9 +22,18 @@ function parseRecords(raw: string): unknown[] | null {
   return parsed
 }
 
-const field = (record: unknown, name: string): unknown =>
+/**
+ * Decides whether a source record the target lacks is merged in. Only consulted for a `merge` into
+ * an existing target; a target that is absent receives the source value unchanged.
+ */
+export type RecordFilter = (
+  record: unknown,
+  sides: { target: readonly unknown[]; source: readonly unknown[] },
+) => boolean
+
+export const field = (record: unknown, name: string): unknown =>
   typeof record === 'object' && record !== null ? (record as { [k: string]: unknown })[name] : null
-const idOf = (record: unknown) => {
+export const idOf = (record: unknown) => {
   const id = field(record, 'id')
   return typeof id === 'string' ? id : null
 }
@@ -40,13 +49,20 @@ const tsOf = (record: unknown) => {
  * `ts` with the later-appended record winning a tie (`latestOutcomesByDate`). A stable sort never
  * changes how the target's own records resolve against each other, and slots source-only records
  * (written to the old keys during a rollback) where they would have been appended.
+ *
+ * `keep`, when given, vetoes individual source-only records; it sees both whole arrays.
  */
-export function mergeRecords(target: unknown[], source: unknown[]): unknown[] | null {
+export function mergeRecords(
+  target: unknown[],
+  source: unknown[],
+  keep?: RecordFilter,
+): unknown[] | null {
   const known = new Set(target.map(idOf).filter((id) => id !== null))
   // A record with no id cannot be matched; the readers drop it anyway, so it is not imported.
   const missing = source.filter((record) => {
     const id = idOf(record)
-    return id !== null && !known.has(id)
+    if (id === null || known.has(id)) return false
+    return keep === undefined || keep(record, { target, source })
   })
   if (missing.length === 0) return null
   return [...target, ...missing]
@@ -61,6 +77,7 @@ export async function copyKey(
   targetKey: string,
   mode: CopyMode,
   label: string,
+  keep?: RecordFilter,
 ) {
   const fail = (cause: unknown) =>
     new OfeliaCopyError({ source: sourceKey, target: targetKey, cause })
@@ -90,7 +107,7 @@ export async function copyKey(
     console.warn(`${label}: ${sourceKey} or ${targetKey} is not a record array; skipped`)
     return
   }
-  const merged = mergeRecords(target, source)
+  const merged = mergeRecords(target, source, keep)
   if (merged === null) return
 
   // Keep the target's own expiry; the source's TTL describes a different key.

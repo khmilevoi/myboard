@@ -1,4 +1,5 @@
 import { CatProfileSchema } from '@modules/cats/domain/cat'
+import { LedgerEntriesSchema, resolveDays } from '@modules/cats/domain/ledger'
 import { CatRegistryEventsSchema, LitterRegistryEventsSchema } from '@modules/cats/domain/registry'
 import { LitterSettingsSchema } from '@modules/cats/domain/roster'
 import { describe, expect, it, vi } from 'vitest'
@@ -59,6 +60,108 @@ describe('ofeliaToCatsMigration', () => {
     const spy = vi.spyOn(ops, 'set')
     expect(await ofeliaToCatsMigration.run(ops)).toBeUndefined()
     expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('stores merged records in ts order, whichever side they came from', async () => {
+    const ops = makeOps()
+    await ops.set('m:cats:s:litter/ofelia/ledger', JSON.stringify([rec('newer', 3)]))
+    await ops.set('m:ofelia:s:duty/ledger', JSON.stringify([rec('older', 2)]))
+
+    await ofeliaToCatsMigration.run(ops)
+    expect(JSON.parse((await ops.get('m:cats:s:litter/ofelia/ledger')) as string)).toEqual([
+      rec('older', 2),
+      rec('newer', 3),
+    ])
+  })
+
+  describe('system closes the old release wrote after a rollback', () => {
+    const user = { accountId: 'acc-1', name: 'Леша' }
+    const system = { system: true }
+    const entry = (
+      id: string,
+      ts: number,
+      date: string,
+      type: string,
+      createdBy: object,
+      extra: object = {},
+    ) => ({ id, ts, date, type, actor: 'Леша', createdBy, by: 'Леша', ...extra })
+    const LEDGER = 'm:cats:s:litter/ofelia/ledger'
+    const OLD_LEDGER = 'm:ofelia:s:duty/ledger'
+    const readLedger = async (ops: ReturnType<typeof makeOps>) =>
+      LedgerEntriesSchema.parse(JSON.parse((await ops.get(LEDGER)) as string))
+    const idsIn = async (ops: ReturnType<typeof makeOps>) =>
+      (await readLedger(ops)).map((e) => e.id)
+
+    it('keep a decision users made in the cats release for the same day', async () => {
+      const ops = makeOps()
+      const debt = entry('debt', 10, '2026-07-01', 'went_into_debt', user, {
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      })
+      await ops.set(LEDGER, JSON.stringify([debt]))
+      await ops.set(
+        OLD_LEDGER,
+        JSON.stringify([entry('auto', 20, '2026-07-01', 'cleaned', system)]),
+      )
+
+      expect(await ofeliaToCatsMigration.run(ops)).toBeUndefined()
+
+      expect(await idsIn(ops)).toEqual(['debt'])
+      expect(resolveDays(await readLedger(ops)).get('2026-07-01')?.type).toBe('went_into_debt')
+    })
+
+    it('copy a system close for a day the cats release left open', async () => {
+      const ops = makeOps()
+      await ops.set(LEDGER, JSON.stringify([entry('mine', 10, '2026-07-01', 'cleaned', user)]))
+      await ops.set(
+        OLD_LEDGER,
+        JSON.stringify([entry('auto', 20, '2026-07-02', 'cleaned', system)]),
+      )
+
+      await ofeliaToCatsMigration.run(ops)
+      expect(await idsIn(ops)).toEqual(['mine', 'auto'])
+      expect(resolveDays(await readLedger(ops)).get('2026-07-02')?.status).toBe('closed')
+
+      const spy = vi.spyOn(ops, 'set')
+      expect(await ofeliaToCatsMigration.run(ops)).toBeUndefined()
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it('do not settle a debt again from a view that missed the cats-release decisions', async () => {
+      const ops = makeOps()
+      // Settled in the cats release, on another day: the old release never saw it.
+      const settled = entry('settled', 10, '2026-07-01', 'cleaned', user, {
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      })
+      await ops.set(LEDGER, JSON.stringify([settled]))
+      const stale = entry('auto', 20, '2026-07-02', 'cleaned', system, {
+        actor: 'Карина',
+        onBehalfOf: 'Леша',
+      })
+      await ops.set(OLD_LEDGER, JSON.stringify([stale]))
+
+      await ofeliaToCatsMigration.run(ops)
+      expect(await idsIn(ops)).toEqual(['settled'])
+
+      const spy = vi.spyOn(ops, 'set')
+      expect(await ofeliaToCatsMigration.run(ops)).toBeUndefined()
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it('still copy a system close when the only outcome for its day is one the old release saw', async () => {
+      const ops = makeOps()
+      const shared = entry('shared', 10, '2026-07-01', 'cleaned', user)
+      const reset = entry('reset', 15, '2026-07-01', 'reset', user)
+      await ops.set(LEDGER, JSON.stringify([shared]))
+      await ops.set(
+        OLD_LEDGER,
+        JSON.stringify([shared, reset, entry('auto', 20, '2026-07-01', 'cleaned', system)]),
+      )
+
+      await ofeliaToCatsMigration.run(ops)
+      expect(await idsIn(ops)).toEqual(['shared', 'reset', 'auto'])
+    })
   })
 
   it('copies the cron cursor and never overwrites an existing target', async () => {
