@@ -1,54 +1,37 @@
+import { availableParallelism } from 'node:os'
+
 import { defineConfig, devices } from '@playwright/test'
+
+// Every worker brings up its own app stack — test-server, Valkey database and
+// preview origin — through the worker-scoped `stack` fixture in
+// e2e/support/test.ts, so `/api/test/reset` and `/api/test/time` only ever
+// touch the calling worker. Specs therefore run in parallel safely; there is
+// no shared `webServer`. Each worker costs a Chromium, a Node server and a
+// Vite preview, so the default stays at half the cores (E2E_WORKERS overrides).
+const workers = Number(process.env['E2E_WORKERS'] ?? Math.max(1, availableParallelism() / 2))
 
 export default defineConfig({
   testDir: 'e2e',
   testIgnore: ['nginx-smoke.spec.ts', 'nginx-gate.spec.ts', 'nginx-rate-limit.spec.ts'],
   outputDir: 'test-results',
-  // All spec files share ONE test-server process (started once below, for
-  // the whole run) backed by ONE Valkey instance -- the process-wide test
-  // clock (`/api/test/time`, used by ofelia-duty.spec.ts) and the full
-  // FLUSHDB (`/api/test/reset`, used by ofelia-duty.spec.ts and this file)
-  // are therefore global mutable state, not per-worker. Playwright's default
-  // worker count (~half the CPUs) runs multiple spec files concurrently
-  // against that same shared state, so one file's reset()/clock-pin can
-  // silently corrupt another file's in-flight test (observed: a concurrently
-  // running ofelia-duty.spec.ts reset() wiped an add-device.spec.ts test's
-  // freshly-registered account mid-flight, surfacing as a bogus "session
-  // expired"). Forcing a single worker under CI (where this whole suite is
-  // meant to run self-contained and deterministic, see `pnpm
-  // test:e2e:docker`) serializes every test against that shared state and
-  // removes this whole class of cross-file collision; local ad-hoc runs
-  // (no CI env) keep the default parallelism.
-  workers: process.env['CI'] ? 1 : undefined,
+  globalSetup: './e2e/support/global-setup.ts',
+  workers,
+  // A failure is a failure: no retries to hide flakiness, and a stray
+  // `test.only` fails the run instead of silently skipping the suite.
+  retries: 0,
+  forbidOnly: !!process.env['CI'],
+  reporter: process.env['CI'] ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    // No `trace`: recording one per test and zipping it at context teardown
+    // into test-results — a bind mount from the Windows host under docker —
+    // blew the 30 s teardown budget and left truncated zips. Turn it on for a
+    // single local run with `--trace on` when a failure needs one.
     screenshot: 'only-on-failure',
   },
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  webServer: [
-    {
-      command: 'pnpm --filter server build && node ../server/dist/test-server.cjs',
-      url: 'http://localhost:8787/api/time',
-      env: {
-        PORT: '8787',
-        RP_ID: 'localhost',
-        RP_NAME: 'MyBoard',
-        EXPECTED_ORIGIN: 'http://localhost:4173',
-        PUBLIC_APP_URL: 'http://localhost:4173',
-      },
-      reuseExistingServer: !process.env['CI'],
-      timeout: 120_000,
-    },
-    {
-      command: 'pnpm -w build && npm run preview',
-      url: 'http://localhost:4173/widgets/clock/remoteEntry.js',
-      reuseExistingServer: !process.env['CI'],
-      timeout: 240_000,
     },
   ],
 })

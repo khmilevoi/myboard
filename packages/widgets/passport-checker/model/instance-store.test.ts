@@ -28,9 +28,7 @@ describe('passportInstance disposal', () => {
     expect(teardown).not.toHaveBeenCalled()
 
     unsubscribe()
-    await settle()
-
-    expect(teardown).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(teardown).toHaveBeenCalledTimes(1))
   })
 
   it('leaves the session alone while any mount of the instance is still connected', async () => {
@@ -46,7 +44,6 @@ describe('passportInstance disposal', () => {
     expect(teardown).not.toHaveBeenCalled()
 
     unsubscribeSecond()
-    await settle()
-    expect(teardown).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(teardown).toHaveBeenCalledTimes(1))
   })
 })

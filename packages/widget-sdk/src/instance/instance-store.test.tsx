@@ -80,8 +80,7 @@ describe('makeWidgetInstanceStore', () => {
     expect(stats().disposed).toEqual([])
 
     view.unmount()
-    await settle()
-    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+    await vi.waitFor(() => expect(stats().disposed).toEqual([[{ id: 1 }, 'a']]))
   })
 
   it('builds a fresh value on the next mount instead of resurrecting the disposed one', async () => {
@@ -122,8 +121,7 @@ describe('makeWidgetInstanceStore', () => {
     expect(store('a', make)).toBe(handle)
 
     unsubscribeSecond()
-    await settle()
-    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+    await vi.waitFor(() => expect(stats().disposed).toEqual([[{ id: 1 }, 'a']]))
   })
 
   it('leaks a value read outside any subscription (documented limitation: nothing ever subscribes to release it)', async () => {
@@ -158,8 +156,7 @@ describe('makeWidgetInstanceStore', () => {
     expect(stats().built).toBe(1)
 
     unsubscribeFirst()
-    await settle()
-    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+    await vi.waitFor(() => expect(stats().disposed).toEqual([[{ id: 1 }, 'a']]))
 
     // A stale reference to the now-disposed handle gets reconnected directly
     // (e.g. a Suspense boundary re-showing without the component ever going
@@ -184,8 +181,7 @@ describe('makeWidgetInstanceStore', () => {
     await settle()
 
     unsubscribeFirst()
-    await settle()
-    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+    await vi.waitFor(() => expect(stats().disposed).toEqual([[{ id: 1 }, 'a']]))
 
     // Reconnecting the already-disposed handle builds nothing: the connect
     // hook does not build, and a dependency-free `computed` never recomputes.
@@ -258,8 +254,7 @@ describe('makeWidgetInstanceStore under StrictMode', () => {
     await settle()
 
     view.unmount()
-    await settle()
-    expect(stats().disposed).toEqual([[{ id: 1 }, 'a']])
+    await vi.waitFor(() => expect(stats().disposed).toEqual([[{ id: 1 }, 'a']]))
 
     render(
       <StrictMode>

@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test'
-
 import { ActivatePage } from './pages/ActivatePage.js'
 import { seedInvite } from './support/seed.js'
+import { expect, test } from './support/test.js'
 import { enableVirtualAuthenticator } from './support/webauthn.js'
 
 test('invite activation registers a passkey, reaches the board, and survives reload', async ({

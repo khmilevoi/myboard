@@ -60,7 +60,7 @@ it('routes local commands to the narrowest codegen target', () => {
     'pnpm run codegen:client && pnpm --filter "./packages/widgets/*" build',
   )
   expect(rootPackage.scripts.test).toBe('pnpm run codegen && pnpm run test:workspace')
-  expect(rootPackage.scripts['test:workspace']).toBe('pnpm run test:unit && pnpm -r test')
+  expect(rootPackage.scripts['test:workspace']).toBe('vitest run')
   expect(rootPackage.scripts.typecheck).toBe('pnpm run codegen && pnpm run typecheck:workspace')
   expect(rootPackage.scripts['typecheck:workspace']).toBe('pnpm -r typecheck')
 })
@@ -455,12 +455,13 @@ describe('rpi secret groups', () => {
 })
 
 describe('docker-compose.e2e.yml headed-run support', () => {
-  it('publishes valkey to localhost so a host-run Playwright can reach it', () => {
+  it('publishes valkey on an ephemeral localhost port so concurrent worktrees never collide', () => {
     const valkeyBlock = e2eCompose.slice(
       e2eCompose.indexOf('  valkey:'),
       e2eCompose.indexOf('  e2e:'),
     )
-    expect(valkeyBlock).toContain("- '127.0.0.1:6379:6379'")
+    expect(valkeyBlock).toContain("- '127.0.0.1::6379'")
+    expect(e2eCompose).not.toMatch(/^name:/m)
   })
 
   it('wires the headed e2e command to the orchestrator script', () => {

@@ -1,7 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
 
-const TEST_SERVER_URL = 'http://localhost:8787'
-
 export type SeedInviteOptions = {
   ttlMs?: number
   maxUses?: number
@@ -14,15 +12,14 @@ export type SeedInviteResult = {
 }
 
 /**
- * Seeds a fresh single-use invite directly against the test-server's
- * `/api/test/*` control routes (bypassing the preview server's proxy since
- * this is test-only infrastructure, not part of the app under test).
+ * Seeds a fresh single-use invite through the `/api/test/*` control routes of
+ * the calling worker's own stack (relative to `baseURL`, see stack.ts).
  */
 export async function seedInvite(
   request: APIRequestContext,
   opts?: SeedInviteOptions,
 ): Promise<SeedInviteResult> {
-  const response = await request.post(`${TEST_SERVER_URL}/api/test/seed-invite`, {
+  const response = await request.post('/api/test/seed-invite', {
     data: opts ?? {},
   })
   if (!response.ok()) {
