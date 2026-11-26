@@ -580,10 +580,13 @@ describe('file storage (Garage) wiring', () => {
   })
 
   it('answers blobs with the same headers as the Node fallback, never cacheable at the edge', () => {
-    expect(filesLocation).toContain(
-      'add_header Cache-Control "private, max-age=31536000, immutable" always;',
+    // A blob is immutable; a refusal is not. A 401 marked immutable would pin a lapsed session's
+    // failure onto the image URL in the browser's HTTP cache for a year.
+    expect(nginxConf).toMatch(
+      /map \$status \$files_cache_control \{\s*200 +"private, max-age=31536000, immutable";\s*default +"no-store";\s*\}/,
     )
-    expect(filesLocation).not.toMatch(/Cache-Control "[^"]*public/)
+    expect(filesLocation).toContain('add_header Cache-Control $files_cache_control always;')
+    expect(block(nginxConf, 'map $status $files_cache_control {', '}')).not.toContain('public')
     expect(filesLocation).toContain('add_header X-Content-Type-Options "nosniff" always;')
     expect(filesLocation).toContain(
       `add_header Content-Security-Policy "default-src 'none'; sandbox" always;`,

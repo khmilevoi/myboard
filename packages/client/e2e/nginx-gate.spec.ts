@@ -49,6 +49,8 @@ test.describe('gate: no session', () => {
   test('file blobs and file uploads are blocked', async ({ request }) => {
     const blob = await request.get('/files/AbCdEfGhIjKlMnOpQrStUv')
     expect(blob.status()).toBe(401)
+    // Only a served blob is immutable: a cached refusal would outlive the next sign-in.
+    expect(blob.headers()['cache-control']).toBe('no-store')
     expect(await blob.text()).not.toContain('активация')
 
     const upload = await request.put('/api/files/account/avatar', {
@@ -184,7 +186,9 @@ test.describe('gate: files through Garage', () => {
     expect(Buffer.from(await blob.body())).toEqual(AVATAR_PNG)
 
     const anonymous = await playwrightRequest.newContext({ baseURL: 'http://localhost:8080' })
-    expect((await anonymous.get(value.url)).status()).toBe(401)
+    const refused = await anonymous.get(value.url)
+    expect(refused.status()).toBe(401)
+    expect(refused.headers()['cache-control']).toBe('no-store')
     await anonymous.dispose()
 
     // auth_request turns any verifier status but 2xx/401/403 into a 500; the config restores 404.
