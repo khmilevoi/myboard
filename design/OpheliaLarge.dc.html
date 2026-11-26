@@ -64,12 +64,7 @@
               <div style="font:400 13px 'Hanken Grotesk',sans-serif;color:var(--text-3);margin-top:2px;">Кто убирает · Лёша и Карина по очереди</div>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);letter-spacing:.06em;flex:none;">Я:</span>
-            <button onClick="{{ selectKarina }}" style="{{ karinaAuthorStyle }}">К · Карина</button>
-            <button onClick="{{ selectLesha }}" style="{{ leshaAuthorStyle }}">Л · Лёша</button>
-          </div>
-          <span style="width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+          <button type="button" aria-label="Закрыть" style="flex:none;display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text-3);cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="fs-body" style="flex:1;display:flex;gap:22px;padding:22px;min-height:0;">
           <!-- left: today -->
@@ -120,6 +115,7 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;flex:none;">
                   <button onClick="{{ prevWeek }}" aria-label="Прошлая неделя" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+                  <button type="button" style="height:28px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);font:600 12px 'Hanken Grotesk',sans-serif;cursor:pointer;">Сегодня</button>
                   <button onClick="{{ nextWeek }}" aria-label="Следующая неделя" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
                 </div>
               </div>
@@ -134,125 +130,9 @@
               </div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px 16px;margin-top:11px;font:400 11.5px 'Hanken Grotesk',sans-serif;color:var(--text-3);"><span style="display:inline-flex;align-items:center;gap:7px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span>Карина гасит долг</span><span style="display:inline-flex;align-items:center;gap:7px;"><span style="width:14px;height:14px;border-radius:50%;background:var(--success);display:inline-flex;align-items:center;justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--on-success)"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span>выполнено</span><span style="display:inline-flex;align-items:center;gap:7px;"><span style="position:relative;width:20px;height:15px;flex:none;display:inline-block;"><span style="position:absolute;left:0;top:0;width:15px;height:15px;border-radius:50%;background:oklch(0.87 0.06 215);"></span><span style="position:absolute;right:0;bottom:-1px;width:10px;height:10px;border-radius:50%;background:oklch(0.86 0.07 25);border:1.5px solid var(--surface);"></span></span>замена · кто убрал за кого</span></div>
             </div>
-            <!-- HORIZONTAL SPLIT: история | комментарии + ввод -->
-            <div class="fs-split" data-tab="{{ mobileTab }}" style="flex:1;display:flex;gap:0;min-height:0;overflow:hidden;margin-top:14px;border-top:1px solid var(--border);">
-              <!-- MOBILE TABS -->
-              <div class="fs-tabs" style="display:none;gap:6px;flex:none;margin-bottom:14px;border-bottom:1px solid var(--border);">
-                <button class="fs-tab fs-tab-h" onClick="{{ showHistory }}" style="flex:1;padding:9px 4px 10px;font:600 12px 'Hanken Grotesk',sans-serif;border:none;border-radius:8px 8px 0 0;background:transparent;color:var(--text-3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;">История</button>
-                <button class="fs-tab fs-tab-c" onClick="{{ showComments }}" style="flex:1;padding:9px 4px 10px;font:600 12px 'Hanken Grotesk',sans-serif;border:none;border-radius:8px 8px 0 0;background:transparent;color:var(--text-3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;">Комментарии</button>
-              </div>
-              <!-- LEFT: История -->
-              <div class="fs-history" style="width:196px;flex:none;align-self:stretch;display:flex;flex-direction:column;min-height:0;padding:14px 14px 0 0;border-right:1px solid var(--border);">
-                <div class="fs-sec-title" style="flex:none;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);">История</div>
-                <div class="fs-histlist" style="margin-top:8px;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;">
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">17 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">16 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">долг</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">15 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">14 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">13 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">12 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">11 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.13 155);background:oklch(0.97 0.04 155);border-radius:4px;padding:1px 5px;white-space:nowrap;">−1 день</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">10 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">9 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">8 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">7 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">6 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">5 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:oklch(0.55 0.13 155);background:oklch(0.97 0.04 155);border-radius:4px;padding:1px 5px;white-space:nowrap;">−1 день</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">4 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">3 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">долг</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">2 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">1 июн</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">31 мая</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span><span style="font:500 10px 'Hanken Grotesk',sans-serif;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;white-space:nowrap;">за К</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">30 мая</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.86 0.07 25);color:oklch(0.42 0.13 27);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">К</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Карина</span></div>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px 0;">
-                    <span style="font:500 11px 'JetBrains Mono',monospace;color:var(--text-3);">29 мая</span>
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="width:20px;height:20px;border-radius:50%;background:oklch(0.87 0.06 215);color:oklch(0.42 0.1 225);display:flex;align-items:center;justify-content:center;font:600 9px 'Hanken Grotesk',sans-serif;flex:none;">Л</span><span style="font:500 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">Лёша</span></div>
-                  </div>
-                </div>
-              </div>
-              <!-- RIGHT: Комментарии + ввод -->
-              <div class="fs-comments" style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;padding-left:14px;">
-                <div class="fs-sec-title" style="flex:none;padding-top:14px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);">Комментарии</div>
-                <div class="fs-cmlist" style="flex:1;height:0;overflow-y:auto;padding-top:10px;">
-                  <sc-for list="{{ comments }}" as="comment" hint-placeholder-count="2">
-                    <div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--border);">
-                      <span style="{{ comment.avatarStyle }}">{{ comment.author }}</span>
-                      <div style="flex:1;min-width:0;">
-                        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;">
-                          <span style="font:600 12.5px 'Hanken Grotesk',sans-serif;color:var(--text);">{{ comment.authorName }}</span>
-                          <span style="font:500 10.5px 'JetBrains Mono',monospace;color:var(--text-3);">{{ comment.date }}</span>
-                          <span style="font:500 10px 'JetBrains Mono',monospace;color:var(--text-3);opacity:.6;">{{ comment.ip }}</span>
-                        </div>
-                        <div style="font:400 13px/1.4 'Hanken Grotesk',sans-serif;color:var(--text-2);word-break:break-word;">{{ comment.text }}</div>
-                      </div>
-                    </div>
-                  </sc-for>
-                </div>
-                <!-- поле ввода -->
-                <div style="flex:none;padding-top:10px;padding-bottom:2px;border-top:1px solid var(--border);margin-top:6px;">
-                  <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="text" placeholder="Написать комментарий…" value="{{ commentText }}" onChange="{{ updateCommentText }}" onKeyDown="{{ handleCommentKey }}" style="flex:1;height:36px;border:1px solid var(--border);border-radius:9px;background:var(--bg);font:400 13px 'Hanken Grotesk',sans-serif;color:var(--text);padding:0 12px;outline:none;" />
-                    <button onClick="{{ addComment }}" title="Отправить" style="width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;border:none;border-radius:9px;background:var(--accent);color:#fff;cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2L15 22 11 13 2 9l20-7z"></path></svg></button>
-                  </div>
-                </div>
-              </div>
+            <!-- history + comments: the OfeliaPanels component (page 08), as the code renders them -->
+            <div style="flex:1;min-height:0;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+              <dc-import name="OfeliaPanels" tab="history" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import>
             </div>
           </div>
         </div>
