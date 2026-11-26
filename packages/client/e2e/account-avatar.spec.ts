@@ -62,12 +62,15 @@ test('removes the avatar and falls back to initials', async ({ page }) => {
   await expect(menu.triggerImage).toBeVisible()
   const url = await menu.triggerImageUrl()
 
-  // The menu stays open after the upload; the remove item is there once the account has a photo.
+  // The remove item is there once the account has a photo; the menu stays open after it.
+  await menu.trigger.click()
   await menu.removeAvatarItem.click()
+  await expect(menu.headAvatar).toHaveCount(0)
+  await expect(menu.removeAvatarItem).toHaveCount(0)
+  await menu.closeMenu()
 
   await expect(menu.triggerImage).toHaveCount(0)
   await expect(menu.trigger).toHaveText('E2')
-  await expect(menu.removeAvatarItem).toHaveCount(0)
   // The old blob is deleted with the swap.
   expect((await page.request.get(url)).status()).toBe(404)
 })
