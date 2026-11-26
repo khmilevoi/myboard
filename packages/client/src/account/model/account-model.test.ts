@@ -316,7 +316,7 @@ describe('avatar', () => {
 
     await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }))
 
-    expect(model.avatarError()).toBe('Фото слишком большое')
+    expect(model.avatarError()).toBe('Фото слишком большое. Выберите другое.')
     expect(model.account()).toEqual(accountBody)
     expect(refreshIdentity).not.toHaveBeenCalled()
   })
@@ -331,14 +331,18 @@ describe('avatar', () => {
 
     await model.uploadAvatar(new Blob(['nope']))
 
-    expect(model.avatarError()).toBe('Не удалось прочитать изображение')
+    expect(model.avatarError()).toBe(
+      'Не получилось прочитать файл. Выберите фото в JPEG, PNG или WebP.',
+    )
     expect(calls).toEqual([])
   })
 
   it('reports a transport failure', async () => {
     const { model } = avatarModel({ '/api/files/account/avatar': ['network-error'] })
     await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }))
-    expect(model.avatarError()).toBe('Нет связи с сервером, попробуйте позже')
+    expect(model.avatarError()).toBe(
+      'Не удалось загрузить фото. Проверьте подключение и попробуйте ещё раз.',
+    )
   })
 
   it('removes the avatar and refreshes both directories', async () => {

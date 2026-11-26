@@ -146,7 +146,11 @@ describe('AccountMenu', () => {
   describe('avatar', () => {
     const AVATAR_URL = '/files/AvatarAvatarAvatar01'
 
-    function createAvatarModel(accountSteps: ScriptedStep[], avatarSteps: ScriptedStep[] = []) {
+    function createAvatarModel(
+      accountSteps: ScriptedStep[],
+      avatarSteps: ScriptedStep[] = [],
+      prepareImage: (file: Blob) => Promise<Blob> = async (file) => file,
+    ) {
       const devices = { devices: [device({ credentialId: 'c1' })], thisCredentialId: null }
       const { http, calls } = makeScriptedHttp({
         '/api/auth/account': accountSteps,
@@ -161,7 +165,7 @@ describe('AccountMenu', () => {
         storage: { get: () => null },
         navigate: vi.fn(),
         openEventStream: makeFakeOpenEventStream().open,
-        prepareImage: async (file) => file,
+        prepareImage,
         refreshIdentity,
       })
       return { model, calls, refreshIdentity }
@@ -187,8 +191,31 @@ describe('AccountMenu', () => {
         'src',
         AVATAR_URL,
       )
-      expect(screen.getByTestId('account-avatar-upload')).toBeInTheDocument()
-      expect(screen.getByTestId('account-avatar-remove')).toBeInTheDocument()
+      expect(screen.getByTestId('account-avatar-upload')).toHaveTextContent('Сменить фото')
+      expect(screen.getByTestId('account-avatar-remove')).toHaveTextContent('Удалить фото')
+      expect(screen.getByTestId('account-avatar-badge')).toHaveAccessibleName('Сменить фото')
+    })
+
+    it('(g) while uploading: a spinner on the head avatar and a disabled photo item', async () => {
+      const { model } = createAvatarModel(
+        [{ status: 200, body: { ...account, avatarUrl: AVATAR_URL } }],
+        [],
+        // Never settles: the upload stays pending for the whole test.
+        () => new Promise<Blob>(() => {}),
+      )
+
+      render(<AccountMenu model={model} />)
+      await findTrigger()
+      await openMenu()
+      const file = new File(['png'], 'me.png', { type: 'image/png' })
+      fireEvent.change(screen.getByTestId('account-avatar-input'), { target: { files: [file] } })
+
+      expect(await screen.findByRole('status', { name: 'Загружаем фото' })).toBeInTheDocument()
+      const upload = screen.getByTestId('account-avatar-upload')
+      expect(upload).toHaveTextContent('Загружаем фото…')
+      expect(upload).toHaveAttribute('data-disabled')
+      expect(screen.queryByTestId('account-avatar-remove')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('account-avatar-badge')).not.toBeInTheDocument()
     })
 
     it('shows initials and no remove item without a photo; the picker accepts the avatar types', async () => {
@@ -198,9 +225,10 @@ describe('AccountMenu', () => {
       const trigger = await findTrigger()
       expect(within(trigger).queryByTestId('account-avatar-image')).toBeNull()
       await openMenu()
-      expect(await screen.findByTestId('account-avatar-upload')).toBeInTheDocument()
+      expect(await screen.findByTestId('account-avatar-upload')).toHaveTextContent('Загрузить фото')
       expect(screen.queryByTestId('account-avatar-remove')).not.toBeInTheDocument()
       expect(screen.queryByTestId('account-menu-head-avatar')).not.toBeInTheDocument()
+      expect(screen.getByTestId('account-avatar-badge')).toHaveAccessibleName('Загрузить фото')
       expect(screen.getByTestId('account-avatar-input')).toHaveAttribute(
         'accept',
         'image/png,image/jpeg,image/webp',
@@ -258,7 +286,7 @@ describe('AccountMenu', () => {
 
       await openMenu()
       expect(await screen.findByTestId('account-avatar-error')).toHaveTextContent(
-        'Этот формат не подходит — нужен PNG, JPEG или WebP',
+        'Не получилось прочитать файл. Выберите фото в JPEG, PNG или WebP.',
       )
     })
   })

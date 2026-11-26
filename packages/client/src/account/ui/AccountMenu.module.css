@@ -1,5 +1,5 @@
 /* Panel "1 · Хедер" of Мультиустройства.dc.html — states (a) closed,
-   (b) open, (c) badge + pending. */
+   (b) open, (c) badge + pending — and section 1b (d)–(h), the profile photo. */
 
 .trigger {
   position: relative;
@@ -35,11 +35,10 @@
   border-radius: 50%;
 }
 
-/* (b)/(c) dropdown panel. Width differs: 252px with no pending row, 264px
-   once the pending-request row is showing (matches the design's two
-   literal panel widths). */
+/* (b)/(c) dropdown panel. Section 1b puts the 44px avatar in the head, which needs the wider
+   264px panel in every state; .contentPending is kept for the pending-row variant's hook. */
 .content {
-  width: 252px;
+  width: 264px;
   padding: 0;
   overflow: hidden;
   border-radius: 16px;
@@ -49,8 +48,112 @@
   width: 264px;
 }
 
+/* Section 1b: the head leads with the 44px avatar and its camera badge. */
 .head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 14px 16px 12px;
+}
+.headText {
+  min-width: 0;
+  flex: 1;
+}
+.headAvatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+.headAvatarFace {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 600;
+  object-fit: cover;
+  border-radius: 50%;
+}
+/* (g) uploading: the face dims under the spinner. */
+.headAvatarBusy {
+  opacity: 0.45;
+}
+.headAvatarSpinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid var(--accent-soft);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: account-menu-spin 0.8s linear infinite;
+}
+@keyframes account-menu-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* (e) with a photo: a quiet card-coloured badge; (f) without: the primary call to action. */
+.cameraBadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+}
+.cameraBadge:hover {
+  background: var(--secondary);
+}
+.cameraBadgeEmpty,
+.cameraBadgeEmpty:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--popover);
+  box-shadow: none;
+}
+
+/* (h) upload error, between the head and the first divider. */
+.avatarError {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 10px 10px;
+  padding: 9px 11px;
+  background: var(--destructive-soft);
+  color: var(--destructive);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  border-radius: 10px;
+}
+.avatarErrorIcon {
+  flex: none;
+  margin-top: 1px;
 }
 .name {
   font-size: 14px;
@@ -131,8 +234,7 @@
   color: var(--primary);
 }
 
-/* Avatar photo: fills the trigger circle; shown at trigger size in the head. Placeholder until
-   the avatar UI is designed. */
+/* (d) the photo fills the 36px trigger circle; the pending badge still sits on top of it. */
 .avatarImage {
   width: 36px;
   height: 36px;

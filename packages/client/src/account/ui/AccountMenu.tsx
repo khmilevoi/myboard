@@ -1,5 +1,5 @@
 import { atom, wrap } from '@reatom/core'
-import { ImagePlus, LogOut, Monitor, Plus, Trash2 } from 'lucide-react'
+import { Camera, CircleAlert, LogOut, Monitor, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
@@ -92,6 +92,7 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
     event.currentTarget.value = ''
     if (file) void model.uploadAvatar(file)
   })
+  const openPicker = () => fileInput.current?.click()
   const hasPending = pending.length > 0
   const deviceCountLabel = `${devices.length} ${pluralize(devices.length, 'устройство', 'устройства', 'устройств')}`
   const pendingLabel = `${pending.length} ${pluralize(pending.length, 'запрос', 'запроса', 'запросов')} на подключение`
@@ -120,22 +121,66 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
           className={cn(styles.content, hasPending && styles.contentPending)}
         >
           <div className={styles.head}>
-            {avatarUrl ? (
-              <img
-                className={styles.avatarImage}
-                src={avatarUrl}
-                alt=""
-                data-testid="account-menu-head-avatar"
-              />
-            ) : null}
-            <div className={styles.name}>{name}</div>
-            <div className={styles.deviceCount}>{deviceCountLabel}</div>
-            {avatarError ? (
-              <div className={styles.deviceCount} role="alert" data-testid="account-avatar-error">
-                {avatarError}
-              </div>
-            ) : null}
+            <div className={styles.headAvatar}>
+              {avatarUrl ? (
+                <img
+                  className={cn(styles.headAvatarFace, avatarPending && styles.headAvatarBusy)}
+                  src={avatarUrl}
+                  alt=""
+                  data-testid="account-menu-head-avatar"
+                />
+              ) : (
+                <span
+                  className={cn(styles.headAvatarFace, avatarPending && styles.headAvatarBusy)}
+                  aria-hidden
+                >
+                  {initials}
+                </span>
+              )}
+              {avatarPending ? (
+                <span
+                  className={styles.headAvatarSpinner}
+                  role="status"
+                  aria-label="Загружаем фото"
+                >
+                  <span className={styles.spinner} aria-hidden />
+                </span>
+              ) : (
+                // A pointer shortcut for the photo menu item below, which is the keyboard path:
+                // Radix menus move focus between items only, so this stays out of the tab order.
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className={cn(styles.cameraBadge, !avatarUrl && styles.cameraBadgeEmpty)}
+                  aria-label={avatarUrl ? 'Сменить фото' : 'Загрузить фото'}
+                  data-testid="account-avatar-badge"
+                  onClick={openPicker}
+                >
+                  <Camera
+                    size={avatarUrl ? 11 : 10}
+                    strokeWidth={avatarUrl ? 2.2 : 2.4}
+                    aria-hidden
+                  />
+                </button>
+              )}
+            </div>
+            <div className={styles.headText}>
+              <div className={styles.name}>{name}</div>
+              <div className={styles.deviceCount}>{deviceCountLabel}</div>
+            </div>
           </div>
+
+          {avatarError ? (
+            <div className={styles.avatarError} role="alert" data-testid="account-avatar-error">
+              <CircleAlert
+                size={15}
+                strokeWidth={2}
+                aria-hidden
+                className={styles.avatarErrorIcon}
+              />
+              <span>{avatarError}</span>
+            </div>
+          ) : null}
 
           {hasPending ? (
             <div className={styles.pendingSection}>
@@ -155,28 +200,22 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
           <div className={styles.section}>
             <DropdownMenuItem
               className={styles.item}
-              onSelect={wrap(() => myDevicesOpen.set(true))}
-            >
-              <Monitor size={16} strokeWidth={1.8} aria-hidden />
-              <span>Мои устройства</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className={styles.item}
               disabled={avatarPending}
               data-testid="account-avatar-upload"
               onSelect={(event) => {
                 // Stay open: the pending state and any error show in this menu.
                 event.preventDefault()
-                fileInput.current?.click()
+                openPicker()
               }}
             >
-              <ImagePlus size={16} strokeWidth={1.8} aria-hidden />
-              <span>Загрузить фото</span>
+              <Camera size={16} strokeWidth={1.8} aria-hidden />
+              <span>
+                {avatarPending ? 'Загружаем фото…' : avatarUrl ? 'Сменить фото' : 'Загрузить фото'}
+              </span>
             </DropdownMenuItem>
-            {avatarUrl ? (
+            {avatarUrl && !avatarPending ? (
               <DropdownMenuItem
                 className={styles.item}
-                disabled={avatarPending}
                 data-testid="account-avatar-remove"
                 onSelect={wrap((event: Event) => {
                   event.preventDefault()
@@ -187,6 +226,17 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
                 <span>Удалить фото</span>
               </DropdownMenuItem>
             ) : null}
+          </div>
+
+          <div className={styles.dividerInset} />
+          <div className={styles.section}>
+            <DropdownMenuItem
+              className={styles.item}
+              onSelect={wrap(() => myDevicesOpen.set(true))}
+            >
+              <Monitor size={16} strokeWidth={1.8} aria-hidden />
+              <span>Мои устройства</span>
+            </DropdownMenuItem>
           </div>
 
           <div className={styles.dividerInset} />

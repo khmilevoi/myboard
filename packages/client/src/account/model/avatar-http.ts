@@ -52,18 +52,21 @@ export async function deleteAvatar(
   if (!res.ok) return apiError(res.status, res.body)
 }
 
-/** User-facing copy for an avatar failure. */
+const UNREADABLE_COPY = 'Не получилось прочитать файл. Выберите фото в JPEG, PNG или WebP.'
+const FAILED_COPY = 'Не удалось сохранить фото. Попробуйте ещё раз.'
+
+/** User-facing copy for an avatar failure — design page 03, section 1b, state (h). */
 export function describeAvatarError(error: Error): string {
   if (error instanceof AvatarHttpError) {
     return error.reason === 'transport'
-      ? 'Нет связи с сервером, попробуйте позже'
-      : 'Не удалось сохранить фото'
+      ? 'Не удалось загрузить фото. Проверьте подключение и попробуйте ещё раз.'
+      : FAILED_COPY
   }
   if (error instanceof AvatarApiError) {
-    if (error.status === '413') return 'Фото слишком большое'
-    if (error.status === '415') return 'Этот формат не подходит — нужен PNG, JPEG или WebP'
+    if (error.status === '413') return 'Фото слишком большое. Выберите другое.'
+    if (error.status === '415') return UNREADABLE_COPY
     if (error.status === '401') return 'Сессия истекла, войдите снова'
-    return 'Не удалось сохранить фото'
+    return FAILED_COPY
   }
-  return 'Не удалось прочитать изображение'
+  return UNREADABLE_COPY
 }
