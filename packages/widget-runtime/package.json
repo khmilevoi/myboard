@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./define-module": "./src/modules/define-module.ts",
     "./storage/test/fakes": "./src/storage/test/fakes.ts",
     "./timer/fakes": "./src/timer/fakes.ts"
   },

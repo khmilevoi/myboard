@@ -1,5 +1,6 @@
 import type { WidgetEventMap } from '@shared/widgets/contracts'
 import type { TierConfig, WidgetComponentModule, WidgetLoader } from 'widget-runtime'
+import type { AnyModuleRef } from 'widget-runtime/define-module'
 
 import { ensureSingleReatomRoot } from './reatom/ensure-single-reatom-root'
 
@@ -10,12 +11,16 @@ export type WidgetMetadata = {
   defaultSize: { w: number; h: number; minW?: number; minH?: number }
   tiers?: TierConfig
   icon: string
+  /** Module ids this widget may reach through `props.modules`; codegen fills it from `client.ts`. */
+  modules?: readonly string[]
 }
 
-export type WidgetClientMetadata = Omit<WidgetMetadata, 'id'>
+export type WidgetClientMetadata = Omit<WidgetMetadata, 'id' | 'modules'>
 
 export type WidgetClientDefinition<Events extends WidgetEventMap = WidgetEventMap> =
   WidgetClientMetadata & {
+    /** The modules this widget uses; codegen turns them into the catalog's `modules` ids. */
+    modules?: readonly AnyModuleRef[]
     loadComponent: WidgetLoader<Events>
   }
 

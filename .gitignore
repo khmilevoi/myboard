@@ -48,6 +48,9 @@ packages/client/src/widget-registry/model/*.generated.ts
 packages/server/src/widgets/widget-server-list.generated.ts
 packages/server/src/storage/scoped-owners.generated.ts
 packages/browser-automation/src/tasks/widget-browser-list.generated.ts
+packages/modules/*/generated/
+packages/widget-sdk/src/vite/module-packages.generated.ts
+packages/server/src/modules/module-server-list.generated.ts
 
 # browser-automation local (non-Docker) dev
 packages/browser-automation/.dev-profile/

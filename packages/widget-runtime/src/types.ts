@@ -2,6 +2,7 @@ import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import type { ComponentType } from 'react'
 
 import type { WidgetIdentity } from './identity'
+import type { WidgetModules } from './modules/registry'
 import { WidgetStorage } from './storage'
 import type { ResolvedTheme } from './theme'
 import type { WidgetTier } from './tier'
@@ -22,6 +23,7 @@ export type WidgetRuntimeProps<Events extends WidgetEventMap = WidgetEventMap> =
   storage: WidgetStorage
   api: WidgetApi<Events, WidgetApiError>
   identity: WidgetIdentity
+  modules: WidgetModules
 }
 
 declare const widgetEvents: unique symbol

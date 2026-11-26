@@ -24,12 +24,14 @@ export function cronStateKey(typeId: string, jobName: string): string {
   return `cron:${typeId}:${jobName}`
 }
 
-export async function readCronState(
+export function moduleCronStateKey(moduleId: string, jobName: string): string {
+  return `cron:module:${moduleId}:${jobName}`
+}
+
+export async function readCronStateAt(
   ops: ValkeyOps,
-  typeId: string,
-  jobName: string,
+  key: string,
 ): Promise<Error | CronState | null> {
-  const key = cronStateKey(typeId, jobName)
   const raw = await ops
     .get(key)
     .catch((cause) => new CronStateError({ operation: 'get', key, cause }))
@@ -46,15 +48,21 @@ export async function readCronState(
   return validated.data
 }
 
-export async function writeCronState(
+export async function writeCronStateAt(
   ops: ValkeyOps,
-  typeId: string,
-  jobName: string,
+  key: string,
   state: CronState,
 ): Promise<Error | void> {
-  const key = cronStateKey(typeId, jobName)
   const written = await ops
     .set(key, JSON.stringify(state))
     .catch((cause) => new CronStateError({ operation: 'set', key, cause }))
   if (written instanceof Error) return written
+}
+
+export function readCronState(ops: ValkeyOps, typeId: string, jobName: string) {
+  return readCronStateAt(ops, cronStateKey(typeId, jobName))
+}
+
+export function writeCronState(ops: ValkeyOps, typeId: string, jobName: string, state: CronState) {
+  return writeCronStateAt(ops, cronStateKey(typeId, jobName), state)
 }

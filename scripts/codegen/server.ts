@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { generateModules, type ModuleMeta } from './modules'
 import {
   BANNER,
   discoverWidgetDirs,
@@ -56,11 +57,10 @@ export function emitScopedOwners(input: {
 `
 }
 
-export function prepareServer({
-  widgetsDir,
-  serverListFile,
-  scopedOwnersFile,
-}: ServerCodegenPaths) {
+export function prepareServer(
+  { widgetsDir, serverListFile, scopedOwnersFile }: ServerCodegenPaths,
+  modules: ModuleMeta[],
+) {
   const widgetDirs = discoverWidgetDirs(widgetsDir)
   if (widgetDirs instanceof Error) return widgetDirs
   const existedWidgetDirs = widgetDirs.filter((dir) =>
@@ -68,12 +68,20 @@ export function prepareServer({
   )
   return [
     { file: serverListFile, content: emitServerList(existedWidgetDirs) },
-    { file: scopedOwnersFile, content: emitScopedOwners({ widgetDirs, moduleScopes: {} }) },
+    {
+      file: scopedOwnersFile,
+      content: emitScopedOwners({
+        widgetDirs,
+        moduleScopes: Object.fromEntries(modules.map((meta) => [meta.dir, meta.scopes])),
+      }),
+    },
   ]
 }
 
-export function generateServer(paths: ServerCodegenPaths) {
-  const outputs = prepareServer(paths)
+export async function generateServer(paths: ServerCodegenPaths) {
+  const modules = await generateModules(paths)
+  if (modules instanceof Error) return modules
+  const outputs = prepareServer(paths, modules)
   if (outputs instanceof Error) return outputs
   return writeGeneratedOutputs(outputs)
 }

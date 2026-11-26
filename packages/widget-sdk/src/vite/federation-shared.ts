@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs'
 
+import { modulePackages } from './module-packages.generated.ts'
+
 type PackageJson = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
@@ -53,8 +55,14 @@ function singleton(name: string) {
   }
 }
 
-export function federationShared() {
-  return {
+export type FederationSharedOptions = {
+  /** Share every `packages/modules/*` package as a singleton. Defaults to true; the board host
+   *  passes false because it depends on no module package itself. */
+  includeModules?: boolean
+}
+
+export function federationShared({ includeModules = true }: FederationSharedOptions = {}) {
+  const shared: Record<string, ReturnType<typeof singleton>> = {
     react: singleton('react'),
     'react-dom': singleton('react-dom'),
     '@reatom/core': singleton('@reatom/core'),
@@ -62,5 +70,13 @@ export function federationShared() {
     'widget-runtime': singleton('widget-runtime'),
     zod: singleton('zod'),
     errore: singleton('errore'),
-  } as Record<string, ReturnType<typeof singleton>>
+  }
+
+  if (includeModules) {
+    for (const [name, version] of Object.entries(modulePackages)) {
+      shared[name] = { singleton: true, strictVersion: true, requiredVersion: version }
+    }
+  }
+
+  return shared
 }

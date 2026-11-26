@@ -50,3 +50,20 @@ Temporal globals — is enforced by the `.oxlintrc.json` override.
 Each root `server.ts` exports schemas and handlers **without** a `typeId`; `pnpm codegen:server`
 builds the registry from widget directory names and injects the basename, without loading any client
 code.
+
+## Module server functions
+
+A module (`packages/modules/<id>/`) has its own `server.ts`, written as
+`defineModuleServer(contract, { handlers, crons })`. The contract (`scopes` + `actions`) lives in
+`domain/contract.ts`, and `server.ts` imports it from there rather than from the client entry,
+because the server bundle may only reach dependency-free `domain/` code.
+
+Actions are dispatched through `POST /api/modules/:moduleId/actions/:action` with `{ payload }`.
+Only the declared scopes (`shared`, `account`) appear on `context.api.storage`. A module that
+declares `account` answers `401 account_required` to a request with no session, and the dispatch
+refuses it **before** the handler runs, so a handler never executes half-authenticated.
+
+Crons run without a viewer and so need the `shared` scope (the registry rejects a module that
+declares crons without it). Module crons now run on the shared scheduler, with the cursor key `cron:module:<moduleId>:<job>`
+(which cannot collide with the widget `cron:<typeId>:<jobName>` keys). They get shared storage only, no
+viewer.

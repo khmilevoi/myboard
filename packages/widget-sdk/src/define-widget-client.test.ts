@@ -13,7 +13,7 @@ describe('widget client definition', () => {
       defaultSize: { w: 1, h: 1 },
       loadComponent: loader,
     })
-    const type = toWidgetType({ id: 'probe', ...definition })
+    const type = toWidgetType({ ...definition, id: 'probe', modules: [] })
 
     await type.loadComponent()
     await type.loadComponent()
@@ -36,7 +36,7 @@ describe('widget client definition', () => {
       defaultSize: { w: 1, h: 1 },
       loadComponent: loader,
     })
-    const type = toWidgetType({ id: 'probe', ...definition })
+    const type = toWidgetType({ ...definition, id: 'probe', modules: [] })
 
     await expect(type.loadComponent()).rejects.toThrow('chunk failed')
     await expect(type.loadComponent()).resolves.toEqual({ default: component })

@@ -7,6 +7,7 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(import.meta.dirname, '../shared'),
       '@widgets': path.resolve(import.meta.dirname, '../widgets'),
+      '@modules': path.resolve(import.meta.dirname, '../modules'),
     },
   },
   test: {
