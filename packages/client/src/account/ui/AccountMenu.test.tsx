@@ -142,4 +142,124 @@ describe('AccountMenu', () => {
     expect(within(dialog).getAllByText('Анна Ковалёва').length).toBeGreaterThan(0)
     expect(within(dialog).getByText('Chrome on Windows')).toBeInTheDocument()
   })
+
+  describe('avatar', () => {
+    const AVATAR_URL = '/files/AvatarAvatarAvatar01'
+
+    function createAvatarModel(accountSteps: ScriptedStep[], avatarSteps: ScriptedStep[] = []) {
+      const devices = { devices: [device({ credentialId: 'c1' })], thisCredentialId: null }
+      const { http, calls } = makeScriptedHttp({
+        '/api/auth/account': accountSteps,
+        '/api/auth/devices': accountSteps.map(() => ({ status: 200, body: devices })),
+        '/api/files/account/avatar': avatarSteps,
+      })
+      const refreshIdentity = vi.fn(async () => {})
+      const model = createAccountModel({
+        http,
+        bareHttp: makeScriptedHttp({}).http,
+        purge: vi.fn(async () => undefined),
+        storage: { get: () => null },
+        navigate: vi.fn(),
+        openEventStream: makeFakeOpenEventStream().open,
+        prepareImage: async (file) => file,
+        refreshIdentity,
+      })
+      return { model, calls, refreshIdentity }
+    }
+
+    it('shows the photo in the trigger and the head, and offers to remove it', async () => {
+      const { model } = createAvatarModel([
+        { status: 200, body: { ...account, avatarUrl: AVATAR_URL } },
+      ])
+
+      render(<AccountMenu model={model} />)
+      const trigger = await findTrigger()
+      await waitFor(() =>
+        expect(within(trigger).getByTestId('account-avatar-image')).toHaveAttribute(
+          'src',
+          AVATAR_URL,
+        ),
+      )
+      expect(trigger).not.toHaveTextContent('АК')
+
+      await openMenu()
+      expect(await screen.findByTestId('account-menu-head-avatar')).toHaveAttribute(
+        'src',
+        AVATAR_URL,
+      )
+      expect(screen.getByTestId('account-avatar-upload')).toBeInTheDocument()
+      expect(screen.getByTestId('account-avatar-remove')).toBeInTheDocument()
+    })
+
+    it('shows initials and no remove item without a photo; the picker accepts the avatar types', async () => {
+      const { model } = createAvatarModel([{ status: 200, body: account }])
+
+      render(<AccountMenu model={model} />)
+      const trigger = await findTrigger()
+      expect(within(trigger).queryByTestId('account-avatar-image')).toBeNull()
+      await openMenu()
+      expect(await screen.findByTestId('account-avatar-upload')).toBeInTheDocument()
+      expect(screen.queryByTestId('account-avatar-remove')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('account-menu-head-avatar')).not.toBeInTheDocument()
+      expect(screen.getByTestId('account-avatar-input')).toHaveAttribute(
+        'accept',
+        'image/png,image/jpeg,image/webp',
+      )
+    })
+
+    it('uploads the picked file and shows the new photo', async () => {
+      const { model, calls, refreshIdentity } = createAvatarModel(
+        [
+          { status: 200, body: account },
+          { status: 200, body: { ...account, avatarUrl: AVATAR_URL } },
+        ],
+        [
+          {
+            status: 200,
+            body: {
+              value: {
+                blobId: 'AvatarAvatarAvatar01',
+                url: AVATAR_URL,
+                mime: 'image/webp',
+                size: 4,
+                updatedAt: 1,
+              },
+            },
+          },
+        ],
+      )
+
+      render(<AccountMenu model={model} />)
+      const trigger = await findTrigger()
+      const file = new File(['webp'], 'me.webp', { type: 'image/webp' })
+      fireEvent.change(screen.getByTestId('account-avatar-input'), { target: { files: [file] } })
+
+      await waitFor(() =>
+        expect(within(trigger).getByTestId('account-avatar-image')).toHaveAttribute(
+          'src',
+          AVATAR_URL,
+        ),
+      )
+      expect(calls.find((call) => call.method === 'PUT')?.body).toBe(file)
+      expect(refreshIdentity).toHaveBeenCalled()
+    })
+
+    it('shows an inline error when the upload is rejected', async () => {
+      const { model } = createAvatarModel(
+        [{ status: 200, body: account }],
+        [{ status: 415, body: { error: { code: 'file_type_rejected', message: 'x' } } }],
+      )
+
+      render(<AccountMenu model={model} />)
+      await findTrigger()
+      const file = new File(['gif'], 'me.gif', { type: 'image/gif' })
+      fireEvent.change(screen.getByTestId('account-avatar-input'), { target: { files: [file] } })
+      await waitFor(() => expect(model.avatarError()).not.toBeNull())
+
+      await openMenu()
+      expect(await screen.findByTestId('account-avatar-error')).toHaveTextContent(
+        'Этот формат не подходит — нужен PNG, JPEG или WebP',
+      )
+    })
+  })
 })

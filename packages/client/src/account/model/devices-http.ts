@@ -9,6 +9,8 @@ export type AccountDto = {
   id: string
   name: string
   deviceLimit: number
+  /** `/files/<blobId>` of the account's avatar; absent without one. */
+  avatarUrl?: string
 }
 
 export type DeviceDto = {

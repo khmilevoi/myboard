@@ -219,7 +219,8 @@ export default defineConfig(({ command }) => {
           // without this denylist the installed SW serves the cached board
           // shell for them, and a revoked device loops through ceremonies
           // instead of landing on the activation page.
-          navigateFallbackDenylist: [/^\/activate/, /^\/add-device/],
+          // `/files/<blobId>` opened directly is a file, never the board shell.
+          navigateFallbackDenylist: [/^\/activate/, /^\/add-device/, /^\/files\//],
           cleanupOutdatedCaches: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff2}'],
           // Every environment's icon set is copied into dist/ by Vite's public
@@ -241,6 +242,32 @@ export default defineConfig(({ command }) => {
                 },
                 cacheableResponse: {
                   statuses: [0, 200],
+                },
+              },
+            },
+            {
+              // File URLs are immutable — a new upload is a new blobId — so a cached file is never
+              // stale. Only successful same-origin reads are kept (a 401/403/404 never is), and
+              // logout's purge drops this cache with the others.
+              urlPattern: ({ request, url }) => {
+                const origin = (globalThis as unknown as { location: { origin: string } }).location
+                  .origin
+                return (
+                  url.origin === origin &&
+                  url.pathname.startsWith('/files/') &&
+                  request.method === 'GET' &&
+                  request.mode !== 'navigate'
+                )
+              },
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'myboard-files',
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 30 * 24 * 60 * 60,
+                },
+                cacheableResponse: {
+                  statuses: [200],
                 },
               },
             },

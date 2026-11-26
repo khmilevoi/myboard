@@ -1,6 +1,6 @@
 import { atom, wrap } from '@reatom/core'
-import { LogOut, Monitor, Plus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ImagePlus, LogOut, Monitor, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { http } from '@/runtime'
+import { hostRuntime, http } from '@/runtime'
 
 import { type AccountModel, createAccountModel } from '../model/account-model'
 import { MyDevicesDialog } from './MyDevicesDialog'
@@ -21,6 +21,9 @@ export type AccountMenuProps = {
   /** Injectable for tests; defaults to a fresh `createAccountModel()` instance. */
   model?: AccountModel
 }
+
+/** What the avatar upload accepts — the server's AVATAR_POLICY. */
+const AVATAR_ACCEPT = 'image/png,image/jpeg,image/webp'
 
 // Standard Russian plural-form selection (one/few/many) by count, e.g.
 // 1 устройство, 2 устройства, 5 устройств. Exported for reuse by
@@ -49,7 +52,13 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
   // rendered below from inside this same component and reuses this instance
   // (never creates its own), so both surfaces always agree on `account`/
   // `devices`/`pending`.
-  const [model] = useState(() => modelOverride ?? createAccountModel({ http }))
+  const [model] = useState(
+    () =>
+      modelOverride ??
+      createAccountModel({ http, refreshIdentity: () => hostRuntime.identity.refresh() }),
+  )
+  // The picker lives outside the dropdown: the menu content unmounts on close, the input must not.
+  const fileInput = useRef<HTMLInputElement>(null)
   // Local, component-scoped open state for the dropdown -- same
   // controlled-atom idiom as board/model/add-widget-menu-model.ts's
   // `isAddWidgetMenuOpen`, just instance-scoped since this menu has exactly
@@ -70,9 +79,19 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
   const devices = model.devices()
   const pending = model.pending()
   const open = menuOpen()
+  const avatarPending = model.avatarPending()
+  const avatarError = model.avatarError()
 
   const name = account?.name ?? ''
   const initials = name ? initialsOf(name) : ''
+  const avatarUrl = account?.avatarUrl
+
+  const pickAvatar = wrap((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]
+    // Reset so picking the same file again still fires change.
+    event.currentTarget.value = ''
+    if (file) void model.uploadAvatar(file)
+  })
   const hasPending = pending.length > 0
   const deviceCountLabel = `${devices.length} ${pluralize(devices.length, 'устройство', 'устройства', 'устройств')}`
   const pendingLabel = `${pending.length} ${pluralize(pending.length, 'запрос', 'запроса', 'запросов')} на подключение`
@@ -82,7 +101,16 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
       <DropdownMenu open={open} onOpenChange={wrap((next: boolean) => menuOpen.set(next))}>
         <DropdownMenuTrigger asChild>
           <button type="button" className={styles.trigger} aria-label={name || 'Аккаунт'}>
-            {initials}
+            {avatarUrl ? (
+              <img
+                className={styles.avatarImage}
+                src={avatarUrl}
+                alt=""
+                data-testid="account-avatar-image"
+              />
+            ) : (
+              initials
+            )}
             {hasPending ? <span className={styles.badge} data-testid="account-menu-badge" /> : null}
           </button>
         </DropdownMenuTrigger>
@@ -92,8 +120,21 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
           className={cn(styles.content, hasPending && styles.contentPending)}
         >
           <div className={styles.head}>
+            {avatarUrl ? (
+              <img
+                className={styles.avatarImage}
+                src={avatarUrl}
+                alt=""
+                data-testid="account-menu-head-avatar"
+              />
+            ) : null}
             <div className={styles.name}>{name}</div>
             <div className={styles.deviceCount}>{deviceCountLabel}</div>
+            {avatarError ? (
+              <div className={styles.deviceCount} role="alert" data-testid="account-avatar-error">
+                {avatarError}
+              </div>
+            ) : null}
           </div>
 
           {hasPending ? (
@@ -119,6 +160,33 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
               <Monitor size={16} strokeWidth={1.8} aria-hidden />
               <span>Мои устройства</span>
             </DropdownMenuItem>
+            <DropdownMenuItem
+              className={styles.item}
+              disabled={avatarPending}
+              data-testid="account-avatar-upload"
+              onSelect={(event) => {
+                // Stay open: the pending state and any error show in this menu.
+                event.preventDefault()
+                fileInput.current?.click()
+              }}
+            >
+              <ImagePlus size={16} strokeWidth={1.8} aria-hidden />
+              <span>Загрузить фото</span>
+            </DropdownMenuItem>
+            {avatarUrl ? (
+              <DropdownMenuItem
+                className={styles.item}
+                disabled={avatarPending}
+                data-testid="account-avatar-remove"
+                onSelect={wrap((event: Event) => {
+                  event.preventDefault()
+                  void model.removeAvatar()
+                })}
+              >
+                <Trash2 size={16} strokeWidth={1.8} aria-hidden />
+                <span>Удалить фото</span>
+              </DropdownMenuItem>
+            ) : null}
           </div>
 
           <div className={styles.dividerInset} />
@@ -135,6 +203,14 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(({ model: modelOverride 
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
+      <input
+        ref={fileInput}
+        type="file"
+        accept={AVATAR_ACCEPT}
+        hidden
+        data-testid="account-avatar-input"
+        onChange={pickAvatar}
+      />
       <MyDevicesDialog
         model={model}
         open={myDevicesOpen()}

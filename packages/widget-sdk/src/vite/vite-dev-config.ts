@@ -21,5 +21,11 @@ export function apiProxy(
       target,
       changeOrigin: true,
     },
+    // File bytes (`/files/<blobId>`): nginx serves them in production; in dev, preview and the
+    // host-run e2e the server's Node fallback does, behind the same session check.
+    '^/files/': {
+      target,
+      changeOrigin: true,
+    },
   }
 }

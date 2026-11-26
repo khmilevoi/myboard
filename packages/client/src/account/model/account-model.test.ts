@@ -248,3 +248,118 @@ describe('connectEvents', () => {
     expect(calls).toHaveLength(0)
   })
 })
+
+describe('avatar', () => {
+  const AVATAR_URL = '/files/AvatarAvatarAvatar01'
+  const avatarRef = {
+    blobId: 'AvatarAvatarAvatar01',
+    url: AVATAR_URL,
+    mime: 'image/webp',
+    size: 3,
+    image: { width: 256, height: 256 },
+    updatedAt: 1,
+  }
+
+  function avatarModel(script: Parameters<typeof makeScriptedHttp>[0]) {
+    const { http, calls } = makeScriptedHttp(script)
+    const prepared = new Blob(['webp'], { type: 'image/webp' })
+    const prepareImage = vi.fn(async () => prepared)
+    const refreshIdentity = vi.fn(async () => {})
+    const model = createAccountModel({
+      http,
+      storage: createStorage(null),
+      prepareImage,
+      refreshIdentity,
+    })
+    return { model, calls, prepared, prepareImage, refreshIdentity }
+  }
+
+  it('prepares the photo, uploads it, then refreshes the account and the identity directory', async () => {
+    const { model, calls, prepared, prepareImage, refreshIdentity } = avatarModel({
+      '/api/files/account/avatar': [{ status: 200, body: { value: avatarRef } }],
+      '/api/auth/account': [
+        { status: 200, body: accountBody },
+        { status: 200, body: { ...accountBody, avatarUrl: AVATAR_URL } },
+      ],
+      '/api/auth/devices': [
+        { status: 200, body: devicesBody },
+        { status: 200, body: devicesBody },
+      ],
+    })
+    await model.refresh()
+    const photo = new Blob(['jpeg'], { type: 'image/jpeg' })
+
+    await model.uploadAvatar(photo)
+
+    expect(prepareImage).toHaveBeenCalledWith(photo)
+    const put = calls.find((call) => call.method === 'PUT')
+    expect(put).toMatchObject({
+      url: '/api/files/account/avatar',
+      body: prepared,
+      headers: { 'content-type': 'image/webp' },
+    })
+    expect(model.account()?.avatarUrl).toBe(AVATAR_URL)
+    expect(refreshIdentity).toHaveBeenCalledTimes(1)
+    expect(model.avatarError()).toBeNull()
+    expect(model.avatarPending()).toBe(false)
+  })
+
+  it('shows a size error and leaves the account untouched when the server answers 413', async () => {
+    const { model, refreshIdentity } = avatarModel({
+      '/api/files/account/avatar': [
+        { status: 413, body: { error: { code: 'file_too_large', message: 'x' } } },
+      ],
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
+    })
+    await model.refresh()
+
+    await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }))
+
+    expect(model.avatarError()).toBe('Фото слишком большое')
+    expect(model.account()).toEqual(accountBody)
+    expect(refreshIdentity).not.toHaveBeenCalled()
+  })
+
+  it('reports an unreadable image without uploading', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const model = createAccountModel({
+      http,
+      storage: createStorage(null),
+      prepareImage: async () => new Error('decode'),
+    })
+
+    await model.uploadAvatar(new Blob(['nope']))
+
+    expect(model.avatarError()).toBe('Не удалось прочитать изображение')
+    expect(calls).toEqual([])
+  })
+
+  it('reports a transport failure', async () => {
+    const { model } = avatarModel({ '/api/files/account/avatar': ['network-error'] })
+    await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }))
+    expect(model.avatarError()).toBe('Нет связи с сервером, попробуйте позже')
+  })
+
+  it('removes the avatar and refreshes both directories', async () => {
+    const { model, calls, refreshIdentity } = avatarModel({
+      '/api/files/account/avatar': [{ status: 204 }],
+      '/api/auth/account': [
+        { status: 200, body: { ...accountBody, avatarUrl: AVATAR_URL } },
+        { status: 200, body: accountBody },
+      ],
+      '/api/auth/devices': [
+        { status: 200, body: devicesBody },
+        { status: 200, body: devicesBody },
+      ],
+    })
+    await model.refresh()
+    expect(model.account()?.avatarUrl).toBe(AVATAR_URL)
+
+    await model.removeAvatar()
+
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(true)
+    expect(model.account()).toEqual(accountBody)
+    expect(refreshIdentity).toHaveBeenCalledTimes(1)
+  })
+})

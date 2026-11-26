@@ -10,9 +10,11 @@ import {
 } from '@reatom/core'
 import { HttpClient, type HttpLike } from '@shared/http/client'
 import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
+import { prepareImage as prepareImageInBrowser } from 'widget-sdk/files/prepare-image'
 
 import { purgeLocalSession } from '@/session/model/purge'
 
+import { deleteAvatar, describeAvatarError, putAvatar } from './avatar-http'
 import type { AccountDto, DeviceDto } from './devices-http'
 import {
   approveDevice as approveDeviceRequest,
@@ -46,6 +48,13 @@ export interface AccountDeps {
   bareHttp: HttpLike
   /** Local-data hygiene on logout (Dexie, caches, service worker). */
   purge: () => Promise<void>
+  /** Shrinks a picked photo to the avatar preset before upload; injectable for tests. */
+  prepareImage: (file: Blob) => Promise<Error | Blob>
+  /**
+   * Re-reads the board's member directory after an avatar change, so every widget showing this
+   * account (Ofelia's MemberAvatar) picks the new photo up without a reload.
+   */
+  refreshIdentity: () => Promise<void>
 }
 
 function defaultStorage(): AccountStorage {
@@ -84,6 +93,12 @@ export interface AccountModel {
   deny: Action<[string], Promise<void>>
   revoke: Action<[string], Promise<void>>
   logout: Action<[], Promise<void>>
+  uploadAvatar: Action<[Blob], Promise<void>>
+  removeAvatar: Action<[], Promise<void>>
+  /** True while an avatar upload or removal is in flight. */
+  avatarPending: Computed<boolean>
+  /** The last avatar failure as user-facing copy; cleared by the next attempt. */
+  avatarError: Atom<string | null>
   connectEvents: () => () => void
 }
 
@@ -97,6 +112,8 @@ export function createAccountModel(
     openEventStream: overrides.openEventStream ?? makeEventSourceStream(),
     bareHttp: overrides.bareHttp ?? new HttpClient(),
     purge: overrides.purge ?? purgeLocalSession,
+    prepareImage: overrides.prepareImage ?? ((file) => prepareImageInBrowser(file, 'avatar')),
+    refreshIdentity: overrides.refreshIdentity ?? (async () => {}),
   }
 
   const account = atom<AccountDto | null>(null, 'account.account')
@@ -187,6 +204,54 @@ export function createAccountModel(
     deps.navigate('/')
   }, 'account.logout').extend(withAsync())
 
+  const avatarError = atom<string | null>(null, 'account.avatarError')
+
+  // The account and every widget's member directory follow the change. The account is patched at
+  // once so the menu shows the new photo before the refreshes return.
+  const applyAvatar = action(async (avatarUrl: string | undefined) => {
+    const current = account()
+    if (current) {
+      const { avatarUrl: _previous, ...rest } = current
+      account.set(avatarUrl === undefined ? rest : { ...rest, avatarUrl })
+    }
+    await wrap(Promise.all([refresh(), deps.refreshIdentity()]))
+  }, 'account.applyAvatar')
+
+  const uploadAvatar = action(async (file: Blob) => {
+    avatarError.set(null)
+
+    const prepared = await wrap(deps.prepareImage(file))
+    if (prepared instanceof Error) {
+      avatarError.set(describeAvatarError(prepared))
+      return
+    }
+
+    const ref = await wrap(putAvatar(deps.http, prepared))
+    if (ref instanceof Error) {
+      avatarError.set(describeAvatarError(ref))
+      return
+    }
+
+    await wrap(applyAvatar(ref.url))
+  }, 'account.uploadAvatar').extend(withAsync())
+
+  const removeAvatar = action(async () => {
+    avatarError.set(null)
+
+    const result = await wrap(deleteAvatar(deps.http))
+    if (result instanceof Error) {
+      avatarError.set(describeAvatarError(result))
+      return
+    }
+
+    await wrap(applyAvatar(undefined))
+  }, 'account.removeAvatar').extend(withAsync())
+
+  const avatarPending = computed(
+    () => !uploadAvatar.ready() || !removeAvatar.ready(),
+    'account.avatarPending',
+  )
+
   const loading = computed(
     () => !refresh.ready() || !approve.ready() || !deny.ready() || !revoke.ready(),
     'account.loading',
@@ -218,6 +283,10 @@ export function createAccountModel(
     deny,
     revoke,
     logout,
+    uploadAvatar,
+    removeAvatar,
+    avatarPending,
+    avatarError,
     connectEvents,
   }
 }

@@ -130,3 +130,12 @@
   font-weight: 600;
   color: var(--primary);
 }
+
+/* Avatar photo: fills the trigger circle; shown at trigger size in the head. Placeholder until
+   the avatar UI is designed. */
+.avatarImage {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 50%;
+}
