@@ -24,21 +24,23 @@ export type TestHealthModel = {
   storage: StorageApi
   /** Every API call the model made, in order. */
   calls: { action: string; payload: unknown }[]
-  /** Resolves once every seeded measurement has been ingested (ingest is async). */
-  ready: Promise<void>
+  /** Resolves once the profile and every measurement are seeded; an Error value if seeding failed. */
+  ready: Promise<Error | void>
 }
 
 /** A `HealthModel` over in-memory account storage seeded exactly as the server would store it. */
 export function makeTestHealthModel(options: MakeTestHealthModelOptions = {}): TestHealthModel {
   const storage = options.storage ?? createFakeStorage()
-  if (options.profile) void storage.set(PROFILE_KEY, options.profile)
-
   // StorageApi is structurally a WidgetServerStorage, so the production ingest runs unchanged
   // against the fake: month ledgers and latest/<kind> keys cannot drift from the server's.
-  const ready = (async () => {
+  const ready = (async (): Promise<Error | void> => {
+    if (options.profile) {
+      const written = await storage.set(PROFILE_KEY, options.profile)
+      if (written instanceof Error) return written
+    }
     for (const measurement of options.measurements ?? []) {
       const result = await ingestMeasurement(storage, measurement)
-      if (result instanceof Error) throw result
+      if (result instanceof Error) return result
     }
   })()
 

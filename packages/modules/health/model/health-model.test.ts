@@ -1,6 +1,6 @@
 import { atom, context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ModuleApiError } from 'widget-runtime'
+import { ModuleApiError, StorageError, type StorageApi } from 'widget-runtime'
 
 import { latestKey } from '../domain/keys'
 import type { Measurement } from '../domain/measurement'
@@ -54,8 +54,9 @@ describe('health model latest', () => {
     await context.start(async () => {
       const latest = model.latest('body-fat')
       const off = latest.subscribe(() => {})
-      await Promise.resolve()
-      expect(wrap(() => latest())()).toBeNull()
+      const read = wrap(() => ({ value: latest(), loading: latest.isLoading() }))
+      await vi.waitFor(() => expect(read().loading).toBe(false))
+      expect(read().value).toBeNull()
       off()
     })
   })
@@ -122,6 +123,94 @@ describe('health model series', () => {
       const off = series.subscribe(() => {})
       const read = wrap(() => series())
       await vi.waitFor(() => expect(read()?.map((m) => m.id)).toEqual(['w1', 'w2']))
+      off()
+    })
+  })
+})
+
+// Fails reads (initial subscribe and public get) of the keys in `broken`, passes the rest through.
+function flaky(storage: StorageApi, broken: Set<string>): StorageApi {
+  const failure = new StorageError({ reason: 'down' })
+  return {
+    ...storage,
+    get: ((key: string, schema?: never) =>
+      broken.has(key) ? Promise.resolve(failure) : storage.get(key, schema)) as StorageApi['get'],
+    subscribe: ((key: string, listener: (event: unknown) => void, schema?: never) => {
+      if (!broken.has(key)) return storage.subscribe(key, listener as never, schema)
+      listener(failure)
+      return () => {}
+    }) as StorageApi['subscribe'],
+  }
+}
+
+describe('health model load failures', () => {
+  const MAY = reading('m', D(2026, 5, 20), 80)
+
+  it('shows a failed month in rangeError, keeps series null, and retry heals it', async () => {
+    const base = makeTestHealthModel({ measurements: [MAY] })
+    await base.ready
+    const broken = new Set(['measurements/2026-05'])
+    const { model } = makeTestHealthModel({ storage: flaky(base.storage, broken) })
+    const range = atom({ from: D(2026, 5, 15), to: D(2026, 5, 31) }, 'test.range')
+    const series = model.series('weight', range)
+    const rangeError = model.rangeError(range)
+
+    await context.start(async () => {
+      const offs = [series.subscribe(() => {}), rangeError.subscribe(() => {})]
+      const retry = wrap(() => model.retry())
+      const read = wrap(() => ({ error: rangeError(), series: series() }))
+      await vi.waitFor(() => expect(read().error).toBeInstanceOf(StorageError))
+      expect(read().series).toBeNull()
+
+      broken.clear()
+      await retry()
+      expect(read().error).toBeNull()
+      expect(read().series?.map((m) => m.id)).toEqual(['m'])
+      for (const off of offs) off()
+    })
+  })
+
+  it('shows a failed latest read on latest(kind).error() and retry heals it', async () => {
+    const base = makeTestHealthModel({ measurements: [MAY] })
+    await base.ready
+    const broken = new Set([latestKey('weight')])
+    const { model } = makeTestHealthModel({ storage: flaky(base.storage, broken) })
+
+    await context.start(async () => {
+      const latest = model.latest('weight')
+      const off = latest.subscribe(() => {})
+      const retry = wrap(() => model.retry())
+      const read = wrap(() => ({
+        error: latest.error(),
+        value: latest(),
+        loading: latest.isLoading(),
+      }))
+      await vi.waitFor(() => expect(read().error).toBeInstanceOf(StorageError))
+
+      broken.clear()
+      await retry()
+      const healed = read()
+      expect(healed.error).toBeNull()
+      expect(healed.loading).toBe(false)
+      expect(healed.value?.id).toBe('m')
+      off()
+    })
+  })
+
+  it('records a failed retry instead of leaving the atom loading', async () => {
+    const base = makeTestHealthModel()
+    const broken = new Set([latestKey('weight')])
+    const { model } = makeTestHealthModel({ storage: flaky(base.storage, broken) })
+
+    await context.start(async () => {
+      const latest = model.latest('weight')
+      const off = latest.subscribe(() => {})
+      const retry = wrap(() => model.retry())
+      const read = wrap(() => ({ error: latest.error(), loading: latest.isLoading() }))
+      await vi.waitFor(() => expect(read().error).not.toBeNull())
+      await retry()
+      expect(read().error).toBeInstanceOf(StorageError)
+      expect(read().loading).toBe(false)
       off()
     })
   })
