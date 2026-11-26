@@ -1,4 +1,4 @@
-import { ofeliaModule } from 'module-ofelia'
+import { catsModule } from 'module-cats'
 import { defineWidgetClient } from 'widget-sdk/define-widget-client'
 
 async function ensureTemporal(): Promise<void> {
@@ -17,7 +17,7 @@ export const ofeliaStatsWidget = defineWidgetClient({
   description: 'Уборки и долги за 30 дней',
   defaultSize: { w: 3, h: 4, minW: 2, minH: 3 },
   icon: 'ChartColumn',
-  modules: [ofeliaModule],
+  modules: [catsModule],
   loadComponent: async () => {
     await ensureTemporal()
     const { OfeliaStats } = await import('./ui/OfeliaStats')
