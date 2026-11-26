@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Офелия: питание — полный экран</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; }
+  body { background:#fff; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  .ofp[data-theme="light"] {
+    --bg: oklch(0.975 0.003 255); --surface: oklch(1 0 0); --surface-2: oklch(0.972 0.004 255);
+    --border: oklch(0.91 0.005 255); --border-strong: oklch(0.84 0.006 255);
+    --text: oklch(0.27 0.02 262); --text-2: oklch(0.5 0.018 262); --text-3: oklch(0.6 0.012 262);
+    --accent: oklch(0.55 0.17 281); --accent-soft: oklch(0.955 0.032 285); --on-accent: #ffffff; --ring: oklch(0.55 0.17 281 / .35);
+    --success: oklch(0.55 0.13 155); --success-soft: oklch(0.95 0.05 155); --on-success: oklch(0.45 0.13 155);
+    --shadow-btn: 0 1px 2px rgba(20,22,40,.06);
+    --shadow-lg: 0 1px 2px rgba(30,32,50,.05), 0 24px 50px -18px rgba(30,32,55,.22);
+    --dry: oklch(0.79 0.085 285); --wet: oklch(0.55 0.17 281); --treat: oklch(0.38 0.12 285); --hatch: oklch(0.55 0.17 281 / .55);
+    --k-bg: oklch(0.9 0.05 345); --k-fg: oklch(0.41 0.13 345); --l-bg: oklch(0.9 0.045 255); --l-fg: oklch(0.4 0.11 258);
+  }
+  .ofp[data-theme="dark"] {
+    --bg: oklch(0.185 0.012 268); --surface: oklch(0.23 0.013 270); --surface-2: oklch(0.265 0.014 270);
+    --border: oklch(0.315 0.014 270); --border-strong: oklch(0.36 0.014 262);
+    --text: oklch(0.95 0.006 260); --text-2: oklch(0.71 0.013 262); --text-3: oklch(0.62 0.012 262);
+    --accent: oklch(0.675 0.155 285); --accent-soft: oklch(0.315 0.06 285); --on-accent: oklch(0.18 0.03 285); --ring: oklch(0.67 0.16 285 / .45);
+    --success: oklch(0.74 0.15 152); --success-soft: oklch(0.3 0.07 152); --on-success: oklch(0.86 0.1 152);
+    --shadow-btn: 0 1px 2px rgba(0,0,0,.35);
+    --shadow-lg: 0 1px 2px rgba(10,12,25,.2), 0 24px 50px -18px rgba(10,12,25,.5);
+    --dry: oklch(0.84 0.07 285); --wet: oklch(0.675 0.155 285); --treat: oklch(0.5 0.13 285); --hatch: oklch(0.675 0.155 285 / .6);
+    --k-bg: oklch(0.37 0.085 345); --k-fg: oklch(0.92 0.06 345); --l-bg: oklch(0.36 0.07 256); --l-fg: oklch(0.92 0.05 256);
+  }
+  .ofp { color: var(--text); font: 400 14px/1.45 'Hanken Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  .ofp p, .ofp h2, .ofp h3 { margin: 0; }
+  .ofp .lbl { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+  .ofp .mono { font-family: 'JetBrains Mono', monospace; }
+  .ofp .sm { font-size: 12.5px; color: var(--text-3); }
+  .ofp .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+  .ofp .seg a, .ofp .seg button { display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; font: 500 13px 'Hanken Grotesk', sans-serif; color: var(--text-2); text-decoration: none; cursor: pointer; }
+  .ofp .seg [aria-current], .ofp .seg [aria-pressed="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-btn); }
+  .ofp .bp { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 600 13.5px 'Hanken Grotesk', sans-serif; box-shadow: var(--shadow-btn); text-decoration: none; cursor: pointer; }
+  .ofp .bs { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: 600 13px 'Hanken Grotesk', sans-serif; text-decoration: none; cursor: pointer; }
+  .ofp .ib { width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+  .ofp .box { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; }
+  .ofp .av { flex: none; border-radius: .375rem; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; }
+  .ofp .av-k { background: var(--k-bg); color: var(--k-fg); }
+  .ofp .av-l { background: var(--l-bg); color: var(--l-fg); box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 3px var(--accent); }
+  .ofp .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .ofp .pend { background: repeating-linear-gradient(135deg, var(--hatch) 0 3px, transparent 3px 7px); box-shadow: inset 0 0 0 1.5px var(--hatch); }
+  .ofp .ck { flex: none; width: 30px; height: 30px; border-radius: 9px; border: 1.5px solid var(--border-strong); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; padding: 0; color: #fff; cursor: pointer; }
+  .ofp .ck[aria-pressed="true"] { background: var(--success); border-color: var(--success); color: var(--surface); }
+  .ofp .row { display: grid; grid-template-columns: 52px 12px minmax(0,1fr) 56px 76px 24px; gap: 12px; align-items: center; padding: 10px 2px; border-top: 1px solid var(--border); }
+  .ofp .tag { display: inline-block; font: 500 10.5px 'JetBrains Mono', monospace; letter-spacing: .04em; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; margin-left: 8px; vertical-align: 1px; }
+  .ofp .pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12.5px; }
+  .ofp .add { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px dashed var(--border-strong); background: none; font: 600 12.5px 'Hanken Grotesk', sans-serif; color: var(--accent); cursor: pointer; }
+  .ofp .inp { width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 0 12px; font: 400 14px 'Hanken Grotesk', sans-serif; color: var(--text); }
+  .ofp .ad { display: grid; grid-template-columns: 150px repeat(7, minmax(0,1fr)) 54px; gap: 6px; align-items: center; padding: 5px 0; }
+  .ofp .ad i { display: block; width: 14px; height: 14px; border-radius: 4px; margin: 0 auto; background: var(--success); }
+  .ofp .ad i.no { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border-strong); }
+  .ofp .ad i.wait { background: transparent; box-shadow: inset 0 0 0 1.5px var(--success); }
+</style>
+</helmet>
+
+<div style="width:100%;height:100%;min-height:0;font-family:'Hanken Grotesk',system-ui,sans-serif;">
+<div class="ofp" data-theme="{{ theme }}" style="width:100%;height:100%;min-height:0;background:var(--surface);border:1px solid rgba(20,22,40,.08);border-radius:18px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;">
+
+  <div style="display:flex;align-items:center;gap:18px;flex:none;padding:16px 20px;border-bottom:1px solid var(--border);">
+    <div style="display:flex;align-items:center;gap:12px;flex:none;">
+      <div style="width:40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg></div>
+      <div>
+        <div style="display:flex;align-items:center;gap:9px;font:600 17px 'Hanken Grotesk',sans-serif;">Офелия: питание <span style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 7px;">large</span></div>
+        <div style="font-size:13px;color:var(--text-3);margin-top:2px;">Кормления, лекарства, вода и вес</div>
+      </div>
+    </div>
+    <nav class="seg" aria-label="Разделы" style="margin-left:auto;">
+      <a href="#" aria-current="{{ curToday }}">Сегодня</a>
+      <a href="#" aria-current="{{ curHistory }}">История</a>
+      <a href="#" aria-current="{{ curFoods }}">Корма</a>
+      <a href="#" aria-current="{{ curMeds }}">Лекарства</a>
+      <a href="#" aria-current="{{ curProfile }}">Профиль</a>
+    </nav>
+    <button class="ib" type="button" aria-label="Закрыть полноэкранный режим" style="margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+
+  <!-- ================= TODAY ================= -->
+  <sc-if value="{{ isToday }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:1;display:flex;gap:22px;padding:20px 22px;min-height:0;">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="ib" type="button" aria-label="Предыдущий день" style="background:var(--surface);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+        <h2 style="font:600 16px 'Hanken Grotesk',sans-serif;padding:0 8px;">Четверг, 26 ноября</h2>
+        <button class="ib" type="button" aria-label="Следующий день" disabled="" style="background:var(--surface);opacity:.4;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+        <button class="bp" type="button" style="margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Записать кормление</button>
+      </div>
+
+      <div class="box" style="padding:16px 18px 14px;">
+        <div class="lbl">Съедено сегодня</div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-top:8px;">
+          <span class="mono" style="font-size:46px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span>
+          <span style="font-size:15px;color:var(--text-2);">/ 240 ккал</span>
+          <span class="sm" style="margin-left:auto;">до цели ≈ 68</span>
+        </div>
+        <div role="img" aria-label="Кормления по порядку: 07:40 сухой корм 77 ккал, 12:15 паштет 68, 16:30 лакомство 27, 19:05 паштет до 68, остаток не взвешен" style="display:flex;gap:3px;height:16px;margin-top:14px;">
+          <span style="flex:77;border-radius:5px;background:var(--dry);"></span>
+          <span style="flex:68;border-radius:5px;background:var(--wet);"></span>
+          <span style="flex:27;border-radius:5px;background:var(--treat);"></span>
+          <span class="pend" style="flex:68;border-radius:5px;"></span>
+        </div>
+        <div aria-hidden="true" class="mono" style="display:flex;gap:3px;margin-top:6px;font-size:10.5px;color:var(--text-3);">
+          <span style="flex:77;">07:40</span><span style="flex:68;">12:15</span><span style="flex:27;">16:30</span><span style="flex:68;">19:05</span>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-2);flex-wrap:wrap;">
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:var(--dry);"></span>Сухой 77</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:var(--wet);"></span>Влажный 68</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:var(--treat);"></span>Лакомства 27 · 11 % дня</span>
+          <span style="margin-left:auto;color:var(--text-3);">Б 14 · Ж 8 · У 6 г</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="lbl" style="margin-bottom:4px;">Кормления · 4</div>
+        <div class="row"><span class="mono" style="font-weight:500;">07:40</span><span class="dot" style="background:var(--dry);"></span><span>Сухой корм, индейка</span><span class="sm" style="text-align:right;">20 г</span><span class="mono" style="text-align:right;font-weight:500;">77 ккал</span><span class="av av-l" title="Лёша" style="width:22px;height:22px;font-size:10px;">Л</span></div>
+        <div class="row"><span class="mono" style="font-weight:500;">12:15</span><span class="dot" style="background:var(--wet);"></span><span>Паштет с кроликом</span><span class="sm" style="text-align:right;">85 г</span><span class="mono" style="text-align:right;font-weight:500;">68 ккал</span><span class="av av-l" title="Лёша" style="width:22px;height:22px;font-size:10px;">Л</span></div>
+        <div class="row"><span class="mono" style="font-weight:500;">16:30</span><span class="dot" style="background:var(--treat);"></span><span>Подушечки с курицей</span><span class="sm" style="text-align:right;">6 г</span><span class="mono" style="text-align:right;font-weight:500;">27 ккал</span><span class="av av-l" title="Лёша" style="width:22px;height:22px;font-size:10px;">Л</span></div>
+        <div class="row" style="background:var(--accent-soft);border-radius:10px;border-top-color:transparent;padding-left:8px;padding-right:8px;"><span class="mono" style="font-weight:500;">19:05</span><span class="dot pend"></span><span>Паштет с кроликом <span class="sm">· остаток не взвесили</span></span><span class="sm" style="text-align:right;">85 г</span><a href="#" style="text-align:right;font-weight:600;font-size:13px;color:var(--accent);text-decoration:none;">Взвесить</a><span class="av av-l" title="Лёша" style="width:22px;height:22px;font-size:10px;">Л</span></div>
+      </div>
+    </div>
+
+    <div style="width:300px;flex:none;display:flex;flex-direction:column;gap:14px;">
+      <div class="box" style="padding:14px 16px;">
+        <div style="display:flex;align-items:center;"><span class="lbl">Лекарства и добавки</span><a href="#" style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;">Настроить</a></div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+          <div style="display:flex;align-items:center;gap:10px;"><button class="ck" type="button" aria-pressed="true" aria-label="Витамины даны — снять отметку"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></button><div style="flex:1;min-width:0;"><p style="font-weight:600;font-size:13.5px;">Витамины</p><p class="sm" style="display:flex;align-items:center;gap:5px;"><span class="mono">08:05</span><span class="av av-l" style="width:16px;height:16px;font-size:8px;">Л</span>Лёша</p></div></div>
+          <div style="display:flex;align-items:center;gap:10px;"><button class="ck" type="button" aria-pressed="false" aria-label="Отметить: паста от шерсти дана"></button><div style="flex:1;min-width:0;"><p style="font-weight:600;font-size:13.5px;">Паста от шерсти</p><p class="sm">Сегодня ещё не дали</p></div></div>
+          <div style="display:flex;align-items:center;gap:10px;"><button class="ck" type="button" aria-pressed="true" aria-label="Утренние капли даны — снять отметку"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></button><div style="flex:1;min-width:0;"><p style="font-weight:600;font-size:13.5px;">Капли для ушей · утро</p><p class="sm" style="display:flex;align-items:center;gap:5px;"><span class="mono">08:10</span><span class="av av-k" style="width:16px;height:16px;font-size:8px;">К</span>Карина · день 7 из 14</p></div></div>
+          <div style="display:flex;align-items:center;gap:10px;"><button class="ck" type="button" aria-pressed="false" aria-label="Отметить: вечерние капли даны"></button><div style="flex:1;min-width:0;"><p style="font-weight:600;font-size:13.5px;">Капли для ушей · вечер</p><p class="sm">В <span class="mono">20:00</span></p></div></div>
+        </div>
+      </div>
+      <div class="box" style="padding:14px 16px;">
+        <div style="display:flex;align-items:center;"><span class="lbl">Фонтанчик</span><a href="#" style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;">Долили</a></div>
+        <p style="margin-top:8px;"><span class="mono" style="font-size:22px;font-weight:500;">≈ 130</span> <span class="sm">мл в день за неделю</span></p>
+        <p class="sm" style="display:flex;align-items:center;gap:6px;margin-top:4px;"><span class="av av-k" style="width:16px;height:16px;font-size:8px;">К</span>Карина меняет по выходным · через 2 дня</p>
+      </div>
+      <div class="box" style="padding:14px 16px;">
+        <div style="display:flex;align-items:center;"><span class="lbl">Вес</span><a href="#" style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;">Взвесили</a></div>
+        <p style="margin-top:8px;display:flex;align-items:baseline;gap:6px;"><span class="mono" style="font-size:22px;font-weight:500;">4,32</span><span class="sm">кг · 21 ноя</span><span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--on-success);">−80 г за месяц</span></p>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ================= HISTORY ================= -->
+  <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;gap:22px;padding:20px 22px;min-height:0;">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;">
+      <div class="box" style="padding:14px 18px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="lbl">Калории по дням</span>
+          <div class="seg" role="group" aria-label="Период" style="margin-left:auto;"><button type="button" aria-pressed="true">7 дней</button><button type="button" aria-pressed="false">30 дней</button></div>
+        </div>
+        <p style="margin-top:6px;"><span class="mono" style="font-size:22px;font-weight:500;">233</span> <span class="sm">ккал в среднем · цель 240</span></p>
+        <div role="img" aria-label="Калории с 20 по 26 ноября: 234, 240, 234, 222, 243, 236 и сегодня 172 плюс до 68 невзвешенных" style="position:relative;display:flex;align-items:flex-end;gap:10px;height:176px;margin-top:10px;">
+          <span aria-hidden="true" style="position:absolute;left:0;right:0;bottom:162px;border-top:1.5px dashed var(--border-strong);"></span>
+          <span class="mono" aria-hidden="true" style="position:absolute;right:0;bottom:166px;font-size:10px;color:var(--text-3);">цель 240</span>
+          <div style="flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center;"><span class="mono" style="font-size:10.5px;color:var(--text-3);margin-top:4px;">ПТ</span><span style="width:36px;height:57px;border-radius:3px;background:var(--dry);"></span><span style="width:36px;height:70px;border-radius:3px;background:var(--wet);"></span><span style="width:36px;height:11px;border-radius:3px;background:var(--treat);"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center;"><span class="mono" style="font-size:10.5px;color:var(--text-3);margin-top:4px;">СБ</span><span style="width:36px;height:45px;border-radius:3px;background:var(--dry);"></span><span style="width:36px;height:80px;border-radius:3px;background:var(--wet);"></span><span style="width:36px;height:16px;border-radius:3px;background:var(--treat);"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center;"><span class="mono" style="font-size:10.5px;color:var(--text-3);margin-top:4px;">ВС</span><span style="width:36px;height:57px;border-radius:3px;background:var(--dry);"></span><span style="width:36px;height:60px;border-radius:3px;background:var(--wet);"></span><span style="width:36px;height:21px;border-radius:3px;background:var(--treat);"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center;"><span class="mono" style="font-size:10.5px;color:var(--text-3);margin-top:4px;">ПН</span><span style="width:36px;height:45px;border-radius:3px;background:var(--dry);"></span><span style="width:36px;height:80px;border-radius:3px;background:var(--wet);"></span><span style="width:36px;height:5px;border-radius:3px;background:var(--treat);"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center;"><span class="mono" style="font-size:10.5px;color:var(--text-3);margin-top:4px;">ВТ</span><span style="width:36px;height:57px;border-radius:3px;background:var(--dry);"></span><span style="width:36px;height:70px;border-radius:3px;background:var(--wet);"></span><span style="width:36px;height:16px;border-radius:3px;background:var(--treat);"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center;"><span class="mono" style="font-size:10.5px;color:var(--text);margin-top:4px;font-weight:600;">СР</span><span style="width:36px;height:45px;border-radius:3px;background:var(--dry);"></span><span style="width:36px;height:80px;border-radius:3px;background:var(--wet);"></span><span style="width:36px;height:14px;border-radius:3px;background:var(--treat);"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column-reverse;gap:2px;align-items:center;"><span class="mono" style="font-size:10.5px;color:var(--accent);margin-top:4px;font-weight:600;">СЕГОДНЯ</span><span style="width:36px;height:45px;border-radius:3px;background:var(--dry);"></span><span style="width:36px;height:40px;border-radius:3px;background:var(--wet);"></span><span style="width:36px;height:16px;border-radius:3px;background:var(--treat);"></span><span class="pend" style="width:36px;height:40px;border-radius:3px;"></span></div>
+        </div>
+      </div>
+      <div class="box" style="padding:12px 18px 10px;">
+        <div style="display:flex;align-items:center;"><span class="lbl">Лекарства и добавки · неделя</span></div>
+        <div class="ad mono" aria-hidden="true" style="font-size:10.5px;color:var(--text-3);text-align:center;margin-top:6px;"><span></span><span>ПТ</span><span>СБ</span><span>ВС</span><span>ПН</span><span>ВТ</span><span>СР</span><span>ЧТ</span><span></span></div>
+        <div class="ad" role="img" aria-label="Витамины: 7 из 7"><span style="font-size:13px;">Витамины</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span class="sm mono" style="text-align:right;">7/7</span></div>
+        <div class="ad" role="img" aria-label="Паста: пропущен вторник, сегодня ещё нет"><span style="font-size:13px;">Паста от шерсти</span><i></i><i></i><i></i><i></i><i class="no"></i><i></i><i class="wait"></i><span class="sm mono" style="text-align:right;">5/6</span></div>
+        <div class="ad" role="img" aria-label="Капли утром: 7 из 7"><span style="font-size:13px;">Капли · утро</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span class="sm mono" style="text-align:right;">7/7</span></div>
+        <div class="ad" role="img" aria-label="Капли вечером: 6 из 6, сегодня в 20:00"><span style="font-size:13px;">Капли · вечер</span><i></i><i></i><i></i><i></i><i></i><i></i><i class="wait"></i><span class="sm mono" style="text-align:right;">6/6</span></div>
+      </div>
+    </div>
+    <div style="width:300px;flex:none;display:flex;flex-direction:column;gap:14px;">
+      <div class="box" style="padding:14px 16px;">
+        <div class="lbl">Вес · 3 месяца</div>
+        <p style="margin-top:8px;display:flex;align-items:baseline;gap:6px;"><span class="mono" style="font-size:22px;font-weight:500;">4,32</span><span class="sm">кг</span><span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--on-success);">−180 г</span></p>
+        <svg viewBox="0 0 268 90" role="img" aria-label="Вес плавно снизился с 4,50 кг в конце августа до 4,32 кг 21 ноября" style="width:100%;height:90px;margin-top:8px;display:block;color:var(--text);">
+          <line x1="0" y1="84" x2="268" y2="84" stroke="currentColor" stroke-opacity=".15"/>
+          <polyline points="4,14 40,18 76,28 110,34 140,44 176,50 208,60 236,66 264,74" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="264" cy="74" r="3.5" fill="currentColor"/>
+        </svg>
+        <div class="mono" style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-3);margin-top:4px;"><span>28 АВГ</span><span>21 НОЯ</span></div>
+      </div>
+      <div class="box" style="padding:14px 16px;">
+        <div class="lbl">Фонтанчик · мл в день</div>
+        <div role="img" aria-label="По неделям: 125, 140, нет данных, 120, 135, 130 мл в день" style="display:flex;align-items:flex-end;gap:8px;height:70px;margin-top:12px;">
+          <span style="flex:1;height:89%;border-radius:4px;background:var(--dry);"></span>
+          <span style="flex:1;height:100%;border-radius:4px;background:var(--dry);"></span>
+          <span style="flex:1;height:6%;border-radius:4px;background:var(--border);"></span>
+          <span style="flex:1;height:86%;border-radius:4px;background:var(--dry);"></span>
+          <span style="flex:1;height:96%;border-radius:4px;background:var(--dry);"></span>
+          <span style="flex:1;height:93%;border-radius:4px;background:var(--accent);"></span>
+        </div>
+        <p class="sm" style="margin-top:8px;">Одна неделя без данных — остаток перед сменой не измерили.</p>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ================= FOODS ================= -->
+  <sc-if value="{{ isFoods }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;flex-direction:column;gap:14px;padding:20px 22px;min-height:0;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div><span class="lbl">Корма и порции</span><p class="sm" style="margin-top:3px;font-size:13px;">Порции становятся кнопками в записи кормления.</p></div>
+      <button class="bp" type="button" style="margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Новый корм</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+      <div class="box" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+        <span class="sm" style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:var(--dry);"></span>Сухой · полнорационный</span>
+        <div><p style="font:600 15px 'Hanken Grotesk',sans-serif;">Сухой корм, индейка</p><p class="sm"><span class="mono">385</span> ккал / 100 г</p></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;"><span class="pill">Утро <b class="mono" style="font-weight:500;">20 г</b></span><span class="pill">Вечер <b class="mono" style="font-weight:500;">25 г</b></span><button class="add" type="button">+ Порция</button></div>
+        <div style="display:flex;gap:4px;padding-top:8px;border-top:1px solid var(--border);"><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">Изменить</button><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">В архив</button></div>
+      </div>
+      <div class="box" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+        <span class="sm" style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:var(--wet);"></span>Влажный · полнорационный</span>
+        <div><p style="font:600 15px 'Hanken Grotesk',sans-serif;">Паштет с кроликом</p><p class="sm"><span class="mono">80</span> ккал / 100 г · влажность 80 %</p></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;"><span class="pill">Пауч целиком <b class="mono" style="font-weight:500;">85 г</b></span><span class="pill">Половина <b class="mono" style="font-weight:500;">42 г</b></span><button class="add" type="button">+ Порция</button></div>
+        <div style="display:flex;gap:4px;padding-top:8px;border-top:1px solid var(--border);"><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">Изменить</button><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">В архив</button></div>
+      </div>
+      <div class="box" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+        <span class="sm" style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:var(--treat);"></span>Лакомство · дополнительный</span>
+        <div><p style="font:600 15px 'Hanken Grotesk',sans-serif;">Подушечки с курицей</p><p class="sm"><span class="mono">450</span> ккал / 100 г</p></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;"><span class="pill">Горсть <b class="mono" style="font-weight:500;">6 г</b></span><span class="pill">Пара штук <b class="mono" style="font-weight:500;">2 г</b></span><button class="add" type="button">+ Порция</button></div>
+        <div style="display:flex;gap:4px;padding-top:8px;border-top:1px solid var(--border);"><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">Изменить</button><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">В архив</button></div>
+      </div>
+      <div class="box" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+        <span class="sm" style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:var(--wet);"></span>Влажный · полнорационный</span>
+        <div><p style="font:600 15px 'Hanken Grotesk',sans-serif;">Мусс с индейкой</p><p class="sm"><span class="mono">95</span> ккал / 100 г</p></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;"><span class="pill">Баночка <b class="mono" style="font-weight:500;">100 г</b></span><button class="add" type="button">+ Порция</button></div>
+        <div style="display:flex;gap:4px;padding-top:8px;border-top:1px solid var(--border);"><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">Изменить</button><button class="bs" type="button" style="height:30px;border:0;background:none;color:var(--text-2);">В архив</button></div>
+      </div>
+      <button type="button" style="border:1.5px dashed var(--border-strong);border-radius:14px;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-2);font:inherit;cursor:pointer;min-height:170px;">
+        <span style="width:40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></span>
+        <span style="font-weight:600;color:var(--text);">Добавить корм</span>
+        <span class="sm">Название и калорийность с упаковки</span>
+      </button>
+    </div>
+    <p class="sm">Архив · 2 корма. Старые записи сохраняют свой состав.</p>
+  </div>
+  </sc-if>
+
+  <!-- ================= MEDS ================= -->
+  <sc-if value="{{ isMeds }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:flex;flex-direction:column;gap:14px;padding:20px 22px;min-height:0;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div><span class="lbl">Лекарства и добавки</span><p class="sm" style="margin-top:3px;font-size:13px;">Что положено на сегодня, появляется отметкой на плитке.</p></div>
+      <button class="bp" type="button" style="margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Добавить</button>
+    </div>
+    <div class="box" style="padding:4px 16px;">
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 200px 230px 34px;gap:14px;align-items:center;padding:10px 0;">
+        <span style="width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7ZM8.5 8.5l7 7"/></svg></span>
+        <div><p style="font-weight:600;">Витамины<span class="tag">добавка</span></p><p class="sm">1 таблетка</p></div>
+        <div><p style="font-size:13.5px;">Каждый день, утром</p><p class="sm">без окончания</p></div>
+        <div style="display:flex;align-items:center;gap:8px;"><button class="ck" type="button" aria-pressed="true" aria-label="Витамины даны — снять отметку"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></button><span class="mono" style="font-size:13px;">08:05</span><span class="av av-l" style="width:18px;height:18px;font-size:9px;">Л</span><span class="sm">Лёша</span></div>
+        <button class="ib" type="button" aria-label="Изменить: витамины" style="border:0;background:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg></button>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 200px 230px 34px;gap:14px;align-items:center;padding:10px 0;border-top:1px solid var(--border);">
+        <span style="width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14l-1 11H6zM9 9V6a3 3 0 0 1 6 0v3"/></svg></span>
+        <div><p style="font-weight:600;">Паста от шерсти<span class="tag">добавка</span></p><p class="sm">2 см</p></div>
+        <div><p style="font-size:13.5px;">Каждый день</p><p class="sm">без окончания</p></div>
+        <div style="display:flex;align-items:center;gap:8px;"><button class="ck" type="button" aria-pressed="false" aria-label="Отметить: паста от шерсти дана"></button><span class="sm">сегодня ещё не дали</span></div>
+        <button class="ib" type="button" aria-label="Изменить: паста от шерсти" style="border:0;background:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg></button>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 200px 230px 34px;gap:14px;align-items:center;padding:10px 0;border-top:1px solid var(--border);">
+        <span style="width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a6 6 0 0 0 6-6c0-4-6-12-6-12S6 12 6 16a6 6 0 0 0 6 6z"/></svg></span>
+        <div><p style="font-weight:600;">Капли для ушей<span class="tag">лекарство</span></p><p class="sm">2 капли в каждое ухо</p></div>
+        <div><p style="font-size:13.5px;">В <span class="mono">08:00</span> и <span class="mono">20:00</span></p><p class="sm">курс до 3 дек · день 7 из 14</p><div role="img" aria-label="Пройдено 7 из 14 дней" style="height:4px;border-radius:2px;background:var(--surface-2);margin-top:5px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--border);"><span style="display:block;width:50%;height:100%;background:var(--accent);"></span></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;"><div style="display:flex;align-items:center;gap:8px;"><button class="ck" type="button" aria-pressed="true" aria-label="Утренние капли даны — снять отметку" style="width:26px;height:26px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></button><span class="mono" style="font-size:12.5px;">08:10</span><span class="av av-k" style="width:18px;height:18px;font-size:9px;">К</span></div><div style="display:flex;align-items:center;gap:8px;"><button class="ck" type="button" aria-pressed="false" aria-label="Отметить: вечерние капли даны" style="width:26px;height:26px;"></button><span class="sm">вечер · <span class="mono">20:00</span></span></div></div>
+        <button class="ib" type="button" aria-label="Изменить: капли для ушей" style="border:0;background:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg></button>
+      </div>
+    </div>
+    <div class="lbl" style="margin-top:2px;">Не каждый день</div>
+    <div class="box" style="padding:4px 16px;">
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 200px 230px 34px;gap:14px;align-items:center;padding:10px 0;">
+        <span style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7ZM8.5 8.5l7 7"/></svg></span>
+        <div><p style="font-weight:600;">От глистов<span class="tag">лекарство</span></p><p class="sm">1 таблетка</p></div>
+        <div><p style="font-size:13.5px;">Раз в 3 месяца</p><p class="sm">прошлый раз 14 окт</p></div>
+        <div><p style="font-weight:600;font-size:13.5px;">14 января</p><p class="sm">через 49 дней</p></div>
+        <button class="ib" type="button" aria-label="Изменить: от глистов" style="border:0;background:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg></button>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 200px 230px 34px;gap:14px;align-items:center;padding:10px 0;border-top:1px solid var(--border);">
+        <span style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a6 6 0 0 0 6-6c0-4-6-12-6-12S6 12 6 16a6 6 0 0 0 6 6z"/></svg></span>
+        <div><p style="font-weight:600;">Капли от блох<span class="tag">лекарство</span></p><p class="sm">1 пипетка на холку</p></div>
+        <div><p style="font-size:13.5px;">Раз в месяц</p><p class="sm">прошлый раз 5 ноя</p></div>
+        <div><p style="font-weight:600;font-size:13.5px;">5 декабря</p><p class="sm">через 9 дней</p></div>
+        <button class="ib" type="button" aria-label="Изменить: капли от блох" style="border:0;background:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg></button>
+      </div>
+    </div>
+    <p class="sm">Завершённые · 1 — антибиотик, курс 18 сен – 2 окт.</p>
+  </div>
+  </sc-if>
+
+  <!-- ================= PROFILE ================= -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;padding:20px 22px;min-height:0;align-content:start;">
+    <div class="box" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+      <span class="lbl">О кошке</span>
+      <div><label class="sm" for="ofp-name" style="display:block;margin-bottom:5px;font-weight:600;color:var(--text-2);">Имя</label><input class="inp" id="ofp-name" value="Офелия"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="sm" for="ofp-birth" style="display:block;margin-bottom:5px;font-weight:600;color:var(--text-2);">Дата рождения</label><input class="inp" id="ofp-birth" value="12.03.2021"></div>
+        <div><span class="sm" style="display:block;margin-bottom:5px;font-weight:600;color:var(--text-2);">Стерилизована</span><div class="seg" role="group" aria-label="Стерилизована"><button type="button" aria-pressed="true">Да</button><button type="button" aria-pressed="false">Нет</button><button type="button" aria-pressed="false">Не знаю</button></div></div>
+      </div>
+      <div><span class="sm" style="display:block;margin-bottom:5px;font-weight:600;color:var(--text-2);">Упитанность · 1–9</span><div class="seg" role="group" aria-label="Упитанность"><button type="button" aria-pressed="false">3</button><button type="button" aria-pressed="false">4</button><button type="button" aria-pressed="true">5</button><button type="button" aria-pressed="false">6</button><button type="button" aria-pressed="false">7</button></div></div>
+    </div>
+    <div class="box" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+      <span class="lbl">Суточная цель</span>
+      <p style="display:flex;align-items:baseline;gap:8px;"><span class="mono" style="font-size:34px;font-weight:500;line-height:1;">240</span><span class="sm" style="font-size:13.5px;">ккал в сутки · с 1 ноября</span></p>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--accent-soft);">
+        <p style="flex:1;font-size:13px;">Ориентир по весу 4,32 кг — <b class="mono" style="font-weight:600;">≈ 252</b> ккал</p>
+        <button class="bs" type="button">Взять</button>
+      </div>
+      <p class="sm">Раньше 250 ккал (сен–окт). Прошлые дни считаются по своей цели.</p>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"tab":{"editor":"enum","options":["today","history","foods","meds","profile"],"default":"today"},"$preview":{"width":1040,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tab = this.props.tab ?? 'today';
+    const cur = (t) => (tab === t ? 'page' : undefined);
+    return {
+      theme: this.props.theme ?? 'light',
+      isToday: tab === 'today',
+      isHistory: tab === 'history',
+      isFoods: tab === 'foods',
+      isMeds: tab === 'meds',
+      isProfile: tab === 'profile',
+      curToday: cur('today'),
+      curHistory: cur('history'),
+      curFoods: cur('foods'),
+      curMeds: cur('meds'),
+      curProfile: cur('profile'),
+    };
+  }
+}
+</script>
+</body>
+</html>
