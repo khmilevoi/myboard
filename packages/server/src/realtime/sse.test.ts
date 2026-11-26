@@ -35,6 +35,40 @@ describe('SseRegistry', () => {
   })
 })
 
+describe('scoped subscriptions', () => {
+  it('writes the frame key, not the full key, for scoped subscriptions', () => {
+    const res = fakeRes()
+    const reg = new SseRegistry()
+    reg.add('c1', res)
+    reg.subscribeScoped('c1', [{ fullKey: 'm:n:a:acc1:k', frameKey: 'scoped:module/n/account/k' }])
+    fanout(reg, { key: 'm:n:a:acc1:k', value: 1 })
+    expect(res.write).toHaveBeenCalledWith(
+      expect.stringContaining('"key":"scoped:module/n/account/k"'),
+    )
+    expect(res.write).not.toHaveBeenCalledWith(expect.stringContaining('m:n:a:acc1:k'))
+  })
+
+  it('unsubscribeFrames stops delivery and clears the index', () => {
+    const res = fakeRes()
+    const reg = new SseRegistry()
+    reg.add('c1', res)
+    reg.subscribeScoped('c1', [{ fullKey: 'full', frameKey: 'frame' }])
+    reg.unsubscribeFrames('c1', ['frame'])
+    expect(reg.subscribersOf('full')).toEqual([])
+    fanout(reg, { key: 'full', value: 1 })
+    expect(res.write).not.toHaveBeenCalled()
+  })
+
+  it('plain subscribe keeps frame key equal to the full key', () => {
+    const res = fakeRes()
+    const reg = new SseRegistry()
+    reg.add('c1', res)
+    reg.subscribe('c1', ['k'])
+    fanout(reg, { key: 'k', value: 2 })
+    expect(res.write).toHaveBeenCalledWith(expect.stringContaining('"key":"k"'))
+  })
+})
+
 describe('writeSseEvent', () => {
   it('writes a named event frame', () => {
     const res = fakeRes()

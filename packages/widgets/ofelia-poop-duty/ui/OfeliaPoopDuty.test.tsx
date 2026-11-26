@@ -39,6 +39,7 @@ function fakeWidgetStorage(): WidgetStorage {
   return {
     instance: { client: instanceClient, server: instanceServer },
     shared: { client: sharedClient, server: sharedServer },
+    account: { client: createFakeStorage(), server: createFakeStorage() },
   }
 }
 
@@ -186,6 +187,7 @@ function fakeWidgetStorageWithFailingLedger(): WidgetStorage {
   return {
     instance: { client: instanceClient, server: instanceServer },
     shared: { client: sharedClient, server: sharedServer },
+    account: { client: createFakeStorage(), server: createFakeStorage() },
   }
 }
 

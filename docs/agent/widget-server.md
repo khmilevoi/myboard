@@ -17,6 +17,16 @@ shared trusted channel inside the board.
 display — records store an `accountId` plus a frozen name, and display resolves through the
 directory, so renames and avatars reach old records.
 
+## Storage keys are identifiers, never user input
+
+A relative storage key is chosen by code and must match `^[A-Za-z0-9._:/-]{1,128}$`. User content
+(emails, names, free text) travels only in request and record bodies, never in a key, which keeps it
+out of nginx and server access logs.
+
+`context.api.storage.account` is a third scope beside `instance` and `shared`, bound to the session's
+account (`w:a:<typeId>:<accountId>:`). Without a live session every call on it resolves to a public
+`account_required` error (401). Crons have no `account`, for the same reason they have no `viewer`.
+
 ## Crons
 
 A widget's `server.ts` may also declare `crons: { <name>: { schedule, timeZone, run } }`. The tick

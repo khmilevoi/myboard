@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { createServer, type Server, type ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 
+import { scopedEventKey, type ScopedStorageRef } from '@shared/storage/scoped'
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import Router from 'find-my-way'
 import { z } from 'zod'
@@ -47,6 +48,13 @@ import {
   TestTimeSchema,
   formatZodError,
 } from './storage/schemas'
+import {
+  resolveScopedNamespace,
+  validateScopedKey,
+  type ScopedOwners,
+  type ScopedStorageError,
+} from './storage/scoped'
+import { registerScopedStorageRoutes } from './storage/scoped-routes'
 import type { ValkeyOps } from './storage/valkey'
 import { makeCronScheduler } from './widgets/cron-scheduler'
 import { dispatchWidgetEvent } from './widgets/dispatch'
@@ -80,6 +88,7 @@ export type AppDeps = {
   widgetRegistry: WidgetServerRegistry
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
+  scopedOwners: ScopedOwners
   recovery: {
     tokenTtlMs: number
     maxSessionMs: number
@@ -97,7 +106,7 @@ export type App = {
 
 export function createApp(deps: AppDeps): App {
   const { ops, now } = deps
-  const router = Router({ ignoreTrailingSlash: true })
+  const router = Router({ ignoreTrailingSlash: true, maxParamLength: 512 })
   const registry = new SseRegistry()
   const audit = deps.audit ?? makeAuditLogger()
   const authDeps = { ops, config: deps.authConfig, now, audit }
@@ -184,6 +193,7 @@ export function createApp(deps: AppDeps): App {
   }
 
   registerAuthRoutes({ router, ...authDeps })
+  registerScopedStorageRoutes({ router, ops, authDeps, owners: deps.scopedOwners })
 
   router.on('GET', '/api/storage/events', (req, res) => {
     res.writeHead(200, {
@@ -201,6 +211,30 @@ export function createApp(deps: AppDeps): App {
       registry.remove(connId)
     })
   })
+
+  // Resolves every ref before anything is subscribed. A session is read at most once,
+  // and only after a ref needs it, so an undeclared scope still answers 403 before 401.
+  async function resolveScopedSubscriptions(
+    req: IncomingMessage,
+    refs: ScopedStorageRef[],
+  ): Promise<ScopedStorageError | { fullKey: string; frameKey: string }[]> {
+    const needsSession = refs.some((ref) => ref.scope === 'account')
+    const session = needsSession ? await requireSession(authDeps, req) : null
+    const accountId = session !== null && !isAuthResult(session) ? session.accountId : null
+    const entries: { fullKey: string; frameKey: string }[] = []
+    for (const ref of refs) {
+      const key = validateScopedKey(ref.key)
+      if (key instanceof Error) return key
+      const namespace = resolveScopedNamespace({
+        owners: deps.scopedOwners,
+        branch: { owner: ref.owner, id: ref.id, scope: ref.scope },
+        accountId,
+      })
+      if (namespace instanceof Error) return namespace
+      entries.push({ fullKey: `${namespace}${key}`, frameKey: scopedEventKey(ref) })
+    }
+    return entries
+  }
 
   router.on('POST', '/api/storage/events/:connId', async (req, res, params) => {
     const parsedParams = EventsParamsSchema.safeParse(params)
@@ -225,8 +259,28 @@ export function createApp(deps: AppDeps): App {
       res.end(JSON.stringify(formatZodError(parsed.error)))
       return
     }
-    if (parsed.data.subscribe) registry.subscribe(connId, parsed.data.subscribe)
-    if (parsed.data.unsubscribe) registry.unsubscribe(connId, parsed.data.unsubscribe)
+    const { subscribe, unsubscribe, scoped } = parsed.data
+    if (subscribe && !subscribe.every(isAllowedStorageKey)) {
+      sendStorageForbidden(res)
+      return
+    }
+
+    const entries = await resolveScopedSubscriptions(req, scoped?.subscribe ?? [])
+    if (entries instanceof Error) {
+      res.writeHead(entries.status, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ error: { code: entries.code, message: entries.publicMessage } }))
+      return
+    }
+
+    // Unsubscribes first: on an account switch the client sends the same frame key in both lists
+    // (old account out, new account in). unsubscribeFrames matches by frame key, so applying it
+    // last would drop the subscription this request just resolved for the new account.
+    if (unsubscribe) registry.unsubscribe(connId, unsubscribe)
+    if (scoped?.unsubscribe) {
+      registry.unsubscribeFrames(connId, scoped.unsubscribe.map(scopedEventKey))
+    }
+    if (subscribe) registry.subscribe(connId, subscribe)
+    registry.subscribeScoped(connId, entries)
     res.writeHead(204)
     res.end()
   })

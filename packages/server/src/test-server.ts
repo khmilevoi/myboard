@@ -2,6 +2,7 @@ import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
+import { productionScopedOwners } from './storage/production-scoped-owners'
 import { createValkeySubscriber, createValkeyTestOps } from './storage/valkey'
 import { productionWidgetServerRegistry } from './widgets/production-registry'
 
@@ -40,6 +41,7 @@ const { server } = createApp({
   widgetRegistry: productionWidgetServerRegistry,
   browserClient,
   authConfig,
+  scopedOwners: productionScopedOwners,
   recovery: browserConfig.recovery,
   testControls: {
     setNow: (ms) => {

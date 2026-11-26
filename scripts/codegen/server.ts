@@ -31,13 +31,45 @@ ${list}
 `
 }
 
-export function prepareServer({ widgetsDir, serverListFile }: ServerCodegenPaths) {
+export function emitScopedOwners(input: {
+  widgetDirs: string[]
+  moduleScopes: Record<string, readonly string[]>
+}) {
+  const block = (open: string, close: string, lines: string[]) =>
+    lines.length === 0 ? open + close : [open, ...lines, '  ' + close].join('\n')
+  const widgetTypeIds = block(
+    '[',
+    ']',
+    input.widgetDirs.map((dir) => `    ${JSON.stringify(dir)},`),
+  )
+  const moduleScopes = block(
+    '{',
+    '}',
+    Object.entries(input.moduleScopes).map(
+      ([id, scopes]) => `    ${JSON.stringify(id)}: ${JSON.stringify(scopes)},`,
+    ),
+  )
+  return `${BANNER}export const scopedOwnerList = {
+  widgetTypeIds: ${widgetTypeIds},
+  moduleScopes: ${moduleScopes},
+} as const
+`
+}
+
+export function prepareServer({
+  widgetsDir,
+  serverListFile,
+  scopedOwnersFile,
+}: ServerCodegenPaths) {
   const widgetDirs = discoverWidgetDirs(widgetsDir)
   if (widgetDirs instanceof Error) return widgetDirs
   const existedWidgetDirs = widgetDirs.filter((dir) =>
     fs.existsSync(path.resolve(widgetsDir, dir, 'server.ts')),
   )
-  return [{ file: serverListFile, content: emitServerList(existedWidgetDirs) }]
+  return [
+    { file: serverListFile, content: emitServerList(existedWidgetDirs) },
+    { file: scopedOwnersFile, content: emitScopedOwners({ widgetDirs, moduleScopes: {} }) },
+  ]
 }
 
 export function generateServer(paths: ServerCodegenPaths) {

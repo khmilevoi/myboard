@@ -258,4 +258,46 @@ describe('dispatchWidgetEvent', () => {
 
     expect(seen).toBeNull()
   })
+  describe('api.storage.account', () => {
+    const accountDefinition: RuntimeWidgetServerDefinition = {
+      typeId: 'acct-widget',
+      schemas: { save: { payload: z.object({}), result: z.object({ ok: z.boolean() }) } },
+      handlers: {
+        async save(_payload, context) {
+          const written = await context.api.storage.account.set('k', 1)
+          if (written instanceof Error) return written
+          return { ok: true }
+        },
+      },
+      crons: {},
+    }
+
+    it('writes under the viewer account namespace', async () => {
+      const ops = createMemoryOps(createMemoryPubSub())
+      const result = await dispatch({
+        registry: createRegistry([accountDefinition]),
+        ops,
+        typeId: 'acct-widget',
+        event: 'save',
+        payload: {},
+        viewer: { accountId: 'acc1', name: 'A' },
+      })
+
+      expect(result).toEqual({ data: { ok: true } })
+      expect(await ops.get('w:a:acct-widget:acc1:k')).toBe('1')
+    })
+
+    it('rejects with account_required when there is no viewer', async () => {
+      const result = await dispatch({
+        registry: createRegistry([accountDefinition]),
+        typeId: 'acct-widget',
+        event: 'save',
+        payload: {},
+        viewer: null,
+      })
+
+      expect(result).toBeInstanceOf(Error)
+      expect(result).toMatchObject({ status: 401, code: 'account_required' })
+    })
+  })
 })

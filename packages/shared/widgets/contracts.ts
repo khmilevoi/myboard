@@ -62,6 +62,9 @@ export type WidgetServerContext = {
     storage: {
       instance: WidgetServerStorage
       shared: WidgetServerStorage
+      /** Bound to the viewer's account; every call resolves to an
+       * `account_required` error when the request has no live session. */
+      account: WidgetServerStorage
     }
     browser: WidgetServerBrowserApi
   }

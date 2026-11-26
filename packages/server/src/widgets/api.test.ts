@@ -23,6 +23,7 @@ describe('createWidgetServerApi', () => {
     const api = createWidgetServerApi({
       ops,
       typeId: 'demo',
+      viewer: null,
       instanceId: 'placement-1',
       now: () => 123,
       browserClient: fake.client,

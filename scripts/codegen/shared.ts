@@ -13,6 +13,7 @@ export type CodegenPaths = {
   clientCatalogFile: string
   clientIconsFile: string
   serverListFile: string
+  scopedOwnersFile: string
   browserListFile: string
 }
 
@@ -20,7 +21,10 @@ export type ClientCodegenPaths = Pick<
   CodegenPaths,
   'widgetsDir' | 'portsFile' | 'clientCatalogFile' | 'clientIconsFile'
 >
-export type ServerCodegenPaths = Pick<CodegenPaths, 'widgetsDir' | 'serverListFile'>
+export type ServerCodegenPaths = Pick<
+  CodegenPaths,
+  'widgetsDir' | 'serverListFile' | 'scopedOwnersFile'
+>
 export type BrowserCodegenPaths = Pick<CodegenPaths, 'widgetsDir' | 'browserListFile'>
 export const codegenTargets = ['client', 'server', 'browser', 'all'] as const
 const codegenTargetSet = new Set<string>(codegenTargets)
@@ -71,6 +75,7 @@ export const defaultCodegenPaths: CodegenPaths = {
     'client/src/widget-registry/model/widget-icons.generated.ts',
   ),
   serverListFile: path.resolve(packagesDir, 'server/src/widgets/widget-server-list.generated.ts'),
+  scopedOwnersFile: path.resolve(packagesDir, 'server/src/storage/scoped-owners.generated.ts'),
   browserListFile: path.resolve(
     packagesDir,
     'browser-automation/src/tasks/widget-browser-list.generated.ts',

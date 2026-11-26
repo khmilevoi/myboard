@@ -35,6 +35,7 @@ function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
   return {
     instance: { client: api, server: api },
     shared: { client: api, server: api },
+    account: { client: api, server: api },
   }
 }
 
