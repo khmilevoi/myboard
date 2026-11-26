@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>09 Виджет — Офелия: питание</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #e6e7ea; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: oklch(0.55 0.17 281); text-decoration: none; }
+  a:hover { color: oklch(0.49 0.17 281); }
+  p, h2, h3 { margin: 0; }
+
+  .ds-scope[data-theme="light"] {
+    --bg: oklch(0.975 0.003 255); --surface: oklch(1 0 0); --surface-2: oklch(0.972 0.004 255);
+    --border: oklch(0.91 0.005 255); --border-strong: oklch(0.84 0.006 255);
+    --text: oklch(0.27 0.02 262); --text-2: oklch(0.5 0.018 262); --text-3: oklch(0.6 0.012 262);
+    --accent: oklch(0.55 0.17 281); --accent-soft: oklch(0.955 0.032 285); --on-accent: #ffffff; --ring: oklch(0.55 0.17 281 / .35);
+    --success: oklch(0.55 0.13 155); --success-soft: oklch(0.95 0.05 155); --on-success: oklch(0.45 0.13 155);
+    --shadow-btn: 0 1px 2px rgba(20,22,40,.06);
+    --shadow: 0 1px 2px rgba(20,22,40,.05), 0 2px 8px rgba(20,22,40,.05);
+    --shadow-pop: 0 16px 44px rgba(20,22,40,.2);
+    --dry: oklch(0.79 0.085 285); --wet: oklch(0.55 0.17 281); --treat: oklch(0.38 0.12 285); --hatch: oklch(0.55 0.17 281 / .55);
+    --k-bg: oklch(0.9 0.05 345); --k-fg: oklch(0.41 0.13 345); --l-bg: oklch(0.9 0.045 255); --l-fg: oklch(0.4 0.11 258);
+  }
+  .ds-scope[data-theme="dark"] {
+    --bg: oklch(0.185 0.012 268); --surface: oklch(0.23 0.013 270); --surface-2: oklch(0.265 0.014 270);
+    --border: oklch(0.315 0.014 270); --border-strong: oklch(0.36 0.014 262);
+    --text: oklch(0.95 0.006 260); --text-2: oklch(0.71 0.013 262); --text-3: oklch(0.62 0.012 262);
+    --accent: oklch(0.675 0.155 285); --accent-soft: oklch(0.315 0.06 285); --on-accent: oklch(0.18 0.03 285); --ring: oklch(0.67 0.16 285 / .45);
+    --success: oklch(0.74 0.15 152); --success-soft: oklch(0.3 0.07 152); --on-success: oklch(0.86 0.1 152);
+    --shadow-btn: 0 1px 2px rgba(0,0,0,.35);
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.35);
+    --shadow-pop: 0 20px 50px rgba(0,0,0,.5);
+    --dry: oklch(0.84 0.07 285); --wet: oklch(0.675 0.155 285); --treat: oklch(0.5 0.13 285); --hatch: oklch(0.675 0.155 285 / .6);
+    --k-bg: oklch(0.37 0.085 345); --k-fg: oklch(0.92 0.06 345); --l-bg: oklch(0.36 0.07 256); --l-fg: oklch(0.92 0.05 256);
+  }
+  .ds-scope { color: var(--text); font: 400 14px/1.45 'Hanken Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .hov { position: absolute; top: 0; right: 0; display: flex; gap: 1px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; box-shadow: 0 2px 10px rgba(20,22,40,.12); }
+  .hov button { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: none; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; }
+  .tn { font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #645fd1; }
+  .td { font: 500 11.5px 'JetBrains Mono', monospace; color: #8a8d97; margin-top: 2px; }
+  .lbl { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .sm { font-size: 12.5px; color: var(--text-3); }
+  .div { height: 1px; background: var(--border); margin: 13px 0; }
+  .ibx { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text-2); cursor: pointer; padding: 0; }
+  .bp { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 600 13.5px 'Hanken Grotesk', sans-serif; box-shadow: var(--shadow-btn); cursor: pointer; }
+  .bs { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: 600 13px 'Hanken Grotesk', sans-serif; cursor: pointer; }
+  .av { flex: none; border-radius: .375rem; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; font-family: 'Hanken Grotesk', sans-serif; }
+  .av-k { background: var(--k-bg); color: var(--k-fg); }
+  .av-l { background: var(--l-bg); color: var(--l-fg); box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 3px var(--accent); }
+  .bowl { display: flex; gap: 3px; }
+  .bowl span { display: block; border-radius: 4px; }
+  .pend { background: repeating-linear-gradient(135deg, var(--hatch) 0 3px, transparent 3px 7px); box-shadow: inset 0 0 0 1.5px var(--hatch); }
+  .ticks { display: flex; gap: 3px; margin-top: 5px; font: 500 10.5px 'JetBrains Mono', monospace; color: var(--text-3); }
+  .ticks span { display: block; white-space: nowrap; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .chip { display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font: 500 12.5px 'Hanken Grotesk', sans-serif; text-align: left; cursor: pointer; min-width: 0; }
+  .chip .bx { flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; }
+  .chip[aria-pressed="true"] { background: var(--success-soft); border-color: transparent; color: var(--on-success); }
+  .chip[aria-pressed="true"] .bx { background: var(--success); border-color: var(--success); color: var(--surface); }
+  .chip .t { margin-left: auto; font: 500 11px 'JetBrains Mono', monospace; opacity: .8; }
+  .note { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--accent-soft); font-size: 12.5px; line-height: 1.35; color: var(--text); }
+  .note a { font-weight: 600; white-space: nowrap; color: var(--accent); }
+
+  .sheet { width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-pop); display: flex; flex-direction: column; overflow: hidden; }
+  .sh-h { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .sh-h h3 { font: 600 17px 'Hanken Grotesk', sans-serif; flex: 1; }
+  .x { width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+  .sh-b { padding: 16px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .sh-f { padding: 14px 18px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+  .fl { display: block; font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
+  .inp { width: 100%; height: 42px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); padding: 0 12px; font: 400 14px 'Hanken Grotesk', sans-serif; color: var(--text); }
+  .inp.f { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); background: var(--surface); }
+  .big { display: flex; align-items: baseline; gap: 8px; padding: 4px 14px 8px; border: 1px solid var(--accent); box-shadow: 0 0 0 3px var(--ring); border-radius: 12px; }
+  .big input { width: 120px; border: 0; outline: 0; background: transparent; font: 500 34px 'JetBrains Mono', monospace; letter-spacing: -.02em; color: var(--text); padding: 0; }
+  .big span { font-size: 16px; color: var(--text-2); }
+  .opt { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text); font: 500 14px 'Hanken Grotesk', sans-serif; text-align: left; cursor: pointer; }
+  .opt[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .opt .k { margin-left: auto; font: 500 11.5px 'JetBrains Mono', monospace; color: var(--text-3); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 500 13px 'Hanken Grotesk', sans-serif; cursor: pointer; }
+  .pill.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .pill.add { border-style: dashed; border-color: var(--border-strong); color: var(--accent); font-weight: 600; }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+  .seg button { flex: 1; height: 32px; border: 0; border-radius: 999px; background: transparent; font: 500 13px 'Hanken Grotesk', sans-serif; color: var(--text-2); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-btn); }
+  .when { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .when a { margin-left: auto; font-weight: 600; }
+  .ncard { background: #fff; border: 1px solid #e3e4e8; border-radius: 12px; padding: 14px 16px; }
+  .ncard h3 { font: 600 13px 'Hanken Grotesk', sans-serif; color: #22232a; margin-bottom: 5px; }
+  .ncard p { font: 400 12.5px/1.5 'Hanken Grotesk', sans-serif; color: #5b5e69; text-wrap: pretty; }
+  .sec { margin: 0 0 26px 2px; display: flex; align-items: baseline; gap: 14px; }
+  .sec h2 { font: 600 18px 'Hanken Grotesk', sans-serif; letter-spacing: -.01em; color: #2a2b33; }
+  .sec span { font: 400 13px 'Hanken Grotesk', sans-serif; color: #7a7d88; }
+  .flab { display: flex; align-items: center; gap: 9px; margin: 0 0 12px 2px; }
+  .flab b { font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #645fd1; }
+  .flab span { font: 500 12px 'Hanken Grotesk', sans-serif; color: #8a8d97; }
+</style>
+</helmet>
+
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:56px;background:#e6e7ea;font-family:'Hanken Grotesk',system-ui,sans-serif;">
+
+  <a href="00 Навигация.dc.html" style="display:inline-flex;align-items:center;gap:8px;margin:0 0 24px 2px;font:600 11.5px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#8a8d97;">← myboard · навигация</a>
+
+  <div style="margin:0 0 52px 2px;max-width:760px;">
+    <div style="font:600 12px/1 'JetBrains Mono',monospace;letter-spacing:.16em;color:#8a8d97;text-transform:uppercase;">myboard · widget flow · модуль Офелии</div>
+    <h1 style="margin:14px 0 12px;font:700 32px/1.05 'Hanken Grotesk',sans-serif;letter-spacing:-.02em;color:#22232a;">Офелия: питание — флоу виджета</h1>
+    <p style="margin:0;font:400 16px/1.55 'Hanken Grotesk',sans-serif;color:#5b5e69;max-width:640px;text-wrap:pretty;">Кормления, лекарства и добавки, фонтанчик и вес. Главный элемент — «миска дня»: полоска калорий из сегментов-кормлений. Цвет сегмента — тип корма, штриховка — остаток ещё не взвесили. Корма с порциями и лекарства с расписанием — пользовательские списки.</p>
+  </div>
+
+  <!-- ============ TIERS (LIGHT) ============ -->
+  <div class="sec"><h2>Прогрессивные тиры</h2></div>
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:20px;align-items:flex-start;margin-bottom:64px;">
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="card" style="width:152px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;">
+        <span class="mono" style="font-size:34px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span>
+        <span class="sm">из 240 ккал</span>
+        <div class="bowl" style="width:110px;height:8px;margin-top:4px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:27;background:var(--treat);"></span><span class="pend" style="flex:68;"></span></div>
+        <span class="mono" style="font-size:10.5px;color:var(--text-3);margin-top:2px;">ПОСЛЕДНЕЕ 19:05</span>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">tiny</div><div class="td">≤ 180px · сколько съела</div></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="card" style="width:268px;height:200px;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span class="lbl">Съедено сегодня</span>
+          <div style="display:flex;gap:5px;">
+            <button class="ibx" type="button" aria-label="Записать кормление" style="color:var(--accent);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button>
+            <button class="ibx" type="button" aria-label="Отметить лекарства" style="color:var(--on-success);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7ZM8.5 8.5l7 7"/></svg></button>
+          </div>
+        </div>
+        <div>
+          <p style="display:flex;align-items:baseline;gap:8px;"><span class="mono" style="font-size:34px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span><span style="font-size:13px;color:var(--text-2);">/ 240 ккал</span></p>
+          <div class="bowl" style="height:10px;margin-top:10px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:27;background:var(--treat);"></span><span class="pend" style="flex:68;"></span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;">
+          <span style="font-weight:600;">Лекарства 2 из 4</span>
+          <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;color:var(--text-3);"><span class="av av-l" style="width:18px;height:18px;font-size:9px;">Л</span><span class="mono" style="font-size:11px;">19:05</span></span>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">compact</div><div class="td">181–320px · итог + лекарства</div></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg>Офелия: питание</div>
+        <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
+        <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span class="sm" style="margin-left:auto;">≈ 68 до цели</span></p>
+        <div style="margin-top:12px;">
+          <div class="bowl" role="img" aria-label="Кормления: 07:40 сухой 77 ккал, 12:15 паштет 68, 16:30 лакомство 27, 19:05 паштет — остаток не взвешен" style="height:14px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:27;background:var(--treat);"></span><span class="pend" style="flex:68;"></span></div>
+          <div class="ticks" aria-hidden="true"><span style="flex:77;">07:40</span><span style="flex:68;">12:15</span><span style="flex:27;">16:30</span><span style="flex:68;">19:05</span></div>
+        </div>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;margin-bottom:8px;"><span class="lbl">Лекарства и добавки</span><span class="mono" style="margin-left:auto;font-size:11px;color:var(--text-3);">2 / 4</span></div>
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Витамины<span class="t">08:05</span></button>
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Паста от шерсти</button>
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Капли · утро<span class="t">08:10</span></button>
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Капли · вечер<span class="t">20:00</span></button>
+        </div>
+        <div class="div"></div>
+        <div class="note"><span style="flex:1;">Паштет в 19:05 не взвесили — учтём, когда узнаем остаток</span><a href="#">Взвесить</a></div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;">
+          <button class="bp" type="button" style="flex:1;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Покормили</button>
+          <button class="bs" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>Вес</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">standard</div><div class="td">321–560px · полные действия</div></div>
+    </div>
+
+    <div style="flex:none;padding-top:18px;">
+      <div style="width:300px;height:452px;background:#fff;border:1px dashed #c7c9d0;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:28px;">
+        <div style="width:48px;height:48px;border-radius:13px;background:oklch(0.955 0.032 285);color:oklch(0.55 0.17 281);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
+        <div style="font:600 15px 'Hanken Grotesk',sans-serif;color:#22232a;">large = полный экран</div>
+        <div style="font:400 12.5px/1.5 'Hanken Grotesk',sans-serif;color:#7a7d88;text-wrap:pretty;">При &gt; 560px виджет показывает вкладки полноэкранного режима ниже.</div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn">large</div><div class="td">&gt; 560px · = fullscreen</div></div>
+    </div>
+  </div>
+
+  <!-- ============ TIERS (DARK) ============ -->
+  <div class="sec"><h2>Тёмная тема</h2></div>
+  <div class="ds-scope" data-theme="dark" style="display:inline-flex;gap:20px;align-items:flex-start;margin-bottom:64px;padding:28px 28px 22px;border-radius:18px;background:oklch(0.165 0.01 268);">
+
+    <div style="flex:none;">
+      <div class="card" style="width:152px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;">
+        <span class="mono" style="font-size:34px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span>
+        <span class="sm">из 240 ккал</span>
+        <div class="bowl" style="width:110px;height:8px;margin-top:4px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:27;background:var(--treat);"></span><span class="pend" style="flex:68;"></span></div>
+        <span class="mono" style="font-size:10.5px;color:var(--text-3);margin-top:2px;">ПОСЛЕДНЕЕ 19:05</span>
+      </div>
+      <div style="margin-top:10px;"><div class="tn" style="color:oklch(0.75 0.12 285);">tiny</div></div>
+    </div>
+
+    <div style="flex:none;">
+      <div class="card" style="width:268px;height:200px;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span class="lbl">Съедено сегодня</span>
+          <div style="display:flex;gap:5px;">
+            <button class="ibx" type="button" aria-label="Записать кормление" style="color:var(--accent);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button>
+            <button class="ibx" type="button" aria-label="Отметить лекарства" style="color:var(--success);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7ZM8.5 8.5l7 7"/></svg></button>
+          </div>
+        </div>
+        <div>
+          <p style="display:flex;align-items:baseline;gap:8px;"><span class="mono" style="font-size:34px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span><span style="font-size:13px;color:var(--text-2);">/ 240 ккал</span></p>
+          <div class="bowl" style="height:10px;margin-top:10px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:27;background:var(--treat);"></span><span class="pend" style="flex:68;"></span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;">
+          <span style="font-weight:600;">Лекарства 2 из 4</span>
+          <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;color:var(--text-3);"><span class="av av-l" style="width:18px;height:18px;font-size:9px;">Л</span><span class="mono" style="font-size:11px;">19:05</span></span>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn" style="color:oklch(0.75 0.12 285);">compact</div></div>
+    </div>
+
+    <div style="flex:none;">
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg>Офелия: питание</div>
+        <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
+        <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span class="sm" style="margin-left:auto;">≈ 68 до цели</span></p>
+        <div style="margin-top:12px;">
+          <div class="bowl" role="img" aria-label="Кормления за день, последний паштет не взвешен" style="height:14px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:27;background:var(--treat);"></span><span class="pend" style="flex:68;"></span></div>
+          <div class="ticks" aria-hidden="true"><span style="flex:77;">07:40</span><span style="flex:68;">12:15</span><span style="flex:27;">16:30</span><span style="flex:68;">19:05</span></div>
+        </div>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;margin-bottom:8px;"><span class="lbl">Лекарства и добавки</span><span class="mono" style="margin-left:auto;font-size:11px;color:var(--text-3);">2 / 4</span></div>
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Витамины<span class="t">08:05</span></button>
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Паста от шерсти</button>
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Капли · утро<span class="t">08:10</span></button>
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Капли · вечер<span class="t">20:00</span></button>
+        </div>
+        <div class="div"></div>
+        <div class="note"><span style="flex:1;">Паштет в 19:05 не взвесили — учтём, когда узнаем остаток</span><a href="#" style="color:var(--accent);">Взвесить</a></div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;">
+          <button class="bp" type="button" style="flex:1;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Покормили</button>
+          <button class="bs" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>Вес</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;"><div class="tn" style="color:oklch(0.75 0.12 285);">standard</div></div>
+    </div>
+  </div>
+
+  <!-- ============ STATES ============ -->
+  <div class="sec"><h2>Состояния standard-карточки</h2><span>одна карточка в разное время суток</span></div>
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:20px;align-items:flex-start;margin-bottom:64px;">
+
+    <div style="flex:none;">
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg>Офелия: питание</div>
+        <div class="lbl" style="margin-top:16px;">Суббота · утро</div>
+        <p style="font:600 24px 'Hanken Grotesk',sans-serif;margin-top:8px;">Ещё не кормили</p>
+        <p class="sm" style="display:flex;align-items:center;gap:6px;margin-top:4px;">Вчера <span class="mono">236 / 240</span> · последнее в <span class="mono">21:30</span><span class="av av-l" style="width:16px;height:16px;font-size:8px;">Л</span></p>
+        <div class="bowl" role="img" aria-label="Кормлений за день нет" style="height:14px;margin-top:12px;"><span style="flex:1;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border);"></span></div>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;margin-bottom:8px;"><span class="lbl">Лекарства и добавки</span><span class="mono" style="margin-left:auto;font-size:11px;color:var(--text-3);">0 / 4</span></div>
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Витамины</button>
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Паста от шерсти</button>
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Капли · утро<span class="t">08:00</span></button>
+          <button class="chip" type="button" aria-pressed="false"><span class="bx"></span>Капли · вечер<span class="t">20:00</span></button>
+        </div>
+        <div class="div"></div>
+        <div class="note" style="background:var(--surface-2);border:1px solid var(--border);"><span class="av av-k" style="width:20px;height:20px;font-size:9px;">К</span><span style="flex:1;">Выходные — пора сменить воду в фонтанчике. Прошлый раз <span class="mono">22.11</span></span><a href="#">Сменили</a></div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;"><button class="bp" type="button" style="flex:1;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Покормили</button><button class="bs" type="button">Вес</button></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">A</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Утро выходного · смена воды</span></div>
+    </div>
+
+    <div style="flex:none;">
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg>Офелия: питание</div>
+        <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
+        <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">238</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--on-success);">цель</span></p>
+        <div style="margin-top:12px;">
+          <div class="bowl" role="img" aria-label="Пять кормлений, итог 238 из 240" style="height:14px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:18;background:var(--treat);"></span><span style="flex:48;background:var(--wet);"></span><span style="flex:27;background:var(--dry);"></span><span style="flex:2;background:transparent;"></span></div>
+          <div class="ticks" aria-hidden="true"><span style="flex:77;">07:40</span><span style="flex:68;">12:15</span><span style="flex:18;"></span><span style="flex:48;">19:05</span><span style="flex:29;">21:30</span></div>
+        </div>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;margin-bottom:8px;"><span class="lbl">Лекарства и добавки</span><span class="mono" style="margin-left:auto;font-size:11px;color:var(--on-success);">4 / 4</span></div>
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Витамины<span class="t">08:05</span></button>
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Паста<span class="t">19:20</span></button>
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Капли · утро<span class="t">08:10</span></button>
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Капли · вечер<span class="t">20:05</span></button>
+        </div>
+        <div class="div"></div>
+        <div class="note" style="background:var(--success-soft);color:var(--on-success);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span style="flex:1;font-weight:600;">На сегодня всё отмечено</span></div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;"><button class="bp" type="button" style="flex:1;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Покормили</button><button class="bs" type="button">Вес</button></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">B</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Вечер · всё сделано</span></div>
+    </div>
+
+    <div style="flex:none;">
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg>Офелия: питание</div>
+        <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
+        <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">262</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span class="sm" style="margin-left:auto;">на 22 выше</span></p>
+        <div style="margin-top:12px;position:relative;">
+          <div class="bowl" role="img" aria-label="Итог 262 ккал при цели 240, отметка цели на 92 процентах полосы" style="height:14px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:47;background:var(--treat);"></span><span style="flex:68;background:var(--wet);"></span></div>
+          <span aria-hidden="true" style="position:absolute;left:91.6%;top:-4px;height:22px;border-left:2px solid var(--text);"></span>
+          <div class="ticks" aria-hidden="true"><span style="flex:77;">07:40</span><span style="flex:68;">12:15</span><span style="flex:47;">16:30</span><span style="flex:68;">19:05</span></div>
+        </div>
+        <div class="div"></div>
+        <div style="display:flex;align-items:center;margin-bottom:8px;"><span class="lbl">Лекарства и добавки</span><span class="mono" style="margin-left:auto;font-size:11px;color:var(--text-3);">3 / 4</span></div>
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Витамины<span class="t">08:05</span></button>
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Паста<span class="t">12:20</span></button>
+          <button class="chip" type="button" aria-pressed="true"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Капли · утро<span class="t">08:10</span></button>
+          <button class="chip" type="button" aria-pressed="false" style="border-color:var(--accent);"><span class="bx" style="border-color:var(--accent);"></span>Капли · вечер<span class="t" style="color:var(--accent);opacity:1;">20:00</span></button>
+        </div>
+        <div class="div"></div>
+        <div class="note" style="background:var(--surface-2);border:1px solid var(--border);"><span style="flex:1;">Лакомства сегодня — <b class="mono" style="font-weight:600;">18 %</b> дня. Обычно советуют держать до 10 %.</span></div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;gap:7px;"><button class="bp" type="button" style="flex:1;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Покормили</button><button class="bs" type="button">Вес</button></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">C</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Выше цели · вечерние капли пора дать</span></div>
+    </div>
+  </div>
+
+  <!-- ============ FULLSCREEN ============ -->
+  <div class="sec"><h2>Полноэкранный режим (large)</h2><span>вкладки: Сегодня · История · Корма · Лекарства · Профиль</span></div>
+
+  <div style="display:flex;gap:44px;align-items:flex-start;margin-bottom:44px;">
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>сегодня</b><span>desktop · две колонки</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="OfeliaFoodLarge" tab="today" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>сегодня · тёмная тема</b><span>theme="dark"</span></div>
+      <div style="width:100%;height:640px;border-radius:18px;background:oklch(0.165 0.01 268);"><dc-import name="OfeliaFoodLarge" tab="today" theme="dark" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+
+    <div style="flex:none;width:390px;">
+      <div class="flab"><b>телефон</b><span>≤ 680px · одна колонка, скролл</span></div>
+      <div class="ds-scope" data-theme="light" style="width:390px;height:820px;background:var(--surface);border:1px solid rgba(20,22,40,.08);border-radius:18px;box-shadow:0 1px 2px rgba(30,32,50,.05),0 24px 50px -18px rgba(30,32,55,.22);display:flex;flex-direction:column;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 16px 10px;">
+          <div style="width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg></div>
+          <span style="font:600 16px 'Hanken Grotesk',sans-serif;flex:1;">Офелия: питание</span>
+          <button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div style="padding:0 16px 12px;border-bottom:1px solid var(--border);overflow:hidden;">
+          <div class="seg" role="group" aria-label="Разделы" style="width:max-content;"><button type="button" aria-pressed="true" style="flex:none;padding:0 12px;">Сегодня</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">История</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Корма</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Лекарства</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Профиль</button></div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:14px 16px;display:flex;flex-direction:column;gap:14px;background:var(--bg);">
+          <div class="card" style="padding:14px 16px;box-shadow:none;">
+            <div style="display:flex;align-items:center;"><span class="lbl">Четверг, 26 ноя</span><span class="sm" style="margin-left:auto;">≈ 68 до цели</span></div>
+            <p style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span></p>
+            <div class="bowl" style="height:14px;margin-top:12px;"><span style="flex:77;background:var(--dry);"></span><span style="flex:68;background:var(--wet);"></span><span style="flex:27;background:var(--treat);"></span><span class="pend" style="flex:68;"></span></div>
+            <div class="ticks"><span style="flex:77;">07:40</span><span style="flex:68;">12:15</span><span style="flex:27;">16:30</span><span style="flex:68;">19:05</span></div>
+            <button class="bp" type="button" style="width:100%;height:44px;margin-top:14px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>Записать кормление</button>
+          </div>
+          <div class="chips">
+            <button class="chip" type="button" aria-pressed="true" style="height:38px;"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Витамины<span class="t">08:05</span></button>
+            <button class="chip" type="button" aria-pressed="false" style="height:38px;"><span class="bx"></span>Паста от шерсти</button>
+            <button class="chip" type="button" aria-pressed="true" style="height:38px;"><span class="bx"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>Капли · утро<span class="t">08:10</span></button>
+            <button class="chip" type="button" aria-pressed="false" style="height:38px;"><span class="bx"></span>Капли · вечер<span class="t">20:00</span></button>
+          </div>
+          <div class="card" style="box-shadow:none;padding:4px 14px;">
+            <div style="display:grid;grid-template-columns:44px 10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;"><span class="mono" style="font-weight:500;font-size:13px;">19:05</span><span class="dot pend"></span><span style="font-size:13.5px;">Паштет, 85 г<br><span class="sm">остаток не взвесили</span></span><a href="#" style="font-weight:600;font-size:13px;">Взвесить</a></div>
+            <div style="display:grid;grid-template-columns:44px 10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--border);"><span class="mono" style="font-weight:500;font-size:13px;">16:30</span><span class="dot" style="background:var(--treat);"></span><span style="font-size:13.5px;">Подушечки, 6 г</span><span class="mono" style="font-size:13px;">27</span></div>
+            <div style="display:grid;grid-template-columns:44px 10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--border);"><span class="mono" style="font-weight:500;font-size:13px;">12:15</span><span class="dot" style="background:var(--wet);"></span><span style="font-size:13.5px;">Паштет, 85 г</span><span class="mono" style="font-size:13px;">68</span></div>
+            <div style="display:grid;grid-template-columns:44px 10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--border);"><span class="mono" style="font-weight:500;font-size:13px;">07:40</span><span class="dot" style="background:var(--dry);"></span><span style="font-size:13.5px;">Сухой корм, 20 г</span><span class="mono" style="font-size:13px;">77</span></div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <div class="card" style="flex:1;box-shadow:none;padding:12px 14px;"><span class="lbl">Фонтанчик</span><p style="margin-top:6px;"><span class="mono" style="font-size:18px;font-weight:500;">≈ 130</span> <span class="sm">мл/день</span></p><p class="sm" style="display:flex;align-items:center;gap:5px;"><span class="av av-k" style="width:14px;height:14px;font-size:7px;">К</span>смена через 2 дня</p></div>
+            <div class="card" style="flex:1;box-shadow:none;padding:12px 14px;"><span class="lbl">Вес</span><p style="margin-top:6px;"><span class="mono" style="font-size:18px;font-weight:500;">4,32</span> <span class="sm">кг</span></p><p class="sm">−80 г за месяц</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:none;width:300px;padding-top:4px;">
+      <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#8a8d97;margin-bottom:14px;">Заметки по флоу</div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="ncard"><h3>Миска дня</h3><p>Сегмент — одно кормление: ширина — ккал, оттенок фиолетового — тип корма (светлый сухой, основной влажный, тёмный лакомство). Штриховка — выдали в миску, но остаток не взвесили: в итог не входит.</p></div>
+        <div class="ncard"><h3>Лекарства и добавки</h3><p>Список пользовательский. Плитка показывает только то, что положено на сегодня: «раз в день», «несколько раз в день» (по отметке на время), «раз в N дней/недель/месяцев», курс с датами.</p></div>
+        <div class="ncard"><h3>Авторы</h3><p>Каждая запись и отметка — от аккаунта: имя и фото из аккаунта, аватар как MemberAvatar в коде — квадрат, тон по id, кольцо у своих записей (здесь смотрит Лёша). Кормит обычно Лёша, воду по выходным меняет Карина.</p></div>
+        <div class="ncard"><h3>Фонтанчик</h3><p>Вода — раз в неделю. Питьё считаем по неделе: налили − осталось перед сменой. Плитка напоминает только в выходные.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:44px;align-items:flex-start;margin-bottom:64px;">
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>история</b><span>калории по дням и отметки лекарств</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="OfeliaFoodLarge" tab="history" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>корма</b><span>корма и их порции · добавляются пользователем</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="OfeliaFoodLarge" tab="foods" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>лекарства</b><span>список с расписанием · добавляется пользователем</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="OfeliaFoodLarge" tab="meds" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+    <div style="flex:none;width:1040px;">
+      <div class="flab"><b>профиль</b><span>кошка и суточная цель</span></div>
+      <div style="width:100%;height:640px;"><dc-import name="OfeliaFoodLarge" tab="profile" style="width:100%;height:100%;" hint-size="100%,100%"></dc-import></div>
+    </div>
+  </div>
+
+  <!-- ============ FORMS ============ -->
+  <div class="sec"><h2>Формы</h2><span>на десктопе — поверх полноэкранного режима, на телефоне — на весь экран</span></div>
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:24px;align-items:flex-start;margin-bottom:64px;">
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Кормление</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div><span class="fl">Что дали</span>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button class="opt" type="button" aria-pressed="false"><span class="dot" style="background:var(--dry);"></span>Сухой корм, индейка<span class="k">385/100 г</span></button>
+            <button class="opt" type="button" aria-pressed="true"><span class="dot" style="background:var(--wet);"></span>Паштет с кроликом<span class="k">80/100 г</span></button>
+            <button class="opt" type="button" aria-pressed="false"><span class="dot" style="background:var(--treat);"></span>Подушечки с курицей<span class="k">450/100 г</span></button>
+            <a href="#" style="font-size:13.5px;font-weight:600;padding:4px 2px;">Другой корм или новый</a>
+          </div>
+        </div>
+        <div><label class="fl" for="f-g">Сколько</label>
+          <div class="big"><input id="f-g" inputmode="decimal" value="85"><span>г</span></div>
+          <div class="pills" style="margin-top:8px;"><button class="pill on" type="button">Пауч целиком · 85</button><button class="pill" type="button">Половина · 42</button><button class="pill add" type="button">+ Порция</button></div>
+        </div>
+        <div><span class="fl">Как съела</span><div class="seg" role="group" aria-label="Как съела"><button type="button" aria-pressed="true">Всё сразу</button><button type="button" aria-pressed="false">Оставили в миске</button></div></div>
+        <div class="when"><span class="sm" style="font-size:13.5px;color:var(--text-2);">Сейчас, <span class="mono">19:05</span></span><a href="#">Время или заметка</a></div>
+      </div>
+      <div class="sh-f">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span class="sm">После записи</span><span><b class="mono" style="font-weight:600;">240</b> / 240 ккал</span></div>
+        <div class="bowl" style="height:8px;"><span style="flex:77;background:var(--dry);opacity:.4;"></span><span style="flex:68;background:var(--wet);opacity:.4;"></span><span style="flex:27;background:var(--treat);opacity:.4;"></span><span style="flex:68;background:var(--wet);"></span></div>
+        <button class="bp" type="button" style="height:44px;border-radius:11px;margin-top:4px;">Записать 68 ккал</button>
+      </div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Остаток в миске</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);"><span class="dot pend"></span><div><p style="font-weight:600;font-size:14px;">Паштет с кроликом</p><p class="sm">Выдали <span class="mono">85 г</span> в <span class="mono">19:05</span></p></div></div>
+        <div><label class="fl" for="r-g">Сколько осталось</label>
+          <div class="big"><input id="r-g" inputmode="decimal" value="25"><span>г</span></div>
+          <div class="pills" style="margin-top:8px;"><button class="pill" type="button">Ничего не осталось</button><button class="pill" type="button">Не тронула</button></div>
+        </div>
+        <div><p style="font-size:15px;">Съела <b class="mono" style="font-weight:600;">60 г</b> — <b class="mono" style="font-weight:600;">48 ккал</b></p></div>
+        <div class="when"><span class="sm" style="font-size:13.5px;color:var(--text-2);">Взвесили сейчас, <span class="mono">21:40</span></span><a href="#">Изменить</a></div>
+      </div>
+      <div class="sh-f">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span class="sm">За день станет</span><span><b class="mono" style="font-weight:600;">220</b> / 240 ккал</span></div>
+        <div class="bowl" style="height:8px;"><span style="flex:77;background:var(--dry);opacity:.4;"></span><span style="flex:68;background:var(--wet);opacity:.4;"></span><span style="flex:27;background:var(--treat);opacity:.4;"></span><span style="flex:48;background:var(--wet);"></span><span style="flex:20;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border);"></span></div>
+        <button class="bp" type="button" style="height:44px;border-radius:11px;margin-top:4px;">Сохранить остаток</button>
+      </div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Смена воды</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <p class="sm" style="display:flex;align-items:center;gap:8px;font-size:13px;"><span class="av av-k" style="width:20px;height:20px;font-size:9px;">К</span>Прошлая смена — Карина, <span class="mono">22.11</span>, налили <span class="mono">1,5 л</span></p>
+        <div><label class="fl" for="w-l">Осталось перед сменой</label>
+          <div class="big"><input id="w-l" inputmode="decimal" value="0,6"><span>л</span></div>
+          <div class="pills" style="margin-top:8px;"><button class="pill" type="button">Не измеряли</button><button class="pill" type="button">Пустой</button></div>
+        </div>
+        <div><label class="fl" for="w-a">Налили</label><input class="inp" id="w-a" value="1,5 л" style="font-family:'JetBrains Mono',monospace;"><div class="pills" style="margin-top:8px;"><button class="pill on" type="button">Полный бак · 1,5 л</button></div></div>
+        <div style="padding:10px 12px;border-radius:11px;background:var(--accent-soft);font-size:13.5px;">За неделю выпила <b class="mono" style="font-weight:600;">≈ 0,9 л</b> — <b class="mono" style="font-weight:600;">≈ 130 мл</b> в день</div>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">Сохранить смену</button></div>
+    </div>
+  </div>
+
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:24px;align-items:flex-start;margin-bottom:64px;">
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Вес</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div><label class="fl" for="wt">Сколько весит</label><div class="big"><input id="wt" inputmode="decimal" value="4,30"><span>кг</span></div><p class="sm" style="margin-top:8px;">Удобно: взвеситься с кошкой на руках и вычесть свой вес.</p></div>
+        <div style="padding:10px 12px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);font-size:13.5px;">Прошлый раз <span class="mono">4,32 кг</span>, 21 ноября — <b style="color:var(--on-success);">−20 г</b></div>
+        <div class="when"><span class="sm" style="font-size:13.5px;color:var(--text-2);">Сейчас, <span class="mono">21:45</span></span><a href="#">Время или заметка</a></div>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">Сохранить вес</button></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Новый корм</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div><label class="fl" for="nf-n">Название</label><input class="inp f" id="nf-n" value="Паштет с уткой"></div>
+        <div><span class="fl">Тип</span><div class="seg" role="group" aria-label="Тип корма"><button type="button" aria-pressed="false">Сухой</button><button type="button" aria-pressed="true">Влажный</button><button type="button" aria-pressed="false">Лакомство</button></div></div>
+        <div><label class="fl" for="nf-k">Калорийность с упаковки</label><div style="display:flex;gap:8px;"><input class="inp" id="nf-k" value="92" style="width:90px;font-family:'JetBrains Mono',monospace;"><select class="inp" aria-label="Единица" style="flex:1;"><option>ккал на 100 г</option><option>ккал на 1 кг</option><option>ккал на упаковку</option></select></div></div>
+        <div><span class="fl">Порции</span>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 34px;gap:6px;"><input class="inp" aria-label="Название порции" value="Пауч целиком"><input class="inp" aria-label="Граммы" value="85 г" style="font-family:'JetBrains Mono',monospace;"><button class="x" type="button" aria-label="Убрать порцию" style="height:42px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 34px;gap:6px;"><input class="inp" aria-label="Название порции" value="Половина"><input class="inp" aria-label="Граммы" value="42 г" style="font-family:'JetBrains Mono',monospace;"><button class="x" type="button" aria-label="Убрать порцию" style="height:42px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+            <a href="#" style="font-size:13.5px;font-weight:600;padding:2px;">+ Ещё порция</a>
+          </div>
+        </div>
+        <div><span class="fl">Можно кормить только им</span><div class="seg" role="group" aria-label="Назначение"><button type="button" aria-pressed="true">Полнорационный</button><button type="button" aria-pressed="false">Дополнительный</button></div></div>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">Сохранить корм</button></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Лекарство или добавка</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div><label class="fl" for="nm-n">Название</label><input class="inp" id="nm-n" value="Капли для ушей"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><span class="fl">Что это</span><div class="seg" role="group" aria-label="Что это"><button type="button" aria-pressed="false">Добавка</button><button type="button" aria-pressed="true">Лекарство</button></div></div>
+          <div><label class="fl" for="nm-d">Доза</label><input class="inp" id="nm-d" value="2 капли в ухо"></div>
+        </div>
+        <div><span class="fl">Как часто</span>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button class="opt" type="button" aria-pressed="false">Раз в день</button>
+            <div class="opt" style="flex-direction:column;align-items:stretch;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring);">
+              <span style="font-weight:500;">Несколько раз в день</span>
+              <div class="pills" style="margin-top:8px;"><span class="pill on mono" style="font-family:'JetBrains Mono',monospace;">08:00 ×</span><span class="pill on" style="font-family:'JetBrains Mono',monospace;">20:00 ×</span><button class="pill add" type="button">+ Время</button></div>
+            </div>
+            <button class="opt" type="button" aria-pressed="false">Раз в N дней, недель или месяцев</button>
+          </div>
+        </div>
+        <div><span class="fl">Как долго</span><div class="seg" role="group" aria-label="Как долго"><button type="button" aria-pressed="false">Постоянно</button><button type="button" aria-pressed="true">Курсом</button></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;"><input class="inp" aria-label="С" value="с 20.11" style="font-family:'JetBrains Mono',monospace;"><input class="inp" aria-label="По" value="по 03.12" style="font-family:'JetBrains Mono',monospace;"></div>
+          <p class="sm" style="margin-top:6px;">14 дней, 28 приёмов. Потом уйдёт в завершённые.</p>
+        </div>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">Сохранить</button></div>
+    </div>
+  </div>
+
+  <!-- ============ OPEN QUESTIONS ============ -->
+  <div class="sec"><h2>Открытые вопросы</h2></div>
+  <div style="display:flex;gap:14px;max-width:1260px;">
+    <div class="ncard" style="flex:1;"><h3>Калории добавок</h3><p>Паста и витамины — без ккал или считать их в миску как «другое»?</p></div>
+    <div class="ncard" style="flex:1;"><h3>Напоминания</h3><p>Нужно ли что-то кроме подсветки на плитке, когда подошло время лекарства?</p></div>
+    <div class="ncard" style="flex:1;"><h3>Аватары · решено: как в коде</h3><p>Аккаунт — скруглённый квадрат (MemberAvatar), один из 6 тонов по id аккаунта, свои записи обведены кольцом акцента. Круги остаются только у дежурных без аккаунта в «Лотке».</p></div>
+    <div class="ncard" style="flex:1;"><h3>Название модуля</h3><p>«Лоток Офелии» → «Офелия: туалет», чтобы стоять рядом с «Офелия: питание».</p></div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
