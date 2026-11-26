@@ -19,6 +19,7 @@ the two disagree, the artifact wins.
 | `06 Виджет - Паспорт-чекер.dc.html` | Passport-checker widget flow |
 | `07`, `08` | Explorations not yet folded into their owner files (component `OfeliaPanels.dc.html`) |
 | `09 Виджет - Офелия питание.dc.html` | "Ofelia: food" widget flow (component `OfeliaFoodLarge.dc.html`) |
+| `10 Виджет - Кошки.dc.html` | "Cats" widget flow (component `CatsLarge.dc.html`) |
 | `compat.json` | The page list, as the design project holds it |
 | `support.js` | The `.dc.html` runtime the pages load |
 
