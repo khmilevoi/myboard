@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
+    "aws4fetch": "^1.0.20",
     "cookie": "^2.0.1",
     "croner": "^10.0.1",
     "errore": "catalog:",

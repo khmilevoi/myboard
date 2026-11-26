@@ -26,6 +26,9 @@ pnpm-debug.log*
 # secrets bundle of the `branch` rpi environment (see .env.branch.example)
 .env.branch
 
+# local file-slot blobs of host-run dev and e2e (FILES_FS_DIR default)
+.data/
+
 # editor / os
 .DS_Store
 .idea/
