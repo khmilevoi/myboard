@@ -315,7 +315,7 @@ describe('cats auto-approve cron', () => {
     expect(append).toHaveBeenCalledTimes(6)
     expect(append).not.toHaveBeenCalledWith(
       ledgerKey(OFELIA_ID),
-      expect.objectContaining({ litterId: OFELIA_ID, date: '2026-06-13' }),
+      expect.objectContaining({ date: '2026-06-13' }),
     )
   })
 })
