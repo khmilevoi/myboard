@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-import type { ScopedBranch } from '@shared/storage/scoped'
+import { EXPECTED_ACCOUNT_HEADER, type ScopedBranch } from '@shared/storage/scoped'
 import type Router from 'find-my-way'
 
 import type { AuthDeps } from '../auth/handlers'
@@ -18,6 +18,7 @@ import {
 import { runExclusive } from './key-lock'
 import { AppendPayloadSchema, PrefixQuerySchema, PutPayloadSchema, formatZodError } from './schemas'
 import {
+  ScopedAccountMismatchError,
   ScopedKeyInvalidError,
   ScopedRouteUnknownError,
   ScopedSessionRequiredError,
@@ -85,6 +86,10 @@ export function registerScopedStorageRoutes(deps: ScopedRoutesDeps): void {
 
     const session = await requireSession(authDeps, req)
     if (isAuthResult(session)) return first
+    const expected = req.headers[EXPECTED_ACCOUNT_HEADER]
+    if (typeof expected === 'string' && expected !== session.accountId) {
+      return new ScopedAccountMismatchError()
+    }
     return resolveScopedNamespace({ owners, branch, accountId: session.accountId })
   }
 

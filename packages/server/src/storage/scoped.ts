@@ -82,6 +82,16 @@ export class ScopedSessionRequiredError extends errore.createTaggedError({
   publicMessage = 'Session required'
 }
 
+export class ScopedAccountMismatchError extends errore.createTaggedError({
+  name: 'ScopedAccountMismatchError',
+  message: 'Session account differs from the expected account',
+  extends: ScopedStorageError,
+}) {
+  status = 409
+  code = 'scoped_account_mismatch'
+  publicMessage = 'Account changed'
+}
+
 export function resolveScopedNamespace(options: {
   owners: ScopedOwners
   branch: ScopedBranch

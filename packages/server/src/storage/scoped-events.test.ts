@@ -145,6 +145,28 @@ describe('scoped SSE subscriptions', () => {
     }
   })
 
+  it('moves a frame to the new session account when one POST unsubscribes and resubscribes it', async () => {
+    const a = await app.seedSession('A')
+    const b = await app.seedSession('B')
+    const s = await openSse(app.base, a.cookie)
+    try {
+      await postEvents(s.connId, { scoped: { subscribe: [ref] } }, a.cookie)
+      // The session switched to B: the client sends the same frame out and back in.
+      const res = await postEvents(
+        s.connId,
+        { scoped: { unsubscribe: [ref], subscribe: [ref] } },
+        b.cookie,
+      )
+      expect(res.status).toBe(204)
+      await put(scopedUrl(ref), 'from-a', a.cookie)
+      await put(scopedUrl(ref), 'from-b', b.cookie)
+      // A's write no longer reaches this stream; B's does.
+      expect(await s.nextFrame()).toEqual({ key: FRAME_KEY, value: 'from-b' })
+    } finally {
+      s.close()
+    }
+  })
+
   it('keeps every scoped namespace outside the plain-subscribe allowlist', () => {
     const o = makeScopedOwners({
       widgetTypeIds: ['notes-widget'],

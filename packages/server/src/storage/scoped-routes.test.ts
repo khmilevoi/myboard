@@ -73,6 +73,34 @@ describe('scoped storage routes', () => {
     expect((await get(acct('draft'), a.cookie)).status).toBe(404)
   })
 
+  it('refuses with 409 when the expected-account header names another account', async () => {
+    const a = await app.seedSession('A')
+    const b = await app.seedSession('B')
+    await put(acct('draft'), 'b-value', b.cookie)
+    const expecting = (accountId: string, cookie: string) => ({
+      cookie,
+      'x-myboard-expected-account': accountId,
+    })
+
+    const mismatch = await fetch(`${app.base}${acct('draft')}`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'X-Requested-With': 'MyBoard',
+        ...expecting(a.accountId, b.cookie),
+      },
+      body: JSON.stringify({ value: 'meant-for-a' }),
+    })
+    expect(mismatch.status).toBe(409)
+    expect(await mismatch.json()).toMatchObject({ error: { code: 'scoped_account_mismatch' } })
+    expect(await getJson(acct('draft'), b.cookie)).toEqual({ value: 'b-value' })
+
+    const match = await fetch(`${app.base}${acct('draft')}`, {
+      headers: expecting(a.accountId, a.cookie),
+    })
+    expect(match.status).toBe(404)
+  })
+
   it('returns 401 session_missing for account scope without a cookie', async () => {
     const res = await get(acct('draft'))
     expect(res.status).toBe(401)

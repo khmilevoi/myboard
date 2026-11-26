@@ -1,5 +1,6 @@
 import type { HttpLike } from '@shared/http/client'
 import {
+  EXPECTED_ACCOUNT_HEADER,
   isValidRelativeKey,
   scopedBranchPath,
   type ScopedBranch,
@@ -15,7 +16,13 @@ import type { SseDeliver } from './sse-client'
 export type ScopedHttpStorageDeps = {
   baseUrl: string
   http: HttpLike
-  registerScoped: (ref: ScopedStorageRef, deliver: SseDeliver) => () => void
+  registerScoped: (ref: ScopedStorageRef, deliver: SseDeliver, account?: string) => () => void
+  /**
+   * The account this storage serves (account branches only). Sent as the expected-account header
+   * so the server refuses with 409 instead of acting on a session that has switched to another
+   * account, and tagged onto SSE registrations so a switch re-registers them.
+   */
+  account?: string
 }
 
 const ValueEnvelopeSchema = z.object({ value: z.unknown() })
@@ -30,11 +37,15 @@ export function makeScopedHttpStorage(
   const keyUrl = (key: string) => `${branchUrl}/${encodeURIComponent(key)}`
   // The reason never embeds the key: it is caller-supplied text that would leak into logs.
   const invalidKey = () => new StorageError({ reason: 'invalid_key' })
+  const headers =
+    deps.account === undefined ? undefined : { [EXPECTED_ACCOUNT_HEADER]: deps.account }
+  const withHeaders = <O extends object>(options?: O) =>
+    headers === undefined ? options : { ...options, headers }
 
   return {
     async get<T>(key: string, schema?: z.ZodType<T>): Promise<StorageError | T | null> {
       if (!isValidRelativeKey(key)) return invalidKey()
-      const res = await http.get(keyUrl(key))
+      const res = await http.get(keyUrl(key), withHeaders())
       if (res instanceof Error) return new StorageError({ reason: 'server GET failed', cause: res })
       if (res.status === 404) return null
       if (!res.ok) return new StorageError({ reason: `server GET ${res.status}` })
@@ -47,14 +58,17 @@ export function makeScopedHttpStorage(
 
     async set<T>(key: string, value: T, options?: StorageOptions): Promise<StorageError | void> {
       if (!isValidRelativeKey(key)) return invalidKey()
-      const res = await http.put(keyUrl(key), { json: { value, ttlMs: options?.ttlMs } })
+      const res = await http.put(
+        keyUrl(key),
+        withHeaders({ json: { value, ttlMs: options?.ttlMs } }),
+      )
       if (res instanceof Error) return new StorageError({ reason: 'server PUT failed', cause: res })
       if (!res.ok) return new StorageError({ reason: `server PUT ${res.status}` })
     },
 
     async delete(key: string): Promise<StorageError | void> {
       if (!isValidRelativeKey(key)) return invalidKey()
-      const res = await http.delete(keyUrl(key))
+      const res = await http.delete(keyUrl(key), withHeaders())
       if (res instanceof Error) {
         return new StorageError({ reason: 'server DELETE failed', cause: res })
       }
@@ -63,7 +77,7 @@ export function makeScopedHttpStorage(
 
     async has(key: string): Promise<StorageError | boolean> {
       if (!isValidRelativeKey(key)) return invalidKey()
-      const res = await http.get(keyUrl(key))
+      const res = await http.get(keyUrl(key), withHeaders())
       if (res instanceof Error) return new StorageError({ reason: 'server HAS failed', cause: res })
       if (res.status === 404) return false
       if (!res.ok) return new StorageError({ reason: `server HAS ${res.status}` })
@@ -73,7 +87,7 @@ export function makeScopedHttpStorage(
     async keys(prefix?: string): Promise<StorageError | string[]> {
       if (prefix && !isValidRelativeKey(prefix)) return invalidKey()
       const url = prefix ? `${branchUrl}?prefix=${encodeURIComponent(prefix)}` : branchUrl
-      const res = await http.get(url)
+      const res = await http.get(url, withHeaders())
       if (res instanceof Error)
         return new StorageError({ reason: 'server KEYS failed', cause: res })
       if (!res.ok) return new StorageError({ reason: `server KEYS ${res.status}` })
@@ -90,9 +104,12 @@ export function makeScopedHttpStorage(
       options?: { cap?: number },
     ): Promise<StorageError | void> {
       if (!isValidRelativeKey(key)) return invalidKey()
-      const res = await http.post(`${keyUrl(key)}/append`, {
-        json: { entry, ...(options?.cap !== undefined ? { cap: options.cap } : {}) },
-      })
+      const res = await http.post(
+        `${keyUrl(key)}/append`,
+        withHeaders({
+          json: { entry, ...(options?.cap !== undefined ? { cap: options.cap } : {}) },
+        }),
+      )
       if (res instanceof Error) {
         return new StorageError({ reason: 'server APPEND failed', cause: res })
       }
@@ -112,7 +129,7 @@ export function makeScopedHttpStorage(
       }
       return subscribeStorageKey({
         getCurrent: () => this.get<T>(key, schema),
-        register: (deliver) => deps.registerScoped({ ...branch, key }, deliver),
+        register: (deliver) => deps.registerScoped({ ...branch, key }, deliver, deps.account),
         listener,
         schema,
       })

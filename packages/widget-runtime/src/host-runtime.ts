@@ -1,6 +1,6 @@
 import { HttpClient, type HttpLike } from '@shared/http/client'
 import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
-import type { ScopedBranch, ScopedStorageRef } from '@shared/storage/scoped'
+import type { ScopedStorageRef, ValidScopedBranch } from '@shared/storage/scoped'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 
 import { makeWidgetIdentity, type WidgetIdentity } from './identity'
@@ -29,7 +29,7 @@ export type HostRuntime = {
   makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage
   makeScopedStorage(scope: string): ScopedStorage
   /** Scoped-route storage for one branch; account branches are gated on the viewer's account. */
-  makeBranchStorage(branch: ScopedBranch): ScopedStorage
+  makeBranchStorage(branch: ValidScopedBranch): ScopedStorage
   makeWidgetApi<Events extends WidgetEventMap>(options: {
     instanceId: string
     typeId: string
@@ -58,8 +58,8 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
       openEventStream: options.openEventStream ?? makeEventSourceStream(),
     }))
   const registerKey = (fullKey: string, deliver: SseDeliver) => getSse().add(fullKey, deliver)
-  const registerScoped = (ref: ScopedStorageRef, deliver: SseDeliver) =>
-    getSse().addScoped(ref, deliver)
+  const registerScoped = (ref: ScopedStorageRef, deliver: SseDeliver, account?: string) =>
+    getSse().addScoped(ref, deliver, account)
 
   const makeScoped = (scope: string): ScopedStorage => {
     // The trailing colon is part of the persistence contract — read the header comment in
@@ -76,18 +76,23 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
   // Lazy too: the gate first subscribes to identity.viewer on its first use, never here.
   const accountGate = makeIdentityAccountGate(identity)
 
-  const makeBranchStorage = (branch: ScopedBranch): ScopedStorage => {
-    const server = makeScopedHttpStorage(branch, { baseUrl, http, registerScoped })
+  const makeBranchStorage = (branch: ValidScopedBranch): ScopedStorage => {
     if (branch.scope !== 'account') {
-      return { client: makeDexieStorage(localNamespaceFor(branch, null)), server }
+      return {
+        client: makeDexieStorage(localNamespaceFor(branch, null)),
+        server: makeScopedHttpStorage(branch, { baseUrl, http, registerScoped }),
+      }
     }
-    // The server branch resolves the account from the session itself; gating it too keeps both
-    // halves of an account branch failing and waiting the same way while no account is known.
+    // The server resolves the account from the session itself; the gate binds each built server
+    // storage to the account the UI shows, so a session that switched accounts answers 409 rather
+    // than serving another account's data, and SSE registrations follow the switch.
     return {
       client: makeAccountGatedStorage(accountGate, (accountId) =>
         makeDexieStorage(localNamespaceFor(branch, accountId)),
       ),
-      server: makeAccountGatedStorage(accountGate, () => server),
+      server: makeAccountGatedStorage(accountGate, (accountId) =>
+        makeScopedHttpStorage(branch, { baseUrl, http, registerScoped, account: accountId }),
+      ),
     }
   }
 

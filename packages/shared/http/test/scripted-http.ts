@@ -6,7 +6,12 @@ import {
 } from '../client'
 
 export type ScriptedStep = { status: number; body?: unknown } | 'network-error'
-export type ScriptedCall = { method: string; url: string; json?: unknown }
+export type ScriptedCall = {
+  method: string
+  url: string
+  json?: unknown
+  headers?: Record<string, string>
+}
 
 /**
  * Test-only scripted HttpLike: each URL maps to a queue of steps consumed one
@@ -19,7 +24,7 @@ export function makeScriptedHttp(script: Record<string, ScriptedStep[]>) {
     url: string,
     options?: HttpRequestOptions,
   ): Promise<HttpTransportError | HttpResponse> => {
-    calls.push({ method, url, json: options?.json })
+    calls.push({ method, url, json: options?.json, headers: options?.headers })
     const step = script[url]?.shift()
     if (!step) throw new Error(`unexpected ${method} ${url}`)
     if (step === 'network-error') {
