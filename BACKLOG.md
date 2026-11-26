@@ -173,6 +173,25 @@ so it is a product decision before it is a storage one.
 **Trigger.** The ledger read shows up in a slow widget mount, or the history list
 becomes unusable to scroll.
 
+## The pre-module ofelia keys are still in Valkey
+
+**Today.** The `ofelia-to-module` server migration copies the old widget-scoped
+`w:t:ofelia-poop-duty:*` keys (the ledger and the weekly comments) and the
+`cron:ofelia-poop-duty:autoApproveDay` cursor into the Ofelia module's keys, and
+leaves the originals where they were. Nothing reads them any more.
+
+**Why it is tolerable.** They are the rollback: a release that goes back to the
+widget-owned server still finds its data, at the state it had when the module
+release shipped.
+
+**Shape to consider.** In a release after the module one has shipped and rollback
+past it is no longer wanted, delete every `w:t:ofelia-poop-duty:*` key and the old
+`cron:ofelia-poop-duty:autoApproveDay` cursor (a one-shot server migration, like
+the copy).
+
+**Trigger.** The release after the Ofelia module release, once it has been on
+production long enough that nobody would roll back past it.
+
 ## `POST /api/storage/:key/append` still writes whatever body it is given
 
 **Today.** The PR #27 review fenced the generic storage routes off the auth,
