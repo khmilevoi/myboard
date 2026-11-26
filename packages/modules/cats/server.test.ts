@@ -1,9 +1,11 @@
 // @vitest-environment node
 
+import { context as reatomContext, wrap } from '@reatom/core'
 import type { ModuleCronContext, ModuleServerContext } from '@shared/modules/contracts'
 import type { WidgetServerStorage } from '@shared/widgets/contracts'
 import { PublicWidgetError } from '@shared/widgets/public-error'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { catsActionSchemas } from './domain/actions'
 import { defaultCatProfile } from './domain/cat'
@@ -19,7 +21,12 @@ import {
 } from './domain/keys'
 import { CatRegistryEventsSchema, foldCatRegistry } from './domain/registry'
 import { DEFAULT_LITTER_SETTINGS, type LitterSettings } from './domain/roster'
+import { makeTestCatsModel } from './model/testing'
 import catsServer from './server'
+
+afterEach(() => {
+  reatomContext.reset()
+})
 
 const KARINA = { accountId: 'a1', name: 'Карина' }
 // 2026-06-16 12:00 Europe/Warsaw
@@ -388,8 +395,10 @@ describe('cats auto-approve cron', () => {
  * A Map-backed shared storage whose `append` stamps `id` and `ts` the way the real one does, so a
  * handler's later reads see its earlier writes.
  */
-function makeMapStorage(seed: Record<string, unknown> = {}) {
+function makeMapStorage(seed: Record<string, unknown> = {}, failAppendTo?: string) {
   const store = new Map<string, unknown>(Object.entries(seed))
+  /** Every write, in call order, as `set <key>` / `append <key>`. */
+  const writes: string[] = []
   let seq = 0
   const storage: WidgetServerStorage = {
     get: async (key, schema) => {
@@ -398,6 +407,7 @@ function makeMapStorage(seed: Record<string, unknown> = {}) {
       return schema.parse(value)
     },
     set: async (key, value) => {
+      writes.push(`set ${key}`)
       store.set(key, value)
     },
     delete: async (key) => {
@@ -406,12 +416,14 @@ function makeMapStorage(seed: Record<string, unknown> = {}) {
     has: async (key) => store.has(key),
     keys: async () => [...store.keys()],
     append: async (key, entry) => {
+      writes.push(`append ${key}`)
+      if (key === failAppendTo) return new Error(`append ${key} failed`)
       seq += 1
       const current = (store.get(key) as unknown[] | undefined) ?? []
       store.set(key, [...current, { id: `id-${seq}`, ts: NOW + seq, ...entry }])
     },
   }
-  return { store, storage }
+  return { store, storage, writes }
 }
 
 const catAdd = (catId: string, ts: number) => ({ id: `c-${catId}`, ts, catId, op: 'add' })
@@ -423,18 +435,23 @@ const litterAdd = (litterId: string, ts: number) => ({
 })
 
 /** Ofelia registered with her own litter, plus `extraCats` sharing it. */
-function makeRegistryContext(extraCats: string[] = []) {
-  const { store, storage } = makeMapStorage({
-    [CATS_REGISTRY_KEY]: [OFELIA_ID, ...extraCats].map((catId, index) => catAdd(catId, index + 1)),
-    [LITTERS_REGISTRY_KEY]: [litterAdd(OFELIA_ID, 1)],
-  })
+function makeRegistryContext(extraCats: string[] = [], failAppendTo?: string) {
+  const { store, storage, writes } = makeMapStorage(
+    {
+      [CATS_REGISTRY_KEY]: [OFELIA_ID, ...extraCats].map((catId, index) =>
+        catAdd(catId, index + 1),
+      ),
+      [LITTERS_REGISTRY_KEY]: [litterAdd(OFELIA_ID, 1)],
+    },
+    failAppendTo,
+  )
   const context = {
     moduleId: 'cats',
     viewer: KARINA,
     now: () => NOW,
     api: { storage: { shared: storage } },
   } as unknown as ModuleServerContext<'shared'>
-  return { store, context }
+  return { store, context, writes }
 }
 
 const PROFILE_FIELDS = {
@@ -458,7 +475,7 @@ const litterIdsIn = (store: Map<string, unknown>) =>
 
 describe('cats server: registries, profile, goal and weight', () => {
   it('adds a cat with a new litter: litter first, then the profile, then the registry add', async () => {
-    const { store, context } = makeRegistryContext()
+    const { store, context, writes } = makeRegistryContext()
 
     const result = await run('addCat', { name: ' Буся ', litter: { kind: 'new' } }, context)
 
@@ -477,17 +494,54 @@ describe('cats server: registries, profile, goal and weight', () => {
     expect(store.get(CATS_REGISTRY_KEY)).toContainEqual(
       expect.objectContaining({ catId, op: 'add' }),
     )
-    // Map keys keep insertion order: the seeded registries, then the writes in handler order.
-    expect([...store.keys()]).toEqual([
-      CATS_REGISTRY_KEY,
-      LITTERS_REGISTRY_KEY,
-      litterSettingsKey(newLitterId),
-      catProfileKey(catId),
+    expect(writes).toEqual([
+      `append ${LITTERS_REGISTRY_KEY}`,
+      `set ${litterSettingsKey(newLitterId)}`,
+      `set ${catProfileKey(catId)}`,
+      `append ${CATS_REGISTRY_KEY}`,
     ])
   })
 
+  it('leaves no cat in the model when the registry add fails after the profile write', async () => {
+    const { store, context, writes } = makeRegistryContext([], CATS_REGISTRY_KEY)
+
+    const result = await run(
+      'addCat',
+      { name: 'Буся', litter: { kind: 'existing', litterId: OFELIA_ID } },
+      context,
+    )
+
+    expect(result).toBeInstanceOf(Error)
+    const profileKeys = [...store.keys()].filter((key) => /^cat\/[^/]+\/profile$/.test(key))
+    expect(profileKeys).toHaveLength(1)
+    expect(store.get(profileKeys[0])).toEqual(defaultCatProfile('Буся', OFELIA_ID))
+    expect(writes).toEqual([`set ${profileKeys[0]}`, `append ${CATS_REGISTRY_KEY}`])
+    expect(foldCatRegistry(CatRegistryEventsSchema.parse(store.get(CATS_REGISTRY_KEY)))).toEqual({
+      active: [OFELIA_ID],
+      archived: [],
+    })
+
+    // A client model over exactly what the half-finished request left behind.
+    const clientStorage = createFakeStorage()
+    for (const [key, value] of store) void clientStorage.set(key, value)
+    void clientStorage.set(catProfileKey(OFELIA_ID), defaultCatProfile('Офелия', OFELIA_ID))
+    const { model } = makeTestCatsModel({ storage: clientStorage })
+
+    await reatomContext.start(async () => {
+      const off = model.cats.subscribe(() => {})
+      const read = wrap(() => model.cats())
+
+      await vi.waitFor(() =>
+        expect(read()).toEqual([
+          { id: OFELIA_ID, name: 'Офелия', avatar: null, litterId: OFELIA_ID },
+        ]),
+      )
+      off()
+    })
+  })
+
   it('adds a cat to an existing litter', async () => {
-    const { store, context } = makeRegistryContext()
+    const { store, context, writes } = makeRegistryContext()
 
     const result = await run(
       'addCat',
@@ -498,6 +552,7 @@ describe('cats server: registries, profile, goal and weight', () => {
     const { catId } = addedCat(result)
     expect(store.get(catProfileKey(catId))).toEqual(defaultCatProfile('Буся', OFELIA_ID))
     expect(litterIdsIn(store)).toEqual([OFELIA_ID])
+    expect(writes).toEqual([`set ${catProfileKey(catId)}`, `append ${CATS_REGISTRY_KEY}`])
   })
 
   it('refuses an unknown existing litter and writes nothing', async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   CatRegistryEventsSchema,
@@ -90,11 +90,14 @@ describe('foldCatRegistry', () => {
 
 describe('CatRegistryEventsSchema', () => {
   it('drops an invalid element instead of failing the array', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const valid = cat('add', 'a')
 
     expect(
       CatRegistryEventsSchema.parse([valid, { ...valid, catId: 'Bad/Id' }, { op: 'add' }]),
     ).toEqual([valid])
+    expect(warn).toHaveBeenCalledTimes(2)
+    warn.mockRestore()
   })
 })
 
