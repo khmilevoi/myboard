@@ -1,4 +1,5 @@
 import { ACCOUNT_AVATAR_PATH, FileRefSchema, type FileRef } from '@shared/files/contract'
+import { FileImageRuleError, type FileImageRuleReason } from '@shared/files/image-rules'
 import type { HttpLike } from '@shared/http/client'
 import * as errore from 'errore'
 import { z } from 'zod'
@@ -54,9 +55,16 @@ export async function deleteAvatar(
 
 const UNREADABLE_COPY = 'Не получилось прочитать файл. Выберите фото в JPEG, PNG или WebP.'
 const FAILED_COPY = 'Не удалось сохранить фото. Попробуйте ещё раз.'
+const RULE_COPY: Record<FileImageRuleReason, string> = {
+  not_square: 'Фото должно быть квадратным. Выберите область заново.',
+  too_large: 'Фото слишком большое по размеру. Выберите область поменьше.',
+  too_small: 'Фото слишком маленькое. Выберите фото побольше.',
+  not_image: UNREADABLE_COPY,
+}
 
 /** User-facing copy for an avatar failure — design page 03, section 1b, state (h). */
 export function describeAvatarError(error: Error): string {
+  if (error instanceof FileImageRuleError) return RULE_COPY[error.reason]
   if (error instanceof AvatarHttpError) {
     return error.reason === 'transport'
       ? 'Не удалось загрузить фото. Проверьте подключение и попробуйте ещё раз.'
@@ -65,6 +73,7 @@ export function describeAvatarError(error: Error): string {
   if (error instanceof AvatarApiError) {
     if (error.status === '413') return 'Фото слишком большое. Выберите другое.'
     if (error.status === '415') return UNREADABLE_COPY
+    if (error.status === '422') return 'Фото не подошло по размерам. Выберите другое.'
     if (error.status === '401') return 'Сессия истекла, войдите снова'
     return FAILED_COPY
   }

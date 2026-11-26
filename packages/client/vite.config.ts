@@ -320,6 +320,9 @@ export default defineConfig(({ command }) => {
         },
       }),
     ],
+    // jSquash finds its .wasm with `new URL(..., import.meta.url)`; dev pre-bundling would move the
+    // glue into .vite/deps and break that path, so serve the packages as they are.
+    optimizeDeps: { exclude: ['@jsquash/webp', '@jsquash/jpeg', '@jsquash/png'] },
     resolve: {
       alias: {
         '@': resolve(__dirname, './src'),

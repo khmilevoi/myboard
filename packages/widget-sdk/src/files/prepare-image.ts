@@ -1,10 +1,13 @@
+import { AVATAR_POLICY, type FilePolicy } from '@shared/files/contract'
+import { checkImageRules, type FileImageRuleError } from '@shared/files/image-rules'
 import * as errore from 'errore'
+import { encodeWebp, type DecodedImage } from 'image-codec'
 
 /**
  * Browser-side image preparation before an upload: decode (honouring EXIF orientation), crop or
- * scale, re-encode as WebP. The server never processes images, so this is where a 12 MP photo
- * becomes a few dozen kilobytes. Image-only on purpose — file slots accept any type, and other
- * files are uploaded as they are.
+ * scale, re-encode as WebP. This is where a 12 MP photo becomes a few dozen kilobytes; the server
+ * only decodes to verify an image-rule slot's upload, it never resizes. Image-only on purpose —
+ * file slots accept any type, and other files are uploaded as they are.
  */
 
 export type ImagePreset = 'avatar' | 'picture'
@@ -33,11 +36,14 @@ export type SquareCrop = { x: number; y: number; size: number }
 export type PrepareImageOptions = {
   /** Avatar only: the square to keep. Clamped to the image; omitted, the centred square. */
   crop?: SquareCrop
+  /** The slot's policy whose image rules the result must meet; the avatar preset defaults it. */
+  policy?: FilePolicy
 }
 
 const AVATAR_SIDE = 256
 const PICTURE_LONGEST_SIDE = 1600
-const QUALITY = 0.86
+/** jSquash's WebP quality, 0–100. */
+const QUALITY = 86
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -88,8 +94,6 @@ export function imageTarget(
 }
 
 type Canvas2D = {
-  fillStyle: string | CanvasGradient | CanvasPattern
-  fillRect(x: number, y: number, w: number, h: number): void
   drawImage(
     image: ImageBitmap,
     sx: number,
@@ -101,48 +105,32 @@ type Canvas2D = {
     dw: number,
     dh: number,
   ): void
+  getImageData(sx: number, sy: number, sw: number, sh: number): ImageData
 }
 
-type Surface = { context: Canvas2D | null; encode(type: string): Promise<Blob | null> }
-
-function makeSurface(width: number, height: number): Surface {
+function context2d(width: number, height: number): Canvas2D | null {
   if (typeof OffscreenCanvas !== 'undefined') {
-    const canvas = new OffscreenCanvas(width, height)
-    return {
-      context: canvas.getContext('2d'),
-      encode: (type) =>
-        canvas.convertToBlob({ type, quality: QUALITY }).catch((cause: unknown) => {
-          console.warn('[prepareImage] convertToBlob failed', cause)
-          return null
-        }),
-    }
+    return new OffscreenCanvas(width, height).getContext('2d')
   }
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
-  return {
-    context: canvas.getContext('2d'),
-    encode: (type) => new Promise((resolve) => canvas.toBlob(resolve, type, QUALITY)),
-  }
+  return canvas.getContext('2d')
 }
 
-async function render(
-  bitmap: ImageBitmap,
-  target: ImageTarget,
-  type: string,
-  background: string | null,
-): Promise<ImagePrepareError | Blob> {
-  const surface = makeSurface(target.width, target.height)
-  if (!surface.context) return new ImagePrepareError({ reason: 'no 2d canvas context' })
-  if (background !== null) {
-    surface.context.fillStyle = background
-    surface.context.fillRect(0, 0, target.width, target.height)
-  }
+/** Draws the crop at its output size and reads the pixels back for the encoder. */
+function render(bitmap: ImageBitmap, target: ImageTarget): ImagePrepareError | DecodedImage {
+  const context = context2d(target.width, target.height)
+  if (!context) return new ImagePrepareError({ reason: 'no 2d canvas context' })
   const { sx, sy, sw, sh, width, height } = target
-  surface.context.drawImage(bitmap, sx, sy, sw, sh, 0, 0, width, height)
-  const blob = await surface.encode(type)
-  if (blob === null) return new ImagePrepareError({ reason: 'encoding failed' })
-  return blob
+  context.drawImage(bitmap, sx, sy, sw, sh, 0, 0, width, height)
+  const pixels = errore.try({
+    try: () => context.getImageData(0, 0, width, height),
+    catch: (cause) => new ImagePrepareError({ reason: 'the canvas pixels are unreadable', cause }),
+  })
+  if (pixels instanceof Error) return pixels
+  const image: DecodedImage = { width, height, data: pixels.data }
+  return image
 }
 
 /** The one decode both `readImageSize` and `prepareImage` use, EXIF orientation applied. */
@@ -172,25 +160,33 @@ export async function readImageSize(
 }
 
 /**
- * Decode `file`, crop/scale it for `preset` and encode it as WebP — or as JPEG on a browser that
- * cannot encode WebP (Safari before 17 silently hands back PNG). JPEG has no alpha, so that
- * fallback is drawn over white.
+ * Decode `file` with the browser (EXIF orientation applied — jSquash's decoders ignore it),
+ * crop/scale it for `preset` on a canvas, check the result against the slot's image rules, then
+ * encode it as WebP with jSquash, the same codecs the server decodes with — so every browser
+ * produces WebP, including those whose canvas cannot. A rule break comes back as a
+ * `FileImageRuleError` before any request is made.
  */
 export async function prepareImage(
   file: Blob,
   preset: ImagePreset,
   options: PrepareImageOptions = {},
-): Promise<ImagePrepareError | Blob> {
+): Promise<ImagePrepareError | FileImageRuleError | Blob> {
   const bitmap = await decode(file)
   if (bitmap instanceof Error) return bitmap
 
   const target = imageTarget(preset, bitmap.width, bitmap.height, options.crop)
-  const webp = await render(bitmap, target, 'image/webp', null)
-  if (webp instanceof Error || webp.type === 'image/webp') {
-    bitmap.close()
-    return webp
-  }
-  const jpeg = await render(bitmap, target, 'image/jpeg', '#fff')
+  const image = render(bitmap, target)
   bitmap.close()
-  return jpeg
+  if (image instanceof Error) return image
+
+  const policy = options.policy ?? (preset === 'avatar' ? AVATAR_POLICY : null)
+  if (policy !== null) {
+    const broken = checkImageRules({ mime: 'image/webp', ...target }, policy)
+    if (broken !== undefined) return broken
+  }
+
+  const webp = await encodeWebp(image, { quality: QUALITY })
+  if (webp instanceof Error)
+    return new ImagePrepareError({ reason: 'encoding failed', cause: webp })
+  return new Blob([webp], { type: 'image/webp' })
 }

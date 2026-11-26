@@ -33,6 +33,7 @@
     "@reatom/react": "catalog:",
     "clsx": "catalog:",
     "errore": "catalog:",
+    "image-codec": "workspace:*",
     "lucide-react": "catalog:",
     "radix-ui": "catalog:",
     "react": "catalog:",

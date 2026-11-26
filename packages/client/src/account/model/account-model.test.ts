@@ -1,4 +1,5 @@
 import { context } from '@reatom/core'
+import { FileImageRuleError } from '@shared/files/image-rules'
 import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
@@ -334,6 +335,33 @@ describe('avatar', () => {
 
     expect(await model.uploadAvatar(new Blob(['nope']), null)).toBe(decode)
     expect(calls).toEqual([])
+  })
+
+  it('returns an image-rule break as clear copy without uploading', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const broken = new FileImageRuleError({ reason: 'not_square', mime: 'image/webp', size: '3x2' })
+    const model = createAccountModel({
+      http,
+      storage: createStorage(null),
+      prepareImage: async () => broken,
+    })
+
+    const result = await model.uploadAvatar(new Blob(['png']), null)
+    expect(result).toBe(broken)
+    expect(describeAvatarError(result!)).toBe(
+      'Фото должно быть квадратным. Выберите область заново.',
+    )
+    expect(calls).toEqual([])
+  })
+
+  it('describes the server rejecting the image rules', async () => {
+    const { model } = avatarModel({
+      '/api/files/account/avatar': [
+        { status: 422, body: { error: { code: 'file_image_rejected', reason: 'too_large' } } },
+      ],
+    })
+    const result = await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }), null)
+    expect(describeAvatarError(result!)).toBe('Фото не подошло по размерам. Выберите другое.')
   })
 
   it('returns a transport failure', async () => {

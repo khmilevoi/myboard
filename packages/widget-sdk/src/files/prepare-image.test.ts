@@ -1,33 +1,41 @@
+import { FileImageRuleError } from '@shared/files/image-rules'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ImagePrepareError, imageTarget, prepareImage, readImageSize } from './prepare-image'
 
+// jsdom has neither a real canvas nor WebAssembly codecs worth running here: the encoder is
+// mocked, and the canvas stub hands back zeroed pixels of the requested size.
+const codec = vi.hoisted(() => ({
+  encodeWebp: vi.fn(
+    async (_image: unknown, _options: unknown): Promise<Uint8Array | Error> =>
+      Uint8Array.from([0x52, 0x49, 0x46, 0x46]),
+  ),
+}))
+vi.mock('image-codec', () => codec)
+
 type DrawCall = number[]
 
-/** Records every surface: its size, what was drawn, and the encode requests. */
-function stubOffscreenCanvas(encodesAs: (type: string) => string | null) {
-  const surfaces: { width: number; height: number; draws: DrawCall[]; fills: number }[] = []
+/** Records every surface: its size and what was drawn on it. */
+function stubOffscreenCanvas() {
+  const surfaces: { width: number; height: number; draws: DrawCall[] }[] = []
   class FakeOffscreenCanvas {
     readonly record: (typeof surfaces)[number]
     constructor(width: number, height: number) {
-      this.record = { width, height, draws: [], fills: 0 }
+      this.record = { width, height, draws: [] }
       surfaces.push(this.record)
     }
     getContext() {
       const record = this.record
       return {
-        fillStyle: '',
-        fillRect: () => {
-          record.fills += 1
-        },
         drawImage: (_image: unknown, ...args: number[]) => {
           record.draws.push(args)
         },
+        getImageData: (_x: number, _y: number, width: number, height: number) => ({
+          width,
+          height,
+          data: new Uint8ClampedArray(width * height * 4),
+        }),
       }
-    }
-    async convertToBlob({ type }: { type: string }) {
-      const actual = encodesAs(type)
-      return actual === null ? null : new Blob(['x'], { type: actual })
     }
   }
   vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas)
@@ -44,6 +52,7 @@ function stubBitmap(width: number, height: number) {
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  codec.encodeWebp.mockClear()
 })
 
 describe('imageTarget', () => {
@@ -123,25 +132,30 @@ describe('imageTarget', () => {
 })
 
 describe('prepareImage', () => {
-  it('decodes with EXIF orientation, draws the crop and encodes WebP', async () => {
+  it('decodes with EXIF orientation, draws the crop and encodes WebP with jSquash', async () => {
     const { decode, close } = stubBitmap(4000, 3000)
-    const surfaces = stubOffscreenCanvas((type) => type)
+    const surfaces = stubOffscreenCanvas()
     const file = new Blob(['raw'], { type: 'image/jpeg' })
 
     const result = await prepareImage(file, 'avatar')
 
     expect(result).toBeInstanceOf(Blob)
     expect((result as Blob).type).toBe('image/webp')
+    expect((result as Blob).size).toBe(4)
     expect(decode).toHaveBeenCalledWith(file, { imageOrientation: 'from-image' })
     expect(surfaces).toEqual([
-      { width: 256, height: 256, draws: [[500, 0, 3000, 3000, 0, 0, 256, 256]], fills: 0 },
+      { width: 256, height: 256, draws: [[500, 0, 3000, 3000, 0, 0, 256, 256]] },
     ])
+    expect(codec.encodeWebp).toHaveBeenCalledWith(
+      { width: 256, height: 256, data: expect.any(Uint8ClampedArray) },
+      { quality: 86 },
+    )
     expect(close).toHaveBeenCalled()
   })
 
   it('draws an explicit crop from the same oriented bitmap', async () => {
     const { decode } = stubBitmap(3000, 4000)
-    const surfaces = stubOffscreenCanvas((type) => type)
+    const surfaces = stubOffscreenCanvas()
 
     await prepareImage(new Blob(['raw']), 'avatar', { crop: { x: 100, y: 900, size: 2000 } })
 
@@ -149,16 +163,39 @@ describe('prepareImage', () => {
     expect(surfaces[0]?.draws).toEqual([[100, 900, 2000, 2000, 0, 0, 256, 256]])
   })
 
-  it('falls back to JPEG over white when the browser cannot encode WebP', async () => {
+  it('encodes a picture at its scaled size with no rules by default', async () => {
     stubBitmap(800, 600)
-    // Safari < 17 ignores the requested type and hands back PNG.
-    const surfaces = stubOffscreenCanvas((type) => (type === 'image/webp' ? 'image/png' : type))
+    stubOffscreenCanvas()
 
     const result = await prepareImage(new Blob(['raw']), 'picture')
 
-    expect((result as Blob).type).toBe('image/jpeg')
-    expect(surfaces).toHaveLength(2)
-    expect(surfaces[1]).toMatchObject({ width: 800, height: 600, fills: 1 })
+    expect((result as Blob).type).toBe('image/webp')
+    expect(codec.encodeWebp).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 800, height: 600 }),
+      { quality: 86 },
+    )
+  })
+
+  it('returns the broken image rule before encoding anything', async () => {
+    stubBitmap(100, 120)
+    stubOffscreenCanvas()
+    const policy = { accept: ['image/webp'], maxBytes: 1000, image: { minSide: 200 } }
+
+    const result = await prepareImage(new Blob(['raw']), 'avatar', { policy })
+
+    expect(result).toBeInstanceOf(FileImageRuleError)
+    expect((result as FileImageRuleError).reason).toBe('too_small')
+    expect(codec.encodeWebp).not.toHaveBeenCalled()
+  })
+
+  it('checks a picture against the policy it is given', async () => {
+    stubBitmap(800, 600)
+    stubOffscreenCanvas()
+    const policy = { accept: ['image/*'], maxBytes: 1000, image: { square: true } }
+
+    const result = await prepareImage(new Blob(['raw']), 'picture', { policy })
+
+    expect((result as FileImageRuleError).reason).toBe('not_square')
   })
 
   it('returns an ImagePrepareError when the file cannot be decoded', async () => {
@@ -173,9 +210,9 @@ describe('prepareImage', () => {
   })
 
   it('returns an ImagePrepareError when encoding fails', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
     stubBitmap(10, 10)
-    stubOffscreenCanvas(() => null)
+    stubOffscreenCanvas()
+    codec.encodeWebp.mockResolvedValueOnce(new Error('wasm failed'))
     expect(await prepareImage(new Blob(['raw']), 'avatar')).toBeInstanceOf(ImagePrepareError)
   })
 
@@ -189,14 +226,12 @@ describe('prepareImage', () => {
     const drawImage = vi.fn()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       drawImage,
-      fillRect: vi.fn(),
-      fillStyle: '',
+      getImageData: (_x: number, _y: number, width: number, height: number) => ({
+        width,
+        height,
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
     } as unknown as CanvasRenderingContext2D)
-    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(
-      function (this: HTMLCanvasElement, callback, type) {
-        callback(new Blob(['x'], { type }))
-      },
-    )
 
     const result = await prepareImage(new Blob(['raw']), 'avatar')
     expect((result as Blob).type).toBe('image/webp')
