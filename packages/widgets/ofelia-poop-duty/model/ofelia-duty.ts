@@ -214,6 +214,7 @@ export const ofeliaDutyModel = ({ ofelia }: OfeliaDutyModelProps) => {
     forgive,
     undo,
     ledgerError: ofelia.ledgerError,
+    loadError: ofelia.loadError,
     ledgerLoading: ofelia.ledgerLoading,
     retryLedger: ofelia.retryLedger,
     actionPending,

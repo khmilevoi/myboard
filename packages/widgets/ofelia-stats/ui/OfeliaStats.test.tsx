@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { foldDebt } from 'module-cats/domain/debt'
+import { ledgerKey } from 'module-cats/domain/keys'
 import type { LedgerEntry } from 'module-cats/domain/ledger'
 import { DEFAULT_LITTER_SETTINGS } from 'module-cats/domain/roster'
 import type { Person } from 'module-cats/domain/roster'
-import { makeTestCatsModel } from 'module-cats/testing'
+import { makeSettingsDownStorage, makeTestCatsModel } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -133,5 +134,29 @@ describe('OfeliaStats', () => {
     await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
     expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^1$/)
     expect(get).toHaveBeenCalledTimes(2) // the ledger and the settings key
+  })
+
+  it('shows a retry button when only the settings read fails, through later ledger events', async () => {
+    const base = createFakeStorage()
+    await base.set(ledgerKey('ofelia'), [cleaned(TODAY, 'Леша')])
+    const { storage, recover } = makeSettingsDownStorage(
+      base,
+      new StorageError({ reason: 'settings down' }),
+    )
+    const { model } = makeTestCatsModel({ storage, todayIso: TODAY })
+    renderStats({ get: async () => model } as unknown as WidgetModules)
+
+    await screen.findByRole('button', { name: 'Повторить' })
+    // A later ledger event clears the ledger's own error; the settings failure must stay on screen.
+    await act(() =>
+      base.set(ledgerKey('ofelia'), [cleaned(TODAY, 'Леша'), cleaned('2026-06-14', 'Леша')]),
+    )
+    expect(screen.getByText('Не удалось загрузить данные')).toBeInTheDocument()
+    expect(screen.queryByText('Загрузка…')).not.toBeInTheDocument()
+
+    recover()
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
+    expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^2$/)
   })
 })

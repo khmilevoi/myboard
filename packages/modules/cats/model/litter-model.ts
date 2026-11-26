@@ -1,7 +1,7 @@
-import { action, atom, computed, withChangeHook, wrap } from '@reatom/core'
+import { action, atom, computed, wrap } from '@reatom/core'
 import type { Action, Atom, AtomLike, Computed } from '@reatom/core'
-import { withStorageKeyReadonly } from 'widget-runtime'
-import type { ModuleApiError, StorageError } from 'widget-runtime'
+import { StorageError, withStorageKeyReadonly } from 'widget-runtime'
+import type { ModuleApiError } from 'widget-runtime'
 import type { ModuleContext } from 'widget-runtime/define-module'
 
 import type { catsActionSchemas } from '../domain/actions'
@@ -34,9 +34,15 @@ export type LitterDayAction = 'clean' | 'debt' | 'forgive' | 'undo'
 /** One litter's duty state: its ledger, debts, history, comments and day actions. */
 export type LitterModel = {
   ledger: Atom<LedgerEntry[] | null>
-  /** A failed ledger or settings read; null once a retry has loaded both. */
+  /** A failed ledger read; a later successful ledger event clears it. */
   ledgerError: Atom<StorageError | null>
+  /**
+   * A failed ledger or settings read, whichever is present; null once both have answered. Either
+   * one keeps the rotation-dependent computeds at null, so a view gates its failure screen on this.
+   */
+  loadError: Computed<StorageError | null>
   ledgerLoading: Atom<boolean>
+  /** Reads the ledger and the settings again, clearing whichever error the answer resolves. */
   retryLedger: Action<[], Promise<void>>
   /** The duty rotation: null while loading, the defaults when the key is absent or does not parse. */
   settings: Computed<LitterSettings | null>
@@ -98,12 +104,11 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
   // instead of an endless skeleton.
   const ledgerError = ledger.error
   // A failed settings read keeps `settings` at null, so it is as blocking as a failed ledger
-  // read: surface it through the same atom instead of leaving an endless skeleton.
-  const settingsReadError = rawSettings.error.extend(
-    withChangeHook((error) => {
-      if (error !== null) ledgerError.set(error)
-    }),
-  )
+  // read. Each read keeps its own error atom: its listener clears that atom on every successful
+  // event of its own key, so a settings failure must not live in the ledger's atom, where the
+  // next ledger event would wipe it while `settings` is still null.
+  const settingsError = rawSettings.error
+  const loadError = computed(() => ledgerError() ?? settingsError(), name('loadError'))
   const ledgerLoading = ledger.isLoading
 
   // Re-runs the one-shot fetch `withStorageKeyReadonly` already performed at
@@ -117,18 +122,22 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
       Promise.all([shared.server.get(key, LedgerEntriesSchema), shared.server.get(settingsKey)]),
     )
     ledgerLoading.set(false)
+    // Each answer settles only its own key, so a ledger that loads does not hide a settings read
+    // that is still failing, and the other way round.
     if (result instanceof Error) {
       ledgerError.set(result)
-      return
+    } else {
+      ledgerError.set(null)
+      ledger.set(result ?? [])
     }
-    if (rawResult instanceof Error) {
-      settingsReadError.set(rawResult as StorageError)
-      return
+    // The settings key is read without a schema, so its value is `unknown`; the only Error
+    // `get` returns is a StorageError.
+    if (rawResult instanceof StorageError) {
+      settingsError.set(rawResult)
+    } else {
+      settingsError.set(null)
+      rawSettings.set(rawResult)
     }
-    ledgerError.set(null)
-    settingsReadError.set(null)
-    ledger.set(result ?? [])
-    rawSettings.set(rawResult)
   }, name('retryLedger'))
 
   const today = computed(() => timer.today(DUTY_TIME_ZONE), name('today'))
@@ -220,6 +229,7 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
   return {
     ledger,
     ledgerError,
+    loadError,
     ledgerLoading,
     retryLedger,
     settings,

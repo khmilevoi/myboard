@@ -1,14 +1,22 @@
-import { atom } from '@reatom/core'
-import type { DayResolution } from 'module-cats/domain/ledger'
+import { atom, context, wrap } from '@reatom/core'
+import { ledgerKey } from 'module-cats/domain/keys'
+import type { DayResolution, LedgerEntry } from 'module-cats/domain/ledger'
 import { DEFAULT_LITTER_SETTINGS } from 'module-cats/domain/roster'
 import type { LitterSettings, Person } from 'module-cats/domain/roster'
-import { describe, expect, it } from 'vitest'
-import type { StorageError } from 'widget-runtime'
+import { makeSettingsDownStorage, makeTestLitterModel } from 'module-cats/testing'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { StorageError } from 'widget-runtime'
+import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
+import { ofeliaDutyModel } from '../model/ofelia-duty'
 import { makeOfeliaViewModel, resolveSelected, toBalance, toWeekDays } from './view-model'
 import type { DutyDay } from './view-model'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
+
+afterEach(() => {
+  context.reset()
+})
 
 // Week of 2026-06-15 (Mon) .. 2026-06-21 (Sun); "today" = Tue 2026-06-16.
 function week(): DutyDay[] {
@@ -231,7 +239,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       ),
       today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
       forgivePending: atom(false, 'test.forgivePending'),
-      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      loadError: atom<StorageError | null>(null, 'test.loadError'),
       ledgerLoading: atom(false, 'test.ledgerLoading'),
       actionPending: atom(false, 'test.actionPending'),
       actionErrorMessage: atom<string | null>(null, 'test.actionErrorMessage'),
@@ -268,7 +276,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       ),
       today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
       forgivePending,
-      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      loadError: atom<StorageError | null>(null, 'test.loadError'),
       ledgerLoading: atom(false, 'test.ledgerLoading'),
       actionPending: atom(false, 'test.actionPending'),
       actionErrorMessage: atom<string | null>(null, 'test.actionErrorMessage'),
@@ -294,7 +302,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       numberOfDebts: atom<Partial<Record<Person, number>> | null>(null, 'test.numberOfDebts'),
       today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
       forgivePending: atom(false, 'test.forgivePending'),
-      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      loadError: atom<StorageError | null>(null, 'test.loadError'),
       ledgerLoading: atom(true, 'test.ledgerLoading'),
       actionPending: atom(false, 'test.actionPending'),
       actionErrorMessage: atom<string | null>(null, 'test.actionErrorMessage'),
@@ -307,7 +315,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     expect(view.loadFailed()).toBe(false)
 
     duty.ledgerLoading.set(false)
-    duty.ledgerError.set(new Error('boom') as StorageError)
+    duty.loadError.set(new Error('boom') as StorageError)
     expect(view.loadFailed()).toBe(true)
 
     // Once the week actually loads, a later transient error must not pull
@@ -316,6 +324,44 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     duty.numberOfDebts.set({ Карина: 1 })
     expect(view.ready()).toBe(true)
     expect(view.loadFailed()).toBe(false)
+  })
+
+  // I-2: the ledger GET succeeds and the settings GET fails. The ledger is loaded, the week is
+  // not, and the ledger's own error atom is cleared by every later ledger event.
+  it('flags a load failure when only the settings read failed, through later ledger events, until a retry', async () => {
+    const failure = new StorageError({ reason: 'settings down' })
+    const base = createFakeStorage()
+    const entry = (id: string, ts: number): LedgerEntry => ({
+      id,
+      ts,
+      date: '2026-06-15',
+      type: 'cleaned',
+      actor: 'Леша',
+    })
+    await base.set(ledgerKey('ofelia'), [entry('e1', 1)])
+    const { storage, recover } = makeSettingsDownStorage(base, failure)
+    const { model } = makeTestLitterModel({ storage, todayIso: '2026-06-16' })
+    const duty = ofeliaDutyModel({ ofelia: model })
+    const view = makeOfeliaViewModel(duty)
+
+    await context.start(async () => {
+      const off = view.loadFailed.subscribe(() => {})
+      const read = wrap(() => ({ failed: view.loadFailed(), ready: view.ready() }))
+      const ledger = wrap(() => model.ledger())
+      const retry = wrap(() => duty.retryLedger())
+
+      await vi.waitFor(() => expect(read().failed).toBe(true))
+      expect(ledger()).toHaveLength(1)
+
+      await base.set(ledgerKey('ofelia'), [entry('e1', 1), entry('e2', 2)])
+      await vi.waitFor(() => expect(ledger()).toHaveLength(2))
+      expect(read()).toEqual({ failed: true, ready: false })
+
+      recover()
+      await retry()
+      expect(read()).toEqual({ failed: false, ready: true })
+      off()
+    })
   })
 
   it('surfaces action pending/error straight from the duty sources (F6a)', () => {
@@ -332,7 +378,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
       ),
       today: atom<Temporal.PlainDate | null>(D('2026-06-16'), 'test.today'),
       forgivePending: atom(false, 'test.forgivePending'),
-      ledgerError: atom<StorageError | null>(null, 'test.ledgerError'),
+      loadError: atom<StorageError | null>(null, 'test.loadError'),
       ledgerLoading: atom(false, 'test.ledgerLoading'),
       actionPending,
       actionErrorMessage,

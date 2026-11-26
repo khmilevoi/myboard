@@ -166,7 +166,8 @@ export type OfeliaDutySources = {
   numberOfDebts: AtomLike<Partial<Record<Person, number>> | null>
   today: AtomLike<Temporal.PlainDate | null>
   forgivePending: AtomLike<boolean>
-  ledgerError: AtomLike<StorageError | null>
+  /** A failed ledger or settings read: either keeps the week from loading. */
+  loadError: AtomLike<StorageError | null>
   ledgerLoading: AtomLike<boolean>
   actionPending: AtomLike<boolean>
   actionErrorMessage: AtomLike<string | null>
@@ -181,7 +182,7 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
   // transient error must not yank the widget back into a failure screen —
   // this only ever gates the initial endless-skeleton case (F2c).
   const loadFailed = computed(
-    () => !ready() && !duty.ledgerLoading() && duty.ledgerError() != null,
+    () => !ready() && !duty.ledgerLoading() && duty.loadError() != null,
     'ofelia.loadFailed',
   )
 

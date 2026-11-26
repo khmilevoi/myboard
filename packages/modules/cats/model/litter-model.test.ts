@@ -17,7 +17,7 @@ import { DEFAULT_LITTER_SETTINGS, type LitterSettings } from '../domain/roster'
 import { memberStats } from '../domain/stats'
 import { toHistoryGroups } from './history-view'
 import { makeLitterModel, type CatsModuleContext } from './litter-model'
-import { makeTestLitterModel } from './testing'
+import { makeSettingsDownStorage, makeTestLitterModel } from './testing'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
@@ -212,6 +212,67 @@ describe('makeLitterModel.retryLedger (F2c)', () => {
 
     expect(model.ledgerError()).toBe(failure)
     expect(model.ledgerLoading()).toBe(false)
+  })
+})
+
+describe('makeLitterModel a failed settings read (I-2)', () => {
+  it('exposes the failure while the ledger has loaded, keeps it across ledger events, and a retry recovers', async () => {
+    const failure = new StorageError({ reason: 'settings down' })
+    const storage = createFakeStorage()
+    await storage.set(ledgerKey(OFELIA_ID), ENTRIES)
+    const { storage: api, recover } = makeSettingsDownStorage(storage, failure)
+    const { model } = makeTestLitterModel({ storage: api, todayIso: '2026-06-17' })
+
+    await context.start(async () => {
+      const off = model.memberStats.subscribe(() => {})
+      const read = wrap(() => ({
+        ledger: model.ledger(),
+        loadError: model.loadError(),
+        stats: model.memberStats(),
+      }))
+      const retry = wrap(() => model.retryLedger())
+
+      await vi.waitFor(() => expect(read().loadError).toBe(failure))
+      expect(read().ledger).toEqual(ENTRIES)
+      expect(read().stats).toBeNull()
+
+      // A later successful ledger event clears the ledger's own error, never the settings one.
+      const appended: LedgerEntry = {
+        id: 'e5',
+        ts: 5,
+        date: '2026-06-18',
+        type: 'cleaned',
+        actor: 'Леша',
+      }
+      await storage.set(ledgerKey(OFELIA_ID), [...ENTRIES, appended])
+      await vi.waitFor(() => expect(read().ledger).toHaveLength(5))
+      expect(read().loadError).toBe(failure)
+
+      recover()
+      await retry()
+      expect(read().loadError).toBeNull()
+      expect(read().stats).not.toBeNull()
+      off()
+    })
+  })
+
+  it('keeps the settings failure when only the ledger answers a retry', async () => {
+    const failure = new StorageError({ reason: 'settings down' })
+    const storage = createFakeStorage()
+    await storage.set(ledgerKey(OFELIA_ID), ENTRIES)
+    const { storage: api } = makeSettingsDownStorage(storage, failure)
+    const { model } = makeTestLitterModel({ storage: api, todayIso: '2026-06-17' })
+
+    await context.start(async () => {
+      const off = model.memberStats.subscribe(() => {})
+      const read = wrap(() => ({ loadError: model.loadError(), loading: model.ledgerLoading() }))
+      const retry = wrap(() => model.retryLedger())
+      await vi.waitFor(() => expect(read().loadError).toBe(failure))
+
+      await retry()
+      expect(read()).toEqual({ loadError: failure, loading: false })
+      off()
+    })
   })
 })
 

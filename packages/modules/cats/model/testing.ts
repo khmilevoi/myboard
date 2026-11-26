@@ -1,4 +1,9 @@
-import { makeStaticWidgetIdentity, type StorageApi, type WidgetIdentity } from 'widget-runtime'
+import {
+  makeStaticWidgetIdentity,
+  type StorageApi,
+  type StorageError,
+  type WidgetIdentity,
+} from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
@@ -85,4 +90,31 @@ export function makeTestCatsModel(options: MakeTestCatsModelOptions = {}): TestC
 export function makeTestLitterModel(options: MakeTestCatsModelOptions = {}): TestLitterModel {
   const { model, calls } = makeTestCatsModel(options)
   return { model: model.litter(OFELIA_ID), calls }
+}
+
+/**
+ * `storage` with Ofelia's litter settings key failing with `failure`, both at connect time and on
+ * `get`, until `recover()`; every other key behaves like `storage`. The ledger loads while the
+ * rotation-dependent computeds stay at null: the partial failure a view must surface.
+ */
+export function makeSettingsDownStorage(storage: StorageApi, failure: StorageError) {
+  const settingsKey = litterSettingsKey(OFELIA_ID)
+  let down = true
+  const get = (async (key: string, schema?: never) =>
+    key === settingsKey && down ? failure : storage.get(key, schema)) as StorageApi['get']
+  const api: StorageApi = {
+    ...storage,
+    get,
+    subscribe: (key, listener, schema) => {
+      if (key !== settingsKey) return storage.subscribe(key, listener, schema)
+      queueMicrotask(() => listener(failure))
+      return () => {}
+    },
+  }
+  return {
+    storage: api,
+    recover: () => {
+      down = false
+    },
+  }
 }
