@@ -161,6 +161,34 @@ test('auto-approve — a cron-closed day reaches the open board over SSE', async
   // run below skips it and 2026-06-16 — the day the card is showing — is the
   // one that gets auto-approved. Do not drop this seed to "simplify" the
   // test: without it the cron no-ops and every assertion below fails.
+  // The cron closes only litters an active cat points at (and the e2e stack starts with an empty
+  // registry, no migration), so register cat `ofelia` on litter `ofelia` the way the
+  // `ofelia-to-cats` migration seeds it.
+  const sharedUrl = (key: string) =>
+    `/api/storage/scoped/module/cats/shared/${encodeURIComponent(key)}`
+  const seeds: [string, unknown][] = [
+    ['registry/cats', [{ id: 'seed:ofelia', ts: 0, catId: 'ofelia', op: 'add' }]],
+    ['registry/litters', [{ id: 'seed:ofelia', ts: 0, litterId: 'ofelia', op: 'add' }]],
+    [
+      'cat/ofelia/profile',
+      {
+        name: 'Офелия',
+        breed: null,
+        birthDate: null,
+        sex: null,
+        sterilized: 'unknown',
+        bodyCondition: null,
+        avatar: null,
+        litterId: 'ofelia',
+      },
+    ],
+  ]
+  for (const [key, value] of seeds) {
+    await request.put(sharedUrl(key), {
+      headers: { 'X-Requested-With': 'MyBoard' },
+      data: { value },
+    })
+  }
   await request.put(LEDGER_URL, {
     headers: { 'X-Requested-With': 'MyBoard' },
     data: {
