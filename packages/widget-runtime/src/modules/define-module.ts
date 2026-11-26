@@ -3,6 +3,7 @@ import type { WidgetEventSchemas } from '@shared/widgets/contracts'
 
 import type { WidgetIdentity } from '../identity'
 import type { ScopedStorage } from '../storage'
+import type { FileSlot } from '../storage/file-slot'
 import type { ServerTime } from '../timer/server-time'
 import type { ModuleApi } from './module-api'
 
@@ -11,6 +12,8 @@ export type { ModuleApi }
 export type ModuleContext<Actions extends WidgetEventSchemas, Scopes extends ModuleScope> = {
   moduleId: string
   storage: { [S in Scopes]: ScopedStorage }
+  /** The file slot `key` on one of the module's scopes. The server must declare its policy. */
+  files(scope: Scopes, key: string): FileSlot
   api: ModuleApi<Actions>
   timer: ServerTime
   identity: WidgetIdentity

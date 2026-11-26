@@ -58,3 +58,46 @@ Valkey (Redis-compatible):
   failures return 422 with a formatted Zod error.
 - Errors and control flow follow the errore pattern (tagged errors, `Error | T` unions) rather than
   throwing.
+
+## Files
+
+Bytes (avatars today; any file type a slot's policy accepts) never live in Valkey. A **file slot**
+is a storage key under the `@files/<key>` sub-namespace whose value is a `FileRef`
+(`packages/shared/files/contract.ts`): same branches, same ACL, same SSE as any other key. The
+bytes are an immutable **blob** — a random, unguessable `blobId`, never overwritten; a new upload
+is a new blob, and the slot swap deletes the old one. Each blob has a record `files:blob:<blobId>`
+in Valkey naming its owning slot, its access rule (`members` or one `account`), its type and its
+`Content-Disposition`. The persistence rules are in the header of `packages/shared/storage/scope.ts`.
+
+- **Writes go through Node** (`packages/server/src/files/`): `PUT /api/files/scoped/...` and
+  `PUT /api/files/account/avatar` read the raw body, enforce the slot's `FilePolicy` (deny by
+  default; size → 413, sniffed type vs declared and `accept` → 415), store the blob, write its
+  record, and swap the slot under the slot's lock. The browser resizes images before upload
+  (`widget-sdk` `prepareImage`); the server never resizes.
+- **Image rules** live in `FilePolicy.image` (`square`, `maxSide`, `minSide`; the avatar is a
+  square of at most 512 px) and are checked by one pure function, `checkImageRules`
+  (`packages/shared/files/image-rules.ts`), on both sides. The browser checks the cropped result
+  before any request, for a clear message, then encodes it as WebP. The server is the authority:
+  for a slot with image rules it rejects a header that already breaks them, then fully decodes the
+  bytes and checks the decoded size — undecodable → 415 `file_image_undecodable`, a broken rule →
+  422 `file_image_rejected` with the `reason`. Both sides use the same codecs, jSquash's WebAssembly
+  builds of Squoosh, through the `image-codec` package: the browser fetches each `.wasm` lazily
+  from the bundler's assets, the server compiles the decoders at startup from `dist/wasm/` (copied
+  by `rspack.config.ts`) and answers image-rule uploads 503 until they are ready.
+- **Bytes live in Garage** — a single-node, single-copy self-hosted S3 (`dxflrs/garage:v2.6.0`,
+  `deploy/garage/garage.toml`) behind the `BlobStore` interface. On startup the server bootstraps
+  it idempotently through the Admin API v2 (`garage-bootstrap.ts`): node role and layout, bucket
+  `files` with website access, and an S3 key derived from the admin token by HMAC, so nothing is
+  stored. It retries with backoff; file routes answer 503 until it succeeds. Without
+  `FILES_S3_ENDPOINT` (host-run dev and e2e) a directory store at `FILES_FS_DIR` stands in.
+- **Reads are a URL**, `/files/<blobId>`. In production nginx answers them: an `auth_request` to
+  `GET /api/files/authorize` checks the session **and** the blob's access rule and hands back the
+  recorded disposition, then nginx proxies the object from Garage's website endpoint. Node never
+  streams a production read. Its own `GET /files/:blobId` fallback (dev, e2e) answers with the same
+  headers: stored `Content-Type`, `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`,
+  and `Cache-Control: private, max-age=31536000, immutable` — never `public`, or Cloudflare would
+  serve the file past the gate. The service worker caches `/files/` CacheFirst, since a blob URL
+  never changes content.
+- **Clients** reach slots through the runtime's `makeFileSlot` (`ref` atom over SSE, `upload`,
+  `remove`), exposed as `files(scope, key)` on a module's context and `files(key)` on branch
+  storage.

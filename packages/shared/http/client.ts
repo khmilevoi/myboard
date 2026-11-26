@@ -19,6 +19,12 @@ export type ResponseHook = (ctx: ResponseHookContext) => void | 'retry' | Promis
 
 export type HttpRequestOptions = {
   json?: unknown
+  /**
+   * A raw request body (an upload), sent as-is; set its `Content-Type` through `headers`. A Blob
+   * is re-readable, so the 401 replay below re-sends it like a json body. Ignored when `json` is
+   * set.
+   */
+  body?: Blob
   searchParams?: Record<string, string>
   /** Per-request headers, applied before the onRequest hooks (which may still override them). */
   headers?: Record<string, string>
@@ -85,7 +91,11 @@ export class HttpClient {
       throwHttpErrors: false, // non-2xx is a value in this port
       retry: 0,
       timeout: false,
-      ...(options?.json !== undefined ? { json: options.json } : {}),
+      ...(options?.json !== undefined
+        ? { json: options.json }
+        : options?.body !== undefined
+          ? { body: options.body }
+          : {}),
       ...(options?.searchParams ? { searchParams: options.searchParams } : {}),
       // ky cancels the exact Request object it built once the response
       // settles (internal stream cleanup) — cloning before handing it to the

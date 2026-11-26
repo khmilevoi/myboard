@@ -203,6 +203,54 @@ absent from the build log is proof you are looking at cache, not at code. Four p
 service-worker cache, a missing remote, a host-init race, a stale BuildKit layer — were investigated
 and disproved before the edge cache was found, and all four live on the wrong side of it.
 
+## File storage (Garage)
+
+File slots keep their bytes in Garage, a single-node self-hosted S3, next to Valkey in every stack
+built from `docker-compose.yml` — production, dev and the branch stand alike. The design is in
+`docs/architecture/overview.md` (Files); what matters for operating it:
+
+- **Services.** `files-secrets` is a one-shot `alpine` that exits after writing two secrets;
+  `garage` (`dxflrs/garage:v2.6.0`, config `deploy/garage/garage.toml`) keeps its metadata in
+  `garage_meta` and the object data in `garage_data`. No Garage port is published on the Pi: the
+  server reaches the S3 API (3900) and the admin API (3903), and nginx the website endpoint (3902),
+  over the compose network only. Each rpi environment is its own compose project, so dev and the
+  branch stand get their own `garage_*` volumes and containers beside production without any
+  overlay setting — and, like their Valkey, start empty.
+- **Generated secrets.** `files-secrets` creates `rpc_secret` and `admin_token` in the
+  `garage_secrets` volume on first boot and never touches them again, so there is no
+  `rpi secrets push` entry for Garage. They are `0600`: Garage refuses to start on secrets readable
+  by group or others. The server mounts the volume read-only and reads only `admin_token`. Deleting
+  `garage_secrets` while keeping the data volumes rotates the token, and the bootstrap then imports
+  a second key — harmless, but do not delete it casually.
+- **First boot.** Nothing to run by hand. On startup the server bootstraps Garage through the
+  Admin API v2 (`packages/server/src/files/garage-bootstrap.ts`): it gives the node a role (zone
+  `pi`) and applies the layout, creates the `files` bucket with website access, and imports an S3
+  key derived from the admin token with read and write on it. Every step checks first, so a restart
+  or a half-finished run converges on the same state, and an existing cluster costs three GET
+  calls. Until it succeeds — Garage still starting, say — it logs `garage bootstrap failed ...` and
+  retries after 1s, 5s, 15s and then every 60s, the rest of the board keeps working, and file
+  routes answer 503. `file storage ready: Garage bucket files` in the server log is the success
+  line. A stack whose `FILES_GARAGE_ADMIN_URL` or `FILES_GARAGE_ADMIN_TOKEN_FILE` is missing logs
+  `file storage stays unavailable` once and never retries.
+- **Backup.** `rpi command backup-files` runs `/garage meta snapshot --all`, a clean copy of the
+  metadata DB in `garage_meta`'s `snapshots/`; `garage.toml` also takes one every 6 hours and Garage
+  keeps the two newest. Object data blocks are immutable and content-addressed, so `garage_data`
+  needs no snapshot of its own. Like `rpi command backup` for Valkey, this survives a bad deploy or
+  a DB corrupted by an unclean stop, not the deletion of the volumes — run both together. A blob
+  only means something with its `files:blob:*` record in Valkey, so restore the two from the same
+  point in time.
+- **Inspecting it.** The image has no shell; call the binary, which reads `/etc/garage.toml` and
+  the secrets itself:
+
+  ```bash
+  docker compose exec garage /garage status       # on the Pi, in the stack's directory
+  docker compose exec garage /garage bucket info files
+  docker compose exec garage /garage key list
+  ```
+
+  A healthy node shows zone `pi` and a capacity in `status`. `NO ROLE ASSIGNED` means the bootstrap
+  has not run yet — check the server log.
+
 ## An aborted deploy leaves a container on a dead network
 
 If `rpi deploy` gets past the image build and then fails while starting containers (a host port

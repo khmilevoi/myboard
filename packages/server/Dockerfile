@@ -23,6 +23,7 @@ RUN npm install -g corepack@0.35.0 && corepack enable
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.json ./
 COPY patches ./patches
 COPY packages/client/package.json ./packages/client/
+COPY packages/image-codec/package.json ./packages/image-codec/
 COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
@@ -35,6 +36,7 @@ COPY --from=widget-manifests /modules ./packages/modules
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir /pnpm-store
 
+COPY packages/image-codec ./packages/image-codec
 COPY packages/shared ./packages/shared
 COPY packages/widget-runtime ./packages/widget-runtime
 COPY packages/widget-sdk ./packages/widget-sdk
@@ -52,6 +54,7 @@ RUN npm install -g corepack@0.35.0 && corepack enable
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches ./patches
 COPY packages/client/package.json ./packages/client/
+COPY packages/image-codec/package.json ./packages/image-codec/
 COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/

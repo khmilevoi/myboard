@@ -39,6 +39,11 @@ services:
       VALKEY_URL: redis://valkey:6379
       ALLOW_TEST_DB_RESET: '1'
       CI: 'true'
+      # The test server keeps file slots on disk here (no Garage in this
+      # stack): a tmpfs, disposable like Valkey's, so every run starts empty.
+      FILES_FS_DIR: /e2e-files
+    tmpfs:
+      - /e2e-files
     volumes:
       - ./packages/client/test-results:/app/packages/client/test-results
       - ./packages/client/playwright-report:/app/packages/client/playwright-report

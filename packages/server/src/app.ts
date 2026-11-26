@@ -17,6 +17,11 @@ import { authAccountKey } from './auth/records'
 import { isAuthResult, requireSession } from './auth/session-guard'
 import { issueSession } from './auth/sessions'
 import type { BrowserAutomationClient } from './browser/client'
+import type { BlobStore } from './files/blob-store'
+import type { ImageDecoder } from './files/image-check'
+import type { FilePolicies } from './files/policies'
+import { registerFileRoutes } from './files/routes'
+import { makeFileService } from './files/service'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
@@ -52,7 +57,7 @@ import {
 } from './storage/schemas'
 import {
   resolveScopedNamespace,
-  validateScopedKey,
+  validateScopedSubscriptionKey,
   type ScopedOwners,
   type ScopedStorageError,
 } from './storage/scoped'
@@ -94,6 +99,12 @@ export type AppDeps = {
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
   scopedOwners: ScopedOwners
+  /**
+   * File slots: where blob bytes live, which slots may hold which files, and the decoder that
+   * enforces image rules. Production passes a deferred store that becomes ready once the Garage
+   * bootstrap has credentials, and a deferred decoder that becomes ready once the codecs compile.
+   */
+  files: { blobs: BlobStore; policies: FilePolicies; images: ImageDecoder }
   recovery: {
     tokenTtlMs: number
     maxSessionMs: number
@@ -206,6 +217,14 @@ export function createApp(deps: AppDeps): App {
 
   registerAuthRoutes({ router, ...authDeps })
   registerScopedStorageRoutes({ router, ops, authDeps, owners: deps.scopedOwners })
+  registerFileRoutes({
+    router,
+    ops,
+    authDeps,
+    owners: deps.scopedOwners,
+    policies: deps.files.policies,
+    files: makeFileService({ ops, blobs: deps.files.blobs, images: deps.files.images, now }),
+  })
 
   router.on('GET', '/api/storage/events', (req, res) => {
     res.writeHead(200, {
@@ -235,7 +254,9 @@ export function createApp(deps: AppDeps): App {
     const accountId = session !== null && !isAuthResult(session) ? session.accountId : null
     const entries: { fullKey: string; frameKey: string }[] = []
     for (const ref of refs) {
-      const key = validateScopedKey(ref.key)
+      // A file slot (`@files/<key>`) is subscribable like a value; its ref is published under
+      // `<namespace>@files/<key>`.
+      const key = validateScopedSubscriptionKey(ref.key)
       if (key instanceof Error) return key
       const namespace = resolveScopedNamespace({
         owners: deps.scopedOwners,

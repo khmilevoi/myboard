@@ -1,3 +1,4 @@
+import { FileRefSchema } from '@shared/files/contract'
 import { JSONParseError, safeParse } from '@shared/json'
 import { z } from 'zod'
 
@@ -16,12 +17,18 @@ export const InviteRecordSchema = z.object({
 })
 export type InviteRecord = z.infer<typeof InviteRecordSchema>
 
+/** A file ref as stored inside a record: the url is derived from the blob id on the way out. */
+export const StoredFileRefSchema = FileRefSchema.omit({ url: true })
+export type StoredFileRef = z.infer<typeof StoredFileRefSchema>
+
 export const AccountRecordSchema = z.object({
   id: z.string(),
   name: z.string(),
   createdAt: z.number(),
   inviteId: z.string(),
   deviceLimit: z.number(),
+  // Optional, so records written before avatars existed parse unchanged.
+  avatar: StoredFileRefSchema.optional(),
 })
 export type AccountRecord = z.infer<typeof AccountRecordSchema>
 

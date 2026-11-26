@@ -14,7 +14,10 @@ import { lookupInvite } from './auth/invites'
 import { accountKey, sessionKey } from './auth/records'
 import { issueSession } from './auth/sessions'
 import { makeFakeBrowserAutomationClient } from './browser/testing/fake-client'
+import { makeMemoryBlobStore } from './files/memory-blob-store'
+import { makeFilePolicies } from './files/policies'
 import { makeScopedOwners } from './storage/scoped'
+import { testImageDecoder } from './test/image-decoder'
 import { createMemoryOps, createMemoryPubSub } from './test/memory-ops'
 import { createWidgetServerRegistry } from './widgets/registry'
 
@@ -172,6 +175,11 @@ describe('createApp', () => {
       browserClient: browserFake.client,
       authConfig: testAuthConfig,
       scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
+      files: {
+        blobs: makeMemoryBlobStore(),
+        policies: makeFilePolicies([]),
+        images: testImageDecoder,
+      },
       recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
       testControls: {
         setNow: (ms) => {
@@ -686,6 +694,11 @@ describe('createApp', () => {
       browserClient: browserFake.client,
       authConfig: testAuthConfig,
       scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
+      files: {
+        blobs: makeMemoryBlobStore(),
+        policies: makeFilePolicies([]),
+        images: testImageDecoder,
+      },
       recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
     })
     await new Promise<void>((resolve) => noControlsApp.server.listen(0, resolve))
@@ -739,6 +752,11 @@ describe('cron scheduler start', () => {
       browserClient: makeFakeBrowserAutomationClient().client,
       authConfig: testAuthConfig,
       scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
+      files: {
+        blobs: makeMemoryBlobStore(),
+        policies: makeFilePolicies([]),
+        images: testImageDecoder,
+      },
       recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
       cron: { intervalMs: 5 },
     })
@@ -794,6 +812,11 @@ describe('cron tick route', () => {
       browserClient: makeFakeBrowserAutomationClient().client,
       authConfig: testAuthConfig,
       scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
+      files: {
+        blobs: makeMemoryBlobStore(),
+        policies: makeFilePolicies([]),
+        images: testImageDecoder,
+      },
       recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
       testControls: {
         setNow: (ms) => {

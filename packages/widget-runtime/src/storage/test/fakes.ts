@@ -1,5 +1,8 @@
+import type { FileRef } from '@shared/files/contract'
+
 import { makeChannelHub, type BroadcastChannelLike } from '../client/channel'
 import { db } from '../client/db'
+import { makeFileSlotFromApi, type FileSlot, type FileSlotApi } from '../file-slot'
 import type {
   StorageApi,
   StorageChange,
@@ -124,5 +127,60 @@ export function createFakeStorage(): StorageApi {
       listener({ value: (store.has(key) ? store.get(key) : null) as T | null })
       return () => set.delete(listener as (event: StorageError | StorageChange) => void)
     },
+  }
+}
+
+/** In-memory `FileSlotApi`: uploads succeed at once with a fake ref; nothing is requested. */
+export function makeFakeFileSlotApi(initial: FileRef | null = null): FileSlotApi {
+  let current = initial
+  let uploads = 0
+  const listeners = new Set<StorageListener<FileRef>>()
+  const emit = () => {
+    for (const listener of listeners) listener({ value: current })
+  }
+
+  return {
+    async get() {
+      return current
+    },
+    async upload(blob, options) {
+      uploads += 1
+      const blobId = `FakeBlob${String(uploads).padStart(12, '0')}`
+      current = {
+        blobId,
+        url: `/files/${blobId}`,
+        mime: blob.type || 'application/octet-stream',
+        size: blob.size,
+        ...(options?.name ? { name: options.name } : {}),
+        updatedAt: Date.now(),
+      }
+      emit()
+      return current
+    },
+    async remove() {
+      current = null
+      emit()
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      listener({ value: current })
+      return () => listeners.delete(listener)
+    },
+  }
+}
+
+/**
+ * Test double for `ModuleContext.files(scope, key)` and `BranchStorage.files(key)`: one in-memory
+ * slot per argument list.
+ */
+export function makeFakeFileSlots(): (scopeOrKey: string, key?: string) => FileSlot {
+  const slots = new Map<string, FileSlot>()
+  return (scopeOrKey, key) => {
+    const id = key === undefined ? scopeOrKey : `${scopeOrKey}/${key}`
+    const cached = slots.get(id)
+    if (cached) return cached
+    const slot = makeFileSlotFromApi(makeFakeFileSlotApi(), `fakeFileSlot.${id}`)
+    slots.set(id, slot)
+    return slot
   }
 }
