@@ -1,3 +1,4 @@
+import type { AppBuildInfo } from './build-info'
 import type { AppEnvName } from './registry'
 
 /**
@@ -9,3 +10,6 @@ import type { AppEnvName } from './registry'
  * fact.
  */
 export const currentAppEnv: AppEnvName = __APP_ENV__
+
+/** The branch and commit this bundle was built from, when the deploy said. */
+export const currentBuildInfo: AppBuildInfo = __APP_BUILD__

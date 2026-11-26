@@ -1,0 +1,215 @@
+/* Section "1c · Модалка «Профиль»" of design/03 Устройства и аккаунт.dc.html — states (i) with a
+   photo and (j) without. The frame is the devices dialog's (section 2). */
+
+.overlay {
+  background: var(--scrim);
+}
+
+.content {
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  padding: 26px 26px 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-elevated);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.title {
+  margin: 0;
+  font: 700 25px/1.2 var(--font-sans);
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+.close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--secondary);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 20px;
+}
+.avatar {
+  width: 88px;
+  height: 88px;
+  flex: none;
+  border-radius: 50%;
+}
+.avatarPhoto {
+  object-fit: cover;
+  box-shadow: var(--shadow-card);
+}
+.avatarBusy {
+  opacity: 0.45;
+}
+.avatarInitials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--primary);
+  font: 600 30px var(--font-sans);
+}
+.identityText {
+  flex: 1;
+  min-width: 0;
+}
+.name {
+  font: 600 19px/1.25 var(--font-sans);
+  color: var(--foreground);
+}
+.since {
+  margin-top: 4px;
+  font: 400 13px var(--font-sans);
+  color: var(--muted-foreground);
+}
+
+.photoActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.secondaryButton,
+.removeButton,
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  font: 600 13px var(--font-sans);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.secondaryButton:disabled,
+.removeButton:disabled,
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.secondaryButton {
+  padding: 0 13px;
+  background: var(--secondary);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+.secondaryButton:hover:not(:disabled) {
+  background: var(--muted);
+}
+.removeButton {
+  padding: 0 12px;
+  background: transparent;
+  color: var(--destructive);
+  border: none;
+}
+.removeButton:hover:not(:disabled) {
+  background: var(--destructive-soft);
+}
+.primaryButton {
+  padding: 0 14px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  box-shadow: var(--shadow-btn);
+}
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: var(--destructive-soft);
+  color: var(--destructive);
+  font: 500 13px/1.45 var(--font-sans);
+  border-radius: 11px;
+}
+.errorIcon {
+  flex: none;
+  margin-top: 1px;
+}
+
+.sectionLabel {
+  margin: 24px 0 10px;
+  font: 600 11px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+/* One clickable row: icon, summary, chevron. */
+.devicesCard {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 13px;
+  background: var(--muted);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  cursor: pointer;
+}
+.devicesCard:hover {
+  background: var(--secondary);
+}
+.devicesCard:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.devicesIcon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  color: var(--primary);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
+.devicesText {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.devicesSummary {
+  font: 600 14px var(--font-sans);
+  color: var(--foreground);
+}
+.devicesSub {
+  margin-top: 2px;
+  font: 400 12.5px var(--font-sans);
+  color: var(--muted-foreground);
+}
+.devicesChevron {
+  flex: none;
+  color: var(--muted-foreground);
+}

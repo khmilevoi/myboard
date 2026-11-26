@@ -6,7 +6,7 @@ import {
   StorageError,
   type StorageApi,
 } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import { foldDebt } from '../domain/debt'
@@ -44,6 +44,7 @@ function makeContext(
   return {
     moduleId: 'cats',
     storage: { shared: { client: api, server: api } },
+    files: makeFakeFileSlots(),
     api: { invoke: vi.fn(async () => ({ ok: true })) } as CatsModuleContext['api'],
     timer: createFakeTimer({ today }),
     identity: makeStaticWidgetIdentity(),

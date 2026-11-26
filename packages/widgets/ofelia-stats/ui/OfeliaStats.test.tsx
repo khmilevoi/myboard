@@ -17,7 +17,7 @@ import {
   type WidgetModules,
   type WidgetRuntimeProps,
 } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 
 import { OfeliaStats } from './OfeliaStats'
 
@@ -50,7 +50,7 @@ function props(modules: WidgetModules): WidgetRuntimeProps {
     storage: {
       instance: { client: storage, server: storage },
       shared: { client: storage, server: storage },
-      account: { client: storage, server: storage },
+      account: { client: storage, server: storage, files: makeFakeFileSlots() },
     },
     api: { invoke: vi.fn() },
     identity: makeStaticWidgetIdentity(),

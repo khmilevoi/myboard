@@ -521,3 +521,94 @@ describe('environment branding delivery', () => {
     expect(clientActivationViteConfig).toContain('appEnvBranding(appEnv)')
   })
 })
+
+describe('file storage (Garage) wiring', () => {
+  const prodCompose = readFileSync(resolve(root, 'docker-compose.yml'), 'utf8')
+  const baseToml = readFileSync(resolve(root, 'rpi.toml'), 'utf8')
+  const garageToml = readFileSync(resolve(root, 'deploy/garage/garage.toml'), 'utf8')
+  const block = (text: string, from: string, to: string) =>
+    text.slice(text.indexOf(from), text.indexOf(to, text.indexOf(from) + from.length))
+
+  const garageBlock = block(prodCompose, '  garage:', '  server:')
+  const secretsBlock = block(prodCompose, '  files-secrets:', '  garage:')
+  const serverBlock = block(prodCompose, '  server:', '  client:')
+  const filesLocation = nginxConf.slice(
+    nginxConf.indexOf('location ~ ^/files/'),
+    nginxConf.indexOf('location @files_auth_failed'),
+  )
+
+  it('pins Garage and publishes none of its ports', () => {
+    expect(garageBlock).toContain('image: dxflrs/garage:v2.6.0')
+    expect(garageBlock).not.toContain('ports:')
+    expect(garageBlock).toContain('garage_meta:/var/lib/garage/meta')
+    expect(garageBlock).toContain('garage_data:/var/lib/garage/data')
+    expect(garageBlock).toContain('./deploy/garage/garage.toml:/etc/garage.toml:ro')
+  })
+
+  it('generates the Garage secrets once, 0600, and never overwrites them', () => {
+    expect(secretsBlock).toContain('garage_secrets:/secrets')
+    expect(secretsBlock).toContain('if [ ! -s "/secrets/$$name" ]')
+    expect(secretsBlock).toContain('umask 077')
+    expect(secretsBlock).toContain('chmod 600')
+    expect(garageToml).toContain('rpc_secret_file = "/run/garage-secrets/rpc_secret"')
+    expect(garageToml).toContain('admin_token_file = "/run/garage-secrets/admin_token"')
+  })
+
+  it('configures a single-copy node with the bucket web domain nginx asks for', () => {
+    expect(garageToml).toContain('replication_factor = 1')
+    expect(garageToml).toContain('s3_region = "garage"')
+    expect(garageToml).toContain('root_domain = ".web.garage"')
+    expect(nginxConf).toContain('proxy_set_header Host files.web.garage;')
+  })
+
+  it('points the server at Garage with a read-only view of the admin token', () => {
+    expect(serverBlock).toContain('FILES_S3_ENDPOINT: http://garage:3900')
+    expect(serverBlock).toContain('FILES_GARAGE_ADMIN_URL: http://garage:3903')
+    expect(serverBlock).toContain('FILES_GARAGE_ADMIN_TOKEN_FILE: /run/garage-secrets/admin_token')
+    expect(serverBlock).toContain('garage_secrets:/run/garage-secrets:ro')
+  })
+
+  it('gates every blob read on the per-blob verifier', () => {
+    expect(nginxConf).toContain('location = /internal/files-auth')
+    expect(nginxConf).toContain('proxy_pass $upstream/api/files/authorize;')
+    expect(filesLocation).toContain('auth_request /internal/files-auth;')
+    expect(filesLocation).toContain(
+      'auth_request_set $file_disposition $upstream_http_x_file_disposition;',
+    )
+    expect(filesLocation).toContain('proxy_pass $files_upstream/$file_blob_id;')
+    expect(filesLocation).toContain('proxy_set_header Cookie "";')
+  })
+
+  it('answers blobs with the same headers as the Node fallback, never cacheable at the edge', () => {
+    // A blob is immutable; a refusal is not. A 401 marked immutable would pin a lapsed session's
+    // failure onto the image URL in the browser's HTTP cache for a year.
+    expect(nginxConf).toMatch(
+      /map \$status \$files_cache_control \{\s*200 +"private, max-age=31536000, immutable";\s*default +"no-store";\s*\}/,
+    )
+    expect(filesLocation).toContain('add_header Cache-Control $files_cache_control always;')
+    expect(block(nginxConf, 'map $status $files_cache_control {', '}')).not.toContain('public')
+    expect(filesLocation).toContain('add_header X-Content-Type-Options "nosniff" always;')
+    expect(filesLocation).toContain(
+      `add_header Content-Security-Policy "default-src 'none'; sandbox" always;`,
+    )
+    expect(filesLocation).toContain('add_header Content-Disposition $file_disposition always;')
+    expect(filesLocation).toContain('proxy_hide_header Cache-Control;')
+  })
+
+  it('lets uploads through the gate up to the hard file cap', () => {
+    const uploads = block(nginxConf, 'location /api/files/ {', '}')
+    expect(uploads).toContain('auth_request /internal/auth;')
+    expect(uploads).toContain('client_max_body_size 26m;')
+  })
+
+  it('snapshots the Garage metadata from an rpi command', () => {
+    expect(baseToml).toContain('[commands.backup-files]')
+    expect(baseToml).toContain('run = "/garage meta snapshot --all"')
+    expect(baseToml).toMatch(/\[commands\.backup-files\]\nrun = "[^"]+"\nservice = "garage"/)
+  })
+
+  it('keeps the disposable e2e stack on a tmpfs file store', () => {
+    expect(e2eCompose).toContain('FILES_FS_DIR: /e2e-files')
+    expect(e2eCompose).toContain('- /e2e-files')
+  })
+})

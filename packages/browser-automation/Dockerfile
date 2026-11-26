@@ -23,6 +23,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.json ./
 COPY patches ./patches
 COPY packages/browser-automation/package.json ./packages/browser-automation/
 COPY packages/client/package.json ./packages/client/
+COPY packages/image-codec/package.json ./packages/image-codec/
 COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
@@ -72,6 +73,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches ./patches
 COPY packages/browser-automation/package.json ./packages/browser-automation/
 COPY packages/client/package.json ./packages/client/
+COPY packages/image-codec/package.json ./packages/image-codec/
 COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/

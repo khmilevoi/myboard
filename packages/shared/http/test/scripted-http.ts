@@ -10,6 +10,7 @@ export type ScriptedCall = {
   method: string
   url: string
   json?: unknown
+  body?: Blob
   headers?: Record<string, string>
 }
 
@@ -24,7 +25,7 @@ export function makeScriptedHttp(script: Record<string, ScriptedStep[]>) {
     url: string,
     options?: HttpRequestOptions,
   ): Promise<HttpTransportError | HttpResponse> => {
-    calls.push({ method, url, json: options?.json, headers: options?.headers })
+    calls.push({ method, url, json: options?.json, body: options?.body, headers: options?.headers })
     const step = script[url]?.shift()
     if (!step) throw new Error(`unexpected ${method} ${url}`)
     if (step === 'network-error') {

@@ -6,7 +6,7 @@ import {
   WidgetRuntimeContext,
 } from 'widget-runtime'
 import type { WidgetRuntimeProps } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 
 import {
   PASSPORT_ID_CARD_LAST_RESULT_V2_KEY,
@@ -39,7 +39,7 @@ function makeFakeStorage(): WidgetRuntimeProps['storage'] {
   return {
     instance: { client: instance, server: instance },
     shared: { client: shared, server: shared },
-    account: { client: account, server: account },
+    account: { client: account, server: account, files: makeFakeFileSlots() },
   }
 }
 

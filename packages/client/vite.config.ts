@@ -10,6 +10,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
 import { apiProxy, federationShared, stageWidgetBuilds, widgetRemotes } from 'widget-sdk/vite'
 
+import { resolveBuildInfo } from './src/shared/app-env/build-info'
 import { envIconPath, envTitle } from './src/shared/app-env/icons'
 import type { AppEnvName } from './src/shared/app-env/registry'
 import { resolveAppEnv } from './src/shared/app-env/resolve-app-env'
@@ -219,7 +220,8 @@ export default defineConfig(({ command }) => {
           // without this denylist the installed SW serves the cached board
           // shell for them, and a revoked device loops through ceremonies
           // instead of landing on the activation page.
-          navigateFallbackDenylist: [/^\/activate/, /^\/add-device/],
+          // `/files/<blobId>` opened directly is a file, never the board shell.
+          navigateFallbackDenylist: [/^\/activate/, /^\/add-device/, /^\/files\//],
           cleanupOutdatedCaches: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff2}'],
           // Every environment's icon set is copied into dist/ by Vite's public
@@ -241,6 +243,32 @@ export default defineConfig(({ command }) => {
                 },
                 cacheableResponse: {
                   statuses: [0, 200],
+                },
+              },
+            },
+            {
+              // File URLs are immutable — a new upload is a new blobId — so a cached file is never
+              // stale. Only successful same-origin reads are kept (a 401/403/404 never is), and
+              // logout's purge drops this cache with the others.
+              urlPattern: ({ request, url }) => {
+                const origin = (globalThis as unknown as { location: { origin: string } }).location
+                  .origin
+                return (
+                  url.origin === origin &&
+                  url.pathname.startsWith('/files/') &&
+                  request.method === 'GET' &&
+                  request.mode !== 'navigate'
+                )
+              },
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'myboard-files',
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 30 * 24 * 60 * 60,
+                },
+                cacheableResponse: {
+                  statuses: [200],
                 },
               },
             },
@@ -293,6 +321,9 @@ export default defineConfig(({ command }) => {
         },
       }),
     ],
+    // jSquash finds its .wasm with `new URL(..., import.meta.url)`; dev pre-bundling would move the
+    // glue into .vite/deps and break that path, so serve the packages as they are.
+    optimizeDeps: { exclude: ['@jsquash/webp', '@jsquash/jpeg', '@jsquash/png'] },
     resolve: {
       alias: {
         '@': resolve(__dirname, './src'),
@@ -302,6 +333,9 @@ export default defineConfig(({ command }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
       __APP_ENV__: JSON.stringify(appEnv),
+      __APP_BUILD__: JSON.stringify(
+        resolveBuildInfo(process.env.VITE_APP_BRANCH, process.env.VITE_APP_COMMIT),
+      ),
     },
     build: {
       // gzip-size reporting walks every emitted asset (incl. staged widget
@@ -339,6 +373,7 @@ export default defineConfig(({ command }) => {
       include: [
         'src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
         'activation/src/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+        'scripts/**/*.test.ts',
       ],
       environment: 'jsdom',
       setupFiles: ['./src/vitest.setup.ts'],

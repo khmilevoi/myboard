@@ -1,10 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-import { EXPECTED_ACCOUNT_HEADER, type ScopedBranch } from '@shared/storage/scoped'
+import { isFileSlotKey } from '@shared/files/contract'
 import type Router from 'find-my-way'
 
 import type { AuthDeps } from '../auth/handlers'
-import { isAuthResult, requireSession } from '../auth/session-guard'
 import { readJsonBody } from '../http/body'
 import {
   handleAppend,
@@ -18,15 +17,12 @@ import {
 import { runExclusive } from './key-lock'
 import { AppendPayloadSchema, PrefixQuerySchema, PutPayloadSchema, formatZodError } from './schemas'
 import {
-  ScopedAccountMismatchError,
   ScopedKeyInvalidError,
-  ScopedRouteUnknownError,
-  ScopedSessionRequiredError,
-  resolveScopedNamespace,
   validateScopedKey,
   type ScopedOwners,
   type ScopedStorageError,
 } from './scoped'
+import { resolveScopedRequest, type RouteParams } from './scoped-request'
 import type { ValkeyOps } from './valkey'
 
 export type ScopedRoutesDeps = {
@@ -35,8 +31,6 @@ export type ScopedRoutesDeps = {
   authDeps: AuthDeps
   owners: ScopedOwners
 }
-
-type RouteParams = Record<string, string | undefined>
 
 const BASE = '/api/storage/scoped/:owner/:id/:scope'
 
@@ -58,39 +52,15 @@ function sendResult(res: ServerResponse, result: HandlerResult): void {
   sendJson(res, result.status, result.body)
 }
 
-// URL segments are untrusted strings; narrow them at runtime, never by type.
-function parseBranch(params: RouteParams): ScopedBranch | null {
-  const { owner, id, scope } = params
-  if (owner !== 'widget' && owner !== 'module') return null
-  if (scope !== 'shared' && scope !== 'account') return null
-  if (id === undefined || id === '') return null
-  return { owner, id, scope }
-}
-
 export function registerScopedStorageRoutes(deps: ScopedRoutesDeps): void {
   const { router, ops, authDeps, owners } = deps
 
-  // The session is only read for account scope, after the owner/scope checks,
-  // so module/shared keeps working without one and an undeclared scope
-  // answers 403 before 401.
   async function resolveNamespace(
     req: IncomingMessage,
     params: RouteParams,
   ): Promise<ScopedStorageError | string> {
-    const branch = parseBranch(params)
-    if (branch === null) {
-      return new ScopedRouteUnknownError({ owner: params.owner ?? '', scope: params.scope ?? '' })
-    }
-    const first = resolveScopedNamespace({ owners, branch, accountId: null })
-    if (!(first instanceof ScopedSessionRequiredError)) return first
-
-    const session = await requireSession(authDeps, req)
-    if (isAuthResult(session)) return first
-    const expected = req.headers[EXPECTED_ACCOUNT_HEADER]
-    if (typeof expected === 'string' && expected !== session.accountId) {
-      return new ScopedAccountMismatchError()
-    }
-    return resolveScopedNamespace({ owners, branch, accountId: session.accountId })
+    const resolved = await resolveScopedRequest({ authDeps, owners, req, params })
+    return resolved instanceof Error ? resolved : resolved.namespace
   }
 
   async function resolveFullKey(
@@ -132,7 +102,9 @@ export function registerScopedStorageRoutes(deps: ScopedRoutesDeps): void {
 
     const listing = await handleKeys(ops, `${namespace}${prefix}`)
     const { keys } = listing.body as { keys: string[] }
-    sendJson(res, 200, { keys: keys.map((k) => k.slice(namespace.length)) })
+    // File slots (`@files/<key>`) are not values: a listing never shows them.
+    const relative = keys.map((k) => k.slice(namespace.length)).filter((k) => !isFileSlotKey(k))
+    sendJson(res, 200, { keys: relative })
   })
 
   router.on('GET', `${BASE}/:key`, async (req, res, params) => {

@@ -7,9 +7,9 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { http } from '@/runtime'
 
+import { pluralize } from '../model/account-format'
 import { type AccountModel, createAccountModel } from '../model/account-model'
 import { createAddDeviceModel } from '../model/add-device-model'
-import { pluralize } from './AccountMenu'
 import { AddDeviceModal } from './AddDeviceModal'
 
 import styles from './MyDevicesDialog.module.css'

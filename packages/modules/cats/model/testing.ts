@@ -4,7 +4,7 @@ import {
   type StorageError,
   type WidgetIdentity,
 } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import type { CatProfile } from '../domain/cat'
@@ -76,6 +76,7 @@ export function makeTestCatsModel(options: MakeTestCatsModelOptions = {}): TestC
   const model = makeCatsModel({
     moduleId: 'cats',
     storage: { shared: { client: storage, server: storage } },
+    files: makeFakeFileSlots(),
     api,
     timer: createFakeTimer({
       today: options.todayIso ? Temporal.PlainDate.from(options.todayIso) : null,
