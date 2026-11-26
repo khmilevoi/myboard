@@ -1,0 +1,62 @@
+/* Standalone harness only: the board's design tokens, which the host supplies on the board. */
+:root {
+  --background: oklch(0.975 0.003 255);
+  --foreground: oklch(0.27 0.02 262);
+  --card: oklch(1 0 0);
+  --secondary: oklch(0.972 0.004 255);
+  --muted: oklch(0.972 0.004 255);
+  --muted-foreground: oklch(0.5 0.018 262);
+  --primary: oklch(0.55 0.17 281);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.91 0.005 255);
+  --border-strong: oklch(0.84 0.006 255);
+  --ring: oklch(0.55 0.17 281);
+  --text-3: oklch(0.66 0.012 262);
+  --accent-soft: oklch(0.955 0.032 285);
+  --board: oklch(0.96 0.004 255);
+}
+
+:root[data-theme='dark'] {
+  --background: oklch(0.19 0.008 262);
+  --foreground: oklch(0.95 0.005 262);
+  --card: oklch(0.225 0.01 262);
+  --secondary: oklch(0.26 0.012 262);
+  --muted: oklch(0.26 0.012 262);
+  --muted-foreground: oklch(0.72 0.012 262);
+  --primary: oklch(0.68 0.15 285);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.3 0.012 262);
+  --border-strong: oklch(0.36 0.014 262);
+  --ring: oklch(0.68 0.15 285);
+  --text-3: oklch(0.55 0.012 262);
+  --accent-soft: oklch(0.32 0.07 285);
+  --board: oklch(0.165 0.008 262);
+}
+
+:root {
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --surface: var(--card);
+  --text: var(--foreground);
+  --text-dim: var(--muted-foreground);
+  --accent-2: var(--primary);
+  --font-ui: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--board);
+}
+
+.harness-frame {
+  margin: 24px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
