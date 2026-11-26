@@ -20,6 +20,8 @@ the two disagree, the artifact wins.
 | `07`, `08` | Explorations not yet folded into their owner files (component `OfeliaPanels.dc.html`) |
 | `09 Виджет - Офелия питание.dc.html` | "Ofelia: food" widget flow (component `OfeliaFoodLarge.dc.html`) |
 | `10 Виджет - Кошки.dc.html` | "Cats" widget flow (component `CatsLarge.dc.html`) |
+| `11 Виджет - Вес.dc.html` | "Weight" widget flow: the owner's latest weight and trend from the `health` module |
+| `12 Оборудование.dc.html` | Hardware: the gateway on the Pi, pairing the scale, scale profiles and consent codes |
 | `compat.json` | The page list, as the design project holds it |
 | `support.js` | The `.dc.html` runtime the pages load |
 
