@@ -1,6 +1,7 @@
 import { makeCleanDraft } from './drafts'
 import { resolveDays, SYSTEM_CREATED_BY, type LedgerEntry, type LedgerEntryDraft } from './ledger'
 import { DUTY_TIME_ZONE, plainDateIn } from './roster'
+import type { LitterSettings } from './roster'
 
 /**
  * How far back auto-approval reaches. Bounded on purpose: without a window the
@@ -10,12 +11,14 @@ import { DUTY_TIME_ZONE, plainDateIn } from './roster'
 export const AUTO_APPROVE_WINDOW_DAYS = 7
 
 export type AutoApproveInput = {
+  settings: LitterSettings
   entries: LedgerEntry[]
   /** The cron occurrence being handled, in epoch ms. */
   scheduledForMs: number
 }
 
 export function autoApproveDrafts({
+  settings,
   entries,
   scheduledForMs,
 }: AutoApproveInput): LedgerEntryDraft[] {
@@ -40,6 +43,7 @@ export function autoApproveDrafts({
     // progressively-updated ledger this loop maintains, so the manual and
     // the automatic path see identical debt state and cannot drift apart.
     const draft = makeCleanDraft({
+      settings,
       entries: workingEntries,
       today,
       target,

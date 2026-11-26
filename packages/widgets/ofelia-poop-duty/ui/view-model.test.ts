@@ -1,6 +1,7 @@
 import { atom } from '@reatom/core'
 import type { DayResolution } from 'module-cats/domain/ledger'
-import type { Person } from 'module-cats/domain/roster'
+import { DEFAULT_LITTER_SETTINGS } from 'module-cats/domain/roster'
+import type { LitterSettings, Person } from 'module-cats/domain/roster'
 import { describe, expect, it } from 'vitest'
 import type { StorageError } from 'widget-runtime'
 
@@ -143,9 +144,17 @@ describe('resolveSelected (§3.1.1 ladder + status)', () => {
 
 describe('toBalance', () => {
   it('builds a balance flagged over the warning threshold (>7)', () => {
-    expect(toBalance({ Карина: 8, Леша: 0 })).toEqual([
+    expect(toBalance(DEFAULT_LITTER_SETTINGS, { Карина: 8, Леша: 0 })).toEqual([
       { person: 'Леша', debt: 0, over: false },
       { person: 'Карина', debt: 8, over: true },
+    ])
+  })
+
+  it('lists the members in the litter rotation order', () => {
+    const swapped: LitterSettings = { rotation: ['Карина', 'Леша'], baseDate: '2026-06-16' }
+    expect(toBalance(swapped, { Карина: 1 }).map((entry) => entry.person)).toEqual([
+      'Карина',
+      'Леша',
     ])
   })
 })
@@ -212,6 +221,7 @@ describe('resolved actor in the strip', () => {
 describe('makeOfeliaViewModel (atomic slices)', () => {
   it('exposes focused slices and keeps the balance ref stable across a selection change', () => {
     const duty = {
+      settings: atom<LitterSettings | null>(DEFAULT_LITTER_SETTINGS, 'test.settings'),
       currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
       selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
       dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
@@ -230,6 +240,9 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
 
     expect(view.ready()).toBe(true)
     expect(view.selected()?.iso).toBe('2026-06-16')
+    // The selected day is Карина's debt day, so the partner covering it is Леша.
+    expect(view.selected()?.person).toBe('Карина')
+    expect(view.partner()).toBe('Леша')
     expect(view.canForgive()).toBe(false)
 
     const balanceBefore = view.balance()
@@ -245,6 +258,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
   it('disables canForgive while a forgive is in flight', () => {
     const forgivePending = atom(false, 'test.forgivePending')
     const duty = {
+      settings: atom<LitterSettings | null>(DEFAULT_LITTER_SETTINGS, 'test.settings'),
       currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
       selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
       dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
@@ -273,6 +287,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
   // failed initial fetch, with nothing surfaced anywhere before F2c.
   it('flags a load failure once the ledger read has failed and stopped loading (F2c)', () => {
     const duty = {
+      settings: atom<LitterSettings | null>(DEFAULT_LITTER_SETTINGS, 'test.settings'),
       currentWeek: atom<DutyDay[] | null>(null, 'test.currentWeek'),
       selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
       dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),
@@ -307,6 +322,7 @@ describe('makeOfeliaViewModel (atomic slices)', () => {
     const actionPending = atom(false, 'test.actionPending')
     const actionErrorMessage = atom<string | null>(null, 'test.actionErrorMessage')
     const duty = {
+      settings: atom<LitterSettings | null>(DEFAULT_LITTER_SETTINGS, 'test.settings'),
       currentWeek: atom<DutyDay[] | null>(week(), 'test.currentWeek'),
       selectedDate: atom<Temporal.PlainDate | null>(null, 'test.selectedDate'),
       dayResolution: atom<Map<string, DayResolution>>(new Map(), 'test.dayResolution'),

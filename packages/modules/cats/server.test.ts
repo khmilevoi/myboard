@@ -6,17 +6,24 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { catsActionSchemas } from './domain/actions'
 import { OFELIA_ID } from './domain/ids'
-import { ledgerKey } from './domain/keys'
+import { ledgerKey, litterSettingsKey } from './domain/keys'
+import type { LitterSettings } from './domain/roster'
 import catsServer from './server'
 
 const KARINA = { accountId: 'a1', name: 'Карина' }
 // 2026-06-16 12:00 Europe/Warsaw
 const NOW = Date.UTC(2026, 5, 16, 10, 0, 0)
 
-function makeContext(stored: unknown = null, viewer = KARINA) {
+const SWAPPED: LitterSettings = { rotation: ['Карина', 'Леша'], baseDate: '2026-06-16' }
+
+/** A storage `get` that answers Ofelia's settings key with `settings` and every other key with `stored`. */
+const answerGet = (stored: unknown, settings: unknown) =>
+  vi.fn(async (key: string) => (key === litterSettingsKey(OFELIA_ID) ? settings : stored) as never)
+
+function makeContext(stored: unknown = null, viewer = KARINA, settings: unknown = null) {
   const append = vi.fn<WidgetServerStorage['append']>(async () => undefined)
   const shared: WidgetServerStorage = {
-    get: vi.fn(async () => stored as never),
+    get: answerGet(stored, settings) as WidgetServerStorage['get'],
     set: vi.fn(async () => undefined),
     delete: vi.fn(async () => undefined),
     has: vi.fn(async () => false),
@@ -58,6 +65,29 @@ describe('cats server', () => {
       createdBy: KARINA,
       by: 'Леша',
     })
+  })
+
+  it("reads the duty from the litter's stored settings", async () => {
+    const { context, append } = makeContext([], KARINA, SWAPPED)
+
+    await run('clean', { litterId: OFELIA_ID, date: '2026-06-16' }, context)
+
+    expect(append).toHaveBeenCalledWith(
+      ledgerKey(OFELIA_ID),
+      expect.objectContaining({ type: 'cleaned', actor: 'Карина' }),
+    )
+  })
+
+  it('falls back to the default rotation when the stored settings do not parse', async () => {
+    const { context, append } = makeContext([], KARINA, { rotation: 'junk' })
+
+    expect(await run('clean', { litterId: OFELIA_ID, date: '2026-06-16' }, context)).toEqual({
+      ok: true,
+    })
+    expect(append).toHaveBeenCalledWith(
+      ledgerKey(OFELIA_ID),
+      expect.objectContaining({ type: 'cleaned', actor: 'Леша' }),
+    )
   })
 
   it('stamps null when there is no session', async () => {
@@ -210,10 +240,11 @@ describe('cats server', () => {
 function makeCronContext(
   stored: unknown = null,
   scheduledFor = Date.parse('2026-06-17T00:05:00+02:00'),
+  settings: unknown = null,
 ) {
   const append = vi.fn<WidgetServerStorage['append']>(async () => undefined)
   const shared = {
-    get: vi.fn(async () => stored as never),
+    get: answerGet(stored, settings),
     set: vi.fn(async () => undefined),
     delete: vi.fn(async () => undefined),
     has: vi.fn(async () => false),
@@ -259,6 +290,27 @@ describe('cats auto-approve cron', () => {
     })
   })
 
+  it("closes the window by the litter's stored rotation", async () => {
+    const { context, append } = makeCronContext([SEED_ENTRY], undefined, SWAPPED)
+
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(append).toHaveBeenLastCalledWith(
+      ledgerKey(OFELIA_ID),
+      expect.objectContaining({ date: '2026-06-16', actor: 'Карина' }),
+    )
+  })
+
+  it('still closes the window, by the default rotation, when the stored settings do not parse', async () => {
+    const { context, append } = makeCronContext([SEED_ENTRY], undefined, { rotation: 'junk' })
+
+    expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
+    expect(append).toHaveBeenCalledTimes(7)
+    expect(append).toHaveBeenLastCalledWith(
+      ledgerKey(OFELIA_ID),
+      expect.objectContaining({ date: '2026-06-16', actor: 'Леша' }),
+    )
+  })
+
   it('returns the storage error instead of throwing', async () => {
     const { context, append } = makeCronContext(null)
     context.api.storage.shared.get = vi.fn(async () => new Error('valkey down') as never)
@@ -302,7 +354,8 @@ describe('cats auto-approve cron', () => {
 
     let calls = 0
     const { context, append } = makeCronContext([SEED_ENTRY])
-    context.api.storage.shared.get = vi.fn(async () => {
+    context.api.storage.shared.get = vi.fn(async (key: string) => {
+      if (key !== ledgerKey(OFELIA_ID)) return null as never
       calls += 1
       return (calls >= 5 ? [SEED_ENTRY, manualClose] : [SEED_ENTRY]) as never
     })

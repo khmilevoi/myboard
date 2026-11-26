@@ -15,6 +15,7 @@ import { OFELIA_ID } from './domain/ids'
 import { commentsKey, ledgerKey } from './domain/keys'
 import { LedgerEntriesSchema, resolveDays, type LedgerEntryDraft } from './domain/ledger'
 import { DUTY_TIME_ZONE, plainDateIn } from './domain/roster'
+import { readLitterSettings } from './litter-settings'
 
 const OK = { ok: true } as const
 
@@ -30,7 +31,11 @@ async function readDraftInput(
   const target = errore.try(() => Temporal.PlainDate.from(date))
   if (target instanceof Error) return target
 
+  const settings = await readLitterSettings(context.api.storage.shared, litterId)
+  if (settings instanceof Error) return settings
+
   return {
+    settings,
     entries: entries ?? [],
     today: plainDateIn(DUTY_TIME_ZONE, context.now()),
     target,
@@ -116,9 +121,12 @@ const catsServer = defineModuleServer(catsContract, {
         // advances the cron cursor, so this is a real no-op, not a retry.
         if (entries === null || entries.length === 0) return
 
+        const settings = await readLitterSettings(api.storage.shared, OFELIA_ID)
+        if (settings instanceof Error) return settings
+
         // Derived from this fresh read, so a caught-up or retried run cannot
         // duplicate a day that was closed in the meantime.
-        const drafts = autoApproveDrafts({ entries, scheduledForMs: scheduledFor })
+        const drafts = autoApproveDrafts({ settings, entries, scheduledForMs: scheduledFor })
 
         for (const draft of drafts) {
           // The initial read above decided WHICH days still need closing, but

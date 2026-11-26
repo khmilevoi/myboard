@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { autoApproveDrafts } from './day-close'
 import { foldDebt } from './debt'
 import type { LedgerEntry } from './ledger'
+import { DEFAULT_LITTER_SETTINGS } from './roster'
 
 // 2026-06-19T00:05:00+02:00 — the cron moment that closes 2026-06-12…2026-06-18.
 const SCHEDULED_FOR = Date.parse('2026-06-19T00:05:00+02:00')
@@ -21,7 +22,11 @@ function entry(overrides: Partial<LedgerEntry>): LedgerEntry {
 
 describe('autoApproveDrafts', () => {
   it('closes every unresolved day of the window as cleaned by the planned duty', () => {
-    const drafts = autoApproveDrafts({ entries: [], scheduledForMs: SCHEDULED_FOR })
+    const drafts = autoApproveDrafts({
+      settings: DEFAULT_LITTER_SETTINGS,
+      entries: [],
+      scheduledForMs: SCHEDULED_FOR,
+    })
 
     expect(drafts.map((draft) => draft.date)).toEqual([
       '2026-06-12',
@@ -42,13 +47,18 @@ describe('autoApproveDrafts', () => {
   })
 
   it('never touches the day the cron fires on', () => {
-    const drafts = autoApproveDrafts({ entries: [], scheduledForMs: SCHEDULED_FOR })
+    const drafts = autoApproveDrafts({
+      settings: DEFAULT_LITTER_SETTINGS,
+      entries: [],
+      scheduledForMs: SCHEDULED_FOR,
+    })
 
     expect(drafts.some((draft) => draft.date === '2026-06-19')).toBe(false)
   })
 
   it('skips days that already have a closed outcome', () => {
     const drafts = autoApproveDrafts({
+      settings: DEFAULT_LITTER_SETTINGS,
       entries: [entry({ date: '2026-06-18' })],
       scheduledForMs: SCHEDULED_FOR,
     })
@@ -58,6 +68,7 @@ describe('autoApproveDrafts', () => {
 
   it('re-closes a day that was deliberately reset', () => {
     const drafts = autoApproveDrafts({
+      settings: DEFAULT_LITTER_SETTINGS,
       entries: [entry({ date: '2026-06-18', type: 'reset', ts: 2 })],
       scheduledForMs: SCHEDULED_FOR,
     })
@@ -66,14 +77,24 @@ describe('autoApproveDrafts', () => {
   })
 
   it('is idempotent — feeding its own output back produces nothing', () => {
-    const first = autoApproveDrafts({ entries: [], scheduledForMs: SCHEDULED_FOR })
+    const first = autoApproveDrafts({
+      settings: DEFAULT_LITTER_SETTINGS,
+      entries: [],
+      scheduledForMs: SCHEDULED_FOR,
+    })
     const applied: LedgerEntry[] = first.map((draft, index) => ({
       id: `auto-${index}`,
       ts: 100 + index,
       ...draft,
     }))
 
-    expect(autoApproveDrafts({ entries: applied, scheduledForMs: SCHEDULED_FOR })).toEqual([])
+    expect(
+      autoApproveDrafts({
+        settings: DEFAULT_LITTER_SETTINGS,
+        entries: applied,
+        scheduledForMs: SCHEDULED_FOR,
+      }),
+    ).toEqual([])
   })
 
   it('settles an outstanding debt exactly once when the cron reaches its debt day (F1)', () => {
@@ -87,7 +108,11 @@ describe('autoApproveDrafts', () => {
       ts: 1,
     })
 
-    const drafts = autoApproveDrafts({ entries: [debtEntry], scheduledForMs: SCHEDULED_FOR })
+    const drafts = autoApproveDrafts({
+      settings: DEFAULT_LITTER_SETTINGS,
+      entries: [debtEntry],
+      scheduledForMs: SCHEDULED_FOR,
+    })
 
     // 06-12 is the first day in the window that isn't Карина's own duty day,
     // so it is where her debt gets settled.
@@ -104,6 +129,9 @@ describe('autoApproveDrafts', () => {
       ts: 100 + index,
       ...draft,
     }))
-    expect(foldDebt([debtEntry, ...applied])).toEqual({ Леша: 0, Карина: 0 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, [debtEntry, ...applied])).toEqual({
+      Леша: 0,
+      Карина: 0,
+    })
   })
 })

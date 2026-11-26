@@ -1,4 +1,3 @@
-import { otherPerson } from 'module-cats/domain/roster'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
 
@@ -25,6 +24,7 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
   // Hooks must run unconditionally, so read every slice before the guard.
   const selected = useAtomValue(view.selected)
   const balance = useAtomValue(view.balance)
+  const partner = useAtomValue(view.partner)
   const canForgive = useAtomValue(view.canForgive)
   const actionPending = useAtomValue(view.actionPending)
   const actionErrorMessage = useAtomValue(view.actionErrorMessage)
@@ -54,9 +54,7 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
 
       <div className={styles.spacer} />
 
-      <p className={styles.hint}>
-        Не успеваешь? Уберёт {otherPerson(selected.person)}, а тебе +1 день долга.
-      </p>
+      <p className={styles.hint}>Не успеваешь? Уберёт {partner}, а тебе +1 день долга.</p>
 
       <ActionButtons
         status={selected.status}

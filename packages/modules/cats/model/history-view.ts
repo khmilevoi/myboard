@@ -1,7 +1,13 @@
 import { resolveEntryAuthor, type EntryAuthor, type MemberLookup } from '../domain/author'
 import { debtDeltaFor, type DebtDelta } from '../domain/debt'
 import { latestOutcomesByDate, type LedgerEntry, type LedgerType } from '../domain/ledger'
-import { DUTY_TIME_ZONE, plainDateIn, weekStartISO, type Person } from '../domain/roster'
+import {
+  DUTY_TIME_ZONE,
+  plainDateIn,
+  weekStartISO,
+  type LitterSettings,
+  type Person,
+} from '../domain/roster'
 
 export type HistoryEntryView = {
   id: string
@@ -25,6 +31,7 @@ export type HistoryDayGroup = {
 }
 
 export type ToHistoryGroupsOptions = {
+  settings: LitterSettings
   entries: LedgerEntry[]
   weekStartIso: string
   members: MemberLookup
@@ -32,6 +39,7 @@ export type ToHistoryGroupsOptions = {
 }
 
 export function toHistoryGroups({
+  settings,
   entries,
   weekStartIso,
   members,
@@ -57,7 +65,7 @@ export function toHistoryGroups({
         viewerAccountId !== null &&
         recordedBy.accountId === viewerAccountId,
       recordedLate: plainDateIn(DUTY_TIME_ZONE, entry.ts).toString() !== entry.date,
-      debtDelta: debtDeltaFor(entry),
+      debtDelta: debtDeltaFor(settings, entry),
     }
   }
 

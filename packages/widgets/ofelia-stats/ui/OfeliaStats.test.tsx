@@ -3,6 +3,7 @@ import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { foldDebt } from 'module-cats/domain/debt'
 import type { LedgerEntry } from 'module-cats/domain/ledger'
+import { DEFAULT_LITTER_SETTINGS } from 'module-cats/domain/roster'
 import type { Person } from 'module-cats/domain/roster'
 import { makeTestCatsModel } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -81,7 +82,7 @@ describe('OfeliaStats', () => {
     await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
     expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^1$/)
     expect(screen.getByTestId('ofelia-stats-debt-Карина')).toHaveTextContent(
-      new RegExp(`^${foldDebt(entries).Карина ?? 0}$`),
+      new RegExp(`^${foldDebt(DEFAULT_LITTER_SETTINGS, entries).Карина ?? 0}$`),
     )
     expect(screen.getAllByText('Уборок за 30 дней').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Долг').length).toBeGreaterThan(0)
@@ -131,6 +132,6 @@ describe('OfeliaStats', () => {
 
     await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
     expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^1$/)
-    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledTimes(2) // the ledger and the settings key
   })
 })

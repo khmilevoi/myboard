@@ -2,17 +2,14 @@ import { z } from 'zod'
 
 export const DUTY_TIME_ZONE = 'Europe/Warsaw' as const
 /**
- * Kept as an ISO string rather than a Temporal.PlainDate so this module can be
- * imported before the browser Temporal polyfill has been installed — Temporal
- * is only touched inside function bodies.
+ * The household members a ledger row can name. Fixed on purpose: ledger rows keep
+ * validating against this enum whatever a litter's rotation says.
  */
-export const BASE_DUTY_DATE_ISO = '2026-06-16' as const
-export const DUTY_ROTATION = ['Леша', 'Карина'] as const
+export const MEMBERS = ['Леша', 'Карина'] as const
 
-export type DutyPerson = (typeof DUTY_ROTATION)[number]
-export type Person = DutyPerson
+export type Person = (typeof MEMBERS)[number]
 
-export const PersonSchema = z.enum(DUTY_ROTATION)
+export const PersonSchema = z.enum(MEMBERS)
 /**
  * Shape only. Request payloads use this: a date that parses as a shape but not
  * as a day is caught downstream by `errore.try` in the server's
@@ -47,18 +44,37 @@ export const CalendarDateSchema = IsoDateSchema.refine((value) => {
   }
 }, 'expected a calendar date that exists')
 
+/**
+ * One litter's duty rotation. `rotation` lists every member exactly once, in duty order;
+ * `baseDate` is the day the first member is on duty. Stored under `litterSettingsKey`.
+ */
+export const LitterSettingsSchema = z.object({
+  rotation: z
+    .array(PersonSchema)
+    .length(MEMBERS.length)
+    .refine((rotation) => new Set(rotation).size === rotation.length, 'expected no duplicates'),
+  baseDate: CalendarDateSchema,
+})
+export type LitterSettings = z.infer<typeof LitterSettingsSchema>
+
+/** Applied to a litter whose settings key is absent or does not parse. */
+export const DEFAULT_LITTER_SETTINGS: LitterSettings = {
+  rotation: ['Леша', 'Карина'],
+  baseDate: '2026-06-16',
+}
+
 export function plainDateIn(timeZone: string, epochMs: number): Temporal.PlainDate {
   return Temporal.Instant.fromEpochMilliseconds(epochMs).toZonedDateTimeISO(timeZone).toPlainDate()
 }
 
-export function getOfeliaDutyByDate(date: Temporal.PlainDate): DutyPerson {
-  const base = Temporal.PlainDate.from(BASE_DUTY_DATE_ISO)
+export function dutyByDate(settings: LitterSettings, date: Temporal.PlainDate): Person {
+  const base = Temporal.PlainDate.from(settings.baseDate)
   const diffDays = base.until(date, { largestUnit: 'day' }).days
-  return DUTY_ROTATION[positiveModulo(diffDays, DUTY_ROTATION.length)]
+  return settings.rotation[positiveModulo(diffDays, settings.rotation.length)]
 }
 
-export function otherPerson(person: Person): Person {
-  return DUTY_ROTATION.find((candidate) => candidate !== person) ?? person
+export function otherPerson(settings: LitterSettings, person: Person): Person {
+  return settings.rotation.find((candidate) => candidate !== person) ?? person
 }
 
 export function getStartOfWeek(date: Temporal.PlainDate): Temporal.PlainDate {

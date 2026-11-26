@@ -1,6 +1,6 @@
 import { foldDebt } from './debt'
 import { resolveDays, type LedgerEntry } from './ledger'
-import { DUTY_ROTATION, type Person } from './roster'
+import type { LitterSettings, Person } from './roster'
 
 /** How many days, today included, the member statistics look back over. */
 export const STATS_WINDOW_DAYS = 30
@@ -8,6 +8,7 @@ export const STATS_WINDOW_DAYS = 30
 export type LitterMemberStats = { person: Person; cleanings: number; debt: number }
 
 export type MemberStatsInput = {
+  settings: LitterSettings
   entries: LedgerEntry[]
   today: Temporal.PlainDate
   windowDays: number
@@ -24,7 +25,12 @@ export type MemberStatsInput = {
  * - `forgiven` — the day's own duty person, who cleaned it and waived the debtor's repayment.
  * A `reset` reopens the day (status `pending`), so an undone day counts for nobody.
  */
-export function memberStats({ entries, today, windowDays }: MemberStatsInput): LitterMemberStats[] {
+export function memberStats({
+  settings,
+  entries,
+  today,
+  windowDays,
+}: MemberStatsInput): LitterMemberStats[] {
   const windowStart = today.subtract({ days: windowDays - 1 })
   const cleanings = new Map<Person, number>()
 
@@ -36,8 +42,8 @@ export function memberStats({ entries, today, windowDays }: MemberStatsInput): L
     cleanings.set(resolution.actor, (cleanings.get(resolution.actor) ?? 0) + 1)
   }
 
-  const debts = foldDebt(entries)
-  return DUTY_ROTATION.map((person) => ({
+  const debts = foldDebt(settings, entries)
+  return settings.rotation.map((person) => ({
     person,
     cleanings: cleanings.get(person) ?? 0,
     debt: debts[person] ?? 0,

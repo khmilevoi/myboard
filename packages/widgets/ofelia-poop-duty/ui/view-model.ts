@@ -2,8 +2,8 @@ import { computed } from '@reatom/core'
 import type { AtomLike, Computed } from '@reatom/core'
 import { isOverDebtWarning } from 'module-cats/domain/debt'
 import type { DayResolution } from 'module-cats/domain/ledger'
-import { DUTY_ROTATION } from 'module-cats/domain/roster'
-import type { Person } from 'module-cats/domain/roster'
+import { otherPerson } from 'module-cats/domain/roster'
+import type { LitterSettings, Person } from 'module-cats/domain/roster'
 import type { StorageError } from 'widget-runtime'
 
 const WEEKDAY_LABELS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'] as const
@@ -116,8 +116,11 @@ function resolveDebtOwnerBadge(day: DutyDay): Person | null {
   return day.duty
 }
 
-export function toBalance(debts: Partial<Record<Person, number>>): DebtBalanceEntry[] {
-  return DUTY_ROTATION.map((person) => ({
+export function toBalance(
+  settings: LitterSettings,
+  debts: Partial<Record<Person, number>>,
+): DebtBalanceEntry[] {
+  return settings.rotation.map((person) => ({
     person,
     debt: debts[person] ?? 0,
     over: isOverDebtWarning(debts, person),
@@ -140,6 +143,8 @@ export type OfeliaViewModel = {
   selectedIso: Computed<string | null>
   days: Computed<WeekDayView[]>
   balance: Computed<DebtBalanceEntry[]>
+  /** Who covers the selected day if its person misses it; null until a day is selected. */
+  partner: Computed<Person | null>
   canForgive: Computed<boolean>
   /** True while any day action (confirm/debt/forgive/undo) is in flight. */
   actionPending: Computed<boolean>
@@ -154,6 +159,7 @@ export type OfeliaViewModel = {
 
 // Structural subset of `ofeliaDutyModel` — the model is passed in directly.
 export type OfeliaDutySources = {
+  settings: AtomLike<LitterSettings | null>
   currentWeek: AtomLike<DutyDay[] | null>
   selectedDate: AtomLike<Temporal.PlainDate | null>
   dayResolution: AtomLike<Map<string, DayResolution>>
@@ -208,7 +214,16 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
   }, 'ofelia.days')
 
   // Depends ONLY on numberOfDebts → stable ref across week-nav / day-selection.
-  const balance = computed(() => toBalance(duty.numberOfDebts() ?? {}), 'ofelia.balance')
+  const balance = computed(() => {
+    const settings = duty.settings()
+    return settings === null ? [] : toBalance(settings, duty.numberOfDebts() ?? {})
+  }, 'ofelia.balance')
+
+  const partner = computed(() => {
+    const settings = duty.settings()
+    const person = selectedPerson()
+    return settings === null || person === null ? null : otherPerson(settings, person)
+  }, 'ofelia.partner')
 
   const canForgive = computed(
     () =>
@@ -229,6 +244,7 @@ export function makeOfeliaViewModel(duty: OfeliaDutySources): OfeliaViewModel {
     selectedIso,
     days,
     balance,
+    partner,
     canForgive,
     actionPending,
     actionErrorMessage,

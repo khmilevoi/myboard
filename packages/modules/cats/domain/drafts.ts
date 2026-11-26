@@ -2,9 +2,11 @@ import type { CommentDraft } from './comments'
 import { foldDebt, getDebtDays } from './debt'
 import type { CreatedBy, EntryCreatedBy, LedgerEntry, LedgerEntryDraft } from './ledger'
 import { resolveDays } from './ledger'
-import { PersonSchema, getOfeliaDutyByDate, otherPerson } from './roster'
+import { PersonSchema, dutyByDate, otherPerson } from './roster'
+import type { LitterSettings } from './roster'
 
 export type DraftInput = {
+  settings: LitterSettings
   entries: LedgerEntry[]
   today: Temporal.PlainDate
   target: Temporal.PlainDate
@@ -28,11 +30,11 @@ export type DraftInput = {
   allowPastDebtDays?: boolean
 }
 
-function debtDayFor({ entries, today, target, allowPastDebtDays }: DraftInput) {
+function debtDayFor({ settings, entries, today, target, allowPastDebtDays }: DraftInput) {
   const scanOrigin =
     allowPastDebtDays && Temporal.PlainDate.compare(target, today) < 0 ? target : today
-  return getDebtDays(foldDebt(entries), scanOrigin, resolveDays(entries)).find((day) =>
-    day.date.equals(target),
+  return getDebtDays(settings, foldDebt(settings, entries), scanOrigin, resolveDays(entries)).find(
+    (day) => day.date.equals(target),
   )
 }
 
@@ -42,7 +44,7 @@ function debtDayFor({ entries, today, target, allowPastDebtDays }: DraftInput) {
 
 export function makeCleanDraft(input: DraftInput): LedgerEntryDraft {
   const debtDay = debtDayFor(input)
-  const duty = getOfeliaDutyByDate(input.target)
+  const duty = dutyByDate(input.settings, input.target)
   const actor = debtDay?.person ?? duty
 
   return {
@@ -56,8 +58,8 @@ export function makeCleanDraft(input: DraftInput): LedgerEntryDraft {
 }
 
 export function makeDebtDraft(input: DraftInput): LedgerEntryDraft {
-  const scheduled = debtDayFor(input)?.person ?? getOfeliaDutyByDate(input.target)
-  const actor = otherPerson(scheduled)
+  const scheduled = debtDayFor(input)?.person ?? dutyByDate(input.settings, input.target)
+  const actor = otherPerson(input.settings, scheduled)
 
   return {
     date: input.target.toString(),
@@ -73,7 +75,7 @@ export function makeForgiveDraft(input: DraftInput): LedgerEntryDraft | null {
   const debtDay = debtDayFor(input)
   if (debtDay == null) return null
 
-  const duty = getOfeliaDutyByDate(input.target)
+  const duty = dutyByDate(input.settings, input.target)
   if (debtDay.person === duty) return null
 
   return {

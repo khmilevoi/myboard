@@ -1,6 +1,6 @@
 import { action, atom, computed, withAsyncData, wrap } from '@reatom/core'
 import type { LitterModel } from 'module-cats'
-import { getOfeliaDutyByDate, getStartOfWeek } from 'module-cats/domain/roster'
+import { dutyByDate, getStartOfWeek } from 'module-cats/domain/roster'
 import { ModuleApiError } from 'widget-runtime'
 
 export type { HistoryDayGroup, HistoryEntryView } from 'module-cats'
@@ -45,7 +45,7 @@ function mapActionError(error: Error): string {
  * passed through, so two cards on one board read one ledger.
  */
 export const ofeliaDutyModel = ({ ofelia }: OfeliaDutyModelProps) => {
-  const { today, numberOfDebts, dayResolution, debtDays } = ofelia
+  const { settings, today, numberOfDebts, dayResolution, debtDays } = ofelia
 
   const startOfWeekOverride = atom<Temporal.PlainDate | null>(
     null,
@@ -89,16 +89,17 @@ export const ofeliaDutyModel = ({ ofelia }: OfeliaDutyModelProps) => {
     const currentToday = today()
     const weekStart = viewWeekStart()
     const days = debtDays()
+    const currentSettings = settings()
     const resolution = dayResolution()
 
-    if (!currentToday || !weekStart || days === null) {
+    if (!currentToday || !weekStart || days === null || currentSettings === null) {
       return null
     }
 
     return Array.from({ length: 7 }, (_, dayOffset) => {
       const date = weekStart.add({ days: dayOffset })
       const iso = date.toString()
-      const duty = getOfeliaDutyByDate(date)
+      const duty = dutyByDate(currentSettings, date)
       const debt = days?.get(iso) ?? null
       const resolved = resolution.get(iso)
 
@@ -193,6 +194,7 @@ export const ofeliaDutyModel = ({ ofelia }: OfeliaDutyModelProps) => {
   }, 'ofeliaDuty.actionErrorMessage')
 
   return {
+    settings,
     today,
     startOfWeekOverride,
     viewWeekStart,

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { makeCleanDraft, makeDebtDraft, makeForgiveDraft, makeUndoDraft } from './drafts'
 import type { DraftInput } from './drafts'
 import type { LedgerEntry, LedgerEntryDraft } from './ledger'
+import { DEFAULT_LITTER_SETTINGS } from './roster'
 import { STATS_WINDOW_DAYS, memberStats } from './stats'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
@@ -14,7 +15,13 @@ type Maker = (input: DraftInput) => LedgerEntryDraft | null
  *  appends them: a fresh id and an increasing `ts` per record. */
 function replay(actions: [Maker, string][]): LedgerEntry[] {
   return actions.reduce<LedgerEntry[]>((entries, [make, iso]) => {
-    const draft = make({ entries, today: D(iso), target: D(iso), createdBy: KARINA })
+    const draft = make({
+      settings: DEFAULT_LITTER_SETTINGS,
+      entries,
+      today: D(iso),
+      target: D(iso),
+      createdBy: KARINA,
+    })
     if (draft === null) throw new Error(`no draft for ${iso}`)
     const ts = entries.length + 1
     return [...entries, { ...draft, id: `e${ts}`, ts }]
@@ -58,7 +65,14 @@ describe('memberStats', () => {
       onBehalfOf: 'Леша',
     })
 
-    expect(memberStats({ entries, today: D('2026-06-30'), windowDays: 30 })).toEqual([
+    expect(
+      memberStats({
+        settings: DEFAULT_LITTER_SETTINGS,
+        entries,
+        today: D('2026-06-30'),
+        windowDays: 30,
+      }),
+    ).toEqual([
       { person: 'Леша', cleanings: 2, debt: 0 },
       { person: 'Карина', cleanings: 4, debt: 0 },
     ])
@@ -67,7 +81,14 @@ describe('memberStats', () => {
   it('counts a covered day for the coverer and reports the debt it creates', () => {
     const entries = replay([[makeDebtDraft, '2026-06-30']]) // Леша's day: Карина covers
 
-    expect(memberStats({ entries, today: D('2026-06-30'), windowDays: 30 })).toEqual([
+    expect(
+      memberStats({
+        settings: DEFAULT_LITTER_SETTINGS,
+        entries,
+        today: D('2026-06-30'),
+        windowDays: 30,
+      }),
+    ).toEqual([
       { person: 'Леша', cleanings: 0, debt: 1 },
       { person: 'Карина', cleanings: 1, debt: 0 },
     ])
@@ -76,14 +97,28 @@ describe('memberStats', () => {
   it('ignores days after today', () => {
     const entries = replay([[makeCleanDraft, '2026-07-01']])
 
-    expect(memberStats({ entries, today: D('2026-06-30'), windowDays: 30 })).toEqual([
+    expect(
+      memberStats({
+        settings: DEFAULT_LITTER_SETTINGS,
+        entries,
+        today: D('2026-06-30'),
+        windowDays: 30,
+      }),
+    ).toEqual([
       { person: 'Леша', cleanings: 0, debt: 0 },
       { person: 'Карина', cleanings: 0, debt: 0 },
     ])
   })
 
   it('returns a zero row for every rotation member on an empty ledger', () => {
-    expect(memberStats({ entries: [], today: D('2026-06-30'), windowDays: 30 })).toEqual([
+    expect(
+      memberStats({
+        settings: DEFAULT_LITTER_SETTINGS,
+        entries: [],
+        today: D('2026-06-30'),
+        windowDays: 30,
+      }),
+    ).toEqual([
       { person: 'Леша', cleanings: 0, debt: 0 },
       { person: 'Карина', cleanings: 0, debt: 0 },
     ])

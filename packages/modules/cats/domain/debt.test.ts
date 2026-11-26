@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DEBT_WARNING_THRESHOLD, effectiveDuty, isDebtDay, isOverDebtWarning } from './debt'
 import type { DayResolution } from './ledger'
+import { DEFAULT_LITTER_SETTINGS } from './roster'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
@@ -9,10 +10,10 @@ describe('debt selectors', () => {
   it('effectiveDuty / isDebtDay reflect projected debt days', () => {
     const debts = { Леша: 0, Карина: 1 }
     const today = D('2026-06-16')
-    expect(isDebtDay(D('2026-06-16'), debts, today)).toBe(true)
-    expect(effectiveDuty(D('2026-06-16'), debts, today)).toBe('Карина')
-    expect(isDebtDay(D('2026-06-17'), {}, today)).toBe(false)
-    expect(effectiveDuty(D('2026-06-17'), {}, today)).toBe('Карина')
+    expect(isDebtDay(DEFAULT_LITTER_SETTINGS, D('2026-06-16'), debts, today)).toBe(true)
+    expect(effectiveDuty(DEFAULT_LITTER_SETTINGS, D('2026-06-16'), debts, today)).toBe('Карина')
+    expect(isDebtDay(DEFAULT_LITTER_SETTINGS, D('2026-06-17'), {}, today)).toBe(false)
+    expect(effectiveDuty(DEFAULT_LITTER_SETTINGS, D('2026-06-17'), {}, today)).toBe('Карина')
   })
 
   it('effectiveDuty / isDebtDay skip already closed days when projecting debt', () => {
@@ -30,9 +31,13 @@ describe('debt selectors', () => {
       ],
     ])
 
-    expect(isDebtDay(D('2026-06-16'), debts, today, resolution)).toBe(false)
-    expect(isDebtDay(D('2026-06-18'), debts, today, resolution)).toBe(true)
-    expect(effectiveDuty(D('2026-06-18'), debts, today, resolution)).toBe('Карина')
+    expect(isDebtDay(DEFAULT_LITTER_SETTINGS, D('2026-06-16'), debts, today, resolution)).toBe(
+      false,
+    )
+    expect(isDebtDay(DEFAULT_LITTER_SETTINGS, D('2026-06-18'), debts, today, resolution)).toBe(true)
+    expect(effectiveDuty(DEFAULT_LITTER_SETTINGS, D('2026-06-18'), debts, today, resolution)).toBe(
+      'Карина',
+    )
   })
 
   it('isOverDebtWarning fires strictly above the threshold', () => {

@@ -2,8 +2,8 @@ import { z } from 'zod'
 
 import { latestOutcomesByDate } from './ledger'
 import type { DayResolution, LedgerEntry } from './ledger'
-import { DUTY_ROTATION, getOfeliaDutyByDate } from './roster'
-import type { DutyPerson, Person } from './roster'
+import { MEMBERS, dutyByDate } from './roster'
+import type { LitterSettings, Person } from './roster'
 
 export const DEBT_WARNING_THRESHOLD = 7
 
@@ -11,7 +11,7 @@ export const DEBT_WARNING_THRESHOLD = 7
 // legacy/partial storage records where some rotation keys may be absent.
 export const NumberOfDebtsSchema = z
   .object({
-    // Keep in sync with DUTY_ROTATION tuple.
+    // Keep in sync with the MEMBERS tuple.
     Леша: z.int().nonnegative(),
     Карина: z.int().nonnegative(),
   })
@@ -20,7 +20,7 @@ export type NumberOfDebts = z.infer<typeof NumberOfDebtsSchema>
 
 export type DebtDay = {
   date: Temporal.PlainDate
-  person: DutyPerson
+  person: Person
 }
 
 export type DebtDelta = { person: Person; amount: 1 | -1 }
@@ -31,7 +31,7 @@ export type DebtDelta = { person: Person; amount: 1 | -1 }
  * per-entry badge the history list renders — the two used to carry separate
  * copies of these branches and could drift apart.
  */
-export function debtDeltaFor(entry: LedgerEntry): DebtDelta | null {
+export function debtDeltaFor(settings: LitterSettings, entry: LedgerEntry): DebtDelta | null {
   if (!entry.onBehalfOf) return null
 
   if (entry.type === 'went_into_debt') {
@@ -44,7 +44,7 @@ export function debtDeltaFor(entry: LedgerEntry): DebtDelta | null {
     // fresh debt day, which mints another, so a single missed turn grows
     // without bound while the debtor is away. Production reached six days
     // against four real misses this way.
-    return getOfeliaDutyByDate(Temporal.PlainDate.from(entry.date)) === entry.onBehalfOf
+    return dutyByDate(settings, Temporal.PlainDate.from(entry.date)) === entry.onBehalfOf
       ? { person: entry.onBehalfOf, amount: 1 }
       : null
   }
@@ -58,11 +58,11 @@ export function debtDeltaFor(entry: LedgerEntry): DebtDelta | null {
   return null
 }
 
-export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
+export function foldDebt(settings: LitterSettings, entries: LedgerEntry[]): NumberOfDebts {
   const debt: Partial<NumberOfDebts> = {}
 
   for (const entry of latestOutcomesByDate(entries).values()) {
-    const delta = debtDeltaFor(entry)
+    const delta = debtDeltaFor(settings, entry)
     if (delta) debt[delta.person] = (debt[delta.person] ?? 0) + delta.amount
   }
 
@@ -70,11 +70,11 @@ export function foldDebt(entries: LedgerEntry[]): NumberOfDebts {
 }
 
 export function normalizeDebts(debts: Partial<NumberOfDebts>): NumberOfDebts {
-  const values = DUTY_ROTATION.map((person) => debts[person] ?? 0)
+  const values = MEMBERS.map((person) => debts[person] ?? 0)
 
   const minDebt = Math.min(...values)
 
-  return DUTY_ROTATION.reduce<NumberOfDebts>(
+  return MEMBERS.reduce<NumberOfDebts>(
     (normalized, person) => ({
       ...normalized,
       [person]: (debts[person] ?? 0) - minDebt,
@@ -84,22 +84,23 @@ export function normalizeDebts(debts: Partial<NumberOfDebts>): NumberOfDebts {
 }
 
 export function getDebtDays(
+  settings: LitterSettings,
   debts: Partial<NumberOfDebts>,
   startDate: Temporal.PlainDate,
   resolution: ReadonlyMap<string, DayResolution> = new Map(),
 ): DebtDay[] {
-  if (DUTY_ROTATION.length < 2) {
+  if (settings.rotation.length < 2) {
     return []
   }
 
   const days: DebtDay[] = []
   let currentDate = startDate
 
-  for (const person of DUTY_ROTATION) {
+  for (const person of settings.rotation) {
     let remainingDebt = debts[person] ?? 0
 
     while (remainingDebt > 0) {
-      const plannedDuty = getOfeliaDutyByDate(currentDate)
+      const plannedDuty = dutyByDate(settings, currentDate)
       const isClosed = resolution.get(currentDate.toString())?.status === 'closed'
 
       if (plannedDuty !== person && !isClosed) {
@@ -119,22 +120,26 @@ export function getDebtDays(
 }
 
 export function effectiveDuty(
+  settings: LitterSettings,
   date: Temporal.PlainDate,
   debts: Partial<NumberOfDebts>,
   today: Temporal.PlainDate,
   resolution?: ReadonlyMap<string, DayResolution>,
 ): Person {
-  const debtDay = getDebtDays(debts, today, resolution).find((day) => day.date.equals(date))
-  return debtDay?.person ?? getOfeliaDutyByDate(date)
+  const debtDay = getDebtDays(settings, debts, today, resolution).find((day) =>
+    day.date.equals(date),
+  )
+  return debtDay?.person ?? dutyByDate(settings, date)
 }
 
 export function isDebtDay(
+  settings: LitterSettings,
   date: Temporal.PlainDate,
   debts: Partial<NumberOfDebts>,
   today: Temporal.PlainDate,
   resolution?: ReadonlyMap<string, DayResolution>,
 ): boolean {
-  return getDebtDays(debts, today, resolution).some((day) => day.date.equals(date))
+  return getDebtDays(settings, debts, today, resolution).some((day) => day.date.equals(date))
 }
 
 export function isOverDebtWarning(debts: Partial<NumberOfDebts>, person: Person): boolean {

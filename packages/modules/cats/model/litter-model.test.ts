@@ -13,6 +13,7 @@ import { foldDebt } from '../domain/debt'
 import { OFELIA_ID } from '../domain/ids'
 import { ledgerKey } from '../domain/keys'
 import type { LedgerEntry } from '../domain/ledger'
+import { DEFAULT_LITTER_SETTINGS, type LitterSettings } from '../domain/roster'
 import { memberStats } from '../domain/stats'
 import { toHistoryGroups } from './history-view'
 import { makeLitterModel, type CatsModuleContext } from './litter-model'
@@ -59,10 +60,59 @@ describe('makeLitterModel before the ledger and the clock arrive', () => {
 
     expect(model.today()).toBeNull()
     expect(model.ledger()).toBeNull()
+    expect(model.settings()).toBeNull()
     expect(model.numberOfDebts()).toBeNull()
     expect(model.dayResolution().size).toBe(0)
     expect(model.debtDays()).toBeNull()
     expect(model.memberStats()).toBeNull()
+  })
+})
+
+const SWAPPED: LitterSettings = { rotation: ['Карина', 'Леша'], baseDate: '2026-06-16' }
+
+describe('makeLitterModel litter settings', () => {
+  const readSettings = async (settings?: unknown) => {
+    const { model } = makeTestLitterModel({ entries: ENTRIES, todayIso: '2026-06-17', settings })
+    return context.start(async () => {
+      const off = model.settings.subscribe(() => {})
+      const read = wrap(() => model.settings())
+      await vi.waitFor(() => expect(read()).not.toBeNull())
+      const value = read()
+      off()
+      return value
+    })
+  }
+
+  it('is the default settings when the key is absent', async () => {
+    expect(await readSettings()).toEqual(DEFAULT_LITTER_SETTINGS)
+  })
+
+  it('is the stored settings when they parse', async () => {
+    expect(await readSettings(SWAPPED)).toEqual(SWAPPED)
+  })
+
+  it('falls back to the default settings when the stored value does not parse', async () => {
+    expect(await readSettings({ rotation: 'junk' })).toEqual(DEFAULT_LITTER_SETTINGS)
+  })
+
+  it('resolves a went_into_debt entry by the stored rotation', async () => {
+    // e4 is a missed turn on 2026-06-17, billed only when that day was Карина's own.
+    const { model } = makeTestLitterModel({
+      entries: ENTRIES,
+      todayIso: '2026-06-17',
+      settings: SWAPPED,
+    })
+
+    await context.start(async () => {
+      const off = model.numberOfDebts.subscribe(() => {})
+      const read = wrap(() => model.numberOfDebts())
+      await vi.waitFor(() => expect(read()).not.toBeNull())
+
+      // Swapped, 2026-06-17 is Леша's day, so Карина's missed "own" turn bills nobody.
+      expect(read()).toEqual({ Леша: 0, Карина: 0 })
+      expect(read()).not.toEqual(foldDebt(DEFAULT_LITTER_SETTINGS, ENTRIES))
+      off()
+    })
   })
 })
 
@@ -82,10 +132,11 @@ describe('makeLitterModel ledger projections', () => {
       }))
 
       await vi.waitFor(() => expect(read().ledger).toEqual(ENTRIES))
+      await vi.waitFor(() => expect(read().stats).not.toBeNull())
       const state = read()
 
       expect(state.loading).toBe(false)
-      expect(state.debts).toEqual(foldDebt(ENTRIES))
+      expect(state.debts).toEqual(foldDebt(DEFAULT_LITTER_SETTINGS, ENTRIES))
       expect(state.resolution.get('2026-06-15')).toEqual({
         status: 'closed',
         type: 'cleaned',
@@ -94,7 +145,12 @@ describe('makeLitterModel ledger projections', () => {
       expect(state.resolution.get('2026-06-16')?.status).toBe('pending')
       expect(state.debtDays).toBeInstanceOf(Map)
       expect(state.stats).toEqual(
-        memberStats({ entries: ENTRIES, today: D('2026-06-17'), windowDays: 30 }),
+        memberStats({
+          settings: DEFAULT_LITTER_SETTINGS,
+          entries: ENTRIES,
+          today: D('2026-06-17'),
+          windowDays: 30,
+        }),
       )
 
       for (const off of offs) off()
@@ -114,6 +170,7 @@ describe('makeLitterModel ledger projections', () => {
       await vi.waitFor(() => expect(readHistory()).toHaveLength(3))
       expect(readHistory()).toEqual(
         toHistoryGroups({
+          settings: DEFAULT_LITTER_SETTINGS,
           entries: ENTRIES,
           weekStartIso: '2026-06-15',
           members: new Map(),

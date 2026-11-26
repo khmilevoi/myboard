@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { foldDebt } from './debt'
 import { LedgerEntriesSchema, LedgerEntrySchema, resolveDays } from './ledger'
 import type { LedgerEntry } from './ledger'
+import { DEFAULT_LITTER_SETTINGS } from './roster'
 
 let seq = 0
 const le = (o: Partial<LedgerEntry> = {}): LedgerEntry => ({
@@ -17,20 +18,26 @@ const le = (o: Partial<LedgerEntry> = {}): LedgerEntry => ({
 
 describe('foldDebt', () => {
   it('is zero for an empty ledger', () => {
-    expect(foldDebt([])).toEqual({ Леша: 0, Карина: 0 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, [])).toEqual({ Леша: 0, Карина: 0 })
   })
 
   it('a plain cleaned day changes nothing', () => {
-    expect(foldDebt([le({ date: '2026-06-16', type: 'cleaned', actor: 'Леша' })])).toEqual({
+    expect(
+      foldDebt(DEFAULT_LITTER_SETTINGS, [
+        le({ date: '2026-06-16', type: 'cleaned', actor: 'Леша' }),
+      ]),
+    ).toEqual({
       Леша: 0,
       Карина: 0,
     })
   })
 
   it('went_into_debt adds one to the scheduled person (onBehalfOf)', () => {
-    expect(foldDebt([le({ type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' })])).toEqual(
-      { Леша: 1, Карина: 0 },
-    )
+    expect(
+      foldDebt(DEFAULT_LITTER_SETTINGS, [
+        le({ type: 'went_into_debt', actor: 'Карина', onBehalfOf: 'Леша' }),
+      ]),
+    ).toEqual({ Леша: 1, Карина: 0 })
   })
 
   it('cleaning a debt day (cleaned + onBehalfOf) repays the cleaner', () => {
@@ -44,7 +51,7 @@ describe('foldDebt', () => {
       }),
       le({ ts: 2, date: '2026-06-17', type: 'cleaned', actor: 'Леша', onBehalfOf: 'Карина' }),
     ]
-    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 
   it('forgiven subtracts one from the debtor (onBehalfOf)', () => {
@@ -58,7 +65,7 @@ describe('foldDebt', () => {
       }),
       le({ ts: 2, date: '2026-06-16', type: 'forgiven', actor: 'Карина', onBehalfOf: 'Леша' }),
     ]
-    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 
   it('latest entry per date wins for day outcomes (reset reverses the day)', () => {
@@ -72,7 +79,7 @@ describe('foldDebt', () => {
       }),
       le({ ts: 2, date: '2026-06-16', type: 'reset', actor: 'Леша' }),
     ]
-    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 
   it('forgiven wins as the latest day outcome and subtracts one debtor debt', () => {
@@ -95,7 +102,7 @@ describe('foldDebt', () => {
     ]
     // the 2026-06-16 forgiven entry replaces that date's went_into_debt outcome
     // and forgives one existing debt.
-    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 
   it('an unpaid repayment day adds nothing on top of the miss it was meant to repay', () => {
@@ -118,7 +125,7 @@ describe('foldDebt', () => {
         onBehalfOf: 'Карина',
       }),
     ]
-    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 1 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, entries)).toEqual({ Леша: 0, Карина: 1 })
   })
 
   it('a stretch of missed days charges only the debtor’s own turns', () => {
@@ -136,7 +143,7 @@ describe('foldDebt', () => {
     const entries = away.map((date, index) =>
       le({ ts: index + 1, date, type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
     )
-    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 3 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, entries)).toEqual({ Леша: 0, Карина: 3 })
   })
 
   it('nets two-sided debt down via normalizeDebts', () => {
@@ -157,7 +164,7 @@ describe('foldDebt', () => {
       }),
     ]
     // each owes one → nets to zero
-    expect(foldDebt(entries)).toEqual({ Леша: 0, Карина: 0 })
+    expect(foldDebt(DEFAULT_LITTER_SETTINGS, entries)).toEqual({ Леша: 0, Карина: 0 })
   })
 })
 
@@ -333,6 +340,6 @@ describe('LedgerEntriesSchema', () => {
     ])
 
     expect(parsed.map((entry) => entry.id)).toEqual(['e1'])
-    expect(() => foldDebt(parsed)).not.toThrow()
+    expect(() => foldDebt(DEFAULT_LITTER_SETTINGS, parsed)).not.toThrow()
   })
 })

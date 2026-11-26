@@ -1,4 +1,4 @@
-import { action, atom, computed, wrap } from '@reatom/core'
+import { action, atom, computed, withChangeHook, wrap } from '@reatom/core'
 import type { Action, Atom, AtomLike, Computed } from '@reatom/core'
 import { withStorageKeyReadonly } from 'widget-runtime'
 import type { ModuleApiError, StorageError } from 'widget-runtime'
@@ -6,17 +6,26 @@ import type { ModuleContext } from 'widget-runtime/define-module'
 
 import type { catsActionSchemas } from '../domain/actions'
 import { foldDebt, getDebtDays, type DebtDay, type NumberOfDebts } from '../domain/debt'
-import { ledgerKey } from '../domain/keys'
+import { ledgerKey, litterSettingsKey } from '../domain/keys'
 import {
   LedgerEntriesSchema,
   resolveDays,
   type DayResolution,
   type LedgerEntry,
 } from '../domain/ledger'
-import { DUTY_TIME_ZONE, weekStartISO } from '../domain/roster'
+import {
+  DEFAULT_LITTER_SETTINGS,
+  DUTY_TIME_ZONE,
+  LitterSettingsSchema,
+  weekStartISO,
+  type LitterSettings,
+} from '../domain/roster'
 import { STATS_WINDOW_DAYS, memberStats, type LitterMemberStats } from '../domain/stats'
 import { toHistoryGroups, type HistoryDayGroup } from './history-view'
 import { makeWeekComments, type LitterWeekComments } from './week-comments'
+
+/** `rawSettings` before the settings key has answered: distinct from an absent key (null). */
+const SETTINGS_LOADING = Symbol('cats.settingsLoading')
 
 export type CatsModuleContext = ModuleContext<typeof catsActionSchemas, 'shared'>
 
@@ -25,9 +34,12 @@ export type LitterDayAction = 'clean' | 'debt' | 'forgive' | 'undo'
 /** One litter's duty state: its ledger, debts, history, comments and day actions. */
 export type LitterModel = {
   ledger: Atom<LedgerEntry[] | null>
+  /** A failed ledger or settings read; null once a retry has loaded both. */
   ledgerError: Atom<StorageError | null>
   ledgerLoading: Atom<boolean>
   retryLedger: Action<[], Promise<void>>
+  /** The duty rotation: null while loading, the defaults when the key is absent or does not parse. */
+  settings: Computed<LitterSettings | null>
   today: Computed<Temporal.PlainDate | null>
   numberOfDebts: Computed<NumberOfDebts | null>
   dayResolution: Computed<Map<string, DayResolution>>
@@ -47,6 +59,7 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
   const { storage, timer, identity, api } = context
   const shared = storage.shared
   const key = ledgerKey(litterId)
+  const settingsKey = litterSettingsKey(litterId)
   const name = (suffix: string) => `cats.litter.${litterId}.${suffix}`
 
   // Reactive mirror of the append-only, server-owned ledger key. null is the
@@ -63,6 +76,20 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
     }),
   )
 
+  // The raw stored value, deliberately without a schema: a value that fails it must reach
+  // `settings` below and become the defaults, not a subscription error that leaves every
+  // rotation-dependent computed pinned at null. An absent key arrives as the fallback, null.
+  const rawSettings = atom<unknown>(SETTINGS_LOADING, name('rawSettings')).extend(
+    withStorageKeyReadonly({ api: shared.server, key: settingsKey, fallback: null }),
+  )
+
+  const settings = computed<LitterSettings | null>(() => {
+    const raw = rawSettings()
+    if (raw === SETTINGS_LOADING) return null
+    const parsed = LitterSettingsSchema.safeParse(raw)
+    return parsed.success ? parsed.data : DEFAULT_LITTER_SETTINGS
+  }, name('settings'))
+
   // `withStorageKeyReadonly` only ever fetches the ledger once, at the
   // connect-frame's initial subscribe — a failed fetch has no built-in retry,
   // and every downstream computed stays pinned at the `null` sentinel
@@ -70,6 +97,13 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
   // extension above; surface them so a view can show a real failure state
   // instead of an endless skeleton.
   const ledgerError = ledger.error
+  // A failed settings read keeps `settings` at null, so it is as blocking as a failed ledger
+  // read: surface it through the same atom instead of leaving an endless skeleton.
+  const settingsReadError = rawSettings.error.extend(
+    withChangeHook((error) => {
+      if (error !== null) ledgerError.set(error)
+    }),
+  )
   const ledgerLoading = ledger.isLoading
 
   // Re-runs the one-shot fetch `withStorageKeyReadonly` already performed at
@@ -77,21 +111,33 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
   // is built on.
   const retryLedger = action(async () => {
     ledgerLoading.set(true)
-    const result = await wrap(shared.server.get(key, LedgerEntriesSchema))
+    // The settings key is read again too: its connect-time read failed with the ledger's during
+    // an outage, and the rotation-dependent computeds stay null until it answers.
+    const [result, rawResult] = await wrap(
+      Promise.all([shared.server.get(key, LedgerEntriesSchema), shared.server.get(settingsKey)]),
+    )
     ledgerLoading.set(false)
     if (result instanceof Error) {
       ledgerError.set(result)
       return
     }
+    if (rawResult instanceof Error) {
+      settingsReadError.set(rawResult)
+      return
+    }
     ledgerError.set(null)
+    settingsReadError.set(null)
     ledger.set(result ?? [])
+    rawSettings.set(rawResult)
   }, name('retryLedger'))
 
   const today = computed(() => timer.today(DUTY_TIME_ZONE), name('today'))
 
   const numberOfDebts = computed(() => {
+    const currentSettings = settings()
     const entries = ledger()
-    return entries === null ? null : foldDebt(entries)
+    if (currentSettings === null || entries === null) return null
+    return foldDebt(currentSettings, entries)
   }, name('numberOfDebts'))
 
   const dayResolution = computed(() => {
@@ -101,19 +147,29 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
 
   const debtDays = computed(() => {
     const currentToday = today()
+    const currentSettings = settings()
     const debts = numberOfDebts()
-    if (!currentToday || debts === null) return null
-    return getDebtDays(debts, currentToday, dayResolution()).reduce((acc, debtDay) => {
-      acc.set(debtDay.date.toString(), debtDay)
-      return acc
-    }, new Map<string, DebtDay>())
+    if (!currentToday || currentSettings === null || debts === null) return null
+    return getDebtDays(currentSettings, debts, currentToday, dayResolution()).reduce(
+      (acc, debtDay) => {
+        acc.set(debtDay.date.toString(), debtDay)
+        return acc
+      },
+      new Map<string, DebtDay>(),
+    )
   }, name('debtDays'))
 
   const stats = computed(() => {
     const currentToday = today()
     const entries = ledger()
-    if (!currentToday || entries === null) return null
-    return memberStats({ entries, today: currentToday, windowDays: STATS_WINDOW_DAYS })
+    const currentSettings = settings()
+    if (!currentToday || entries === null || currentSettings === null) return null
+    return memberStats({
+      settings: currentSettings,
+      entries,
+      today: currentToday,
+      windowDays: STATS_WINDOW_DAYS,
+    })
   }, name('memberStats'))
 
   // One computed per view: each caller owns the week atom it navigates.
@@ -121,9 +177,11 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
     computed<HistoryDayGroup[]>(() => {
       const week = weekStart()
       const entries = ledger()
-      if (!week || entries === null) return []
+      const currentSettings = settings()
+      if (!week || entries === null || currentSettings === null) return []
 
       return toHistoryGroups({
+        settings: currentSettings,
         entries,
         weekStartIso: week.toString(),
         members: identity.members(),
@@ -164,6 +222,7 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
     ledgerError,
     ledgerLoading,
     retryLedger,
+    settings,
     today,
     numberOfDebts,
     dayResolution,

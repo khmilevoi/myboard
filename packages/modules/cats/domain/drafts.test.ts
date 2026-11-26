@@ -9,13 +9,19 @@ import {
   makeUndoDraft,
 } from './drafts'
 import type { LedgerEntry } from './ledger'
-import { PersonSchema } from './roster'
+import { DEFAULT_LITTER_SETTINGS, PersonSchema } from './roster'
+import type { LitterSettings } from './roster'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 const KARINA = { accountId: 'a1', name: 'Карина' }
 
-// 2026-06-16 is BASE_DUTY_DATE_ISO, so it is Леша's day; 06-17 is Карина's.
-const base = { entries: [] as LedgerEntry[], today: D('2026-06-16'), createdBy: KARINA }
+// 2026-06-16 is the default base date, so it is Леша's day; 06-17 is Карина's.
+const base = {
+  settings: DEFAULT_LITTER_SETTINGS,
+  entries: [] as LedgerEntry[],
+  today: D('2026-06-16'),
+  createdBy: KARINA,
+}
 
 let seq = 0
 const entry = (o: Partial<LedgerEntry> = {}): LedgerEntry => ({
@@ -71,6 +77,7 @@ describe('makeCleanDraft', () => {
       entry({ date: '2026-06-11', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
     ]
     const draft = makeCleanDraft({
+      settings: DEFAULT_LITTER_SETTINGS,
       entries,
       today: D('2026-06-19'),
       target: D('2026-06-12'),
@@ -92,6 +99,7 @@ describe('makeCleanDraft', () => {
       entry({ date: '2026-06-11', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
     ]
     const draft = makeCleanDraft({
+      settings: DEFAULT_LITTER_SETTINGS,
       entries,
       today: D('2026-06-19'),
       target: D('2026-06-12'),
@@ -108,6 +116,16 @@ describe('makeCleanDraft', () => {
       createdBy: null,
       by: 'Леша',
     })
+  })
+})
+
+describe('makeCleanDraft with a swapped rotation', () => {
+  const swapped: LitterSettings = { rotation: ['Карина', 'Леша'], baseDate: '2026-06-16' }
+
+  it('puts the second listed member on the base date', () => {
+    const draft = makeCleanDraft({ ...base, settings: swapped, target: D('2026-06-16') })
+    expect(draft.actor).toBe('Карина')
+    expect(draft.by).toBe('Карина')
   })
 })
 
@@ -131,6 +149,7 @@ describe('makeDebtDraft', () => {
       entry({ date: '2026-06-11', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
     ]
     const draft = makeDebtDraft({
+      settings: DEFAULT_LITTER_SETTINGS,
       entries,
       today: D('2026-06-19'),
       target: D('2026-06-12'),
@@ -163,6 +182,7 @@ describe('makeForgiveDraft', () => {
       entry({ date: '2026-06-11', type: 'went_into_debt', actor: 'Леша', onBehalfOf: 'Карина' }),
     ]
     const draft = makeForgiveDraft({
+      settings: DEFAULT_LITTER_SETTINGS,
       entries,
       today: D('2026-06-19'),
       target: D('2026-06-12'),

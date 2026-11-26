@@ -3,7 +3,7 @@ import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import { OFELIA_ID } from '../domain/ids'
-import { ledgerKey } from '../domain/keys'
+import { ledgerKey, litterSettingsKey } from '../domain/keys'
 import type { LedgerEntry } from '../domain/ledger'
 import { makeCatsModel, type CatsModel } from './cats-model'
 import type { CatsModuleContext, LitterModel } from './litter-model'
@@ -11,6 +11,8 @@ import type { CatsModuleContext, LitterModel } from './litter-model'
 export type MakeTestCatsModelOptions = {
   /** Seeds Ofelia's litter ledger key. Omitted, the ledger key is absent. */
   entries?: LedgerEntry[]
+  /** Seeds Ofelia's litter settings key with this raw value. Omitted, the key is absent. */
+  settings?: unknown
   /** The server-time "today". Omitted, the clock has not synced yet. */
   todayIso?: string
   /** Answers every API call. Omitted, every call resolves to `{ ok: true }`. */
@@ -34,6 +36,9 @@ export function makeTestCatsModel(options: MakeTestCatsModelOptions = {}): TestC
   // The fake's `set` writes synchronously before its first await, so the key is
   // seeded by the time the model's connect hook subscribes.
   if (options.entries) void storage.set(ledgerKey(OFELIA_ID), options.entries)
+
+  if (options.settings !== undefined)
+    void storage.set(litterSettingsKey(OFELIA_ID), options.settings)
 
   const calls: TestModelCalls = []
   const answer = options.invoke ?? (async () => ({ ok: true }))

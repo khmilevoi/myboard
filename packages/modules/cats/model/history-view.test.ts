@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { LedgerEntry } from '../domain/ledger'
+import { DEFAULT_LITTER_SETTINGS } from '../domain/roster'
 import { toHistoryGroups } from './history-view'
 
 const KARINA = { accountId: 'a1', name: 'Карина' }
@@ -20,7 +21,13 @@ const ON_TIME = Date.UTC(2026, 5, 16, 20, 0, 0)
 const LATE = Date.UTC(2026, 5, 18, 20, 0, 0)
 
 const call = (entries: LedgerEntry[]) =>
-  toHistoryGroups({ entries, weekStartIso: '2026-06-15', members, viewerAccountId: 'a1' })
+  toHistoryGroups({
+    settings: DEFAULT_LITTER_SETTINGS,
+    entries,
+    weekStartIso: '2026-06-15',
+    members,
+    viewerAccountId: 'a1',
+  })
 
 describe('toHistoryGroups', () => {
   it('puts the newest entry of a day in `current` and the rest in `superseded`', () => {
