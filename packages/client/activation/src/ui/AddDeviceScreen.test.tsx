@@ -4,7 +4,12 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type AddDeviceModel, makeAddDeviceModel, type ScanStatus } from '../model/add-device-model'
+import {
+  type AddDeviceModel,
+  CAMERA_DENIED_MESSAGE,
+  makeAddDeviceModel,
+  type ScanStatus,
+} from '../model/add-device-model'
 import { AddDeviceScreen } from './AddDeviceScreen'
 
 // `beforeEach` (not `afterEach`) -- matches AccountMenu.test.tsx's documented
@@ -49,12 +54,33 @@ function setStatus(model: AddDeviceModel, status: ScanStatus) {
   })
 }
 
+// A granted camera with one back lens, so the overlay (not the camera-denied
+// screen) renders; jsdom itself has no navigator.mediaDevices.
+const grantedCamera = {
+  getUserMedia: async () => ({ getTracks: () => [] }) as unknown as MediaStream,
+  enumerateDevices: async () =>
+    [{ kind: 'videoinput', deviceId: 'back', label: 'Back Camera' }] as MediaDeviceInfo[],
+}
+
 describe('AddDeviceScreen scanner feedback', () => {
+  it('shows the camera-denied screen when the camera cannot be opened', async () => {
+    const model = makeAddDeviceModel({
+      currentOrigin: 'https://host',
+      scan: true,
+      http: makeScriptedHttp({}).http,
+      mediaDevices: undefined,
+    })
+    render(<AddDeviceScreen model={model} />)
+
+    expect(await screen.findByText(CAMERA_DENIED_MESSAGE)).toBeInTheDocument()
+  })
+
   function renderScanner() {
     const model = makeAddDeviceModel({
       currentOrigin: 'https://host',
       scan: true,
       http: makeScriptedHttp({}).http,
+      mediaDevices: grantedCamera,
     })
     render(<AddDeviceScreen model={model} />)
     return model

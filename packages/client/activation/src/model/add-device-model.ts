@@ -15,6 +15,8 @@ import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/bro
 import { startRegistration as browserStartRegistration } from '@simplewebauthn/browser'
 import * as errore from 'errore'
 
+import { resolveScannerConstraints, type ScannerMediaDevices } from './scanner-camera'
+
 // Duplicated from packages/client/activation/src/model/activation-model.ts's own
 // `CRED_HINT_STORAGE_KEY` (same localStorage key, same non-secret WebAuthn
 // credentialId hint) -- this file deliberately doesn't import from
@@ -66,6 +68,16 @@ export type ScanStatus =
   // The server could not be reached or failed; retrying the same code helps.
   | { kind: 'network'; code: string }
 
+// Shown on the camera-denied screen (design 4(b2)) when the camera cannot be
+// opened: permission denied, no camera, or no mediaDevices at all.
+export const CAMERA_DENIED_MESSAGE =
+  'Разрешите доступ к камере в настройках браузера или вернитесь назад'
+
+export type ScannerCamera =
+  | { kind: 'pending' }
+  | { kind: 'ready'; constraints: MediaStreamConstraints }
+  | { kind: 'unavailable' }
+
 export type ScannedText =
   | { kind: 'code'; code: string }
   | { kind: 'other-origin'; codeHost: string }
@@ -101,6 +113,8 @@ export interface AddDeviceDeps {
   // `{ optionsJSON }` object), mirroring activation-model.ts's ActivationDeps so
   // a test double stays call-compatible with the real ceremony.
   startRegistrationCeremony: typeof browserStartRegistration
+  // Camera access for the scanner; undefined where the browser has none.
+  mediaDevices: ScannerMediaDevices | undefined
 }
 
 function defaultOrigin(): string {
@@ -277,6 +291,11 @@ export interface AddDeviceModel {
   scanStatus: Atom<ScanStatus>
   // "Сканировать снова": dismiss the overlay's panel and accept decodes again.
   resumeScan: Action<[], void>
+  // Which camera the scanner opens (see scanner-camera.ts). Reading it from
+  // the overlay resolves it; it re-resolves each time the overlay mounts.
+  camera: Atom<ScannerCamera>
+  // The scanner's own getUserMedia failed after the camera was chosen.
+  reportCameraError: Action<[], void>
   // "Повторить": re-validate the code that hit a network failure.
   retryScan: Action<[], Promise<void>>
   startRegistration: Action<[], Promise<void>>
@@ -301,6 +320,12 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     storage: overrides.storage ?? defaultStorage(),
     http: overrides.http ?? new HttpClient(),
     startRegistrationCeremony: overrides.startRegistrationCeremony ?? browserStartRegistration,
+    mediaDevices:
+      'mediaDevices' in overrides
+        ? overrides.mediaDevices
+        : typeof navigator !== 'undefined'
+          ? navigator.mediaDevices
+          : undefined,
   }
 
   // A code embedded in the activation link (`/add-device?token=...`). Normalized
@@ -555,6 +580,34 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     await wrap(validateScannedCode(scanned.code))
   }, 'addDevice.stageScannedCode')
 
+  const prepareCamera = action(async () => {
+    camera.set({ kind: 'pending' })
+    const constraints = await wrap(resolveScannerConstraints(deps.mediaDevices))
+    if (constraints instanceof Error) {
+      camera.set({ kind: 'unavailable' })
+      error.set(CAMERA_DENIED_MESSAGE)
+      return
+    }
+    camera.set({ kind: 'ready', constraints })
+  }, 'addDevice.prepareCamera')
+
+  // Resolved when the scanner overlay connects it (reads it) and again on every
+  // reconnect, so reopening the scanner re-checks permission and the camera
+  // list; mirrors `poll`'s connection-bound lifetime.
+  const camera = atom<ScannerCamera>({ kind: 'pending' }, 'addDevice.camera').extend(
+    withConnectHook(() => {
+      // Closing the scanner mid-resolve aborts this run with an AbortError;
+      // that is the intended cancellation, and every real failure is already
+      // returned as a value by resolveScannerConstraints.
+      prepareCamera().catch(() => undefined)
+    }),
+  )
+
+  const reportCameraError = action(() => {
+    camera.set({ kind: 'unavailable' })
+    error.set(CAMERA_DENIED_MESSAGE)
+  }, 'addDevice.reportCameraError')
+
   const resumeScan = action(() => {
     scanStatus.set({ kind: 'idle' })
   }, 'addDevice.resumeScan')
@@ -719,6 +772,8 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     stageScannedCode,
     scanStatus,
     resumeScan,
+    camera,
+    reportCameraError,
     retryScan,
     startRegistration,
     pollPendingStatus,

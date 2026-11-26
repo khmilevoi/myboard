@@ -20,37 +20,20 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { type AddDeviceModel, type ScanStatus } from '../model/add-device-model'
+import {
+  type AddDeviceModel,
+  CAMERA_DENIED_MESSAGE,
+  type ScannerCamera,
+  type ScanStatus,
+} from '../model/add-device-model'
 import { activateRoute, closeScan } from '../model/routes'
+import { tuneScannerTrack } from '../model/scanner-camera'
 
 import styles from './AddDeviceScreen.module.css'
 import shellStyles from './shell.module.css'
 
 export type AddDeviceScreenProps = {
   model: AddDeviceModel
-}
-
-// react-zxing's `onError` fires when getUserMedia itself fails (permission
-// denied, no camera, etc.) -- reused via the model's own generic `error`
-// atom (panel 4(b2) "Нет доступа к камере") rather than a dedicated atom,
-// since add-device-model.ts (C2) doesn't expose a separate camera-state
-// field and `error` is already the shared "something went wrong for the
-// current mode" slot (mirrors how it's reused across manual/registering/
-// waiting failures).
-const CAMERA_DENIED_MESSAGE = 'Разрешите доступ к камере в настройках браузера или вернитесь назад'
-
-// react-zxing's default constraints are a bare `facingMode: 'environment'`, so
-// browsers fall back to their 640x480 default stream. Blown up to fill a
-// portrait phone screen that reads as a heavy, blurry zoom. Asking for a
-// high-resolution stream keeps the preview sharp and gives the decoder more
-// pixels; `ideal` (never `exact`) so cameras that cannot reach it still open.
-const SCANNER_CAMERA_CONSTRAINTS: MediaStreamConstraints = {
-  audio: false,
-  video: {
-    facingMode: { ideal: 'environment' },
-    width: { ideal: 1920 },
-    height: { ideal: 1080 },
-  },
 }
 
 // View-only formatting for the manual code field (uppercase, strip
@@ -83,7 +66,71 @@ function passkeyButtonContent(loading: boolean) {
   )
 }
 
+type ScannerVideoProps = {
+  constraints: MediaStreamConstraints
+  onDecode: (rawValue: string) => void
+  onCameraError: () => void
+}
+
+// `?camdebug` on the scanner URL prints which camera opened and at what size:
+// the only way to see, on the phone itself, what the browser actually chose.
+const CAMERA_DEBUG =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('camdebug')
+
+// Mounted only once the model has chosen the camera, so `useZxing` opens that
+// device directly instead of opening the default lens first.
+function ScannerVideo({ constraints, onDecode, onCameraError }: ScannerVideoProps) {
+  // Never `paused`: react-zxing stops the camera stream when paused, which
+  // would black out the preview behind the feedback panel. The model ignores
+  // decodes while a check or a panel is up instead (`stageScannedCode`).
+  const { ref: videoRef } = useZxing({
+    constraints,
+    onDecodeResult: (result) => onDecode(result.rawValue),
+    onError: onCameraError,
+  })
+  const [debugInfo, setDebugInfo] = useState('')
+
+  // DOM interop: the opened track is only reachable through the element.
+  function handleLoadedMetadata() {
+    const video = videoRef.current
+    const track =
+      video?.srcObject instanceof MediaStream ? video.srcObject.getVideoTracks()[0] : null
+    if (!video || !track) return
+    void tuneScannerTrack(track).then(() => {
+      if (!CAMERA_DEBUG) return
+      const settings = track.getSettings() as MediaTrackSettings & {
+        zoom?: number
+        focusMode?: string
+      }
+      setDebugInfo(
+        [
+          track.label,
+          `${video.videoWidth}×${video.videoHeight}`,
+          settings.zoom !== undefined ? `zoom ${settings.zoom}` : '',
+          settings.focusMode ?? '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      )
+    })
+  }
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        onLoadedMetadata={handleLoadedMetadata}
+        className={styles.scannerOverlayVideo}
+      />
+      {debugInfo ? <p className={styles.scannerDebug}>{debugInfo}</p> : null}
+    </>
+  )
+}
+
 type ScannerOverlayProps = {
+  camera: ScannerCamera
   status: ScanStatus
   onDecode: (rawValue: string) => void
   onCameraError: () => void
@@ -147,6 +194,7 @@ const SCAN_HINT = 'Наведите камеру на QR-код из окна «
 // branch inside AddDeviceScreen) so `useZxing` — and the wasm barcode engine it
 // eagerly loads — only mounts once the user actually reaches the scanner.
 function ScannerOverlay({
+  camera,
   status,
   onDecode,
   onCameraError,
@@ -155,15 +203,6 @@ function ScannerOverlay({
   onRetry,
   onManual,
 }: ScannerOverlayProps) {
-  // Never `paused`: react-zxing stops the camera stream when paused, which
-  // would black out the preview behind the feedback panel. The model ignores
-  // decodes while a check or a panel is up instead (`stageScannedCode`).
-  const { ref: videoRef } = useZxing({
-    constraints: SCANNER_CAMERA_CONSTRAINTS,
-    onDecodeResult: (result) => onDecode(result.rawValue),
-    onError: onCameraError,
-  })
-
   const sheet =
     status.kind === 'other-origin' ? (
       <ScanSheet
@@ -204,10 +243,16 @@ function ScannerOverlay({
       aria-label="Сканирование QR-кода"
       className={styles.scannerOverlay}
     >
-      <video ref={videoRef} muted playsInline className={styles.scannerOverlayVideo} />
+      {camera.kind === 'ready' ? (
+        <ScannerVideo
+          constraints={camera.constraints}
+          onDecode={onDecode}
+          onCameraError={onCameraError}
+        />
+      ) : null}
       <div
         aria-hidden
-        className={`${styles.scannerFrame} ${status.kind === 'checking' ? styles.scannerFrameChecking : ''} ${sheet ? styles.scannerFrameRaised : ''}`}
+        className={`${styles.scannerFrame} ${status.kind === 'checking' ? styles.scannerFrameChecking : ''}`}
       >
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTl}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTr}`} />
@@ -331,7 +376,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   }
 
   function handleCameraError() {
-    model.error.set(CAMERA_DENIED_MESSAGE)
+    model.reportCameraError()
   }
 
   const isExpiredError = mode === 'manual' && error != null && error.toLowerCase().includes('истёк')
@@ -349,8 +394,12 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   ].join('|')
 
   if (scanning && !cameraDenied) {
+    // Reading `camera` connects it, which chooses and opens the camera only
+    // while the scanner is on screen (same connection-bound pattern as `poll`).
+    const camera = model.camera()
     return (
       <ScannerOverlay
+        camera={camera}
         status={scanStatus}
         onDecode={handleDecode}
         onCameraError={handleCameraError}
