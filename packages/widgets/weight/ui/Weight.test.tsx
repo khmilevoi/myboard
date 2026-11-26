@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { monthKeysInRange } from 'module-health/domain/keys'
 import type { Measurement } from 'module-health/domain/measurement'
 import { makeTestHealthModel } from 'module-health/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -8,6 +9,7 @@ import {
   makeStaticWidgetIdentity,
   ModuleLoadError,
   WidgetRuntimeContext,
+  type StorageApi,
   type WidgetModules,
   type WidgetRuntimeProps,
   type WidgetTier,
@@ -88,10 +90,14 @@ describe('Weight', () => {
   })
 
   it('keeps the latest weight and says so when the period has no readings', async () => {
-    await renderWeight([reading('old', Date.now() - 60 * DAY, 84.6)])
+    const takenAt = Date.now() - 60 * DAY
+    await renderWeight([reading('old', takenAt, 84.6)])
 
     await waitFor(() => expect(screen.getByText('Нет измерений за период')).toBeVisible())
     expect(screen.getByTestId('weight-value')).toHaveTextContent('84,6 кг')
+    expect(screen.getByTestId('weight-taken-at')).toHaveTextContent(
+      formatTakenAt(takenAt, Date.now()),
+    )
     expect(screen.getByText('Выберите период длиннее')).toBeInTheDocument()
     expect(screen.queryByText('Пока нет измерений')).not.toBeInTheDocument()
   })
@@ -201,5 +207,63 @@ describe('Weight', () => {
     expect(newest).toHaveTextContent('83,0 кг')
     expect(newest).toHaveTextContent('−0,3')
     expect(oldest).toHaveTextContent('83,6 кг')
+  })
+
+  it('keeps the card and the period control mounted while a longer period loads', async () => {
+    const now = Date.now()
+    const backing = createFakeStorage()
+    const seeded = makeTestHealthModel({
+      storage: backing,
+      measurements: [
+        reading('old', now - 60 * DAY, 86),
+        reading('a', now - 20 * DAY, 84.4),
+        reading('b', now - 2 * DAY, 83),
+      ],
+    })
+    expect(await seeded.ready).toBeUndefined()
+    // Month reads outside the 30-day window hang until released.
+    const loaded = monthKeysInRange(now - 30 * DAY, now)
+    const pending: (() => void)[] = []
+    const storage: StorageApi = {
+      ...backing,
+      subscribe: (key, listener, schema) => {
+        if (!key.startsWith('measurements/') || loaded.includes(key)) {
+          return backing.subscribe(key, listener, schema)
+        }
+        let off = () => {}
+        pending.push(() => {
+          off = backing.subscribe(key, listener, schema)
+        })
+        return () => off()
+      },
+    }
+    const { model } = makeTestHealthModel({ storage })
+    render(
+      <WidgetRuntimeContext.Provider
+        value={props({ get: async () => model } as unknown as WidgetModules, 'standard')}
+      >
+        <Weight />
+      </WidgetRuntimeContext.Provider>,
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('weight-delta')).toHaveTextContent('−1,4 кг за 30 дней'),
+    )
+
+    const ninety = screen.getByRole('button', { name: '90 дней' })
+    fireEvent.click(ninety)
+    await waitFor(() => expect(ninety).toHaveAttribute('aria-pressed', 'true'))
+    // The 90-day months are being read: the card is not back to its skeleton, the pressed
+    // button is the same element, and the 30-day trend stays until the new one arrives.
+    await waitFor(() => expect(pending.length).toBeGreaterThan(0))
+    expect(screen.queryByLabelText('Загрузка веса')).not.toBeInTheDocument()
+    expect(periodControl()).toBeInTheDocument()
+    expect(ninety).toBeInTheDocument()
+    expect(screen.getByTestId('weight-delta')).toHaveTextContent('−1,4 кг за 30 дней')
+
+    pending.splice(0).forEach((run) => run())
+    await waitFor(() =>
+      expect(screen.getByTestId('weight-delta')).toHaveTextContent('−3,0 кг за 90 дней'),
+    )
+    expect(ninety).toBeInTheDocument()
   })
 })

@@ -1,8 +1,13 @@
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { formatKgValue, formatTick } from '../model/format'
+import {
+  formatKgValue,
+  formatMeasurementCount,
+  formatTick,
+  formatTrendLabel,
+} from '../model/format'
 import type { WeightPeriod, WeightPoint } from '../model/weight-view'
-import { timeScale, trendLabel } from './Sparkline'
+import { timeScale } from './Sparkline'
 
 import styles from './weight.module.css'
 
@@ -16,13 +21,6 @@ const GRID_TOP = 20
 const GRID_BOTTOM = 200
 const LABEL_Y = 236
 const X_TICKS = 5
-
-const measurementsWord = new Intl.PluralRules('ru-RU')
-const MEASUREMENT_FORMS: Partial<Record<Intl.LDMLPluralRule, string>> = {
-  one: 'измерение',
-  few: 'измерения',
-  many: 'измерений',
-}
 
 export type TrendChartProps = {
   points: WeightPoint[]
@@ -58,18 +56,20 @@ export const TrendChart = reatomMemo<TrendChartProps>(({ points, period, now }) 
     return {
       x: PLOT_LEFT + share * (PLOT_RIGHT - PLOT_LEFT),
       label: formatTick(first + share * (last - first), now),
-      anchor: index === 0 ? 'start' : index === X_TICKS - 1 ? 'end' : 'middle',
+      anchor: (index === 0 ? 'start' : index === X_TICKS - 1 ? 'end' : 'middle') as
+        | 'start'
+        | 'middle'
+        | 'end',
     }
   })
   const coords = points.map((point, index) => ({ cx: x(point, index), cy: y(point.kg) }))
   const newest = coords[coords.length - 1]
-  const count = `${points.length} ${MEASUREMENT_FORMS[measurementsWord.select(points.length)] ?? 'измерений'}`
 
   return (
     <svg
       className={styles.chart}
       role="img"
-      aria-label={`${trendLabel(points, period)}, ${count}`}
+      aria-label={`${formatTrendLabel(points, period)}, ${formatMeasurementCount(points.length)}`}
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
     >
       <g className={styles.axis}>

@@ -10,6 +10,8 @@ import type {
 } from 'widget-runtime'
 import { reatomModule } from 'widget-sdk/modules/reatom-module'
 
+import { makeClock } from './clock'
+
 export type WeightPeriod = '30d' | '90d' | '1y'
 
 export const WEIGHT_PERIODS: readonly WeightPeriod[] = ['30d', '90d', '1y']
@@ -24,9 +26,14 @@ export type WeightLoadError = ModuleAccessError | ModuleLoadError | StorageError
 
 /** Everything that depends on the period, for one period source. */
 export type WeightLens = {
-  /** The period these members show. */
-  period: AtomLike<WeightPeriod>
-  /** The period's weight readings, oldest first; null until the period has loaded. */
+  /**
+   * The period of the readings these members show. Right after a period switch it is still the
+   * previous period, until the new one's months have loaded.
+   */
+  period: Computed<WeightPeriod>
+  /** True while a newly chosen range loads and the previous readings stay on screen. */
+  updating: Computed<boolean>
+  /** The shown weight readings, oldest first; null until a period has loaded the first time. */
   points: Computed<WeightPoint[] | null>
   /** Last minus first point; null with fewer than two points. */
   delta: Computed<number | null>
@@ -54,6 +61,10 @@ export type WeightCardData = {
   now: number
 }
 
+type Reading = { id: string; takenAt: number; kg: number }
+
+type Snapshot = { period: WeightPeriod; readings: Reading[] }
+
 const DAY_MS = 86_400_000
 const PERIOD_DAYS: Record<WeightPeriod, number> = { '30d': 30, '90d': 90, '1y': 365 }
 
@@ -67,6 +78,10 @@ const PERIOD_DAYS: Record<WeightPeriod, number> = { '30d': 30, '90d': 90, '1y': 
  */
 export function makeWeightView(modules: WidgetModules, now: () => number) {
   const handle = reatomModule({ modules, module: healthModule, name: 'weight.module' })
+
+  // Ticks at local midnight and hourly while the card is mounted: the period window and
+  // "сегодня" are read from it, never from a one-off call to `now`.
+  const clock = makeClock(now, 'weight.clock')
 
   const latestAtom = computed(() => handle.model()?.latest('weight') ?? null, 'weight.latestAtom')
 
@@ -90,13 +105,12 @@ export function makeWeightView(modules: WidgetModules, now: () => number) {
   }, 'weight.latestFailed')
 
   const makeLens = (source: AtomLike<WeightPeriod>, name: string): WeightLens => {
-    // Recomputed when the period changes and whenever a newer reading lands in `latest`, so a
-    // card left open for days still takes in today's weigh-in. `to` never falls before the latest
+    // Follows the period, the clock and the newest reading. `to` never falls before the latest
     // reading, so a scale clock slightly ahead of this one cannot clip the newest point.
     const range = computed<HealthRange>(() => {
       const days = PERIOD_DAYS[source()]
       const newest = latest()?.takenAt ?? 0
-      const at = now()
+      const at = clock()
       return { from: at - days * DAY_MS, to: Math.max(at, newest) }
     }, `${name}.range`)
 
@@ -110,14 +124,31 @@ export function makeWeightView(modules: WidgetModules, now: () => number) {
       `${name}.rangeErrorSource`,
     )
 
+    // The current range's readings; null while any of its months is still loading.
     // `series('weight')` only returns readings carrying a weight; the guard keeps the types honest.
-    const readings = computed(() => {
+    const current = computed<Snapshot | null>(() => {
+      const shownFor = source()
       const list = series()?.()
       if (!list) return null
-      return list.flatMap((m) =>
+      const readings = list.flatMap((m) =>
         m.metrics.weight ? [{ id: m.id, takenAt: m.takenAt, kg: m.metrics.weight.value }] : [],
       )
-    }, `${name}.readings`)
+      return { period: shownFor, readings }
+    }, `${name}.current`)
+
+    // `loading` is the first load only. After it, a new range (another period, or a new month
+    // reached on a clock tick) keeps the last loaded readings on screen until its own months
+    // arrive, so the card — and the period control just pressed — stays mounted.
+    const shown = computed<Snapshot | null>(
+      (previous?: Snapshot | null) => current() ?? previous ?? null,
+      `${name}.shown`,
+    )
+
+    const readings = computed(() => shown()?.readings ?? null, `${name}.readings`)
+
+    const shownPeriod = computed(() => shown()?.period ?? source(), `${name}.shownPeriod`)
+
+    const updating = computed(() => shown() !== null && current() === null, `${name}.updating`)
 
     const points = computed<WeightPoint[] | null>(
       () => readings()?.map(({ takenAt, kg }) => ({ takenAt, kg })) ?? null,
@@ -151,8 +182,10 @@ export function makeWeightView(modules: WidgetModules, now: () => number) {
     const error = computed<WeightLoadError | null>(() => {
       const moduleError = handle.error()
       if (moduleError) return moduleError
-      // `rangeError` does not connect the month atoms; reading `series` here does.
-      const loaded = series()?.() ?? null
+      // `rangeError` does not connect the month atoms; reading `current` (the series) here does.
+      // A failed month of the current range is a failure even over older shown readings:
+      // otherwise the chosen period would never load and nothing would say so.
+      const loaded = current()
       const monthError = rangeError()?.() ?? null
       if (loaded === null && monthError) return monthError
       return latestFailed()
@@ -172,12 +205,12 @@ export function makeWeightView(modules: WidgetModules, now: () => number) {
       return 'ready'
     }, `${name}.state`)
 
-    return { period: source, points, delta, bounds, rows, state, error }
+    return { period: shownPeriod, updating, points, delta, bounds, rows, state, error }
   }
 
   const selected = makeLens(period, 'weight')
   const compact = makeLens(
-    computed<WeightPeriod>(() => '30d', 'weight.compact.period'),
+    computed((): WeightPeriod => '30d', 'weight.compact.period'),
     'weight.compact',
   )
 
@@ -193,7 +226,20 @@ export function makeWeightView(modules: WidgetModules, now: () => number) {
     await wrap(model.retry())
   }, 'weight.retry')
 
-  return { ...selected, period, setPeriod, latest, retry, now, compact }
+  return {
+    ...selected,
+    /** The chosen period: the control's state. `shownPeriod` is what the shown readings cover. */
+    period,
+    shownPeriod: selected.period,
+    setPeriod,
+    latest,
+    retry,
+    /** The ticking clock; read it instead of calling the injected `now`. */
+    now: clock,
+    /** The selected period's lens, as one record (the members above are spread from it). */
+    selected,
+    compact,
+  }
 }
 
 export type WeightView = ReturnType<typeof makeWeightView>

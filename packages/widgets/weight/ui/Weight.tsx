@@ -53,7 +53,7 @@ export const Weight = reatomMemo(() => {
   const view = useMemo(() => makeWeightView(modules, Date.now), [modules])
   // The compact tier has no period control, so it reads the lens pinned to 30 days; the
   // selection itself stays as it was for when the card grows back.
-  const lens = tier === 'compact' ? view.compact : view
+  const lens = tier === 'compact' ? view.compact : view.selected
 
   // Keyed by lens: each lens is a different set of atoms, and a fresh mount subscribes to it
   // cleanly instead of swapping atoms under the same hooks.
@@ -91,6 +91,9 @@ const WeightCard = reatomMemo<WeightCardProps>(({ view, lens, tier, chrome }) =>
   const delta = useAtomValue(lens.delta)
   const bounds = useAtomValue(lens.bounds)
   const rows = useAtomValue(lens.rows)
+  const updating = useAtomValue(lens.updating)
+  // The ticking clock, so "сегодня" turns into a date at midnight while the card stays open.
+  const now = useAtomValue(view.now)
 
   if (state === 'loading') return renderLoading(tier, chrome)
 
@@ -132,7 +135,7 @@ const WeightCard = reatomMemo<WeightCardProps>(({ view, lens, tier, chrome }) =>
     delta,
     bounds,
     rows: rows ?? [],
-    now: view.now(),
+    now,
   }
 
   let content: ReactNode = null
@@ -154,7 +157,12 @@ const WeightCard = reatomMemo<WeightCardProps>(({ view, lens, tier, chrome }) =>
 
   const large = tier === 'large' || tier === 'fullscreen'
   return (
-    <div className={styles.widget} data-tier={tier satisfies WidgetTier}>
+    <div
+      className={styles.widget}
+      data-tier={tier satisfies WidgetTier}
+      // A newly chosen period is loading; the previous period's readings stay meanwhile.
+      aria-busy={updating || undefined}
+    >
       {/* The large layout puts the controls in its own header row. */}
       {!large && <WidgetControls {...chrome} />}
       {content}

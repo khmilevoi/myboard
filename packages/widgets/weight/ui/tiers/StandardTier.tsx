@@ -3,8 +3,8 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import {
   formatDelta,
   formatKgValue,
+  formatSparklineTicks,
   formatTakenAt,
-  formatTick,
   PERIOD_LABELS,
   PERIOD_SUFFIXES,
 } from '@/model/format'
@@ -81,14 +81,6 @@ export const TrendHole = reatomMemo<TrendHoleProps>(({ data, hint = true }) => {
   )
 }, 'TrendHole')
 
-/** The first, middle and last moment of the drawn points, as axis labels. */
-export function sparklineTicks(data: WeightCardData): string[] {
-  const first = data.points[0]?.takenAt
-  const last = data.points[data.points.length - 1]?.takenAt
-  if (first === undefined || last === undefined) return []
-  return [first, (first + last) / 2, last].map((at) => formatTick(at, data.now))
-}
-
 export type StandardTierProps = {
   data: WeightCardData
   onSelectPeriod: (period: WeightPeriod) => void
@@ -136,7 +128,7 @@ export const SparkTrend = reatomMemo<SparkTrendProps>(({ data, className }) => {
         </div>
       </div>
       <div className={styles.ticks} aria-hidden>
-        {sparklineTicks(data).map((tick, index) => (
+        {formatSparklineTicks(data.points, data.now).map((tick, index) => (
           <span key={index}>{tick}</span>
         ))}
       </div>

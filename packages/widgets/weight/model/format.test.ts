@@ -4,10 +4,13 @@ import {
   formatChange,
   formatDelta,
   formatKg,
+  formatMeasurementCount,
+  formatSparklineTicks,
   formatTakenAt,
   formatTakenAtFull,
   formatTakenOn,
   formatTick,
+  formatTrendLabel,
 } from './format'
 
 // Local time on purpose: "today" and the clock are the viewer's local calendar.
@@ -78,5 +81,39 @@ describe('formatTick', () => {
     expect(formatTick(TODAY_0812, NOW)).toBe('сегодня')
     expect(formatTick(NOV_24_0758, NOW)).toBe('24 нояб')
     expect(formatTick(new Date(2026, 4, 4).getTime(), NOW)).toBe('4 мая')
+  })
+})
+
+describe('formatMeasurementCount', () => {
+  it('agrees the noun with the number', () => {
+    expect(formatMeasurementCount(1)).toBe('1 измерение')
+    expect(formatMeasurementCount(3)).toBe('3 измерения')
+    expect(formatMeasurementCount(15)).toBe('15 измерений')
+    expect(formatMeasurementCount(21)).toBe('21 измерение')
+    expect(formatMeasurementCount(112)).toBe('112 измерений')
+  })
+})
+
+describe('formatTrendLabel', () => {
+  it('says the period and the first and last weight', () => {
+    const points = [
+      { takenAt: NOV_24_0758, kg: 84.4 },
+      { takenAt: TODAY_0812, kg: 83 },
+    ]
+    expect(formatTrendLabel(points, '30d')).toBe('Вес за 30 дней: с 84,4 до 83,0 кг')
+    expect(formatTrendLabel(points, '1y')).toBe('Вес за год: с 84,4 до 83,0 кг')
+    expect(formatTrendLabel([], '30d')).toBe('')
+  })
+})
+
+describe('formatSparklineTicks', () => {
+  it('labels the first, middle and last moment of the points', () => {
+    const points = [
+      { takenAt: new Date(2026, 10, 2, 8).getTime(), kg: 84 },
+      { takenAt: new Date(2026, 10, 10, 8).getTime(), kg: 83.6 },
+      { takenAt: TODAY_0812, kg: 83 },
+    ]
+    expect(formatSparklineTicks(points, NOW)).toEqual(['2 нояб', '14 нояб', 'сегодня'])
+    expect(formatSparklineTicks([], NOW)).toEqual([])
   })
 })

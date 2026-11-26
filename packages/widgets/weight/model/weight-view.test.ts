@@ -1,12 +1,15 @@
 import { context, wrap } from '@reatom/core'
+import { monthKeysInRange } from 'module-health/domain/keys'
 import type { Measurement } from 'module-health/domain/measurement'
 import { makeTestHealthModel } from 'module-health/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModuleLoadError, StorageError, type StorageApi, type WidgetModules } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
+import { formatTakenAt } from './format'
 import { makeWeightView } from './weight-view'
 
+const HOUR = 3_600_000
 const DAY = 86_400_000
 const NOW = Date.UTC(2026, 10, 26, 9)
 const daysAgo = (days: number) => NOW - days * DAY
@@ -38,7 +41,39 @@ function connect(view: ReturnType<typeof makeWeightView>) {
   return () => offs.forEach((off) => off())
 }
 
+/**
+ * Account storage whose month reads outside `ready` hang until `release()`: what a period switch
+ * to months not loaded yet looks like over a slow network.
+ */
+function deferMonths(backing: StorageApi, ready: string[]) {
+  const pending: (() => void)[] = []
+  const storage: StorageApi = {
+    ...backing,
+    subscribe: (key, listener, schema) => {
+      if (!key.startsWith('measurements/') || ready.includes(key)) {
+        return backing.subscribe(key, listener, schema)
+      }
+      let off = () => {}
+      let cancelled = false
+      pending.push(() => {
+        if (!cancelled) off = backing.subscribe(key, listener, schema)
+      })
+      return () => {
+        cancelled = true
+        off()
+      }
+    },
+  }
+  return {
+    storage,
+    /** Month reads waiting; the subscriptions open a tick after the range changes. */
+    held: () => pending.length,
+    release: () => pending.splice(0).forEach((run) => run()),
+  }
+}
+
 afterEach(() => {
+  vi.useRealTimers()
   context.reset()
 })
 
@@ -239,6 +274,99 @@ describe('makeWeightView', () => {
 
       await retry()
       await vi.waitFor(() => expect(read().state).toBe('single'))
+      off()
+    })
+  })
+
+  it('keeps the loaded period on screen while a longer one loads', async () => {
+    const backing = createFakeStorage()
+    const seeded = makeTestHealthModel({
+      storage: backing,
+      measurements: [
+        reading('old', daysAgo(60), 86),
+        reading('a', daysAgo(20), 84.4),
+        reading('b', daysAgo(2), 83),
+      ],
+    })
+    expect(await seeded.ready).toBeUndefined()
+    const deferred = deferMonths(backing, monthKeysInRange(daysAgo(30), NOW))
+    const { model } = makeTestHealthModel({ storage: deferred.storage })
+    const view = makeWeightView(modulesOf(model), () => NOW)
+    await context.start(async () => {
+      const off = connect(view)
+      const read = wrap(() => ({
+        state: view.state(),
+        updating: view.updating(),
+        period: view.period(),
+        shownPeriod: view.shownPeriod(),
+        delta: view.delta(),
+        points: view.points(),
+      }))
+      const choose = wrap((period: '90d') => view.setPeriod(period))
+      await vi.waitFor(() => expect(read().state).toBe('ready'))
+
+      choose('90d')
+      expect(read()).toMatchObject({
+        state: 'ready',
+        updating: true,
+        period: '90d',
+        shownPeriod: '30d',
+      })
+      expect(read().points).toHaveLength(2)
+      await vi.waitFor(() => expect(deferred.held()).toBe(2))
+      expect(read()).toMatchObject({ state: 'ready', updating: true, shownPeriod: '30d' })
+
+      deferred.release()
+      await vi.waitFor(() => expect(read().points).toHaveLength(3))
+      expect(read()).toMatchObject({ state: 'ready', updating: false, shownPeriod: '90d' })
+      expect(read().delta).toBeCloseTo(83 - 86)
+      off()
+    })
+  })
+
+  it('turns "сегодня" into a date when the clock crosses local midnight', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let at = new Date(2026, 10, 26, 23, 0).getTime()
+    const morning = new Date(2026, 10, 26, 8, 12).getTime()
+    const { model, ready } = makeTestHealthModel({
+      measurements: [reading('a', morning - 3 * DAY, 84), reading('b', morning, 83)],
+    })
+    expect(await ready).toBeUndefined()
+    const view = makeWeightView(modulesOf(model), () => at)
+    await context.start(async () => {
+      const off = connect(view)
+      const read = wrap(() => ({ latest: view.latest(), now: view.now(), state: view.state() }))
+      const takenAt = () => formatTakenAt(read().latest?.takenAt ?? 0, read().now)
+      await vi.waitFor(() => expect(read().state).toBe('ready'))
+      expect(takenAt()).toBe('сегодня, 08:12')
+
+      at = new Date(2026, 10, 27, 0, 0, 1).getTime()
+      await vi.advanceTimersByTimeAsync(HOUR)
+      await vi.waitFor(() => expect(takenAt()).toBe('26 нояб.'))
+      off()
+    })
+  })
+
+  it('lets readings fall out of the period as the clock moves on', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let at = NOW
+    const { model, ready } = makeTestHealthModel({
+      measurements: [
+        reading('a', daysAgo(30) + HOUR, 84),
+        reading('b', daysAgo(30) + 2 * HOUR, 83.8),
+      ],
+    })
+    expect(await ready).toBeUndefined()
+    const view = makeWeightView(modulesOf(model), () => at)
+    await context.start(async () => {
+      const off = connect(view)
+      const read = wrap(() => ({ state: view.state(), latest: view.latest() }))
+      await vi.waitFor(() => expect(read().state).toBe('ready'))
+
+      at = NOW + 3 * HOUR
+      await vi.advanceTimersByTimeAsync(HOUR)
+      await vi.waitFor(() => expect(read().state).toBe('no-period-data'))
+      expect(read().latest?.id).toBe('b')
       off()
     })
   })

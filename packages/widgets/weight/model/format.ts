@@ -1,4 +1,4 @@
-import type { WeightPeriod } from './weight-view'
+import type { WeightPeriod, WeightPoint } from './weight-view'
 
 // ru-RU in the viewer's local time zone: "today" and the clock are their local calendar.
 const kgFormat = new Intl.NumberFormat('ru-RU', {
@@ -80,4 +80,32 @@ export function formatTakenAtFull(takenAt: number, now: number): string {
 /** `сегодня` / `24 нояб` — a chart axis label, without the abbreviation dot. */
 export function formatTick(takenAt: number, now: number): string {
   return formatTakenOn(takenAt, now).replace(/\.$/, '')
+}
+
+const pluralRules = new Intl.PluralRules('ru-RU')
+const MEASUREMENT_FORMS: Partial<Record<Intl.LDMLPluralRule, string>> = {
+  one: 'измерение',
+  few: 'измерения',
+  many: 'измерений',
+}
+
+/** `1 измерение` / `3 измерения` / `15 измерений` */
+export function formatMeasurementCount(count: number): string {
+  return `${count} ${MEASUREMENT_FORMS[pluralRules.select(count)] ?? 'измерений'}`
+}
+
+/** `Вес за 30 дней: с 84,4 до 83,0 кг` — what a trend line says, for a screen reader. */
+export function formatTrendLabel(points: WeightPoint[], period: WeightPeriod): string {
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (!first || !last) return ''
+  return `Вес ${PERIOD_SUFFIXES[period]}: с ${formatKgValue(first.kg)} до ${formatKg(last.kg)}`
+}
+
+/** The first, middle and last moment of the points, as sparkline axis labels. */
+export function formatSparklineTicks(points: WeightPoint[], now: number): string[] {
+  const first = points[0]?.takenAt
+  const last = points[points.length - 1]?.takenAt
+  if (first === undefined || last === undefined) return []
+  return [first, (first + last) / 2, last].map((at) => formatTick(at, now))
 }
