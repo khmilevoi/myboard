@@ -14,6 +14,7 @@ skills and loads them on demand; other agents read the files directly.
 | `docs/agent/radix-stacked-dialogs.md` | closing one Radix dialog or popover also dismisses the one underneath |
 | `docs/agent/browser-history-traversal.md` | touching `overlay-history.ts`, or a test disagrees with the browser about history traversal timing |
 | `docs/architecture/overview.md` | you need the widget/storage/server picture beyond the map below |
+| `design/README.md` | building or restyling any UI, adding a widget, or touching the design system — the canonical design and how it syncs |
 
 ## Required skills
 

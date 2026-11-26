@@ -1,0 +1,96 @@
+{
+  "v": 1,
+  "mode": "omelette",
+  "root": "project/",
+  "title": "myboard",
+  "entry": "06 Виджет - Паспорт-чекер.dc.html",
+  "pages": [
+    {
+      "path": "06 Виджет - Паспорт-чекер.dc.html",
+      "title": "06 Виджет - Паспорт-чекер",
+      "kind": "page"
+    },
+    {
+      "path": "01 Дизайн-система.dc.html",
+      "title": "01 Дизайн-система",
+      "kind": "page"
+    },
+    {
+      "path": "04 Борда.dc.html",
+      "title": "04 Борда",
+      "kind": "page"
+    },
+    {
+      "path": "00 Навигация.dc.html",
+      "title": "00 Навигация",
+      "kind": "page"
+    },
+    {
+      "path": "03 Устройства и аккаунт.dc.html",
+      "title": "03 Устройства и аккаунт",
+      "kind": "page"
+    },
+    {
+      "path": "02 Вход и активация.dc.html",
+      "title": "02 Вход и активация",
+      "kind": "page"
+    },
+    {
+      "path": "07 Поиск - компактная карточка.dc.html",
+      "title": "07 Поиск - компактная карточка",
+      "kind": "page"
+    },
+    {
+      "path": "05 Виджет - Лоток Офелии.dc.html",
+      "title": "05 Виджет - Лоток Офелии",
+      "kind": "page"
+    },
+    {
+      "path": "08 Поиск - история и комментарии.dc.html",
+      "title": "08 Поиск - история и комментарии",
+      "kind": "page"
+    },
+    {
+      "path": "OfeliaPanels.dc.html",
+      "title": "OfeliaPanels",
+      "kind": "component"
+    },
+    {
+      "path": "OpheliaLarge.dc.html",
+      "title": "OpheliaLarge",
+      "kind": "component"
+    },
+    {
+      "path": "09 Виджет - Офелия питание.dc.html",
+      "title": "09 Виджет — Офелия: питание",
+      "name": "09 Виджет — Офелия: питание",
+      "kind": "page"
+    },
+    {
+      "path": "OfeliaFoodLarge.dc.html",
+      "title": "OfeliaFoodLarge",
+      "kind": "component"
+    }
+  ],
+  "migratorVersion": "artifact-migrator (claude-design-backend 1a1b12dd776d)",
+  "createdAt": "2026-11-26T01:20:33.307Z",
+  "source": {
+    "v": 1,
+    "app": "claude-design",
+    "url": "https://claude.ai/design/p/1d140473-1ef3-46e2-b23d-f909fb3c2a02",
+    "projectId": "1d140473-1ef3-46e2-b23d-f909fb3c2a02",
+    "exportedAt": "2026-11-26T01:20:33.307Z"
+  },
+  "report": {
+    "itemsVersion": 2,
+    "pages": {
+      "total": 9,
+      "ok": 9,
+      "partial": 0,
+      "notMigrated": 0
+    },
+    "items": [],
+    "truncated": 0,
+    "truncatedLeftOut": 0
+  }
+}
