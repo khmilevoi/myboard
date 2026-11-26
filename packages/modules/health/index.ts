@@ -1,2 +1,2 @@
 export { healthModule } from './generated/module'
-export type { HealthModel } from './model'
+export type { HealthModel, HealthRange } from './model'
