@@ -20,6 +20,8 @@ export type ResponseHook = (ctx: ResponseHookContext) => void | 'retry' | Promis
 export type HttpRequestOptions = {
   json?: unknown
   searchParams?: Record<string, string>
+  /** Per-request headers, applied before the onRequest hooks (which may still override them). */
+  headers?: Record<string, string>
 }
 
 export type HttpClientOptions = {
@@ -72,6 +74,7 @@ export class HttpClient {
   ): Promise<HttpTransportError | HttpResponse> {
     const headers = new Headers()
     if (MUTATING_METHODS.has(method)) headers.set(CSRF_HEADER, CSRF_HEADER_VALUE)
+    for (const [name, value] of Object.entries(options?.headers ?? {})) headers.set(name, value)
     const ctx: HttpRequestContext = { method, url: this.#resolve(url), headers }
     for (const hook of this.#options.onRequest ?? []) await hook(ctx)
 

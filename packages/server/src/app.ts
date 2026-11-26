@@ -278,12 +278,15 @@ export function createApp(deps: AppDeps): App {
       return
     }
 
-    if (subscribe) registry.subscribe(connId, subscribe)
-    registry.subscribeScoped(connId, entries)
+    // Unsubscribes first: on an account switch the client sends the same frame key in both lists
+    // (old account out, new account in). unsubscribeFrames matches by frame key, so applying it
+    // last would drop the subscription this request just resolved for the new account.
     if (unsubscribe) registry.unsubscribe(connId, unsubscribe)
     if (scoped?.unsubscribe) {
       registry.unsubscribeFrames(connId, scoped.unsubscribe.map(scopedEventKey))
     }
+    if (subscribe) registry.subscribe(connId, subscribe)
+    registry.subscribeScoped(connId, entries)
     res.writeHead(204)
     res.end()
   })

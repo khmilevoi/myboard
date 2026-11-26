@@ -3,7 +3,7 @@ import {
   moduleSharedNamespace,
   widgetAccountNamespace,
 } from '@shared/storage/scope'
-import type { ScopedBranch } from '@shared/storage/scoped'
+import type { ValidScopedBranch } from '@shared/storage/scoped'
 import type { z } from 'zod'
 
 import type { WidgetIdentity } from '../identity'
@@ -57,8 +57,10 @@ export function makeIdentityAccountGate(identity: WidgetIdentity): AccountGate {
 }
 
 /** The Dexie namespace of a scoped branch: the same namespace functions the server uses. */
-export function localNamespaceFor(branch: ScopedBranch, accountId: string | null): string {
-  if (branch.scope === 'shared') return moduleSharedNamespace(branch.id)
+export function localNamespaceFor(branch: ValidScopedBranch, accountId: string | null): string {
+  if (branch.owner === 'module' && branch.scope === 'shared') {
+    return moduleSharedNamespace(branch.id)
+  }
   // Account branches only reach here through makeAccountGatedStorage, which never builds
   // without an account — the empty fallback is unreachable, not a namespace anyone writes to.
   const id = accountId ?? ''
@@ -137,10 +139,11 @@ export function makeAccountGatedStorage(
       let unsubscribeInner: (() => void) | undefined
       let closed = false
 
-      // On an account switch this unsubscribes and resubscribes in one tick. The SSE frame key
-      // has no account in it, so the sync diff nets to zero and the server subscription keeps the
-      // old account's fullKey (see addScoped in server/sse-client.ts). Safe today: identity loads
-      // the viewer once per document. A future account-switch feature must force-resubscribe.
+      // On an account switch this unsubscribes and resubscribes in one tick. Identity refreshes
+      // the viewer periodically, so a switch can happen in an open document (logout + login as
+      // another account in a second tab). The SSE registration is tagged with the account
+      // (addScoped in server/sse-client.ts), so the switch still reaches the server as a real
+      // unsubscribe + subscribe rather than netting to a zero diff.
       const unsubscribeGate = gate.subscribe((accountId) => {
         if (closed || accountId === active) return
         unsubscribeInner?.()

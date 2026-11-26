@@ -187,6 +187,39 @@ describe('makeWidgetIdentity retry and refresh', () => {
     warn.mockRestore()
   })
 
+  it('forgets the viewer on a 401 refresh after a load, and picks up the next login', async () => {
+    vi.useFakeTimers()
+    const roster = (viewerAccountId: string) =>
+      okResponse({
+        accounts: [
+          { accountId: 'a1', name: 'Карина' },
+          { accountId: 'a2', name: 'Лёша' },
+        ],
+        viewerAccountId,
+      })
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(roster('a1'))
+      .mockResolvedValueOnce({ ok: false, status: 401, body: undefined })
+      .mockResolvedValueOnce(roster('a2'))
+    const http = { get, post: vi.fn() } as unknown as HttpLike
+    const identity = makeWidgetIdentity({ http })
+
+    const off = identity.viewer.subscribe(() => {})
+    await flushMicrotasks()
+    expect(wrap(() => identity.viewer()?.accountId)()).toBe('a1')
+
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+    await flushMicrotasks()
+    expect(wrap(() => identity.viewer())()).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
+    await flushMicrotasks()
+    expect(wrap(() => identity.viewer()?.accountId)()).toBe('a2')
+
+    off()
+  })
+
   it('cancels the scheduled retry when the last subscriber disconnects', async () => {
     vi.useFakeTimers()
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

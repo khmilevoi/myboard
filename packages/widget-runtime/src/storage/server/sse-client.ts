@@ -6,7 +6,12 @@ import { z } from 'zod'
 export type SseDeliver = (rawValue: unknown) => void
 export type SseManager = {
   add(fullKey: string, deliver: SseDeliver): () => void
-  addScoped(ref: ScopedStorageRef, deliver: SseDeliver): () => void
+  /**
+   * `account` tags an account-scoped subscription with the account it was opened for. The frame
+   * key carries no account, so without the tag an account switch inside one sync tick would net
+   * to a zero diff and the server would keep delivering the previous account's key.
+   */
+  addScoped(ref: ScopedStorageRef, deliver: SseDeliver, account?: string): () => void
 }
 
 export type SseManagerDeps = {
@@ -33,11 +38,20 @@ function isPermanentRejection(status: number): boolean {
   return status >= 400 && status < 500 && status !== 401 && status !== 408 && status !== 429
 }
 
+// The registration identity of a scoped subscription: its frame key plus the account it was
+// opened for. NUL cannot occur in a frame key, so the two parts never collide.
+function scopedRegistrationKey(ref: ScopedStorageRef, account: string | undefined): string {
+  const frameKey = scopedEventKey(ref)
+  return account === undefined ? frameKey : `${frameKey}\u0000${account}`
+}
+
 export function makeSseManager(deps: SseManagerDeps): SseManager {
   const subscribers = new Map<string, Set<SseDeliver>>()
   const desired = new Set<string>()
   let registered = new Set<string>()
+  // Keyed by scopedRegistrationKey (frame key + account), not by frame key.
   const desiredScoped = new Map<string, ScopedStorageRef>()
+  const scopedRefCounts = new Map<string, number>()
   let registeredScoped = new Map<string, ScopedStorageRef>()
   let connId: string | undefined
   let syncScheduled = false
@@ -148,12 +162,12 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
     if (!connId) return
     const subscribe = [...desired].filter((key) => !registered.has(key))
     const unsubscribe = [...registered].filter((key) => !desired.has(key))
-    const scopedSubscribe = [...desiredScoped]
-      .filter(([key]) => !registeredScoped.has(key))
-      .map(([, ref]) => ref)
-    const scopedUnsubscribe = [...registeredScoped]
-      .filter(([key]) => !desiredScoped.has(key))
-      .map(([, ref]) => ref)
+    const scopedSubscribeEntries = [...desiredScoped].filter(([key]) => !registeredScoped.has(key))
+    const scopedUnsubscribeEntries = [...registeredScoped].filter(
+      ([key]) => !desiredScoped.has(key),
+    )
+    const scopedSubscribe = scopedSubscribeEntries.map(([, ref]) => ref)
+    const scopedUnsubscribe = scopedUnsubscribeEntries.map(([, ref]) => ref)
     const hasScoped = scopedSubscribe.length > 0 || scopedUnsubscribe.length > 0
     if (subscribe.length === 0 && unsubscribe.length === 0 && !hasScoped) return
 
@@ -188,8 +202,8 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
       // otherwise block plain registration forever. Drop the rejected scoped entries and
       // re-sync, so the plain part of the diff registers.
       console.warn('storage SSE scoped registration rejected', result.status)
-      for (const ref of scopedSubscribe) desiredScoped.delete(scopedEventKey(ref))
-      for (const ref of scopedUnsubscribe) registeredScoped.delete(scopedEventKey(ref))
+      for (const [key] of scopedSubscribeEntries) desiredScoped.delete(key)
+      for (const [key] of scopedUnsubscribeEntries) registeredScoped.delete(key)
       syncDirty = false
       scheduleSync()
       return
@@ -218,27 +232,33 @@ export function makeSseManager(deps: SseManagerDeps): SseManager {
   }
 
   return {
-    addScoped(ref, deliver) {
-      // Caveat: the frame key carries no account, so when the account gate switches accounts the
-      // unsubscribe + subscribe inside one sync tick nets to a zero diff and the server keeps the
-      // old account's fullKey. Identity loads the viewer once per document, so this cannot happen
-      // today; a future account-switch feature must force-resubscribe scoped entries.
-      const key = scopedEventKey(ref)
-      let set = subscribers.get(key)
+    addScoped(ref, deliver, account) {
+      // Delivery is by frame key; registration is by frame key + account. On an account switch
+      // the old registration leaves and the new one arrives in the same diff, so the POST carries
+      // both an unsubscribe and a subscribe of the frame — the server applies unsubscribes first
+      // and re-resolves the frame against the (new) session.
+      const frameKey = scopedEventKey(ref)
+      const registrationKey = scopedRegistrationKey(ref, account)
+      let set = subscribers.get(frameKey)
       if (!set) {
         set = new Set()
-        subscribers.set(key, set)
+        subscribers.set(frameKey, set)
       }
       set.add(deliver)
-      desiredScoped.set(key, ref)
+      scopedRefCounts.set(registrationKey, (scopedRefCounts.get(registrationKey) ?? 0) + 1)
+      desiredScoped.set(registrationKey, ref)
       scheduleSync()
       return () => {
         set.delete(deliver)
-        if (set.size === 0) {
-          subscribers.delete(key)
-          desiredScoped.delete(key)
-          scheduleSync()
+        if (set.size === 0) subscribers.delete(frameKey)
+        const remaining = (scopedRefCounts.get(registrationKey) ?? 1) - 1
+        if (remaining > 0) {
+          scopedRefCounts.set(registrationKey, remaining)
+          return
         }
+        scopedRefCounts.delete(registrationKey)
+        desiredScoped.delete(registrationKey)
+        scheduleSync()
       }
     },
     add(fullKey, deliver) {

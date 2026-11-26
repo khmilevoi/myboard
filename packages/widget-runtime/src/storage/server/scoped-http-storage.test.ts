@@ -22,6 +22,33 @@ describe('makeScopedHttpStorage', () => {
     expect(calls[0]).toMatchObject({ method: 'PUT', url, json: { value: 1 } })
   })
 
+  it('sends the expected-account header and tags SSE registrations when bound to an account', async () => {
+    const url = `${ROOT}/a`
+    const { http, calls } = makeScriptedHttp({
+      [url]: [{ status: 204 }, { status: 404 }, { status: 404 }],
+    })
+    const registerScoped = vi.fn(() => () => {})
+    const storage = makeScopedHttpStorage(BRANCH, {
+      baseUrl: BASE,
+      http,
+      registerScoped,
+      account: 'acc-1',
+    })
+    await storage.set('a', 1)
+    await storage.get('a')
+    expect(calls.map((call) => call.headers)).toEqual([
+      { 'x-myboard-expected-account': 'acc-1' },
+      { 'x-myboard-expected-account': 'acc-1' },
+    ])
+    const off = storage.subscribe('a', () => {})
+    expect(registerScoped).toHaveBeenCalledWith(
+      { ...BRANCH, key: 'a' },
+      expect.any(Function),
+      'acc-1',
+    )
+    off()
+  })
+
   it('GET maps 404 to null', async () => {
     const { storage } = storageWith({ [`${ROOT}/a`]: [{ status: 404 }] })
     expect(await storage.get('a')).toBeNull()
