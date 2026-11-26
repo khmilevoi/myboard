@@ -10,7 +10,10 @@ import {
 } from '@reatom/core'
 import { HttpClient, type HttpLike } from '@shared/http/client'
 import { makeEventSourceStream, type OpenEventStream } from '@shared/http/event-stream'
-import { prepareImage as prepareImageInBrowser } from 'widget-sdk/files/prepare-image'
+import {
+  prepareImage as prepareImageInBrowser,
+  type SquareCrop,
+} from 'widget-sdk/files/prepare-image'
 
 import { purgeLocalSession } from '@/session/model/purge'
 
@@ -48,8 +51,11 @@ export interface AccountDeps {
   bareHttp: HttpLike
   /** Local-data hygiene on logout (Dexie, caches, service worker). */
   purge: () => Promise<void>
-  /** Shrinks a picked photo to the avatar preset before upload; injectable for tests. */
-  prepareImage: (file: Blob) => Promise<Error | Blob>
+  /**
+   * Shrinks a picked photo to the avatar preset before upload — the given square, or the centred
+   * one without it; injectable for tests.
+   */
+  prepareImage: (file: Blob, crop: SquareCrop | null) => Promise<Error | Blob>
   /**
    * Re-reads the board's member directory after an avatar change, so every widget showing this
    * account (Ofelia's MemberAvatar) picks the new photo up without a reload.
@@ -93,12 +99,16 @@ export interface AccountModel {
   deny: Action<[string], Promise<void>>
   revoke: Action<[string], Promise<void>>
   logout: Action<[], Promise<void>>
-  uploadAvatar: Action<[Blob], Promise<void>>
+  /**
+   * Prepares, uploads and applies a new photo. The failure comes back as a value: the crop dialog
+   * that drives this owns the error copy, so nothing here records it.
+   */
+  uploadAvatar: Action<[Blob, SquareCrop | null], Promise<Error | null>>
   removeAvatar: Action<[], Promise<void>>
   /** True while an avatar upload or removal is in flight. */
   avatarPending: Computed<boolean>
-  /** The last avatar failure as user-facing copy; cleared by the next attempt. */
-  avatarError: Atom<string | null>
+  /** The last removal failure as user-facing copy; cleared by the next attempt. */
+  removeAvatarError: Atom<string | null>
   connectEvents: () => () => void
 }
 
@@ -112,7 +122,9 @@ export function createAccountModel(
     openEventStream: overrides.openEventStream ?? makeEventSourceStream(),
     bareHttp: overrides.bareHttp ?? new HttpClient(),
     purge: overrides.purge ?? purgeLocalSession,
-    prepareImage: overrides.prepareImage ?? ((file) => prepareImageInBrowser(file, 'avatar')),
+    prepareImage:
+      overrides.prepareImage ??
+      ((file, crop) => prepareImageInBrowser(file, 'avatar', crop === null ? {} : { crop })),
     refreshIdentity: overrides.refreshIdentity ?? (async () => {}),
   }
 
@@ -204,7 +216,7 @@ export function createAccountModel(
     deps.navigate('/')
   }, 'account.logout').extend(withAsync())
 
-  const avatarError = atom<string | null>(null, 'account.avatarError')
+  const removeAvatarError = atom<string | null>(null, 'account.removeAvatarError')
 
   // The account and every widget's member directory follow the change. The account is patched at
   // once so the menu shows the new photo before the refreshes return.
@@ -217,30 +229,23 @@ export function createAccountModel(
     await wrap(Promise.all([refresh(), deps.refreshIdentity()]))
   }, 'account.applyAvatar')
 
-  const uploadAvatar = action(async (file: Blob) => {
-    avatarError.set(null)
-
-    const prepared = await wrap(deps.prepareImage(file))
-    if (prepared instanceof Error) {
-      avatarError.set(describeAvatarError(prepared))
-      return
-    }
+  const uploadAvatar = action(async (file: Blob, crop: SquareCrop | null) => {
+    const prepared = await wrap(deps.prepareImage(file, crop))
+    if (prepared instanceof Error) return prepared
 
     const ref = await wrap(putAvatar(deps.http, prepared))
-    if (ref instanceof Error) {
-      avatarError.set(describeAvatarError(ref))
-      return
-    }
+    if (ref instanceof Error) return ref
 
     await wrap(applyAvatar(ref.url))
+    return null
   }, 'account.uploadAvatar').extend(withAsync())
 
   const removeAvatar = action(async () => {
-    avatarError.set(null)
+    removeAvatarError.set(null)
 
     const result = await wrap(deleteAvatar(deps.http))
     if (result instanceof Error) {
-      avatarError.set(describeAvatarError(result))
+      removeAvatarError.set(describeAvatarError(result))
       return
     }
 
@@ -286,7 +291,7 @@ export function createAccountModel(
     uploadAvatar,
     removeAvatar,
     avatarPending,
-    avatarError,
+    removeAvatarError,
     connectEvents,
   }
 }
