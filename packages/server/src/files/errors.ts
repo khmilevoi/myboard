@@ -5,6 +5,8 @@ export class FileError extends Error {
   status = 500
   code = 'file_error'
   publicMessage = 'File error'
+  /** Extra machine-readable fields for the response's `error` object. */
+  publicDetails: Record<string, string> | null = null
 }
 
 export class FileTooLargeError extends errore.createTaggedError({
@@ -45,6 +47,29 @@ export class FileTypeNotAcceptedError extends errore.createTaggedError({
   status = 415
   code = 'file_type_not_accepted'
   publicMessage = 'This file type is not accepted here'
+}
+
+/** The bytes do not fully decode as the image type they sniffed as (or as any decodable type). */
+export class FileImageUndecodableError extends errore.createTaggedError({
+  name: 'FileImageUndecodableError',
+  message: 'The upload does not decode as $mime',
+  extends: FileError,
+}) {
+  status = 415
+  code = 'file_image_undecodable'
+  publicMessage = 'The image could not be read'
+}
+
+/** A decoded image breaks the slot's `FilePolicy.image` rules; `reason` names the rule. */
+export class FileImageRejectedError extends errore.createTaggedError({
+  name: 'FileImageRejectedError',
+  message: 'A $size $mime image breaks the $reason rule',
+  extends: FileError,
+}) {
+  status = 422
+  code = 'file_image_rejected'
+  publicMessage = 'The image does not meet the rules of this slot'
+  override publicDetails: Record<string, string> = { reason: String(this.reason) }
 }
 
 export class FileSlotUndeclaredError extends errore.createTaggedError({

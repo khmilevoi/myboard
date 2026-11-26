@@ -1,6 +1,18 @@
+import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import { defineConfig } from '@rspack/cli'
+import { rspack } from '@rspack/core'
+
+import { DECODER_CODECS, WASM_FILES } from '../image-codec/src/wasm-files.ts'
+
+// The image codecs' WebAssembly binaries, copied flat into dist/wasm/: the server compiles them
+// from there at startup (index.ts), because the runtime image has no node_modules for them.
+const codecRequire = createRequire(path.resolve(import.meta.dirname, '../image-codec/package.json'))
+const wasmCopies = DECODER_CODECS.map((codec) => ({
+  from: codecRequire.resolve(WASM_FILES[codec]),
+  to: 'wasm/[name][ext]',
+}))
 
 export default defineConfig({
   target: 'node',
@@ -43,6 +55,11 @@ export default defineConfig({
         // be left as a plain `require('errore')` in the CommonJS output.
         // Bundle it instead of externalizing it.
         request !== 'errore' &&
+        // The image codecs are a build-time workspace package (ESM-only jSquash inside): bundled,
+        // with their wasm copied into dist/wasm, never installed in the runtime image.
+        !request.startsWith('image-codec') &&
+        !request.startsWith('@jsquash/') &&
+        request !== 'wasm-feature-detect' &&
         !path.isAbsolute(request)
       ) {
         return callback(undefined, `commonjs ${request}`)
@@ -50,7 +67,13 @@ export default defineConfig({
       callback()
     },
   ],
+  plugins: [new rspack.CopyRspackPlugin({ patterns: wasmCopies })],
   module: {
+    parser: {
+      // jSquash's glue locates its .wasm with `new URL(..., import.meta.url)`; the server hands
+      // every codec a compiled module instead, so do not emit those files as hashed assets.
+      javascript: { url: false },
+    },
     rules: [
       {
         test: /\.ts$/,

@@ -1,4 +1,5 @@
-import { AVATAR_POLICY, type FileRef } from '@shared/files/contract'
+import { IMAGE_MIME_TYPES, type FilePolicy, type FileRef } from '@shared/files/contract'
+import { encodePng } from 'image-codec/testing'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { makeScopedOwners } from '../storage/scoped'
@@ -12,8 +13,12 @@ const owners = makeScopedOwners({
   moduleScopes: { cats: ['shared', 'account'], board: ['shared'] },
 })
 
+// Image types without pixel rules, so header-only fixtures are enough; the avatar route below
+// carries the rules and gets real images.
+const PHOTO_POLICY: FilePolicy = { accept: IMAGE_MIME_TYPES, maxBytes: 2 * 1024 * 1024 }
+
 const policies = makeFilePolicies([
-  { owner: 'module', id: 'cats', scope: 'shared', keyPattern: 'photo', policy: AVATAR_POLICY },
+  { owner: 'module', id: 'cats', scope: 'shared', keyPattern: 'photo', policy: PHOTO_POLICY },
   {
     owner: 'module',
     id: 'cats',
@@ -262,7 +267,12 @@ describe('file routes', () => {
     )
     expect(gif.status).toBe(415)
 
-    const res = await upload('/api/files/account/avatar', pngBytes(256, 256), 'image/png', a.cookie)
+    const res = await upload(
+      '/api/files/account/avatar',
+      encodePng(256, 256),
+      'image/png',
+      a.cookie,
+    )
     expect(res.status).toBe(200)
     const { value } = (await res.json()) as { value: FileRef }
     expect(value.image).toEqual({ width: 256, height: 256 })
@@ -278,7 +288,7 @@ describe('file routes', () => {
     expect((await get(value.url, b.cookie)).status).toBe(200)
 
     const replaced = (await (
-      await upload('/api/files/account/avatar', pngBytes(8, 8), 'image/png', a.cookie)
+      await upload('/api/files/account/avatar', encodePng(8, 8), 'image/png', a.cookie)
     ).json()) as { value: FileRef }
     expect(app.blobs.ids()).toEqual([replaced.value.blobId])
 
@@ -288,6 +298,33 @@ describe('file routes', () => {
       avatarUrl?: string
     }
     expect(after.avatarUrl).toBeUndefined()
+  })
+
+  it('answers 422 with the broken rule for an avatar the image rules reject', async () => {
+    const a = await app.seedSession('A')
+    const avatar = (bytes: Uint8Array) =>
+      upload('/api/files/account/avatar', bytes, 'image/png', a.cookie)
+
+    const landscape = await avatar(encodePng(600, 400))
+    expect(landscape.status).toBe(422)
+    expect(await landscape.json()).toEqual({
+      error: {
+        code: 'file_image_rejected',
+        message: 'The image does not meet the rules of this slot',
+        reason: 'too_large',
+      },
+    })
+
+    const oblong = await avatar(encodePng(300, 200))
+    expect(oblong.status).toBe(422)
+    expect(((await oblong.json()) as { error: { reason: string } }).error.reason).toBe('not_square')
+
+    const truncated = await avatar(encodePng(64, 64).subarray(0, 60))
+    expect(truncated.status).toBe(415)
+    expect(((await truncated.json()) as { error: { code: string } }).error.code).toBe(
+      'file_image_undecodable',
+    )
+    expect(app.blobs.ids()).toEqual([])
   })
 
   it('delivers slot changes over SSE under the @files/ relative key', async () => {

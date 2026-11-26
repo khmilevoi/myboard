@@ -41,7 +41,13 @@ export type FileRoutesDeps = {
 const SCOPED = '/api/files/scoped/:owner/:id/:scope/:key'
 const BLOB_URI_PATTERN = /^\/files\/([^/?#]+)(?:[?#].*)?$/
 
-type PublicError = { status: number; code: string; publicMessage: string; cause?: unknown }
+type PublicError = {
+  status: number
+  code: string
+  publicMessage: string
+  publicDetails?: Record<string, string> | null
+  cause?: unknown
+}
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json' })
@@ -50,7 +56,9 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 
 function sendError(res: ServerResponse, error: PublicError & Error): void {
   if (error.status >= 500) console.error(error, error.cause)
-  sendJson(res, error.status, { error: { code: error.code, message: error.publicMessage } })
+  sendJson(res, error.status, {
+    error: { code: error.code, message: error.publicMessage, ...error.publicDetails },
+  })
 }
 
 /**

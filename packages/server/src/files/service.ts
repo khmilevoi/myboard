@@ -20,6 +20,7 @@ import {
   FileSessionRequiredError,
   FileStoreError,
 } from './errors'
+import { verifyImageUpload, type ImageDecoder } from './image-check'
 import { BlobRecordSchema, blobRecordKey, type BlobRecord, type FileAccess } from './records'
 import { contentDisposition, inspectUpload } from './upload'
 
@@ -42,8 +43,13 @@ export type FileUpload = {
 
 export type FileService = ReturnType<typeof makeFileService>
 
-export function makeFileService(deps: { ops: ValkeyOps; blobs: BlobStore; now: () => number }) {
-  const { ops, blobs, now } = deps
+export function makeFileService(deps: {
+  ops: ValkeyOps
+  blobs: BlobStore
+  images: ImageDecoder
+  now: () => number
+}) {
+  const { ops, blobs, images, now } = deps
 
   // Record first: once it is gone the blob can never be authorized, so a failed object delete
   // only leaves a harmless orphan.
@@ -75,9 +81,10 @@ export function makeFileService(deps: { ops: ValkeyOps; blobs: BlobStore; now: (
   }
 
   /**
-   * Validates the upload against the slot's policy, stores it as a new blob with its record, then
-   * swaps it into the slot and discards the blob the slot held before. A failure before the swap
-   * completes removes the new blob again.
+   * Validates the upload against the slot's policy — for a policy with image rules, by a full
+   * decode (`verifyImageUpload`) — stores it as a new blob with its record, then swaps it into the
+   * slot and discards the blob the slot held before. A failure before the swap completes removes
+   * the new blob again.
    */
   async function writeSlot(options: {
     slot: string
@@ -89,6 +96,13 @@ export function makeFileService(deps: { ops: ValkeyOps; blobs: BlobStore; now: (
     const { slot, access, policy, upload, io } = options
     const inspected = inspectUpload({ ...upload, policy })
     if (inspected instanceof Error) return inspected
+    const image = await verifyImageUpload({
+      bytes: upload.bytes,
+      inspected,
+      policy,
+      decoder: images,
+    })
+    if (image instanceof Error) return image
 
     const blobId = randomId(16)
     const put = await blobs.put(blobId, upload.bytes, inspected.mime)
@@ -102,7 +116,7 @@ export function makeFileService(deps: { ops: ValkeyOps; blobs: BlobStore; now: (
       mime: inspected.mime,
       size: inspected.size,
       ...(inspected.name !== null ? { name: inspected.name } : {}),
-      ...(inspected.image !== null ? { image: inspected.image } : {}),
+      ...(image !== null ? { image } : {}),
       disposition: contentDisposition(inspected.mime, inspected.name),
       createdAt,
     }

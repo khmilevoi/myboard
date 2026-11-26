@@ -1,7 +1,12 @@
+import path from 'node:path'
+
+import { directoryWasmLoader } from 'image-codec/node'
+
 import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
+import { makeDeferredImageDecoder, startImageCodecs } from './files/image-check'
 import { makeEntryBlobStore, startEntryBlobStoreBootstrap } from './files/production-blob-store'
 import { MigrationFailedError, productionMigrations, runMigrations } from './migrations'
 import { productionModuleServerRegistry } from './modules/production-registry'
@@ -32,6 +37,10 @@ const testSetup = process.env.ALLOW_TEST_DB_RESET === '1' ? makeTestControls(ops
 const blobs = makeEntryBlobStore(process.env)
 startEntryBlobStoreBootstrap({ env: process.env, blobs })
 
+// Image-rule uploads answer 503 until the codecs, shipped as dist/wasm/*.wasm, have compiled.
+const images = makeDeferredImageDecoder()
+startImageCodecs({ decoder: images, loadWasm: directoryWasmLoader(path.join(__dirname, 'wasm')) })
+
 const { server, startCron } = createApp({
   ops,
   subscribe: (onMessage) => createValkeySubscriber('storage:events', onMessage),
@@ -41,7 +50,7 @@ const { server, startCron } = createApp({
   browserClient,
   authConfig,
   scopedOwners: productionScopedOwners,
-  files: { blobs, policies: productionFilePolicies },
+  files: { blobs, policies: productionFilePolicies, images },
   recovery: browserConfig.recovery,
   ...(testSetup ? { testControls: testSetup.controls } : {}),
 })

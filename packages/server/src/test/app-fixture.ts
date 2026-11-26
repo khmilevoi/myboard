@@ -9,6 +9,7 @@ import type { ModuleServerRegistry } from '../modules/registry'
 import { makeScopedOwners, type ScopedOwners } from '../storage/scoped'
 import { createWidgetServerRegistry, type WidgetServerRegistry } from '../widgets/registry'
 import { seedAccountWithDevice, makeClock, makeConfig } from './auth-fixtures'
+import { testImageDecoder } from './image-decoder'
 import { createMemoryOps, createMemoryPubSub, type MemoryOps } from './memory-ops'
 
 export type TestApp = {
@@ -95,7 +96,11 @@ export async function startTestApp(
     authConfig: config,
     recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
     scopedOwners: options.scopedOwners ?? makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
-    files: { blobs, policies: options.filePolicies ?? makeFilePolicies([]) },
+    files: {
+      blobs,
+      policies: options.filePolicies ?? makeFilePolicies([]),
+      images: testImageDecoder,
+    },
   })
   await new Promise<void>((resolve) => app.server.listen(0, resolve))
   const base = `http://localhost:${(app.server.address() as AddressInfo).port}`

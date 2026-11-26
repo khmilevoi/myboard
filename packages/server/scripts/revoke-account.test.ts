@@ -1,4 +1,5 @@
 import { AVATAR_POLICY } from '@shared/files/contract'
+import { encodePng } from 'image-codec/testing'
 import { describe, expect, it } from 'vitest'
 
 import { addDeviceToAccount, createAccount, getAccount } from '../src/auth/accounts'
@@ -8,7 +9,7 @@ import { accountAvatarIO, avatarSlotName } from '../src/files/account-avatar'
 import { makeMemoryBlobStore } from '../src/files/memory-blob-store'
 import { blobRecordKey } from '../src/files/records'
 import { makeFileService } from '../src/files/service'
-import { pngBytes } from '../src/test/file-fixtures'
+import { testImageDecoder } from '../src/test/image-decoder'
 import { createMemoryOps, createMemoryPubSub } from '../src/test/memory-ops'
 import { runRevokeAccount } from './revoke-account'
 
@@ -45,11 +46,11 @@ describe('runRevokeAccount', () => {
     const ops = createMemoryOps(createMemoryPubSub())
     const blobs = makeMemoryBlobStore()
     const account = await createAccount(ops, now, { name: 'Dana', inviteId: 'inv' })
-    const ref = await makeFileService({ ops, blobs, now }).writeSlot({
+    const ref = await makeFileService({ ops, blobs, images: testImageDecoder, now }).writeSlot({
       slot: avatarSlotName(account.id),
       access: { kind: 'members' },
       policy: AVATAR_POLICY,
-      upload: { bytes: pngBytes(4, 4), declaredType: 'image/png', name: null },
+      upload: { bytes: encodePng(4, 4), declaredType: 'image/png', name: null },
       io: accountAvatarIO(ops, account.id),
     })
     if (ref instanceof Error) throw ref
@@ -66,11 +67,11 @@ describe('runRevokeAccount', () => {
     const ops = createMemoryOps(createMemoryPubSub())
     const blobs = makeMemoryBlobStore()
     const account = await createAccount(ops, now, { name: 'Eve', inviteId: 'inv' })
-    const ref = await makeFileService({ ops, blobs, now }).writeSlot({
+    const ref = await makeFileService({ ops, blobs, images: testImageDecoder, now }).writeSlot({
       slot: avatarSlotName(account.id),
       access: { kind: 'members' },
       policy: AVATAR_POLICY,
-      upload: { bytes: pngBytes(4, 4), declaredType: 'image/png', name: null },
+      upload: { bytes: encodePng(4, 4), declaredType: 'image/png', name: null },
       io: accountAvatarIO(ops, account.id),
     })
     if (ref instanceof Error) throw ref

@@ -1,18 +1,31 @@
-import { AVATAR_POLICY, type FileRef } from '@shared/files/contract'
-import { describe, expect, it } from 'vitest'
+import {
+  AVATAR_POLICY,
+  IMAGE_MIME_TYPES,
+  type FilePolicy,
+  type FileRef,
+} from '@shared/files/contract'
+import { encodeWebp, initImageCodecs } from 'image-codec'
+import { packageWasmLoader } from 'image-codec/node'
+import { encodeJpeg, encodePng, gradientImage } from 'image-codec/testing'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import { EVENTS_CHANNEL } from '../storage/handlers'
 import { PDF_BYTES, SVG_BYTES, pngBytes } from '../test/file-fixtures'
+import { testImageDecoder } from '../test/image-decoder'
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import type { BlobStore } from './blob-store'
 import {
   FileForbiddenError,
+  FileImageRejectedError,
+  FileImageUndecodableError,
   FileNotFoundError,
   FileSessionRequiredError,
   FileStoreError,
   FileTooLargeError,
   FileTypeMismatchError,
+  FileUnavailableError,
 } from './errors'
+import { makeDeferredImageDecoder } from './image-check'
 import { makeMemoryBlobStore } from './memory-blob-store'
 import { makeFilePolicies } from './policies'
 import { blobRecordKey } from './records'
@@ -20,12 +33,15 @@ import { makeFileService, readStorageSlot, storageSlotIO, type SlotIO } from './
 
 const SLOT = 'm:cats:s:@files/photo'
 
+// Image types without pixel rules, so header-only fixtures do; the image-rule tests use real ones.
+const PHOTO_POLICY: FilePolicy = { accept: IMAGE_MIME_TYPES, maxBytes: 2 * 1024 * 1024 }
+
 function setup(blobs = makeMemoryBlobStore()) {
   const pubsub = createMemoryPubSub()
   const ops = createMemoryOps(pubsub)
   const events: unknown[] = []
   pubsub.subscribe(EVENTS_CHANNEL, (message) => events.push(JSON.parse(message)))
-  const service = makeFileService({ ops, blobs, now: () => 1_000 })
+  const service = makeFileService({ ops, blobs, images: testImageDecoder, now: () => 1_000 })
   return { ops, blobs, service, events }
 }
 
@@ -41,7 +57,7 @@ describe('file service writeSlot', () => {
     const ref = (await service.writeSlot({
       slot: SLOT,
       access: { kind: 'members' },
-      policy: AVATAR_POLICY,
+      policy: PHOTO_POLICY,
       upload: upload(),
       io: storageSlotIO(ops, SLOT),
     })) as FileRef
@@ -109,7 +125,7 @@ describe('file service writeSlot', () => {
     const ref = (await service.writeSlot({
       slot: SLOT,
       access: { kind: 'members' },
-      policy: AVATAR_POLICY,
+      policy: PHOTO_POLICY,
       upload: upload(),
       io: storageSlotIO(ops, SLOT),
     })) as FileRef
@@ -139,7 +155,7 @@ describe('file service writeSlot', () => {
     const mismatch = await service.writeSlot({
       slot: SLOT,
       access: { kind: 'members' },
-      policy: AVATAR_POLICY,
+      policy: PHOTO_POLICY,
       upload: upload(SVG_BYTES, 'image/png'),
       io: storageSlotIO(ops, SLOT),
     })
@@ -153,7 +169,7 @@ describe('file service writeSlot', () => {
     const first = (await service.writeSlot({
       slot: SLOT,
       access: { kind: 'members' },
-      policy: AVATAR_POLICY,
+      policy: PHOTO_POLICY,
       upload: upload(),
       io: storageSlotIO(ops, SLOT),
     })) as FileRef
@@ -166,7 +182,7 @@ describe('file service writeSlot', () => {
     const result = await service.writeSlot({
       slot: SLOT,
       access: { kind: 'members' },
-      policy: AVATAR_POLICY,
+      policy: PHOTO_POLICY,
       upload: upload(),
       io: failing,
     })
@@ -186,7 +202,7 @@ describe('file service writeSlot', () => {
     const result = await service.writeSlot({
       slot: SLOT,
       access: { kind: 'members' },
-      policy: AVATAR_POLICY,
+      policy: PHOTO_POLICY,
       upload: upload(),
       io: storageSlotIO(ops, SLOT),
     })
@@ -202,7 +218,7 @@ describe('file service authorize', () => {
       ctx.service.writeSlot({
         slot,
         access,
-        policy: AVATAR_POLICY,
+        policy: PHOTO_POLICY,
         upload: upload(),
         io: storageSlotIO(ctx.ops, slot),
       }) as Promise<FileRef>
@@ -266,7 +282,7 @@ describe('makeFilePolicies', () => {
       id: 'cats',
       scope: 'shared',
       keyPattern: /^photo\/\w+$/,
-      policy: AVATAR_POLICY,
+      policy: PHOTO_POLICY,
     },
     {
       owner: 'module',
@@ -279,7 +295,7 @@ describe('makeFilePolicies', () => {
 
   it('resolves by branch and key, denying everything undeclared', () => {
     expect(policies.resolve({ owner: 'module', id: 'cats', scope: 'shared' }, 'photo/a')).toBe(
-      AVATAR_POLICY,
+      PHOTO_POLICY,
     )
     expect(
       policies.resolve({ owner: 'module', id: 'cats', scope: 'shared' }, 'photo/a/b'),
@@ -291,5 +307,86 @@ describe('makeFilePolicies', () => {
       policies.resolve({ owner: 'module', id: 'cats', scope: 'account' }, 'photo/a'),
     ).toBeNull()
     expect(policies.resolve({ owner: 'module', id: 'dogs', scope: 'shared' }, 'photo/a')).toBeNull()
+  })
+})
+
+describe('file service image rules', () => {
+  const writeAvatar = (
+    service: ReturnType<typeof setup>['service'],
+    ops: ReturnType<typeof setup>['ops'],
+    bytes: Uint8Array,
+    declaredType: string,
+  ) =>
+    service.writeSlot({
+      slot: SLOT,
+      access: { kind: 'members' },
+      policy: AVATAR_POLICY,
+      upload: upload(bytes, declaredType),
+      io: storageSlotIO(ops, SLOT),
+    })
+
+  beforeAll(async () => {
+    expect(await initImageCodecs(packageWasmLoader, { webpEncoder: true })).toBeUndefined()
+  })
+
+  it('stores a real 256x256 WebP avatar with its decoded size', async () => {
+    const { ops, blobs, service } = setup()
+    const webp = await encodeWebp(gradientImage(256, 256), { quality: 86 })
+    if (webp instanceof Error) throw webp
+
+    const ref = await writeAvatar(service, ops, webp, 'image/webp')
+    if (ref instanceof Error) throw ref
+    expect(ref).toMatchObject({ mime: 'image/webp', image: { width: 256, height: 256 } })
+    expect(blobs.ids()).toEqual([ref.blobId])
+  })
+
+  it.each([
+    ['a non-square image', 300, 200, 'not_square'],
+    ['a square over maxSide', 1024, 1024, 'too_large'],
+  ])('rejects %s with 422 and stores nothing', async (_label, width, height, reason) => {
+    const { ops, blobs, service } = setup()
+    const result = await writeAvatar(service, ops, encodePng(width, height), 'image/png')
+    expect(result).toBeInstanceOf(FileImageRejectedError)
+    expect(result).toMatchObject({ status: 422, code: 'file_image_rejected', reason })
+    expect(blobs.ids()).toEqual([])
+    expect(await readStorageSlot(ops, SLOT)).toBeNull()
+  })
+
+  it('rejects a PNG whose header sniffs fine but whose body does not decode with 415', async () => {
+    const { ops, blobs, service } = setup()
+    const truncated = encodePng(64, 64).subarray(0, 60)
+    const result = await writeAvatar(service, ops, truncated, 'image/png')
+    expect(result).toBeInstanceOf(FileImageUndecodableError)
+    expect(result).toMatchObject({ status: 415, code: 'file_image_undecodable' })
+    expect(blobs.ids()).toEqual([])
+  })
+
+  it('rejects a header-only PNG claiming a valid size with 415', async () => {
+    const { ops, service } = setup()
+    const result = await writeAvatar(service, ops, pngBytes(256, 256), 'image/png')
+    expect(result).toBeInstanceOf(FileImageUndecodableError)
+  })
+
+  it('still answers a JPEG declared as WebP with the type mismatch', async () => {
+    const { ops, service } = setup()
+    const result = await writeAvatar(service, ops, await encodeJpeg(64, 64), 'image/webp')
+    expect(result).toBeInstanceOf(FileTypeMismatchError)
+  })
+
+  it('answers 503 while the codecs are not ready', async () => {
+    const pubsub = createMemoryPubSub()
+    const ops = createMemoryOps(pubsub)
+    const blobs = makeMemoryBlobStore()
+    const decoder = makeDeferredImageDecoder()
+    const service = makeFileService({ ops, blobs, images: decoder, now: () => 1_000 })
+    const result = await writeAvatar(service, ops, encodePng(16, 16), 'image/png')
+    expect(result).toBeInstanceOf(FileUnavailableError)
+    expect(result).toMatchObject({ status: 503 })
+    expect(blobs.ids()).toEqual([])
+
+    decoder.markReady()
+    expect(await writeAvatar(service, ops, encodePng(16, 16), 'image/png')).toMatchObject({
+      image: { width: 16, height: 16 },
+    })
   })
 })

@@ -396,6 +396,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      image-codec:
+        specifier: workspace:*
+        version: link:../image-codec
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -476,6 +479,9 @@ importers:
       errore:
         specifier: 'catalog:'
         version: 0.14.1
+      image-codec:
+        specifier: workspace:*
+        version: link:../image-codec
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
