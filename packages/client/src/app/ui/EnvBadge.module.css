@@ -1,18 +1,32 @@
 .badge {
   display: inline-flex;
-  flex: none;
+  /* Yields before overflowing: a long branch name is cut with an ellipsis
+     (.label) instead of pushing the board select under .actions. The floor
+     keeps the dot plus a few characters readable; max-width keeps a very long
+     name from claiming the row at comfortable widths. */
+  flex: 0 1 auto;
+  min-width: 64px;
+  max-width: 240px;
   align-items: center;
   gap: 6px;
   height: 22px;
   padding: 0 10px;
+  border: 0;
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--env-badge-fg);
+  font: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.badge:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .dot {
@@ -23,10 +37,78 @@
   background: var(--primary);
 }
 
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Branch names are case-sensitive identifiers, not a label: no uppercase,
+   no tracking, and the monospace face the design system uses for code. */
+.branch {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.panel {
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.rows {
+  margin: 0;
+}
+
+.row,
+.rowStacked {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  color: var(--text-3);
+}
+
+.row {
+  justify-content: space-between;
+}
+
+.rowStacked {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row dd,
+.rowStacked dd {
+  margin: 0;
+  color: var(--foreground);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
 /* Pairs with BoardSchemaSelect.module.css's 640px rule: that's where the
-   select goes width: 100% and starts squeezing the brand box, and the
-   badge's 69px is exactly what the select's growth costs -- drop the label
-   text and keep only the dot inside a circle.
+   select goes flex: 1 1 auto and starts squeezing the brand box -- drop the
+   text and keep only the dot inside a circle; the popover carries the rest.
+   Pulled 6px toward the logo so it reads as the logo's dot rather than as a
+   separate control, and so it costs less of the row.
 
    24px, not the pill's 22px: centring the 8px dot leaves (22 - 8) / 2 = 7px,
    which is 10.5 device pixels at a 1.5 device-pixel ratio, so the dot was
@@ -35,9 +117,12 @@
    ratio (1, 1.25, 1.5, 1.75, 2). */
 @media (max-width: 640px) {
   .badge {
+    flex: none;
     gap: 0;
     width: 24px;
+    min-width: 24px;
     height: 24px;
+    margin-left: -6px;
     padding: 0;
     justify-content: center;
   }
@@ -47,11 +132,10 @@
   }
 }
 
-/* Pairs with BoardSchemaSelect.module.css's 430px rule: that's where the
-   select itself collapses to a 36px icon, so there is no room left for the
-   badge at all. */
-@media (max-width: 430px) {
+/* Header.module.css's 360px rule drops .brand's gap to 6px; the 640px pull of
+   -6px would then glue the circle to the logo. Keep a 4px hairline between. */
+@media (max-width: 360px) {
   .badge {
-    display: none;
+    margin-left: -2px;
   }
 }
