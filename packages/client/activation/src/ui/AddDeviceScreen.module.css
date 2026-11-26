@@ -174,9 +174,24 @@
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
 }
 
-/* Lifted so the feedback panel (.scanSheet) never covers the frame. */
-.scannerFrameRaised {
-  margin-bottom: 38vh;
+/* Always sits above centre, so the feedback panel (.scanSheet) never covers
+   it and nothing has to move when the panel appears. */
+.scannerFrame {
+  margin-bottom: 18vh;
+}
+
+.scannerDebug {
+  position: absolute;
+  top: 70px;
+  left: 12px;
+  right: 12px;
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font: 500 11px/1.4 var(--font-mono, monospace);
+  word-break: break-all;
 }
 
 .scannerCorner {
