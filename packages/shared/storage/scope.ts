@@ -15,6 +15,11 @@
  *
  * If a key shape must change, rename the old keys to the new ones in the same release, or the data
  * vanishes for users on the next deploy.
+ *
+ * Account-scoped and module namespaces: `w:a:<typeId>:<accountId>:` (widget account data),
+ * `m:<moduleId>:s:` (module shared data) and `m:<moduleId>:a:<accountId>:` (module account data).
+ * `w:a:` is a separate prefix on purpose: `w:t:<typeId>:a:` could collide with an existing
+ * relative key that starts with `a:`.
  */
 export function instanceNamespace(instanceId: string): string {
   return `w:i:${instanceId}:`
@@ -30,4 +35,16 @@ export function toFullKey(namespace: string, relativeKey: string): string {
 
 export function toRelativeKey(namespace: string, fullKey: string): string {
   return fullKey.startsWith(namespace) ? fullKey.slice(namespace.length) : fullKey
+}
+
+export function widgetAccountNamespace(typeId: string, accountId: string): string {
+  return `w:a:${typeId}:${accountId}:`
+}
+
+export function moduleSharedNamespace(moduleId: string): string {
+  return `m:${moduleId}:s:`
+}
+
+export function moduleAccountNamespace(moduleId: string, accountId: string): string {
+  return `m:${moduleId}:a:${accountId}:`
 }

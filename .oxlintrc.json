@@ -19,7 +19,7 @@
   },
   "overrides": [
     {
-      "files": ["packages/widgets/*/domain/**"],
+      "files": ["packages/widgets/*/domain/**", "packages/modules/*/domain/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -35,7 +35,7 @@
       }
     },
     {
-      "files": ["packages/widgets/*/domain/**/*.test.ts"],
+      "files": ["packages/widgets/*/domain/**/*.test.ts", "packages/modules/*/domain/**/*.test.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",

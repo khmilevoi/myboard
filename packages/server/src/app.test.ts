@@ -14,6 +14,7 @@ import { lookupInvite } from './auth/invites'
 import { accountKey, sessionKey } from './auth/records'
 import { issueSession } from './auth/sessions'
 import { makeFakeBrowserAutomationClient } from './browser/testing/fake-client'
+import { makeScopedOwners } from './storage/scoped'
 import { createMemoryOps, createMemoryPubSub } from './test/memory-ops'
 import { createWidgetServerRegistry } from './widgets/registry'
 
@@ -167,8 +168,10 @@ describe('createApp', () => {
       subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
       now: () => now,
       widgetRegistry: testWidgetRegistry,
+      moduleRegistry: new Map(),
       browserClient: browserFake.client,
       authConfig: testAuthConfig,
+      scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
       recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
       testControls: {
         setNow: (ms) => {
@@ -679,8 +682,10 @@ describe('createApp', () => {
       subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
       now: () => now,
       widgetRegistry: testWidgetRegistry,
+      moduleRegistry: new Map(),
       browserClient: browserFake.client,
       authConfig: testAuthConfig,
+      scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
       recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
     })
     await new Promise<void>((resolve) => noControlsApp.server.listen(0, resolve))
@@ -694,6 +699,58 @@ describe('createApp', () => {
       expect(res.status).toBe(404)
     } finally {
       await noControlsApp.close()
+    }
+  })
+})
+
+describe('cron scheduler start', () => {
+  it('does not start the interval until startCron() is called', async () => {
+    const pubsub = createMemoryPubSub()
+    const memoryOps = createMemoryOps(pubsub)
+    let opsCalls = 0
+    const ops = new Proxy(memoryOps, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver)
+        if (typeof value !== 'function') return value
+        return (...args: unknown[]) => {
+          opsCalls += 1
+          return value.apply(target, args)
+        }
+      },
+    })
+    const cronWidget = defineWidgetServer({
+      schemas: {},
+      handlers: {},
+      crons: {
+        nightly: { schedule: '5 0 * * *', timeZone: 'Europe/Warsaw', run: () => {} },
+      },
+    })
+    const registry = createWidgetServerRegistry([
+      toRuntimeWidgetServerDefinition({ typeId: 'cron-widget', definition: cronWidget }),
+    ])
+    if (registry instanceof Error) throw registry
+
+    const app = createApp({
+      ops,
+      subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
+      now: () => Date.parse('2026-06-16T12:00:00+02:00'),
+      widgetRegistry: registry,
+      moduleRegistry: new Map(),
+      browserClient: makeFakeBrowserAutomationClient().client,
+      authConfig: testAuthConfig,
+      scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
+      recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
+      cron: { intervalMs: 5 },
+    })
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 60))
+      expect(opsCalls).toBe(0)
+
+      app.startCron()
+      await new Promise((resolve) => setTimeout(resolve, 60))
+      expect(opsCalls).toBeGreaterThan(0)
+    } finally {
+      await app.close()
     }
   })
 })
@@ -733,8 +790,10 @@ describe('cron tick route', () => {
       subscribe: (onMessage) => pubsub.subscribe('storage:events', onMessage),
       now: () => now,
       widgetRegistry: registry,
+      moduleRegistry: new Map(),
       browserClient: makeFakeBrowserAutomationClient().client,
       authConfig: testAuthConfig,
+      scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
       recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
       testControls: {
         setNow: (ms) => {

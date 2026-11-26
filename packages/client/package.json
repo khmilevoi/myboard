@@ -31,6 +31,7 @@
     "dexie": "catalog:",
     "errore": "catalog:",
     "lucide-react": "catalog:",
+    "module-ofelia": "workspace:*",
     "nanoid": "^5.1.15",
     "qr-code-styling": "^1.9.2",
     "radix-ui": "catalog:",

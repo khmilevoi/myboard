@@ -1,6 +1,5 @@
+import type { Person } from 'module-ofelia/domain/roster'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import type { Person } from '@/domain/roster'
 
 import { personInitial, personTone } from '../person'
 

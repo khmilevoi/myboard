@@ -33,12 +33,3 @@ export type Comment = z.infer<typeof CommentSchema>
 // `author` stays part of the draft shape (not omitted) only for the
 // one-release compat shim above — see makeCommentDraft in drafts.ts.
 export type CommentDraft = Omit<Comment, 'id' | 'ts'>
-
-/**
- * `weekStartIso` MUST be the output of `weekStartISO(date)`. The produced key is
- * a persistence contract — it is byte-identical to the previous
- * `comments:${weekStartISO(date)}`.
- */
-export function commentsKey(weekStartIso: string): string {
-  return `comments:${weekStartIso}`
-}

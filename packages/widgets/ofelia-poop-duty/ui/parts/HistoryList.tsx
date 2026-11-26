@@ -2,7 +2,7 @@ import { Clock } from 'lucide-react'
 import { Fragment, useEffect, useRef } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import type { HistoryDayGroup, HistoryEntryView } from '@/model/history-view'
+import type { HistoryDayGroup, HistoryEntryView } from '@/model/ofelia-duty'
 
 import { pluralizeRecords } from '../format'
 import {

@@ -1,7 +1,6 @@
+import { otherPerson } from 'module-ofelia/domain/roster'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
-
-import { otherPerson } from '@/domain/roster'
 
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'

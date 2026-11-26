@@ -13,16 +13,31 @@ export type CodegenPaths = {
   clientCatalogFile: string
   clientIconsFile: string
   serverListFile: string
+  scopedOwnersFile: string
   browserListFile: string
+  modulesDir: string
+  modulePackagesFile: string
+  moduleServerListFile: string
+  /** The board host's package.json: it must depend on every module package it provides. */
+  hostPackageFile: string
 }
 
+export type ModulesCodegenPaths = Pick<
+  CodegenPaths,
+  'widgetsDir' | 'modulesDir' | 'modulePackagesFile' | 'moduleServerListFile' | 'hostPackageFile'
+>
 export type ClientCodegenPaths = Pick<
   CodegenPaths,
   'widgetsDir' | 'portsFile' | 'clientCatalogFile' | 'clientIconsFile'
->
-export type ServerCodegenPaths = Pick<CodegenPaths, 'widgetsDir' | 'serverListFile'>
+> &
+  ModulesCodegenPaths
+export type ServerCodegenPaths = Pick<
+  CodegenPaths,
+  'widgetsDir' | 'serverListFile' | 'scopedOwnersFile'
+> &
+  ModulesCodegenPaths
 export type BrowserCodegenPaths = Pick<CodegenPaths, 'widgetsDir' | 'browserListFile'>
-export const codegenTargets = ['client', 'server', 'browser', 'all'] as const
+export const codegenTargets = ['client', 'server', 'browser', 'modules', 'all'] as const
 const codegenTargetSet = new Set<string>(codegenTargets)
 export type CodegenTarget = (typeof codegenTargets)[number]
 export type GeneratedOutput = { file: string; content: string }
@@ -71,10 +86,18 @@ export const defaultCodegenPaths: CodegenPaths = {
     'client/src/widget-registry/model/widget-icons.generated.ts',
   ),
   serverListFile: path.resolve(packagesDir, 'server/src/widgets/widget-server-list.generated.ts'),
+  scopedOwnersFile: path.resolve(packagesDir, 'server/src/storage/scoped-owners.generated.ts'),
   browserListFile: path.resolve(
     packagesDir,
     'browser-automation/src/tasks/widget-browser-list.generated.ts',
   ),
+  modulesDir: path.resolve(packagesDir, 'modules'),
+  modulePackagesFile: path.resolve(packagesDir, 'widget-sdk/src/vite/module-packages.generated.ts'),
+  moduleServerListFile: path.resolve(
+    packagesDir,
+    'server/src/modules/module-server-list.generated.ts',
+  ),
+  hostPackageFile: path.resolve(packagesDir, 'client/package.json'),
 }
 
 export function discoverWidgetDirs(dir: string): CodegenIoError | string[] {

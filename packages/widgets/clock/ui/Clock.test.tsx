@@ -27,6 +27,7 @@ function props(mode: WidgetRuntimeProps['mode']): WidgetRuntimeProps {
     }),
     api: { invoke: vi.fn() },
     identity: makeStaticWidgetIdentity(),
+    modules: makeHostRuntime().makeWidgetModules([]),
   }
 }
 

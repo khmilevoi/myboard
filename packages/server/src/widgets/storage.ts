@@ -1,14 +1,21 @@
 import { randomUUID } from 'node:crypto'
 
 import { safeParse } from '@shared/json'
-import { instanceNamespace, typeNamespace, toFullKey, toRelativeKey } from '@shared/storage/scope'
-import type { WidgetServerStorage } from '@shared/widgets/contracts'
+import {
+  instanceNamespace,
+  typeNamespace,
+  toFullKey,
+  toRelativeKey,
+  widgetAccountNamespace,
+} from '@shared/storage/scope'
+import type { WidgetServerStorage, WidgetViewer } from '@shared/widgets/contracts'
 import * as errore from 'errore'
 import type { z } from 'zod'
 
 import { publishChange } from '../storage/handlers'
 import { runExclusive } from '../storage/key-lock'
 import type { ValkeyOps } from '../storage/valkey'
+import { AccountRequiredError } from './errors'
 
 export class WidgetServerStorageError extends errore.createTaggedError({
   name: 'WidgetServerStorageError',
@@ -19,6 +26,7 @@ export type CreateWidgetServerStorageApiOptions = {
   ops: ValkeyOps
   typeId: string
   instanceId: string
+  viewer: WidgetViewer | null
   now: () => number
   createId?: () => string
 }
@@ -39,6 +47,13 @@ function serialize(operation: string, key: string, value: unknown) {
   if (serialized instanceof Error) return storageError(operation, key, serialized)
   if (serialized === undefined) return storageError(operation, key)
   return serialized
+}
+
+/** Stands in for `account` when the request has no session: every operation
+ * resolves to the public `account_required` error instead of touching Valkey. */
+export function makeAccountRequiredStorage(): WidgetServerStorage {
+  const refuse = async () => new AccountRequiredError()
+  return { get: refuse, set: refuse, delete: refuse, has: refuse, keys: refuse, append: refuse }
 }
 
 export function makeWidgetScopedStorage({
@@ -158,15 +173,20 @@ export function createWidgetServerStorageApi({
   ops,
   typeId,
   instanceId,
+  viewer,
   now,
   createId = randomUUID,
 }: CreateWidgetServerStorageApiOptions): {
   instance: WidgetServerStorage
   shared: WidgetServerStorage
+  account: WidgetServerStorage
 } {
   const scope = (namespace: string) => makeWidgetScopedStorage({ ops, namespace, now, createId })
   return {
     instance: scope(instanceNamespace(instanceId)),
     shared: scope(typeNamespace(typeId)),
+    account: viewer
+      ? scope(widgetAccountNamespace(typeId, viewer.accountId))
+      : makeAccountRequiredStorage(),
   }
 }

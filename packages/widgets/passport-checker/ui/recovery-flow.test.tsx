@@ -66,6 +66,7 @@ function renderSessionRequired() {
     }),
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
     identity: makeStaticWidgetIdentity(),
+    modules: makeHostRuntime().makeWidgetModules([]),
   }
   return render(
     <WidgetRuntimeContext.Provider value={props}>
@@ -145,6 +146,7 @@ function renderSessionRequiredIn(tier: WidgetRuntimeProps['tier'], instanceId: s
     }),
     api: { invoke: invoke as WidgetRuntimeProps['api']['invoke'] },
     identity: makeStaticWidgetIdentity(),
+    modules: makeHostRuntime().makeWidgetModules([]),
   }
   const view = render(
     <WidgetRuntimeContext.Provider value={props}>

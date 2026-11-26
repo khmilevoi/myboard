@@ -123,6 +123,18 @@ it('registers the lightweight browser automation workspace package', () => {
   })
 })
 
+it('copies packages/modules beside packages/widgets in every Dockerfile that installs the workspace', () => {
+  const browserDockerfile = readFileSync(
+    resolve(root, 'packages/browser-automation/Dockerfile'),
+    'utf8',
+  )
+  for (const dockerfile of [clientDockerfile, serverDockerfile, browserDockerfile]) {
+    expect(dockerfile).toContain('COPY packages/modules /modules')
+    expect(dockerfile).toContain('COPY --from=widget-manifests /modules ./packages/modules')
+    expect(dockerfile).toContain('COPY packages/modules ./packages/modules')
+  }
+})
+
 it('wires browser codegen as an isolated target and into combined codegen', () => {
   expect(rootPackage.scripts['codegen:browser']).toBe('tsx scripts/codegen.ts browser')
   expect(rootCodegen).toContain("if (target === 'browser') return generateBrowser")
@@ -151,12 +163,15 @@ describe('docker-compose.dev.yml widget coverage', () => {
     const widgetDirsResult = discoverWidgetDirs(resolve(root, 'packages/widgets'))
     if (widgetDirsResult instanceof Error) throw widgetDirsResult
     const widgetDirs = widgetDirsResult
+    const moduleDirsResult = discoverWidgetDirs(resolve(root, 'packages/modules'))
+    if (moduleDirsResult instanceof Error) throw moduleDirsResult
     const required = [
       'packages/client',
       'packages/server',
       'packages/shared',
       'packages/widget-runtime',
       'packages/widget-sdk',
+      ...moduleDirsResult.map((dir) => `packages/modules/${dir}`),
       ...widgetDirs.map((dir) => `packages/widgets/${dir}`),
     ]
     for (const pkg of required) {

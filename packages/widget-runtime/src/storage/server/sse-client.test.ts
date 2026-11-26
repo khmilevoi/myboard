@@ -174,3 +174,74 @@ describe('makeSseManager', () => {
     expect(seen).toEqual([])
   })
 })
+
+describe('makeSseManager scoped subscriptions', () => {
+  it('posts scoped.subscribe after ready and delivers scoped frames', async () => {
+    const { manager, streams, post } = setup()
+    const ref = { owner: 'module', id: 'notes', scope: 'account', key: 'k' } as const
+    const seen: unknown[] = []
+    manager.addScoped(ref, (raw) => seen.push(raw))
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => {
+      expect(post).toHaveBeenCalledWith('/api/storage/events/c1', {
+        json: { subscribe: [], unsubscribe: [], scoped: { subscribe: [ref], unsubscribe: [] } },
+      })
+    })
+    streams[0].emit(undefined, { key: 'scoped:module/notes/account/k', value: 2 })
+    expect(seen).toEqual([2])
+  })
+
+  it('re-registers a scoped frame when its account changes within one tick', async () => {
+    const { manager, streams, post } = setup()
+    const ref = { owner: 'widget', id: 'notes', scope: 'account', key: 'k' } as const
+    const seen: unknown[] = []
+    const offA = manager.addScoped(ref, (raw) => seen.push(['a', raw]), 'A')
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+
+    // The account gate switches A -> B: unsubscribe and resubscribe in the same tick.
+    offA()
+    manager.addScoped(ref, (raw) => seen.push(['b', raw]), 'B')
+    await vi.waitFor(() => {
+      expect(post).toHaveBeenLastCalledWith('/api/storage/events/c1', {
+        json: { subscribe: [], unsubscribe: [], scoped: { subscribe: [ref], unsubscribe: [ref] } },
+      })
+    })
+
+    streams[0].emit(undefined, { key: 'scoped:widget/notes/account/k', value: 3 })
+    expect(seen).toEqual([['b', 3]])
+  })
+
+  it('keeps a scoped registration while another subscriber of the same account holds it', async () => {
+    const { manager, streams, post } = setup()
+    const ref = { owner: 'module', id: 'notes', scope: 'account', key: 'k' } as const
+    const off1 = manager.addScoped(ref, () => {}, 'A')
+    manager.addScoped(ref, () => {}, 'A')
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    off1()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(post).toHaveBeenCalledTimes(1)
+  })
+
+  it('a scoped POST rejected with 422 does not block plain registration', async () => {
+    const post: ReturnType<typeof vi.fn<PostFn>> = vi.fn(async (_url, options) => {
+      const json = options?.json as { scoped?: unknown }
+      return json.scoped
+        ? { status: 422, ok: false, body: undefined }
+        : { status: 204, ok: true, body: undefined }
+    })
+    const { manager, streams } = setup({ http: makeStubHttp(post).http })
+    const ref = { owner: 'module', id: 'notes', scope: 'account', key: 'k' } as const
+    manager.addScoped(ref, () => {})
+    manager.add('plain', () => {})
+    streams[0].emit('ready', { connId: 'c1' })
+    await vi.waitFor(() => {
+      expect(post).toHaveBeenLastCalledWith('/api/storage/events/c1', {
+        json: { subscribe: ['plain'], unsubscribe: [] },
+      })
+    })
+    expect(post).toHaveBeenCalledTimes(2)
+  })
+})

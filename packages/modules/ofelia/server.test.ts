@@ -1,13 +1,10 @@
 // @vitest-environment node
 
-import type {
-  WidgetCronContext,
-  WidgetServerContext,
-  WidgetServerStorage,
-} from '@shared/widgets/contracts'
+import type { ModuleCronContext, ModuleServerContext } from '@shared/modules/contracts'
+import type { WidgetServerStorage } from '@shared/widgets/contracts'
 import { describe, expect, it, vi } from 'vitest'
 
-import { LEDGER_KEY } from './domain/ledger'
+import { LEDGER_KEY } from './domain/keys'
 import ofeliaServer from './server'
 
 const KARINA = { accountId: 'a1', name: 'Карина' }
@@ -26,13 +23,11 @@ function makeContext(stored: unknown = null, viewer = KARINA) {
   }
 
   const context = {
-    typeId: 'ofelia-poop-duty',
-    instanceId: 'i1',
-    ip: null,
+    moduleId: 'ofelia',
     viewer,
     now: () => NOW,
-    api: { storage: { instance: shared, shared }, browser: {} as never },
-  } as unknown as WidgetServerContext
+    api: { storage: { shared } },
+  } as unknown as ModuleServerContext<'shared'>
 
   return { context, append }
 }
@@ -40,9 +35,12 @@ function makeContext(stored: unknown = null, viewer = KARINA) {
 const run = (
   event: keyof typeof ofeliaServer.handlers,
   payload: unknown,
-  context: WidgetServerContext,
+  context: ModuleServerContext<'shared'>,
 ) =>
-  ofeliaServer.handlers[event](ofeliaServer.schemas[event].payload.parse(payload) as never, context)
+  ofeliaServer.handlers[event](
+    ofeliaServer.contract.actions[event].payload.parse(payload) as never,
+    context,
+  )
 
 describe('ofelia server', () => {
   it('appends a cleaned entry stamped with the viewer', async () => {
@@ -67,7 +65,7 @@ describe('ofelia server', () => {
   })
 
   it('half 1: the clean payload schema strips a forged createdBy/actor before parsing', () => {
-    const parsed = ofeliaServer.schemas.clean.payload.parse({
+    const parsed = ofeliaServer.contract.actions.clean.payload.parse({
       date: '2026-06-16',
       createdBy: { accountId: 'evil', name: 'Мимо' },
       actor: 'Карина',
@@ -77,7 +75,7 @@ describe('ofelia server', () => {
   })
 
   it('half 1: the comment payload schema strips a forged createdBy before parsing', () => {
-    const parsed = ofeliaServer.schemas.comment.payload.parse({
+    const parsed = ofeliaServer.contract.actions.comment.payload.parse({
       weekStart: '2026-06-15',
       text: 'привет',
       createdBy: { accountId: 'evil', name: 'Мимо' },
@@ -140,7 +138,7 @@ describe('ofelia server', () => {
 
     await run('comment', { weekStart: '2026-06-15', text: '  привет ' }, context)
 
-    expect(append).toHaveBeenCalledWith('comments:2026-06-15', {
+    expect(append).toHaveBeenCalledWith('duty/comments:2026-06-15', {
       text: 'привет',
       createdBy: KARINA,
       author: 'Карина',
@@ -178,11 +176,11 @@ function makeCronContext(
   } as unknown as WidgetServerStorage
 
   const context = {
-    typeId: 'ofelia-poop-duty',
+    moduleId: 'ofelia',
     now: () => scheduledFor,
     scheduledFor,
-    api: { storage: { shared }, browser: {} as never },
-  } as unknown as WidgetCronContext
+    api: { storage: { shared } },
+  } as unknown as ModuleCronContext
 
   return { context, append }
 }
@@ -224,7 +222,7 @@ describe('ofelia auto-approve cron', () => {
   })
 
   it('is a no-op, with no append, when the ledger key does not exist (F11)', async () => {
-    // Every stack ships this widget's server.ts, so its cron is registered
+    // Every stack ships this module's server.ts, so its cron is registered
     // everywhere regardless of whether the widget was ever placed on a
     // board. A missing ledger key means nobody has ever used it — nothing
     // to auto-approve, and the job must not fabricate history by writing.

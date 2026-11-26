@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ofeliaModule, type OfeliaModel } from 'module-ofelia'
+import { LEDGER_KEY } from 'module-ofelia/domain/keys'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
+  ModuleLoadError,
   StorageError,
   type ServerTime,
   type StorageApi,
+  type WidgetModules,
   type WidgetRuntimeProps,
   WidgetRuntimeContext,
   type WidgetStorage,
@@ -15,20 +20,28 @@ import {
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
-import { LEDGER_KEY } from '@/domain/ledger'
-
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
 
-const timerHolder = vi.hoisted(() => ({ current: null as ServerTime | null }))
+const timerHolder = { current: null as ServerTime | null }
 
-vi.mock('widget-runtime', async () => {
-  const actual = await vi.importActual<typeof import('widget-runtime')>('widget-runtime')
+// Builds the real ofelia module model, at mount time, over whatever storage the
+// test left on the props — the same shape the host's module registry hands out.
+async function loadOfeliaModel(widgetProps: WidgetRuntimeProps): Promise<OfeliaModel> {
+  const loadModel = ofeliaModule.loadModel
+  if (!loadModel || !timerHolder.current) throw new Error('test setup: no model loader or timer')
+  const factory = await loadModel()
+  return factory({
+    moduleId: ofeliaModule.id,
+    storage: { shared: widgetProps.storage.shared },
+    api: { invoke: vi.fn() } as never,
+    timer: timerHolder.current,
+    identity: widgetProps.identity,
+  })
+}
 
-  return {
-    ...actual,
-    getServerTime: () => timerHolder.current,
-  }
-})
+function fakeModules(load: () => Promise<unknown>): WidgetModules {
+  return { get: load } as unknown as WidgetModules
+}
 
 function fakeWidgetStorage(): WidgetStorage {
   const instanceClient = createFakeStorage()
@@ -39,11 +52,12 @@ function fakeWidgetStorage(): WidgetStorage {
   return {
     instance: { client: instanceClient, server: instanceServer },
     shared: { client: sharedClient, server: sharedServer },
+    account: { client: createFakeStorage(), server: createFakeStorage() },
   }
 }
 
 function props(tier: WidgetTier): WidgetRuntimeProps {
-  return {
+  const widgetProps: WidgetRuntimeProps = {
     instanceId: 'ofelia-poop-duty-1',
     typeId: 'ofelia-poop-duty',
     mode: 'small',
@@ -56,7 +70,9 @@ function props(tier: WidgetTier): WidgetRuntimeProps {
     storage: fakeWidgetStorage(),
     api: { invoke: vi.fn() },
     identity: makeStaticWidgetIdentity(),
+    modules: fakeModules(() => loadOfeliaModel(widgetProps)),
   }
+  return widgetProps
 }
 
 function renderWidget(widgetProps: WidgetRuntimeProps) {
@@ -186,6 +202,7 @@ function fakeWidgetStorageWithFailingLedger(): WidgetStorage {
   return {
     instance: { client: instanceClient, server: instanceServer },
     shared: { client: sharedClient, server: sharedServer },
+    account: { client: createFakeStorage(), server: createFakeStorage() },
   }
 }
 
@@ -205,5 +222,48 @@ describe('OfeliaPoopDuty ledger load failure (F2c)', () => {
     await waitFor(() => {
       expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
     })
+  })
+})
+
+// The board renders under StrictMode, which mounts, unmounts and remounts in
+// one commit — the module load must survive that and still reach the tree.
+describe('OfeliaPoopDuty under StrictMode', () => {
+  it('loads the module and renders the widget', async () => {
+    render(
+      <StrictMode>
+        <WidgetRuntimeContext.Provider value={props('standard')}>
+          <OfeliaPoopDuty />
+        </WidgetRuntimeContext.Provider>
+      </StrictMode>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    })
+  })
+})
+
+describe('OfeliaPoopDuty module load failure', () => {
+  it('shows the error state with a retry when the module chunk fails, and recovers on retry', async () => {
+    const widgetProps = props('standard')
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'ofelia' }))
+      .mockImplementationOnce(() => loadOfeliaModel(widgetProps))
+    widgetProps.modules = fakeModules(get)
+    renderWidget(widgetProps)
+
+    // Neither blank nor an endless skeleton: the failed load is a real error
+    // state with a way out.
+    const retry = await screen.findByRole('button', { name: 'Повторить' })
+    expect(screen.getByText('Не удалось загрузить виджет Офелии')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Загрузка виджета Офелии')).not.toBeInTheDocument()
+
+    fireEvent.click(retry)
+
+    await waitFor(() => {
+      expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    })
+    expect(get).toHaveBeenCalledTimes(2)
   })
 })

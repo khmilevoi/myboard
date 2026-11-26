@@ -28,6 +28,7 @@ export function harnessProps(
     storage: runtime.makeWidgetStorage({ instanceId: `dev:${DEV_ID}`, typeId: DEV_ID }),
     api: runtime.makeWidgetApi({ instanceId: `dev:${DEV_ID}`, typeId: DEV_ID }),
     identity: runtime.identity,
+    modules: runtime.makeWidgetModules([]),
   }
 }
 

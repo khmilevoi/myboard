@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { createServer, type Server, type ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 
+import { scopedEventKey, type ScopedStorageRef } from '@shared/storage/scoped'
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import Router from 'find-my-way'
 import { z } from 'zod'
@@ -19,6 +20,8 @@ import type { BrowserAutomationClient } from './browser/client'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
+import { dispatchModuleAction } from './modules/dispatch'
+import type { ModuleServerRegistry } from './modules/registry'
 import { SseRegistry, writeSseEvent, fanout } from './realtime/sse'
 import { makeRecoveryCapabilityStore } from './recovery/capability'
 import { recoveryCookieName } from './recovery/cookie'
@@ -47,6 +50,13 @@ import {
   TestTimeSchema,
   formatZodError,
 } from './storage/schemas'
+import {
+  resolveScopedNamespace,
+  validateScopedKey,
+  type ScopedOwners,
+  type ScopedStorageError,
+} from './storage/scoped'
+import { registerScopedStorageRoutes } from './storage/scoped-routes'
 import type { ValkeyOps } from './storage/valkey'
 import { makeCronScheduler } from './widgets/cron-scheduler'
 import { dispatchWidgetEvent } from './widgets/dispatch'
@@ -59,6 +69,8 @@ const WidgetRequestSchema = z.object({
   instanceId: z.string().min(1),
   payload: z.unknown(),
 })
+
+const ModuleRequestSchema = z.object({ payload: z.unknown() })
 
 const SeedInviteBodySchema = z.object({
   ttlMs: z.number().positive().optional(),
@@ -78,8 +90,10 @@ export type AppDeps = {
   subscribe: (onMessage: (message: string) => void) => () => void
   now: () => number
   widgetRegistry: WidgetServerRegistry
+  moduleRegistry: ModuleServerRegistry
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
+  scopedOwners: ScopedOwners
   recovery: {
     tokenTtlMs: number
     maxSessionMs: number
@@ -92,12 +106,14 @@ export type AppDeps = {
 
 export type App = {
   server: Server
+  /** Starts the cron interval; the caller owns when (after migrations). No-op in test mode. */
+  startCron: () => void
   close: () => Promise<void>
 }
 
 export function createApp(deps: AppDeps): App {
   const { ops, now } = deps
-  const router = Router({ ignoreTrailingSlash: true })
+  const router = Router({ ignoreTrailingSlash: true, maxParamLength: 512 })
   const registry = new SseRegistry()
   const audit = deps.audit ?? makeAuditLogger()
   const authDeps = { ops, config: deps.authConfig, now, audit }
@@ -112,6 +128,7 @@ export function createApp(deps: AppDeps): App {
 
   const cronScheduler = makeCronScheduler({
     registry: deps.widgetRegistry,
+    moduleRegistry: deps.moduleRegistry,
     ops,
     browserClient,
     now,
@@ -119,8 +136,12 @@ export function createApp(deps: AppDeps): App {
   })
   // In test mode the suite drives the scheduler explicitly through
   // /api/test/cron/tick; an interval racing a faked clock would only add
-  // nondeterminism.
-  if (!deps.testControls) cronScheduler.start()
+  // nondeterminism. Otherwise the caller starts it via startCron() once
+  // migrations are done: a tick seeding cursors earlier would make a
+  // migration's copyKey skip the old cursor and lose its catch-up run.
+  const startCron = (): void => {
+    if (!deps.testControls) cronScheduler.start()
+  }
 
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
@@ -184,6 +205,7 @@ export function createApp(deps: AppDeps): App {
   }
 
   registerAuthRoutes({ router, ...authDeps })
+  registerScopedStorageRoutes({ router, ops, authDeps, owners: deps.scopedOwners })
 
   router.on('GET', '/api/storage/events', (req, res) => {
     res.writeHead(200, {
@@ -201,6 +223,30 @@ export function createApp(deps: AppDeps): App {
       registry.remove(connId)
     })
   })
+
+  // Resolves every ref before anything is subscribed. A session is read at most once,
+  // and only after a ref needs it, so an undeclared scope still answers 403 before 401.
+  async function resolveScopedSubscriptions(
+    req: IncomingMessage,
+    refs: ScopedStorageRef[],
+  ): Promise<ScopedStorageError | { fullKey: string; frameKey: string }[]> {
+    const needsSession = refs.some((ref) => ref.scope === 'account')
+    const session = needsSession ? await requireSession(authDeps, req) : null
+    const accountId = session !== null && !isAuthResult(session) ? session.accountId : null
+    const entries: { fullKey: string; frameKey: string }[] = []
+    for (const ref of refs) {
+      const key = validateScopedKey(ref.key)
+      if (key instanceof Error) return key
+      const namespace = resolveScopedNamespace({
+        owners: deps.scopedOwners,
+        branch: { owner: ref.owner, id: ref.id, scope: ref.scope },
+        accountId,
+      })
+      if (namespace instanceof Error) return namespace
+      entries.push({ fullKey: `${namespace}${key}`, frameKey: scopedEventKey(ref) })
+    }
+    return entries
+  }
 
   router.on('POST', '/api/storage/events/:connId', async (req, res, params) => {
     const parsedParams = EventsParamsSchema.safeParse(params)
@@ -225,8 +271,28 @@ export function createApp(deps: AppDeps): App {
       res.end(JSON.stringify(formatZodError(parsed.error)))
       return
     }
-    if (parsed.data.subscribe) registry.subscribe(connId, parsed.data.subscribe)
-    if (parsed.data.unsubscribe) registry.unsubscribe(connId, parsed.data.unsubscribe)
+    const { subscribe, unsubscribe, scoped } = parsed.data
+    if (subscribe && !subscribe.every(isAllowedStorageKey)) {
+      sendStorageForbidden(res)
+      return
+    }
+
+    const entries = await resolveScopedSubscriptions(req, scoped?.subscribe ?? [])
+    if (entries instanceof Error) {
+      res.writeHead(entries.status, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ error: { code: entries.code, message: entries.publicMessage } }))
+      return
+    }
+
+    // Unsubscribes first: on an account switch the client sends the same frame key in both lists
+    // (old account out, new account in). unsubscribeFrames matches by frame key, so applying it
+    // last would drop the subscription this request just resolved for the new account.
+    if (unsubscribe) registry.unsubscribe(connId, unsubscribe)
+    if (scoped?.unsubscribe) {
+      registry.unsubscribeFrames(connId, scoped.unsubscribe.map(scopedEventKey))
+    }
+    if (subscribe) registry.subscribe(connId, subscribe)
+    registry.subscribeScoped(connId, entries)
     res.writeHead(204)
     res.end()
   })
@@ -355,7 +421,13 @@ export function createApp(deps: AppDeps): App {
     await publishChange(ops, key, null)
   })
 
-  router.on('POST', '/api/widgets/:typeId/:event', async (req, res, params) => {
+  // Reads and validates a widget/module request body; a failure has already been answered.
+  async function readWidgetRequestBody<S extends z.ZodType>(
+    req: IncomingMessage,
+    res: ServerResponse,
+    schema: S,
+    invalidMessage: string,
+  ): Promise<z.output<S> | null> {
     const raw = await readJsonBody(req).catch((cause) => new WidgetRequestBodyError({ cause }))
     if (raw instanceof WidgetRequestBodyError) {
       const tooLarge = raw.cause instanceof Error && raw.cause.message === 'request body too large'
@@ -368,19 +440,26 @@ export function createApp(deps: AppDeps): App {
           },
         }),
       )
-      return
+      return null
     }
 
-    const body = WidgetRequestSchema.safeParse(raw)
+    const body = schema.safeParse(raw)
     if (!body.success) {
       res.writeHead(422, { 'content-type': 'application/json' })
-      res.end(
-        JSON.stringify({
-          error: { code: 'request_invalid', message: 'Widget request is invalid' },
-        }),
-      )
-      return
+      res.end(JSON.stringify({ error: { code: 'request_invalid', message: invalidMessage } }))
+      return null
     }
+    return body.data
+  }
+
+  router.on('POST', '/api/widgets/:typeId/:event', async (req, res, params) => {
+    const body = await readWidgetRequestBody(
+      req,
+      res,
+      WidgetRequestSchema,
+      'Widget request is invalid',
+    )
+    if (body === null) return
 
     const viewer = await resolveWidgetViewer(authDeps, req)
     if (viewer instanceof Error) {
@@ -394,9 +473,42 @@ export function createApp(deps: AppDeps): App {
       browserClient,
       typeId: decodeURIComponent(params.typeId as string),
       event: decodeURIComponent(params.event as string),
-      instanceId: body.data.instanceId,
-      payload: body.data.payload,
+      instanceId: body.instanceId,
+      payload: body.payload,
       ip: clientIp(req),
+      viewer,
+      now,
+    })
+    if (result instanceof Error) {
+      sendWidgetError(res, result)
+      return
+    }
+
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(result))
+  })
+
+  router.on('POST', '/api/modules/:moduleId/actions/:action', async (req, res, params) => {
+    const body = await readWidgetRequestBody(
+      req,
+      res,
+      ModuleRequestSchema,
+      'Module request is invalid',
+    )
+    if (body === null) return
+
+    const viewer = await resolveWidgetViewer(authDeps, req)
+    if (viewer instanceof Error) {
+      sendWidgetError(res, viewer)
+      return
+    }
+
+    const result = await dispatchModuleAction({
+      registry: deps.moduleRegistry,
+      ops,
+      moduleId: decodeURIComponent(params.moduleId as string),
+      action: decodeURIComponent(params.action as string),
+      payload: body.payload,
       viewer,
       now,
     })
@@ -600,5 +712,5 @@ export function createApp(deps: AppDeps): App {
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
 
-  return { server, close }
+  return { server, startCron, close }
 }

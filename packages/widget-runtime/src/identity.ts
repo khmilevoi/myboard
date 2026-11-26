@@ -96,6 +96,7 @@ export function makeWidgetIdentity({ http }: MakeWidgetIdentityOptions): WidgetI
   const state = atom<IdentityState | null>(null, 'identity.state').extend(
     withConnectHook(() => {
       let attempt = 0
+      let loaded = false
 
       // A rejection here only ever means the connect scope aborted (the last
       // subscriber disconnected) — `wrap(sleep(...))`'s only other outcome is
@@ -110,9 +111,18 @@ export function makeWidgetIdentity({ http }: MakeWidgetIdentityOptions): WidgetI
         wrap(fetchIdentity(http)).then(
           (result) => {
             if (result instanceof Error) {
-              // A 401 is expected on an unauthenticated host: retrying would just
-              // repeat the same 401 forever, so stay silent and stop for good.
-              if (result.status === 401) return
+              if (result.status === 401) {
+                // A 401 is expected on an unauthenticated host: retrying would just
+                // repeat the same 401 forever, so stay silent and stop for good.
+                if (!loaded) return
+                // After a successful load it means the session ended (logout in another
+                // tab, revoked device). Forget the viewer, so account-scoped storage stops
+                // acting for an account this document no longer holds a session for, and
+                // keep the slow refresh going to pick up the next login.
+                state.set(null)
+                scheduleNext(REFRESH_INTERVAL_MS)
+                return
+              }
 
               // Everything else is unexpected and worth surfacing, and worth
               // retrying. Once the bounded backoff above is exhausted, fall back
@@ -127,6 +137,7 @@ export function makeWidgetIdentity({ http }: MakeWidgetIdentityOptions): WidgetI
             }
 
             state.set(result)
+            loaded = true
             attempt = 0
             scheduleNext(REFRESH_INTERVAL_MS)
           },

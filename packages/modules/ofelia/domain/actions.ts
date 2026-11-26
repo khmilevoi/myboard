@@ -6,7 +6,7 @@ import { IsoDateSchema } from './roster'
 const OkSchema = z.object({ ok: z.literal(true) })
 const DayPayloadSchema = z.object({ date: IsoDateSchema })
 
-export const ofeliaEventSchemas = {
+export const ofeliaActionSchemas = {
   clean: { payload: DayPayloadSchema, result: OkSchema },
   debt: { payload: DayPayloadSchema, result: OkSchema },
   forgive: { payload: DayPayloadSchema, result: OkSchema },
@@ -17,4 +17,4 @@ export const ofeliaEventSchemas = {
   },
 } as const
 
-export type OfeliaEvents = InferWidgetEvents<typeof ofeliaEventSchemas>
+export type OfeliaActions = InferWidgetEvents<typeof ofeliaActionSchemas>

@@ -1,7 +1,7 @@
-import { defineWidgetServer, type WidgetServerContext } from '@shared/widgets/contracts'
+import { defineModuleServer, type ModuleServerContext } from '@shared/modules/contracts'
 import * as errore from 'errore'
 
-import { commentsKey } from './domain/comments'
+import { ofeliaContract } from './domain/contract'
 import { autoApproveDrafts } from './domain/day-close'
 import {
   makeCleanDraft,
@@ -11,19 +11,14 @@ import {
   makeUndoDraft,
   type DraftInput,
 } from './domain/drafts'
-import { ofeliaEventSchemas } from './domain/events'
-import {
-  LEDGER_KEY,
-  LedgerEntriesSchema,
-  resolveDays,
-  type LedgerEntryDraft,
-} from './domain/ledger'
+import { commentsKey, LEDGER_KEY } from './domain/keys'
+import { LedgerEntriesSchema, resolveDays, type LedgerEntryDraft } from './domain/ledger'
 import { DUTY_TIME_ZONE, plainDateIn } from './domain/roster'
 
 const OK = { ok: true } as const
 
 async function readDraftInput(
-  context: WidgetServerContext,
+  context: ModuleServerContext<'shared'>,
   date: string,
 ): Promise<Error | DraftInput> {
   const entries = await context.api.storage.shared.get(LEDGER_KEY, LedgerEntriesSchema)
@@ -46,7 +41,7 @@ async function readDraftInput(
  * returns these actions had while they lived on the client.
  */
 async function appendLedger(
-  context: WidgetServerContext,
+  context: ModuleServerContext<'shared'>,
   draft: LedgerEntryDraft | null,
 ): Promise<Error | typeof OK> {
   if (draft === null) return OK
@@ -55,8 +50,7 @@ async function appendLedger(
   return OK
 }
 
-const ofeliaServer = defineWidgetServer({
-  schemas: ofeliaEventSchemas,
+const ofeliaServer = defineModuleServer(ofeliaContract, {
   handlers: {
     clean: async ({ date }, context) => {
       const input = await readDraftInput(context, date)

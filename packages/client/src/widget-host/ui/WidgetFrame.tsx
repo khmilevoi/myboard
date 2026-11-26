@@ -69,6 +69,9 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
     const widgetApi = useMemo(() => {
       return hostRuntime.makeWidgetApi({ instanceId, typeId })
     }, [instanceId, typeId])
+    const widgetModules = useMemo(() => {
+      return hostRuntime.makeWidgetModules(type instanceof Error ? [] : (type.modules ?? []))
+    }, [type])
 
     const context = useMemo<WidgetRuntimeProps>(() => {
       return {
@@ -84,6 +87,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         storage: widgetStorage,
         api: widgetApi,
         identity: hostRuntime.identity,
+        modules: widgetModules,
       }
     }, [
       instanceId,
@@ -96,6 +100,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       onDelete,
       widgetStorage,
       widgetApi,
+      widgetModules,
     ])
 
     if (type instanceof Error) {

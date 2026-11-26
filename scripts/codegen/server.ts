@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { generateModules, type ModuleMeta } from './modules'
 import {
   BANNER,
   discoverWidgetDirs,
@@ -31,17 +32,56 @@ ${list}
 `
 }
 
-export function prepareServer({ widgetsDir, serverListFile }: ServerCodegenPaths) {
+export function emitScopedOwners(input: {
+  widgetDirs: string[]
+  moduleScopes: Record<string, readonly string[]>
+}) {
+  const block = (open: string, close: string, lines: string[]) =>
+    lines.length === 0 ? open + close : [open, ...lines, '  ' + close].join('\n')
+  const widgetTypeIds = block(
+    '[',
+    ']',
+    input.widgetDirs.map((dir) => `    ${JSON.stringify(dir)},`),
+  )
+  const moduleScopes = block(
+    '{',
+    '}',
+    Object.entries(input.moduleScopes).map(
+      ([id, scopes]) => `    ${JSON.stringify(id)}: ${JSON.stringify(scopes)},`,
+    ),
+  )
+  return `${BANNER}export const scopedOwnerList = {
+  widgetTypeIds: ${widgetTypeIds},
+  moduleScopes: ${moduleScopes},
+} as const
+`
+}
+
+export function prepareServer(
+  { widgetsDir, serverListFile, scopedOwnersFile }: ServerCodegenPaths,
+  modules: ModuleMeta[],
+) {
   const widgetDirs = discoverWidgetDirs(widgetsDir)
   if (widgetDirs instanceof Error) return widgetDirs
   const existedWidgetDirs = widgetDirs.filter((dir) =>
     fs.existsSync(path.resolve(widgetsDir, dir, 'server.ts')),
   )
-  return [{ file: serverListFile, content: emitServerList(existedWidgetDirs) }]
+  return [
+    { file: serverListFile, content: emitServerList(existedWidgetDirs) },
+    {
+      file: scopedOwnersFile,
+      content: emitScopedOwners({
+        widgetDirs,
+        moduleScopes: Object.fromEntries(modules.map((meta) => [meta.dir, meta.scopes])),
+      }),
+    },
+  ]
 }
 
-export function generateServer(paths: ServerCodegenPaths) {
-  const outputs = prepareServer(paths)
+export async function generateServer(paths: ServerCodegenPaths) {
+  const modules = await generateModules(paths)
+  if (modules instanceof Error) return modules
+  const outputs = prepareServer(paths, modules)
   if (outputs instanceof Error) return outputs
   return writeGeneratedOutputs(outputs)
 }

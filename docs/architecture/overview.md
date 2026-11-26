@@ -23,6 +23,16 @@ anchored to the code.
 Server-side widget behavior — authored records, crons, the bundling constraint — is documented in
 `docs/agent/widget-server.md`.
 
+## Modules
+
+`packages/modules/<module-id>` holds widget-independent modules: one pnpm package per module, named
+`module-<module-id>`, where the directory basename is the module ID. Codegen (`pnpm codegen
+modules`) binds each `module.ts` to its ID in `generated/module.ts`, records module package versions
+for the widget build, lists modules that have a `server.ts` for the server bundle (`@modules/*`),
+and carries each module's scopes into the scoped owner list. A widget names the modules it uses in
+its `client.ts`; codegen rejects a reference to a module that has no package, and reserves the
+widget directory name `module`.
+
 ## Storage system (offline-first + sync)
 
 `packages/widget-runtime/src/storage` owns per-widget instance and shared scopes, the Dexie and HTTP

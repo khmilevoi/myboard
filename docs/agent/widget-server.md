@@ -17,6 +17,16 @@ shared trusted channel inside the board.
 display — records store an `accountId` plus a frozen name, and display resolves through the
 directory, so renames and avatars reach old records.
 
+## Storage keys are identifiers, never user input
+
+A relative storage key is chosen by code and must match `^[A-Za-z0-9._:/-]{1,128}$`. User content
+(emails, names, free text) travels only in request and record bodies, never in a key, which keeps it
+out of nginx and server access logs.
+
+`context.api.storage.account` is a third scope beside `instance` and `shared`, bound to the session's
+account (`w:a:<typeId>:<accountId>:`). Without a live session every call on it resolves to a public
+`account_required` error (401). Crons have no `account`, for the same reason they have no `viewer`.
+
 ## Crons
 
 A widget's `server.ts` may also declare `crons: { <name>: { schedule, timeZone, run } }`. The tick
@@ -40,3 +50,26 @@ Temporal globals — is enforced by the `.oxlintrc.json` override.
 Each root `server.ts` exports schemas and handlers **without** a `typeId`; `pnpm codegen:server`
 builds the registry from widget directory names and injects the basename, without loading any client
 code.
+
+## Module server functions
+
+A module (`packages/modules/<id>/`) has its own `server.ts`, written as
+`defineModuleServer(contract, { handlers, crons })`. The contract (`scopes` + `actions`) lives in
+`domain/contract.ts`, and `server.ts` imports it from there rather than from the client entry,
+because the server bundle may only reach dependency-free `domain/` code.
+
+Actions are dispatched through `POST /api/modules/:moduleId/actions/:action` with `{ payload }`.
+Only the declared scopes (`shared`, `account`) appear on `context.api.storage`. A module that
+declares `account` answers `401 account_required` to a request with no session, and the dispatch
+refuses it **before** the handler runs, so a handler never executes half-authenticated.
+
+Crons run without a viewer and so need the `shared` scope (the registry rejects a module that
+declares crons without it). Module crons now run on the shared scheduler, with the cursor key `cron:module:<moduleId>:<job>`
+(which cannot collide with the widget `cron:<typeId>:<jobName>` keys). They get shared storage only, no
+viewer.
+
+Ofelia is the first such module: its duty domain, actions (`clean`, `debt`, `forgive`, …) and the
+`autoApproveDay` cron live in `packages/modules/ofelia`, not in a widget. The `ofelia-poop-duty` and
+`ofelia-stats` widgets have no `server.ts` of their own and read the one module model, so the duty
+ledger is the module key `duty/ledger` (`/api/storage/scoped/module/ofelia/shared/duty%2Fledger`)
+and the cron cursor is `cron:module:ofelia:autoApproveDay`.

@@ -86,6 +86,13 @@ describe('HttpClient', () => {
     vi.unstubAllGlobals()
   })
 
+  it('sends per-request headers', async () => {
+    const fetchMock = stubFetch(json({}))
+    const http = new HttpClient({ fetch: fetchMock })
+    await http.put('http://test.local/x', { headers: { 'x-extra': '2' }, json: {} })
+    expect(fetchMock.mock.calls[0][0].headers.get('x-extra')).toBe('2')
+  })
+
   it('lets an onRequest hook add headers', async () => {
     const fetchMock = stubFetch(json({}))
     const http = new HttpClient({

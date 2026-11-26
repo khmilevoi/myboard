@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs'
 
+import { modulePackages } from './module-packages.generated.ts'
+
 type PackageJson = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
@@ -53,8 +55,13 @@ function singleton(name: string) {
   }
 }
 
+/**
+ * The one shared list for the board host and every widget remote. Module packages are on it
+ * unconditionally: the host depends on each of them (codegen enforces it) and provides them, the
+ * same way it provides widget-runtime, so a module's code and model exist once on the board.
+ */
 export function federationShared() {
-  return {
+  const shared: Record<string, ReturnType<typeof singleton>> = {
     react: singleton('react'),
     'react-dom': singleton('react-dom'),
     '@reatom/core': singleton('@reatom/core'),
@@ -62,5 +69,11 @@ export function federationShared() {
     'widget-runtime': singleton('widget-runtime'),
     zod: singleton('zod'),
     errore: singleton('errore'),
-  } as Record<string, ReturnType<typeof singleton>>
+  }
+
+  for (const [name, version] of Object.entries(modulePackages)) {
+    shared[name] = { singleton: true, strictVersion: true, requiredVersion: version }
+  }
+
+  return shared
 }

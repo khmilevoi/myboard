@@ -12,6 +12,7 @@ describe('createWidgetServerStorageApi', () => {
       ops,
       typeId: 'clock',
       instanceId: 'placement-1',
+      viewer: null,
       now: () => 123,
       createId: () => 'entry-1',
     })
@@ -31,6 +32,7 @@ describe('createWidgetServerStorageApi', () => {
       ops,
       typeId: 'notes',
       instanceId: 'placement-1',
+      viewer: null,
       now: () => 456,
       createId: () => 'entry-7',
     })

@@ -62,6 +62,7 @@ export async function dispatchWidgetEvent(
       ops: options.ops,
       typeId: options.typeId,
       instanceId: options.instanceId,
+      viewer: options.viewer,
       now: options.now,
       browserClient: options.browserClient,
     }),
