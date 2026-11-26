@@ -26,7 +26,7 @@
     --shadow-lg: 0 1px 2px rgba(30,32,50,.05), 0 24px 50px -18px rgba(30,32,55,.22);
     --dry: oklch(0.79 0.085 285); --wet: oklch(0.55 0.17 281); --treat: oklch(0.38 0.12 285); --hatch: oklch(0.55 0.17 281 / .55);
     --k-bg: oklch(0.9 0.05 345); --k-fg: oklch(0.41 0.13 345); --l-bg: oklch(0.9 0.045 255); --l-fg: oklch(0.4 0.11 258);
-    --cat-a-bg: oklch(0.91 0.06 75); --cat-a-fg: oklch(0.43 0.1 58); --cat-b-bg: oklch(0.91 0.05 185); --cat-b-fg: oklch(0.41 0.08 195);
+    --cat-a-bg: oklch(0.91 0.06 105); --cat-a-fg: oklch(0.42 0.09 112); --cat-b-bg: oklch(0.91 0.04 228); --cat-b-fg: oklch(0.42 0.08 232);
   }
   .ofp[data-theme="dark"] {
     --bg: oklch(0.185 0.012 268); --surface: oklch(0.23 0.013 270); --surface-2: oklch(0.265 0.014 270);
@@ -38,7 +38,7 @@
     --shadow-lg: 0 1px 2px rgba(10,12,25,.2), 0 24px 50px -18px rgba(10,12,25,.5);
     --dry: oklch(0.84 0.07 285); --wet: oklch(0.675 0.155 285); --treat: oklch(0.5 0.13 285); --hatch: oklch(0.675 0.155 285 / .6);
     --k-bg: oklch(0.37 0.085 345); --k-fg: oklch(0.92 0.06 345); --l-bg: oklch(0.36 0.07 256); --l-fg: oklch(0.92 0.05 256);
-    --cat-a-bg: oklch(0.4 0.07 62); --cat-a-fg: oklch(0.93 0.06 78); --cat-b-bg: oklch(0.38 0.06 192); --cat-b-fg: oklch(0.93 0.05 185);
+    --cat-a-bg: oklch(0.4 0.07 108); --cat-a-fg: oklch(0.93 0.06 105); --cat-b-bg: oklch(0.39 0.06 230); --cat-b-fg: oklch(0.93 0.04 228);
   }
   .ofp { color: var(--text); font: 400 14px/1.45 'Hanken Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
   .ofp p, .ofp h2, .ofp h3 { margin: 0; }
@@ -68,7 +68,7 @@
   .ofp .ad i { display: block; width: 14px; height: 14px; border-radius: 4px; margin: 0 auto; background: var(--success); }
   .ofp .ad i.no { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border-strong); }
   .ofp .ad i.wait { background: transparent; box-shadow: inset 0 0 0 1.5px var(--success); }
-  .ofp .cav { flex: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; }
+  .ofp .cav { flex: none; clip-path: polygon(0 100%, 0 24%, 15% 0, 33% 17%, 67% 17%, 85% 0, 100% 24%, 100% 100%); padding-top: 16%; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; }
   .ofp .cav-a { background: var(--cat-a-bg); color: var(--cat-a-fg); }
   .ofp .cav-b { background: var(--cat-b-bg); color: var(--cat-b-fg); }
   .ofp .sw { flex: none; display: inline-flex; align-items: center; gap: 3px; height: 32px; padding: 0 6px 0 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-2); cursor: pointer; }
@@ -88,11 +88,11 @@
 <div class="ofp" data-theme="{{ theme }}" style="width:100%;height:100%;min-height:0;background:var(--surface);border:1px solid rgba(20,22,40,.08);border-radius:18px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;">
 
   <div style="display:flex;align-items:center;gap:18px;flex:none;padding:16px 20px;border-bottom:1px solid var(--border);">
-    <div style="display:flex;align-items:center;gap:12px;flex:none;min-width:0;">
+    <div style="display:flex;align-items:center;gap:12px;flex:0 1 auto;min-width:0;">
       <span class="cav cav-a" style="width:40px;height:40px;border-radius:11px;font-size:17px;">О</span>
       <div style="min-width:0;">
         <div style="display:flex;align-items:center;gap:9px;font:600 17px 'Hanken Grotesk',sans-serif;">Офелия <span style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 7px;">large</span></div>
-        <div style="font-size:13px;color:var(--text-3);margin-top:2px;">Британская короткошёрстная · 3 года 2 мес</div>
+        <div style="font-size:13px;color:var(--text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная · 3 года 2 мес</div>
       </div>
       <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Офелия" aria-haspopup="menu"><span class="cav cav-a" style="width:24px;height:24px;border-radius:6px;font-size:11.5px;">О</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
     </div>
@@ -123,7 +123,7 @@
         <div><span class="fk">Пол</span><div class="seg" role="group" aria-label="Пол"><button type="button" aria-pressed="true">Кошка</button><button type="button" aria-pressed="false">Кот</button></div></div>
       </div>
       <div><span class="fk">Стерилизована</span><div class="seg" role="group" aria-label="Стерилизована"><button type="button" aria-pressed="true">Да</button><button type="button" aria-pressed="false">Нет</button><button type="button" aria-pressed="false">Не знаю</button></div></div>
-      <div><span class="fk">Упитанность · 1–9</span><div class="seg" role="group" aria-label="Упитанность"><button type="button" aria-pressed="false">3</button><button type="button" aria-pressed="false">4</button><button type="button" aria-pressed="true">5</button><button type="button" aria-pressed="false">6</button><button type="button" aria-pressed="false">7</button></div><p class="sm" style="margin-top:5px;">5 — идеал: рёбра прощупываются, талия видна сверху.</p></div>
+      <div><span class="fk">Упитанность · 1–9</span><div class="seg" role="group" aria-label="Упитанность"><button type="button" aria-pressed="false">1</button><button type="button" aria-pressed="false">2</button><button type="button" aria-pressed="false">3</button><button type="button" aria-pressed="false">4</button><button type="button" aria-pressed="true">5</button><button type="button" aria-pressed="false">6</button><button type="button" aria-pressed="false">7</button><button type="button" aria-pressed="false">8</button><button type="button" aria-pressed="false">9</button></div><p class="sm" style="margin-top:5px;">5 — идеал: рёбра прощупываются, талия видна сверху.</p></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:22px;">
       <div class="box" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
@@ -138,10 +138,11 @@
       <div class="box" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
         <span class="lbl">Лоток</span>
         <div style="display:flex;flex-direction:column;gap:6px;">
-          <button class="opt" type="button" aria-pressed="true"><span class="cav cav-a" style="width:20px;height:20px;border-radius:6px;font-size:9.5px;">О</span>Лоток · Офелия<span class="k">Л и К по очереди</span></button>
-          <button class="opt" type="button" aria-pressed="false"><span style="width:20px;height:20px;border-radius:6px;border:1.5px dashed var(--border-strong);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:13px;line-height:1;">+</span>Свой лоток</button>
+          <button class="opt" type="button" aria-pressed="true"><span class="cav cav-a" style="width:20px;height:20px;border-radius:6px;font-size:9.5px;">О</span>Лоток · Офелия<span class="k">Лёша и Карина</span></button>
+          <button class="opt" type="button" aria-pressed="false"><span class="cav cav-b" style="width:20px;height:20px;border-radius:6px;font-size:9.5px;">Б</span>Лоток · Буся<span class="k">К и Л по очереди</span></button>
+          <button class="opt" type="button" aria-pressed="false"><span style="width:20px;height:20px;border-radius:6px;border:1.5px dashed var(--border-strong);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:13px;line-height:1;">+</span>Новый лоток<span class="k">своя очередь</span></button>
         </div>
-        <p class="sm">Две кошки в одном лотке — общая очередь и общий долг. Свой лоток — отдельная карточка «Лоток».</p>
+        <p class="sm">Выбрать лоток другой кошки — значит делить его: общая очередь и общий долг. Новый лоток — своя очередь и отдельная карточка «Лоток».</p>
       </div>
     </div>
   </div>

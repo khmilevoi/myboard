@@ -31,7 +31,7 @@
     --shadow-pop: 0 16px 44px rgba(20,22,40,.2);
     --dry: oklch(0.79 0.085 285); --wet: oklch(0.55 0.17 281); --treat: oklch(0.38 0.12 285); --hatch: oklch(0.55 0.17 281 / .55);
     --k-bg: oklch(0.9 0.05 345); --k-fg: oklch(0.41 0.13 345); --l-bg: oklch(0.9 0.045 255); --l-fg: oklch(0.4 0.11 258);
-    --cat-a-bg: oklch(0.91 0.06 75); --cat-a-fg: oklch(0.43 0.1 58); --cat-b-bg: oklch(0.91 0.05 185); --cat-b-fg: oklch(0.41 0.08 195);
+    --cat-a-bg: oklch(0.91 0.06 105); --cat-a-fg: oklch(0.42 0.09 112); --cat-b-bg: oklch(0.91 0.04 228); --cat-b-fg: oklch(0.42 0.08 232);
   }
   .ds-scope[data-theme="dark"] {
     --bg: oklch(0.185 0.012 268); --surface: oklch(0.23 0.013 270); --surface-2: oklch(0.265 0.014 270);
@@ -44,7 +44,7 @@
     --shadow-pop: 0 20px 50px rgba(0,0,0,.5);
     --dry: oklch(0.84 0.07 285); --wet: oklch(0.675 0.155 285); --treat: oklch(0.5 0.13 285); --hatch: oklch(0.675 0.155 285 / .6);
     --k-bg: oklch(0.37 0.085 345); --k-fg: oklch(0.92 0.06 345); --l-bg: oklch(0.36 0.07 256); --l-fg: oklch(0.92 0.05 256);
-    --cat-a-bg: oklch(0.4 0.07 62); --cat-a-fg: oklch(0.93 0.06 78); --cat-b-bg: oklch(0.38 0.06 192); --cat-b-fg: oklch(0.93 0.05 185);
+    --cat-a-bg: oklch(0.4 0.07 108); --cat-a-fg: oklch(0.93 0.06 105); --cat-b-bg: oklch(0.39 0.06 230); --cat-b-fg: oklch(0.93 0.04 228);
   }
   .ds-scope { color: var(--text); font: 400 14px/1.45 'Hanken Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 
@@ -111,7 +111,7 @@
   .flab { display: flex; align-items: center; gap: 9px; margin: 0 0 12px 2px; }
   .flab b { font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #645fd1; }
   .flab span { font: 500 12px 'Hanken Grotesk', sans-serif; color: #8a8d97; }
-  .cav { flex: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; font-family: 'Hanken Grotesk', sans-serif; }
+  .cav { flex: none; clip-path: polygon(0 100%, 0 24%, 15% 0, 33% 17%, 67% 17%, 85% 0, 100% 24%, 100% 100%); padding-top: 16%; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; font-family: 'Hanken Grotesk', sans-serif; }
   .cav-a { background: var(--cat-a-bg); color: var(--cat-a-fg); }
   .cav-b { background: var(--cat-b-bg); color: var(--cat-b-fg); }
 </style>
@@ -167,7 +167,7 @@
     <div style="flex:none;position:relative;padding-top:18px;">
       <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
-        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
         <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
         <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span class="sm" style="margin-left:auto;">≈ 68 до цели</span></p>
         <div style="margin-top:12px;">
@@ -240,7 +240,7 @@
 
     <div style="flex:none;">
       <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
-        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
         <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
         <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">172</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span class="sm" style="margin-left:auto;">≈ 68 до цели</span></p>
         <div style="margin-top:12px;">
@@ -273,7 +273,7 @@
 
     <div style="flex:none;">
       <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
-        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
         <div class="lbl" style="margin-top:16px;">Суббота · утро</div>
         <p style="font:600 24px 'Hanken Grotesk',sans-serif;margin-top:8px;">Ещё не кормили</p>
         <p class="sm" style="display:flex;align-items:center;gap:6px;margin-top:4px;">Вчера <span class="mono">236 / 240</span> · последнее в <span class="mono">21:30</span><span class="av av-l" style="width:16px;height:16px;font-size:8px;">Л</span></p>
@@ -296,7 +296,7 @@
 
     <div style="flex:none;">
       <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
-        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
         <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
         <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">238</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--on-success);">цель</span></p>
         <div style="margin-top:12px;">
@@ -321,7 +321,7 @@
 
     <div style="flex:none;">
       <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
-        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
+        <div style="display:flex;align-items:center;gap:8px;color:var(--text-2);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5M16 14v.5"/></svg><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия: питание</span><span class="cav cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;font-size:11.5px;">О</span></div>
         <div class="lbl" style="margin-top:16px;">Съедено сегодня</div>
         <p style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;">262</span><span style="font-size:14px;color:var(--text-2);">/ 240 ккал</span><span class="sm" style="margin-left:auto;">на 22 выше</span></p>
         <div style="margin-top:12px;position:relative;">
@@ -368,7 +368,7 @@
           <button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
         <div style="padding:0 16px 12px;border-bottom:1px solid var(--border);overflow:hidden;">
-          <div class="seg" role="group" aria-label="Разделы" style="width:max-content;"><button type="button" aria-pressed="true" style="flex:none;padding:0 12px;">Сегодня</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">История</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Корма</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Лекарства</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Профиль</button></div>
+          <div class="seg" role="group" aria-label="Разделы" style="width:max-content;"><button type="button" aria-pressed="true" style="flex:none;padding:0 12px;">Сегодня</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">История</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Корма</button><button type="button" aria-pressed="false" style="flex:none;padding:0 12px;">Лекарства</button></div>
         </div>
         <div style="flex:1;overflow:hidden;padding:14px 16px;display:flex;flex-direction:column;gap:14px;background:var(--bg);">
           <div class="card" style="padding:14px 16px;box-shadow:none;">
