@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import type { WasmLoader } from './index'
+import { compileWasm } from './wasm'
 import { WASM_FILES, wasmFileName, type WasmCodec } from './wasm-files'
 
 /**
@@ -19,13 +20,12 @@ export function wasmSourcePath(codec: WasmCodec): string {
 
 /** Compiles the binaries straight from `node_modules`; tests and tooling only. */
 export const packageWasmLoader: WasmLoader = async (codec) =>
-  WebAssembly.compile(await fs.readFile(wasmSourcePath(codec)))
+  compileWasm(await fs.readFile(wasmSourcePath(codec)))
 
 /**
  * Compiles the binaries a server bundle shipped flat in `dir`, under `wasmFileName` — a bundle
  * cannot count on `node_modules` being next to it.
  */
 export function directoryWasmLoader(dir: string): WasmLoader {
-  return async (codec) =>
-    WebAssembly.compile(await fs.readFile(path.join(dir, wasmFileName(codec))))
+  return async (codec) => compileWasm(await fs.readFile(path.join(dir, wasmFileName(codec))))
 }

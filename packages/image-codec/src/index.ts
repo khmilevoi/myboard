@@ -51,7 +51,7 @@ type ModuleInit = (module: WebAssembly.Module) => Promise<unknown>
  * glue install the same stand-in for themselves). A browser always has the real one.
  */
 function ensureImageDataGlobal(): void {
-  if (typeof globalThis.ImageData !== 'undefined') return
+  if ('ImageData' in globalThis) return
   class NodeImageData {
     constructor(
       readonly data: Uint8ClampedArray,

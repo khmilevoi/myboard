@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import zlib from 'node:zlib'
 
 import type { DecodedImage } from './index'
+import { compileWasm } from './wasm'
 
 /**
  * Real, decodable fixtures for tests in Node — built at test time, so no binary lives in git.
@@ -78,9 +79,7 @@ export async function encodeJpeg(width: number, height: number): Promise<Uint8Ar
   const encoder = await import('@jsquash/jpeg/encode.js')
   jpegEncoderReady ??= (async () => {
     const wasm = await fs.readFile(require.resolve('@jsquash/jpeg/codec/enc/mozjpeg_enc.wasm'))
-    await (encoder.init as (module: WebAssembly.Module) => Promise<void>)(
-      await WebAssembly.compile(wasm),
-    )
+    await (encoder.init as (module: WebAssembly.Module) => Promise<void>)(await compileWasm(wasm))
   })()
   await jpegEncoderReady
   const image = gradientImage(width, height) as unknown as Parameters<typeof encoder.default>[0]
