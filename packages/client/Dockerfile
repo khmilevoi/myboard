@@ -57,6 +57,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
 # Absent -> production, which emits no override, no badge and no icon rewrite.
 ARG APP_ENV=production
 ENV VITE_APP_ENV=$APP_ENV
+# The branch and commit the stand was built from, shown in the env badge's
+# popover. Empty -> unknown (production, or an rpi agent older than 0.27).
+ARG APP_BRANCH=
+ARG APP_COMMIT=
+ENV VITE_APP_BRANCH=$APP_BRANCH VITE_APP_COMMIT=$APP_COMMIT
 
 # Typechecking runs in CI. The image build keeps the same production artifact
 # order as the root build while invoking Vite directly for the host on slow Pi

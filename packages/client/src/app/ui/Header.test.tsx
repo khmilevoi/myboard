@@ -32,6 +32,6 @@ describe('Header', () => {
     // `pnpm test` inside the dev client container, which docker-compose.dev.yml
     // sets to 'local'.
     render(<Header />)
-    expect(screen.queryByRole('status', { name: /Окружение/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Окружение/ })).not.toBeInTheDocument()
   })
 })

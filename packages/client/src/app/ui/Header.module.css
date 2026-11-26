@@ -37,3 +37,28 @@
   align-items: center;
   gap: 12px;
 }
+
+/* The narrowest phones have no slack left once EnvBadge's dot sits beside the
+   logo on a stand: logo + dot + the 36px board select + three 36px actions
+   need ~330px at the default spacing, so at 320px (iPhone SE 1st gen) and in
+   a ~290px preview pane the brand slid under the theme button. Tightening the
+   padding, both gaps and the wordmark buys back ~45px and leaves an 18px
+   clearance at 287px. Production has no dot and only gains room. */
+@media (max-width: 360px) {
+  .header {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .brand {
+    gap: 6px;
+  }
+
+  .logo {
+    font-size: 17px;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+}

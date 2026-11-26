@@ -75,6 +75,11 @@ services:
         # baked into the bundle. An absent RPI_ENV means production, which
         # emits no branding at all.
         APP_ENV: '${RPI_ENV:-production}'
+        # Which source the stand was built from, for the env badge's popover.
+        # Both are rpi runtime variables (agent >= 0.27) and interpolate the
+        # same way RPI_ENV does; absent -> empty -> the badge omits the row.
+        APP_BRANCH: '${RPI_BRANCH_NAME:-}'
+        APP_COMMIT: '${RPI_COMMIT_SHA:-}'
     depends_on:
       server:
         condition: service_healthy
