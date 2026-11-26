@@ -6,7 +6,7 @@ import { OfeliaPage } from './pages/OfeliaPage.js'
 // getOfeliaDutyByDate(2026-06-16) → Леша (diffDays 0 from BASE_DUTY_DATE, even).
 const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
-const LEDGER_URL = `/api/storage/scoped/module/ofelia/shared/${encodeURIComponent('duty/ledger')}`
+const LEDGER_URL = `/api/storage/scoped/module/cats/shared/${encodeURIComponent('litter/ofelia/ledger')}`
 
 // Every assertion here is StandardTier UI — `ofelia-duty-person` exists only in
 // ui/tiers/StandardTier.tsx — and this widget only resolves `standard` once its
@@ -139,7 +139,7 @@ test('a confirmed day is written through the ofelia module action', async ({ pag
   await ofelia.seedOfeliaWidget()
 
   const request = page.waitForRequest((candidate) =>
-    candidate.url().includes('/api/modules/ofelia/actions/clean'),
+    candidate.url().includes('/api/modules/cats/actions/clean'),
   )
   await ofelia.confirmButton.click()
   await request
@@ -161,6 +161,34 @@ test('auto-approve — a cron-closed day reaches the open board over SSE', async
   // run below skips it and 2026-06-16 — the day the card is showing — is the
   // one that gets auto-approved. Do not drop this seed to "simplify" the
   // test: without it the cron no-ops and every assertion below fails.
+  // The cron closes only litters an active cat points at (and the e2e stack starts with an empty
+  // registry, no migration), so register cat `ofelia` on litter `ofelia` the way the
+  // `ofelia-to-cats` migration seeds it.
+  const sharedUrl = (key: string) =>
+    `/api/storage/scoped/module/cats/shared/${encodeURIComponent(key)}`
+  const seeds: [string, unknown][] = [
+    ['registry/cats', [{ id: 'seed:ofelia', ts: 0, catId: 'ofelia', op: 'add' }]],
+    ['registry/litters', [{ id: 'seed:ofelia', ts: 0, litterId: 'ofelia', op: 'add' }]],
+    [
+      'cat/ofelia/profile',
+      {
+        name: 'Офелия',
+        breed: null,
+        birthDate: null,
+        sex: null,
+        sterilized: 'unknown',
+        bodyCondition: null,
+        avatar: null,
+        litterId: 'ofelia',
+      },
+    ],
+  ]
+  for (const [key, value] of seeds) {
+    await request.put(sharedUrl(key), {
+      headers: { 'X-Requested-With': 'MyBoard' },
+      data: { value },
+    })
+  }
   await request.put(LEDGER_URL, {
     headers: { 'X-Requested-With': 'MyBoard' },
     data: {

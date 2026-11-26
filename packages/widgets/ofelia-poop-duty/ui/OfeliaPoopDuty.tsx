@@ -1,5 +1,6 @@
 import { wrap } from '@reatom/core'
-import { ofeliaModule, type OfeliaModel } from 'module-ofelia'
+import { catsModule, type LitterModel } from 'module-cats'
+import { OFELIA_ID } from 'module-cats/domain/ids'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { type WidgetTier, useWidgetContext } from 'widget-runtime'
@@ -55,24 +56,26 @@ export const OfeliaPoopDuty = reatomMemo(() => {
   // One module handle per mount: the load starts when `model` gains this
   // component as a subscriber, and the model is kept once it arrives.
   const ofeliaHandle = useMemo(
-    () => reatomModule({ modules, module: ofeliaModule, name: 'ofeliaPoopDuty.module' }),
+    () => reatomModule({ modules, module: catsModule, name: 'ofeliaPoopDuty.module' }),
     [modules],
   )
   const onRetry = useMemo(() => wrap(() => ofeliaHandle.retry()), [ofeliaHandle])
 
-  const ofelia = useAtomValue(ofeliaHandle.model)
+  const cats = useAtomValue(ofeliaHandle.model)
   const loadError = useAtomValue(ofeliaHandle.error)
-  if (ofelia === null) {
+  if (cats === null) {
     // A module chunk that failed to load is a real failure with a way out, not
     // an endless skeleton.
     if (loadError) return renderLoadError(tier, onRetry)
     return renderLoading(tier)
   }
 
-  return <OfeliaPoopDutyReady ofelia={ofelia} />
+  // Interim until the widget picks a litter: always Ofelia's. `litter()` is
+  // memoized, so every render hands the same model down.
+  return <OfeliaPoopDutyReady ofelia={cats.litter(OFELIA_ID)} />
 }, 'OfeliaPoopDuty')
 
-const OfeliaPoopDutyReady = reatomMemo(({ ofelia }: { ofelia: OfeliaModel }) => {
+const OfeliaPoopDutyReady = reatomMemo(({ ofelia }: { ofelia: LitterModel }) => {
   const { tier, identity, requestClose } = useWidgetContext()
   // Called up here with the other hooks, not next to its use site below: this
   // component early-returns a loading/error view before the tier switch, and a

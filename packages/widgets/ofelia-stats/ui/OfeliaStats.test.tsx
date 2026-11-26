@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { context } from '@reatom/core'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { foldDebt } from 'module-ofelia/domain/debt'
-import type { LedgerEntry } from 'module-ofelia/domain/ledger'
-import type { Person } from 'module-ofelia/domain/roster'
-import { makeTestOfeliaModel } from 'module-ofelia/testing'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { foldDebt } from 'module-cats/domain/debt'
+import { ledgerKey } from 'module-cats/domain/keys'
+import type { LedgerEntry } from 'module-cats/domain/ledger'
+import { DEFAULT_LITTER_SETTINGS } from 'module-cats/domain/roster'
+import type { Person } from 'module-cats/domain/roster'
+import { makeSettingsDownStorage, makeTestCatsModel } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
@@ -75,13 +77,13 @@ describe('OfeliaStats', () => {
       cleaned(TODAY, 'Леша'),
       entry('went_into_debt', '2026-06-15', 'Карина', { onBehalfOf: 'Карина' }),
     ]
-    const { model } = makeTestOfeliaModel({ entries, todayIso: TODAY })
+    const { model } = makeTestCatsModel({ entries, todayIso: TODAY })
     renderStats({ get: async () => model } as unknown as WidgetModules)
 
     await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
     expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^1$/)
     expect(screen.getByTestId('ofelia-stats-debt-Карина')).toHaveTextContent(
-      new RegExp(`^${foldDebt(entries).Карина ?? 0}$`),
+      new RegExp(`^${foldDebt(DEFAULT_LITTER_SETTINGS, entries).Карина ?? 0}$`),
     )
     expect(screen.getAllByText('Уборок за 30 дней').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Долг').length).toBeGreaterThan(0)
@@ -93,10 +95,10 @@ describe('OfeliaStats', () => {
   })
 
   it('shows a retry button after a load error, and retrying loads again', async () => {
-    const { model } = makeTestOfeliaModel({ entries: [cleaned(TODAY, 'Леша')], todayIso: TODAY })
+    const { model } = makeTestCatsModel({ entries: [cleaned(TODAY, 'Леша')], todayIso: TODAY })
     const get = vi
       .fn()
-      .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'ofelia', cause: new Error('x') }))
+      .mockResolvedValueOnce(new ModuleLoadError({ moduleId: 'cats', cause: new Error('x') }))
       .mockResolvedValue(model)
     renderStats({ get } as unknown as WidgetModules)
 
@@ -121,7 +123,7 @@ describe('OfeliaStats', () => {
         return () => {}
       },
     }
-    const { model } = makeTestOfeliaModel({ storage: failing, todayIso: TODAY })
+    const { model } = makeTestCatsModel({ storage: failing, todayIso: TODAY })
     renderStats({ get: async () => model } as unknown as WidgetModules)
 
     const retry = await screen.findByRole('button', { name: 'Повторить' })
@@ -131,6 +133,30 @@ describe('OfeliaStats', () => {
 
     await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
     expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^1$/)
-    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledTimes(2) // the ledger and the settings key
+  })
+
+  it('shows a retry button when only the settings read fails, through later ledger events', async () => {
+    const base = createFakeStorage()
+    await base.set(ledgerKey('ofelia'), [cleaned(TODAY, 'Леша')])
+    const { storage, recover } = makeSettingsDownStorage(
+      base,
+      new StorageError({ reason: 'settings down' }),
+    )
+    const { model } = makeTestCatsModel({ storage, todayIso: TODAY })
+    renderStats({ get: async () => model } as unknown as WidgetModules)
+
+    await screen.findByRole('button', { name: 'Повторить' })
+    // A later ledger event clears the ledger's own error; the settings failure must stay on screen.
+    await act(() =>
+      base.set(ledgerKey('ofelia'), [cleaned(TODAY, 'Леша'), cleaned('2026-06-14', 'Леша')]),
+    )
+    expect(screen.getByText('Не удалось загрузить данные')).toBeInTheDocument()
+    expect(screen.queryByText('Загрузка…')).not.toBeInTheDocument()
+
+    recover()
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
+    expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^2$/)
   })
 })

@@ -1,4 +1,4 @@
-import { DUTY_TIME_ZONE, plainDateIn, type Person } from 'module-ofelia/domain/roster'
+import { DUTY_TIME_ZONE, plainDateIn, type Person } from 'module-cats/domain/roster'
 
 import type { HistoryEntryView } from '@/model/ofelia-duty'
 

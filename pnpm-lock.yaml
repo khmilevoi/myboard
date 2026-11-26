@@ -203,9 +203,9 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
-      module-ofelia:
+      module-cats:
         specifier: workspace:*
-        version: link:../modules/ofelia
+        version: link:../modules/cats
       nanoid:
         specifier: ^5.1.15
         version: 5.1.15
@@ -329,7 +329,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@26.1.1)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@8.1.2(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
 
-  packages/modules/ofelia:
+  packages/modules/cats:
     dependencies:
       '@js-temporal/polyfill':
         specifier: 'catalog:'
@@ -604,9 +604,9 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
-      module-ofelia:
+      module-cats:
         specifier: workspace:*
-        version: link:../../modules/ofelia
+        version: link:../../modules/cats
       react:
         specifier: 'catalog:'
         version: 19.2.7
@@ -665,9 +665,9 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
-      module-ofelia:
+      module-cats:
         specifier: workspace:*
-        version: link:../../modules/ofelia
+        version: link:../../modules/cats
       react:
         specifier: 'catalog:'
         version: 19.2.7
