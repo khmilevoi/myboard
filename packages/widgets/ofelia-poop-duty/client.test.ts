@@ -49,28 +49,24 @@ describe('ofeliaWidget tiers', () => {
   })
 
   // The dynamic import below pulls the whole UI chunk plus the Temporal
-  // polyfill; under a full-workspace `pnpm -r test` run the machine is busy
-  // enough that it can exceed vitest's default 5s per-test timeout.
-  it(
-    'loads the component when the browser has no native Temporal',
-    { timeout: 30_000 },
-    async () => {
-      const temporalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'Temporal')
+  // polyfill — the slowest test in the package, covered by the widget
+  // projects' shared 30 s testTimeout (widget-sdk/vite).
+  it('loads the component when the browser has no native Temporal', async () => {
+    const temporalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'Temporal')
 
-      try {
+    try {
+      Reflect.deleteProperty(globalThis, 'Temporal')
+
+      const componentModule = await ofeliaWidget.loadComponent()
+
+      expect(typeof globalThis.Temporal.PlainDate.from).toBe('function')
+      expect(componentModule.default).toBeDefined()
+    } finally {
+      if (temporalDescriptor) {
+        Object.defineProperty(globalThis, 'Temporal', temporalDescriptor)
+      } else {
         Reflect.deleteProperty(globalThis, 'Temporal')
-
-        const componentModule = await ofeliaWidget.loadComponent()
-
-        expect(typeof globalThis.Temporal.PlainDate.from).toBe('function')
-        expect(componentModule.default).toBeDefined()
-      } finally {
-        if (temporalDescriptor) {
-          Object.defineProperty(globalThis, 'Temporal', temporalDescriptor)
-        } else {
-          Reflect.deleteProperty(globalThis, 'Temporal')
-        }
       }
-    },
-  )
+    }
+  })
 })

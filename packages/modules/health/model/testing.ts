@@ -1,5 +1,5 @@
 import { makeStaticWidgetIdentity, type StorageApi } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import { ingestMeasurement } from '../domain/ingest'
@@ -56,6 +56,7 @@ export function makeTestHealthModel(options: MakeTestHealthModelOptions = {}): T
   const model = makeHealthModel({
     moduleId: 'health',
     storage: { account: { client: storage, server: storage } },
+    files: makeFakeFileSlots(),
     api,
     timer: createFakeTimer({ today: null }),
     identity: makeStaticWidgetIdentity(),

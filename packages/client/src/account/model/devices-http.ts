@@ -9,6 +9,10 @@ export type AccountDto = {
   id: string
   name: string
   deviceLimit: number
+  /** Epoch ms the account was created; absent from a server older than the profile dialog. */
+  createdAt?: number
+  /** `/files/<blobId>` of the account's avatar; absent without one. */
+  avatarUrl?: string
 }
 
 export type DeviceDto = {

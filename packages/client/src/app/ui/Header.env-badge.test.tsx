@@ -8,7 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // keep exercising the real, unmocked production default. currentAppEnv reads
 // the __APP_ENV__ build constant, which Vitest always resolves to
 // 'production', so proving the badge itself renders needs the module stubbed.
-vi.mock('@/shared/app-env/current', () => ({ currentAppEnv: 'dev' }))
+vi.mock('@/shared/app-env/current', () => ({
+  currentAppEnv: 'branch',
+  currentBuildInfo: { branch: 'feat/env-badge-branch', commit: '6c8ff7c' },
+}))
 
 import { Header } from './Header'
 
@@ -18,8 +21,12 @@ beforeEach(() => {
 })
 
 describe('Header', () => {
-  it('renders the environment badge for a branded environment', () => {
+  it('renders the environment badge with the build it was made from', () => {
     render(<Header />)
-    expect(screen.getByRole('status', { name: 'Окружение: dev' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: 'Окружение: branch, ветка feat/env-badge-branch',
+      }),
+    ).toBeInTheDocument()
   })
 })

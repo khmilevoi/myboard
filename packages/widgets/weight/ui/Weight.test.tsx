@@ -14,7 +14,7 @@ import {
   type WidgetRuntimeProps,
   type WidgetTier,
 } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 
 import { formatTakenAt } from '../model/format'
 import { Weight } from './Weight'
@@ -45,7 +45,7 @@ function props(modules: WidgetModules, tier: WidgetTier): WidgetRuntimeProps {
     storage: {
       instance: { client: storage, server: storage },
       shared: { client: storage, server: storage },
-      account: { client: storage, server: storage },
+      account: { client: storage, server: storage, files: makeFakeFileSlots() },
     },
     api: { invoke: vi.fn() },
     identity: makeStaticWidgetIdentity(),

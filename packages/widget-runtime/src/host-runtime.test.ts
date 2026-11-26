@@ -136,6 +136,40 @@ describe('makeHostRuntime', () => {
     expect(calls).toEqual([])
   })
 
+  it('shares one file slot per branch and key between modules and widget storage', async () => {
+    const url = '/api/files/scoped/module/notes/shared/cover'
+    const { http, calls } = makeScriptedHttp({ [url]: [{ status: 204 }] })
+    const runtime = makeHostRuntime({ http, identity: makeStaticWidgetIdentity() })
+    const ref = bindModule('notes', {
+      scopes: ['shared'],
+      actions: {},
+      loadModel: async () => (context: ModuleContext<{}, 'shared'>) => context,
+    })
+
+    const context = await runtime.makeWidgetModules(['notes']).get(ref)
+    if (context instanceof Error) throw context
+    const slot = context.files('shared', 'cover')
+    expect(context.files('shared', 'cover')).toBe(slot)
+    expect(
+      runtime.makeBranchStorage({ owner: 'module', id: 'notes', scope: 'shared' }).files('cover'),
+    ).toBe(slot)
+    expect(calls).toEqual([])
+
+    expect(await slot.remove()).toBeUndefined()
+    expect(calls[0]).toMatchObject({ method: 'DELETE', url })
+  })
+
+  it("gates a widget's account file slot on the viewer", async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const runtime = makeHostRuntime({ http, identity: makeStaticWidgetIdentity() })
+    const storage = runtime.makeWidgetStorage({ instanceId: 'inst-1', typeId: 'clock' })
+
+    expect(await storage.account.files('photo').remove()).toMatchObject({
+      reason: 'account_unavailable',
+    })
+    expect(calls).toEqual([])
+  })
+
   it('opens the SSE stream lazily through the injected openEventStream', () => {
     const fake = makeFakeOpenEventStream()
     const { http } = makeScriptedHttp({

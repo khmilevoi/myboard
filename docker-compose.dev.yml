@@ -27,8 +27,8 @@ x-workspace-volumes: &workspace-volumes
   - shared_node_modules:/app/packages/shared/node_modules
   - widget_runtime_node_modules:/app/packages/widget-runtime/node_modules
   - widget_sdk_node_modules:/app/packages/widget-sdk/node_modules
+  - modules_cats_node_modules:/app/packages/modules/cats/node_modules
   - modules_health_node_modules:/app/packages/modules/health/node_modules
-  - modules_ofelia_node_modules:/app/packages/modules/ofelia/node_modules
   - widgets_clock_node_modules:/app/packages/widgets/clock/node_modules
   - widgets_ofelia_poop_duty_node_modules:/app/packages/widgets/ofelia-poop-duty/node_modules
   - widgets_ofelia_stats_node_modules:/app/packages/widgets/ofelia-stats/node_modules
@@ -81,6 +81,11 @@ services:
       SESSION_TTL_SLIDING: 30d
       SESSION_TTL_ABSOLUTE: 90d
       TRUST_CF_CONNECTING_IP: '0'
+      # No Garage in the hot-reload stack: without FILES_S3_ENDPOINT the server
+      # keeps file slots on disk, in the gitignored packages/server/.data/files
+      # of the bind mount, and serves /files/<id> itself (Vite proxies it).
+      # `pnpm start:docker` is the stack that runs the production Garage path.
+      FILES_FS_DIR: .data/files
     volumes: *workspace-volumes
     ports:
       - '127.0.0.1:8787:8787'
@@ -158,8 +163,8 @@ volumes:
   shared_node_modules:
   widget_runtime_node_modules:
   widget_sdk_node_modules:
+  modules_cats_node_modules:
   modules_health_node_modules:
-  modules_ofelia_node_modules:
   widgets_clock_node_modules:
   widgets_ofelia_poop_duty_node_modules:
   widgets_ofelia_stats_node_modules:

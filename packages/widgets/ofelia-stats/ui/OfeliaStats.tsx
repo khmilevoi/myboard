@@ -30,13 +30,13 @@ export const OfeliaStats = reatomMemo(() => {
   // Read unconditionally so the hook set stays fixed whichever branch returns.
   const rows = useAtomValue(view.rows)
   const error = useAtomValue(view.error)
-  const ledgerFailed = useAtomValue(view.ledgerFailed)
+  const loadFailed = useAtomValue(view.loadFailed)
 
   if (rows === null) {
-    // A failed module chunk or a failed ledger read is a real failure with a
+    // A failed module chunk or a failed ledger or settings read is a real failure with a
     // way out, not an endless "Загрузка…".
     if (error) return renderLoadError(onRetry)
-    if (ledgerFailed) return renderLoadError(onRetryLedger)
+    if (loadFailed) return renderLoadError(onRetryLedger)
     return (
       <div className={styles.widget}>
         <p className={styles.note}>Загрузка…</p>

@@ -1,5 +1,5 @@
 import { context } from '@reatom/core'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -9,36 +9,61 @@ beforeEach(() => {
   context.reset()
 })
 
+const BUILD = { branch: 'feat/cats-module-rename', commit: '483a2ac' }
+
 describe('EnvBadge', () => {
   it('renders the environment label', () => {
     render(<EnvBadge env="dev" />)
     expect(screen.getByText('dev')).toBeInTheDocument()
   })
 
-  it('labels itself for assistive technology', () => {
-    render(<EnvBadge env="branch" />)
-    expect(screen.getByRole('status', { name: 'Окружение: branch' })).toBeInTheDocument()
-  })
-
   it('renders nothing for production', () => {
-    const { container } = render(<EnvBadge env="production" />)
+    const { container } = render(<EnvBadge env="production" build={BUILD} />)
     expect(container).toBeEmptyDOMElement()
   })
 
-  // getByText matches on an element's direct text-node children, and returns
-  // the closest such element -- if the label were reverted to bare text
-  // inside .badge, getByText('dev') would resolve to the pill itself (also a
-  // <span>), so comparing against the dot (also not the pill) would pass on
-  // both the old and new markup. Compare against the outer pill instead:
-  // that's the one element getByText can resolve to on the old markup but
-  // never on the new one.
-  it('keeps the label text in its own element, nested inside the pill', () => {
-    render(<EnvBadge env="dev" />)
-    const pill = screen.getByRole('status')
-    const label = screen.getByText('dev')
+  it('shows the branch name instead of the label on the branch stand', () => {
+    render(<EnvBadge env="branch" build={BUILD} />)
+    const pill = screen.getByRole('button', {
+      name: 'Окружение: branch, ветка feat/cats-module-rename',
+    })
 
-    expect(label.tagName).toBe('SPAN')
-    expect(label).not.toBe(pill)
-    expect(pill).toContainElement(label)
+    expect(within(pill).getByText('feat/cats-module-rename')).toBeInTheDocument()
+    expect(within(pill).queryByText('branch')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the label when the branch stand does not know its branch', () => {
+    render(<EnvBadge env="branch" />)
+    const pill = screen.getByRole('button', { name: 'Окружение: branch' })
+
+    expect(within(pill).getByText('branch')).toBeInTheDocument()
+  })
+
+  it('keeps the label on dev even when the build knows its branch', () => {
+    render(<EnvBadge env="dev" build={{ branch: 'dev', commit: '6c8ff7c' }} />)
+    const pill = screen.getByRole('button', { name: 'Окружение: dev, ветка dev' })
+
+    expect(within(pill).getByText('dev')).toBeInTheDocument()
+  })
+
+  // The pill's text is hidden at ≤640px and cut with an ellipsis when long,
+  // so the popover is where the full branch and the commit must always be.
+  it('opens a popover with the full branch and the commit', () => {
+    render(<EnvBadge env="branch" build={BUILD} />)
+    fireEvent.click(screen.getByRole('button', { name: /Окружение/ }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Окружение branch')).toBeInTheDocument()
+    expect(within(dialog).getByText('feat/cats-module-rename')).toBeInTheDocument()
+    expect(within(dialog).getByText('483a2ac')).toBeInTheDocument()
+  })
+
+  it('omits the branch row and marks the commit unknown when the build says nothing', () => {
+    render(<EnvBadge env="local" />)
+    fireEvent.click(screen.getByRole('button', { name: /Окружение/ }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).queryByText('Ветка')).not.toBeInTheDocument()
+    expect(within(dialog).getByText('неизвестен')).toBeInTheDocument()
   })
 })

@@ -1,10 +1,12 @@
 import { context } from '@reatom/core'
+import { FileImageRuleError } from '@shared/files/image-rules'
 import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createAccountModel } from './account-model'
+import { describeAvatarError } from './avatar-http'
 
 afterEach(() => context.reset())
 
@@ -246,5 +248,167 @@ describe('connectEvents', () => {
     stream.emit(undefined, { connId: 'abc' })
 
     expect(calls).toHaveLength(0)
+  })
+})
+
+describe('avatar', () => {
+  const AVATAR_URL = '/files/AvatarAvatarAvatar01'
+  const avatarRef = {
+    blobId: 'AvatarAvatarAvatar01',
+    url: AVATAR_URL,
+    mime: 'image/webp',
+    size: 3,
+    image: { width: 256, height: 256 },
+    updatedAt: 1,
+  }
+
+  function avatarModel(script: Parameters<typeof makeScriptedHttp>[0]) {
+    const { http, calls } = makeScriptedHttp(script)
+    const prepared = new Blob(['webp'], { type: 'image/webp' })
+    const prepareImage = vi.fn(async () => prepared)
+    const refreshIdentity = vi.fn(async () => {})
+    const model = createAccountModel({
+      http,
+      storage: createStorage(null),
+      prepareImage,
+      refreshIdentity,
+    })
+    return { model, calls, prepared, prepareImage, refreshIdentity }
+  }
+
+  it('prepares the cropped photo, uploads it, then refreshes the account and the identity directory', async () => {
+    const { model, calls, prepared, prepareImage, refreshIdentity } = avatarModel({
+      '/api/files/account/avatar': [{ status: 200, body: { value: avatarRef } }],
+      '/api/auth/account': [
+        { status: 200, body: accountBody },
+        { status: 200, body: { ...accountBody, avatarUrl: AVATAR_URL } },
+      ],
+      '/api/auth/devices': [
+        { status: 200, body: devicesBody },
+        { status: 200, body: devicesBody },
+      ],
+    })
+    await model.refresh()
+    const photo = new Blob(['jpeg'], { type: 'image/jpeg' })
+    const crop = { x: 10, y: 20, size: 300 }
+
+    expect(await model.uploadAvatar(photo, crop)).toBeNull()
+
+    expect(prepareImage).toHaveBeenCalledWith(photo, crop)
+    const put = calls.find((call) => call.method === 'PUT')
+    expect(put).toMatchObject({
+      url: '/api/files/account/avatar',
+      body: prepared,
+      headers: { 'content-type': 'image/webp' },
+    })
+    expect(model.account()?.avatarUrl).toBe(AVATAR_URL)
+    expect(refreshIdentity).toHaveBeenCalledTimes(1)
+    expect(model.avatarPending()).toBe(false)
+  })
+
+  it('returns the 413 and leaves the account untouched', async () => {
+    const { model, refreshIdentity } = avatarModel({
+      '/api/files/account/avatar': [
+        { status: 413, body: { error: { code: 'file_too_large', message: 'x' } } },
+      ],
+      '/api/auth/account': [{ status: 200, body: accountBody }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
+    })
+    await model.refresh()
+
+    const result = await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }), null)
+
+    expect(result).toBeInstanceOf(Error)
+    expect(describeAvatarError(result!)).toBe('Фото слишком большое. Выберите другое.')
+    expect(model.account()).toEqual(accountBody)
+    expect(refreshIdentity).not.toHaveBeenCalled()
+  })
+
+  it('returns an unreadable image without uploading', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const decode = new Error('decode')
+    const model = createAccountModel({
+      http,
+      storage: createStorage(null),
+      prepareImage: async () => decode,
+    })
+
+    expect(await model.uploadAvatar(new Blob(['nope']), null)).toBe(decode)
+    expect(calls).toEqual([])
+  })
+
+  it('returns an image-rule break as clear copy without uploading', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const broken = new FileImageRuleError({ reason: 'not_square', mime: 'image/webp', size: '3x2' })
+    const model = createAccountModel({
+      http,
+      storage: createStorage(null),
+      prepareImage: async () => broken,
+    })
+
+    const result = await model.uploadAvatar(new Blob(['png']), null)
+    expect(result).toBe(broken)
+    expect(describeAvatarError(result!)).toBe(
+      'Фото должно быть квадратным. Выберите область заново.',
+    )
+    expect(calls).toEqual([])
+  })
+
+  it('describes the server rejecting the image rules', async () => {
+    const { model } = avatarModel({
+      '/api/files/account/avatar': [
+        { status: 422, body: { error: { code: 'file_image_rejected', reason: 'too_large' } } },
+      ],
+    })
+    const result = await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }), null)
+    expect(describeAvatarError(result!)).toBe('Фото не подошло по размерам. Выберите другое.')
+  })
+
+  it('returns a transport failure', async () => {
+    const { model } = avatarModel({ '/api/files/account/avatar': ['network-error'] })
+    const result = await model.uploadAvatar(new Blob(['jpeg'], { type: 'image/jpeg' }), null)
+    expect(describeAvatarError(result!)).toBe(
+      'Не удалось загрузить фото. Проверьте подключение и попробуйте ещё раз.',
+    )
+  })
+
+  it('removes the avatar and refreshes both directories', async () => {
+    const { model, calls, refreshIdentity } = avatarModel({
+      '/api/files/account/avatar': [{ status: 204 }],
+      '/api/auth/account': [
+        { status: 200, body: { ...accountBody, avatarUrl: AVATAR_URL } },
+        { status: 200, body: accountBody },
+      ],
+      '/api/auth/devices': [
+        { status: 200, body: devicesBody },
+        { status: 200, body: devicesBody },
+      ],
+    })
+    await model.refresh()
+    expect(model.account()?.avatarUrl).toBe(AVATAR_URL)
+
+    await model.removeAvatar()
+
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(true)
+    expect(model.account()).toEqual(accountBody)
+    expect(refreshIdentity).toHaveBeenCalledTimes(1)
+    expect(model.removeAvatarError()).toBeNull()
+  })
+
+  it('keeps the photo and records the copy when the removal fails', async () => {
+    const { model, refreshIdentity } = avatarModel({
+      '/api/files/account/avatar': ['network-error'],
+      '/api/auth/account': [{ status: 200, body: { ...accountBody, avatarUrl: AVATAR_URL } }],
+      '/api/auth/devices': [{ status: 200, body: devicesBody }],
+    })
+    await model.refresh()
+
+    await model.removeAvatar()
+
+    expect(model.account()?.avatarUrl).toBe(AVATAR_URL)
+    expect(model.removeAvatarError()).toBe(
+      'Не удалось загрузить фото. Проверьте подключение и попробуйте ещё раз.',
+    )
+    expect(refreshIdentity).not.toHaveBeenCalled()
   })
 })

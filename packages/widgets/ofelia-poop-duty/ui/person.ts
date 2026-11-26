@@ -1,8 +1,9 @@
-import { DUTY_ROTATION } from 'module-ofelia/domain/roster'
-import type { Person } from 'module-ofelia/domain/roster'
+import { MEMBERS } from 'module-cats/domain/roster'
+import type { Person } from 'module-cats/domain/roster'
 
-// One tone per roster slot, assigned by position in DUTY_ROTATION (Леша → 'l'
-// blue, Карина → 'k' red). Scales to N participants: add a tone here + matching
+// One tone per roster slot, assigned by position in MEMBERS (Леша → 'l'
+// blue, Карина → 'k' red). A litter's rotation order never moves a tone, so a person keeps
+// their colour when a rotation changes. Scales to N participants: add a tone here + matching
 // `--ofelia-<tone>-*` tokens — no per-name branching. The palette must be at
 // least as long as the roster; the modulo keeps the lookup total either way.
 const PERSON_TONES = ['l', 'k'] as const
@@ -14,6 +15,6 @@ export function personInitial(person: Person): string {
 }
 
 export function personTone(person: Person): PersonTone {
-  const slot = DUTY_ROTATION.indexOf(person)
+  const slot = MEMBERS.indexOf(person)
   return PERSON_TONES[slot % PERSON_TONES.length]
 }

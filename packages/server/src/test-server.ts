@@ -1,9 +1,17 @@
+import path from 'node:path'
+
+import { directoryWasmLoader } from 'image-codec/node'
+
 import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
+import { makeDeferredImageDecoder, startImageCodecs } from './files/image-check'
+import { makeEntryBlobStore, startEntryBlobStoreBootstrap } from './files/production-blob-store'
 import { productionMigrations, runMigrations } from './migrations'
 import { productionModuleServerRegistry } from './modules/production-registry'
+import { EVENTS_CHANNEL } from './storage/handlers'
+import { productionFilePolicies } from './storage/production-file-policies'
 import { productionScopedOwners } from './storage/production-scoped-owners'
 import { createValkeySubscriber, createValkeyTestOps } from './storage/valkey'
 import { productionWidgetServerRegistry } from './widgets/production-registry'
@@ -19,7 +27,20 @@ import { productionWidgetServerRegistry } from './widgets/production-registry'
 // explicit opt-in confirming VALKEY_URL points at a disposable instance,
 // so the destructive FLUSHDB can't fire against a shared dev/prod Valkey
 // by accident.
-const ops = createValkeyTestOps()
+// Each Playwright worker runs its own test-server against its own Valkey
+// database (`redis://host:6379/<n>`), so reset/FLUSHDB and the settable clock
+// are per worker. Pub/sub, however, ignores the database index: every channel
+// is server-wide. Namespacing the channel by database keeps one worker's SSE
+// events (e.g. the shared ofelia ledger key) out of another worker's browser.
+const valkeyDb = new URL(process.env.VALKEY_URL ?? 'redis://localhost:6379').pathname.slice(1)
+const channelOf = (channel: string): string =>
+  valkeyDb === '' || valkeyDb === '0' ? channel : `db${valkeyDb}:${channel}`
+
+const valkeyOps = createValkeyTestOps()
+const ops: typeof valkeyOps = {
+  ...valkeyOps,
+  publish: (channel, message) => valkeyOps.publish(channelOf(channel), message),
+}
 let currentNow = Date.now()
 
 const browserConfig = loadBrowserGatewayConfig(process.env)
@@ -36,15 +57,24 @@ if (authConfig instanceof Error) {
 
 const browserClient = createHttpBrowserAutomationClient(browserConfig)
 
+// With FILES_S3_ENDPOINT set, file routes answer 503 until the Garage bootstrap succeeds.
+const blobs = makeEntryBlobStore(process.env)
+startEntryBlobStoreBootstrap({ env: process.env, blobs })
+
+// Image-rule uploads answer 503 until the codecs, shipped as dist/wasm/*.wasm, have compiled.
+const images = makeDeferredImageDecoder()
+startImageCodecs({ decoder: images, loadWasm: directoryWasmLoader(path.join(__dirname, 'wasm')) })
+
 const { server } = createApp({
   ops,
-  subscribe: (onMessage) => createValkeySubscriber('storage:events', onMessage),
+  subscribe: (onMessage) => createValkeySubscriber(channelOf(EVENTS_CHANNEL), onMessage),
   now: () => currentNow,
   widgetRegistry: productionWidgetServerRegistry,
   moduleRegistry: productionModuleServerRegistry,
   browserClient,
   authConfig,
   scopedOwners: productionScopedOwners,
+  files: { blobs, policies: productionFilePolicies, images },
   recovery: browserConfig.recovery,
   testControls: {
     setNow: (ms) => {

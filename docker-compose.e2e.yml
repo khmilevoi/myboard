@@ -9,19 +9,19 @@
 #                                    the host in headed mode (see
 #                                    scripts/test-e2e-docker-headed.ts)
 #
-# Known limitation: `name:` is static, so two concurrent invocations of this
-# file on the same Docker daemon (e.g. from two worktrees, or two CI jobs in
-# parallel) share this same project and can collide. Fine for the single-run,
-# single-worktree-at-a-time usage this is designed for; don't run
-# `pnpm test:e2e:docker` from more than one worktree/checkout at once.
-name: myboard-e2e
+# Concurrency: there is deliberately no `name:`. Compose derives the project
+# from the checkout's directory, so every worktree gets its own project,
+# network and Valkey, and two worktrees can run this suite at the same time.
+# For the same reason Valkey is published on an ephemeral host port (the
+# headed script asks Compose which one) rather than on a fixed 6379 that a
+# `pnpm start:docker` stack or another worktree may already hold.
 services:
   valkey:
     image: valkey/valkey:8-alpine
     tmpfs:
       - /data
     ports:
-      - '127.0.0.1:6379:6379'
+      - '127.0.0.1::6379'
     healthcheck:
       test: ['CMD', 'valkey-cli', 'ping']
       interval: 5s
@@ -39,6 +39,11 @@ services:
       VALKEY_URL: redis://valkey:6379
       ALLOW_TEST_DB_RESET: '1'
       CI: 'true'
+      # The test server keeps file slots on disk here (no Garage in this
+      # stack): a tmpfs, disposable like Valkey's, so every run starts empty.
+      FILES_FS_DIR: /e2e-files
+    tmpfs:
+      - /e2e-files
     volumes:
       - ./packages/client/test-results:/app/packages/client/test-results
       - ./packages/client/playwright-report:/app/packages/client/playwright-report

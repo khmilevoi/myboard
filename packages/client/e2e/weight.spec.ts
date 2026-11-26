@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test'
-
 import { postWeightReading, type WeightReading, WeightPage } from './pages/WeightPage.js'
 import { seedSession } from './support/gate.js'
+import { expect, test } from './support/test.js'
 
 const HOUR = 3_600_000
 

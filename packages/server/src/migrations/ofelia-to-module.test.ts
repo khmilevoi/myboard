@@ -207,4 +207,8 @@ describe('ofeliaToModuleMigration', () => {
     )
     expect(await ops.get('m:ofelia:s:duty/ledger')).toBe('[]')
   })
+
+  it('registers ofelia-to-module before ofelia-to-cats', () => {
+    expect(productionMigrations.map((m) => m.name)).toEqual(['ofelia-to-module', 'ofelia-to-cats'])
+  })
 })

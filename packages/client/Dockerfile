@@ -23,6 +23,7 @@ RUN npm install -g corepack@0.35.0 && corepack enable
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.json ./
 COPY patches ./patches
 COPY packages/client/package.json ./packages/client/
+COPY packages/image-codec/package.json ./packages/image-codec/
 COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
@@ -35,6 +36,7 @@ COPY --from=widget-manifests /modules ./packages/modules
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir /pnpm-store
 
+COPY packages/image-codec ./packages/image-codec
 COPY packages/shared ./packages/shared
 COPY packages/widget-runtime ./packages/widget-runtime
 COPY packages/widget-sdk ./packages/widget-sdk
@@ -57,6 +59,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
 # Absent -> production, which emits no override, no badge and no icon rewrite.
 ARG APP_ENV=production
 ENV VITE_APP_ENV=$APP_ENV
+# The branch and commit the stand was built from, shown in the env badge's
+# popover. Empty -> unknown (production, or an rpi agent older than 0.27).
+ARG APP_BRANCH=
+ARG APP_COMMIT=
+ENV VITE_APP_BRANCH=$APP_BRANCH VITE_APP_COMMIT=$APP_COMMIT
 
 # Typechecking runs in CI. The image build keeps the same production artifact
 # order as the root build while invoking Vite directly for the host on slow Pi

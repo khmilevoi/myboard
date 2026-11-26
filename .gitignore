@@ -25,6 +25,11 @@ pnpm-debug.log*
 .env.dev
 # secrets bundle of the `branch` rpi environment (see .env.branch.example)
 .env.branch
+# agent passkeys and sessions for the dev/branch stands (pnpm stand:login)
+.auth/
+
+# local file-slot blobs of host-run dev and e2e (FILES_FS_DIR default)
+.data/
 
 # editor / os
 .DS_Store

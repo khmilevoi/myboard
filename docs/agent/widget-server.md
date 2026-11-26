@@ -68,8 +68,23 @@ declares crons without it). Module crons now run on the shared scheduler, with t
 (which cannot collide with the widget `cron:<typeId>:<jobName>` keys). They get shared storage only, no
 viewer.
 
-Ofelia is the first such module: its duty domain, actions (`clean`, `debt`, `forgive`, …) and the
-`autoApproveDay` cron live in `packages/modules/ofelia`, not in a widget. The `ofelia-poop-duty` and
-`ofelia-stats` widgets have no `server.ts` of their own and read the one module model, so the duty
-ledger is the module key `duty/ledger` (`/api/storage/scoped/module/ofelia/shared/duty%2Fledger`)
-and the cron cursor is `cron:module:ofelia:autoApproveDay`.
+The `cats` module is the first such module: its litter-duty domain, actions (`clean`, `debt`, `forgive`, ...) and the
+`autoApproveDay` cron live in `packages/modules/cats`, not in a widget. The `ofelia-poop-duty` and
+`ofelia-stats` widgets have no `server.ts` of their own and read the one module model. Keys are
+litter-scoped: the ledger is `litter/<litterId>/ledger`
+(`/api/storage/scoped/module/cats/shared/litter%2Fofelia%2Fledger` for litter `ofelia`), next to
+`litter/<litterId>/comments:<week>`, `litter/<litterId>/settings`, `cat/<catId>/profile|goal|weight`
+and the `registry/cats` / `registry/litters` registries. The cron cursor is
+`cron:module:cats:autoApproveDay`, and the cron closes the day for each litter that at least one
+active cat points at. The `ofelia-to-cats` migration copies the old `m:ofelia:s:duty/*` data into
+litter `ofelia` and seeds cat `ofelia`.
+
+Two consequences to expect:
+
+- **Restoring a cat back-fills its litter.** While every cat on a litter is archived, the cron
+  skips that litter. After a restore, the next run closes up to 7 open days of it with system
+  `cleaned` entries, including days on which the litter was not in use, and those closes may
+  settle a debt.
+- **Stale clients get a 404 after the deploy.** Tabs and PWA bundles still on the pre-cats release
+  call `/api/modules/ofelia/actions/*`, which now answers `404 unknown_module`. Their writes fail
+  as values and nothing is lost, but the card shows an error until the page is reloaded.

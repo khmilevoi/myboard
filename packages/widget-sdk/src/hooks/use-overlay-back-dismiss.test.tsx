@@ -79,12 +79,9 @@ describe('useOverlayBackDismiss under StrictMode', () => {
       </StrictMode>,
     )
 
-    await waitFor(
-      () => {
-        expect(history.state).toEqual({ overlayDepth: 1 })
-      },
-      { timeout: 100 },
-    )
+    await waitFor(() => {
+      expect(history.state).toEqual({ overlayDepth: 1 })
+    })
   })
 
   it('closes the overlay with a single back press after StrictMode double-mount settles', async () => {
@@ -95,12 +92,9 @@ describe('useOverlayBackDismiss under StrictMode', () => {
       </StrictMode>,
     )
 
-    await waitFor(
-      () => {
-        expect(history.state).toEqual({ overlayDepth: 1 })
-      },
-      { timeout: 100 },
-    )
+    await waitFor(() => {
+      expect(history.state).toEqual({ overlayDepth: 1 })
+    })
 
     goBackTo(0)
 
@@ -148,12 +142,13 @@ describe('useOverlayBackDismiss under StrictMode — real history traversal', ()
     )
 
     await settle()
-    expect(history.state).toEqual({ overlayDepth: 1 })
+    await waitFor(() => expect(history.state).toEqual({ overlayDepth: 1 }))
 
     history.back()
-    await settle()
 
-    expect(onClose).toHaveBeenCalledOnce()
+    // Wait for the outcome, not a fixed delay: under load the real traversal
+    // (one flush task plus jsdom's two-task popstate) can outlast any sleep.
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     expect(screen.getByText('closed')).toBeInTheDocument()
     expect(history.state).toEqual({})
   })
