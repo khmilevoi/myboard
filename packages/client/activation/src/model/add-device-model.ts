@@ -37,6 +37,44 @@ export class AddDeviceError extends errore.createTaggedError({
   message: 'Не удалось добавить устройство: $reason',
 }) {}
 
+// The server answered register/options with a 4xx: the code itself is bad
+// (unknown, expired, already used or locked -- the server deliberately folds
+// all of these into one `add_token_invalid`). Split from `AddDeviceError` so
+// the scanner can tell "this code will never work" from "we could not reach
+// the server", which only a retry fixes. Same message shape as the generic
+// error, so the manual-entry screen's copy is unchanged.
+export class AddCodeRejectedError extends errore.createTaggedError({
+  name: 'AddCodeRejectedError',
+  message:
+    'Не удалось добавить устройство: не удалось получить параметры регистрации (код $status)',
+}) {}
+
+// What the camera overlay shows on top of the live preview. `idle` and
+// `foreign` keep scanning; every other status holds new decodes until the
+// user acts (see `stageScannedCode`).
+export type ScanStatus =
+  | { kind: 'idle' }
+  // A myboard code was decoded and is being validated against the server.
+  | { kind: 'checking'; code: string }
+  // Transient notice: the camera saw a QR code that is not a myboard link.
+  | { kind: 'foreign' }
+  // A myboard add-device link minted by a different deployment (another
+  // stand, or prod vs dev). Hostnames only -- never offered as a link.
+  | { kind: 'other-origin'; codeHost: string; currentHost: string }
+  // The server refused the code: unknown, expired, used or locked.
+  | { kind: 'rejected'; code: string }
+  // The server could not be reached or failed; retrying the same code helps.
+  | { kind: 'network'; code: string }
+
+export type ScannedText =
+  | { kind: 'code'; code: string }
+  | { kind: 'other-origin'; codeHost: string }
+  | { kind: 'foreign' }
+
+// How long the "Это не QR-код myboard" notice stays after the last frame that
+// decoded to a foreign QR code.
+export const FOREIGN_NOTICE_MS = 3_000
+
 export interface AddDeviceStorage {
   get(): string | null
   set(credentialId: string): void
@@ -166,6 +204,38 @@ function extractAddCodeFrom(text: string, currentOrigin: string): string | null 
   return normalizeAddCode(trimmed)
 }
 
+// The scanner's richer reading of the same rules as `extractAddCodeFrom`: on
+// top of "usable code or not", it recognizes a well-formed add-device link
+// minted on another origin, so the overlay can explain the mismatch instead of
+// ignoring the code. Such a link is still never trusted -- only its hostname is
+// surfaced, and nothing is fetched or opened from it.
+export function classifyScannedText(text: string, currentOrigin: string): ScannedText {
+  const code = extractAddCodeFrom(text, currentOrigin)
+  if (code) return { kind: 'code', code }
+
+  const trimmed = text.trim()
+  if (!URL_SCHEME_RE.test(trimmed)) return { kind: 'foreign' }
+  let url: URL
+  try {
+    url = new URL(trimmed)
+  } catch {
+    return { kind: 'foreign' }
+  }
+  if (url.origin === currentOrigin) return { kind: 'foreign' }
+  if (url.pathname !== ADD_DEVICE_PATH) return { kind: 'foreign' }
+  const token = url.searchParams.get('token')
+  if (!token || !normalizeAddCode(token)) return { kind: 'foreign' }
+  return { kind: 'other-origin', codeHost: url.host }
+}
+
+function hostOf(origin: string): string {
+  try {
+    return new URL(origin).host
+  } catch {
+    return origin
+  }
+}
+
 const POLL_INTERVAL_MS = 2_000
 const POLL_TIMEOUT_MS = 10 * 60_000
 const POLL_MAX_TICKS = Math.ceil(POLL_TIMEOUT_MS / POLL_INTERVAL_MS)
@@ -203,14 +273,21 @@ export interface AddDeviceModel {
   // Mirrors `submitManual`'s server-validation step but stops at
   // 'registering' instead of continuing into the ceremony.
   stageScannedCode: Action<[string], Promise<void>>
+  // Camera overlay feedback for the scanner path (see `ScanStatus`).
+  scanStatus: Atom<ScanStatus>
+  // "Сканировать снова": dismiss the overlay's panel and accept decodes again.
+  resumeScan: Action<[], void>
+  // "Повторить": re-validate the code that hit a network failure.
+  retryScan: Action<[], Promise<void>>
   startRegistration: Action<[], Promise<void>>
   pollPendingStatus: Action<[], Promise<void>>
   // Awaited by the route loader before first render. When the activation link
   // already carries a code (`/add-device?token=...`), auto-validates it against
-  // the server and lands on 'registering' -- the same server-validation-only
-  // path as a scanned QR (`stageScannedCode`), stopping at the "Создать passkey"
-  // button because `navigator.credentials.create()` still needs a real user
-  // gesture. A no-op when the URL has no (valid) code. Idempotent as a defensive
+  // the server and lands on 'registering' -- server validation only, like a
+  // scanned QR, stopping at the "Создать passkey" button because
+  // `navigator.credentials.create()` still needs a real user gesture. Unlike
+  // the scanner, a rejected code falls back to manual entry with the error.
+  // A no-op when the URL has no (valid) code. Idempotent as a defensive
   // guard in case the loader ever re-runs for the same model.
   init: Action<[], Promise<void>>
 }
@@ -384,11 +461,14 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
   // distinguish "invalid" from "expired", so both surface identically).
   async function fetchRegistrationOptions(
     currentToken: string,
-  ): Promise<AddDeviceError | PublicKeyCredentialCreationOptionsJSON> {
+  ): Promise<AddDeviceError | AddCodeRejectedError | PublicKeyCredentialCreationOptionsJSON> {
     const optionsResult = await wrap(
       postJson(deps.http, '/api/auth/devices/register/options', { token: currentToken }),
     )
     if (optionsResult instanceof Error) return optionsResult
+    if (optionsResult.status >= 400 && optionsResult.status < 500) {
+      return new AddCodeRejectedError({ status: String(optionsResult.status) })
+    }
     if (optionsResult.status !== 200) {
       return new AddDeviceError({
         reason: `не удалось получить параметры регистрации (код ${optionsResult.status})`,
@@ -409,32 +489,100 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     return (options as { user?: { displayName?: string } }).user?.displayName ?? null
   }
 
+  const scanStatus = atom<ScanStatus>({ kind: 'idle' }, 'addDevice.scanStatus')
+
+  // Server-validates `code` for the camera overlay and reports the outcome
+  // through `scanStatus`, staying in 'scanning' on failure so the overlay can
+  // explain it in place (design 4(b3)-4(b6)). Success lands on 4(d1)'s
+  // "Создать passkey" button exactly like the deep-link path.
+  async function validateScannedCode(code: string): Promise<void> {
+    scanStatus.set({ kind: 'checking', code })
+    token.set(code)
+
+    const optionsOrError = await wrap(fetchRegistrationOptions(code))
+    // The user closed the scanner or switched to manual entry meanwhile.
+    if (mode() !== 'scanning') return
+    if (optionsOrError instanceof AddCodeRejectedError) {
+      scanStatus.set({ kind: 'rejected', code })
+      return
+    }
+    if (optionsOrError instanceof Error) {
+      scanStatus.set({ kind: 'network', code })
+      return
+    }
+
+    scanStatus.set({ kind: 'idle' })
+    ownerName.set(readOwnerDisplayName(optionsOrError))
+    mode.set('registering')
+  }
+
+  // Lets a foreign-QR notice lapse FOREIGN_NOTICE_MS after the frame that
+  // raised it, unless a newer status (another foreign frame included) has
+  // replaced it meanwhile -- so the notice stays up while the stray code is
+  // still in view and fades once the camera moves off it.
+  const expireForeignNotice = action(async (notice: ScanStatus) => {
+    await wrap(new Promise((resolve) => setTimeout(resolve, FOREIGN_NOTICE_MS)))
+    if (scanStatus() === notice) scanStatus.set({ kind: 'idle' })
+  }, 'addDevice.expireForeignNotice')
+
   // Validates a *scanned* code against the server without running the
   // ceremony -- see the `AddDeviceModel.stageScannedCode` doc comment. Takes
-  // the raw decoded QR text (same shared `extractAddCode` as `submitManual`
-  // and the manual field's paste handler -- "one implementation, three
-  // entry points"). A frame that decodes to something unrelated (any other
-  // QR code the camera happens to see) is silently ignored rather than
-  // surfaced as an error, matching the scanner's own prior behavior.
+  // the raw decoded QR text. The camera keeps decoding the same code every
+  // few hundred milliseconds, so while a check is running or a panel is open
+  // further frames are ignored; only `idle` and the transient `foreign`
+  // notice accept a new decode.
   const stageScannedCode = action(async (rawText: string) => {
-    const code = extractAddCode(rawText)
-    if (!code) return
+    const current = scanStatus().kind
+    if (current !== 'idle' && current !== 'foreign') return
 
+    const scanned = classifyScannedText(rawText, deps.currentOrigin)
+    if (scanned.kind === 'foreign') {
+      const notice: ScanStatus = { kind: 'foreign' }
+      scanStatus.set(notice)
+      void expireForeignNotice(notice)
+      return
+    }
+    if (scanned.kind === 'other-origin') {
+      scanStatus.set({
+        kind: 'other-origin',
+        codeHost: scanned.codeHost,
+        currentHost: hostOf(deps.currentOrigin),
+      })
+      return
+    }
+
+    error.set(null)
+    await wrap(validateScannedCode(scanned.code))
+  }, 'addDevice.stageScannedCode')
+
+  const resumeScan = action(() => {
+    scanStatus.set({ kind: 'idle' })
+  }, 'addDevice.resumeScan')
+
+  const retryScan = action(async () => {
+    const status = scanStatus()
+    if (status.kind !== 'network') return
+    await wrap(validateScannedCode(status.code))
+  }, 'addDevice.retryScan')
+
+  // The deep-link path (`/add-device?token=...`): there is no camera overlay
+  // to explain a failure on, so a rejected code lands on the manual-entry
+  // screen (design panel 4(c1)) with the error rather than stranding the user
+  // on 'registering' with no way back.
+  async function stageLinkCode(code: string): Promise<void> {
     error.set(null)
     token.set(code)
 
     const optionsOrError = await wrap(fetchRegistrationOptions(code))
     if (optionsOrError instanceof Error) {
       error.set(optionsOrError.message)
-      // Recoverable: land on the manual-entry screen (design panel 4(c1))
-      // rather than stranding the user on 'registering' with no way back.
       mode.set('manual')
       return
     }
 
     ownerName.set(readOwnerDisplayName(optionsOrError))
     mode.set('registering')
-  }, 'addDevice.stageScannedCode')
+  }
 
   const startRegistration = action(async () => {
     error.set(null)
@@ -513,16 +661,19 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
 
   const goToScan = action(() => {
     error.set(null)
+    scanStatus.set({ kind: 'idle' })
     mode.set('scanning')
   }, 'addDevice.goToScan')
 
   const goToManual = action(() => {
     error.set(null)
+    scanStatus.set({ kind: 'idle' })
     mode.set('manual')
   }, 'addDevice.goToManual')
 
   const goToChoose = action(() => {
     error.set(null)
+    scanStatus.set({ kind: 'idle' })
     mode.set('choose')
   }, 'addDevice.goToChoose')
 
@@ -550,7 +701,7 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     if (initialized) return
     initialized = true
     if (!urlCode) return
-    await wrap(stageScannedCode(urlCode))
+    await wrap(stageLinkCode(urlCode))
   }, 'addDevice.init')
 
   return {
@@ -566,6 +717,9 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     extractAddCode,
     submitManual,
     stageScannedCode,
+    scanStatus,
+    resumeScan,
+    retryScan,
     startRegistration,
     pollPendingStatus,
     init,
