@@ -1,7 +1,7 @@
 import { AVATAR_POLICY, type FilePolicy } from '@shared/files/contract'
 import { checkImageRules, type FileImageRuleError } from '@shared/files/image-rules'
 import * as errore from 'errore'
-import { encodeWebp, type DecodedImage } from 'image-codec'
+import { encodeWebp, type DecodedImage } from 'image-codec/encode'
 
 /**
  * Browser-side image preparation before an upload: decode (honouring EXIF orientation), crop or

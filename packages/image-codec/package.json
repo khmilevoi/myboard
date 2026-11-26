@@ -3,8 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./encode": "./src/encode.ts",
     "./node": "./src/node.ts",
     "./testing": "./src/testing.ts"
   },

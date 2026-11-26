@@ -1,7 +1,9 @@
 import * as errore from 'errore'
 
+import type { DecodedImage } from './encode'
 import type { WasmCodec } from './wasm-files'
 
+export { ImageEncodeError, encodeWebp, type DecodedImage } from './encode'
 export { DECODER_CODECS, WASM_FILES, wasmFileName, type WasmCodec } from './wasm-files'
 
 /**
@@ -9,13 +11,13 @@ export { DECODER_CODECS, WASM_FILES, wasmFileName, type WasmCodec } from './wasm
  * WebAssembly), so both sides decode and encode with the same code. Every jSquash module is
  * imported lazily: a page that never processes a photo never fetches a codec.
  *
+ * A browser that only encodes imports `image-codec/encode`, so its bundle never even emits the
+ * decoders' binaries.
+ *
  * Browser: nothing to set up — jSquash's own loaders fetch the `.wasm` files the bundler emitted,
  * on first use. Node: call `initImageCodecs` once with a loader that compiles the shipped files
  * (`image-codec/node`), because jSquash's loaders cannot read a file from disk there.
  */
-
-/** RGBA pixels, 4 bytes per pixel, row-major — the shape of a DOM `ImageData`. */
-export type DecodedImage = { width: number; height: number; data: Uint8ClampedArray }
 
 export const DECODABLE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const
 export type DecodableMime = (typeof DECODABLE_MIME_TYPES)[number]
@@ -32,11 +34,6 @@ export class ImageCodecInitError extends errore.createTaggedError({
 export class ImageDecodeError extends errore.createTaggedError({
   name: 'ImageDecodeError',
   message: 'Could not decode the bytes as $mime',
-}) {}
-
-export class ImageEncodeError extends errore.createTaggedError({
-  name: 'ImageEncodeError',
-  message: 'Could not encode a $size image as WebP',
 }) {}
 
 /** Compiles one codec's binary: the seam between this package and wherever the files live. */
@@ -138,23 +135,4 @@ export async function decodeImage(
   }
   const image: DecodedImage = { width, height, data }
   return image
-}
-
-/** Encodes RGBA pixels as lossy WebP; `quality` is 0–100. */
-export async function encodeWebp(
-  image: DecodedImage,
-  options: { quality: number },
-): Promise<ImageEncodeError | Uint8Array<ArrayBuffer>> {
-  const size = `${image.width}x${image.height}`
-  const encode = await import('@jsquash/webp/encode.js')
-    .then((entry) => entry.default)
-    .catch((cause) => new ImageEncodeError({ size, cause }))
-  if (encode instanceof Error) return encode
-  // jSquash reads only `data`, `width` and `height` off its `ImageData` argument.
-  const input = image as unknown as Parameters<typeof encode>[0]
-  const encoded = await encode(input, { quality: options.quality }).catch(
-    (cause) => new ImageEncodeError({ size, cause }),
-  )
-  if (encoded instanceof Error) return encoded
-  return new Uint8Array(encoded)
 }

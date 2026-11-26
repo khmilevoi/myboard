@@ -11,7 +11,7 @@ const codec = vi.hoisted(() => ({
       Uint8Array.from([0x52, 0x49, 0x46, 0x46]),
   ),
 }))
-vi.mock('image-codec', () => codec)
+vi.mock('image-codec/encode', () => codec)
 
 type DrawCall = number[]
 
