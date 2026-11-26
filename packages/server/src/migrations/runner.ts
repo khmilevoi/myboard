@@ -4,6 +4,13 @@ import type { ValkeyOps } from '../storage/valkey'
 
 export type Migration = {
   name: string
+  /**
+   * Run on every boot instead of once. The marker is still written after each success, as a
+   * record of the last completion, but never suppresses a later run — so `run` must be
+   * idempotent. For migrations that must keep reconciling a source a rolled-back release can
+   * still write to.
+   */
+  repeatable?: boolean
   run(ops: ValkeyOps): Promise<Error | void>
 }
 
@@ -16,8 +23,9 @@ export function migrationKey(name: string): string {
   return `migration:${name}`
 }
 
-/** Runs each migration once, in order. A completion marker is written only after
- *  success; the first failure stops the run so the rest never see a half-migrated store. */
+/** Runs each migration once (a `repeatable` one on every call), in order. A completion marker is
+ *  written only after success; the first failure stops the run so the rest never see a
+ *  half-migrated store. */
 export async function runMigrations(
   ops: ValkeyOps,
   migrations: readonly Migration[],
@@ -25,16 +33,19 @@ export async function runMigrations(
 ): Promise<MigrationFailedError | void> {
   for (const migration of migrations) {
     const key = migrationKey(migration.name)
-    if ((await ops.get(key)) !== null) continue
+    const fail = (cause: unknown) => new MigrationFailedError({ migration: migration.name, cause })
 
-    const result = await migration
-      .run(ops)
-      .catch((e) => new MigrationFailedError({ migration: migration.name, cause: e }))
-    if (result instanceof MigrationFailedError) return result
-    if (result instanceof Error) {
-      return new MigrationFailedError({ migration: migration.name, cause: result })
+    if (!migration.repeatable) {
+      const marker = await ops.get(key).catch(fail)
+      if (marker instanceof Error) return marker
+      if (marker !== null) continue
     }
 
-    await ops.set(key, JSON.stringify({ completedAt: now() }))
+    const result = await migration.run(ops).catch(fail)
+    if (result instanceof MigrationFailedError) return result
+    if (result instanceof Error) return fail(result)
+
+    const written = await ops.set(key, JSON.stringify({ completedAt: now() })).catch(fail)
+    if (written instanceof Error) return written
   }
 }

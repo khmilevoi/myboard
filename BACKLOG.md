@@ -178,11 +178,23 @@ becomes unusable to scroll.
 **Today.** The `ofelia-to-module` server migration copies the old widget-scoped
 `w:t:ofelia-poop-duty:*` keys (the ledger and the weekly comments) and the
 `cron:ofelia-poop-duty:autoApproveDay` cursor into the Ofelia module's keys, and
-leaves the originals where they were. Nothing reads them any more.
+leaves the originals where they were. Nothing in the module release reads them
+except that migration, which is repeatable: every boot merges the old ledger and
+comment records into the module keys by id (the cron cursor is copied only when
+the module has none), so whatever a rollback wrote to the old keys comes back on
+roll-forward.
 
 **Why it is tolerable.** They are the rollback: a release that goes back to the
 widget-owned server still finds its data, at the state it had when the module
 release shipped.
+
+**Accepted rollback quirk.** During a rollback the old widget cron runs from its
+own stale `cron:ofelia-poop-duty:autoApproveDay` cursor and can append system
+`cleaned` entries (`createdBy: { system: true }`) for days the module already
+closed. The merge imports them on roll-forward like any other record. They are
+not double-counted as decisions — a day resolves to its latest outcome by `ts` —
+but they can supersede a module-era outcome for the same day and show up in the
+history. Documented, not fixed.
 
 **Shape to consider.** In a release after the module one has shipped and rollback
 past it is no longer wanted, delete every `w:t:ofelia-poop-duty:*` key and the old
