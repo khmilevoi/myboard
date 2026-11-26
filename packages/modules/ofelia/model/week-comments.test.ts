@@ -7,7 +7,7 @@ import {
   type StorageListener,
   type WidgetIdentity,
 } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import type { Comment } from '../domain/comments'
@@ -31,6 +31,7 @@ function makeCommentsModel(identity: WidgetIdentity = makeStaticWidgetIdentity()
   const model = makeOfeliaModel({
     moduleId: 'ofelia',
     storage: { shared: { client: api, server: api } },
+    files: makeFakeFileSlots(),
     api: { invoke: vi.fn(async () => ({ ok: true })) } as OfeliaModuleContext['api'],
     timer: createFakeTimer(),
     identity,

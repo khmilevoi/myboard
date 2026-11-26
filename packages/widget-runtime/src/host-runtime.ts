@@ -7,13 +7,14 @@ import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import { makeWidgetIdentity, type WidgetIdentity } from './identity'
 import { makeModuleApi } from './modules/module-api'
 import { makeModuleRegistry, type WidgetModules } from './modules/registry'
-import type { ScopedStorage, WidgetStorage } from './storage'
+import type { BranchStorage, ScopedStorage, WidgetStorage } from './storage'
 import {
   localNamespaceFor,
   makeAccountGatedStorage,
   makeIdentityAccountGate,
 } from './storage/account-gate'
 import { makeDexieStorage } from './storage/client/dexie-storage'
+import { makeFileSlot, type FileSlot } from './storage/file-slot'
 import { instanceNamespace, typeNamespace } from './storage/scope'
 import { makeHttpStorage } from './storage/server/http-storage'
 import { makeScopedHttpStorage } from './storage/server/scoped-http-storage'
@@ -33,7 +34,7 @@ export type HostRuntime = {
   makeWidgetStorage(options: { instanceId: string; typeId: string }): WidgetStorage
   makeScopedStorage(scope: string): ScopedStorage
   /** Scoped-route storage for one branch; account branches are gated on the viewer's account. */
-  makeBranchStorage(branch: ValidScopedBranch): ScopedStorage
+  makeBranchStorage(branch: ValidScopedBranch): BranchStorage
   /** The widget's view of the runtime's module registry, limited to the modules it declared. */
   makeWidgetModules(declared: readonly string[]): WidgetModules
   makeWidgetApi<Events extends WidgetEventMap>(options: {
@@ -82,11 +83,25 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
   // Lazy too: the gate first subscribes to identity.viewer on its first use, never here.
   const accountGate = makeIdentityAccountGate(identity)
 
-  const makeBranchStorage = (branch: ValidScopedBranch): ScopedStorage => {
+  // One slot per branch and key for the runtime's life, so every reader shares one ref atom and
+  // one SSE registration.
+  const fileSlots = new Map<string, FileSlot>()
+  const fileSlotFor = (branch: ValidScopedBranch, key: string): FileSlot => {
+    const id = `${branch.owner}/${branch.id}/${branch.scope}/${key}`
+    const cached = fileSlots.get(id)
+    if (cached) return cached
+    const slot = makeFileSlot({ branch, key, http, registerScoped, accountGate })
+    fileSlots.set(id, slot)
+    return slot
+  }
+
+  const makeBranchStorage = (branch: ValidScopedBranch): BranchStorage => {
+    const files = (key: string) => fileSlotFor(branch, key)
     if (branch.scope !== 'account') {
       return {
         client: makeDexieStorage(localNamespaceFor(branch, null)),
         server: makeScopedHttpStorage(branch, { baseUrl, http, registerScoped }),
+        files,
       }
     }
     // The server resolves the account from the session itself; the gate binds each built server
@@ -99,6 +114,7 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
       server: makeAccountGatedStorage(accountGate, (accountId) =>
         makeScopedHttpStorage(branch, { baseUrl, http, registerScoped, account: accountId }),
       ),
+      files,
     }
   }
 
@@ -106,12 +122,13 @@ export function makeHostRuntime(options: HostRuntimeOptions = {}): HostRuntime {
   const moduleRegistry = makeModuleRegistry({
     makeContext: (module) => ({
       moduleId: module.id,
-      storage: Object.fromEntries(
+      storage: Object.fromEntries<ScopedStorage>(
         module.scopes.map((scope) => [
           scope,
           makeBranchStorage({ owner: 'module', id: module.id, scope }),
         ]),
       ) as { [S in ModuleScope]: ScopedStorage },
+      files: (scope, key) => fileSlotFor({ owner: 'module', id: module.id, scope }, key),
       api: makeModuleApi({ moduleId: module.id, http }),
       timer: getServerTime(),
       identity,

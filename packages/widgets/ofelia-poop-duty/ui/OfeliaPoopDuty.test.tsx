@@ -17,7 +17,7 @@ import {
   type WidgetStorage,
   type WidgetTier,
 } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import { OfeliaPoopDuty } from './OfeliaPoopDuty'
@@ -33,6 +33,7 @@ async function loadOfeliaModel(widgetProps: WidgetRuntimeProps): Promise<OfeliaM
   return factory({
     moduleId: ofeliaModule.id,
     storage: { shared: widgetProps.storage.shared },
+    files: makeFakeFileSlots(),
     api: { invoke: vi.fn() } as never,
     timer: timerHolder.current,
     identity: widgetProps.identity,
@@ -52,7 +53,11 @@ function fakeWidgetStorage(): WidgetStorage {
   return {
     instance: { client: instanceClient, server: instanceServer },
     shared: { client: sharedClient, server: sharedServer },
-    account: { client: createFakeStorage(), server: createFakeStorage() },
+    account: {
+      client: createFakeStorage(),
+      server: createFakeStorage(),
+      files: makeFakeFileSlots(),
+    },
   }
 }
 
@@ -202,7 +207,11 @@ function fakeWidgetStorageWithFailingLedger(): WidgetStorage {
   return {
     instance: { client: instanceClient, server: instanceServer },
     shared: { client: sharedClient, server: sharedServer },
-    account: { client: createFakeStorage(), server: createFakeStorage() },
+    account: {
+      client: createFakeStorage(),
+      server: createFakeStorage(),
+      files: makeFakeFileSlots(),
+    },
   }
 }
 

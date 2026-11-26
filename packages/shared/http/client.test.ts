@@ -93,6 +93,19 @@ describe('HttpClient', () => {
     expect(fetchMock.mock.calls[0][0].headers.get('x-extra')).toBe('2')
   })
 
+  it('sends a raw Blob body with the Content-Type given in headers', async () => {
+    const fetchMock = stubFetch(json({}))
+    const http = new HttpClient({ fetch: fetchMock })
+    const bytes = new Uint8Array([1, 2, 3])
+    await http.put('http://test.local/x', {
+      headers: { 'content-type': 'image/png' },
+      body: new Blob([bytes], { type: 'image/png' }),
+    })
+    const request = fetchMock.mock.calls[0][0]
+    expect(request.headers.get('content-type')).toBe('image/png')
+    expect(new Uint8Array(await request.arrayBuffer())).toEqual(bytes)
+  })
+
   it('lets an onRequest hook add headers', async () => {
     const fetchMock = stubFetch(json({}))
     const http = new HttpClient({

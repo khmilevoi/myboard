@@ -1,5 +1,5 @@
 import { makeStaticWidgetIdentity, type StorageApi, type WidgetIdentity } from 'widget-runtime'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { createFakeStorage, makeFakeFileSlots } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
 import { LEDGER_KEY } from '../domain/keys'
@@ -44,6 +44,7 @@ export function makeTestOfeliaModel(options: MakeTestOfeliaModelOptions = {}): T
   const model = makeOfeliaModel({
     moduleId: 'ofelia',
     storage: { shared: { client: storage, server: storage } },
+    files: makeFakeFileSlots(),
     api,
     timer: createFakeTimer({
       today: options.todayIso ? Temporal.PlainDate.from(options.todayIso) : null,

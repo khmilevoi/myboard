@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { makeStaticWidgetIdentity } from '../identity'
 import type { ScopedStorage } from '../storage'
+import { makeFakeFileSlots } from '../storage/test/fakes'
 import type { ServerTime } from '../timer/server-time'
 import { type AnyModuleRef, bindModule, defineModule, type ModuleContext } from './define-module'
 import { ModuleAccessError, ModuleLoadError, makeModuleRegistry } from './registry'
@@ -11,6 +12,7 @@ import { ModuleAccessError, ModuleLoadError, makeModuleRegistry } from './regist
 const makeContext = (module: AnyModuleRef): ModuleContext<WidgetEventSchemas, ModuleScope> => ({
   moduleId: module.id,
   storage: {} as { [S in ModuleScope]: ScopedStorage },
+  files: makeFakeFileSlots(),
   api: { invoke: async () => null },
   timer: {} as ServerTime,
   identity: makeStaticWidgetIdentity(),

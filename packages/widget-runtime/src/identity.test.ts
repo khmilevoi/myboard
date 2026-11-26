@@ -244,6 +244,55 @@ describe('makeWidgetIdentity retry and refresh', () => {
   })
 })
 
+describe('makeWidgetIdentity refresh()', () => {
+  it('re-fetches the directory at once and applies the new avatar', async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(
+        okResponse({ accounts: [{ accountId: 'a1', name: 'Карина' }], viewerAccountId: 'a1' }),
+      )
+      .mockResolvedValueOnce(
+        okResponse({
+          accounts: [{ accountId: 'a1', name: 'Карина', avatarUrl: '/files/AvatarAvatarAvatar01' }],
+          viewerAccountId: 'a1',
+        }),
+      )
+    const identity = makeWidgetIdentity({ http: { get, post: vi.fn() } as unknown as HttpLike })
+
+    const off = identity.viewer.subscribe(() => {})
+    await vi.waitFor(() => expect(wrap(() => identity.viewer()?.name)()).toBe('Карина'))
+    expect(wrap(() => identity.viewer()?.avatarUrl)()).toBeUndefined()
+
+    await identity.refresh()
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(wrap(() => identity.viewer()?.avatarUrl)()).toBe('/files/AvatarAvatarAvatar01')
+    off()
+  })
+
+  it('keeps the current directory and warns when the refresh fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(
+        okResponse({ accounts: [{ accountId: 'a1', name: 'Карина' }], viewerAccountId: 'a1' }),
+      )
+      .mockResolvedValueOnce({ ok: false, status: 500, body: undefined })
+    const identity = makeWidgetIdentity({ http: { get, post: vi.fn() } as unknown as HttpLike })
+
+    const off = identity.viewer.subscribe(() => {})
+    await vi.waitFor(() => expect(wrap(() => identity.viewer()?.name)()).toBe('Карина'))
+    await identity.refresh()
+    expect(wrap(() => identity.viewer()?.name)()).toBe('Карина')
+    expect(warn).toHaveBeenCalled()
+    off()
+    warn.mockRestore()
+  })
+
+  it('is a no-op on the static double', async () => {
+    await expect(makeStaticWidgetIdentity().refresh()).resolves.toBeUndefined()
+  })
+})
+
 describe('makeStaticWidgetIdentity', () => {
   it('serves the members it was given without any request', () => {
     const identity = makeStaticWidgetIdentity({
