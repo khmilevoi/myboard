@@ -2,9 +2,17 @@ import { makeStaticWidgetIdentity, type StorageApi, type WidgetIdentity } from '
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 import { createFakeTimer } from 'widget-runtime/timer/fakes'
 
+import type { CatProfile } from '../domain/cat'
 import { OFELIA_ID } from '../domain/ids'
-import { ledgerKey, litterSettingsKey } from '../domain/keys'
+import {
+  CATS_REGISTRY_KEY,
+  LITTERS_REGISTRY_KEY,
+  catProfileKey,
+  ledgerKey,
+  litterSettingsKey,
+} from '../domain/keys'
 import type { LedgerEntry } from '../domain/ledger'
+import type { CatRegistryEvent, LitterRegistryEvent } from '../domain/registry'
 import { makeCatsModel, type CatsModel } from './cats-model'
 import type { CatsModuleContext, LitterModel } from './litter-model'
 
@@ -13,6 +21,12 @@ export type MakeTestCatsModelOptions = {
   entries?: LedgerEntry[]
   /** Seeds Ofelia's litter settings key with this raw value. Omitted, the key is absent. */
   settings?: unknown
+  /** Seeds the cat registry key with these events. Omitted, the key is absent. */
+  catRegistry?: CatRegistryEvent[]
+  /** Seeds the litter registry key with these events. Omitted, the key is absent. */
+  litterRegistry?: LitterRegistryEvent[]
+  /** Seeds `cat/<id>/profile` for each entry. Omitted, no profile key exists. */
+  profiles?: Record<string, CatProfile>
   /** The server-time "today". Omitted, the clock has not synced yet. */
   todayIso?: string
   /** Answers every API call. Omitted, every call resolves to `{ ok: true }`. */
@@ -39,6 +53,11 @@ export function makeTestCatsModel(options: MakeTestCatsModelOptions = {}): TestC
 
   if (options.settings !== undefined)
     void storage.set(litterSettingsKey(OFELIA_ID), options.settings)
+
+  if (options.catRegistry) void storage.set(CATS_REGISTRY_KEY, options.catRegistry)
+  if (options.litterRegistry) void storage.set(LITTERS_REGISTRY_KEY, options.litterRegistry)
+  for (const [catId, profile] of Object.entries(options.profiles ?? {}))
+    void storage.set(catProfileKey(catId), profile)
 
   const calls: TestModelCalls = []
   const answer = options.invoke ?? (async () => ({ ok: true }))

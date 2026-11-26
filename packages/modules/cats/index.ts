@@ -1,5 +1,7 @@
 export { catsModule } from './generated/module'
 export type {
+  CatModel,
+  CatSummary,
   CatsModel,
   CommentView,
   HistoryDayGroup,
@@ -7,6 +9,7 @@ export type {
   LitterDayAction,
   LitterMemberStats,
   LitterModel,
+  LitterSummary,
   LitterWeekComments,
   ToHistoryGroupsOptions,
 } from './model'

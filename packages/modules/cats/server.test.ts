@@ -2,12 +2,23 @@
 
 import type { ModuleCronContext, ModuleServerContext } from '@shared/modules/contracts'
 import type { WidgetServerStorage } from '@shared/widgets/contracts'
+import { PublicWidgetError } from '@shared/widgets/public-error'
 import { describe, expect, it, vi } from 'vitest'
 
 import { catsActionSchemas } from './domain/actions'
-import { OFELIA_ID } from './domain/ids'
-import { ledgerKey, litterSettingsKey } from './domain/keys'
-import type { LitterSettings } from './domain/roster'
+import { defaultCatProfile } from './domain/cat'
+import { EntityIdSchema, OFELIA_ID } from './domain/ids'
+import {
+  CATS_REGISTRY_KEY,
+  LITTERS_REGISTRY_KEY,
+  catGoalKey,
+  catProfileKey,
+  catWeightKey,
+  ledgerKey,
+  litterSettingsKey,
+} from './domain/keys'
+import { CatRegistryEventsSchema, foldCatRegistry } from './domain/registry'
+import { DEFAULT_LITTER_SETTINGS, type LitterSettings } from './domain/roster'
 import catsServer from './server'
 
 const KARINA = { accountId: 'a1', name: 'Карина' }
@@ -370,5 +381,278 @@ describe('cats auto-approve cron', () => {
       ledgerKey(OFELIA_ID),
       expect.objectContaining({ date: '2026-06-13' }),
     )
+  })
+})
+
+/**
+ * A Map-backed shared storage whose `append` stamps `id` and `ts` the way the real one does, so a
+ * handler's later reads see its earlier writes.
+ */
+function makeMapStorage(seed: Record<string, unknown> = {}) {
+  const store = new Map<string, unknown>(Object.entries(seed))
+  let seq = 0
+  const storage: WidgetServerStorage = {
+    get: async (key, schema) => {
+      const value = store.get(key) ?? null
+      if (value === null || !schema) return value as never
+      return schema.parse(value)
+    },
+    set: async (key, value) => {
+      store.set(key, value)
+    },
+    delete: async (key) => {
+      store.delete(key)
+    },
+    has: async (key) => store.has(key),
+    keys: async () => [...store.keys()],
+    append: async (key, entry) => {
+      seq += 1
+      const current = (store.get(key) as unknown[] | undefined) ?? []
+      store.set(key, [...current, { id: `id-${seq}`, ts: NOW + seq, ...entry }])
+    },
+  }
+  return { store, storage }
+}
+
+const catAdd = (catId: string, ts: number) => ({ id: `c-${catId}`, ts, catId, op: 'add' })
+const litterAdd = (litterId: string, ts: number) => ({
+  id: `l-${litterId}`,
+  ts,
+  litterId,
+  op: 'add',
+})
+
+/** Ofelia registered with her own litter, plus `extraCats` sharing it. */
+function makeRegistryContext(extraCats: string[] = []) {
+  const { store, storage } = makeMapStorage({
+    [CATS_REGISTRY_KEY]: [OFELIA_ID, ...extraCats].map((catId, index) => catAdd(catId, index + 1)),
+    [LITTERS_REGISTRY_KEY]: [litterAdd(OFELIA_ID, 1)],
+  })
+  const context = {
+    moduleId: 'cats',
+    viewer: KARINA,
+    now: () => NOW,
+    api: { storage: { shared: storage } },
+  } as unknown as ModuleServerContext<'shared'>
+  return { store, context }
+}
+
+const PROFILE_FIELDS = {
+  name: 'Офелия',
+  breed: 'Британская',
+  birthDate: '2021-04-01',
+  sex: 'female',
+  sterilized: 'yes',
+  bodyCondition: 5,
+  avatar: null,
+} as const
+
+/** The `catId` of a successful `addCat` result; fails the test on anything else. */
+function addedCat(result: unknown): { catId: string } {
+  expect(result).toEqual({ ok: true, catId: expect.any(String) })
+  return result as { catId: string }
+}
+
+const litterIdsIn = (store: Map<string, unknown>) =>
+  (store.get(LITTERS_REGISTRY_KEY) as { litterId: string }[]).map((event) => event.litterId)
+
+describe('cats server: registries, profile, goal and weight', () => {
+  it('adds a cat with a new litter: litter first, then the profile, then the registry add', async () => {
+    const { store, context } = makeRegistryContext()
+
+    const result = await run('addCat', { name: ' Буся ', litter: { kind: 'new' } }, context)
+
+    expect(result).toEqual({ ok: true, catId: expect.any(String) })
+    const { catId } = addedCat(result)
+    expect(EntityIdSchema.safeParse(catId).success).toBe(true)
+
+    const litterIds = litterIdsIn(store)
+    expect(litterIds).toHaveLength(2)
+    const newLitterId = litterIds[1]
+    expect(newLitterId).not.toBe(OFELIA_ID)
+    expect(EntityIdSchema.safeParse(newLitterId).success).toBe(true)
+    expect(store.get(litterSettingsKey(newLitterId))).toEqual(DEFAULT_LITTER_SETTINGS)
+
+    expect(store.get(catProfileKey(catId))).toEqual(defaultCatProfile('Буся', newLitterId))
+    expect(store.get(CATS_REGISTRY_KEY)).toContainEqual(
+      expect.objectContaining({ catId, op: 'add' }),
+    )
+    // Map keys keep insertion order: the seeded registries, then the writes in handler order.
+    expect([...store.keys()]).toEqual([
+      CATS_REGISTRY_KEY,
+      LITTERS_REGISTRY_KEY,
+      litterSettingsKey(newLitterId),
+      catProfileKey(catId),
+    ])
+  })
+
+  it('adds a cat to an existing litter', async () => {
+    const { store, context } = makeRegistryContext()
+
+    const result = await run(
+      'addCat',
+      { name: 'Буся', litter: { kind: 'existing', litterId: OFELIA_ID } },
+      context,
+    )
+
+    const { catId } = addedCat(result)
+    expect(store.get(catProfileKey(catId))).toEqual(defaultCatProfile('Буся', OFELIA_ID))
+    expect(litterIdsIn(store)).toEqual([OFELIA_ID])
+  })
+
+  it('refuses an unknown existing litter and writes nothing', async () => {
+    const { store, context } = makeRegistryContext()
+    const before = structuredClone([...store.entries()])
+
+    const result = await run(
+      'addCat',
+      { name: 'Буся', litter: { kind: 'existing', litterId: 'nope' } },
+      context,
+    )
+
+    expect(result).toBeInstanceOf(PublicWidgetError)
+    expect(result).toMatchObject({ code: 'unknown_litter', status: 404 })
+    expect([...store.entries()]).toEqual(before)
+  })
+
+  it('refuses to archive the only active cat', async () => {
+    const { store, context } = makeRegistryContext()
+
+    const result = await run('archiveCat', { catId: OFELIA_ID }, context)
+
+    expect(result).toBeInstanceOf(PublicWidgetError)
+    expect(result).toMatchObject({ code: 'last_active_cat', status: 409 })
+    expect(store.get(CATS_REGISTRY_KEY)).toHaveLength(1)
+  })
+
+  it('refuses a cat id that is not in the registry', async () => {
+    const { store, context } = makeRegistryContext()
+    const before = structuredClone([...store.entries()])
+
+    for (const [event, payload] of [
+      ['archiveCat', { catId: 'ghost' }],
+      ['restoreCat', { catId: 'ghost' }],
+      ['weigh', { catId: 'ghost', kg: 4, at: '2026-06-16' }],
+      ['setGoal', { catId: 'ghost', kcal: 220, since: '2026-06-16' }],
+      [
+        'saveProfile',
+        {
+          catId: 'ghost',
+          profile: PROFILE_FIELDS,
+          litter: { kind: 'existing', litterId: OFELIA_ID },
+        },
+      ],
+    ] as const) {
+      const result = await run(event, payload, context)
+      expect(result, event).toBeInstanceOf(PublicWidgetError)
+      expect(result, event).toMatchObject({ code: 'unknown_cat', status: 404 })
+    }
+    expect([...store.entries()]).toEqual(before)
+  })
+
+  it('archives and restores a cat through the registry', async () => {
+    const { store, context } = makeRegistryContext(['busya'])
+    const registry = () =>
+      foldCatRegistry(CatRegistryEventsSchema.parse(store.get(CATS_REGISTRY_KEY)))
+
+    expect(await run('archiveCat', { catId: 'busya' }, context)).toEqual({ ok: true })
+    expect(registry()).toEqual({
+      active: [OFELIA_ID],
+      archived: [{ catId: 'busya', archivedAt: expect.any(Number) }],
+    })
+
+    expect(await run('restoreCat', { catId: 'busya' }, context)).toEqual({ ok: true })
+    expect(registry()).toEqual({ active: [OFELIA_ID, 'busya'], archived: [] })
+  })
+
+  it('keeps one cat active when the last two are archived concurrently', async () => {
+    const { store, context } = makeRegistryContext(['busya'])
+
+    const results = await Promise.all([
+      run('archiveCat', { catId: OFELIA_ID }, context),
+      run('archiveCat', { catId: 'busya' }, context),
+    ])
+
+    // Both handlers read two active cats before either appended, so both answered ok.
+    expect(results).toEqual([{ ok: true }, { ok: true }])
+    const events = CatRegistryEventsSchema.parse(store.get(CATS_REGISTRY_KEY))
+    expect(events.filter((event) => event.op === 'archive')).toHaveLength(2)
+    expect(foldCatRegistry(events).active).toHaveLength(1)
+  })
+
+  it('appends a weighing stamped with the viewer', async () => {
+    const { store, context } = makeRegistryContext()
+
+    expect(await run('weigh', { catId: OFELIA_ID, kg: 4.32, at: '2026-06-16' }, context)).toEqual({
+      ok: true,
+    })
+    expect(store.get(catWeightKey(OFELIA_ID))).toEqual([
+      {
+        id: expect.any(String),
+        ts: expect.any(Number),
+        at: '2026-06-16',
+        kg: 4.32,
+        createdBy: KARINA,
+      },
+    ])
+  })
+
+  it('appends a goal', async () => {
+    const { store, context } = makeRegistryContext()
+
+    expect(
+      await run('setGoal', { catId: OFELIA_ID, kcal: 220, since: '2026-06-16' }, context),
+    ).toEqual({ ok: true })
+    expect(store.get(catGoalKey(OFELIA_ID))).toEqual([
+      { id: expect.any(String), ts: expect.any(Number), kcal: 220, since: '2026-06-16' },
+    ])
+  })
+
+  it('saves the profile with the chosen litter', async () => {
+    const { store, context } = makeRegistryContext()
+
+    expect(
+      await run(
+        'saveProfile',
+        {
+          catId: OFELIA_ID,
+          profile: PROFILE_FIELDS,
+          litter: { kind: 'existing', litterId: OFELIA_ID },
+        },
+        context,
+      ),
+    ).toEqual({ ok: true })
+    expect(store.get(catProfileKey(OFELIA_ID))).toEqual({ ...PROFILE_FIELDS, litterId: OFELIA_ID })
+  })
+
+  it('saves the profile onto a new litter', async () => {
+    const { store, context } = makeRegistryContext()
+
+    expect(
+      await run(
+        'saveProfile',
+        { catId: OFELIA_ID, profile: PROFILE_FIELDS, litter: { kind: 'new' } },
+        context,
+      ),
+    ).toEqual({ ok: true })
+
+    const litterIds = litterIdsIn(store)
+    expect(litterIds).toHaveLength(2)
+    expect(store.get(catProfileKey(OFELIA_ID))).toEqual({
+      ...PROFILE_FIELDS,
+      litterId: litterIds[1],
+    })
+    expect(store.get(litterSettingsKey(litterIds[1]))).toEqual(DEFAULT_LITTER_SETTINGS)
+  })
+
+  it.each([
+    ['addCat', { name: 'Буся', litter: { kind: 'existing', litterId: 'Ofelia' } }],
+    ['archiveCat', { catId: 'a/b' }],
+    ['restoreCat', { catId: 'a:b' }],
+    ['weigh', { catId: 'Ofelia', kg: 4, at: '2026-06-16' }],
+    ['setGoal', { catId: 'a/b', kcal: 220, since: '2026-06-16' }],
+    ['saveProfile', { catId: 'a:b', profile: PROFILE_FIELDS, litter: { kind: 'new' } }],
+  ] as const)('the %s payload schema rejects a forged id', (event, payload) => {
+    expect(catsActionSchemas[event].payload.safeParse(payload).success).toBe(false)
   })
 })
