@@ -3,7 +3,12 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { classifyScannedText, FOREIGN_NOTICE_MS, makeAddDeviceModel } from './add-device-model'
+import {
+  classifyScannedText,
+  FOREIGN_NOTICE_MS,
+  INVITE_LOCK_MS,
+  makeAddDeviceModel,
+} from './add-device-model'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -722,5 +727,65 @@ describe('registration + polling flow', () => {
     const callsAfterGiveUp = calls.length
     await vi.advanceTimersByTimeAsync(10_000)
     expect(calls.length).toBe(callsAfterGiveUp)
+  })
+})
+
+const INVITE_TOKEN = 'Zx3kP9qLm2Vb7Ry4Tn8Wc1Hd6Fg0Js5Ae_Ku-Oi3Pq9L'
+
+describe('invite QR codes in the scanner', () => {
+  it('reads a same-origin invite link as an invite, and one from elsewhere as other-origin', () => {
+    expect(
+      classifyScannedText(`https://host/activate?token=${INVITE_TOKEN}`, CURRENT_ORIGIN),
+    ).toEqual({
+      kind: 'invite',
+      token: INVITE_TOKEN,
+    })
+    expect(
+      classifyScannedText(`https://board.example/activate?token=${INVITE_TOKEN}`, CURRENT_ORIGIN),
+    ).toEqual({ kind: 'other-origin', codeHost: 'board.example' })
+    expect(classifyScannedText('https://host/activate?token=<script>', CURRENT_ORIGIN)).toEqual({
+      kind: 'foreign',
+    })
+  })
+
+  it('locks on, then hands the invite token to the invite card', async () => {
+    vi.useFakeTimers()
+    const openInvite = vi.fn()
+    const { http, calls } = makeScriptedHttp({})
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      scan: true,
+      http,
+      openInvite,
+    })
+
+    const pending = model.stageScannedCode(`https://host/activate?token=${INVITE_TOKEN}`)
+    expect(model.scanStatus()).toEqual({ kind: 'invite', token: INVITE_TOKEN })
+    await model.stageScannedCode(`https://host/activate?token=${INVITE_TOKEN}`)
+    expect(openInvite).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(INVITE_LOCK_MS)
+    await pending
+
+    expect(openInvite).toHaveBeenCalledExactlyOnceWith(INVITE_TOKEN)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('does not open the invite when the scanner was closed during the lock-on', async () => {
+    vi.useFakeTimers()
+    const openInvite = vi.fn()
+    const model = makeAddDeviceModel({
+      currentOrigin: CURRENT_ORIGIN,
+      scan: true,
+      http: makeScriptedHttp({}).http,
+      openInvite,
+    })
+
+    const pending = model.stageScannedCode(`https://host/activate?token=${INVITE_TOKEN}`)
+    model.goToManual()
+    await vi.advanceTimersByTimeAsync(INVITE_LOCK_MS)
+    await pending
+
+    expect(openInvite).not.toHaveBeenCalled()
   })
 })

@@ -453,3 +453,39 @@
 .scanSheetSecondary {
   margin-top: 8px;
 }
+
+/* (b7) an invite QR was recognized: the corners turn green and snap inward,
+   then the whole overlay fades out as the invite card takes over
+   (INVITE_LOCK_MS in the model). */
+.scanPillFound {
+  background: #eaf3de;
+  color: #27500a;
+}
+.scannerFrameLocked {
+  animation: scanLockOn 360ms var(--ease) forwards;
+}
+.scannerFrameLocked .scannerCorner {
+  border-color: #97c459;
+}
+@keyframes scanLockOn {
+  40% {
+    transform: scale(0.9);
+  }
+  to {
+    transform: scale(0.94);
+  }
+}
+.scannerOverlayLeaving {
+  animation: scanOverlayOut 220ms ease-in 380ms forwards;
+}
+@keyframes scanOverlayOut {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scannerFrameLocked,
+  .scannerOverlayLeaving {
+    animation: none;
+  }
+}

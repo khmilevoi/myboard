@@ -6,6 +6,7 @@ import {
   Globe,
   Loader2,
   Lock,
+  MailCheck,
   QrCode,
   ShieldCheck,
   TimerOff,
@@ -188,7 +189,7 @@ function ScanSheet({
   )
 }
 
-const SCAN_HINT = 'Наведите камеру на QR-код из окна «Добавить устройство»'
+const SCAN_HINT = 'Наведите камеру на QR-код приглашения или из окна «Добавить устройство»'
 
 // Full-screen camera overlay from Activate.dc.html. A separate component (not a
 // branch inside AddDeviceScreen) so `useZxing` — and the wasm barcode engine it
@@ -241,7 +242,7 @@ function ScannerOverlay({
       role="dialog"
       aria-modal="true"
       aria-label="Сканирование QR-кода"
-      className={styles.scannerOverlay}
+      className={`${styles.scannerOverlay} ${status.kind === 'invite' ? styles.scannerOverlayLeaving : ''}`}
     >
       {camera.kind === 'ready' ? (
         <ScannerVideo
@@ -252,7 +253,7 @@ function ScannerOverlay({
       ) : null}
       <div
         aria-hidden
-        className={`${styles.scannerFrame} ${status.kind === 'checking' ? styles.scannerFrameChecking : ''}`}
+        className={`${styles.scannerFrame} ${status.kind === 'checking' ? styles.scannerFrameChecking : ''} ${status.kind === 'invite' ? styles.scannerFrameLocked : ''}`}
       >
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTl}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTr}`} />
@@ -274,6 +275,12 @@ function ScannerOverlay({
         <p role="status" className={`${styles.scanPill} ${styles.scanPillChecking}`}>
           <Loader2 size={14} strokeWidth={2.4} className="animate-spin" aria-hidden />
           Проверяем код…
+        </p>
+      ) : null}
+      {status.kind === 'invite' ? (
+        <p role="status" className={`${styles.scanPill} ${styles.scanPillFound}`}>
+          <MailCheck size={14} strokeWidth={2.2} aria-hidden />
+          Приглашение найдено
         </p>
       ) : null}
       {status.kind === 'foreign' ? (

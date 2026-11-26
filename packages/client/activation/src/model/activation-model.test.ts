@@ -255,13 +255,65 @@ describe('initial screen', () => {
     expect(model.screen()).toBe('home')
   })
 
-  it('is activate when a non-empty token is present', () => {
+  it('is checking when a non-empty token is present, until the invite is confirmed', () => {
     const model = makeActivationModel({ token: 'invite-token', http: makeScriptedHttp({}).http })
-    expect(model.screen()).toBe('activate')
+    expect(model.screen()).toBe('checking')
   })
 
   it('is activate-no-code when the token param is present but empty', () => {
     const model = makeActivationModel({ token: '', http: makeScriptedHttp({}).http })
     expect(model.screen()).toBe('activate-no-code')
+  })
+})
+
+describe('validateInvite (confirm the invite as soon as the link opens)', () => {
+  const OPTIONS = '/api/auth/register/options'
+
+  it('lands on activate with the invite expiry once the server confirms it', async () => {
+    const { http, calls } = makeScriptedHttp({
+      [OPTIONS]: [{ status: 200, body: { options: {}, invite: { expiresAt: 1_800_000_000_000 } } }],
+    })
+    const model = makeActivationModel({ token: 'invite-token', http })
+
+    await model.validateInvite()
+
+    expect(calls.map((call) => call.json)).toEqual([{ token: 'invite-token' }])
+    expect(model.screen()).toBe('activate')
+    expect(model.inviteExpiresAt()).toBe(1_800_000_000_000)
+    expect(model.error()).toBeNull()
+  })
+
+  it.each([
+    [409, 'invite_consumed', 'activate-used'],
+    [410, 'invite_expired', 'activate-expired'],
+    [404, 'invite_not_found', 'activate-not-found'],
+    [429, 'invite_locked', 'activate-locked'],
+  ] as const)('maps a %i (%s) refusal to %s', async (status, code, expected) => {
+    const { http } = makeScriptedHttp({ [OPTIONS]: [{ status, body: { code } }] })
+    const model = makeActivationModel({ token: 'invite-token', http })
+
+    await model.validateInvite()
+
+    expect(model.screen()).toBe(expected)
+  })
+
+  it('still offers the form, with an error, when the server cannot be reached', async () => {
+    const { http } = makeScriptedHttp({ [OPTIONS]: ['network-error'] })
+    const model = makeActivationModel({ token: 'invite-token', http })
+
+    await model.validateInvite()
+
+    expect(model.screen()).toBe('activate')
+    expect(model.error()).toMatch(/Не удалось проверить приглашение/)
+  })
+
+  it('does nothing without an invite in the URL', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const model = makeActivationModel({ token: null, http })
+
+    await model.validateInvite()
+
+    expect(calls).toHaveLength(0)
+    expect(model.screen()).toBe('home')
   })
 })

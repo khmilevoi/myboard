@@ -180,7 +180,13 @@ export async function postRegisterOptions(
     inviteHash: sha256hex(token),
   })
 
-  return { status: 200, body: { options }, headers: { 'Set-Cookie': cookie } }
+  // `invite.expiresAt` lets the activation card say how long the invite stays
+  // valid ("Действует до …") once it has confirmed the invite on open.
+  return {
+    status: 200,
+    body: { options, invite: { expiresAt: invite.expiresAt } },
+    headers: { 'Set-Cookie': cookie },
+  }
 }
 
 export async function postRegisterVerify(
