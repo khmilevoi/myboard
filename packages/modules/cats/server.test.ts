@@ -347,8 +347,11 @@ describe('cats auto-approve cron', () => {
     for (const profile of [null, { name: '' }]) {
       const { context, append } = makeCronContext([SEED_ENTRY])
       const baseGet = context.api.storage.shared.get
-      context.api.storage.shared.get = vi.fn(async (key: string, schema?: never) =>
-        key === catProfileKey(OFELIA_ID) ? (profile as never) : baseGet(key, schema),
+      context.api.storage.shared.get = vi.fn(
+        async (key: string, schema?: never): Promise<never> =>
+          key === catProfileKey(OFELIA_ID)
+            ? (profile as never)
+            : (baseGet(key, schema) as Promise<never>),
       )
 
       expect(await catsServer.crons?.autoApproveDay.run(context)).toBeUndefined()
@@ -359,8 +362,11 @@ describe('cats auto-approve cron', () => {
   it('returns the profile read error without closing any litter', async () => {
     const { context, append } = makeCronContext([SEED_ENTRY])
     const baseGet = context.api.storage.shared.get
-    context.api.storage.shared.get = vi.fn(async (key: string, schema?: never) =>
-      key === catProfileKey(OFELIA_ID) ? (new Error('valkey down') as never) : baseGet(key, schema),
+    context.api.storage.shared.get = vi.fn(
+      async (key: string, schema?: never): Promise<never> =>
+        key === catProfileKey(OFELIA_ID)
+          ? (new Error('valkey down') as never)
+          : (baseGet(key, schema) as Promise<never>),
     )
 
     expect(await catsServer.crons?.autoApproveDay.run(context)).toBeInstanceOf(Error)
@@ -403,8 +409,8 @@ describe('cats auto-approve cron', () => {
     let calls = 0
     const { context, append } = makeCronContext([SEED_ENTRY])
     const baseGet = context.api.storage.shared.get
-    context.api.storage.shared.get = vi.fn(async (key: string, schema?: never) => {
-      if (key !== ledgerKey(OFELIA_ID)) return baseGet(key, schema)
+    context.api.storage.shared.get = vi.fn(async (key: string, schema?: never): Promise<never> => {
+      if (key !== ledgerKey(OFELIA_ID)) return baseGet(key, schema) as Promise<never>
       calls += 1
       return (calls >= 5 ? [SEED_ENTRY, manualClose] : [SEED_ENTRY]) as never
     })

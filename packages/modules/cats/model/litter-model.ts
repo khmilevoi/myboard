@@ -122,7 +122,7 @@ export function makeLitterModel(context: CatsModuleContext, litterId: string): L
       return
     }
     if (rawResult instanceof Error) {
-      settingsReadError.set(rawResult)
+      settingsReadError.set(rawResult as StorageError)
       return
     }
     ledgerError.set(null)

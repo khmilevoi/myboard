@@ -91,7 +91,12 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
   // one per recomputation. Reading a cat's `profileState` here is what connects its profile key:
   // the dependency list follows the registry, so an id that leaves it is disconnected.
   const summaries = (catIds: readonly string[]): CatSummary[] | null => {
-    const states = catIds.map((id) => ({ id, state: catInternals(id).profileState() }))
+    const states = catIds.map(
+      (id): { id: string; state: ReturnType<CatModelInternals['profileState']> } => ({
+        id,
+        state: catInternals(id).profileState(),
+      }),
+    )
     if (states.some(({ state }) => state === KEY_LOADING)) return null
     return states.flatMap(({ id, state }) => {
       if (state === KEY_LOADING || state === null) return []
