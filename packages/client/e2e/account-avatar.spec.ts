@@ -5,8 +5,9 @@ import { AccountMenuPage } from './pages/AccountMenuPage.js'
 // The seeded account's name (POST /api/test/seed-session).
 const SEEDED_NAME = 'E2E'
 
-// An 8x6 RGB PNG. The browser decodes it, crops the centred square and re-encodes it as WebP
-// before upload (prepareImage's avatar preset), so the stored blob is image/webp.
+// An 8x6 RGB PNG. The browser decodes it, crops the square chosen in the crop dialog and
+// re-encodes it as WebP before upload (prepareImage's avatar preset), so the stored blob is
+// image/webp.
 const FIXTURE_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAYElEQVR4nBXMMRVEIQwAwSihRgQiUqNklFBHBCJSo+j+bTvvbUQYYYUdhBNueCFiGtOa9mQ6053e/CCNtNJO0kk3vfyAwWL7d7i87xpllFV2UU655dUHbbTVdtNOu+21H11/PPF87Or0AAAAAElFTkSuQmCC',
   'base64',
@@ -24,7 +25,9 @@ test.beforeEach(async ({ page }) => {
   expect(seeded.ok()).toBe(true)
 })
 
-test('uploads an avatar, shows it in the account menu, and serves it only with a session', async ({
+const FIXTURE = { name: 'me.png', mimeType: 'image/png', buffer: FIXTURE_PNG }
+
+test('crops an avatar picked from the menu badge, shows it, and serves it only with a session', async ({
   page,
   request,
 }) => {
@@ -33,10 +36,31 @@ test('uploads an avatar, shows it in the account menu, and serves it only with a
   await expect(menu.trigger).toBeVisible()
   await expect(menu.triggerImage).toHaveCount(0)
 
-  await menu.uploadAvatar({ name: 'me.png', mimeType: 'image/png', buffer: FIXTURE_PNG })
+  await menu.pickAvatarFromBadge(FIXTURE)
+  // The menu gave way to the crop dialog.
+  await expect(menu.profileItem).toHaveCount(0)
+  await expect(menu.cropDialog.getByText('E2E отметил(а) уборку')).toBeVisible()
+
+  // Zoom in from the slider, drag the photo, then nudge it from the keyboard.
+  const zoom = menu.cropDialog.getByRole('slider', { name: 'Масштаб' })
+  await zoom.fill('2')
+  await expect(zoom).toHaveValue('2')
+  const image = menu.cropStage.getByTestId('avatar-crop-image')
+  const before = await image.getAttribute('style')
+  const box = await menu.cropStage.boundingBox()
+  if (!box) throw new Error('the crop stage has no layout box')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 20, { steps: 4 })
+  await page.mouse.up()
+  await expect.poll(() => image.getAttribute('style')).not.toBe(before)
+  await menu.cropStage.focus()
+  await page.keyboard.press('Shift+ArrowLeft')
+
+  await menu.cropSave.click()
+  await menu.cropDialog.waitFor({ state: 'detached' })
 
   await expect(menu.triggerImage).toBeVisible()
-  await expect(menu.avatarError).toHaveCount(0)
   const url = await menu.triggerImageUrl()
   expect(url).toMatch(/^\/files\/[A-Za-z0-9_-]{16,64}$/)
 
@@ -55,22 +79,73 @@ test('uploads an avatar, shows it in the account menu, and serves it only with a
   await expect(menu.triggerImage).toHaveAttribute('src', url)
 })
 
-test('removes the avatar and falls back to initials', async ({ page }) => {
+test('removes the avatar from the profile and falls back to initials', async ({ page }) => {
   await page.goto('/')
   const menu = new AccountMenuPage(page, SEEDED_NAME)
-  await menu.uploadAvatar({ name: 'me.png', mimeType: 'image/png', buffer: FIXTURE_PNG })
+  await menu.uploadAvatar(FIXTURE)
   await expect(menu.triggerImage).toBeVisible()
   const url = await menu.triggerImageUrl()
 
-  // The remove item is there once the account has a photo; the menu stays open after it.
-  await menu.trigger.click()
-  await menu.removeAvatarItem.click()
-  await expect(menu.headAvatar).toHaveCount(0)
-  await expect(menu.removeAvatarItem).toHaveCount(0)
-  await menu.closeMenu()
+  await menu.openProfile()
+  await expect(menu.profileAvatar).toHaveAttribute('src', url)
+  await menu.profileRemovePhoto.click()
+  await expect(menu.profileAvatar).toHaveCount(0)
+  await expect(menu.profileDialog.getByRole('button', { name: 'Загрузить фото' })).toBeVisible()
+  await menu.closeProfile()
 
   await expect(menu.triggerImage).toHaveCount(0)
   await expect(menu.trigger).toHaveText('E2')
   // The old blob is deleted with the swap.
   expect((await page.request.get(url)).status()).toBe(404)
+})
+
+test('changes the photo from the profile; the crop opens over it and the profile stays', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const menu = new AccountMenuPage(page, SEEDED_NAME)
+  await menu.openProfile()
+
+  const chooser = page.waitForEvent('filechooser')
+  await menu.profileDialog.getByRole('button', { name: 'Загрузить фото' }).click()
+  await (await chooser).setFiles(FIXTURE)
+  await menu.cropDialog.waitFor()
+
+  // Cancelling the crop leaves the profile underneath open.
+  await menu.cropDialog.getByRole('button', { name: 'Отмена' }).click()
+  await menu.cropDialog.waitFor({ state: 'detached' })
+  await expect(menu.profileDialog).toBeVisible()
+
+  const again = page.waitForEvent('filechooser')
+  await menu.profileDialog.getByRole('button', { name: 'Загрузить фото' }).click()
+  await (await again).setFiles(FIXTURE)
+  await menu.cropSave.click()
+  await menu.cropDialog.waitFor({ state: 'detached' })
+
+  await expect(menu.profileAvatar).toBeVisible()
+  await expect(menu.profileDialog).toBeVisible()
+  await menu.closeProfile()
+  await expect(menu.triggerImage).toBeVisible()
+})
+
+test('an unreadable file opens the crop dialog with its error and no stage', async ({ page }) => {
+  await page.goto('/')
+  const menu = new AccountMenuPage(page, SEEDED_NAME)
+
+  await menu.pickAvatarFromBadge({
+    name: 'me.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('definitely not a png'),
+  })
+
+  await expect(menu.cropError).toHaveText(
+    'Не получилось прочитать файл. Выберите фото в JPEG, PNG или WebP.',
+  )
+  await expect(menu.cropStage).toHaveCount(0)
+  await expect(menu.cropSave).toHaveCount(0)
+  await expect(menu.cropDialog.getByRole('button', { name: 'Выбрать другой файл' })).toBeVisible()
+
+  await menu.cropDialog.getByRole('button', { name: 'Отмена' }).click()
+  await menu.cropDialog.waitFor({ state: 'detached' })
+  await expect(menu.triggerImage).toHaveCount(0)
 })
