@@ -10,6 +10,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
 import { apiProxy, federationShared, stageWidgetBuilds, widgetRemotes } from 'widget-sdk/vite'
 
+import { resolveBuildInfo } from './src/shared/app-env/build-info'
 import { envIconPath, envTitle } from './src/shared/app-env/icons'
 import type { AppEnvName } from './src/shared/app-env/registry'
 import { resolveAppEnv } from './src/shared/app-env/resolve-app-env'
@@ -302,6 +303,9 @@ export default defineConfig(({ command }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
       __APP_ENV__: JSON.stringify(appEnv),
+      __APP_BUILD__: JSON.stringify(
+        resolveBuildInfo(process.env.VITE_APP_BRANCH, process.env.VITE_APP_COMMIT),
+      ),
     },
     build: {
       // gzip-size reporting walks every emitted asset (incl. staged widget

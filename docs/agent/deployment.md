@@ -82,8 +82,13 @@ identifies its origin without checking the URL:
 | --- | --- | --- | --- |
 | `board.iiskelo.com` | violet | `myboard` | none |
 | `board-dev.iiskelo.com` | amber | `myboard · dev` | `DEV` |
-| `board-branch.iiskelo.com` | raspberry | `myboard · branch` | `BRANCH` |
+| `board-branch.iiskelo.com` | raspberry | `myboard · branch` | the deployed branch name |
 | `pnpm dev` / `pnpm dev:docker` | teal | `myboard · local` | `LOCAL` |
+
+Tapping the badge (on a phone it is just a dot beside the logo) opens a popover with the branch
+and short commit the stand was built from. Those travel `RPI_BRANCH_NAME` / `RPI_COMMIT_SHA` → the
+`APP_BRANCH` / `APP_COMMIT` build args → `VITE_APP_BRANCH` / `VITE_APP_COMMIT` → `__APP_BUILD__`;
+an rpi agent older than 0.27 injects neither, and the badge then falls back to the plain label.
 
 The name travels `RPI_ENV` → the `APP_ENV` build arg in `docker-compose.yml` → `VITE_APP_ENV` in
 `packages/client/Dockerfile` → the `__APP_ENV__` build constant. It is baked into the bundle at

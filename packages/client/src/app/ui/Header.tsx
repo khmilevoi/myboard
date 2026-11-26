@@ -7,7 +7,7 @@ import { addBoard, removeBoard, resetMobileLayout, updateBoard } from '@/board/m
 import { activeBoard, activeBoardId, boards, LOCAL_BOARD_ID } from '@/board/model/board-storage'
 import { AddWidgetMenu } from '@/board/ui/AddWidgetMenu'
 import { BoardSchemaSelect } from '@/board/ui/BoardSchemaSelect'
-import { currentAppEnv } from '@/shared/app-env/current'
+import { currentAppEnv, currentBuildInfo } from '@/shared/app-env/current'
 import { ThemeToggle } from '@/theme/ui/ThemeToggle'
 
 import { EnvBadge } from './EnvBadge'
@@ -22,7 +22,7 @@ export const Header = reatomMemo(() => {
           <span className={styles.logoMuted}>my</span>
           <span className={styles.logoStrong}>board</span>
         </span>
-        <EnvBadge env={currentAppEnv} />
+        <EnvBadge env={currentAppEnv} build={currentBuildInfo} />
         <BoardSelect />
       </div>
       <div className={styles.actions}>
