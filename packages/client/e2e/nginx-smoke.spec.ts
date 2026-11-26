@@ -13,7 +13,7 @@ test('nginx serves remote entries as JavaScript and never falls back for a missi
   const remote = await request.get('/widgets/clock/remoteEntry.js')
   expect(remote.status()).toBe(200)
   expect(remote.headers()['content-type']).toContain('javascript')
-  expect(remote.headers()['cache-control']).toContain('no-cache')
+  expect(remote.headers()['cache-control']).toBe('no-store')
   expect(await remote.text()).not.toContain('<!doctype html>')
 
   const missing = await request.get('/widgets/missing/remoteEntry.js')
@@ -23,12 +23,17 @@ test('nginx serves remote entries as JavaScript and never falls back for a missi
 
 // The host's own entry is the one file whose URL is stable across releases
 // while its contents change — it names the hashed chunk that calls
-// createInstance. Without no-cache an intermediary keeps serving the previous
+// createInstance. Without no-store an intermediary keeps serving the previous
 // release's copy, whose chunk 404s in the new one, and every loadRemote then
 // fails with "#RUNTIME-009 Please call createInstance first": a board with no
 // widgets at all. Cloudflare did exactly this on 2026-07-26 (cf-cache-status
 // HIT, age 6503, against the default max-age=14400).
-test('nginx marks the host federation entry no-cache so a stale edge copy cannot break init', async ({
+//
+// Exactly no-store: Cloudflare's Browser Cache TTL rewrites no-cache (and any
+// short max-age) to max-age=14400 for the browser, which kept the previous
+// release's entry in every disk cache for hours (2026-11-26). It passes
+// no-store through untouched.
+test('nginx marks the host federation entry no-store so no stale edge or browser copy can break init', async ({
   request,
 }) => {
   await seedSession(request)
@@ -36,7 +41,7 @@ test('nginx marks the host federation entry no-cache so a stale edge copy cannot
   const entry = await request.get('/remoteEntry.js')
   expect(entry.status()).toBe(200)
   expect(entry.headers()['content-type']).toContain('javascript')
-  expect(entry.headers()['cache-control']).toContain('no-cache')
+  expect(entry.headers()['cache-control']).toBe('no-store')
 
   // It must name a chunk this same release actually ships, or the host cannot
   // initialise — the failure mode the header exists to prevent.
@@ -50,14 +55,14 @@ test('nginx marks the host federation entry no-cache so a stale edge copy cannot
 // fixed name /sw.js, and its precache manifest changes every release. Cloudflare
 // ignores the browser's forced-revalidation request directive, so without this
 // header a deploy keeps serving the previous release's precached assets for hours.
-test('nginx marks the service worker no-cache so a stale edge copy cannot pin clients to the old release', async ({
+test('nginx marks the service worker no-store so no stale copy can pin clients to the old release', async ({
   request,
 }) => {
   await seedSession(request)
 
   const sw = await request.get('/sw.js')
   expect(sw.status()).toBe(200)
-  expect(sw.headers()['cache-control']).toContain('no-cache')
+  expect(sw.headers()['cache-control']).toBe('no-store')
 })
 
 test('the production nginx image mounts Clock through the same-origin remote', async ({ page }) => {

@@ -1,7 +1,6 @@
+import type { Person } from 'module-ofelia/domain/roster'
 import type { ReactNode } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import type { Person } from '@/domain/roster'
 
 import { personTone } from '../person'
 import { Avatar } from './Avatar'

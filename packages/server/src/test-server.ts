@@ -2,6 +2,7 @@ import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
+import { productionMigrations, runMigrations } from './migrations'
 import { productionModuleServerRegistry } from './modules/production-registry'
 import { productionScopedOwners } from './storage/production-scoped-owners'
 import { createValkeySubscriber, createValkeyTestOps } from './storage/valkey'
@@ -62,6 +63,14 @@ const { server } = createApp({
 })
 
 const port = Number(process.env.PORT ?? 8787)
-server.listen(port, () => {
-  console.log(`test storage-api listening on :${port}`)
+
+// The bundle is CJS, so no top-level await: migrations finish before the listener opens.
+void runMigrations(ops, productionMigrations, Date.now).then((migrated) => {
+  if (migrated instanceof Error) {
+    console.error(migrated.message, migrated.cause)
+    process.exit(1)
+  }
+  server.listen(port, () => {
+    console.log(`test storage-api listening on :${port}`)
+  })
 })

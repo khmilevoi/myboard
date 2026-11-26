@@ -1,8 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import type { LedgerEntry } from '@/domain/ledger'
-
+import type { LedgerEntry } from '../domain/ledger'
 import { toHistoryGroups } from './history-view'
 
 const KARINA = { accountId: 'a1', name: 'Карина' }

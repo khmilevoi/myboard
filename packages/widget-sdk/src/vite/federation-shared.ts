@@ -55,13 +55,12 @@ function singleton(name: string) {
   }
 }
 
-export type FederationSharedOptions = {
-  /** Share every `packages/modules/*` package as a singleton. Defaults to true; the board host
-   *  passes false because it depends on no module package itself. */
-  includeModules?: boolean
-}
-
-export function federationShared({ includeModules = true }: FederationSharedOptions = {}) {
+/**
+ * The one shared list for the board host and every widget remote. Module packages are on it
+ * unconditionally: the host depends on each of them (codegen enforces it) and provides them, the
+ * same way it provides widget-runtime, so a module's code and model exist once on the board.
+ */
+export function federationShared() {
   const shared: Record<string, ReturnType<typeof singleton>> = {
     react: singleton('react'),
     'react-dom': singleton('react-dom'),
@@ -72,10 +71,8 @@ export function federationShared({ includeModules = true }: FederationSharedOpti
     errore: singleton('errore'),
   }
 
-  if (includeModules) {
-    for (const [name, version] of Object.entries(modulePackages)) {
-      shared[name] = { singleton: true, strictVersion: true, requiredVersion: version }
-    }
+  for (const [name, version] of Object.entries(modulePackages)) {
+    shared[name] = { singleton: true, strictVersion: true, requiredVersion: version }
   }
 
   return shared

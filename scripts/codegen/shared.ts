@@ -18,11 +18,13 @@ export type CodegenPaths = {
   modulesDir: string
   modulePackagesFile: string
   moduleServerListFile: string
+  /** The board host's package.json: it must depend on every module package it provides. */
+  hostPackageFile: string
 }
 
 export type ModulesCodegenPaths = Pick<
   CodegenPaths,
-  'widgetsDir' | 'modulesDir' | 'modulePackagesFile' | 'moduleServerListFile'
+  'widgetsDir' | 'modulesDir' | 'modulePackagesFile' | 'moduleServerListFile' | 'hostPackageFile'
 >
 export type ClientCodegenPaths = Pick<
   CodegenPaths,
@@ -95,6 +97,7 @@ export const defaultCodegenPaths: CodegenPaths = {
     packagesDir,
     'server/src/modules/module-server-list.generated.ts',
   ),
+  hostPackageFile: path.resolve(packagesDir, 'client/package.json'),
 }
 
 export function discoverWidgetDirs(dir: string): CodegenIoError | string[] {

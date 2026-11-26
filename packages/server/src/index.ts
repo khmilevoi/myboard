@@ -2,6 +2,7 @@ import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
+import { MigrationFailedError, productionMigrations, runMigrations } from './migrations'
 import { productionModuleServerRegistry } from './modules/production-registry'
 import { productionScopedOwners } from './storage/production-scoped-owners'
 import { createValkeyOps, createValkeySubscriber } from './storage/valkey'
@@ -25,7 +26,7 @@ const browserClient = createHttpBrowserAutomationClient(browserConfig)
 const ops = createValkeyOps()
 const testSetup = process.env.ALLOW_TEST_DB_RESET === '1' ? makeTestControls(ops) : undefined
 
-const { server } = createApp({
+const { server, startCron } = createApp({
   ops,
   subscribe: (onMessage) => createValkeySubscriber('storage:events', onMessage),
   now: testSetup?.now ?? Date.now,
@@ -39,6 +40,19 @@ const { server } = createApp({
 })
 
 const port = Number(process.env.PORT ?? 8787)
-server.listen(port, () => {
-  console.log(`storage-api listening on :${port}`)
-})
+
+// The bundle is CJS, so no top-level await: migrations finish before the listener opens.
+// runMigrations returns its failures as values; the catch only formats an unexpected rejection
+// the same way, so a Valkey outage at boot exits with a message instead of an unhandled rejection.
+void runMigrations(ops, productionMigrations, Date.now)
+  .catch((e) => new MigrationFailedError({ migration: 'productionMigrations', cause: e }))
+  .then((migrated) => {
+    if (migrated instanceof Error) {
+      console.error(migrated.message, migrated.cause)
+      process.exit(1)
+    }
+    server.listen(port, () => {
+      console.log(`storage-api listening on :${port}`)
+    })
+    startCron()
+  })

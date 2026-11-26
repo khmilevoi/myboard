@@ -2,7 +2,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { HistoryDayGroup, HistoryEntryView } from '@/model/history-view'
+import type { HistoryDayGroup, HistoryEntryView } from '@/model/ofelia-duty'
 
 import { HistoryList } from './HistoryList'
 

@@ -1,3 +1,4 @@
+import { ofeliaModule } from 'module-ofelia'
 import { defineWidgetClient } from 'widget-sdk/define-widget-client'
 
 async function ensureTemporal(): Promise<void> {
@@ -16,6 +17,7 @@ export const ofeliaWidget = defineWidgetClient({
   description: 'Чья сегодня очередь убирать',
   defaultSize: { w: 4, h: 8, minW: 2, minH: 3 },
   icon: 'Cat',
+  modules: [ofeliaModule],
   tiers: {
     tiny: { minWidthPx: 0, minHeightPx: 0 },
     compact: { minWidthPx: 200, minHeightPx: 200 },

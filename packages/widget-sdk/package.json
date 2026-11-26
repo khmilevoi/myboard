@@ -18,6 +18,7 @@
     "./ui/*": "./src/ui/*.tsx",
     "./reatom/*": "./src/reatom/*.ts",
     "./hooks/*": "./src/hooks/*.ts",
+    "./modules/*": "./src/modules/*.ts",
     "./define-widget-client": "./src/define-widget-client.ts",
     "./vite": "./src/vite/index.ts",
     "./test-setup": "./src/test/widget-setup.ts"

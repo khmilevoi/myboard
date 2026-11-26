@@ -26,12 +26,18 @@
 /* Pairs with BoardSchemaSelect.module.css's 640px rule: that's where the
    select goes width: 100% and starts squeezing the brand box, and the
    badge's 69px is exactly what the select's growth costs -- drop the label
-   text and keep only the dot, still inside a circular pill of the same
-   height. */
+   text and keep only the dot inside a circle.
+
+   24px, not the pill's 22px: centring the 8px dot leaves (22 - 8) / 2 = 7px,
+   which is 10.5 device pixels at a 1.5 device-pixel ratio, so the dot was
+   rasterised half a pixel off the circle's centre and the badge looked
+   lopsided. (24 - 8) / 2 = 8px stays a whole device pixel at every common
+   ratio (1, 1.25, 1.5, 1.75, 2). */
 @media (max-width: 640px) {
   .badge {
     gap: 0;
-    width: 22px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     justify-content: center;
   }

@@ -9,8 +9,8 @@
  * `device:`, `account:`, `invite:`, `deviceadd:`, `wachal:`, `pending:`, see
  * packages/server/src/auth/records.ts) and cron scheduler bookkeeping
  * (`cron:`, which also covers module cursors `cron:module:<id>:<job>`; see
- * packages/server/src/widgets/cron-state.ts). `migration:` bookkeeping arrives
- * in plan 3 and must stay out of this list too. Most critically,
+ * packages/server/src/widgets/cron-state.ts). `migration:` completion markers (see
+ * packages/server/src/migrations/runner.ts) must stay out of this list too. Most critically,
  * `session:<id>` is keyed by the literal session cookie value, so an
  * unguarded prefix listing would hand out every live session token.
  */

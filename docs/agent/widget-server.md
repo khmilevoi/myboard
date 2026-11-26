@@ -67,3 +67,9 @@ Crons run without a viewer and so need the `shared` scope (the registry rejects 
 declares crons without it). Module crons now run on the shared scheduler, with the cursor key `cron:module:<moduleId>:<job>`
 (which cannot collide with the widget `cron:<typeId>:<jobName>` keys). They get shared storage only, no
 viewer.
+
+Ofelia is the first such module: its duty domain, actions (`clean`, `debt`, `forgive`, …) and the
+`autoApproveDay` cron live in `packages/modules/ofelia`, not in a widget. The `ofelia-poop-duty` and
+`ofelia-stats` widgets have no `server.ts` of their own and read the one module model, so the duty
+ledger is the module key `duty/ledger` (`/api/storage/scoped/module/ofelia/shared/duty%2Fledger`)
+and the cron cursor is `cron:module:ofelia:autoApproveDay`.

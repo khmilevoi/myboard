@@ -48,3 +48,14 @@ describe('createMemoryOps', () => {
     expect(received).toEqual(['{"key":"k","value":1}'])
   })
 })
+
+describe('createMemoryOps pttl', () => {
+  it('returns the stored ttl, -1 without one, -2 when missing', async () => {
+    const ops = createMemoryOps(createMemoryPubSub())
+    await ops.set('k', 'v', 5000)
+    expect(await ops.pttl('k')).toBe(5000)
+    await ops.set('k', 'v')
+    expect(await ops.pttl('k')).toBe(-1)
+    expect(await ops.pttl('missing')).toBe(-2)
+  })
+})

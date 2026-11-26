@@ -44,7 +44,7 @@ describe('federationShared', () => {
     }
   })
 
-  it('shares every module package as a strict singleton by default', () => {
+  it('shares every module package as a strict singleton', () => {
     expect(federationShared()['module-notes']).toEqual({
       singleton: true,
       strictVersion: true,
@@ -52,7 +52,12 @@ describe('federationShared', () => {
     })
   })
 
-  it('leaves module packages out when includeModules is false', () => {
-    expect(federationShared({ includeModules: false })['module-notes']).toBeUndefined()
+  it('gives the board host and the widget remotes one shared list, with no opt-out', () => {
+    // The host must provide every module, exactly as it provides widget-runtime. A host that
+    // left modules out let the first widget remote to init supply the singleton from its own
+    // bundle, which silently detached the host's Reatom actions from its UI.
+    // @ts-expect-error -- federationShared takes no options
+    federationShared({ includeModules: false })
+    expect(Object.keys(federationShared())).toContain('module-notes')
   })
 })

@@ -16,6 +16,7 @@
     "@reatom/react": "catalog:",
     "errore": "catalog:",
     "lucide-react": "catalog:",
+    "module-ofelia": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "widget-runtime": "workspace:*",

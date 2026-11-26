@@ -5,6 +5,8 @@ export type ValkeyOps = {
   set(key: string, value: string, ttlMs?: number): Promise<void>
   del(key: string): Promise<void>
   getdel(key: string): Promise<string | null>
+  /** Remaining TTL in ms; -1 when the key has no expiry, -2 when it is missing. */
+  pttl(key: string): Promise<number>
   scanKeys(matchPrefix: string): Promise<string[]>
   publish(channel: string, message: string): Promise<void>
 }
@@ -23,6 +25,9 @@ function buildOps(client: Valkey): ValkeyOps {
     },
     async getdel(key) {
       return client.getdel(key)
+    },
+    async pttl(key) {
+      return client.pttl(key)
     },
     async scanKeys(matchPrefix) {
       const escaped = matchPrefix.replace(/[*?[\]\\]/g, '\\$&')

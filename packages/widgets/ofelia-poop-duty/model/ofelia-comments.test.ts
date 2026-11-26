@@ -1,21 +1,21 @@
-import { atom, context, wrap } from '@reatom/core'
+import { atom, context, wrap, type Atom } from '@reatom/core'
+import type { Comment } from 'module-ofelia/domain/comments'
+import { commentsKey } from 'module-ofelia/domain/keys'
+import { weekStartISO } from 'module-ofelia/domain/roster'
+import { makeTestOfeliaModel } from 'module-ofelia/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
   StorageError,
   type StorageApi,
   type StorageListener,
-  type WidgetStorage,
+  type WidgetIdentity,
 } from 'widget-runtime'
-
-import { commentsKey } from '@/domain/comments'
-import type { Comment } from '@/domain/comments'
-import { weekStartISO } from '@/domain/roster'
 
 import { ofeliaCommentsModel } from './ofelia-comments'
 
-function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
-  const api: StorageApi = {
+function createStorage(overrides: Partial<StorageApi> = {}): StorageApi {
+  return {
     get: vi.fn(async () => null),
     set: vi.fn(async () => undefined),
     delete: vi.fn(async () => undefined),
@@ -25,12 +25,20 @@ function createStorage(overrides: Partial<StorageApi> = {}): WidgetStorage {
     subscribe: vi.fn(() => () => {}),
     ...overrides,
   }
+}
 
-  return {
-    instance: { client: api, server: api },
-    shared: { client: api, server: api },
-    account: { client: api, server: api },
-  }
+type CommentsDeps = {
+  storage: StorageApi
+  viewWeekStart: Atom<Temporal.PlainDate | null>
+  invoke?: (action: string, payload: unknown) => Promise<unknown>
+  identity?: WidgetIdentity
+}
+
+// The comments model now sits on the shared ofelia module model; the storage
+// fake backs that module model's shared scope.
+function commentsModel({ storage, viewWeekStart, invoke, identity }: CommentsDeps) {
+  const { model } = makeTestOfeliaModel({ storage, invoke, identity })
+  return ofeliaCommentsModel({ ofelia: model, viewWeekStart })
 }
 
 type SubscribeCall = {
@@ -69,7 +77,7 @@ function makeDeps(
 ) {
   return {
     viewWeekStart: atom<Temporal.PlainDate | null>(weekStart, 'test.viewWeekStart'),
-    api: { invoke } as never,
+    invoke,
     identity: makeStaticWidgetIdentity(),
   }
 }
@@ -88,22 +96,22 @@ afterEach(() => {
 
 describe('commentsKey', () => {
   it('keys by the Monday of the week', () => {
-    expect(commentsKey(weekStartISO(D('2026-06-16')))).toBe('comments:2026-06-15')
-    expect(commentsKey(weekStartISO(D('2026-06-21')))).toBe('comments:2026-06-15')
-    expect(commentsKey(weekStartISO(D('2026-06-22')))).toBe('comments:2026-06-22')
+    expect(commentsKey(weekStartISO(D('2026-06-16')))).toBe('duty/comments:2026-06-15')
+    expect(commentsKey(weekStartISO(D('2026-06-21')))).toBe('duty/comments:2026-06-15')
+    expect(commentsKey(weekStartISO(D('2026-06-22')))).toBe('duty/comments:2026-06-22')
   })
 })
 
 describe('ofeliaCommentsModel.comments', () => {
   it('defaults to an empty array', () => {
-    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps() })
+    const model = commentsModel({ storage: createStorage(), ...makeDeps() })
 
     expect(model.comments()).toEqual([])
   })
 
   it('subscribes to the viewed week key and reflects emitted comments', async () => {
     const { storage, subscribe, emit } = createCommentsStorage()
-    const model = ofeliaCommentsModel({ storage, ...makeDeps(D('2026-06-15')) })
+    const model = commentsModel({ storage, ...makeDeps(D('2026-06-15')) })
 
     await context.start(async () => {
       const off = model.comments.subscribe(() => {})
@@ -114,13 +122,13 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
 
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'hi' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'hi' })])
 
       await vi.waitFor(() => expect(readComments()).toHaveLength(1))
       expect(readComments()[0]?.text).toBe('hi')
@@ -132,7 +140,7 @@ describe('ofeliaCommentsModel.comments', () => {
   it('re-subscribes to the new week and drops the old subscription', async () => {
     const { storage, subscribe, calls } = createCommentsStorage()
     const deps = makeDeps(D('2026-06-15'))
-    const model = ofeliaCommentsModel({ storage, ...deps })
+    const model = commentsModel({ storage, ...deps })
 
     await context.start(async () => {
       const off = model.comments.subscribe(() => {})
@@ -140,7 +148,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
@@ -150,7 +158,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-22',
+          'duty/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -164,7 +172,7 @@ describe('ofeliaCommentsModel.comments', () => {
   it('opens no subscription until a week is available, then subscribes', async () => {
     const { storage, subscribe } = createCommentsStorage()
     const deps = makeDeps(null)
-    const model = ofeliaCommentsModel({ storage, ...deps })
+    const model = commentsModel({ storage, ...deps })
 
     await context.start(async () => {
       const off = model.comments.subscribe(() => {})
@@ -178,7 +186,7 @@ describe('ofeliaCommentsModel.comments', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
@@ -192,10 +200,10 @@ describe('ofeliaCommentsModel.comments', () => {
 describe('ofeliaCommentsModel.commentThread', () => {
   it('resolves the author and marks the viewer', async () => {
     const { storage, subscribe, emit } = createCommentsStorage()
-    const model = ofeliaCommentsModel({
+    const model = commentsModel({
       storage,
-      viewWeekStart: atom(D('2026-06-15'), 'test.viewWeekStart'),
-      api: { invoke: vi.fn(async () => ({ ok: true })) } as never,
+      viewWeekStart: atom<Temporal.PlainDate | null>(D('2026-06-15'), 'test.viewWeekStart'),
+      invoke: vi.fn(async () => ({ ok: true })),
       identity: makeStaticWidgetIdentity({
         members: [{ accountId: 'a1', name: 'Карина' }],
         viewerAccountId: 'a1',
@@ -217,12 +225,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
       // replay to late subscribers).
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [
+      emit('duty/comments:2026-06-15', [
         { id: 'c1', ts: 2, text: 'мой', createdBy: { accountId: 'a1', name: 'старое' } },
         { id: 'c2', ts: 1, text: 'старый', author: 'Леша' },
       ])
@@ -254,7 +262,7 @@ describe('ofeliaCommentsModel.commentThread', () => {
   it('does not keep the previous week thread when the new week read fails', async () => {
     const { storage, subscribe, calls, emit } = createCommentsStorage()
     const deps = makeDeps(D('2026-06-15'))
-    const model = ofeliaCommentsModel({ storage, ...deps })
+    const model = commentsModel({ storage, ...deps })
 
     await context.start(async () => {
       const off = model.commentThread.subscribe(() => {})
@@ -264,18 +272,18 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       setWeek(D('2026-06-22'))
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-22',
+          'duty/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -300,7 +308,7 @@ describe('ofeliaCommentsModel.commentThread', () => {
   it('keeps the current week thread when a later read on the same key fails', async () => {
     const { storage, subscribe, calls, emit } = createCommentsStorage()
     const deps = makeDeps(D('2026-06-15'))
-    const model = ofeliaCommentsModel({ storage, ...deps })
+    const model = commentsModel({ storage, ...deps })
 
     await context.start(async () => {
       const off = model.commentThread.subscribe(() => {})
@@ -310,12 +318,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       // A later event on the SAME subscription fails (no week switch).
@@ -340,7 +348,7 @@ describe('ofeliaCommentsModel.commentThread', () => {
   it('sets commentsWarning, never commentsBlocked, for a same-key failure', async () => {
     const { storage, subscribe, calls, emit } = createCommentsStorage()
     const deps = makeDeps(D('2026-06-15'))
-    const model = ofeliaCommentsModel({ storage, ...deps })
+    const model = commentsModel({ storage, ...deps })
 
     await context.start(async () => {
       const off = model.commentThread.subscribe(() => {})
@@ -351,12 +359,12 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'still here' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       expect(readBlocked()).toBe(false)
@@ -380,7 +388,7 @@ describe('ofeliaCommentsModel.commentThread', () => {
   it('sets commentsBlocked, never commentsWarning, for a different-week failure', async () => {
     const { storage, subscribe, calls, emit } = createCommentsStorage()
     const deps = makeDeps(D('2026-06-15'))
-    const model = ofeliaCommentsModel({ storage, ...deps })
+    const model = commentsModel({ storage, ...deps })
 
     await context.start(async () => {
       const off = model.commentThread.subscribe(() => {})
@@ -392,18 +400,18 @@ describe('ofeliaCommentsModel.commentThread', () => {
 
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-15',
+          'duty/comments:2026-06-15',
           expect.any(Function),
           expect.anything(),
         ),
       )
-      emit('comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
+      emit('duty/comments:2026-06-15', [cm({ id: 'c1', text: 'week one' })])
       await vi.waitFor(() => expect(readThread()).toHaveLength(1))
 
       setWeek(D('2026-06-22'))
       await vi.waitFor(() =>
         expect(subscribe).toHaveBeenCalledWith(
-          'comments:2026-06-22',
+          'duty/comments:2026-06-22',
           expect.any(Function),
           expect.anything(),
         ),
@@ -424,7 +432,7 @@ describe('ofeliaCommentsModel.commentThread', () => {
 describe('ofeliaCommentsModel.send', () => {
   it('invokes the comment event for the viewed week', async () => {
     const invoke = okInvoke()
-    const model = ofeliaCommentsModel({
+    const model = commentsModel({
       storage: createStorage(),
       ...makeDeps(D('2026-06-15'), invoke),
     })
@@ -439,16 +447,16 @@ describe('ofeliaCommentsModel.send', () => {
 
   it('does not write through storage any more', async () => {
     const storage = createStorage()
-    const model = ofeliaCommentsModel({ storage, ...makeDeps(D('2026-06-15')) })
+    const model = commentsModel({ storage, ...makeDeps(D('2026-06-15')) })
 
     await wrap(() => model.send('Привет'))()
 
-    expect(storage.shared.server.append).not.toHaveBeenCalled()
+    expect(storage.append).not.toHaveBeenCalled()
   })
 
   it('ignores empty or whitespace-only text', async () => {
     const invoke = okInvoke()
-    const model = ofeliaCommentsModel({
+    const model = commentsModel({
       storage: createStorage(),
       ...makeDeps(D('2026-06-15'), invoke),
     })
@@ -460,7 +468,7 @@ describe('ofeliaCommentsModel.send', () => {
 
   it('is a no-op before the first sync (no viewed week)', async () => {
     const invoke = okInvoke()
-    const model = ofeliaCommentsModel({ storage: createStorage(), ...makeDeps(null, invoke) })
+    const model = commentsModel({ storage: createStorage(), ...makeDeps(null, invoke) })
 
     await wrap(() => model.send('hello'))()
 
@@ -470,7 +478,7 @@ describe('ofeliaCommentsModel.send', () => {
   it('writes to the currently viewed week after navigation', async () => {
     const invoke = okInvoke()
     const deps = makeDeps(D('2026-06-15'), invoke)
-    const model = ofeliaCommentsModel({ storage: createStorage(), ...deps })
+    const model = commentsModel({ storage: createStorage(), ...deps })
 
     deps.viewWeekStart.set(D('2026-06-22'))
     await wrap(() => model.send('next week note'))()

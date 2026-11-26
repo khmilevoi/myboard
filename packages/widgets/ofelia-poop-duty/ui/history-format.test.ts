@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import type { HistoryEntryView } from '@/model/history-view'
+import type { HistoryEntryView } from '@/model/ofelia-duty'
 
 import { describeEntry, formatDutyDay, formatTimeOfDay, formatWeekdayShort } from './history-format'
 

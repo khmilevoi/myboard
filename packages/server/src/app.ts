@@ -106,6 +106,8 @@ export type AppDeps = {
 
 export type App = {
   server: Server
+  /** Starts the cron interval; the caller owns when (after migrations). No-op in test mode. */
+  startCron: () => void
   close: () => Promise<void>
 }
 
@@ -134,8 +136,12 @@ export function createApp(deps: AppDeps): App {
   })
   // In test mode the suite drives the scheduler explicitly through
   // /api/test/cron/tick; an interval racing a faked clock would only add
-  // nondeterminism.
-  if (!deps.testControls) cronScheduler.start()
+  // nondeterminism. Otherwise the caller starts it via startCron() once
+  // migrations are done: a tick seeding cursors earlier would make a
+  // migration's copyKey skip the old cursor and lose its catch-up run.
+  const startCron = (): void => {
+    if (!deps.testControls) cronScheduler.start()
+  }
 
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
@@ -706,5 +712,5 @@ export function createApp(deps: AppDeps): App {
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
 
-  return { server, close }
+  return { server, startCron, close }
 }

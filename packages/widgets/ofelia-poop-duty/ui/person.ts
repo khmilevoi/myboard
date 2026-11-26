@@ -1,5 +1,5 @@
-import { DUTY_ROTATION } from '../domain/roster'
-import type { Person } from '../domain/roster'
+import { DUTY_ROTATION } from 'module-ofelia/domain/roster'
+import type { Person } from 'module-ofelia/domain/roster'
 
 // One tone per roster slot, assigned by position in DUTY_ROTATION (Леша → 'l'
 // blue, Карина → 'k' red). Scales to N participants: add a tone here + matching

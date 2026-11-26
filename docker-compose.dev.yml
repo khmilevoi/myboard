@@ -27,8 +27,10 @@ x-workspace-volumes: &workspace-volumes
   - shared_node_modules:/app/packages/shared/node_modules
   - widget_runtime_node_modules:/app/packages/widget-runtime/node_modules
   - widget_sdk_node_modules:/app/packages/widget-sdk/node_modules
+  - modules_ofelia_node_modules:/app/packages/modules/ofelia/node_modules
   - widgets_clock_node_modules:/app/packages/widgets/clock/node_modules
   - widgets_ofelia_poop_duty_node_modules:/app/packages/widgets/ofelia-poop-duty/node_modules
+  - widgets_ofelia_stats_node_modules:/app/packages/widgets/ofelia-stats/node_modules
   - widgets_passport_checker_node_modules:/app/packages/widgets/passport-checker/node_modules
 
 services:
@@ -154,8 +156,10 @@ volumes:
   shared_node_modules:
   widget_runtime_node_modules:
   widget_sdk_node_modules:
+  modules_ofelia_node_modules:
   widgets_clock_node_modules:
   widgets_ofelia_poop_duty_node_modules:
+  widgets_ofelia_stats_node_modules:
   widgets_passport_checker_node_modules:
   redisinsight:
   browser_profile_dev:

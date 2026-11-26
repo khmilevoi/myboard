@@ -1,7 +1,7 @@
-import { resolveEntryAuthor, type EntryAuthor, type MemberLookup } from '@/domain/author'
-import { debtDeltaFor, type DebtDelta } from '@/domain/debt'
-import { latestOutcomesByDate, type LedgerEntry, type LedgerType } from '@/domain/ledger'
-import { DUTY_TIME_ZONE, plainDateIn, weekStartISO, type Person } from '@/domain/roster'
+import { resolveEntryAuthor, type EntryAuthor, type MemberLookup } from '../domain/author'
+import { debtDeltaFor, type DebtDelta } from '../domain/debt'
+import { latestOutcomesByDate, type LedgerEntry, type LedgerType } from '../domain/ledger'
+import { DUTY_TIME_ZONE, plainDateIn, weekStartISO, type Person } from '../domain/roster'
 
 export type HistoryEntryView = {
   id: string
