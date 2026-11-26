@@ -70,6 +70,17 @@
       "path": "OfeliaFoodLarge.dc.html",
       "title": "OfeliaFoodLarge",
       "kind": "component"
+    },
+    {
+      "path": "10 Виджет - Кошки.dc.html",
+      "title": "10 Виджет — Кошки",
+      "name": "10 Виджет — Кошки",
+      "kind": "page"
+    },
+    {
+      "path": "CatsLarge.dc.html",
+      "title": "Кошки — полный экран",
+      "kind": "component"
     }
   ],
   "migratorVersion": "artifact-migrator (claude-design-backend 1a1b12dd776d)",

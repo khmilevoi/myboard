@@ -31,6 +31,8 @@
     --on-success: oklch(0.24 0.06 152);
   }
   .fs[data-theme="dark"] { background: oklch(0.19 0.008 262); border-color: rgba(0,0,0,.4); }
+  .fs .cav-a { background: oklch(0.91 0.06 75); color: oklch(0.43 0.1 58); }
+  .fs[data-theme="dark"] .cav-a { background: oklch(0.4 0.07 62); color: oklch(0.93 0.06 78); }
   .fs[data-theme="dark"] .fs-comments input { color-scheme: dark; }
   @container (max-width: 680px) {
     .fs-head { flex-wrap: wrap !important; gap: 12px 14px !important; padding: 14px 16px !important; }
@@ -58,8 +60,8 @@
           <div style="display:flex;align-items:center;gap:12px;">
             <div style="width:40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4"></ellipse><circle cx="6.4" cy="10.5" r="2.1"></circle><circle cx="10" cy="6.6" r="2.1"></circle><circle cx="14" cy="6.6" r="2.1"></circle><circle cx="17.6" cy="10.5" r="2.1"></circle></svg></div>
             <div>
-              <div style="display:flex;align-items:center;gap:9px;font:600 17px 'Hanken Grotesk',sans-serif;color:var(--text);">Лоток Офелии <span style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 7px;">large</span></div>
-              <div style="font:400 13px 'Hanken Grotesk',sans-serif;color:var(--text-3);margin-top:2px;">Кто убирает за Офелией · чередование</div>
+              <div style="display:flex;align-items:center;gap:9px;font:600 17px 'Hanken Grotesk',sans-serif;color:var(--text);">Лоток · Офелия <span class="cav-a" title="Офелия" style="width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font:600 11.5px 'Hanken Grotesk',sans-serif;">О</span> <span style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 7px;">large</span></div>
+              <div style="font:400 13px 'Hanken Grotesk',sans-serif;color:var(--text-3);margin-top:2px;">Кто убирает · Лёша и Карина по очереди</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
