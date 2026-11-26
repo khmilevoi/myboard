@@ -17,6 +17,7 @@ import {
 const NOW = new Date(2026, 10, 26, 9, 30).getTime()
 const TODAY_0812 = new Date(2026, 10, 26, 8, 12).getTime()
 const NOV_24_0758 = new Date(2026, 10, 24, 7, 58).getTime()
+const NOV_24_2025_0758 = new Date(2025, 10, 24, 7, 58).getTime()
 
 describe('formatKg', () => {
   it('prints one decimal with a comma and the unit', () => {
@@ -60,12 +61,18 @@ describe('formatTakenAt', () => {
   it('shows only the date for an earlier day', () => {
     expect(formatTakenAt(NOV_24_0758, NOW)).toBe('24 нояб.')
   })
+
+  it('adds the year to a date from another year', () => {
+    expect(formatTakenAt(NOV_24_2025_0758, NOW)).toBe('24 нояб. 2025')
+    expect(formatTakenAt(new Date(2027, 0, 3).getTime(), NOW)).toBe('3 янв. 2027')
+  })
 })
 
 describe('formatTakenAtFull', () => {
   it('always carries the time', () => {
     expect(formatTakenAtFull(TODAY_0812, NOW)).toBe('сегодня, 08:12')
     expect(formatTakenAtFull(NOV_24_0758, NOW)).toBe('24 нояб., 07:58')
+    expect(formatTakenAtFull(NOV_24_2025_0758, NOW)).toBe('24 нояб. 2025, 07:58')
   })
 })
 
@@ -73,6 +80,7 @@ describe('formatTakenOn', () => {
   it('is the date alone', () => {
     expect(formatTakenOn(TODAY_0812, NOW)).toBe('сегодня')
     expect(formatTakenOn(NOV_24_0758, NOW)).toBe('24 нояб.')
+    expect(formatTakenOn(NOV_24_2025_0758, NOW)).toBe('24 нояб. 2025')
   })
 })
 
@@ -81,6 +89,7 @@ describe('formatTick', () => {
     expect(formatTick(TODAY_0812, NOW)).toBe('сегодня')
     expect(formatTick(NOV_24_0758, NOW)).toBe('24 нояб')
     expect(formatTick(new Date(2026, 4, 4).getTime(), NOW)).toBe('4 мая')
+    expect(formatTick(NOV_24_2025_0758, NOW)).toBe('24 нояб 2025')
   })
 })
 

@@ -60,26 +60,37 @@ function isSameLocalDay(a: number, b: number): boolean {
   )
 }
 
-/** `сегодня` / `24 нояб.` */
+/**
+ * `24 нояб.` in the current year, `24 нояб. 2025` in any other. The year is appended by hand:
+ * Intl's ru-RU year format adds a trailing `г.`, which the card does not write.
+ */
+function formatDay(takenAt: number, now: number): string {
+  const year = new Date(takenAt).getFullYear()
+  const day = dayFormat.format(takenAt)
+  if (year === new Date(now).getFullYear()) return day
+  return `${day} ${year}`
+}
+
+/** `сегодня` / `24 нояб.` / `24 нояб. 2025` */
 export function formatTakenOn(takenAt: number, now: number): string {
   if (isSameLocalDay(takenAt, now)) return 'сегодня'
-  return dayFormat.format(takenAt)
+  return formatDay(takenAt, now)
 }
 
-/** `сегодня, 08:12` for today, otherwise the date alone: `24 нояб.` */
+/** `сегодня, 08:12` for today, otherwise the date alone: `24 нояб.` / `24 нояб. 2025` */
 export function formatTakenAt(takenAt: number, now: number): string {
   if (isSameLocalDay(takenAt, now)) return `сегодня, ${timeFormat.format(takenAt)}`
-  return dayFormat.format(takenAt)
+  return formatDay(takenAt, now)
 }
 
-/** `сегодня, 08:12` / `24 нояб., 07:58` — a measurement list row. */
+/** `сегодня, 08:12` / `24 нояб., 07:58` / `24 нояб. 2025, 07:58` — a measurement list row. */
 export function formatTakenAtFull(takenAt: number, now: number): string {
   return `${formatTakenOn(takenAt, now)}, ${timeFormat.format(takenAt)}`
 }
 
-/** `сегодня` / `24 нояб` — a chart axis label, without the abbreviation dot. */
+/** `сегодня` / `24 нояб` / `24 нояб 2025` — a chart axis label, without the abbreviation dot. */
 export function formatTick(takenAt: number, now: number): string {
-  return formatTakenOn(takenAt, now).replace(/\.$/, '')
+  return formatTakenOn(takenAt, now).replace('.', '')
 }
 
 const pluralRules = new Intl.PluralRules('ru-RU')

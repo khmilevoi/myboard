@@ -370,4 +370,43 @@ describe('makeWeightView', () => {
       off()
     })
   })
+
+  it('keeps the range bounded when a reading is stamped far in the future', async () => {
+    const backing = createFakeStorage()
+    const future = Date.UTC(3000, 0, 1, 8)
+    const seeded = makeTestHealthModel({
+      storage: backing,
+      measurements: [
+        reading('a', daysAgo(20), 84),
+        reading('b', daysAgo(5), 83),
+        reading('future', future, 82),
+      ],
+    })
+    expect(await seeded.ready).toBeUndefined()
+    const months = new Set<string>()
+    const recording: StorageApi = {
+      ...backing,
+      subscribe: (key, listener, schema) => {
+        if (key.startsWith('measurements/')) months.add(key)
+        return backing.subscribe(key, listener, schema)
+      },
+    }
+    const { model } = makeTestHealthModel({ storage: recording })
+    const view = makeWeightView(modulesOf(model), () => NOW)
+    await context.start(async () => {
+      const off = connect(view)
+      const read = wrap(() => ({
+        state: view.state(),
+        latest: view.latest(),
+        points: view.points(),
+      }))
+      await vi.waitFor(() => expect(read().state).toBe('ready'))
+      // The range stops a day past now: only the 30-day window's months are read, not ~11 700.
+      expect([...months].sort()).toEqual(monthKeysInRange(daysAgo(30), NOW + DAY))
+      expect(read().points?.map((p) => p.kg)).toEqual([84, 83])
+      expect(read().latest?.id).toBe('future')
+      expect(formatTakenAt(future, NOW)).toBe('1 янв. 3000')
+      off()
+    })
+  })
 })

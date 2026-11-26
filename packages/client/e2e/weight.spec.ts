@@ -33,9 +33,13 @@ test('weight card updates live from seeded health readings, once per reading and
   // No reload: the ingest's storage write has to reach the card over the live stream.
   await expect(weight.card.value).toHaveText('83,0 кг')
 
-  // The board card's default size is the tiny tier, which cannot tell one point from two; the
-  // fullscreen view can — the single-reading hole, no delta, one row — and stays open, live,
-  // for the rest of the test.
+  // The board card opens on the standard tier, so it already tells one point from two: the
+  // single-reading hole and no delta.
+  await expect(weight.card.singleHint).toBeVisible()
+  await expect(weight.card.delta).toHaveCount(0)
+
+  // Only the fullscreen view lists the readings — one row — and it stays open, live, for the
+  // rest of the test.
   await weight.openFullscreen()
   await expect(weight.fullscreen.value).toHaveText('83,0 кг')
   await expect(weight.fullscreen.singleHint).toBeVisible()

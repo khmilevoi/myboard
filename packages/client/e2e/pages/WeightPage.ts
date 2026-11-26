@@ -52,7 +52,7 @@ export class WeightView {
 export class WeightPage {
   readonly board: BoardPage
   readonly overlay: OverlayPage
-  /** The board card. At its default size it is the tiny tier: the value and the date only. */
+  /** The board card. At its default size it is the standard tier: value, delta and trend, no list. */
   readonly card: WeightView
   readonly fullscreen: WeightView
 

@@ -106,12 +106,13 @@ export function makeWeightView(modules: WidgetModules, now: () => number) {
 
   const makeLens = (source: AtomLike<WeightPeriod>, name: string): WeightLens => {
     // Follows the period, the clock and the newest reading. `to` never falls before the latest
-    // reading, so a scale clock slightly ahead of this one cannot clip the newest point.
+    // reading, so a scale clock slightly ahead of this one cannot clip the newest point — but it
+    // stretches at most a day past now, so a far-future reading cannot widen the range by years.
     const range = computed<HealthRange>(() => {
       const days = PERIOD_DAYS[source()]
       const newest = latest()?.takenAt ?? 0
       const at = clock()
-      return { from: at - days * DAY_MS, to: Math.max(at, newest) }
+      return { from: at - days * DAY_MS, to: Math.min(Math.max(at, newest), at + DAY_MS) }
     }, `${name}.range`)
 
     // The module model is set once and kept, so each of these is built once.
