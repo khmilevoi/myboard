@@ -1,4 +1,4 @@
-import { computed } from '@reatom/core'
+import { action, computed, wrap } from '@reatom/core'
 import { ofeliaModule } from 'module-ofelia'
 import type { WidgetModules } from 'widget-runtime'
 import { reatomModule } from 'widget-sdk/modules/reatom-module'
@@ -19,5 +19,21 @@ export function makeStatsView(modules: WidgetModules) {
     return stats.map(({ person, cleanings, debt }) => ({ person, cleanings, debt }))
   }, 'ofeliaStats.rows')
 
-  return { rows, error: handle.error, retry: handle.retry }
+  // The module loaded but its ledger read failed and nothing is being retried:
+  // without this the card waits on a null ledger forever. Only while the ledger
+  // has never loaded — a later transient error must not replace loaded numbers,
+  // the same rule as the duty card's `loadFailed`.
+  const ledgerFailed = computed(() => {
+    const model = handle.model()
+    if (!model) return false
+    return model.ledger() === null && !model.ledgerLoading() && model.ledgerError() !== null
+  }, 'ofeliaStats.ledgerFailed')
+
+  const retryLedger = action(async () => {
+    const model = handle.model()
+    if (!model) return
+    await wrap(model.retryLedger())
+  }, 'ofeliaStats.retryLedger')
+
+  return { rows, error: handle.error, retry: handle.retry, ledgerFailed, retryLedger }
 }

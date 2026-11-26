@@ -8,27 +8,35 @@ import { makeStatsView } from '../model/stats-view'
 
 import styles from './ofelia-stats.module.css'
 
+function renderLoadError(onRetry: () => void) {
+  return (
+    <div className={styles.widget}>
+      <div className={styles.note} role="alert">
+        <p>Не удалось загрузить данные</p>
+        <button type="button" onClick={onRetry}>
+          Повторить
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export const OfeliaStats = reatomMemo(() => {
   const { modules } = useWidgetContext()
   const view = useMemo(() => makeStatsView(modules), [modules])
   const onRetry = useMemo(() => wrap(() => view.retry()), [view])
+  const onRetryLedger = useMemo(() => wrap(() => view.retryLedger()), [view])
 
+  // Read unconditionally so the hook set stays fixed whichever branch returns.
   const rows = useAtomValue(view.rows)
   const error = useAtomValue(view.error)
+  const ledgerFailed = useAtomValue(view.ledgerFailed)
 
   if (rows === null) {
-    if (error) {
-      return (
-        <div className={styles.widget}>
-          <div className={styles.note} role="alert">
-            <p>Не удалось загрузить данные</p>
-            <button type="button" onClick={onRetry}>
-              Повторить
-            </button>
-          </div>
-        </div>
-      )
-    }
+    // A failed module chunk or a failed ledger read is a real failure with a
+    // way out, not an endless "Загрузка…".
+    if (error) return renderLoadError(onRetry)
+    if (ledgerFailed) return renderLoadError(onRetryLedger)
     return (
       <div className={styles.widget}>
         <p className={styles.note}>Загрузка…</p>

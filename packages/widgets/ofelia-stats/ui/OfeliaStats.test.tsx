@@ -9,7 +9,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
   ModuleLoadError,
+  StorageError,
   WidgetRuntimeContext,
+  type StorageApi,
   type WidgetModules,
   type WidgetRuntimeProps,
 } from 'widget-runtime'
@@ -104,5 +106,31 @@ describe('OfeliaStats', () => {
 
     await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
     expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows a retry button when the ledger read fails, and retrying loads the numbers', async () => {
+    const entries = [cleaned(TODAY, 'Леша')]
+    const storage = createFakeStorage()
+    const get = vi.fn(async () => entries) as unknown as StorageApi['get']
+    // The connect-time read fails; only the retry's `get` succeeds.
+    const failing: StorageApi = {
+      ...storage,
+      get,
+      subscribe: (_key, listener) => {
+        queueMicrotask(() => listener(new StorageError({ reason: 'offline' })))
+        return () => {}
+      },
+    }
+    const { model } = makeTestOfeliaModel({ storage: failing, todayIso: TODAY })
+    renderStats({ get: async () => model } as unknown as WidgetModules)
+
+    const retry = await screen.findByRole('button', { name: 'Повторить' })
+    expect(screen.getByText('Не удалось загрузить данные')).toBeInTheDocument()
+    expect(screen.queryByText('Загрузка…')).not.toBeInTheDocument()
+    fireEvent.click(retry)
+
+    await waitFor(() => expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toBeVisible())
+    expect(screen.getByTestId('ofelia-stats-cleanings-Леша')).toHaveTextContent(/^1$/)
+    expect(get).toHaveBeenCalledTimes(1)
   })
 })
