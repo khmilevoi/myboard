@@ -17,6 +17,7 @@ import {
 } from './codegen/client'
 import {
   generateModules,
+  HostMissingModuleError,
   InvalidModuleDefinitionError,
   ReservedWidgetNameError,
   UnknownModuleReferenceError,
@@ -461,6 +462,25 @@ describe('codegen modules', () => {
     expect(await generateModules(paths)).toBeInstanceOf(ReservedWidgetNameError)
   })
 
+  it('fails when the board host does not depend on a module package', async () => {
+    // The host provides every module as a federation singleton (as it does widget-runtime);
+    // without the dependency it cannot, and the first widget remote to init would supply its
+    // own copy instead.
+    const paths = createTempCodegenPaths('modules-host-missing')
+    addModule(paths, 'notes', { hostDependency: false })
+    const result = await generateModules(paths)
+    expect(result).toBeInstanceOf(HostMissingModuleError)
+    expect((result as Error).message).toBe(
+      'The board host must depend on module package module-notes ("module-notes": "workspace:*")',
+    )
+  })
+
+  it('accepts a module package the board host depends on', async () => {
+    const paths = createTempCodegenPaths('modules-host-present')
+    addModule(paths, 'notes')
+    expect(await generateModules(paths)).not.toBeInstanceOf(Error)
+  })
+
   it('rejects duplicate module scopes', async () => {
     const paths = createTempCodegenPaths('modules-duplicate-scopes')
     addModule(paths, 'notes', {
@@ -476,8 +496,11 @@ function createTempCodegenPaths(name: string): CodegenPaths {
   const widgetDir = join(widgetsDir, 'probe')
   mkdirSync(widgetDir, { recursive: true })
   writeFileSync(join(widgetDir, 'package.json'), '{"name":"widgets-probe"}')
+  const hostPackageFile = join(root, 'client-package.json')
+  writeFileSync(hostPackageFile, JSON.stringify({ name: 'client', dependencies: {} }))
   return {
     widgetsDir,
+    hostPackageFile,
     scopedOwnersFile: join(root, 'scoped-owners.generated.ts'),
     portsFile: join(widgetsDir, '.ports.json'),
     clientCatalogFile: join(root, 'widget-catalog.generated.ts'),
@@ -493,8 +516,20 @@ function createTempCodegenPaths(name: string): CodegenPaths {
 function addModule(
   paths: CodegenPaths,
   dir: string,
-  options: { server?: boolean; definition?: string; version?: string } = {},
+  options: {
+    server?: boolean
+    definition?: string
+    version?: string
+    hostDependency?: boolean
+  } = {},
 ) {
+  if (options.hostDependency ?? true) {
+    const host = JSON.parse(readFileSync(paths.hostPackageFile, 'utf8')) as {
+      dependencies: Record<string, string>
+    }
+    host.dependencies[`module-${dir}`] = 'workspace:*'
+    writeFileSync(paths.hostPackageFile, JSON.stringify(host))
+  }
   const moduleDir = join(paths.modulesDir, dir)
   mkdirSync(moduleDir, { recursive: true })
   writeFileSync(

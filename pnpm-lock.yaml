@@ -203,6 +203,9 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
+      module-ofelia:
+        specifier: workspace:*
+        version: link:../modules/ofelia
       nanoid:
         specifier: ^5.1.15
         version: 5.1.15

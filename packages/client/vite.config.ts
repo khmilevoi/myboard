@@ -147,7 +147,7 @@ export default defineConfig(({ command }) => {
               name: 'board',
               filename: 'remoteEntry.js',
               remotes: widgetRemotes({ command, portsFile }),
-              shared: federationShared({ includeModules: false }),
+              shared: federationShared(),
               dev: { remoteHmr: true },
               manifest: false,
               // There is nothing to generate types for: widgets are consumed

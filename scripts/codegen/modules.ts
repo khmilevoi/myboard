@@ -39,6 +39,16 @@ export class UnknownModuleReferenceError extends errore.createTaggedError({
   name: 'UnknownModuleReferenceError',
   message: 'Widget $widgetId references unknown module $moduleId',
 }) {}
+/**
+ * The board host provides every module package as a federation singleton, the way it provides
+ * widget-runtime, so it has to depend on each one. Were a module left out of the host, the first
+ * widget remote to initialise would supply the singleton from its own bundle instead.
+ */
+export class HostMissingModuleError extends errore.createTaggedError({
+  name: 'HostMissingModuleError',
+  message:
+    'The board host must depend on module package $packageName ("$packageName": "workspace:*")',
+}) {}
 export class ReservedWidgetNameError extends errore.createTaggedError({
   name: 'ReservedWidgetNameError',
   message: 'Widget directory name $widgetId is reserved',
@@ -114,6 +124,18 @@ function readModulePackage(dir: string, packageFile: string) {
   return { packageName: parsed.name, version }
 }
 
+function readHostDependencies(hostPackageFile: string) {
+  const text = errore.try(() => fs.readFileSync(hostPackageFile, 'utf8'))
+  if (text instanceof Error) {
+    return new CodegenIoError({ operation: 'read', path: hostPackageFile, cause: text })
+  }
+  const parsed = errore.try(() => JSON.parse(text) as { dependencies?: Record<string, string> })
+  if (parsed instanceof Error) {
+    return new CodegenIoError({ operation: 'parse', path: hostPackageFile, cause: parsed })
+  }
+  return new Set(Object.keys(parsed?.dependencies ?? {}))
+}
+
 function extractScopes(value: unknown, dir: string) {
   if (value === null || typeof value !== 'object') {
     return new InvalidModuleDefinitionError({ moduleId: dir })
@@ -151,12 +173,19 @@ export async function prepareModules(
   const moduleDirs = fs.existsSync(paths.modulesDir) ? discoverWidgetDirs(paths.modulesDir) : []
   if (moduleDirs instanceof Error) return moduleDirs
 
+  const hostDependencies =
+    moduleDirs.length === 0 ? new Set<string>() : readHostDependencies(paths.hostPackageFile)
+  if (hostDependencies instanceof Error) return hostDependencies
+
   const modules: ModuleMeta[] = []
   const outputs: GeneratedOutput[] = []
   for (const dir of moduleDirs) {
     const moduleDir = path.resolve(paths.modulesDir, dir)
     const pkg = readModulePackage(dir, path.resolve(moduleDir, 'package.json'))
     if (pkg instanceof Error) return pkg
+    if (!hostDependencies.has(pkg.packageName)) {
+      return new HostMissingModuleError({ packageName: pkg.packageName })
+    }
     const entrypoint = path.resolve(moduleDir, 'module.ts')
     if (!fs.existsSync(entrypoint)) return new InvalidModuleDefinitionError({ moduleId: dir })
     const imported = await import(pathToFileURL(entrypoint).href).catch(
