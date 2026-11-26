@@ -765,8 +765,7 @@ describe('cron scheduler start', () => {
       expect(opsCalls).toBe(0)
 
       app.startCron()
-      await new Promise((resolve) => setTimeout(resolve, 60))
-      expect(opsCalls).toBeGreaterThan(0)
+      await vi.waitFor(() => expect(opsCalls).toBeGreaterThan(0))
     } finally {
       await app.close()
     }

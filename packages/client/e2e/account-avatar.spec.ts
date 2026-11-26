@@ -1,6 +1,5 @@
-import { expect, test } from '@playwright/test'
-
 import { AccountMenuPage } from './pages/AccountMenuPage.js'
+import { expect, test } from './support/test.js'
 
 // The seeded account's name (POST /api/test/seed-session).
 const SEEDED_NAME = 'E2E'
@@ -13,8 +12,8 @@ const FIXTURE_PNG = Buffer.from(
   'base64',
 )
 
-// No /api/test/reset here: the FLUSHDB is process-wide (see add-device.spec.ts). Each test seeds
-// its own fresh account and session, so the tests are isolated by construction.
+// No /api/test/reset here: each test seeds its own fresh account and session, so the tests are
+// isolated by construction (and every worker has its own stack, see support/stack.ts).
 //
 // This runs against the host/docker e2e stack, where /files/<blobId> is answered by the server's
 // Node fallback (through the preview proxy) with the same session and per-blob checks nginx's

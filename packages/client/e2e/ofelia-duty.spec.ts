@@ -1,6 +1,5 @@
-import { expect, test } from '@playwright/test'
-
 import { OfeliaPage } from './pages/OfeliaPage.js'
+import { expect, test } from './support/test.js'
 
 // Noon Europe/Warsaw (UTC+2 in June) → server "today" = 2026-06-16.
 // getOfeliaDutyByDate(2026-06-16) → Леша (diffDays 0 from BASE_DUTY_DATE, even).
