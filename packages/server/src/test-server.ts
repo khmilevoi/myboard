@@ -2,7 +2,7 @@ import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
-import { makeEntryBlobStore } from './files/production-blob-store'
+import { makeEntryBlobStore, startEntryBlobStoreBootstrap } from './files/production-blob-store'
 import { productionMigrations, runMigrations } from './migrations'
 import { productionModuleServerRegistry } from './modules/production-registry'
 import { productionFilePolicies } from './storage/production-file-policies'
@@ -38,8 +38,9 @@ if (authConfig instanceof Error) {
 
 const browserClient = createHttpBrowserAutomationClient(browserConfig)
 
-// Task 6 (Garage bootstrap) resolves this store once it has S3 credentials.
+// With FILES_S3_ENDPOINT set, file routes answer 503 until the Garage bootstrap succeeds.
 const blobs = makeEntryBlobStore(process.env)
+startEntryBlobStoreBootstrap({ env: process.env, blobs })
 
 const { server } = createApp({
   ops,

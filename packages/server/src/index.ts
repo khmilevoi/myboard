@@ -2,7 +2,7 @@ import { createApp } from './app'
 import { loadAuthConfig } from './auth/config'
 import { loadBrowserGatewayConfig } from './browser/config'
 import { createHttpBrowserAutomationClient } from './browser/http-client'
-import { makeEntryBlobStore } from './files/production-blob-store'
+import { makeEntryBlobStore, startEntryBlobStoreBootstrap } from './files/production-blob-store'
 import { MigrationFailedError, productionMigrations, runMigrations } from './migrations'
 import { productionModuleServerRegistry } from './modules/production-registry'
 import { productionFilePolicies } from './storage/production-file-policies'
@@ -28,8 +28,9 @@ const browserClient = createHttpBrowserAutomationClient(browserConfig)
 const ops = createValkeyOps()
 const testSetup = process.env.ALLOW_TEST_DB_RESET === '1' ? makeTestControls(ops) : undefined
 
-// Task 6 (Garage bootstrap) resolves this store once it has S3 credentials.
+// With FILES_S3_ENDPOINT set, file routes answer 503 until the Garage bootstrap succeeds.
 const blobs = makeEntryBlobStore(process.env)
+startEntryBlobStoreBootstrap({ env: process.env, blobs })
 
 const { server, startCron } = createApp({
   ops,
