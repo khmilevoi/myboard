@@ -73,7 +73,17 @@ in Valkey naming its owning slot, its access rule (`members` or one `account`), 
   `PUT /api/files/account/avatar` read the raw body, enforce the slot's `FilePolicy` (deny by
   default; size → 413, sniffed type vs declared and `accept` → 415), store the blob, write its
   record, and swap the slot under the slot's lock. The browser resizes images before upload
-  (`widget-sdk` `prepareImage`); the server has no native image code.
+  (`widget-sdk` `prepareImage`); the server never resizes.
+- **Image rules** live in `FilePolicy.image` (`square`, `maxSide`, `minSide`; the avatar is a
+  square of at most 512 px) and are checked by one pure function, `checkImageRules`
+  (`packages/shared/files/image-rules.ts`), on both sides. The browser checks the cropped result
+  before any request, for a clear message, then encodes it as WebP. The server is the authority:
+  for a slot with image rules it rejects a header that already breaks them, then fully decodes the
+  bytes and checks the decoded size — undecodable → 415 `file_image_undecodable`, a broken rule →
+  422 `file_image_rejected` with the `reason`. Both sides use the same codecs, jSquash's WebAssembly
+  builds of Squoosh, through the `image-codec` package: the browser fetches each `.wasm` lazily
+  from the bundler's assets, the server compiles the decoders at startup from `dist/wasm/` (copied
+  by `rspack.config.ts`) and answers image-rule uploads 503 until they are ready.
 - **Bytes live in Garage** — a single-node, single-copy self-hosted S3 (`dxflrs/garage:v2.6.0`,
   `deploy/garage/garage.toml`) behind the `BlobStore` interface. On startup the server bootstraps
   it idempotently through the Admin API v2 (`garage-bootstrap.ts`): node role and layout, bucket
