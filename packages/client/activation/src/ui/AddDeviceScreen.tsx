@@ -1,6 +1,18 @@
 import { notify } from '@reatom/core'
-import { AlertCircle, Camera, Check, Loader2, Lock, ShieldCheck, X } from 'lucide-react'
-import type { ClipboardEvent, KeyboardEvent } from 'react'
+import {
+  AlertCircle,
+  Camera,
+  Check,
+  Globe,
+  Loader2,
+  Lock,
+  QrCode,
+  ShieldCheck,
+  TimerOff,
+  WifiOff,
+  X,
+} from 'lucide-react'
+import type { ClipboardEvent, KeyboardEvent, ReactNode } from 'react'
 import { useState } from 'react'
 import { useZxing } from 'react-zxing'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
@@ -8,7 +20,7 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { type AddDeviceModel } from '../model/add-device-model'
+import { type AddDeviceModel, type ScanStatus } from '../model/add-device-model'
 import { activateRoute, closeScan } from '../model/routes'
 
 import styles from './AddDeviceScreen.module.css'
@@ -72,20 +84,118 @@ function passkeyButtonContent(loading: boolean) {
 }
 
 type ScannerOverlayProps = {
+  status: ScanStatus
   onDecode: (rawValue: string) => void
   onCameraError: () => void
   onClose: () => void
+  onResume: () => void
+  onRetry: () => void
+  onManual: () => void
 }
+
+type ScanSheetProps = {
+  tone: 'warning' | 'danger' | 'neutral'
+  icon: ReactNode
+  title: string
+  description: string
+  primaryLabel: string
+  onPrimary: () => void
+  onManual: () => void
+}
+
+// The panel that replaces the hint when a scanned code cannot be used (design
+// 4(b4)-4(b6)). The live preview keeps running behind it, so "Сканировать
+// снова" is instant.
+function ScanSheet({
+  tone,
+  icon,
+  title,
+  description,
+  primaryLabel,
+  onPrimary,
+  onManual,
+}: ScanSheetProps) {
+  return (
+    <div role="alert" className={styles.scanSheet}>
+      <div aria-hidden className={`${styles.scanSheetIcon} ${styles[`scanSheetIcon_${tone}`]}`}>
+        {icon}
+      </div>
+      <p className={styles.scanSheetTitle}>{title}</p>
+      <p className={styles.scanSheetDescription}>{description}</p>
+      <Button
+        type="button"
+        className="h-11 w-full rounded-[12px] text-[14.5px] font-semibold"
+        onClick={onPrimary}
+      >
+        {primaryLabel}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className={`h-11 w-full rounded-[12px] text-[14.5px] font-semibold ${styles.scanSheetSecondary}`}
+        onClick={onManual}
+      >
+        Ввести код вручную
+      </Button>
+    </div>
+  )
+}
+
+const SCAN_HINT = 'Наведите камеру на QR-код из окна «Добавить устройство»'
 
 // Full-screen camera overlay from Activate.dc.html. A separate component (not a
 // branch inside AddDeviceScreen) so `useZxing` — and the wasm barcode engine it
 // eagerly loads — only mounts once the user actually reaches the scanner.
-function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProps) {
+function ScannerOverlay({
+  status,
+  onDecode,
+  onCameraError,
+  onClose,
+  onResume,
+  onRetry,
+  onManual,
+}: ScannerOverlayProps) {
+  // Never `paused`: react-zxing stops the camera stream when paused, which
+  // would black out the preview behind the feedback panel. The model ignores
+  // decodes while a check or a panel is up instead (`stageScannedCode`).
   const { ref: videoRef } = useZxing({
     constraints: SCANNER_CAMERA_CONSTRAINTS,
     onDecodeResult: (result) => onDecode(result.rawValue),
     onError: onCameraError,
   })
+
+  const sheet =
+    status.kind === 'other-origin' ? (
+      <ScanSheet
+        tone="warning"
+        icon={<Globe size={17} strokeWidth={2} />}
+        title="QR-код с другого адреса"
+        description={`Он создан на ${status.codeHost}, а вы на ${status.currentHost}. Откройте добавление устройства на том же адресе, где создан код.`}
+        primaryLabel="Сканировать снова"
+        onPrimary={onResume}
+        onManual={onManual}
+      />
+    ) : status.kind === 'rejected' ? (
+      <ScanSheet
+        tone="danger"
+        icon={<TimerOff size={17} strokeWidth={2} />}
+        title="Код не подходит"
+        description="Он истёк (код действует 5 минут), уже использован или неверный. Создайте новый QR-код на устройстве, где вы вошли."
+        primaryLabel="Сканировать снова"
+        onPrimary={onResume}
+        onManual={onManual}
+      />
+    ) : status.kind === 'network' ? (
+      <ScanSheet
+        tone="neutral"
+        icon={<WifiOff size={17} strokeWidth={2} />}
+        title="Не удалось проверить код"
+        description="Нет связи с сервером. Проверьте интернет и попробуйте ещё раз."
+        primaryLabel="Повторить"
+        onPrimary={onRetry}
+        onManual={onManual}
+      />
+    ) : null
 
   return (
     <div
@@ -95,7 +205,10 @@ function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProp
       className={styles.scannerOverlay}
     >
       <video ref={videoRef} muted playsInline className={styles.scannerOverlayVideo} />
-      <div aria-hidden className={styles.scannerFrame}>
+      <div
+        aria-hidden
+        className={`${styles.scannerFrame} ${status.kind === 'checking' ? styles.scannerFrameChecking : ''} ${sheet ? styles.scannerFrameRaised : ''}`}
+      >
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTl}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerTr}`} />
         <div className={`${styles.scannerCorner} ${styles.scannerCornerBl}`} />
@@ -112,7 +225,23 @@ function ScannerOverlay({ onDecode, onCameraError, onClose }: ScannerOverlayProp
           <X size={17} strokeWidth={2.2} aria-hidden />
         </button>
       </div>
-      <p className={styles.scannerOverlayHint}>Наведите камеру на QR-код активации</p>
+      {status.kind === 'checking' ? (
+        <p role="status" className={`${styles.scanPill} ${styles.scanPillChecking}`}>
+          <Loader2 size={14} strokeWidth={2.4} className="animate-spin" aria-hidden />
+          Проверяем код…
+        </p>
+      ) : null}
+      {status.kind === 'foreign' ? (
+        <p role="status" className={`${styles.scanPill} ${styles.scanPillForeign}`}>
+          <QrCode size={14} strokeWidth={2.2} aria-hidden />
+          Это не QR-код myboard
+        </p>
+      ) : null}
+      {sheet ?? (
+        <p className={styles.scannerOverlayHint}>
+          {status.kind === 'checking' ? `Код ${formatManualCode(status.code)}` : SCAN_HINT}
+        </p>
+      )}
     </div>
   )
 }
@@ -121,6 +250,7 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   const mode = model.mode()
   const error = model.error()
   const ownerName = model.ownerName()
+  const scanStatus = model.scanStatus()
   // Whether the WebAuthn ceremony is in flight (panel 4(d1) "ready" vs 4(d2)
   // "creating…"). Sourced from the model's `startRegistration` withAsync status
   // (see model.ceremonyPending) rather than tracked as React state here.
@@ -150,6 +280,11 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
 
   function goToChoose() {
     model.goToChoose()
+    setManualValue('')
+  }
+
+  function goToManual() {
+    model.goToManual()
     setManualValue('')
   }
 
@@ -189,9 +324,9 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
     // the WebAuthn ceremony) here. `stageScannedCode` validates the code
     // against the server (extracting it from the raw scanned text itself)
     // and, only once confirmed, lands on 4(d1)'s "Создать passkey" button
-    // so the ceremony only ever starts from a real click. An unrecognized
-    // or server-rejected code routes back to 4(c1)'s manual-entry screen
-    // rather than stranding the user on 'registering'.
+    // so the ceremony only ever starts from a real click. A foreign,
+    // other-origin, rejected or unverifiable code is explained in place on
+    // the overlay through `model.scanStatus` (design 4(b2)-4(b6)).
     void model.stageScannedCode(rawValue)
   }
 
@@ -216,9 +351,13 @@ export const AddDeviceScreen = reatomMemo<AddDeviceScreenProps>(({ model }) => {
   if (scanning && !cameraDenied) {
     return (
       <ScannerOverlay
+        status={scanStatus}
         onDecode={handleDecode}
         onCameraError={handleCameraError}
         onClose={closeScanner}
+        onResume={() => model.resumeScan()}
+        onRetry={() => void model.retryScan()}
+        onManual={goToManual}
       />
     )
   }

@@ -3,7 +3,7 @@ import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { makeAddDeviceModel } from './add-device-model'
+import { classifyScannedText, FOREIGN_NOTICE_MS, makeAddDeviceModel } from './add-device-model'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -257,44 +257,160 @@ describe('submitManual', () => {
   })
 })
 
+const OPTIONS_OK = {
+  status: 200,
+  body: { options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } } },
+}
+
+describe('classifyScannedText', () => {
+  it('reads a same-origin add-device link as a code', () => {
+    expect(classifyScannedText('https://host/add-device?token=K7QP-3M9X', CURRENT_ORIGIN)).toEqual({
+      kind: 'code',
+      code: 'K7QP3M9X',
+    })
+  })
+
+  it('recognizes a well-formed add-device link minted on another origin', () => {
+    expect(
+      classifyScannedText('https://board.example/add-device?token=K7QP3M9X', CURRENT_ORIGIN),
+    ).toEqual({ kind: 'other-origin', codeHost: 'board.example' })
+  })
+
+  it('treats unrelated text, other paths and malformed tokens as foreign', () => {
+    expect(classifyScannedText('https://shop.example/item/42', CURRENT_ORIGIN)).toEqual({
+      kind: 'foreign',
+    })
+    expect(classifyScannedText('https://host/other?token=K7QP3M9X', CURRENT_ORIGIN)).toEqual({
+      kind: 'foreign',
+    })
+    expect(
+      classifyScannedText('https://board.example/add-device?token=nope', CURRENT_ORIGIN),
+    ).toEqual({ kind: 'foreign' })
+    expect(classifyScannedText('WIFI:S:home;T:WPA;P:secret;;', CURRENT_ORIGIN)).toEqual({
+      kind: 'foreign',
+    })
+  })
+})
+
 describe('stageScannedCode', () => {
   it('stages the scanned code and moves to registering once the server confirms it, exposing the owner name', async () => {
-    const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [
-        {
-          status: 200,
-          body: {
-            options: { challenge: 'add-device-challenge', user: { displayName: 'Анна Ковалёва' } },
-          },
-        },
-      ],
-    })
-    const model = makeAddDeviceModel({
-      currentOrigin: CURRENT_ORIGIN,
-      http,
-    })
+    const { http } = makeScriptedHttp({ '/api/auth/devices/register/options': [OPTIONS_OK] })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
 
-    await model.stageScannedCode('K7QP-3M9X')
+    const pending = model.stageScannedCode('K7QP-3M9X')
+    expect(model.scanStatus()).toEqual({ kind: 'checking', code: 'K7QP3M9X' })
+    await pending
 
     expect(model.token()).toBe('K7QP3M9X')
     expect(model.mode()).toBe('registering')
     expect(model.error()).toBeNull()
     expect(model.ownerName()).toBe('Анна Ковалёва')
+    expect(model.scanStatus()).toEqual({ kind: 'idle' })
   })
 
-  it('returns to manual mode with an error when the server rejects the scanned code, instead of stranding the user on registering', async () => {
+  it('stays on the scanner with a rejected status when the server refuses the code', async () => {
     const { http } = makeScriptedHttp({
-      '/api/auth/devices/register/options': [{ status: 404, body: { code: 'add_token_invalid' } }],
+      '/api/auth/devices/register/options': [{ status: 400, body: { code: 'add_token_invalid' } }],
     })
-    const model = makeAddDeviceModel({
-      currentOrigin: CURRENT_ORIGIN,
-      http,
-    })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
 
     await model.stageScannedCode('K7QP-3M9X')
 
+    expect(model.mode()).toBe('scanning')
+    expect(model.scanStatus()).toEqual({ kind: 'rejected', code: 'K7QP3M9X' })
+    // `error` drives the camera-denied screen; a rejected code must not set it.
+    expect(model.error()).toBeNull()
+  })
+
+  it('reports a network failure separately and retries the same code', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': ['network-error', OPTIONS_OK],
+    })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
+
+    await model.stageScannedCode('K7QP-3M9X')
+    expect(model.scanStatus()).toEqual({ kind: 'network', code: 'K7QP3M9X' })
+
+    await model.retryScan()
+
+    expect(calls.map((call) => call.json)).toEqual([{ token: 'K7QP3M9X' }, { token: 'K7QP3M9X' }])
+    expect(model.mode()).toBe('registering')
+  })
+
+  it('also treats a 5xx as a network failure, not a rejected code', async () => {
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [{ status: 503, body: {} }],
+    })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
+
+    await model.stageScannedCode('K7QP-3M9X')
+
+    expect(model.scanStatus()).toEqual({ kind: 'network', code: 'K7QP3M9X' })
+  })
+
+  it('explains a link from another origin without contacting the server', async () => {
+    const { http, calls } = makeScriptedHttp({})
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
+
+    await model.stageScannedCode('https://board.example/add-device?token=K7QP3M9X')
+
+    expect(calls).toHaveLength(0)
+    expect(model.scanStatus()).toEqual({
+      kind: 'other-origin',
+      codeHost: 'board.example',
+      currentHost: 'host',
+    })
+  })
+
+  it('shows a foreign-QR notice that lapses after the last foreign frame', async () => {
+    vi.useFakeTimers()
+    const { http, calls } = makeScriptedHttp({})
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
+
+    void model.stageScannedCode('https://shop.example/item/42')
+    expect(model.scanStatus()).toEqual({ kind: 'foreign' })
+
+    await vi.advanceTimersByTimeAsync(FOREIGN_NOTICE_MS - 1_000)
+    // The same stray code is still in view: the notice is renewed.
+    void model.stageScannedCode('https://shop.example/item/42')
+    await vi.advanceTimersByTimeAsync(1_500)
+    expect(model.scanStatus()).toEqual({ kind: 'foreign' })
+
+    await vi.advanceTimersByTimeAsync(FOREIGN_NOTICE_MS)
+    expect(model.scanStatus()).toEqual({ kind: 'idle' })
+    expect(calls).toHaveLength(0)
+  })
+
+  it('ignores further decodes while a code is being checked or a panel is open', async () => {
+    const { http, calls } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [{ status: 400, body: { code: 'add_token_invalid' } }],
+    })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
+
+    const first = model.stageScannedCode('K7QP-3M9X')
+    await model.stageScannedCode('K7QP-3M9X')
+    await first
+    await model.stageScannedCode('K7QP-3M9X')
+
+    expect(calls).toHaveLength(1)
+    expect(model.scanStatus()).toEqual({ kind: 'rejected', code: 'K7QP3M9X' })
+  })
+
+  it('accepts decodes again after resumeScan, and leaving the scanner clears the status', async () => {
+    const { http } = makeScriptedHttp({
+      '/api/auth/devices/register/options': [{ status: 400, body: { code: 'add_token_invalid' } }],
+    })
+    const model = makeAddDeviceModel({ currentOrigin: CURRENT_ORIGIN, scan: true, http })
+
+    await model.stageScannedCode('https://board.example/add-device?token=K7QP3M9X')
+    model.resumeScan()
+    expect(model.scanStatus()).toEqual({ kind: 'idle' })
+
+    await model.stageScannedCode('K7QP-3M9X')
+    expect(model.scanStatus()).toEqual({ kind: 'rejected', code: 'K7QP3M9X' })
+    model.goToManual()
     expect(model.mode()).toBe('manual')
-    expect(model.error()).not.toBeNull()
+    expect(model.scanStatus()).toEqual({ kind: 'idle' })
   })
 })
 
