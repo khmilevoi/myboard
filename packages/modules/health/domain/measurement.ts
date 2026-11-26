@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { MAX_TIMESTAMP } from './keys'
 import { METRIC_KINDS, METRIC_UNITS, type MetricKind } from './metrics'
 
 const MetricValueSchema = z.object({ value: z.number().finite(), unit: z.string() })
@@ -24,7 +25,7 @@ const MetricsSchema = z
 
 export const MeasurementSchema = z.object({
   id: z.string().min(1).max(200),
-  takenAt: z.number().int().nonnegative(),
+  takenAt: z.number().int().nonnegative().max(MAX_TIMESTAMP),
   metrics: MetricsSchema,
   source: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('hardware'), hardwareId: z.string(), model: z.string() }),

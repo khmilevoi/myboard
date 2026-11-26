@@ -105,4 +105,46 @@ describe('health server', () => {
       payload.safeParse({ from: Date.UTC(2021, 0, 1), to: Date.UTC(2026, 0, 1) }).success,
     ).toBe(false)
   })
+
+  it('bounds the range arithmetically: 60 months pass, 61 and out-of-Date values do not', () => {
+    const payload = schemas.listMeasurements.payload
+    // Jan 2021 .. Dec 2025 is exactly 60 months; Jan 2021 .. Jan 2026 is 61.
+    expect(
+      payload.safeParse({ from: Date.UTC(2021, 0, 1), to: Date.UTC(2025, 11, 31, 23) }).success,
+    ).toBe(true)
+    expect(
+      payload.safeParse({ from: Date.UTC(2021, 0, 31), to: Date.UTC(2026, 0, 1) }).success,
+    ).toBe(false)
+    // Beyond the Date range every UTC field is NaN; such a range must be rejected, not read as empty.
+    expect(payload.safeParse({ from: 0, to: Number.MAX_SAFE_INTEGER }).success).toBe(false)
+    expect(
+      payload.safeParse({ from: Number.MAX_SAFE_INTEGER - 1, to: Number.MAX_SAFE_INTEGER }).success,
+    ).toBe(false)
+    // Just under the Date bound with `from` at 0 spans millions of months: rejected without listing them.
+    expect(payload.safeParse({ from: 0, to: 8_640_000_000_000_000 }).success).toBe(false)
+  })
+
+  it('rejects an empty kinds filter', () => {
+    const payload = schemas.listMeasurements.payload
+    expect(payload.safeParse({ kinds: [], from: 0, to: 10 }).success).toBe(false)
+    expect(payload.safeParse({ kinds: ['weight'], from: 0, to: 10 }).success).toBe(true)
+  })
+
+  it('returns the first month whose ledger read fails', async () => {
+    const { context } = makeContext()
+    const first = new Error('may failed')
+    const second = new Error('june failed')
+    const account = context.api.storage.account as unknown as Record<string, unknown>
+    account.get = async (key: string) => {
+      if (key === 'measurements/2026-05') return first
+      if (key === 'measurements/2026-06') return second
+      return null
+    }
+    const out = await run(
+      'listMeasurements',
+      { from: Date.UTC(2026, 4, 2), to: Date.UTC(2026, 5, 2) },
+      context,
+    )
+    expect(out).toBe(first)
+  })
 })

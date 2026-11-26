@@ -1,7 +1,7 @@
 import type { InferWidgetEvents } from '@shared/widgets/contracts'
 import { z } from 'zod'
 
-import { MAX_RANGE_MONTHS, monthKeysInRange } from './keys'
+import { MAX_RANGE_MONTHS, MAX_TIMESTAMP, monthSpan } from './keys'
 import { MeasurementSchema } from './measurement'
 import { METRIC_KINDS } from './metrics'
 import { ProfileSchema } from './profile'
@@ -11,12 +11,12 @@ const MetricKindSchema = z.enum(METRIC_KINDS)
 
 const ListMeasurementsPayloadSchema = z
   .object({
-    kinds: z.array(MetricKindSchema).optional(),
-    from: z.number().int().nonnegative(),
-    to: z.number().int().nonnegative(),
+    kinds: z.array(MetricKindSchema).min(1).optional(),
+    from: z.number().int().nonnegative().max(MAX_TIMESTAMP),
+    to: z.number().int().nonnegative().max(MAX_TIMESTAMP),
   })
   .refine((p) => p.from <= p.to, { message: 'from must not be after to', path: ['from'] })
-  .refine((p) => p.from > p.to || monthKeysInRange(p.from, p.to).length <= MAX_RANGE_MONTHS, {
+  .refine((p) => p.from > p.to || monthSpan(p.from, p.to) <= MAX_RANGE_MONTHS, {
     message: `range must not span more than ${MAX_RANGE_MONTHS} months`,
     path: ['to'],
   })

@@ -20,9 +20,13 @@ const healthServer = defineModuleServer(healthContract, {
     },
 
     listMeasurements: async ({ kinds, from, to }, context) => {
+      const results = await Promise.all(
+        monthKeysInRange(from, to).map((key) =>
+          context.api.storage.account.get(key, MeasurementLedgerSchema),
+        ),
+      )
       const ledgers: Measurement[][] = []
-      for (const key of monthKeysInRange(from, to)) {
-        const ledger = await context.api.storage.account.get(key, MeasurementLedgerSchema)
+      for (const ledger of results) {
         if (ledger instanceof Error) return ledger
         ledgers.push(ledger ?? [])
       }

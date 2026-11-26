@@ -10,6 +10,9 @@ export const PROFILE_KEY = 'profile'
 
 export const MAX_RANGE_MONTHS = 60
 
+/** The largest epoch milliseconds a `Date` can hold; beyond it every date field is NaN. */
+export const MAX_TIMESTAMP = 8_640_000_000_000_000
+
 /** Ledger key of the UTC month containing `takenAt`. */
 export function monthKey(takenAt: number): string {
   const d = new Date(takenAt)
@@ -19,6 +22,21 @@ export function monthKey(takenAt: number): string {
 
 export function latestKey(kind: MetricKind): string {
   return `latest/${kind}`
+}
+
+/**
+ * How many UTC months `[from, to]` touches, inclusive, computed without listing them — so a payload
+ * schema can bound a range before anything is allocated. Non-positive when `from` is after `to`.
+ */
+export function monthSpan(from: number, to: number): number {
+  const start = new Date(from)
+  const end = new Date(to)
+  return (
+    end.getUTCFullYear() * 12 +
+    end.getUTCMonth() -
+    (start.getUTCFullYear() * 12 + start.getUTCMonth()) +
+    1
+  )
 }
 
 /** Ledger keys for every UTC month touched by `[from, to]`, inclusive, ascending. */

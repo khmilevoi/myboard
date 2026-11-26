@@ -38,6 +38,19 @@ describe('MeasurementSchema', () => {
     expect(MeasurementSchema.safeParse({ ...valid, takenAt: -1 }).success).toBe(false)
   })
 
+  it('rejects a takenAt beyond the Date range', () => {
+    // Past it monthKey() would write `measurements/NaN-NaN` and the card could not format the date.
+    expect(MeasurementSchema.safeParse({ ...valid, takenAt: 8_640_000_000_000_000 }).success).toBe(
+      true,
+    )
+    expect(MeasurementSchema.safeParse({ ...valid, takenAt: 8_640_000_000_000_001 }).success).toBe(
+      false,
+    )
+    expect(
+      MeasurementSchema.safeParse({ ...valid, takenAt: Number.MAX_SAFE_INTEGER }).success,
+    ).toBe(false)
+  })
+
   it('rejects an unknown metric kind', () => {
     const r = MeasurementSchema.safeParse({
       ...valid,
