@@ -137,7 +137,10 @@ describe('postRegisterOptions', () => {
     const result = await postRegisterOptions(deps, fakeReq({ token }))
 
     expect(result.status).toBe(200)
-    expect(result.body).toEqual({ options: { challenge: 'reg-challenge' } })
+    expect(result.body).toEqual({
+      options: { challenge: 'reg-challenge' },
+      invite: { expiresAt: 10 * MINUTE },
+    })
     const cookies = getSetCookies(result.headers)
     expect(cookies).toHaveLength(1)
     expect(cookies[0]).toContain('HttpOnly')

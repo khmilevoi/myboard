@@ -67,6 +67,8 @@ export type ScanStatus =
   | { kind: 'rejected'; code: string }
   // The server could not be reached or failed; retrying the same code helps.
   | { kind: 'network'; code: string }
+  // A same-origin invite link: the frame locks on, then the invite card opens.
+  | { kind: 'invite'; token: string }
 
 // Shown on the camera-denied screen (design 4(b2)) when the camera cannot be
 // opened: permission denied, no camera, or no mediaDevices at all.
@@ -80,12 +82,17 @@ export type ScannerCamera =
 
 export type ScannedText =
   | { kind: 'code'; code: string }
+  | { kind: 'invite'; token: string }
   | { kind: 'other-origin'; codeHost: string }
   | { kind: 'foreign' }
 
 // How long the "Это не QR-код myboard" notice stays after the last frame that
 // decoded to a foreign QR code.
 export const FOREIGN_NOTICE_MS = 3_000
+
+// How long the "Приглашение найдено" lock-on plays before the invite card
+// replaces the scanner.
+export const INVITE_LOCK_MS = 600
 
 export interface AddDeviceStorage {
   get(): string | null
@@ -115,6 +122,8 @@ export interface AddDeviceDeps {
   startRegistrationCeremony: typeof browserStartRegistration
   // Camera access for the scanner; undefined where the browser has none.
   mediaDevices: ScannerMediaDevices | undefined
+  // Continues a scanned invite QR on the invite card (the activate route).
+  openInvite: (token: string) => void
 }
 
 function defaultOrigin(): string {
@@ -192,6 +201,16 @@ function normalizeAddCode(input: string): string | null {
 }
 
 const ADD_DEVICE_PATH = '/add-device'
+const ACTIVATE_PATH = '/activate'
+// Invite tokens are 32 random bytes in base64url (server randomToken()); the
+// range leaves room without accepting arbitrary text.
+const INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{16,128}$/
+
+function inviteTokenOf(url: URL): string | null {
+  if (url.pathname !== ACTIVATE_PATH && url.pathname !== `${ACTIVATE_PATH}/`) return null
+  const token = url.searchParams.get('token')
+  return token && INVITE_TOKEN_RE.test(token) ? token : null
+}
 const URL_SCHEME_RE = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//
 
 function extractAddCodeFrom(text: string, currentOrigin: string): string | null {
@@ -235,7 +254,11 @@ export function classifyScannedText(text: string, currentOrigin: string): Scanne
   } catch {
     return { kind: 'foreign' }
   }
-  if (url.origin === currentOrigin) return { kind: 'foreign' }
+  const inviteToken = inviteTokenOf(url)
+  if (url.origin === currentOrigin) {
+    return inviteToken ? { kind: 'invite', token: inviteToken } : { kind: 'foreign' }
+  }
+  if (inviteToken) return { kind: 'other-origin', codeHost: url.host }
   if (url.pathname !== ADD_DEVICE_PATH) return { kind: 'foreign' }
   const token = url.searchParams.get('token')
   if (!token || !normalizeAddCode(token)) return { kind: 'foreign' }
@@ -320,6 +343,9 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     storage: overrides.storage ?? defaultStorage(),
     http: overrides.http ?? new HttpClient(),
     startRegistrationCeremony: overrides.startRegistrationCeremony ?? browserStartRegistration,
+    openInvite:
+      overrides.openInvite ??
+      ((inviteToken) => window.location.assign(`/activate?token=${inviteToken}`)),
     mediaDevices:
       'mediaDevices' in overrides
         ? overrides.mediaDevices
@@ -565,6 +591,14 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
       const notice: ScanStatus = { kind: 'foreign' }
       scanStatus.set(notice)
       void expireForeignNotice(notice)
+      return
+    }
+    if (scanned.kind === 'invite') {
+      scanStatus.set({ kind: 'invite', token: scanned.token })
+      await wrap(new Promise((resolve) => setTimeout(resolve, INVITE_LOCK_MS)))
+      // The user closed the scanner during the lock-on.
+      if (mode() !== 'scanning') return
+      deps.openInvite(scanned.token)
       return
     }
     if (scanned.kind === 'other-origin') {

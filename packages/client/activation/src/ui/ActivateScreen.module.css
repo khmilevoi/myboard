@@ -118,3 +118,128 @@
   color: var(--muted-foreground);
   text-align: center;
 }
+
+/* ---------- invite flow states ---------- */
+
+/* One screen of the card. Keyed by screen in ActivateScreen, so each state
+   change replays the step-in (fade + 10px rise); Shell animates the height. */
+.step {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  animation: activateStepIn 320ms var(--ease);
+}
+@keyframes activateStepIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.statusBlock {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 22px;
+}
+.statusBlock .heading {
+  margin-top: 14px;
+}
+
+.statusIcon {
+  display: flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  animation: statusIconPop 360ms var(--ease);
+}
+.statusIconLarge {
+  width: 60px;
+  height: 60px;
+}
+@keyframes statusIconPop {
+  from {
+    transform: scale(0.82);
+    opacity: 0;
+  }
+}
+.statusIcon_accent {
+  background: var(--accent-soft);
+  color: var(--primary);
+}
+.statusIcon_success {
+  background: oklch(from var(--success) l c h / 0.14);
+  color: var(--success);
+}
+.statusIcon_warning {
+  background: #faeeda;
+  color: #854f0b;
+}
+.statusIcon_danger {
+  background: var(--destructive-soft);
+  color: var(--destructive);
+}
+.statusIcon_neutral {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* The tick draws itself in once the icon has popped. */
+.checkDraw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: checkDraw 420ms var(--ease) 140ms forwards;
+}
+@keyframes checkDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Placeholder lines under "Проверяем приглашение…". */
+.skeleton {
+  width: 78%;
+  height: 10px;
+  margin-top: 14px;
+  border-radius: 6px;
+  background: var(--muted);
+  animation: skeletonPulse 1.2s ease-in-out infinite;
+}
+.skeletonShort {
+  width: 52%;
+  margin-top: 9px;
+}
+@keyframes skeletonPulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .statusIcon,
+  .skeleton {
+    animation: none;
+  }
+  .checkDraw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
