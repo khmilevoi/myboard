@@ -38,16 +38,26 @@ export const FileRefSchema = z.object({
 export type FileRef = z.infer<typeof FileRefSchema>
 
 /**
- * What a slot accepts. `accept` entries are an exact `type/subtype`, a `type/*` family, or `*\/*`.
- * `maxBytes` is clamped to `FILES_HARD_MAX_BYTES`.
+ * Pixel rules for a slot that holds images, checked by `checkImageRules` (`./image-rules`): in the
+ * browser before an upload, for the message, and on the server after a full decode, as the
+ * authority. `square` wants width === height; `maxSide` / `minSide` bound both sides.
  */
-export type FilePolicy = { accept: readonly string[]; maxBytes: number }
+export type FileImagePolicy = { square?: boolean; maxSide?: number; minSide?: number }
+
+/**
+ * What a slot accepts. `accept` entries are an exact `type/subtype`, a `type/*` family, or `*\/*`.
+ * `maxBytes` is clamped to `FILES_HARD_MAX_BYTES`. With `image`, an upload must also decode as a
+ * PNG, JPEG or WebP whose pixels satisfy those rules.
+ */
+export type FilePolicy = { accept: readonly string[]; maxBytes: number; image?: FileImagePolicy }
 
 export const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const
 
+/** The browser uploads a 256×256 WebP; the server takes any square up to 512 px. */
 export const AVATAR_POLICY: FilePolicy = {
   accept: IMAGE_MIME_TYPES,
   maxBytes: 2 * 1024 * 1024,
+  image: { square: true, maxSide: 512 },
 }
 
 const MIME_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/

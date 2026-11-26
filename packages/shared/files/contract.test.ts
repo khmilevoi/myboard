@@ -27,11 +27,12 @@ const ref = {
 }
 
 describe('files contract', () => {
-  it('caps every upload at 25 MiB and avatars at 2 MiB of png/jpeg/webp', () => {
+  it('caps every upload at 25 MiB and avatars at 2 MiB of square png/jpeg/webp up to 512 px', () => {
     expect(FILES_HARD_MAX_BYTES).toBe(26_214_400)
     expect(AVATAR_POLICY).toEqual({
       accept: ['image/png', 'image/jpeg', 'image/webp'],
       maxBytes: 2_097_152,
+      image: { square: true, maxSide: 512 },
     })
     expect(effectiveMaxBytes({ accept: ['*/*'], maxBytes: 10 ** 9 })).toBe(FILES_HARD_MAX_BYTES)
     expect(effectiveMaxBytes({ accept: ['*/*'], maxBytes: 10 })).toBe(10)
