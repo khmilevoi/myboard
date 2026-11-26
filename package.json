@@ -27,6 +27,7 @@
     "deploy": "rpi deploy",
     "deploy:dev": "rpi deploy --env dev",
     "deploy:branch": "rpi deploy --env branch",
+    "stand:login": "pnpm --filter client stand:login",
     "test": "pnpm run codegen && pnpm run test:workspace",
     "test:unit": "vitest run",
     "test:workspace": "pnpm run test:unit && pnpm -r test",

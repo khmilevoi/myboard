@@ -47,7 +47,8 @@ rpi deploy --env dev
 
 The dev environment runs under the project key `myboard--dev` with its own compose project, network
 and Valkey volume, so its data starts empty, and WebAuthn is scoped to `board-dev.iiskelo.com` — it
-needs its own device invite (`rpi command create-invite --env dev`).
+needs its own device invite (`rpi command create-invite --env dev`; an agent signs itself in with
+`pnpm stand:login --env dev`, see [Signing an agent into a stand](#signing-an-agent-into-a-stand)).
 
 Once dev is verified, open a PR from `dev` into `main`, merge it, and deploy production with
 `rpi deploy`. Keep `dev` a fast-forward ahead of `main`; do not cherry-pick individual commits into
@@ -72,6 +73,39 @@ itself.
 A rebuilt branch project does get a fresh deploy key, and the first deploy can lose the race between
 registering it on GitHub and cloning — if `git clone` fails with `Permission denied (publickey)`,
 just run the command again.
+
+## Signing an agent into a stand
+
+An agent tests `board-dev` and `board-branch` with a passkey of its own, without the user:
+
+```bash
+pnpm stand:login --env dev      # or --env branch
+```
+
+It prints the path of a Playwright storage state, `.auth/stand/<env>/storage.json` in the **main
+checkout** (shared by every worktree, gitignored). Load it with `storageState` in a Playwright
+script, or with `browser_set_storage_state` in the `playwright` MCP. That tool needs the server
+started with `--caps=storage`.
+
+The passkey is a CDP WebAuthn virtual authenticator, the same one `e2e/support/webauthn.ts` uses.
+The server cannot tell it from hardware, because the stand checks the signature, origin and `RP_ID`
+but no attestation. The script takes the cheapest path that works:
+
+1. the saved session cookie still passes `GET /api/auth/session`, so nothing happens;
+2. the saved credential (`credential.json`, the private key exported with
+   `WebAuthn.getCredentials`) is put back into a fresh authenticator and signs in through
+   `/activate`, so no new invite or device is created;
+3. otherwise `rpi command create-invite --env <env> -- --label agent --ttl 15m` mints a one-use
+   invite and the authenticator registers a new account named `agent` on it. This happens on a fresh
+   stand, after `rpi env reset-data`, after the branch TTL reaper, or with `--fresh-invite`.
+
+`rpi` must be on `PATH` for step 3. The account shows up in `rpi command list-devices --env <env>` as
+`agent`, and `revoke-account` / `revoke-device` take it down like any other. Production is not a
+target: the stand list in `packages/client/scripts/stand-login/model.ts` holds only `dev` and
+`branch`, and an invite printed for any other origin is refused.
+
+Do not reach for `/api/test/seed-session` instead. It exists only with `ALLOW_TEST_DB_RESET`, which
+also exposes the database reset and server-time override, and must never be set on a public stand.
 
 ## Which stack am I looking at
 
