@@ -100,3 +100,15 @@ service = "server"
 [commands.backup]
 run = "sh -c 'valkey-cli SAVE && mkdir -p /data/backups && cp /data/dump.rdb /data/backups/dump-$(date +%Y%m%d-%H%M%S).rdb && ls -lh /data/backups'"
 service = "valkey"
+
+# File slots live in Garage (garage_meta + garage_data volumes). Data blocks
+# are immutable and content-addressed, so the only thing that needs a
+# consistent copy is the metadata DB: this asks Garage for a clean snapshot in
+# garage_meta's snapshots/ (it keeps the two newest; garage.toml also takes one
+# every 6h). Same guarantee as `backup` above: it survives bad deploys and a
+# corrupted DB after an unclean stop, not volume deletion. Run both:
+#   rpi command backup && rpi command backup-files
+# The garage image has no shell, hence the bare binary.
+[commands.backup-files]
+run = "/garage meta snapshot --all"
+service = "garage"

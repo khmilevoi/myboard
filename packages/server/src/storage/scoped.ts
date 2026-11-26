@@ -1,3 +1,4 @@
+import { fileSlotInnerKey } from '@shared/files/contract'
 import {
   moduleAccountNamespace,
   moduleSharedNamespace,
@@ -120,5 +121,17 @@ export function resolveScopedNamespace(options: {
 
 export function validateScopedKey(key: string): ScopedKeyInvalidError | string {
   if (!isValidRelativeKey(key)) return new ScopedKeyInvalidError()
+  return key
+}
+
+/**
+ * An SSE subscription may name a value key or a file slot (`@files/<key>`): a slot's ref is
+ * published under its full key, so subscribers see uploads like any other scoped change. Only
+ * subscriptions accept the `@files/` form — the value routes still refuse it.
+ */
+export function validateScopedSubscriptionKey(key: string): ScopedKeyInvalidError | string {
+  const inner = fileSlotInnerKey(key)
+  const checked = validateScopedKey(inner ?? key)
+  if (checked instanceof Error) return checked
   return key
 }

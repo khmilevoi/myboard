@@ -1,6 +1,7 @@
 packages:
   - packages/browser-automation
   - packages/client
+  - packages/image-codec
   - packages/modules/*
   - packages/server
   - packages/shared

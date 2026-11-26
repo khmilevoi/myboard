@@ -19,6 +19,49 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # One-shot: generates Garage's RPC secret and admin token into the
+  # garage_secrets volume on first boot and leaves existing ones alone, so no
+  # `rpi secrets push` entry exists for them. 0600 because Garage refuses
+  # secrets readable by group/others; garage and server both run as root, so
+  # both can still read them. Written to a temp name and renamed, so a crash
+  # mid-write never leaves a truncated secret behind.
+  files-secrets:
+    image: alpine:3.22
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        umask 077
+        for name in rpc_secret admin_token; do
+          if [ ! -s "/secrets/$$name" ]; then
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d '[:space:]' > "/secrets/$$name.tmp"
+            mv "/secrets/$$name.tmp" "/secrets/$$name"
+            echo "generated $$name"
+          fi
+          chmod 600 "/secrets/$$name"
+        done
+    volumes:
+      - garage_secrets:/secrets
+    restart: 'no'
+
+  # Self-hosted S3 for file slots (deploy/garage/garage.toml). No published
+  # ports: server reaches the S3 (3900) and admin (3903) APIs, client (nginx)
+  # the website endpoint (3902), all over the compose network. The image is
+  # scratch-based (no shell, no wget), so there is no healthcheck -- the
+  # server retries its bootstrap until Garage answers.
+  garage:
+    image: dxflrs/garage:v2.6.0
+    depends_on:
+      files-secrets:
+        condition: service_completed_successfully
+    volumes:
+      - ./deploy/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+      - garage_secrets:/run/garage-secrets:ro
+    restart: unless-stopped
+
   server:
     build:
       context: .
@@ -46,9 +89,21 @@ services:
       # Test seeding/reset endpoints for the nginx e2e suite. NEVER set in
       # production; empty/absent keeps them disabled.
       ALLOW_TEST_DB_RESET: ${ALLOW_TEST_DB_RESET:-}
+      # File slots in Garage. The server bootstraps the node, the `files`
+      # bucket and its S3 key through the admin API on startup (retrying
+      # with backoff); file routes answer 503 until that succeeds.
+      FILES_S3_ENDPOINT: http://garage:3900
+      FILES_GARAGE_ADMIN_URL: http://garage:3903
+      FILES_GARAGE_ADMIN_TOKEN_FILE: /run/garage-secrets/admin_token
+    volumes:
+      - garage_secrets:/run/garage-secrets:ro
     depends_on:
       valkey:
         condition: service_healthy
+      files-secrets:
+        condition: service_completed_successfully
+      garage:
+        condition: service_started
     expose:
       - '8787'
     healthcheck:
@@ -141,6 +196,9 @@ services:
 volumes:
   valkey_data:
   browser_profile:
+  garage_meta:
+  garage_data:
+  garage_secrets:
 
 networks:
   default:

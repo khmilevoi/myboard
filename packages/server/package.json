@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
+    "aws4fetch": "^1.0.20",
     "cookie": "^2.0.1",
     "croner": "^10.0.1",
     "errore": "catalog:",
@@ -26,6 +27,7 @@
     "@types/node": "catalog:",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/ws": "^8.18.1",
+    "image-codec": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "ws": "^8.21.1"

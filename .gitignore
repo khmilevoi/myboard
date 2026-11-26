@@ -28,6 +28,9 @@ pnpm-debug.log*
 # agent passkeys and sessions for the dev/branch stands (pnpm stand:login)
 .auth/
 
+# local file-slot blobs of host-run dev and e2e (FILES_FS_DIR default)
+.data/
+
 # editor / os
 .DS_Store
 .idea/

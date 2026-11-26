@@ -10,5 +10,6 @@ describe('widget-sdk package entrypoints', () => {
     expect(typeof defineWidgetClient).toBe('function')
     expect(typeof reatomMemo).toBe('function')
     expect(apiProxy()['/api'].target).toBe('http://localhost:8787')
+    expect(apiProxy()['^/files/'].target).toBe('http://localhost:8787')
   })
 })

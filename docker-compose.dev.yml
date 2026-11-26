@@ -79,6 +79,11 @@ services:
       SESSION_TTL_SLIDING: 30d
       SESSION_TTL_ABSOLUTE: 90d
       TRUST_CF_CONNECTING_IP: '0'
+      # No Garage in the hot-reload stack: without FILES_S3_ENDPOINT the server
+      # keeps file slots on disk, in the gitignored packages/server/.data/files
+      # of the bind mount, and serves /files/<id> itself (Vite proxies it).
+      # `pnpm start:docker` is the stack that runs the production Garage path.
+      FILES_FS_DIR: .data/files
     volumes: *workspace-volumes
     ports:
       - '127.0.0.1:8787:8787'

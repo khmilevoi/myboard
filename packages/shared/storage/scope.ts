@@ -20,6 +20,14 @@
  * `m:<moduleId>:s:` (module shared data) and `m:<moduleId>:a:<accountId>:` (module account data).
  * `w:a:` is a separate prefix on purpose: `w:t:<typeId>:a:` could collide with an existing
  * relative key that starts with `a:`.
+ *
+ * File slots (`packages/shared/files/contract.ts`): a scoped branch's file slot lives at
+ * `<branch namespace>@files/<relativeKey>`, and its value is a file ref JSON. The `@` is outside
+ * `RELATIVE_KEY_PATTERN`, so no generic or scoped storage write can reach a slot, and scoped
+ * listings hide the `@files/` sub-namespace. Each blob has a record at `files:blob:<blobId>`
+ * (outside `ALLOWED_STORAGE_NAMESPACES`) naming its owning slot's full key and its access rule.
+ * An account avatar is the `avatar` field of the `account:<id>` record, not a storage key. Renaming
+ * the `@files/` prefix or the `files:blob:` prefix orphans every uploaded file the same way.
  */
 export function instanceNamespace(instanceId: string): string {
   return `w:i:${instanceId}:`

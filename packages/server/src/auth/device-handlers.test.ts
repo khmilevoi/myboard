@@ -15,7 +15,7 @@ import { getDevice, storeDevice } from './devices'
 import { AddTokenInvalidError, WebAuthnVerificationError } from './errors'
 import type { AuthDeps } from './handlers'
 import { issuePendingTicket } from './pending-tickets'
-import { AddTokenRecordSchema, addTokenKey, getJson } from './records'
+import { AddTokenRecordSchema, accountKey, addTokenKey, getJson, setJson } from './records'
 import { issueSession, verifySession } from './sessions'
 import { sha256hex } from './tokens'
 
@@ -599,9 +599,9 @@ describe('getAccountInfo', () => {
     expect(result.status).toBe(401)
   })
 
-  it('returns id/name/deviceLimit for the session account', async () => {
+  it('returns id/name/deviceLimit/createdAt for the session account', async () => {
     const ops = makeOps()
-    const clock = makeClock(0)
+    const clock = makeClock(1_765_000_000_000)
     const config = makeConfig()
     const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
     const session = await issueSession(ops, config, clock.now, {
@@ -616,7 +616,12 @@ describe('getAccountInfo', () => {
     )
 
     expect(result.status).toBe(200)
-    expect(result.body).toEqual({ id: account.id, name: 'Acc', deviceLimit: account.deviceLimit })
+    expect(result.body).toEqual({
+      id: account.id,
+      name: 'Acc',
+      deviceLimit: account.deviceLimit,
+      createdAt: 1_765_000_000_000,
+    })
   })
 })
 
@@ -653,6 +658,46 @@ describe('getAccounts', () => {
       accounts: expect.arrayContaining([
         { accountId: account.id, name: 'Acc' },
         { accountId: other.id, name: 'Карина' },
+      ]),
+    })
+  })
+})
+
+describe('avatarUrl', () => {
+  const avatar = {
+    blobId: 'AvatarAvatarAvatar0001',
+    mime: 'image/webp',
+    size: 10,
+    image: { width: 256, height: 256 },
+    updatedAt: 1,
+  }
+
+  it('appears in getAccountInfo and getAccounts for an account with an avatar only', async () => {
+    const ops = makeOps()
+    const clock = makeClock(0)
+    const config = makeConfig()
+    const account = await seedAccountWithDevice(ops, clock.now, 'cred-active')
+    const other = await createAccount(ops, clock.now, { name: 'Без фото', inviteId: 'inv-2' })
+    await setJson(ops, accountKey(account.id), { ...account, avatar })
+    const session = await issueSession(ops, config, clock.now, {
+      accountId: account.id,
+      credentialId: 'cred-active',
+    })
+    const deps: AuthDeps = { ops, config, now: clock.now, audit: vi.fn() }
+    const req = () => fakeReq(undefined, { cookie: `mb_session=${session.sessionId}` })
+
+    expect((await getAccountInfo(deps, req())).body).toEqual({
+      id: account.id,
+      name: 'Acc',
+      deviceLimit: account.deviceLimit,
+      createdAt: account.createdAt,
+      avatarUrl: '/files/AvatarAvatarAvatar0001',
+    })
+    expect((await getAccounts(deps, req())).body).toEqual({
+      viewerAccountId: account.id,
+      accounts: expect.arrayContaining([
+        { accountId: account.id, name: 'Acc', avatarUrl: '/files/AvatarAvatarAvatar0001' },
+        { accountId: other.id, name: 'Без фото' },
       ]),
     })
   })
