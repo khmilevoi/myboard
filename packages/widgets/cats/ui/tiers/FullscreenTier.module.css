@@ -10,14 +10,3 @@
   container-type: inline-size;
   container-name: cats-large;
 }
-
-.panel {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  min-block-size: 0;
-  padding: 20px 22px;
-  overflow: auto;
-}

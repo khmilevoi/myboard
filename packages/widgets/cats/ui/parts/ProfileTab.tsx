@@ -2,7 +2,6 @@ import { wrap } from '@reatom/core'
 import type { GoalHintReason } from 'module-cats'
 import type { CatProfileFields } from 'module-cats/domain/cat'
 import { formatAge, formatDayMonth, formatKg } from 'module-cats/format'
-import { CatAvatar, CatAvatarStack } from 'module-cats/ui/CatAvatar'
 import { parseDateInput } from 'module-cats/weigh-form'
 import { useId, type ChangeEvent, type FormEvent } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
@@ -11,10 +10,11 @@ import { Input } from 'widget-sdk/ui/input'
 import { ToggleGroup, ToggleGroupItem } from 'widget-sdk/ui/toggle-group'
 
 import type { GoalForm } from '@/model/goal-form'
-import { litterValue, type ProfileForm, type ProfileLitterOption } from '@/model/profile-form'
+import { litterValue, type ProfileForm } from '@/model/profile-form'
 
 import { useCats } from '../cats-context'
 import { AvatarField } from './AvatarField'
+import { LitterMark } from './LitterMark'
 
 import styles from './ProfileTab.module.css'
 
@@ -132,21 +132,6 @@ const GoalBox = reatomMemo<{ form: GoalForm }>(({ form }) => {
   )
 }, 'CatsGoalBox')
 
-const LitterMark = reatomMemo<{ option: ProfileLitterOption }>(({ option }) => {
-  const [only] = option.cats
-  if (option.cats.length === 0) {
-    return (
-      <span className={styles.newMark} aria-hidden>
-        +
-      </span>
-    )
-  }
-  if (option.cats.length === 1 && only) {
-    return <CatAvatar name={only.name} tone={only.tone} photoUrl={only.avatar} size="list" />
-  }
-  return <CatAvatarStack cats={option.cats} size="list" />
-}, 'CatsLitterMark')
-
 const LitterBox = reatomMemo<{ form: ProfileForm }>(({ form }) => {
   const noteId = useId()
   const options = form.litterOptions()
@@ -173,7 +158,7 @@ const LitterBox = reatomMemo<{ form: ProfileForm }>(({ form }) => {
       >
         {options.map((option) => (
           <ToggleGroupItem key={option.value} value={option.value} className={styles.option}>
-            <LitterMark option={option} />
+            <LitterMark cats={option.cats} />
             <span className={styles.optionTitle}>{option.title}</span>
             {option.note && <span className={styles.optionNote}>{option.note}</span>}
           </ToggleGroupItem>

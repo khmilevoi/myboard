@@ -1,0 +1,15 @@
+/* The mark of a litter option that has no cat yet: a dashed square with a plus. */
+.newMark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 6px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}

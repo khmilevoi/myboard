@@ -43,6 +43,8 @@ export type CatsModel = {
    */
   cats: Computed<CatSummary[] | null>
   archivedCats: Computed<CatSummary[] | null>
+  /** When each archived cat was archived (server time, ms), by cat id; null while the registry loads. */
+  archivedAt: Computed<Record<string, number> | null>
   /** Litters at least one active cat points at, in litter-registry order. */
   litters: Computed<LitterSummary[] | null>
   /** The same `CatModel` for the same id, so every view of a cat shares its atoms. */
@@ -143,6 +145,13 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
         )
   }, 'cats.archivedCats')
 
+  const archivedAt = computed(() => {
+    const registry = catRegistry()
+    return registry === null
+      ? null
+      : Object.fromEntries(registry.archived.map(({ catId, archivedAt: at }) => [catId, at]))
+  }, 'cats.archivedAt')
+
   const litters = computed<LitterSummary[] | null>(() => {
     const ids = litterIds()
     const active = cats()
@@ -187,7 +196,18 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
     if (result instanceof Error) return result
   }, 'cats.restoreCat')
 
-  return { today, cats, archivedCats, litters, cat, litter, addCat, archiveCat, restoreCat }
+  return {
+    today,
+    cats,
+    archivedCats,
+    archivedAt,
+    litters,
+    cat,
+    litter,
+    addCat,
+    archiveCat,
+    restoreCat,
+  }
 }
 
 // The avatar is the cat's file slot, never `profile.avatar`, which stays null.

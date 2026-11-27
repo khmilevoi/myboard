@@ -228,7 +228,7 @@ describe('Cats — tiers', () => {
     expect(screen.queryByRole('button', { name: SWITCHER })).not.toBeInTheDocument()
   })
 
-  it('no cats: "Кошек пока нет" and the add button opens the list in fullscreen', async () => {
+  it('no cats: "Кошек пока нет" and the add button opens the "Новая кошка" form right there', async () => {
     const { props } = setup(NO_CATS)
     renderCats(props)
 
@@ -237,15 +237,26 @@ describe('Cats — tiers', () => {
       screen.getByText('Добавьте кошку — её увидят все кошачьи карточки на борде.'),
     ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '+ Добавить кошку' }))
-    expect(props.requestFullscreen).toHaveBeenCalledOnce()
+    expect(await screen.findByRole('dialog', { name: 'Новая кошка' })).toBeInTheDocument()
+    // No fullscreen detour: the form is the first thing the card needs.
+    expect(props.requestFullscreen).not.toHaveBeenCalled()
   })
 
-  it('no cats in fullscreen: the add button picks the tab without asking for fullscreen again', async () => {
-    const { props } = setup(NO_CATS, { mode: 'large', tier: 'fullscreen' })
+  it('no cats: the form adds the first cat with a litter of her own', async () => {
+    const { props, calls } = setup(NO_CATS)
     renderCats(props)
 
     fireEvent.click(await screen.findByRole('button', { name: '+ Добавить кошку' }))
-    expect(props.requestFullscreen).not.toHaveBeenCalled()
+    const dialog = within(await screen.findByRole('dialog', { name: 'Новая кошка' }))
+    fireEvent.change(dialog.getByLabelText('Имя'), { target: { value: 'Буся' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Добавить кошку' }))
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        action: 'addCat',
+        payload: { name: 'Буся', litter: { kind: 'new' }, birthDate: null, sex: 'female' },
+      }),
+    )
   })
 
   it('module error: "Повторить" loads again', async () => {

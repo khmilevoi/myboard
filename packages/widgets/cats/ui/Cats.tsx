@@ -1,6 +1,6 @@
 import { wrap } from '@reatom/core'
 import { useManageCats } from 'module-cats/ui/use-manage-cats'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { type WidgetTier, useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
@@ -8,6 +8,7 @@ import { WidgetControls, useWidgetChrome, type WidgetChrome } from 'widget-sdk/u
 
 import { catsCardStore, makeCatsCard, type CatsCard } from '../model/cats-card'
 import { catsContext, type CatsContextValue } from './cats-context'
+import { AddCatDialog } from './parts/AddCatDialog'
 import { CompactTier } from './tiers/CompactTier'
 import { FullscreenTier } from './tiers/FullscreenTier'
 import { StandardTier } from './tiers/StandardTier'
@@ -48,14 +49,10 @@ const Loading = reatomMemo(
   'CatsLoading',
 )
 
-// Page 10, state D. The button opens the "Все кошки" tab, in fullscreen from a board card.
+// Page 10, state D. The button opens the "Новая кошка" form right here, on the board or in
+// fullscreen alike: the first cat needs no list around it.
 const Empty = reatomMemo<{ card: CatsCard }>(({ card }) => {
-  const { mode, requestFullscreen } = useWidgetContext()
-  const onAdd = wrap(() => {
-    card.tab.set('all')
-    // The fullscreen mount is already there: asking again would stack a second history entry.
-    if (mode === 'small') requestFullscreen()
-  })
+  const [addOpen, setAddOpen] = useState(false)
 
   return (
     <div className={styles.empty}>
@@ -68,9 +65,10 @@ const Empty = reatomMemo<{ card: CatsCard }>(({ card }) => {
           Добавьте кошку — её увидят все кошачьи карточки на борде.
         </p>
       </div>
-      <button type="button" className={styles.primary} onClick={onAdd}>
+      <button type="button" className={styles.primary} onClick={wrap(() => setAddOpen(true))}>
         + Добавить кошку
       </button>
+      <AddCatDialog form={card.addCatForm} open={addOpen} onOpenChange={setAddOpen} />
     </div>
   )
 }, 'CatsEmpty')

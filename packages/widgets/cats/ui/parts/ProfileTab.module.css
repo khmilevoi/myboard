@@ -253,21 +253,6 @@
   white-space: nowrap;
 }
 
-.newMark {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  inline-size: 20px;
-  block-size: 20px;
-  border: 1.5px dashed var(--border-strong);
-  border-radius: 6px;
-  color: var(--primary);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-}
-
 /* The footer under both columns (page 10, state G when clean). */
 .footer {
   display: flex;

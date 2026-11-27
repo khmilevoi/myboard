@@ -133,6 +133,24 @@ describe('makeCatsModel registries', () => {
     )
   })
 
+  it('exposes when each archived cat was archived, by cat id', async () => {
+    const { model } = makeTestCatsModel({
+      catRegistry: [
+        catEvent('add', 'ofelia', 1),
+        catEvent('add', 'busya', 2),
+        catEvent('archive', 'busya', 3000),
+      ],
+      litterRegistry: [litterEvent('ofelia', 1), litterEvent('busya', 2)],
+      profiles: { ofelia: OFELIA, busya: { ...BUSYA, litterId: 'busya' } },
+    })
+
+    await expectEventually(
+      () => [model.archivedAt.subscribe(() => {})],
+      () => model.archivedAt(),
+      { busya: 3000 },
+    )
+  })
+
   it('keeps a cat tone fixed by add order, archived cats included', async () => {
     const { model } = makeTestCatsModel({
       catRegistry: [

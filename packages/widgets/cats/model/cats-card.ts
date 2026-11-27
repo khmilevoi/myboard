@@ -11,6 +11,8 @@ import type { StorageApi, WidgetIdentity, WidgetModules } from 'widget-runtime'
 import { makeWidgetInstanceStore } from 'widget-sdk'
 import { reatomModule, type ReatomModule } from 'widget-sdk/modules/reatom-module'
 
+import { makeAddCatForm, type AddCatForm } from './add-cat-form'
+import { makeAllCats, type AllCats } from './all-cats'
 import { makeGoalForm, type GoalForm } from './goal-form'
 import { makeProfileForm, type ProfileForm } from './profile-form'
 import { makeWeightHistory, type WeightHistory } from './weight-history'
@@ -76,6 +78,10 @@ export type CatsCard = {
   goalForm: GoalForm
   /** The "Вес" tab's range, chart and rows: shared by both mounts, like the forms. */
   weightHistory: WeightHistory
+  /** The "Все кошки" tab's lists and its archive and restore actions. */
+  allCats: AllCats
+  /** The "Новая кошка" form: shared by both mounts and by the empty state. */
+  addCatForm: AddCatForm
   view: CatsCardView
 }
 
@@ -113,6 +119,17 @@ export function makeCatsCard({
     identity.members,
     `${name}.weightHistory`,
   )
+
+  const allCats = makeAllCats(handle.model, today, `${name}.allCats`)
+  // The new cat is chosen at once: `choose` writes any valid id, offered yet or not, and the card
+  // shows it as soon as the registry reaches `options`. Its profile opens, to fill in the rest.
+  const addCatForm = makeAddCatForm(handle.model, {
+    onAdded: (catId) => {
+      void choice.choose(catId)
+      tab.set('profile')
+    },
+    name: `${name}.addCatForm`,
+  })
 
   const status = computed((): CatsCardStatus => {
     if (handle.model() === null) return handle.error() === null ? 'loading' : 'error'
@@ -199,6 +216,8 @@ export function makeCatsCard({
     profileForm,
     goalForm,
     weightHistory,
+    allCats,
+    addCatForm,
     view: { passport, weight, spark, sparkLabels },
   }
 }

@@ -2,6 +2,7 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import type { WidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { useCats } from '../cats-context'
+import { AllCatsTab } from '../parts/AllCatsTab'
 import { CatsHeader } from '../parts/CatsHeader'
 import { ProfileTab } from '../parts/ProfileTab'
 import { WeightTab } from '../parts/WeightTab'
@@ -23,7 +24,7 @@ export const FullscreenTier = reatomMemo<FullscreenTierProps>(({ chrome }) => {
       <CatsHeader chrome={chrome} />
       {tab === 'profile' && <ProfileTab />}
       {tab === 'weight' && <WeightTab />}
-      {tab === 'all' && <section className={styles.panel} aria-label="Все кошки" />}
+      {tab === 'all' && <AllCatsTab />}
     </div>
   )
 }, 'CatsFullscreenTier')

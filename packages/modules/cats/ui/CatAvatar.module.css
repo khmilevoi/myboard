@@ -54,6 +54,13 @@
   font-size: 11.5px;
 }
 
+.avatar[data-size='row'] {
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 11px;
+  font-size: 17px;
+}
+
 .avatar[data-size='profile'] {
   inline-size: 56px;
   block-size: 56px;
