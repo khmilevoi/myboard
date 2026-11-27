@@ -4,9 +4,8 @@ import type { ClipboardEvent, KeyboardEvent } from 'react'
 import { useState } from 'react'
 import { useZxing } from 'react-zxing'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from 'widget-sdk/ui/button'
+import { Input } from 'widget-sdk/ui/input'
 
 import { type AddDeviceModel } from '../model/add-device-model'
 import { activateRoute, closeScan } from '../model/routes'

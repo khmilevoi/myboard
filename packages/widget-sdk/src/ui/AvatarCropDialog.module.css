@@ -174,16 +174,6 @@
   font: 500 11.5px var(--font-sans);
   color: var(--muted-foreground);
 }
-.historyLine {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-}
-.historyText {
-  font: 400 12.5px var(--font-sans);
-  color: var(--foreground);
-}
 
 /* (m) the error stays in the dialog, above the buttons. */
 .error {

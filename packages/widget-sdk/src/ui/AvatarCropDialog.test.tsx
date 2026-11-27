@@ -3,9 +3,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { makeAvatarCropModel } from '../model/avatar-crop-model'
-import { AvatarApiError, AvatarHttpError } from '../model/avatar-http'
-import { AvatarCropDialog } from './AvatarCropDialog'
+import { makeAvatarCropModel } from '../files/avatar-crop-model'
+import { AvatarCropDialog, AvatarCropPreviewItem } from './AvatarCropDialog'
 
 // Reset BEFORE each test -- AccountMenu.test.tsx's documented convention for reatomMemo trees.
 beforeEach(() => context.reset())
@@ -23,11 +22,30 @@ function setup(
   const onPickAnother = vi.fn()
   const model = makeAvatarCropModel({
     upload,
+    describeError: (error) => `Не сохранилось: ${error.message}`,
     readImageSize: async () => options.size ?? LANDSCAPE,
     createObjectUrl: () => 'blob:photo',
     revokeObjectUrl,
   })
-  render(<AvatarCropDialog model={model} firstName="Анна" onPickAnother={onPickAnother} />)
+  render(
+    <AvatarCropDialog
+      model={model}
+      title="Обрезать фото"
+      hint="Перетащите фото, чтобы выбрать, что попадёт в круг."
+      previewTitle="Так фото увидят другие"
+      previews={(renderPreview) => (
+        <>
+          <AvatarCropPreviewItem caption="Большое">
+            {renderPreview(44, 'preview-large')}
+          </AvatarCropPreviewItem>
+          <AvatarCropPreviewItem caption="Маленькое">
+            {renderPreview(18, 'preview-small')}
+          </AvatarCropPreviewItem>
+        </>
+      )}
+      onPickAnother={onPickAnother}
+    />,
+  )
   return { model, upload, revokeObjectUrl, onPickAnother }
 }
 
@@ -41,7 +59,7 @@ function pointer(pointerId: number, clientX: number, clientY: number) {
 }
 
 describe('AvatarCropDialog', () => {
-  it('(k) shows the photo under the circle, the zoom slider and the three live previews', async () => {
+  it('(k) shows the photo under the circle, the zoom slider and the live previews the caller lays out', async () => {
     const { model } = setup()
     const dialog = await openWith(model)
 
@@ -54,11 +72,11 @@ describe('AvatarCropDialog', () => {
     expect(within(stage).getByTestId('avatar-crop-image')).toHaveAttribute('src', 'blob:photo')
     expect(within(dialog).getByRole('slider', { name: 'Масштаб' })).toHaveValue('1')
     expect(within(dialog).getByText('Так фото увидят другие')).toBeInTheDocument()
-    expect(within(dialog).getByText('Анна отметил(а) уборку')).toBeInTheDocument()
+    expect(within(dialog).getByText('Большое')).toBeInTheDocument()
+    expect(within(dialog).getByText('Маленькое')).toBeInTheDocument()
     for (const [id, size] of [
-      ['avatar-crop-preview-menu', 44],
-      ['avatar-crop-preview-header', 36],
-      ['avatar-crop-preview-history', 18],
+      ['preview-large', 44],
+      ['preview-small', 18],
     ] as const) {
       // Zoom 1 on a 4:3 photo: the preview circle shows the full height.
       expect(screen.getByTestId(id)).toHaveStyle({ height: `${size}px` })
@@ -76,9 +94,7 @@ describe('AvatarCropDialog', () => {
     })
 
     expect(model.zoom()).toBe(2)
-    await waitFor(() =>
-      expect(screen.getByTestId('avatar-crop-preview-menu')).toHaveStyle({ height: '88px' }),
-    )
+    await waitFor(() => expect(screen.getByTestId('preview-large')).toHaveStyle({ height: '88px' }))
   })
 
   it('pans with a pointer drag', async () => {
@@ -162,32 +178,18 @@ describe('AvatarCropDialog', () => {
 
   it('(m) keeps the dialog and the selection with the error above the buttons', async () => {
     const { model } = setup({
-      upload: async () => new AvatarHttpError({ reason: 'transport' }),
+      upload: async () => new Error('нет сети'),
     })
     const dialog = await openWith(model)
     model.zoomTo(2)
 
     fireEvent.click(within(dialog).getByTestId('avatar-crop-save'))
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Не удалось загрузить фото. Проверьте подключение и попробуйте ещё раз.',
-    )
+    // The copy is the caller's describeError, not the dialog's.
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Не сохранилось: нет сети')
     expect(within(dialog).getByTestId('avatar-crop-stage')).toBeInTheDocument()
     expect(within(dialog).getByTestId('avatar-crop-save')).toBeEnabled()
     expect(model.zoom()).toBe(2)
-  })
-
-  it('maps a rejected size to its own copy', async () => {
-    const { model } = setup({
-      upload: async () => new AvatarApiError({ status: '413', code: 'file_too_large' }),
-    })
-    const dialog = await openWith(model)
-
-    fireEvent.click(within(dialog).getByTestId('avatar-crop-save'))
-
-    expect(await within(dialog).findByTestId('avatar-crop-error')).toHaveTextContent(
-      'Фото слишком большое. Выберите другое.',
-    )
   })
 
   it('opens an unreadable file without a stage and offers another file instead of saving', async () => {

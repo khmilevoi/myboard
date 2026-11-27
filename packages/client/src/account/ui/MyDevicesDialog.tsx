@@ -1,13 +1,13 @@
 import { atom, wrap } from '@reatom/core'
+import { pluralRu } from '@shared/format/ru'
 import { CircleAlert, Monitor, Plus, Smartphone, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from 'widget-sdk/ui/dialog'
 
-import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { http } from '@/runtime'
 
-import { pluralize } from '../model/account-format'
 import { type AccountModel, createAccountModel } from '../model/account-model'
 import { createAddDeviceModel } from '../model/add-device-model'
 import { AddDeviceModal } from './AddDeviceModal'
@@ -43,9 +43,9 @@ function daysBetween(from: number, to: number): number {
 function formatAddedAt(createdAt: number, now: number): string {
   const days = Math.max(0, daysBetween(createdAt, now))
   if (days === 0) return 'Добавлено сегодня'
-  if (days < 7) return `Добавлено ${days} ${pluralize(days, 'день', 'дня', 'дней')} назад`
+  if (days < 7) return `Добавлено ${days} ${pluralRu(days, 'день', 'дня', 'дней')} назад`
   const weeks = Math.floor(days / 7)
-  return `Добавлено ${weeks} ${pluralize(weeks, 'неделя', 'недели', 'недель')} назад`
+  return `Добавлено ${weeks} ${pluralRu(weeks, 'неделя', 'недели', 'недель')} назад`
 }
 
 // "хочет присоединиться · ..." label for a pending row. The design only
@@ -56,9 +56,9 @@ function formatPendingAge(createdAt: number, now: number): string {
   const elapsedMs = Math.max(0, now - createdAt)
   if (elapsedMs < 60_000) return 'только что'
   const minutes = Math.floor(elapsedMs / 60_000)
-  if (minutes < 60) return `${minutes} ${pluralize(minutes, 'минуту', 'минуты', 'минут')} назад`
+  if (minutes < 60) return `${minutes} ${pluralRu(minutes, 'минуту', 'минуты', 'минут')} назад`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} ${pluralize(hours, 'час', 'часа', 'часов')} назад`
+  if (hours < 24) return `${hours} ${pluralRu(hours, 'час', 'часа', 'часов')} назад`
   return formatAddedAt(createdAt, now).replace('Добавлено ', '')
 }
 

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import { MEMBER_TONES, memberInitial, memberTone } from './member'
+import { MEMBER_TONES, memberInitial, memberTone } from './member-tone'
 
 describe('memberTone', () => {
   it('is stable for the same id', () => {

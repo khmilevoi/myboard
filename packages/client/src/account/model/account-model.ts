@@ -101,7 +101,8 @@ export interface AccountModel {
   logout: Action<[], Promise<void>>
   /**
    * Prepares, uploads and applies a new photo. The failure comes back as a value: the crop dialog
-   * that drives this owns the error copy, so nothing here records it.
+   * that drives this shows it as `describeAvatarError` copy (the crop model's `describeError`), so
+   * nothing here records it.
    */
   uploadAvatar: Action<[Blob, SquareCrop | null], Promise<Error | null>>
   removeAvatar: Action<[], Promise<void>>

@@ -10,11 +10,13 @@ import {
   makeAvatarCropModel,
   zoomAround,
 } from './avatar-crop-model'
-import { AvatarApiError } from './avatar-http'
 
 afterEach(() => context.reset())
 
 const LANDSCAPE = { width: 4000, height: 3000 }
+
+/** The caller's copy for a failed upload; the account menu passes `describeAvatarError`. */
+const describeError = (error: Error) => `Не сохранилось: ${error.message}`
 
 describe('crop math', () => {
   it('starts from the largest square and narrows it with zoom', () => {
@@ -118,6 +120,7 @@ function makeModel(
   let urls = 0
   const model = makeAvatarCropModel({
     upload,
+    describeError,
     readImageSize: async () => options.size ?? LANDSCAPE,
     createObjectUrl: () => `blob:photo-${++urls}`,
     revokeObjectUrl,
@@ -215,7 +218,7 @@ describe('makeAvatarCropModel', () => {
 
   it('keeps the dialog, the selection and the copy when the save fails', async () => {
     const { model } = makeModel({
-      upload: async () => new AvatarApiError({ status: '413', code: 'file_too_large' }),
+      upload: async () => new Error('слишком большое'),
     })
     await model.openFile(new Blob(['jpeg']))
     model.zoomTo(2)
@@ -223,7 +226,7 @@ describe('makeAvatarCropModel', () => {
     await model.save()
 
     expect(model.open()).toBe(true)
-    expect(model.error()).toBe('Фото слишком большое. Выберите другое.')
+    expect(model.error()).toBe('Не сохранилось: слишком большое')
     expect(model.crop()).toEqual({ x: 1250, y: 750, size: 1500 })
   })
 
@@ -263,6 +266,7 @@ describe('makeAvatarCropModel', () => {
     const first = new Blob(['first'])
     const model = makeAvatarCropModel({
       upload: async () => null,
+      describeError,
       readImageSize: (file) =>
         file === first
           ? new Promise((resolve) => (releaseFirst = resolve))

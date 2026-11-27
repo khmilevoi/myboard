@@ -1,8 +1,9 @@
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import * as React from 'react'
-import { useOverlayBackDismiss } from 'widget-sdk/hooks/use-overlay-back-dismiss'
-import { cn } from 'widget-sdk/lib/utils'
-import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+
+import { useOverlayBackDismiss } from '../hooks/use-overlay-back-dismiss'
+import { cn } from '../lib/utils'
+import { reatomMemo } from '../reatom/reatom-memo'
 
 type PopoverRootProps = React.ComponentProps<typeof PopoverPrimitive.Root>
 

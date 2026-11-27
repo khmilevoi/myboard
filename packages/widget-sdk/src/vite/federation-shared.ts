@@ -59,6 +59,12 @@ function singleton(name: string) {
  * The one shared list for the board host and every widget remote. Module packages are on it
  * unconditionally: the host depends on each of them (codegen enforces it) and provides them, the
  * same way it provides widget-runtime, so a module's code and model exist once on the board.
+ *
+ * `radix-ui` is on it because Radix keeps its dismissable-layer and focus-scope stacks at module
+ * level. A widget's menu or dialog opened inside the host's fullscreen dialog must join the host's
+ * stacks, or Escape closes the fullscreen too and the host's focus trap is never paused. Every
+ * widget package lists it in its own dependencies, as it does zod and errore: the federation plugin
+ * prebuilds each shared package's fallback from the remote's root, and fails the build otherwise.
  */
 export function federationShared() {
   const shared: Record<string, ReturnType<typeof singleton>> = {
@@ -69,6 +75,7 @@ export function federationShared() {
     'widget-runtime': singleton('widget-runtime'),
     zod: singleton('zod'),
     errore: singleton('errore'),
+    'radix-ui': singleton('radix-ui'),
   }
 
   for (const [name, version] of Object.entries(modulePackages)) {

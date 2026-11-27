@@ -188,9 +188,6 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.1
         version: 4.3.1(vite@8.1.2(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
@@ -473,6 +470,9 @@ importers:
       '@reatom/react':
         specifier: 'catalog:'
         version: 1001.0.0(patch_hash=d5c7b15223219d0bc230bcee40ac1ef0d9e502a577c47c41fd619874ee1ecaa9)(@reatom/core@1001.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
@@ -546,6 +546,9 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.19.0(react@19.2.7)
+      radix-ui:
+        specifier: 'catalog:'
+        version: 1.6.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
         specifier: 'catalog:'
         version: 19.2.7
@@ -607,6 +610,9 @@ importers:
       module-cats:
         specifier: workspace:*
         version: link:../../modules/cats
+      radix-ui:
+        specifier: 'catalog:'
+        version: 1.6.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
         specifier: 'catalog:'
         version: 19.2.7
@@ -668,6 +674,9 @@ importers:
       module-cats:
         specifier: workspace:*
         version: link:../../modules/cats
+      radix-ui:
+        specifier: 'catalog:'
+        version: 1.6.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
         specifier: 'catalog:'
         version: 19.2.7

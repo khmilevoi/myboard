@@ -36,6 +36,10 @@ describe('federationShared', () => {
     )
   })
 
+  it('shares radix-ui as a strict singleton, so a widget layer joins the host layer stack', () => {
+    expect(federationShared()['radix-ui']).toMatchObject({ singleton: true, strictVersion: true })
+  })
+
   it('resolves catalog: references to the real semver range', () => {
     const shared = federationShared()
     for (const [name, config] of Object.entries(shared)) {

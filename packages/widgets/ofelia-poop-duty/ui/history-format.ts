@@ -1,8 +1,7 @@
+import { MONTHS_GENITIVE } from '@shared/format/ru'
 import { DUTY_TIME_ZONE, plainDateIn, type Person } from 'module-cats/domain/roster'
 
 import type { HistoryEntryView } from '@/model/ofelia-duty'
-
-import { MONTHS_GENITIVE } from './format'
 
 const WEEKDAYS_SHORT = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'] as const
 

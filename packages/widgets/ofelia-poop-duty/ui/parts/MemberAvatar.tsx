@@ -1,8 +1,8 @@
 import { Clock } from 'lucide-react'
 import type { EntryAuthor } from 'module-cats/domain/author'
+import { memberInitial, memberTone } from 'widget-sdk/lib/member-tone'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { memberInitial, memberTone } from '../member'
 import { personInitial, personTone } from '../person'
 import { AVATAR_INITIAL_RATIO } from './Avatar'
 

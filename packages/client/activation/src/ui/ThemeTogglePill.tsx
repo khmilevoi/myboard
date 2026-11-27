@@ -2,8 +2,8 @@ import { wrap } from '@reatom/core'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { ToggleGroup, ToggleGroupItem } from 'widget-sdk/ui/toggle-group'
 
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { ThemeMode } from '@/shared/theme/types'
 import { themeMode } from '@/theme/model/theme-model'
 

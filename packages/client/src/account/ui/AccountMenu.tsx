@@ -1,22 +1,25 @@
 import { wrap } from '@reatom/core'
+import { pluralRu } from '@shared/format/ru'
 import { Camera, LogOut, Monitor, Plus, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { type AvatarCropModel, makeAvatarCropModel } from 'widget-sdk/files/avatar-crop-model'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
+import { AvatarCropDialog } from 'widget-sdk/ui/AvatarCropDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from 'widget-sdk/ui/dropdown-menu'
+
 import { hostRuntime, http } from '@/runtime'
 
-import { firstNameOf, initialsOf, pluralize } from '../model/account-format'
+import { firstNameOf, initialsOf } from '../model/account-format'
 import { makeAccountMenuModel } from '../model/account-menu-model'
 import { type AccountModel, createAccountModel } from '../model/account-model'
-import { type AvatarCropModel, makeAvatarCropModel } from '../model/avatar-crop-model'
-import { AvatarCropDialog } from './AvatarCropDialog'
+import { describeAvatarError } from '../model/avatar-http'
+import { AccountAvatarPreviews } from './AccountAvatarPreviews'
 import { MyDevicesDialog } from './MyDevicesDialog'
 import { ProfileDialog } from './ProfileDialog'
 
@@ -47,7 +50,9 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
     )
     // One crop dialog for both ways in — the menu's camera badge and the profile's photo button.
     const [crop] = useState(
-      () => cropModelOverride ?? makeAvatarCropModel({ upload: model.uploadAvatar }),
+      () =>
+        cropModelOverride ??
+        makeAvatarCropModel({ upload: model.uploadAvatar, describeError: describeAvatarError }),
     )
     // Which surface is open: this dropdown, the profile, the devices dialog. Instance-scoped, like
     // the models above, since the menu has exactly one mount point (the header).
@@ -79,7 +84,16 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
     })
     const openPicker = () => fileInput.current?.click()
     const cropDialog = (
-      <AvatarCropDialog model={crop} firstName={firstNameOf(name)} onPickAnother={openPicker} />
+      <AvatarCropDialog
+        model={crop}
+        title="Обрезать фото"
+        hint="Перетащите фото, чтобы выбрать, что попадёт в круг."
+        previewTitle="Так фото увидят другие"
+        previews={(renderPreview) => (
+          <AccountAvatarPreviews renderPreview={renderPreview} firstName={firstNameOf(name)} />
+        )}
+        onPickAnother={openPicker}
+      />
     )
     const devicesDialog = (
       <MyDevicesDialog
@@ -89,8 +103,8 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
       />
     )
     const hasPending = pending.length > 0
-    const deviceCountLabel = `${devices.length} ${pluralize(devices.length, 'устройство', 'устройства', 'устройств')}`
-    const pendingLabel = `${pending.length} ${pluralize(pending.length, 'запрос', 'запроса', 'запросов')} на подключение`
+    const deviceCountLabel = `${devices.length} ${pluralRu(devices.length, 'устройство', 'устройства', 'устройств')}`
+    const pendingLabel = `${pending.length} ${pluralRu(pending.length, 'запрос', 'запроса', 'запросов')} на подключение`
 
     return (
       <>

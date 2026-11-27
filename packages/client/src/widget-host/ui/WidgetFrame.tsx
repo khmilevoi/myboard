@@ -11,8 +11,8 @@ import {
   type WidgetTier,
 } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { Badge } from 'widget-sdk/ui/badge'
 
-import { Badge } from '@/components/ui/badge'
 import { hostRuntime } from '@/runtime'
 import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { resolvedTheme } from '@/theme/model/theme-model'

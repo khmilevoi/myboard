@@ -1,7 +1,8 @@
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
 import * as React from 'react'
-import { cn } from 'widget-sdk/lib/utils'
-import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+
+import { cn } from '../lib/utils'
+import { reatomMemo } from '../reatom/reatom-memo'
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger

@@ -7,17 +7,8 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react'
-import { cn } from 'widget-sdk/lib/utils'
-import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
 import {
   type AvatarCropModel,
@@ -27,15 +18,30 @@ import {
   MIN_ZOOM,
   type NudgeDirection,
   type Point,
-} from '../model/avatar-crop-model'
+} from '../files/avatar-crop-model'
+import { cn } from '../lib/utils'
+import { reatomMemo } from '../reatom/reatom-memo'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from './dialog'
 
 import styles from './AvatarCropDialog.module.css'
 
+/** Draws one live preview of the current crop, `size` px across. */
+export type RenderCropPreview = (size: number, testId: string) => ReactNode
+
 export type AvatarCropDialogProps = {
   model: AvatarCropModel
-  /** The account's first name, for the widget-history preview line. */
-  firstName: string
-  /** "Выбрать другой файл" in the unreadable state: reopens the shared file picker. */
+  /** The dialog's heading, e.g. "Обрезать фото". */
+  title: string
+  /** The line under the heading that says what the crop is for. */
+  hint: string
+  /** The label above the preview row, e.g. "Так фото увидят другие". */
+  previewTitle: string
+  /**
+   * The preview row's items. Each `renderPreview(size, testId)` is the current crop drawn at that
+   * size, so the caller decides the sizes and captions and the crop math stays here.
+   */
+  previews: (renderPreview: RenderCropPreview) => ReactNode
+  /** "Выбрать другой файл" in the unreadable state: reopens the caller's file picker. */
   onPickAnother: () => void
 }
 
@@ -250,42 +256,40 @@ const CropPreview = reatomMemo<{
   )
 }, 'CropPreview')
 
-const CropPreviews = reatomMemo<{ model: AvatarCropModel; firstName: string }>(
-  ({ model, firstName }) => {
-    const image = model.image()
-    if (!image) return null
-    const side = model.side()
-    const center = model.center()
-    const common = { image, side, center }
-
-    return (
-      <>
-        <div className={styles.sectionLabel}>Так фото увидят другие</div>
-        <div className={styles.previews}>
-          <div className={styles.previewItem}>
-            <CropPreview {...common} size={44} testId="avatar-crop-preview-menu" />
-            <span className={styles.previewCaption}>Меню</span>
-          </div>
-          <div className={styles.previewItem}>
-            <CropPreview {...common} size={36} testId="avatar-crop-preview-header" />
-            <span className={styles.previewCaption}>Хедер</span>
-          </div>
-          <div className={styles.previewItem}>
-            <div className={styles.historyLine}>
-              <CropPreview {...common} size={18} testId="avatar-crop-preview-history" />
-              <span className={styles.historyText}>{firstName} отметил(а) уборку</span>
-            </div>
-            <span className={styles.previewCaption}>История виджета</span>
-          </div>
-        </div>
-      </>
-    )
-  },
-  'CropPreviews',
+/** One captioned item of the preview row: a preview (or a line holding one) above its caption. */
+export const AvatarCropPreviewItem = reatomMemo<{ caption: string; children: ReactNode }>(
+  ({ caption, children }) => (
+    <div className={styles.previewItem}>
+      {children}
+      <span className={styles.previewCaption}>{caption}</span>
+    </div>
+  ),
+  'AvatarCropPreviewItem',
 )
 
+const CropPreviews = reatomMemo<{
+  model: AvatarCropModel
+  title: string
+  previews: AvatarCropDialogProps['previews']
+}>(({ model, title, previews }) => {
+  const image = model.image()
+  if (!image) return null
+  const side = model.side()
+  const center = model.center()
+  const renderPreview: RenderCropPreview = (size, testId) => (
+    <CropPreview image={image} side={side} center={center} size={size} testId={testId} />
+  )
+
+  return (
+    <>
+      <div className={styles.sectionLabel}>{title}</div>
+      <div className={styles.previews}>{previews(renderPreview)}</div>
+    </>
+  )
+}, 'CropPreviews')
+
 export const AvatarCropDialog = reatomMemo<AvatarCropDialogProps>(
-  ({ model, firstName, onPickAnother }) => {
+  ({ model, title, hint, previewTitle, previews, onPickAnother }) => {
     const open = model.open()
     const phase = model.phase()
     const saving = model.saving()
@@ -317,10 +321,8 @@ export const AvatarCropDialog = reatomMemo<AvatarCropDialogProps>(
         >
           <div className={styles.header}>
             <div>
-              <DialogTitle className={styles.title}>Обрезать фото</DialogTitle>
-              <DialogDescription className={styles.subtitle}>
-                Перетащите фото, чтобы выбрать, что попадёт в круг.
-              </DialogDescription>
+              <DialogTitle className={styles.title}>{title}</DialogTitle>
+              <DialogDescription className={styles.subtitle}>{hint}</DialogDescription>
             </div>
             <DialogClose asChild>
               <button type="button" aria-label="Закрыть" className={styles.close} disabled={saving}>
@@ -351,7 +353,7 @@ export const AvatarCropDialog = reatomMemo<AvatarCropDialogProps>(
                 </label>
                 <ZoomIn size={16} strokeWidth={1.9} className={styles.zoomIcon} aria-hidden />
               </div>
-              <CropPreviews model={model} firstName={firstName} />
+              <CropPreviews model={model} title={previewTitle} previews={previews} />
             </>
           )}
 

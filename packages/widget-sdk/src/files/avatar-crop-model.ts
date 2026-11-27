@@ -8,12 +8,8 @@ import {
   wrap,
   withAsync,
 } from '@reatom/core'
-import {
-  readImageSize as readImageSizeInBrowser,
-  type SquareCrop,
-} from 'widget-sdk/files/prepare-image'
 
-import { describeAvatarError } from './avatar-http'
+import { readImageSize as readImageSizeInBrowser, type SquareCrop } from './prepare-image'
 
 /**
  * The avatar crop dialog (design page 03, section 1d). Every position here lives in the pixels of
@@ -131,8 +127,10 @@ export function imageLayout(input: {
 }
 
 export type AvatarCropDeps = {
-  /** Uploads the crop and applies it everywhere — `AccountModel.uploadAvatar`. */
+  /** Uploads the crop and applies it everywhere — the account menu passes `AccountModel.uploadAvatar`. */
   upload: (file: Blob, crop: SquareCrop) => Promise<Error | null>
+  /** The user-facing copy for a failed `upload`, shown in the dialog above the buttons. */
+  describeError: (error: Error) => string
   /** Measures the oriented image; an error means the dialog opens in its "unreadable" state. */
   readImageSize: (file: Blob) => Promise<Error | Size>
   createObjectUrl: (file: Blob) => string
@@ -170,10 +168,11 @@ const UNREADABLE_COPY = 'Не получилось прочитать файл. 
 const DEFAULT_STAGE: Size = { width: 428, height: 300 }
 
 export function makeAvatarCropModel(
-  overrides: Partial<AvatarCropDeps> & Pick<AvatarCropDeps, 'upload'>,
+  overrides: Partial<AvatarCropDeps> & Pick<AvatarCropDeps, 'upload' | 'describeError'>,
 ): AvatarCropModel {
   const deps: AvatarCropDeps = {
     upload: overrides.upload,
+    describeError: overrides.describeError,
     readImageSize: overrides.readImageSize ?? readImageSizeInBrowser,
     createObjectUrl: overrides.createObjectUrl ?? ((file) => URL.createObjectURL(file)),
     revokeObjectUrl: overrides.revokeObjectUrl ?? ((url) => URL.revokeObjectURL(url)),
@@ -249,7 +248,7 @@ export function makeAvatarCropModel(
 
     const result = await wrap(deps.upload(current.file, selection))
     if (result instanceof Error) {
-      error.set(describeAvatarError(result))
+      error.set(deps.describeError(result))
       return
     }
 

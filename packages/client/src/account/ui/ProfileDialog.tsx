@@ -1,12 +1,12 @@
 import { wrap } from '@reatom/core'
+import { pluralRu } from '@shared/format/ru'
 import { Camera, ChevronRight, CircleAlert, Monitor, Trash2, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from 'widget-sdk/ui/dialog'
 
-import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
-
-import { formatLongDate, initialsOf, pluralize } from '../model/account-format'
+import { formatLongDate, initialsOf } from '../model/account-format'
 import type { AccountModel } from '../model/account-model'
 
 import styles from './ProfileDialog.module.css'
@@ -38,7 +38,7 @@ export const ProfileDialog = reatomMemo<ProfileDialogProps>(
     const name = account?.name ?? ''
     const avatarUrl = account?.avatarUrl
     const activeCount = devices.filter((device) => device.status === 'active').length
-    const deviceSummary = `${activeCount} ${pluralize(activeCount, 'устройство', 'устройства', 'устройств')}${
+    const deviceSummary = `${activeCount} ${pluralRu(activeCount, 'устройство', 'устройства', 'устройств')}${
       account ? ` из ${account.deviceLimit}` : ''
     }`
 

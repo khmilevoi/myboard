@@ -2,9 +2,8 @@ import { notify } from '@reatom/core'
 import { bindField } from '@reatom/react'
 import { AlertCircle, AlertTriangle, Loader2, Lock, QrCode, ShieldCheck } from 'lucide-react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from 'widget-sdk/ui/button'
+import { Input } from 'widget-sdk/ui/input'
 
 import { type ActivationModel } from '../model/activation-model'
 import { addDeviceRoute, recordScanReturn } from '../model/routes'
