@@ -18,6 +18,7 @@ import { useElementSize } from '@/shared/element-size/model/use-element-size'
 import { resolvedTheme } from '@/theme/model/theme-model'
 import { findWidgetType } from '@/widget-registry/model/registry'
 
+import { makeBoardAccess } from '../model/board-access'
 import { getWidgetReloadKey, retryWidget } from '../model/widget-frame-model'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 import { WidgetLoadingCard } from './WidgetLoadingCard'
@@ -73,6 +74,8 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       return hostRuntime.makeWidgetModules(type instanceof Error ? [] : (type.modules ?? []))
     }, [type])
 
+    const board = useMemo(() => makeBoardAccess(), [])
+
     const context = useMemo<WidgetRuntimeProps>(() => {
       return {
         instanceId,
@@ -88,6 +91,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
         api: widgetApi,
         identity: hostRuntime.identity,
         modules: widgetModules,
+        board,
       }
     }, [
       instanceId,
@@ -101,6 +105,7 @@ export const WidgetFrame = reatomMemo<WidgetFrameProps>(
       widgetStorage,
       widgetApi,
       widgetModules,
+      board,
     ])
 
     if (type instanceof Error) {
