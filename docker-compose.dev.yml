@@ -27,6 +27,7 @@ x-workspace-volumes: &workspace-volumes
   - shared_node_modules:/app/packages/shared/node_modules
   - widget_runtime_node_modules:/app/packages/widget-runtime/node_modules
   - widget_sdk_node_modules:/app/packages/widget-sdk/node_modules
+  - scan_camera_node_modules:/app/packages/scan-camera/node_modules
   - modules_cats_node_modules:/app/packages/modules/cats/node_modules
   - modules_health_node_modules:/app/packages/modules/health/node_modules
   - widgets_clock_node_modules:/app/packages/widgets/clock/node_modules
@@ -163,6 +164,7 @@ volumes:
   shared_node_modules:
   widget_runtime_node_modules:
   widget_sdk_node_modules:
+  scan_camera_node_modules:
   modules_cats_node_modules:
   modules_health_node_modules:
   widgets_clock_node_modules:

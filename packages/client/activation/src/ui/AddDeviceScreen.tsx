@@ -16,6 +16,7 @@ import {
 import type { ClipboardEvent, KeyboardEvent, ReactNode } from 'react'
 import { useState } from 'react'
 import { useZxing } from 'react-zxing'
+import { tuneScanTrack } from 'scan-camera'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import { Button } from '@/components/ui/button'
@@ -28,7 +29,6 @@ import {
   type ScanStatus,
 } from '../model/add-device-model'
 import { activateRoute, closeScan } from '../model/routes'
-import { tuneScannerTrack } from '../model/scanner-camera'
 
 import styles from './AddDeviceScreen.module.css'
 import shellStyles from './shell.module.css'
@@ -98,7 +98,7 @@ function ScannerVideo({ constraints, onDecode, onCameraError }: ScannerVideoProp
     const track =
       video?.srcObject instanceof MediaStream ? video.srcObject.getVideoTracks()[0] : null
     if (!video || !track) return
-    void tuneScannerTrack(track).then(() => {
+    void tuneScanTrack(track).then(() => {
       if (!CAMERA_DEBUG) return
       const settings = track.getSettings() as MediaTrackSettings & {
         zoom?: number

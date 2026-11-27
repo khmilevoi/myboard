@@ -67,7 +67,8 @@ Private pnpm workspace, everything under `packages/`: `client` (React/Vite board
 Valkey, bundled to `dist` with every widget server function in it), `shared`, `widget-runtime` (the
 singleton live runtime: storage, widget RPC, SSE/BroadcastChannel, server time, contracts),
 `widget-sdk` (stateless Reatom/React glue and shared widget UI), `browser-automation` (the browser
-service and generated task registry), one package per `packages/widgets/*`, and one package per `packages/modules/*` (the shared,
+service and generated task registry), `scan-camera` (picks and tunes the phone camera a QR/barcode
+scanner opens), one package per `packages/widgets/*`, and one package per `packages/modules/*` (the shared,
 widget-independent modules; the module ID is the directory basename).
 
 The non-obvious rules:

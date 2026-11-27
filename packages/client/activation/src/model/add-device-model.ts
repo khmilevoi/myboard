@@ -14,8 +14,7 @@ import type { Navigate } from '@shared/navigation'
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser'
 import { startRegistration as browserStartRegistration } from '@simplewebauthn/browser'
 import * as errore from 'errore'
-
-import { resolveScannerConstraints, type ScannerMediaDevices } from './scanner-camera'
+import { resolveScanConstraints, type ScanMediaDevices } from 'scan-camera'
 
 // Duplicated from packages/client/activation/src/model/activation-model.ts's own
 // `CRED_HINT_STORAGE_KEY` (same localStorage key, same non-secret WebAuthn
@@ -121,7 +120,7 @@ export interface AddDeviceDeps {
   // a test double stays call-compatible with the real ceremony.
   startRegistrationCeremony: typeof browserStartRegistration
   // Camera access for the scanner; undefined where the browser has none.
-  mediaDevices: ScannerMediaDevices | undefined
+  mediaDevices: ScanMediaDevices | undefined
   // `?cam=<index>` debug override: open that camera from the device list.
   cameraIndex: number | null
   // Continues a scanned invite QR on the invite card (the activate route).
@@ -323,7 +322,7 @@ export interface AddDeviceModel {
   scanStatus: Atom<ScanStatus>
   // "Сканировать снова": dismiss the overlay's panel and accept decodes again.
   resumeScan: Action<[], void>
-  // Which camera the scanner opens (see scanner-camera.ts). Reading it from
+  // Which camera the scanner opens (chosen by the scan-camera package). Reading it from
   // the overlay resolves it; it re-resolves each time the overlay mounts.
   camera: Atom<ScannerCamera>
   // The scanner's own getUserMedia failed after the camera was chosen.
@@ -626,7 +625,9 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
 
   const prepareCamera = action(async () => {
     camera.set({ kind: 'pending' })
-    const constraints = await wrap(resolveScannerConstraints(deps.mediaDevices, deps.cameraIndex))
+    const constraints = await wrap(
+      resolveScanConstraints(deps.mediaDevices, { cameraIndex: deps.cameraIndex }),
+    )
     if (constraints instanceof Error) {
       camera.set({ kind: 'unavailable' })
       error.set(CAMERA_DENIED_MESSAGE)
@@ -642,7 +643,7 @@ export function makeAddDeviceModel(overrides: Partial<AddDeviceDeps> = {}): AddD
     withConnectHook(() => {
       // Closing the scanner mid-resolve aborts this run with an AbortError;
       // that is the intended cancellation, and every real failure is already
-      // returned as a value by resolveScannerConstraints.
+      // returned as a value by resolveScanConstraints.
       prepareCamera().catch(() => undefined)
     }),
   )
