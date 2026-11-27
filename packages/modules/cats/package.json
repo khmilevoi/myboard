@@ -12,6 +12,7 @@
     "./testing": "./model/testing.ts",
     "./ui/use-manage-cats": "./ui/use-manage-cats.ts",
     "./ui/person": "./ui/person.ts",
+    "./ui/sheet.module.css": "./ui/sheet.module.css",
     "./ui/*": "./ui/*.tsx"
   },
   "scripts": {

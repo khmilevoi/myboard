@@ -9,7 +9,8 @@ import type { CatRow } from '@/model/all-cats'
 
 import { useCats } from '../cats-context'
 
-import styles from './sheet.module.css'
+import styles from './sheet-fields.module.css'
+import sheet from 'module-cats/ui/sheet.module.css'
 
 export type ArchiveDialogProps = {
   /** The cat being archived; null while the dialog is closed. */
@@ -42,19 +43,19 @@ export const ArchiveDialog = reatomMemo<ArchiveDialogProps>(({ row, onOpenChange
     <Dialog open={row !== null} onOpenChange={wrap(onOpenChange)}>
       <DialogContent
         fullScreenOnPhone
-        className={styles.sheet}
-        overlayClassName={styles.overlay}
+        className={sheet.sheet}
+        overlayClassName={sheet.overlay}
         aria-describedby={undefined}
       >
-        <div className={styles.head}>
-          <DialogTitle className={styles.title}>{`Убрать ${target.name} в архив?`}</DialogTitle>
+        <div className={sheet.head}>
+          <DialogTitle className={sheet.title}>{`Убрать ${target.name} в архив?`}</DialogTitle>
           <DialogClose asChild>
-            <button type="button" className={styles.close} aria-label="Закрыть">
+            <button type="button" className={sheet.close} aria-label="Закрыть">
               <X aria-hidden />
             </button>
           </DialogClose>
         </div>
-        <div className={styles.body}>
+        <div className={sheet.body}>
           <p className={styles.text}>
             {`${target.name} пропадёт из переключателей. Карточки, где была выбрана она, покажут ${impact.fallbackName}. История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».`}
           </p>
@@ -64,12 +65,12 @@ export const ArchiveDialog = reatomMemo<ArchiveDialogProps>(({ row, onOpenChange
             </p>
           )}
           {failure && (
-            <p className={styles.failure} role="alert">
+            <p className={sheet.failure} role="alert">
               {failure}
             </p>
           )}
         </div>
-        <div className={`${styles.foot} ${styles.footRow}`}>
+        <div className={`${sheet.foot} ${styles.footRow}`}>
           <DialogClose asChild>
             <Button type="button" variant="outline" className={styles.secondary}>
               Отмена

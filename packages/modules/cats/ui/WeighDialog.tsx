@@ -9,6 +9,7 @@ import { Input } from 'widget-sdk/ui/input'
 import { formatDayMonth, formatGrams, formatKg } from '../format'
 import { parseDateInput, type WeighForm } from '../model/weigh-form'
 
+import sheet from './sheet.module.css'
 import styles from './WeighDialog.module.css'
 
 export type WeighDialogProps = {
@@ -50,24 +51,24 @@ export const WeighDialog = reatomMemo<WeighDialogProps>(({ form, name, open, onO
     <Dialog open={open} onOpenChange={wrap(onOpenChange)}>
       <DialogContent
         fullScreenOnPhone
-        className={styles.sheet}
-        overlayClassName={styles.overlay}
+        className={sheet.sheet}
+        overlayClassName={sheet.overlay}
         aria-describedby={undefined}
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           kgInput.current?.focus()
         }}
       >
-        <div className={styles.head}>
-          <DialogTitle className={styles.title}>{`Вес · ${name}`}</DialogTitle>
+        <div className={sheet.head}>
+          <DialogTitle className={sheet.title}>{`Вес · ${name}`}</DialogTitle>
           <DialogClose asChild>
-            <button type="button" className={styles.close} aria-label="Закрыть">
+            <button type="button" className={sheet.close} aria-label="Закрыть">
               <X aria-hidden />
             </button>
           </DialogClose>
         </div>
-        <form className={styles.form} onSubmit={onSubmit} noValidate>
-          <div className={styles.body}>
+        <form className={sheet.form} onSubmit={onSubmit} noValidate>
+          <div className={sheet.body}>
             <div>
               <label className={styles.label} htmlFor={kgId}>
                 Сколько весит
@@ -129,9 +130,9 @@ export const WeighDialog = reatomMemo<WeighDialogProps>(({ form, name, open, onO
               </p>
             </div>
           </div>
-          <div className={styles.foot}>
+          <div className={sheet.foot}>
             {failure && (
-              <p className={styles.failure} role="alert">
+              <p className={sheet.failure} role="alert">
                 {failure}
               </p>
             )}

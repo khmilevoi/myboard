@@ -1,77 +1,6 @@
-/* The form sheets of the "Все кошки" tab (design page 10, "Новая кошка" and "Убрать … в архив?"):
-   the same sheet as the "Вес" form (`module-cats/ui/WeighDialog`). The design's `--accent` is the
-   code's `--primary`, `--surface-2` is `--secondary` and `--text-2` is `--text-dim`. At phone width
-   `DialogContent fullScreenOnPhone` takes over. */
-
-.overlay {
-  background: var(--scrim);
-}
-
-.sheet {
-  display: flex;
-  flex-direction: column;
-  inline-size: 400px;
-  max-inline-size: calc(100vw - 32px);
-  max-block-size: calc(100dvh - 32px);
-  overflow: hidden;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--shadow-overlay);
-  font-family: var(--font-ui);
-}
-
-.head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px 18px;
-  border-block-end: 1px solid var(--border);
-}
-
-.title {
-  flex: 1;
-  min-inline-size: 0;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.close {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  inline-size: 34px;
-  block-size: 34px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--background);
-  color: var(--text-dim);
-  cursor: pointer;
-}
-
-.close > svg {
-  inline-size: 15px;
-  block-size: 15px;
-}
-
-.form {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-block-size: 0;
-}
-
-.body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px 18px;
-  overflow-y: auto;
-}
+/* The fields of "Новая кошка" and "Убрать … в архив?" (design page 10); the sheet's chrome is
+   `module-cats/ui/sheet.module.css`. The design's `--accent` is the code's `--primary`, `--surface-2`
+   is `--secondary` and `--text-2` is `--text-dim`. */
 
 .label {
   display: block;
@@ -225,23 +154,8 @@
   white-space: nowrap;
 }
 
-.foot {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px 18px;
-  border-block-start: 1px solid var(--border);
-}
-
-.footRow {
+.footRow.footRow {
   flex-direction: row;
-}
-
-.failure {
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--destructive);
 }
 
 .primary,

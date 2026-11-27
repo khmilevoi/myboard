@@ -13,7 +13,8 @@ import { litterValue } from '@/model/profile-form'
 
 import { LitterMark } from './LitterMark'
 
-import styles from './sheet.module.css'
+import styles from './sheet-fields.module.css'
+import sheet from 'module-cats/ui/sheet.module.css'
 
 const SEX_OPTIONS = [
   { value: 'female', label: 'Кошка' },
@@ -55,24 +56,24 @@ export const AddCatDialog = reatomMemo<AddCatDialogProps>(({ form, open, onOpenC
     <Dialog open={open} onOpenChange={wrap(onOpenChange)}>
       <DialogContent
         fullScreenOnPhone
-        className={styles.sheet}
-        overlayClassName={styles.overlay}
+        className={sheet.sheet}
+        overlayClassName={sheet.overlay}
         aria-describedby={undefined}
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           nameInput.current?.focus()
         }}
       >
-        <div className={styles.head}>
-          <DialogTitle className={styles.title}>Новая кошка</DialogTitle>
+        <div className={sheet.head}>
+          <DialogTitle className={sheet.title}>Новая кошка</DialogTitle>
           <DialogClose asChild>
-            <button type="button" className={styles.close} aria-label="Закрыть">
+            <button type="button" className={sheet.close} aria-label="Закрыть">
               <X aria-hidden />
             </button>
           </DialogClose>
         </div>
-        <form className={styles.form} onSubmit={onSubmit} noValidate>
-          <div className={styles.body}>
+        <form className={sheet.form} onSubmit={onSubmit} noValidate>
+          <div className={sheet.body}>
             <div>
               <label className={styles.label} htmlFor={nameId}>
                 Имя
@@ -166,9 +167,9 @@ export const AddCatDialog = reatomMemo<AddCatDialogProps>(({ form, open, onOpenC
               } появится в переключателе у всех кошачьих карточек.`}
             </p>
           </div>
-          <div className={styles.foot}>
+          <div className={sheet.foot}>
             {failed && (
-              <p className={styles.failure} role="alert">
+              <p className={sheet.failure} role="alert">
                 {ADD_FAILED}
               </p>
             )}
