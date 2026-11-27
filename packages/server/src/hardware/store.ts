@@ -115,8 +115,12 @@ export function updateHardware(
   })
 }
 
+/**
+ * Each record is deleted under its own lock, so an `updateHardware` / `updateBindings` that read it
+ * first cannot write it back as an orphan. Callers must not hold either lock (not re-entrant).
+ */
 export async function deleteHardware(ops: ValkeyOps, id: string): Promise<void | Error> {
-  await ops.del(hardwareKey(id))
+  await runExclusive(hardwareKey(id), () => ops.del(hardwareKey(id)))
   await runExclusive(bindingsKey(id), () => ops.del(bindingsKey(id)))
   return removeId(ops, HARDWARE_IDS_KEY, id)
 }

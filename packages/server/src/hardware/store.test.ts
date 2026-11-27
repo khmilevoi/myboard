@@ -124,6 +124,35 @@ describe('updateGateway / updateHardware', () => {
     expect(await getHardware(ops, 'h1')).toMatchObject({ battery: 50, lastReadingAt: 3 })
   })
 
+  it('deleteHardware waits for an update in flight, so it cannot write the record back', async () => {
+    const ops = makeOps()
+    await putHardware(ops, hardware('h1'))
+    const read = Promise.withResolvers<void>()
+    const gate = Promise.withResolvers<void>()
+    // The update reads the record, then stalls before writing it.
+    const stalled = {
+      ...ops,
+      async get(key: string) {
+        const value = await ops.get(key)
+        if (key === hardwareKey('h1')) {
+          read.resolve()
+          await gate.promise
+        }
+        return value
+      },
+    }
+    const updating = updateHardware(stalled, 'h1', (c) => ({ ...c, battery: 50 }))
+    await read.promise
+    const deleting = deleteHardware(stalled, 'h1')
+    // An unlocked delete finishes here, before the update writes.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    gate.resolve()
+    expect(await updating).toMatchObject({ battery: 50 })
+    expect(await deleting).toBeUndefined()
+    expect(await ops.get(hardwareKey('h1'))).toBeNull()
+    expect(await listHardware(ops)).toEqual([])
+  })
+
   it('updateHardware on a missing id returns null', async () => {
     const ops = makeOps()
     expect(await updateHardware(ops, 'hx', (c) => c)).toBeNull()
