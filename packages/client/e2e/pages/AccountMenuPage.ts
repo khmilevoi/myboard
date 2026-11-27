@@ -7,6 +7,7 @@ import type { Locator, Page } from '@playwright/test'
 export class AccountMenuPage {
   readonly trigger: Locator
   readonly myDevicesItem: Locator
+  readonly hardwareItem: Locator
   readonly profileItem: Locator
   /** The account photo inside the trigger; absent while the account has none. */
   readonly triggerImage: Locator
@@ -30,6 +31,7 @@ export class AccountMenuPage {
   ) {
     this.trigger = page.getByRole('button', { name: accountName })
     this.myDevicesItem = page.getByRole('menuitem', { name: 'Мои устройства' })
+    this.hardwareItem = page.getByRole('menuitem', { name: 'Оборудование' })
     this.profileItem = page.getByTestId('account-menu-profile')
     this.triggerImage = this.trigger.getByTestId('account-avatar-image')
     this.headAvatar = page.getByTestId('account-menu-head-avatar')
