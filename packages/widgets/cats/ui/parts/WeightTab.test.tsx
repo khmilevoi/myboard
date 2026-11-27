@@ -143,6 +143,23 @@ describe('WeightTab', () => {
     expect(within(region).getByText('4,32 кг, −90 г за месяц')).toBeInTheDocument()
   })
 
+  it('the y labels name the padded axis and the line spans it', async () => {
+    setup()
+    const region = await openWeightTab()
+
+    const labels = [...region.querySelectorAll('span[style*="top"]')].map(
+      (node) => node.textContent,
+    )
+    expect(labels.slice(0, 3)).toEqual(['4,47', '4,37', '4,27'])
+    // 4,42 is the largest of the six, 0,05 kg under the top gridline (y = 20 of 20..200).
+    const ys = (region.querySelector('polyline')?.getAttribute('points') ?? '')
+      .trim()
+      .split(/\s+/)
+      .map((pair) => Number(pair.split(',')[1]))
+    expect(Math.min(...ys)).toBeCloseTo(20 + (0.05 / 0.2) * 180, 1)
+    expect(Math.max(...ys)).toBeCloseTo(200 - (0.05 / 0.2) * 180, 1)
+  })
+
   it('no weighings: the empty state with "Взвесить", which opens the weigh form', async () => {
     setup([])
     const region = within(await openWeightTab())

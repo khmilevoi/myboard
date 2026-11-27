@@ -44,6 +44,48 @@ describe('LineChart', () => {
     expect(ys[2]).toBe(Math.max(...ys))
   })
 
+  it('a y domain puts its max on the top gridline and its min on the bottom one', () => {
+    const { container } = render(
+      <LineChart
+        points={[
+          { x: '2026-09-01', y: 4.47 },
+          { x: '2026-10-01', y: 4.37 },
+          { x: '2026-11-01', y: 4.27 },
+        ]}
+        yDomain={{ min: 4.27, max: 4.47 }}
+        yLabels={['4,47', '4,37', '4,27']}
+        xLabels={[]}
+        variant="full"
+        summary="s"
+      />,
+    )
+    const ys = (container.querySelector('polyline')?.getAttribute('points') ?? '')
+      .trim()
+      .split(/\s+/)
+      .map((pair) => Number(pair.split(',')[1]))
+    // The full variant's gridlines sit at y = 20 (top) and y = 200 (bottom).
+    expect(ys).toEqual([20, 110, 200])
+  })
+
+  it('a domain wider than the data leaves room above and below the line', () => {
+    const { container } = render(
+      <LineChart
+        points={POINTS}
+        yDomain={{ min: 4.27, max: 4.49 }}
+        yLabels={[]}
+        xLabels={[]}
+        variant="full"
+        summary="s"
+      />,
+    )
+    const ys = (container.querySelector('polyline')?.getAttribute('points') ?? '')
+      .trim()
+      .split(/\s+/)
+      .map((pair) => Number(pair.split(',')[1]))
+    expect(Math.min(...ys)).toBeGreaterThan(20)
+    expect(Math.max(...ys)).toBeLessThan(200)
+  })
+
   it('places x by time, not by index', () => {
     const { container } = render(
       <LineChart points={POINTS} yLabels={[]} xLabels={[]} variant="spark" summary="s" />,

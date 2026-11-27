@@ -20,6 +20,11 @@ export type LineChartProps = {
   yLabels: string[]
   /** Each at the x position of its `at` (an ISO date or date-time, like `points[].x`). */
   xLabels: { at: string; label: string }[]
+  /**
+   * The values the top and bottom gridlines stand for. Absent, the data's own largest and
+   * smallest `y` do. Give it when `yLabels` name a wider range than the data.
+   */
+  yDomain?: { min: number; max: number }
   /** `spark`: a bare line with ticks under it, for cards. `full`: gridlines and both axes. */
   variant: 'spark' | 'full'
   /** What the chart shows, for assistive tech: the drawing itself is hidden. */
@@ -62,11 +67,11 @@ const percent = (fraction: number) => `${round(fraction * 100)}%`
  * they keep their size while the SVG stretches to its box. No chart dependency.
  */
 export const LineChart = reatomMemo<LineChartProps>(
-  ({ points, yLabels, xLabels, variant, summary, className }) => {
+  ({ points, yLabels, xLabels, variant, summary, className, yDomain }) => {
     const view = VIEW[variant]
     const ys = points.map((point) => point.y)
-    const max = Math.max(...ys)
-    const min = Math.min(...ys)
+    const max = yDomain?.max ?? Math.max(...ys)
+    const min = yDomain?.min ?? Math.min(...ys)
     const yOf = (value: number) =>
       max === min
         ? (view.top + view.bottom) / 2

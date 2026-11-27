@@ -109,6 +109,7 @@ export const WeightTab = reatomMemo(() => {
             variant="full"
             className={styles.chart}
             points={points.map(({ at, kg }) => ({ x: at, y: kg }))}
+            yDomain={{ min: axis.minKg, max: axis.maxKg }}
             yLabels={[axis.maxKg, middleKg, axis.minKg].map((kg) => formatDecimalRu(kg, 2))}
             xLabels={axis.months}
             summary={summary}
