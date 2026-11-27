@@ -30,8 +30,9 @@ card's choice. The data itself lives in the `cats` module's shared scope.
 
 `WidgetRuntimeProps.board` is optional, board-only access (`WidgetBoardAccess`):
 `firstInstanceOf(typeId)` is an atom of the first placed instance of a widget type on the active
-board, and `expand(instanceId)` opens that instance fullscreen. The cat management UI uses it to
-reach the litter card; standalone harnesses leave it undefined.
+board, and `expand(instanceId)` opens that instance fullscreen. The cat switchers use it to
+open the placed Кошки card fullscreen from "Управлять кошками →" (or show a hint when none is
+placed); standalone harnesses leave it undefined.
 
 Where shared code lives:
 
