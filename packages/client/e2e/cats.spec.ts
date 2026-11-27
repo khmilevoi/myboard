@@ -125,8 +125,14 @@ test('layers close one at a time — the fullscreen overlay stays', async ({ pag
   if (!box) throw new Error('the fullscreen heading has no layout box')
   await switcher.click()
   await expect(menu).toBeVisible()
-  await page.mouse.click(box.x + 4, box.y + box.height / 2)
-  await expect(menu).toHaveCount(0)
+  // Radix arms its outside-pointer listener in a `setTimeout(0)` after the menu mounts, and Chrome
+  // runs input ahead of timers: under the parallel e2e load a click sent the moment the menu is
+  // visible can land before the listener exists. No person clicks that fast, so retry the click
+  // until the armed menu dismisses on it.
+  await expect(async () => {
+    await page.mouse.click(box.x + 4, box.y + box.height / 2)
+    await expect(menu).toHaveCount(0, { timeout: 1_000 })
+  }).toPass()
   await expect(cats.overlay).toBeVisible()
 
   // The weigh form, closed with Escape, then with the browser's Back.
