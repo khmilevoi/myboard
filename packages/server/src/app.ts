@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 
-import { ingestMeasurement } from '@modules/health/domain/ingest'
 import { MeasurementSchema } from '@modules/health/domain/measurement'
-import { moduleAccountNamespace } from '@shared/storage/scope'
 import { scopedEventKey, type ScopedStorageRef } from '@shared/storage/scoped'
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import Router from 'find-my-way'
@@ -25,6 +23,8 @@ import type { ImageDecoder } from './files/image-check'
 import type { FilePolicies } from './files/policies'
 import { registerFileRoutes } from './files/routes'
 import { makeFileService } from './files/service'
+import { ingestForAccount } from './hardware/health-access'
+import { registerHardwareRoutes } from './hardware/routes'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
@@ -70,7 +70,6 @@ import { makeCronScheduler } from './widgets/cron-scheduler'
 import { dispatchWidgetEvent } from './widgets/dispatch'
 import { WidgetRequestBodyError, type PublicWidgetDispatchError } from './widgets/errors'
 import type { WidgetServerRegistry } from './widgets/registry'
-import { makeWidgetScopedStorage } from './widgets/storage'
 import { resolveWidgetViewer } from './widgets/viewer'
 
 const HEARTBEAT_MS = 25_000
@@ -158,6 +157,8 @@ export function createApp(deps: AppDeps): App {
     if (!deps.testControls) cronScheduler.start()
   }
 
+  const hardware = registerHardwareRoutes({ router, ops, now, authDeps, registry })
+
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
     try {
@@ -172,6 +173,7 @@ export function createApp(deps: AppDeps): App {
       return
     }
     fanout(registry, parsed.data)
+    hardware.onStorageEvent(parsed.data)
   })
 
   function send(res: ServerResponse, result: HandlerResult): void {
@@ -664,12 +666,7 @@ export function createApp(deps: AppDeps): App {
         res.end(JSON.stringify(formatZodError(parsed.error)))
         return
       }
-      const storage = makeWidgetScopedStorage({
-        ops,
-        namespace: moduleAccountNamespace('health', session.accountId),
-        now,
-      })
-      const result = await ingestMeasurement(storage, parsed.data.measurement)
+      const result = await ingestForAccount(ops, now, session.accountId, parsed.data.measurement)
       if (result instanceof Error) {
         res.writeHead(500, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ error: 'ingest_failed' }))
@@ -770,6 +767,7 @@ export function createApp(deps: AppDeps): App {
 
   const close = async (): Promise<void> => {
     unsubscribe()
+    hardware.closeAll()
     recoveryStore.revokeAll()
     await cronScheduler.stop()
     await new Promise<void>((resolve) => server.close(() => resolve()))

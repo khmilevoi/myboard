@@ -8,7 +8,7 @@ import { sha256hex } from './tokens'
 
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32, no I L O U
 const CODE_LEN = 8
-const FAILED_ATTEMPTS_LIMIT = 10
+export const ADD_CODE_FAILED_ATTEMPTS_LIMIT = 10
 
 export function generateAddCode(): string {
   const bytes = crypto.randomBytes(CODE_LEN)
@@ -30,7 +30,7 @@ export function formatAddCode(canonical: string): string {
 
 function checkLive(record: AddTokenRecord, now: () => number): AddTokenInvalidError | undefined {
   if (record.expiresAt <= now()) return new AddTokenInvalidError()
-  if (record.failedAttempts >= FAILED_ATTEMPTS_LIMIT) return new AddTokenInvalidError()
+  if (record.failedAttempts >= ADD_CODE_FAILED_ATTEMPTS_LIMIT) return new AddTokenInvalidError()
   return undefined
 }
 

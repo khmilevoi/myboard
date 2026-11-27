@@ -45,8 +45,9 @@ costs, live in the header comment of `packages/shared/storage/scope.ts`.
 
 ## Server (storage API)
 
-`packages/server/src/index.ts` is a plain `node:http` server routed with `find-my-way`, backed by
-Valkey (Redis-compatible):
+`packages/server/src/index.ts` is the entry point: it wires the production dependencies and hands
+them to `createApp` in `packages/server/src/app.ts`, a plain `node:http` server routed with
+`find-my-way`, backed by Valkey (Redis-compatible):
 
 - REST-ish endpoints under `/api/storage` (`GET` / `PUT` / `DELETE` by key, prefix listing, atomic
   `append` via `runExclusive` per-key locking in `storage/key-lock.ts`).
@@ -58,6 +59,57 @@ Valkey (Redis-compatible):
   failures return 422 with a formatted Zod error.
 - Errors and control flow follow the errore pattern (tagged errors, `Error | T` unions) rather than
   throwing.
+
+### Hardware
+
+`packages/server/src/hardware/` is the server-owned registry of hardware gateways and the hardware
+(smart scales) paired through them. Wire types shared with the gateway live in
+`packages/shared/hardware/`; `hardware/routes.ts` lists every route.
+
+- **Registry.** All keys start with `hw:`, are built only in `hardware/keys.ts`, and `hw:` is not an
+  allowed storage namespace, so `/api/storage` can never read or write them. The key list and why
+  renaming one orphans data (binding records hold the only copy of each scale's consent code) are in
+  the header of `packages/shared/storage/scope.ts`. Records (`hardware/records.ts`) are
+  Zod-validated; `hardware/store.ts` does every read-modify-write under the per-key `runExclusive`
+  lock used by storage `append`.
+- **Registration.** A signed-in member mints a one-time code (`POST /api/hardware/codes`; 5-minute
+  TTL, one live code per board, only its hash stored, at most 10 failed attempts, reusing the
+  device-add code machinery). The gateway presents it to `POST /api/hardware/gateway/register` and
+  receives a random bearer token exactly once; only the token's SHA-256 hash is stored. Revoking a
+  gateway deletes its token, record and scan under the same lock as the last-seen update, and
+  detaches its hardware (`gatewayId: null`) without deleting it, keeping the consent codes.
+- **Gateway protocol.** Every call except `register` carries `Authorization: Bearer <token>`.
+  `GET /api/hardware/gateway/stream` is an SSE command stream (`ready` first, 25 s heartbeat; on open
+  the server sends `bindings.sync` and pending profile updates); the gateway answers with
+  `POST /api/hardware/gateway/events` (scan results, pairing, profile outcomes) and
+  `POST /api/hardware/gateway/readings`, which `hardware/readings.ts` writes into the bound
+  account's health data through `ingestMeasurement`. Gateway routes are exempt from the CSRF check
+  because no ambient credential authenticates them.
+- **Protocol rules a gateway must follow** (`packages/shared/hardware/gateway-protocol.ts`):
+  - `bindings.sync` lists every hardware attached to the gateway, bound or not
+    (`hardware: { hardwareId, address, model }[]`), plus every binding. It is the only way a gateway
+    learns the `hardwareId` it must use in `scaleUsers`, `battery` and readings, so it is resent on
+    stream open, adopt, bonded, unpair, unbind and every created/attached profile.
+  - A reading with an unknown metric kind, or a wrong unit on any metric, is `rejected` as a whole:
+    the gateway sends only the kinds in `METRIC_KINDS` with the units in `METRIC_UNITS`
+    (`packages/modules/health/domain/metrics.ts`). Posting the same reading twice, even
+    concurrently, stores it once (`duplicate`).
+  - The events batch is all-or-nothing on validation (`422` for the whole batch): the gateway
+    truncates strings to the schema bounds (`reason`, `name` ≤ 64 characters). Unknown hardware
+    models in `scan.result` and `bonded` are accepted and dropped by the server, never a `422`.
+  - `scaleUser.updated` echoes the `revision` of the `scaleUser.update` it applied (≥ 1); an ack
+    beyond the revision the server sent is capped, never trusted.
+- **Board side.** `GET /api/hardware` returns a snapshot (hardware, bindings, gateway presence,
+  `lastReadingAt` only, never a metric, consent code or PIN); `GET /api/hardware/events` streams
+  change notices. Board routes require a session and the CSRF header; only a binding's own account
+  may unbind it or reveal its consent code.
+- **nginx.** `packages/client/nginx.conf` opens `= /api/hardware/gateway/register` (rate limited) and
+  `/api/hardware/gateway/` (no buffering, 120 s read timeout) without `auth_request`: the server
+  checks the token on every call. Board hardware routes stay under the gated `/api/` block;
+  `e2e/nginx-gate.spec.ts` proves both sides.
+- **Presence is in-process.** `hardware/connections.ts` (`GatewayConnections`) holds the open
+  stream responses in memory. The deployment runs one server process per stack, so there is no
+  cross-process presence; a second process would need a shared presence store first.
 
 ## Files
 

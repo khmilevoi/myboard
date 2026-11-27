@@ -16,6 +16,7 @@ export type TestApp = {
   base: string
   ops: MemoryOps
   blobs: MemoryBlobStore
+  setNow(ms: number): void
   seedSession(name: string): Promise<{ accountId: string; cookie: string }>
   close(): Promise<void>
 }
@@ -26,10 +27,14 @@ export type OpenSse = {
   close(): void
 }
 
-/** Opens `/api/storage/events` and yields its unnamed `data:` frames one at a time. */
-export async function openSse(base: string, cookie?: string): Promise<OpenSse> {
+/** Opens an SSE route (`/api/storage/events` by default) and yields its unnamed `data:` frames. */
+export async function openSse(
+  base: string,
+  cookie?: string,
+  path = '/api/storage/events',
+): Promise<OpenSse> {
   const controller = new AbortController()
-  const res = await fetch(`${base}/api/storage/events`, {
+  const res = await fetch(`${base}${path}`, {
     headers: cookie ? { cookie } : {},
     signal: controller.signal,
   })
@@ -110,6 +115,7 @@ export async function startTestApp(
     base,
     ops,
     blobs,
+    setNow: clock.set,
     async seedSession(name) {
       seeded += 1
       const credentialId = `cred-fixture-${seeded}`
@@ -120,6 +126,13 @@ export async function startTestApp(
       })
       return { accountId: account.id, cookie: `${config.sessionCookieName}=${session.sessionId}` }
     },
-    close: () => app.close(),
+    async close() {
+      const closing = app.close()
+      // After an aborted fetch stream undici can open a pooled socket it never sends a request
+      // on. Node does not count such a socket idle, so `server.close` would wait seconds for
+      // undici's own idle timeout. The app has already ended its streams by now.
+      app.server.closeAllConnections()
+      await closing
+    },
   }
 }
