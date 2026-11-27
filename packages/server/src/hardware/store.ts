@@ -67,6 +67,21 @@ export async function putGateway(ops: ValkeyOps, record: GatewayRecord): Promise
   return addId(ops, GATEWAY_IDS_KEY, record.id)
 }
 
+export function updateGateway(
+  ops: ValkeyOps,
+  id: string,
+  update: (current: GatewayRecord) => GatewayRecord | Error,
+): Promise<GatewayRecord | null | Error> {
+  return runExclusive(gatewayKey(id), async () => {
+    const current = await getGateway(ops, id)
+    if (current instanceof Error || current === null) return current
+    const next = update(current)
+    if (next instanceof Error) return next
+    await setJson(ops, gatewayKey(id), next)
+    return next
+  })
+}
+
 export async function deleteGateway(ops: ValkeyOps, id: string): Promise<void | Error> {
   await ops.del(gatewayKey(id))
   return removeId(ops, GATEWAY_IDS_KEY, id)
@@ -83,6 +98,21 @@ export function getHardware(ops: ValkeyOps, id: string): Promise<HardwareRecord 
 export async function putHardware(ops: ValkeyOps, record: HardwareRecord): Promise<void | Error> {
   await setJson(ops, hardwareKey(record.id), record)
   return addId(ops, HARDWARE_IDS_KEY, record.id)
+}
+
+export function updateHardware(
+  ops: ValkeyOps,
+  id: string,
+  update: (current: HardwareRecord) => HardwareRecord | Error,
+): Promise<HardwareRecord | null | Error> {
+  return runExclusive(hardwareKey(id), async () => {
+    const current = await getHardware(ops, id)
+    if (current instanceof Error || current === null) return current
+    const next = update(current)
+    if (next instanceof Error) return next
+    await setJson(ops, hardwareKey(id), next)
+    return next
+  })
 }
 
 export async function deleteHardware(ops: ValkeyOps, id: string): Promise<void | Error> {

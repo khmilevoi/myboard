@@ -13,9 +13,16 @@ import { randomId, randomToken, sha256hex } from '../auth/tokens'
 import { runExclusive } from '../storage/key-lock'
 import type { ValkeyOps } from '../storage/valkey'
 import { GatewayCodeInvalidError, GatewayNotFoundError, GatewayUnauthorizedError } from './errors'
-import { GATEWAY_CODE_KEY, gatewayTokenKey, scanKey } from './keys'
+import { GATEWAY_CODE_KEY, gatewayKey, gatewayTokenKey, scanKey } from './keys'
 import { type GatewayRecord, GatewayCodeRecordSchema, GatewayTokenRecordSchema } from './records'
-import { deleteGateway, getGateway, listHardware, putGateway, putHardware } from './store'
+import {
+  deleteGateway,
+  getGateway,
+  listHardware,
+  putGateway,
+  updateGateway,
+  updateHardware,
+} from './store'
 
 export const GATEWAY_CODE_TTL_MS = 5 * 60_000
 
@@ -112,28 +119,36 @@ export async function authenticateGateway(
   const gateway = await getGateway(ops, tokenRecord.gatewayId)
   if (gateway instanceof Error) return gateway
   if (gateway === null) return new GatewayUnauthorizedError()
-  const touched = { ...gateway, lastSeenAt: now() }
-  const stored = await putGateway(ops, touched)
-  if (stored instanceof Error) return stored
+  const touched = await updateGateway(ops, gateway.id, (current) => ({
+    ...current,
+    lastSeenAt: now(),
+  }))
+  if (touched instanceof Error) return touched
+  if (touched === null) return new GatewayUnauthorizedError()
   return touched
 }
 
-export async function revokeGateway(
+export function revokeGateway(
   ops: ValkeyOps,
   gatewayId: string,
 ): Promise<void | GatewayNotFoundError | Error> {
-  const gateway = await getGateway(ops, gatewayId)
-  if (gateway instanceof Error) return gateway
-  if (gateway === null) return new GatewayNotFoundError()
-  await ops.del(gatewayTokenKey(gateway.tokenHash))
-  const removed = await deleteGateway(ops, gatewayId)
-  if (removed instanceof Error) return removed
-  await ops.del(scanKey(gatewayId))
-  const all = await listHardware(ops)
-  if (all instanceof Error) return all
-  for (const hardware of all) {
-    if (hardware.gatewayId !== gatewayId) continue
-    const detached = await putHardware(ops, { ...hardware, gatewayId: null })
-    if (detached instanceof Error) return detached
-  }
+  // Same lock as updateGateway, so a concurrent touch cannot resurrect the record.
+  return runExclusive(gatewayKey(gatewayId), async () => {
+    const gateway = await getGateway(ops, gatewayId)
+    if (gateway instanceof Error) return gateway
+    if (gateway === null) return new GatewayNotFoundError()
+    await ops.del(gatewayTokenKey(gateway.tokenHash))
+    const removed = await deleteGateway(ops, gatewayId)
+    if (removed instanceof Error) return removed
+    await ops.del(scanKey(gatewayId))
+    const all = await listHardware(ops)
+    if (all instanceof Error) return all
+    for (const hardware of all) {
+      if (hardware.gatewayId !== gatewayId) continue
+      const detached = await updateHardware(ops, hardware.id, (current) =>
+        current.gatewayId === gatewayId ? { ...current, gatewayId: null } : current,
+      )
+      if (detached instanceof Error) return detached
+    }
+  })
 }

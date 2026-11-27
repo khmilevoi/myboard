@@ -4,7 +4,7 @@ import { sha256hex } from '../auth/tokens'
 import { makeClock } from '../test/auth-fixtures'
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
 import { GatewayCodeInvalidError, GatewayUnauthorizedError } from './errors'
-import { gatewayTokenKey } from './keys'
+import { bindingsKey, gatewayTokenKey } from './keys'
 import {
   authenticateGateway,
   GATEWAY_CODE_TTL_MS,
@@ -161,13 +161,13 @@ describe('revokeGateway', () => {
       lastReadingAt: null,
       scaleUsers: [],
     })
-    await ops.set(`hw:bindings:h1`, '[]')
+    await ops.set(bindingsKey('h1'), '[]')
     expect(await revokeGateway(ops, reg.gatewayId)).toBeUndefined()
     expect(await authenticateGateway(ops, clock.now, `Bearer ${reg.token}`)).toBeInstanceOf(
       GatewayUnauthorizedError,
     )
     expect(await getGateway(ops, reg.gatewayId)).toBeNull()
     expect(await getHardware(ops, 'h1')).toMatchObject({ gatewayId: null })
-    expect(await ops.get('hw:bindings:h1')).toBe('[]')
+    expect(await ops.get(bindingsKey('h1'))).toBe('[]')
   })
 })

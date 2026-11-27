@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
 import { createMemoryOps, createMemoryPubSub } from '../test/memory-ops'
-import { bindingsKey, HARDWARE_IDS_KEY, hardwareKey } from './keys'
-import type { BindingRecord, HardwareRecord } from './records'
+import { bindingsKey, GATEWAY_IDS_KEY, gatewayKey, HARDWARE_IDS_KEY, hardwareKey } from './keys'
+import type { BindingRecord, GatewayRecord, HardwareRecord } from './records'
 import {
   deleteHardware,
   getBindings,
+  getGateway,
   getHardware,
   listHardware,
+  putGateway,
   putHardware,
+  updateGateway,
+  updateHardware,
   updateBindings,
 } from './store'
 
@@ -77,5 +81,52 @@ describe('hardware store', () => {
     const ops = makeOps()
     await ops.set(hardwareKey('h1'), '{not json')
     expect(await getHardware(ops, 'h1')).toBeInstanceOf(Error)
+  })
+})
+
+const gateway = (id: string): GatewayRecord => ({
+  id,
+  label: 'g',
+  tokenHash: 'h',
+  createdAt: 1,
+  createdBy: 'a1',
+  lastSeenAt: 1,
+  connectedAt: null,
+  adapter: null,
+  bonded: [],
+})
+
+describe('updateGateway / updateHardware', () => {
+  it('updateGateway on a missing id returns null and writes nothing', async () => {
+    const ops = makeOps()
+    expect(await updateGateway(ops, 'gx', (c) => ({ ...c, lastSeenAt: 5 }))).toBeNull()
+    expect(await ops.get(gatewayKey('gx'))).toBeNull()
+    expect(await ops.get(GATEWAY_IDS_KEY)).toBeNull()
+  })
+
+  it('concurrent updateGateway calls keep both changes', async () => {
+    const ops = makeOps()
+    await putGateway(ops, gateway('g1'))
+    await Promise.all([
+      updateGateway(ops, 'g1', (c) => ({ ...c, lastSeenAt: 9 })),
+      updateGateway(ops, 'g1', (c) => ({ ...c, connectedAt: 7 })),
+    ])
+    expect(await getGateway(ops, 'g1')).toMatchObject({ lastSeenAt: 9, connectedAt: 7 })
+  })
+
+  it('concurrent updateHardware calls keep both changes', async () => {
+    const ops = makeOps()
+    await putHardware(ops, hardware('h1'))
+    await Promise.all([
+      updateHardware(ops, 'h1', (c) => ({ ...c, battery: 50 })),
+      updateHardware(ops, 'h1', (c) => ({ ...c, lastReadingAt: 3 })),
+    ])
+    expect(await getHardware(ops, 'h1')).toMatchObject({ battery: 50, lastReadingAt: 3 })
+  })
+
+  it('updateHardware on a missing id returns null', async () => {
+    const ops = makeOps()
+    expect(await updateHardware(ops, 'hx', (c) => c)).toBeNull()
+    expect(await ops.get(hardwareKey('hx'))).toBeNull()
   })
 })
