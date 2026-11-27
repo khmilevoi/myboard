@@ -7,13 +7,13 @@ import {
   computed,
   effect,
   withAsync,
-  withConnectHook,
   wrap,
 } from '@reatom/core'
 import type { HttpLike } from '@shared/http/client'
 import { startAuthentication as browserStartAuthentication } from '@simplewebauthn/browser'
 import * as errore from 'errore'
 import QRCodeStyling, { type Options as QrOptions } from 'qr-code-styling'
+import { formatCountdown, makeTickingNow } from 'widget-sdk/reatom/countdown'
 
 import type { ResolvedTheme } from '@/shared/theme/types'
 import { resolvedTheme as globalResolvedTheme } from '@/theme/model/theme-model'
@@ -64,13 +64,6 @@ export interface AddDeviceDeps {
   // shape in this file. Tests inject a plain `atom<ResolvedTheme>(...)`
   // instead of mutating the real global theme atoms.
   resolvedTheme: () => ResolvedTheme
-}
-
-function formatCountdown(msRemaining: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(msRemaining / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
 // Duplicated from packages/client/src/shared/theme/tokens.css's `--primary`
@@ -173,20 +166,10 @@ export function createAddDeviceModel(
   // already cleared them.
   let generation = 0
 
-  // Ticking clock local to this model -- same idiom as
-  // packages/widgets/clock/model/clock-model.ts's module-level `clockNow`: a
-  // plain atom seeded with a lazy initial-state callback, ticking every
-  // second only while something keeps it connected (e.g. a countdown display
-  // reading it reactively, or a test that `.subscribe()`s to it/`countdown`).
-  const now = atom(() => Date.now(), 'addDevice.now').extend(
-    withConnectHook(() => {
-      const intervalId = window.setInterval(
-        wrap(() => now.set(Date.now())),
-        1000,
-      )
-      return () => window.clearInterval(intervalId)
-    }),
-  )
+  // Ticking clock shared with the hardware UI: re-reads Date.now() every
+  // second only while something keeps it connected (a countdown display, or a
+  // test that `.subscribe()`s to it/`countdown`).
+  const now = makeTickingNow({ now: () => Date.now(), intervalMs: 1000, name: 'addDevice.now' })
 
   const countdown = computed(() => {
     const expires = expiresAt()

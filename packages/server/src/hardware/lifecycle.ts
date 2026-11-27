@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-import type { HardwareBoardEvent, PairingStage, ScanResult } from '@shared/hardware/board-api'
+import {
+  type HardwareBoardEvent,
+  PAIRING_TTL_MS,
+  type PairingStage,
+  type ScanResult,
+} from '@shared/hardware/board-api'
 import type { BleAddress, HardwareModel } from '@shared/hardware/models'
 import { SCAN_DURATION_MS } from '@shared/hardware/spike-assumptions'
 
@@ -35,7 +40,6 @@ import {
   updateHardware,
 } from './store'
 
-export const PAIRING_TTL_MS = 3 * 60_000
 export const SCAN_RECORD_TTL_MS = SCAN_DURATION_MS + 60_000
 
 /** The write already happened, so a missed board refresh is logged, never failed. */

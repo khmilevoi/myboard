@@ -10,8 +10,12 @@ import {
 
 export type FakeGatewayStream = {
   ready: { gatewayId: string }
-  /** Resolves with the next command (of `type`, skipping others); rejects once the stream ends. */
-  nextCommand(type?: GatewayCommand['type']): Promise<GatewayCommand>
+  /** Resolves with the next command of `type`, skipping others; rejects once the stream ends. */
+  nextCommand<T extends GatewayCommand['type']>(
+    type: T,
+  ): Promise<Extract<GatewayCommand, { type: T }>>
+  /** Resolves with the next command of any type; rejects once the stream ends. */
+  nextCommand(): Promise<GatewayCommand>
   close(): void
 }
 
@@ -106,16 +110,19 @@ export function makeFakeGateway(base: string): FakeGateway {
       }
       const ready = JSON.parse(first.data) as { gatewayId: string }
 
+      async function nextCommand(type?: GatewayCommand['type']): Promise<GatewayCommand> {
+        for (;;) {
+          const frame = await nextFrame()
+          if (frame.event !== 'command' || frame.data === null) continue
+          const command = GatewayCommandSchema.parse(JSON.parse(frame.data))
+          if (type === undefined || command.type === type) return command
+        }
+      }
+
       return {
         ready,
-        async nextCommand(type) {
-          for (;;) {
-            const frame = await nextFrame()
-            if (frame.event !== 'command' || frame.data === null) continue
-            const command = GatewayCommandSchema.parse(JSON.parse(frame.data))
-            if (type === undefined || command.type === type) return command
-          }
-        },
+        // The overloads narrow the result by `type`; the filter above guarantees the match.
+        nextCommand: nextCommand as FakeGatewayStream['nextCommand'],
         close: () => controller.abort(),
       }
     },

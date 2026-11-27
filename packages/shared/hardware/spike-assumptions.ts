@@ -1,7 +1,8 @@
 // Unconfirmed until the hardware spike; change only here.
 import { z } from 'zod'
 
-export const PAIRING_PIN_PATTERN = /^\d{6}$/
+export const PAIRING_PIN_DIGITS = 6
+export const PAIRING_PIN_PATTERN = new RegExp(`^\\d{${PAIRING_PIN_DIGITS}}$`)
 export const PairingPinSchema = z.string().regex(PAIRING_PIN_PATTERN)
 export type PairingPin = z.infer<typeof PairingPinSchema>
 
@@ -24,3 +25,6 @@ export const ScaleUserSummarySchema = z.object({ index: ScaleUserIndexSchema })
 export type ScaleUserSummary = z.infer<typeof ScaleUserSummarySchema>
 
 export const SCAN_DURATION_MS = 30_000
+
+/** How long the scale may take to answer a create/attach; depends on how it is woken. */
+export const SCALE_ANSWER_TIMEOUT_MS = 90_000

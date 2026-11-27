@@ -1,6 +1,6 @@
 import { wrap } from '@reatom/core'
 import { pluralRu } from '@shared/format/ru'
-import { Camera, LogOut, Monitor, Plus, UserRound } from 'lucide-react'
+import { Camera, Cpu, LogOut, Monitor, Plus, UserRound } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { type AvatarCropModel, makeAvatarCropModel } from 'widget-sdk/files/avatar-crop-model'
 import { cn } from 'widget-sdk/lib/utils'
@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from 'widget-sdk/ui/dropdown-menu'
 
+import type { HardwareModel } from '@/hardware/model/hardware-model'
+import { HardwareDialog } from '@/hardware/ui/HardwareDialog'
 import { hostRuntime, http } from '@/runtime'
 
 import { firstNameOf, initialsOf } from '../model/account-format'
@@ -30,13 +32,15 @@ export type AccountMenuProps = {
   model?: AccountModel
   /** Injectable for tests; defaults to a crop model that uploads through `model`. */
   cropModel?: AvatarCropModel
+  /** Injectable for tests; defaults to the hardware dialog's own model. */
+  hardwareModel?: HardwareModel
 }
 
 /** What the avatar upload accepts — the server's AVATAR_POLICY. */
 const AVATAR_ACCEPT = 'image/png,image/jpeg,image/webp'
 
 export const AccountMenu = reatomMemo<AccountMenuProps>(
-  ({ model: modelOverride, cropModel: cropModelOverride }) => {
+  ({ model: modelOverride, cropModel: cropModelOverride, hardwareModel }) => {
     // One model instance per mounted menu -- this is the sole owner/consumer of
     // account-model.ts in the board client (mirrors ActivateScreen's identical
     // "one model instance per mounted screen" convention). MyDevicesDialog is
@@ -209,6 +213,14 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
                 <Monitor size={16} strokeWidth={1.8} aria-hidden />
                 <span>Мои устройства</span>
               </DropdownMenuItem>
+              <DropdownMenuItem
+                className={styles.item}
+                data-testid="account-menu-hardware"
+                onSelect={wrap(() => surfaces.hardwareOpen.set(true))}
+              >
+                <Cpu size={16} strokeWidth={1.8} aria-hidden />
+                <span>Оборудование</span>
+              </DropdownMenuItem>
             </div>
 
             <div className={styles.dividerInset} />
@@ -249,6 +261,11 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
           the profile cannot close while a modal over it is open. */}
         {profileOpen ? null : cropDialog}
         {profileOpen ? null : devicesDialog}
+        <HardwareDialog
+          model={hardwareModel}
+          open={surfaces.hardwareOpen()}
+          onOpenChange={wrap((next: boolean) => surfaces.hardwareOpen.set(next))}
+        />
       </>
     )
   },
