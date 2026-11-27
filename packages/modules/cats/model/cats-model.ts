@@ -3,7 +3,13 @@ import type { Computed } from '@reatom/core'
 import { withStorageKeyReadonly } from 'widget-runtime'
 import type { ModuleApiError } from 'widget-runtime'
 
-import { litterTitle, type CatProfile, type LitterChoice } from '../domain/cat'
+import {
+  catToneAt,
+  litterTitle,
+  type CatProfile,
+  type CatTone,
+  type LitterChoice,
+} from '../domain/cat'
 import { CATS_REGISTRY_KEY, LITTERS_REGISTRY_KEY } from '../domain/keys'
 import {
   CatRegistryEventsSchema,
@@ -12,34 +18,50 @@ import {
   foldLitterRegistry,
   type CatRegistry,
 } from '../domain/registry'
+import { DUTY_TIME_ZONE } from '../domain/roster'
 import { KEY_LOADING, makeCatModel, type CatModel, type CatModelInternals } from './cat-model'
 import { makeLitterModel, type CatsModuleContext, type LitterModel } from './litter-model'
 
-export type CatSummary = { id: string; name: string; avatar: string | null; litterId: string }
+export type CatSummary = {
+  id: string
+  name: string
+  avatar: string | null
+  litterId: string
+  /** Fixed by the cat's position in the registry's add order, so it never changes. */
+  tone: CatTone
+}
 
 export type LitterSummary = { id: string; title: string; catIds: string[] }
 
 /** The one cats-module model per board. Per-entity state lives in memoized sub-models. */
 export type CatsModel = {
+  /** The server-time calendar day in the duty time zone; null until the clock syncs. */
+  today: Computed<Temporal.PlainDate | null>
   /**
    * Active cats in registry order. null until the registry and every active cat's profile have
    * loaded; a registry id whose profile is absent or does not parse is left out.
    */
   cats: Computed<CatSummary[] | null>
   archivedCats: Computed<CatSummary[] | null>
+  /** When each archived cat was archived (server time, ms), by cat id; null while the registry loads. */
+  archivedAt: Computed<Record<string, number> | null>
   /** Litters at least one active cat points at, in litter-registry order. */
   litters: Computed<LitterSummary[] | null>
   /** The same `CatModel` for the same id, so every view of a cat shares its atoms. */
   cat(catId: string): CatModel
   /** The same `LitterModel` for the same id, so every view of a litter shares its atoms. */
   litter(litterId: string): LitterModel
-  addCat(name: string, litter: LitterChoice): Promise<ModuleApiError | { catId: string }>
+  addCat(
+    name: string,
+    litter: LitterChoice,
+    extra?: { birthDate?: string | null; sex?: 'female' | 'male' | null },
+  ): Promise<ModuleApiError | { catId: string }>
   archiveCat(catId: string): Promise<ModuleApiError | void>
   restoreCat(catId: string): Promise<ModuleApiError | void>
 }
 
 export function makeCatsModel(context: CatsModuleContext): CatsModel {
-  const { storage, api } = context
+  const { storage, timer, api } = context
   const server = storage.shared.server
   const litterModels = new Map<string, LitterModel>()
   const catModels = new Map<string, CatModelInternals>()
@@ -90,7 +112,7 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
   // Every profile is read before deciding, so all of them subscribe in the same run instead of
   // one per recomputation. Reading a cat's `profileState` here is what connects its profile key:
   // the dependency list follows the registry, so an id that leaves it is disconnected.
-  const summaries = (catIds: readonly string[]): CatSummary[] | null => {
+  const summaries = (catIds: readonly string[], order: readonly string[]): CatSummary[] | null => {
     const states = catIds.map(
       (id): { id: string; state: ReturnType<CatModelInternals['profileState']> } => ({
         id,
@@ -100,19 +122,35 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
     if (states.some(({ state }) => state === KEY_LOADING)) return null
     return states.flatMap(({ id, state }) => {
       if (state === KEY_LOADING || state === null) return []
-      return [toSummary(id, state)]
+      return [
+        toSummary(id, state, catToneAt(order.indexOf(id)), catInternals(id).model.avatarUrl()),
+      ]
     })
   }
 
+  const today = computed(() => timer.today(DUTY_TIME_ZONE), 'cats.today')
+
   const cats = computed(() => {
     const registry = catRegistry()
-    return registry === null ? null : summaries(registry.active)
+    return registry === null ? null : summaries(registry.active, registry.order)
   }, 'cats.cats')
 
   const archivedCats = computed(() => {
     const registry = catRegistry()
-    return registry === null ? null : summaries(registry.archived.map(({ catId }) => catId))
+    return registry === null
+      ? null
+      : summaries(
+          registry.archived.map(({ catId }) => catId),
+          registry.order,
+        )
   }, 'cats.archivedCats')
+
+  const archivedAt = computed(() => {
+    const registry = catRegistry()
+    return registry === null
+      ? null
+      : Object.fromEntries(registry.archived.map(({ catId, archivedAt: at }) => [catId, at]))
+  }, 'cats.archivedAt')
 
   const litters = computed<LitterSummary[] | null>(() => {
     const ids = litterIds()
@@ -137,8 +175,11 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
     async (
       name: string,
       litterChoice: LitterChoice,
+      extra: { birthDate?: string | null; sex?: 'female' | 'male' | null } = {},
     ): Promise<ModuleApiError | { catId: string }> => {
-      const result = await wrap(api.invoke('addCat', { name, litter: litterChoice }))
+      const result = await wrap(
+        api.invoke('addCat', { name, litter: litterChoice, ...definedOnly(extra) }),
+      )
       if (result instanceof Error) return result
       return { catId: result.catId }
     },
@@ -155,9 +196,33 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
     if (result instanceof Error) return result
   }, 'cats.restoreCat')
 
-  return { cats, archivedCats, litters, cat, litter, addCat, archiveCat, restoreCat }
+  return {
+    today,
+    cats,
+    archivedCats,
+    archivedAt,
+    litters,
+    cat,
+    litter,
+    addCat,
+    archiveCat,
+    restoreCat,
+  }
 }
 
-function toSummary(id: string, profile: CatProfile): CatSummary {
-  return { id, name: profile.name, avatar: profile.avatar, litterId: profile.litterId }
+// The avatar is the cat's file slot, never `profile.avatar`, which stays null.
+function toSummary(
+  id: string,
+  profile: CatProfile,
+  tone: CatTone,
+  avatar: string | null,
+): CatSummary {
+  return { id, name: profile.name, avatar, litterId: profile.litterId, tone }
+}
+
+/** `extra` without its `undefined` fields, so the payload never carries an explicit undefined. */
+function definedOnly<T extends object>(extra: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(extra).filter(([, value]) => value !== undefined),
+  ) as Partial<T>
 }

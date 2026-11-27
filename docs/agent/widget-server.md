@@ -79,6 +79,14 @@ and the `registry/cats` / `registry/litters` registries. The cron cursor is
 active cat points at. The `ofelia-to-cats` migration copies the old `m:ofelia:s:duty/*` data into
 litter `ofelia` and seeds cat `ofelia`.
 
+A cat's avatar is a file slot, not a storage value: the slot key is `cat/<catId>/avatar`
+(`catAvatarSlotKey` in `packages/modules/cats/domain/keys.ts`), stored at
+`m:cats:s:@files/cat/<catId>/avatar`. Its policy is declared by hand in `productionFilePolicies`
+(`packages/server/src/storage/production-file-policies.ts`) with `CAT_AVATAR_SLOT_PATTERN` and
+`AVATAR_POLICY`; a slot not declared there answers 403. The slot's `FileRef` is the only truth: the
+profile's `avatar` field stays null, so read the slot, never the profile. Per-widget card choice
+(`card/cat`, `card/litter`) is instance-scoped, not module storage — see `docs/architecture/overview.md`.
+
 Two consequences to expect:
 
 - **Restoring a cat back-fills its litter.** While every cat on a litter is archived, the cron

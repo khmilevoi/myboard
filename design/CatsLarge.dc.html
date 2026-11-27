@@ -101,7 +101,7 @@
       <a href="#" aria-current="{{ curWeight }}">Вес</a>
       <a href="#" aria-current="{{ curAll }}">Все кошки</a>
     </nav>
-    <button class="ib" type="button" aria-label="Закрыть полноэкранный режим" style="margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="ib" type="button" aria-label="Закрыть" style="margin-left:auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
 
   <!-- ================= PROFILE ================= -->
@@ -133,6 +133,10 @@
           <p style="flex:1;font-size:13px;">Ориентир по весу 4,32 кг — <b class="mono" style="font-weight:600;">≈ 252</b> ккал</p>
           <button class="bs" type="button">Взять</button>
         </div>
+        <div style="display:flex;align-items:flex-end;gap:10px;">
+          <div style="flex:1;"><label class="fk" for="cl-goal">Своя цель</label><div style="display:flex;align-items:center;gap:8px;"><input class="inp" id="cl-goal" inputmode="numeric" value="240" style="width:110px;font-family:'JetBrains Mono',monospace;"><span class="sm" style="font-size:13.5px;">ккал в сутки, с сегодня</span></div></div>
+          <button class="bs" type="button" style="height:40px;">Сохранить цель</button>
+        </div>
         <p class="sm">Раньше 250 ккал (сен–окт). Прошлые дни считаются по своей цели. Цель видна в «миске дня» в питании.</p>
       </div>
       <div class="box" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
@@ -145,6 +149,11 @@
         <p class="sm">Выбрать лоток другой кошки — значит делить его: общая очередь и общий долг. Новый лоток — своя очередь и отдельная карточка «Лоток».</p>
       </div>
     </div>
+  </div>
+  <div style="flex:none;display:flex;align-items:center;gap:10px;padding:12px 22px;border-top:1px solid var(--border);background:var(--surface);">
+    <span class="sm" style="flex:1;font-size:13px;color:var(--text-2);">Изменения не сохранены · цель сохраняется отдельно</span>
+    <button class="bs" type="button" style="height:40px;">Отменить</button>
+    <button class="bp" type="button">Сохранить</button>
   </div>
   </sc-if>
 

@@ -1,5 +1,9 @@
+import { Cat } from 'lucide-react'
+import { CatCardHeader } from 'module-cats/ui/CatCardHeader'
+import { LitterSwitcher } from 'module-cats/ui/LitterSwitcher'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
+import type { WidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
@@ -7,17 +11,15 @@ import { ActionButtons } from '../parts/ActionButtons'
 import { ActionErrorNote } from '../parts/ActionErrorNote'
 import { Avatar } from '../parts/Avatar'
 import { DebtChips } from '../parts/DebtChips'
-import { OfeliaMiniHeader } from '../parts/OfeliaMiniHeader'
 
 import styles from './StandardTier.module.css'
 
 export type StandardTierProps = {
-  onExpand?: () => void
-  onDelete?: () => void
+  chrome: WidgetChrome
 }
 
-export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete }) => {
-  const { view, actions } = useOfelia()
+export const StandardTier = reatomMemo<StandardTierProps>(({ chrome }) => {
+  const { view, actions, card } = useOfelia()
   // Day status and debt balance load asynchronously on mount (history + debts).
   // Read them race-free (useSyncExternalStore) so a warm server's response that
   // lands in the render→subscribe window isn't dropped, leaving a stale card.
@@ -32,7 +34,12 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ onExpand, onDelete 
 
   return (
     <div className={styles.root}>
-      <OfeliaMiniHeader onExpand={onExpand} onDelete={onDelete} />
+      <CatCardHeader
+        icon={<Cat aria-hidden />}
+        title={card.choice.current()?.title ?? 'Лоток'}
+        switcher={<LitterSwitcher choice={card.choice} manage={card.manage} variant="menu" />}
+        chrome={chrome}
+      />
 
       <div className={styles.label}>Сегодня убирает</div>
       <div className={styles.who}>

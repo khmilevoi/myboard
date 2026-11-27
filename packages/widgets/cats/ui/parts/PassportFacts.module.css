@@ -1,0 +1,35 @@
+/* "Упитанность" and "Цель в сутки" side by side (page 10, standard). */
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.fact {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.factLine {
+  margin: 4px 0 0;
+}
+
+.factLine .fact {
+  margin: 0;
+}
+
+.unit {
+  font-size: 12.5px;
+  color: var(--text-3);
+}

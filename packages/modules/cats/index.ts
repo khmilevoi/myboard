@@ -13,3 +13,5 @@ export type {
   LitterWeekComments,
   ToHistoryGroupsOptions,
 } from './model'
+export type { CatTone } from './domain/cat'
+export type { GoalHint, GoalHintReason } from './domain/goal-hint'

@@ -1,33 +1,56 @@
+/* Page 05, section "Статистика лотка" (frames D and E): the litter header row, then one row per
+   member, each under a hairline. */
 .widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   block-size: 100%;
   overflow: auto;
-  padding: 0.75rem;
+  padding: 16px 18px;
   font-family: var(--font-ui);
   color: var(--text);
 }
 
 .note {
+  margin: 0;
   color: var(--text-dim);
   font-size: 0.85rem;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  text-wrap: pretty;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
+  padding-block-start: 10px;
+  border-block-start: 1px solid var(--border);
 }
 
 .name {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -37,12 +60,21 @@
   align-items: flex-end;
 }
 
+.debt {
+  inline-size: 44px;
+}
+
 .label {
-  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-dim);
 }
 
 .value {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
 }

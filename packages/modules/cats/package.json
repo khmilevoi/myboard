@@ -6,7 +6,14 @@
   "exports": {
     ".": "./index.ts",
     "./domain/*": "./domain/*.ts",
-    "./testing": "./model/testing.ts"
+    "./card-choice": "./model/card-choice.ts",
+    "./weigh-form": "./model/weigh-form.ts",
+    "./format": "./format.ts",
+    "./testing": "./model/testing.ts",
+    "./ui/use-manage-cats": "./ui/use-manage-cats.ts",
+    "./ui/person": "./ui/person.ts",
+    "./ui/sheet.module.css": "./ui/sheet.module.css",
+    "./ui/*": "./ui/*.tsx"
   },
   "scripts": {
     "test": "vitest run",
@@ -16,10 +23,18 @@
     "@js-temporal/polyfill": "catalog:",
     "@reatom/core": "catalog:",
     "errore": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
     "widget-runtime": "workspace:*",
+    "widget-sdk": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "jsdom": "catalog:",
+    "react-dom": "catalog:",
     "vitest": "catalog:"
   }
 }

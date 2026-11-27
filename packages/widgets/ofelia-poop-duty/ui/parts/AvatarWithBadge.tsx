@@ -1,8 +1,8 @@
 import type { Person } from 'module-cats/domain/roster'
+import { personTone } from 'module-cats/ui/person'
 import type { ReactNode } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { personTone } from '../person'
 import { Avatar } from './Avatar'
 
 import styles from './AvatarWithBadge.module.css'

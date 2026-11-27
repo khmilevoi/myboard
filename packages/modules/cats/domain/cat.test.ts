@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   CatProfileSchema,
   defaultCatProfile,
+  catToneAt,
+  daysSinceWeighing,
+  goalEntryOn,
   goalOn,
   latestWeighing,
   litterTitle,
   type GoalEntry,
   type Weighing,
+  weightTrend,
 } from './cat'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
@@ -34,6 +38,19 @@ describe('goalOn', () => {
     ]
 
     expect(goalOn(tie, D('2026-06-10'))).toBe(260)
+  })
+})
+
+describe('goalEntryOn', () => {
+  it('returns the whole entry goalOn reads the kcal of, or null before the first goal', () => {
+    const goals: GoalEntry[] = [
+      { id: 'g1', ts: 1, kcal: 220, since: '2026-06-01' },
+      { id: 'g2', ts: 2, kcal: 240, since: '2026-06-10' },
+    ]
+
+    expect(goalEntryOn(goals, D('2026-06-12'))).toEqual(goals[1])
+    expect(goalEntryOn(goals, D('2026-06-09'))).toEqual(goals[0])
+    expect(goalEntryOn(goals, D('2026-05-31'))).toBeNull()
   })
 })
 
@@ -87,5 +104,49 @@ describe('CatProfileSchema', () => {
 
   it('rejects a litter id that is not an entity id', () => {
     expect(CatProfileSchema.safeParse({ ...profile, litterId: 'a/b' }).success).toBe(false)
+  })
+})
+
+describe('catToneAt', () => {
+  it('alternates a, b, a', () => {
+    expect([catToneAt(0), catToneAt(1), catToneAt(2)]).toEqual(['a', 'b', 'a'])
+  })
+})
+
+const weighing = (at: string, kg: number): Weighing => ({ id: at, ts: 1, at, kg })
+
+describe('weightTrend', () => {
+  const history = [
+    weighing('2026-10-14', 4.41),
+    weighing('2026-10-27', 4.38),
+    weighing('2026-11-21', 4.32),
+  ]
+
+  it('is the gram delta against the latest weighing at least `days` older', () => {
+    expect(weightTrend(history, 30)).toBe(-90)
+  })
+
+  it('takes a base exactly `days` older, and not one a day short of it', () => {
+    expect(weightTrend([weighing('2026-10-22', 4.4), weighing('2026-11-21', 4.32)], 30)).toBe(-80)
+    expect(weightTrend([weighing('2026-10-23', 4.4), weighing('2026-11-21', 4.32)], 30)).toBeNull()
+  })
+
+  it('is null without a base weighing', () => {
+    expect(weightTrend([weighing('2026-11-21', 4.32)], 30)).toBeNull()
+    expect(weightTrend([], 30)).toBeNull()
+  })
+})
+
+describe('daysSinceWeighing', () => {
+  it('counts whole days from the latest weighing', () => {
+    expect(daysSinceWeighing([weighing('2026-11-21', 4.32)], D('2026-11-26'))).toBe(5)
+  })
+
+  it('is null with no weighings', () => {
+    expect(daysSinceWeighing([], D('2026-11-26'))).toBeNull()
+  })
+
+  it('is 0, never negative, for a weighing dated after today', () => {
+    expect(daysSinceWeighing([weighing('2026-11-29', 4.32)], D('2026-11-26'))).toBe(0)
   })
 })

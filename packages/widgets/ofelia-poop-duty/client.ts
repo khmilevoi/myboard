@@ -13,7 +13,7 @@ async function ensureTemporal(): Promise<void> {
 }
 
 export const ofeliaWidget = defineWidgetClient({
-  title: 'Лоток Офелии',
+  title: 'Лоток',
   description: 'Чья сегодня очередь убирать',
   defaultSize: { w: 4, h: 8, minW: 2, minH: 3 },
   icon: 'Cat',

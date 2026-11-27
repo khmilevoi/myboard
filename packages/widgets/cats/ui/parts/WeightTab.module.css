@@ -1,0 +1,191 @@
+/* `CatsLarge` WEIGHT. The design's `--accent` is the code's `--primary`, `--text-2` is
+   `--text-dim`, `--surface-2` is `--secondary` and `--bg` is `--background`. Desktop: the chart
+   beside a 340 px column; a phone or a narrow large card (≤ 680 px): one column that scrolls. */
+.root {
+  display: flex;
+  flex: 1;
+  gap: 22px;
+  min-block-size: 0;
+  padding: 20px 22px;
+  overflow: auto;
+}
+
+.chartBox {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--background);
+}
+
+.chartHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  margin-inline-start: auto;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--secondary);
+}
+
+.segItem {
+  block-size: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.segItem[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
+}
+
+.segItem:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 6px 0 0;
+}
+
+.kg {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.unit {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chart {
+  flex: 1;
+  margin-block-start: 12px;
+}
+
+.side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+  inline-size: 340px;
+  min-block-size: 0;
+}
+
+.primary {
+  composes: primary from '../buttons.module.css';
+}
+
+.list {
+  margin: 0;
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--background);
+  list-style: none;
+  overflow: auto;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 56px 20px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-block-end: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.row:last-child {
+  border-block-end: 0;
+}
+
+.date,
+.value {
+  font-family: var(--font-mono);
+}
+
+.value {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.delta {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: end;
+  color: var(--text-dim);
+}
+
+.delta[data-direction='down'] {
+  color: var(--on-success);
+}
+
+.footer {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px 22px;
+}
+
+.emptyText {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+@container cats-large (max-width: 680px) {
+  .root {
+    flex-direction: column;
+  }
+
+  .side {
+    inline-size: auto;
+  }
+
+  .chart {
+    min-block-size: 220px;
+  }
+}

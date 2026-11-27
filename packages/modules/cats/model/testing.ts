@@ -38,6 +38,8 @@ export type MakeTestCatsModelOptions = {
   invoke?: (action: string, payload: unknown) => Promise<unknown>
   /** Backs the shared scope (client and server). Omitted, an in-memory fake. */
   storage?: StorageApi
+  /** Backs `context.files`. Omitted, in-memory empty slots; pass slots to pre-fill or fail one. */
+  files?: CatsModuleContext['files']
   /** Omitted, a static identity with no members and no viewer. */
   identity?: WidgetIdentity
 }
@@ -76,7 +78,7 @@ export function makeTestCatsModel(options: MakeTestCatsModelOptions = {}): TestC
   const model = makeCatsModel({
     moduleId: 'cats',
     storage: { shared: { client: storage, server: storage } },
-    files: makeFakeFileSlots(),
+    files: options.files ?? makeFakeFileSlots(),
     api,
     timer: createFakeTimer({
       today: options.todayIso ? Temporal.PlainDate.from(options.todayIso) : null,
@@ -94,20 +96,24 @@ export function makeTestLitterModel(options: MakeTestCatsModelOptions = {}): Tes
 }
 
 /**
- * `storage` with Ofelia's litter settings key failing with `failure`, both at connect time and on
- * `get`, until `recover()`; every other key behaves like `storage`. The ledger loads while the
- * rotation-dependent computeds stay at null: the partial failure a view must surface.
+ * `storage` with each of `keys` failing with `failure`, both at connect time and on `get`, until
+ * `recover()`; every other key behaves like `storage`.
  */
-export function makeSettingsDownStorage(storage: StorageApi, failure: StorageError) {
-  const settingsKey = litterSettingsKey(OFELIA_ID)
-  let down = true
+export function makeKeysDownStorage(
+  storage: StorageApi,
+  keys: readonly string[],
+  failure: StorageError,
+) {
+  const down = new Set(keys)
+  let failing = true
+  const isDown = (key: string) => failing && down.has(key)
   const get = (async (key: string, schema?: never) =>
-    key === settingsKey && down ? failure : storage.get(key, schema)) as StorageApi['get']
+    isDown(key) ? failure : storage.get(key, schema)) as StorageApi['get']
   const api: StorageApi = {
     ...storage,
     get,
     subscribe: (key, listener, schema) => {
-      if (key !== settingsKey) return storage.subscribe(key, listener, schema)
+      if (!isDown(key)) return storage.subscribe(key, listener, schema)
       queueMicrotask(() => listener(failure))
       return () => {}
     },
@@ -115,7 +121,16 @@ export function makeSettingsDownStorage(storage: StorageApi, failure: StorageErr
   return {
     storage: api,
     recover: () => {
-      down = false
+      failing = false
     },
   }
+}
+
+/**
+ * `storage` with Ofelia's litter settings key failing with `failure`, both at connect time and on
+ * `get`, until `recover()`; every other key behaves like `storage`. The ledger loads while the
+ * rotation-dependent computeds stay at null: the partial failure a view must surface.
+ */
+export function makeSettingsDownStorage(storage: StorageApi, failure: StorageError) {
+  return makeKeysDownStorage(storage, [litterSettingsKey(OFELIA_ID)], failure)
 }

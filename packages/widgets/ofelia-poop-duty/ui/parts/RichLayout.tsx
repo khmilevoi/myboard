@@ -1,11 +1,12 @@
 import { Cat, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LitterSwitcher } from 'module-cats/ui/LitterSwitcher'
+import { personInitial } from 'module-cats/ui/person'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
+import { WidgetControls, type WidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
-import { personInitial } from '../person'
 import { ActionButtons } from './ActionButtons'
 import { ActionErrorNote } from './ActionErrorNote'
 import { Avatar } from './Avatar'
@@ -18,9 +19,8 @@ import { WeekStrip } from './WeekStrip'
 import styles from './RichLayout.module.css'
 
 export type RichLayoutProps = {
-  onExpand?: () => void
-  onDelete?: () => void
-  onClose?: () => void
+  /** Expand and delete on a board card, close in fullscreen. */
+  chrome: WidgetChrome
 }
 
 // Connected columns: each reads only its own stream atom, so an SSE update to
@@ -54,8 +54,8 @@ const CommentsColumn = reatomMemo(() => {
   )
 }, 'CommentsColumn')
 
-export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onClose }) => {
-  const { view, actions, nav } = useOfelia()
+export const RichLayout = reatomMemo<RichLayoutProps>(({ chrome }) => {
+  const { view, actions, nav, card } = useOfelia()
   const [tab, setTab] = useState<'history' | 'comments'>('history')
   const selected = view.selected()
   if (!selected) return null
@@ -67,6 +67,7 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
   const selectedDay = days.find((day) => day.iso === selected.iso)
   const actionPending = view.actionPending()
   const actionErrorMessage = view.actionErrorMessage()
+  const rotation = card.choice.litter()?.settings()?.rotation
 
   return (
     <div className={styles.root}>
@@ -77,19 +78,18 @@ export const RichLayout = reatomMemo<RichLayoutProps>(({ onExpand, onDelete, onC
           </span>
           <div>
             <div className={styles.titleRow}>
-              <span className={styles.title}>Лоток Офелии</span>
+              <h2 className={styles.title}>{card.choice.current()?.title ?? 'Лоток'}</h2>
+              <LitterSwitcher choice={card.choice} manage={card.manage} variant="menu" />
               <span className={styles.badge}>large</span>
             </div>
-            <div className={styles.subtitle}>Кто убирает за Офелией · чередование</div>
+            {rotation && (
+              <div className={styles.subtitle}>
+                {`Кто убирает · ${rotation.join(' и ')} по очереди`}
+              </div>
+            )}
           </div>
         </div>
-        <WidgetControls
-          placement="inline"
-          className={styles.headerClose}
-          onExpand={onExpand}
-          onDelete={onDelete}
-          onClose={onClose}
-        />
+        <WidgetControls placement="inline" className={styles.headerClose} {...chrome} />
       </header>
 
       <div className={styles.body}>
