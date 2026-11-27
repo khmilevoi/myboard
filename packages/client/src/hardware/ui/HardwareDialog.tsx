@@ -4,10 +4,10 @@ import { X } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from 'widget-sdk/ui/dialog'
 import { PhoneSheetHeader, phoneSheetContentClassName } from 'widget-sdk/ui/phone-sheet'
 
 import { addInstance } from '@/board/model/board-model'
-import { Dialog, DialogClose, DialogContent, DialogTitle } from 'widget-sdk/ui/dialog'
 import { http } from '@/runtime'
 
 import type { AddGatewayModel } from '../model/add-gateway-model'

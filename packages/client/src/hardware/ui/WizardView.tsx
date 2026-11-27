@@ -1,7 +1,6 @@
 import { wrap } from '@reatom/core'
 import { ChevronLeft } from 'lucide-react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
 import { DialogTitle } from 'widget-sdk/ui/dialog'
 
 import type { HardwareModel } from '../model/hardware-model'

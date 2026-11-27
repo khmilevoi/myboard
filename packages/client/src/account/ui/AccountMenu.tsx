@@ -12,9 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from 'widget-sdk/ui/dropdown-menu'
+
 import type { HardwareModel } from '@/hardware/model/hardware-model'
 import { HardwareDialog } from '@/hardware/ui/HardwareDialog'
-
 import { hostRuntime, http } from '@/runtime'
 
 import { firstNameOf, initialsOf } from '../model/account-format'
