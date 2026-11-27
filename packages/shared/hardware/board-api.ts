@@ -3,6 +3,34 @@ import { z } from 'zod'
 import { BleAddressSchema, HardwareModelSchema } from './models'
 import { ConsentCodeSchema, PairingPinSchema, ScaleUserIndexSchema } from './spike-assumptions'
 
+/** How long a pairing lives before the server forgets it. */
+export const PAIRING_TTL_MS = 3 * 60_000
+
+export const HardwareErrorCodeSchema = z.enum([
+  'internal_error',
+  'gateway_code_invalid',
+  'gateway_unauthorized',
+  'gateway_not_found',
+  'gateway_offline',
+  'hardware_not_found',
+  'hardware_exists',
+  'scan_result_unknown',
+  'bond_unknown',
+  'pairing_not_found',
+  'pairing_not_waiting_pin',
+  'health_profile_missing',
+  'scale_profile_bound',
+  'scale_profile_unknown',
+  'binding_not_found',
+  'not_binding_owner',
+])
+export type HardwareErrorCode = z.infer<typeof HardwareErrorCodeSchema>
+
+export const HardwareErrorBodySchema = z.object({
+  error: z.object({ code: z.string(), message: z.string() }),
+})
+export type HardwareErrorBody = z.infer<typeof HardwareErrorBodySchema>
+
 /** The SSE frame key for hardware events; never a stored key. */
 export const HARDWARE_EVENTS_KEY = 'hw:events'
 

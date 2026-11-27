@@ -8,7 +8,7 @@ import {
   GatewayReadingsBodySchema,
 } from './gateway-protocol'
 import { BleAddressSchema } from './models'
-import { ConsentCodeSchema } from './spike-assumptions'
+import { ConsentCodeSchema, PAIRING_PIN_DIGITS, PairingPinSchema } from './spike-assumptions'
 
 const address = 'AA:BB:CC:DD:EE:FF'
 const profile = { heightCm: 180, birthDate: '1990-01-01', sex: 'male' as const }
@@ -121,5 +121,14 @@ describe('hardware wire schemas', () => {
       HardwareSnapshotSchema.safeParse({ gateways: [], hardware: [{ ...hardware, weight: 70 }] })
         .success,
     ).toBe(false)
+  })
+})
+
+describe('PairingPinSchema', () => {
+  it('accepts exactly PAIRING_PIN_DIGITS digits', () => {
+    expect(PairingPinSchema.safeParse('1'.repeat(PAIRING_PIN_DIGITS)).success).toBe(true)
+    expect(PairingPinSchema.safeParse('1'.repeat(PAIRING_PIN_DIGITS + 1)).success).toBe(false)
+    expect(PairingPinSchema.safeParse('1'.repeat(PAIRING_PIN_DIGITS - 1)).success).toBe(false)
+    expect(PairingPinSchema.safeParse('a'.repeat(PAIRING_PIN_DIGITS)).success).toBe(false)
   })
 })
