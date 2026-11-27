@@ -931,6 +931,9 @@ importers:
       module-health:
         specifier: workspace:*
         version: link:../../modules/health
+      radix-ui:
+        specifier: 'catalog:'
+        version: 1.6.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
         specifier: 'catalog:'
         version: 19.2.7
