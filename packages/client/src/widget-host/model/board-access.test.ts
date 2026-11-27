@@ -66,4 +66,19 @@ describe('makeBoardAccess', () => {
     makeBoardAccess().expand('3')
     expect(expandedInstanceId()).toBe('3')
   })
+
+  it('finds nothing while no board is active', () => {
+    activeBoardId.set('remote-board')
+    expect(activeBoard()).toBeNull()
+
+    expect(makeBoardAccess().firstInstanceOf('cats')()).toBeNull()
+  })
+
+  it('still expands after the context is reset', () => {
+    const board = makeBoardAccess()
+    context.reset()
+
+    board.expand('2')
+    expect(expandedInstanceId()).toBe('2')
+  })
 })

@@ -1,4 +1,4 @@
-import { computed, wrap, type AtomLike } from '@reatom/core'
+import { computed, type AtomLike } from '@reatom/core'
 import type { WidgetBoardAccess } from 'widget-runtime'
 
 import { expandedInstanceId } from '@/board/model/board-model'
@@ -18,8 +18,10 @@ export const makeBoardAccess = (): WidgetBoardAccess => {
       byType.set(typeId, first)
       return first
     },
-    expand: wrap((instanceId) => {
+    // Plain, not a hoisted `wrap()`: that closure would abort after a context reset. Callers wrap
+    // their event handlers per call.
+    expand: (instanceId) => {
       expandedInstanceId.set(instanceId)
-    }),
+    },
   }
 }
