@@ -15,6 +15,7 @@ type SnapshotHardware = HardwareSnapshot['hardware'][number]
 export type ProfileRow = { index: ScaleUserIndex; mine: boolean }
 export type HardwareRow = {
   id: string
+  address: BleAddress
   title: string
   gatewayId: string | null
   gatewayOnline: boolean
@@ -65,6 +66,7 @@ function makeHardwareRow(
     .map((profile) => ({ index: profile.index, mine: profile.binding === 'mine' }))
   return {
     id: hardware.id,
+    address: hardware.address,
     title: HARDWARE_MODELS[hardware.model].label,
     gatewayId: hardware.gatewayId,
     gatewayOnline,

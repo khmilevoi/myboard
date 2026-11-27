@@ -2,6 +2,7 @@ import {
   action,
   type Action,
   type AsyncDataExt,
+  type AsyncExt,
   atom,
   type Atom,
   type Computed,
@@ -60,10 +61,12 @@ export type HardwareModel = {
   revealed: Atom<RevealedCode | null>
   actionError: Atom<string | null>
   /** Runs the open confirm's request; closes it on success, keeps it open with `actionError` on failure. */
-  confirmAction: Action<[], Promise<void>>
-  revealCode: Action<[hardwareId: string, index: ScaleUserIndex], Promise<void>>
+  confirmAction: Action<[], Promise<void>> & AsyncExt<[], void, Error | undefined>
+  revealCode: Action<[hardwareId: string, index: ScaleUserIndex], Promise<void>> &
+    AsyncExt<[hardwareId: string, index: ScaleUserIndex], void, Error | undefined>
   hideCode: Action<[], void>
-  adopt: Action<[gatewayId: string, address: BleAddress], Promise<void>>
+  adopt: Action<[gatewayId: string, address: BleAddress], Promise<void>> &
+    AsyncExt<[gatewayId: string, address: BleAddress], void, Error | undefined>
   /** The dialog closed: back to the list with nothing open. */
   reset: Action<[], void>
 }
