@@ -14,6 +14,17 @@ function catKey(catId: string, relative: string): string {
   return `cat/${catId}/${relative}`
 }
 
+/**
+ * Unlike every other key here, these two are relative to a widget's instance scope
+ * (`w:i:<instanceId>:`, `instanceNamespace` in `@shared/storage/scope`), not to `m:cats:s:`: they
+ * hold one card's own choice of a cat or a litter, so the full keys are
+ * `w:i:<instanceId>:card/cat` and `w:i:<instanceId>:card/litter`. Renaming either forgets every
+ * card's choice.
+ */
+export const CARD_CAT_KEY = 'card/cat'
+
+export const CARD_LITTER_KEY = 'card/litter'
+
 export const CATS_REGISTRY_KEY = 'registry/cats'
 
 export const LITTERS_REGISTRY_KEY = 'registry/litters'

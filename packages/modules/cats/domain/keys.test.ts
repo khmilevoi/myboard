@@ -1,6 +1,9 @@
+import { instanceNamespace } from '@shared/storage/scope'
 import { describe, expect, it } from 'vitest'
 
 import {
+  CARD_CAT_KEY,
+  CARD_LITTER_KEY,
   CATS_REGISTRY_KEY,
   catGoalKey,
   catProfileKey,
@@ -27,5 +30,12 @@ describe('cats keys', () => {
   it('pins the registry keys', () => {
     expect(CATS_REGISTRY_KEY).toBe('registry/cats')
     expect(LITTERS_REGISTRY_KEY).toBe('registry/litters')
+  })
+
+  it('pins the card choice keys, relative to the widget instance scope', () => {
+    expect(CARD_CAT_KEY).toBe('card/cat')
+    expect(CARD_LITTER_KEY).toBe('card/litter')
+    expect(instanceNamespace('inst-1') + CARD_LITTER_KEY).toBe('w:i:inst-1:card/litter')
+    expect(instanceNamespace('inst-1') + CARD_CAT_KEY).toBe('w:i:inst-1:card/cat')
   })
 })

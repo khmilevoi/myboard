@@ -6,6 +6,7 @@
   "exports": {
     ".": "./index.ts",
     "./domain/*": "./domain/*.ts",
+    "./card-choice": "./model/card-choice.ts",
     "./testing": "./model/testing.ts"
   },
   "scripts": {
