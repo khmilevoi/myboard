@@ -1,3 +1,4 @@
+import { CheckIcon } from 'lucide-react'
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
 import * as React from 'react'
 
@@ -42,6 +43,34 @@ const DropdownMenuItem = reatomMemo<
   )
 }, 'DropdownMenuItem')
 
+const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
+
+/** A single-choice item; the check marks the one whose `value` the group holds. */
+const DropdownMenuRadioItem = reatomMemo<
+  React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>
+>(({ className, children, ...props }) => {
+  return (
+    <DropdownMenuPrimitive.RadioItem
+      data-slot="dropdown-menu-radio-item"
+      className={cn(
+        'relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <span
+        data-slot="dropdown-menu-radio-item-indicator"
+        className="pointer-events-none absolute right-2 flex size-3.5 items-center justify-center"
+      >
+        <DropdownMenuPrimitive.ItemIndicator>
+          <CheckIcon className="size-4" aria-hidden />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
+    </DropdownMenuPrimitive.RadioItem>
+  )
+}, 'DropdownMenuRadioItem')
+
 const DropdownMenuSeparator = reatomMemo<
   React.ComponentProps<typeof DropdownMenuPrimitive.Separator>
 >(({ className, ...props }) => {
@@ -59,5 +88,7 @@ export {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
 }

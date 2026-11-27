@@ -1,0 +1,202 @@
+/* Design page 10, the "Вес · Офелия" sheets (`.sheet`, `.sh-h`, `.sh-b`, `.sh-f`, `.big`). The
+   design's `--accent` is the code's `--primary`, its `--surface-2` is `--secondary`, its
+   `--text-2` is `--text-dim`. At phone width `DialogContent fullScreenOnPhone` takes over. */
+
+.overlay {
+  background: var(--scrim);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  inline-size: 400px;
+  max-inline-size: calc(100vw - 32px);
+  max-block-size: calc(100dvh - 32px);
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-overlay);
+  font-family: var(--font-ui);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-block-end: 1px solid var(--border);
+}
+
+.title {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.close {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--background);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.close > svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+.label {
+  display: block;
+  margin-block-end: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.kgBox {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 14px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.kgBox:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
+}
+
+.kgInput {
+  inline-size: 120px;
+  block-size: auto;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.kgInput:focus-visible,
+.kgInput[aria-invalid='true'] {
+  border: 0;
+  box-shadow: none;
+}
+
+.unit {
+  font-size: 16px;
+  color: var(--text-dim);
+}
+
+.note {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.kgBox + .note,
+.error {
+  margin-block-start: 8px;
+}
+
+.error {
+  margin-block-end: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.previous {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--secondary);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.delta {
+  font-weight: 600;
+}
+
+.dateInput {
+  block-size: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--secondary);
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dateInput:focus-visible {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
+}
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px 18px;
+  border-block-start: 1px solid var(--border);
+}
+
+.failure {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--destructive);
+}
+
+.save {
+  block-size: 44px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+}

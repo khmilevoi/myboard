@@ -1,12 +1,18 @@
 import { Clock } from 'lucide-react'
-import type { EntryAuthor } from 'module-cats/domain/author'
 import { memberInitial, memberTone } from 'widget-sdk/lib/member-tone'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { personInitial, personTone } from '../person'
-import { AVATAR_INITIAL_RATIO } from './Avatar'
+import type { EntryAuthor } from '../domain/author'
+import { personInitial, personTone } from './person'
 
 import styles from './MemberAvatar.module.css'
+
+/**
+ * Initial size as a fraction of the avatar box, shared with the duty widget's `Avatar`. A duty
+ * circle and an account square are rendered side by side at the same `px` in the history phrase,
+ * so a ratio that differs between them reads as two mismatched type sizes on one line.
+ */
+export const AVATAR_INITIAL_RATIO = 0.4
 
 export type MemberAvatarProps = {
   author: EntryAuthor

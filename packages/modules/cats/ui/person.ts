@@ -1,5 +1,5 @@
-import { MEMBERS } from 'module-cats/domain/roster'
-import type { Person } from 'module-cats/domain/roster'
+import { MEMBERS } from '../domain/roster'
+import type { Person } from '../domain/roster'
 
 // One tone per roster slot, assigned by position in MEMBERS (Леша → 'l'
 // blue, Карина → 'k' red). A litter's rotation order never moves a tone, so a person keeps

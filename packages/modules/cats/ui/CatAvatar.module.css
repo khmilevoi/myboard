@@ -1,0 +1,93 @@
+/* Sizes, radii and letter sizes from design `01 Дизайн-система`, section 06а. The ear clip and
+   the letter's top padding come from the shared `cat-ears` class. */
+.avatar {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  line-height: 1;
+  inline-size: 26px;
+  block-size: 26px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.avatar[data-tone='a'] {
+  background: var(--cat-a-bg);
+  color: var(--cat-a-fg);
+}
+
+.avatar[data-tone='b'] {
+  background: var(--cat-b-bg);
+  color: var(--cat-b-fg);
+}
+
+.avatar[data-size='badge'] {
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+.avatar[data-size='list'] {
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 6px;
+  font-size: 9.5px;
+}
+
+.avatar[data-size='menu'] {
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 6px;
+  font-size: 10.5px;
+}
+
+.avatar[data-size='button'] {
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+.avatar[data-size='profile'] {
+  inline-size: 56px;
+  block-size: 56px;
+  border-radius: 14px;
+  font-size: 23px;
+}
+
+/* The photo fills the whole eared square, ignoring the letter's top padding. */
+.image {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.stack {
+  flex: none;
+  display: inline-flex;
+}
+
+/* The 2 px surface ring: the ear clip would cut off a box-shadow, so the ring is drop-shadows on
+   a wrapper, which paint after the clip. */
+.ring {
+  position: relative;
+  display: inline-flex;
+  filter: drop-shadow(2px 0 0 var(--surface)) drop-shadow(-2px 0 0 var(--surface))
+    drop-shadow(0 2px 0 var(--surface)) drop-shadow(0 -2px 0 var(--surface));
+}
+
+.ring + .ring {
+  margin-inline-start: -3px;
+}
+
+.ring:first-child {
+  z-index: 1;
+}

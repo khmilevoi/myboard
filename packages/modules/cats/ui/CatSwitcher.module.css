@@ -1,0 +1,105 @@
+/* Design `01 Дизайн-система`, section 06а, states A–F. The design's `--accent` is the code's
+   `--primary`, its `--text-2` is `--text-dim`. */
+
+.single,
+.badge {
+  flex: none;
+  display: inline-flex;
+}
+
+.trigger {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  block-size: 32px;
+  padding: 0 6px 0 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  outline: none;
+}
+
+.trigger:hover {
+  border-color: var(--border-strong);
+}
+
+.trigger:focus-visible,
+.trigger[data-state='open'] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
+}
+
+.chevron {
+  inline-size: 12px;
+  block-size: 12px;
+  stroke-width: 2.2;
+}
+
+.menu {
+  inline-size: 220px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  block-size: 38px;
+  padding: 0 30px 0 9px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.option[data-state='checked'] {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.option [data-slot='dropdown-menu-radio-item-indicator'] {
+  color: var(--primary);
+}
+
+.label {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.separator {
+  block-size: 1px;
+  margin: 5px 4px;
+  background: var(--border);
+}
+
+.manage {
+  display: flex;
+  align-items: center;
+  block-size: 34px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.hint {
+  margin: 0;
+  padding: 6px 9px 7px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}

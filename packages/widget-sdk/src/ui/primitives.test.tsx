@@ -10,6 +10,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './dropdown-menu'
@@ -72,6 +74,49 @@ describe('ui primitives', () => {
     )
     fireEvent.click(screen.getByText('open dialog'))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('lays a dialog out full-screen on the phone only when asked', async () => {
+    render(
+      <Dialog open onOpenChange={() => {}}>
+        <DialogContent fullScreenOnPhone>
+          <DialogTitle>phone sheet</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    )
+    expect(await screen.findByRole('dialog')).toHaveAttribute('data-phone-layout', 'fullscreen')
+  })
+
+  it('keeps a dialog centred on the phone by default', async () => {
+    render(
+      <Dialog open onOpenChange={() => {}}>
+        <DialogContent>
+          <DialogTitle>centred</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    )
+    expect(await screen.findByRole('dialog')).not.toHaveAttribute('data-phone-layout')
+  })
+
+  it('renders a radio group in a DropdownMenu and reports the chosen value', async () => {
+    const onValueChange = vi.fn()
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger>open radios</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuRadioGroup value="a" onValueChange={onValueChange}>
+            <DropdownMenuRadioItem value="a">first</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="b">second</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    )
+
+    fireEvent.pointerDown(screen.getByText('open radios'), { button: 0, ctrlKey: false })
+    const first = await screen.findByRole('menuitemradio', { name: 'first' })
+    expect(first).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'second' }))
+    expect(onValueChange).toHaveBeenCalledWith('b')
   })
 
   it('toggles a DropdownMenu open and closed on trigger click', async () => {

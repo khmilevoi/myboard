@@ -1,11 +1,11 @@
 import { Cat, ChevronLeft, ChevronRight } from 'lucide-react'
+import { personInitial } from 'module-cats/ui/person'
 import { useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
 import { formatWeekRange, pluralizeDays, selectedDaySubtitle } from '../format'
 import { useOfelia } from '../ofelia-context'
-import { personInitial } from '../person'
 import { ActionButtons } from './ActionButtons'
 import { ActionErrorNote } from './ActionErrorNote'
 import { Avatar } from './Avatar'

@@ -2,13 +2,13 @@ import { Send } from 'lucide-react'
 import { catsActionSchemas } from 'module-cats/domain/actions'
 import type { EntryAuthor } from 'module-cats/domain/author'
 import { DUTY_TIME_ZONE, plainDateIn } from 'module-cats/domain/roster'
+import { MemberAvatar } from 'module-cats/ui/MemberAvatar'
 import { useRef, useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import type { CommentView } from '@/model/ofelia-comments'
 
 import { formatDayMonth, formatTimeOfDay } from '../history-format'
-import { MemberAvatar } from './MemberAvatar'
 
 import styles from './CommentThread.module.css'
 

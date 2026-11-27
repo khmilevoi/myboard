@@ -16,6 +16,7 @@
     ".": "./src/index.ts",
     "./lib/utils": "./src/lib/utils.ts",
     "./lib/*": "./src/lib/*.ts",
+    "./ui/cat-ears.module.css": "./src/ui/cat-ears.module.css",
     "./ui/*": "./src/ui/*.tsx",
     "./reatom/*": "./src/reatom/*.ts",
     "./hooks/*": "./src/hooks/*.ts",

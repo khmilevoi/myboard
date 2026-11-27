@@ -5,6 +5,8 @@ import { useOverlayBackDismiss } from '../hooks/use-overlay-back-dismiss'
 import { cn } from '../lib/utils'
 import { reatomMemo } from '../reatom/reatom-memo'
 
+import styles from './dialog.module.css'
+
 type DialogRootProps = React.ComponentProps<typeof DialogPrimitive.Root>
 
 // Split out because the hook cannot sit behind the `open === undefined` branch
@@ -63,25 +65,38 @@ const DialogOverlay = reatomMemo<React.ComponentProps<typeof DialogPrimitive.Ove
   'DialogOverlay',
 )
 
-const DialogContent = reatomMemo<
-  React.ComponentProps<typeof DialogPrimitive.Content> & { overlayClassName?: string }
->(({ className, overlayClassName, children, ...props }) => {
-  return (
-    <DialogPortal>
-      <DialogOverlay className={overlayClassName} />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          'fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-card text-card-foreground outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </DialogPrimitive.Content>
-    </DialogPortal>
-  )
-}, 'DialogContent')
+type DialogContentProps = React.ComponentProps<typeof DialogPrimitive.Content> & {
+  overlayClassName?: string
+  /**
+   * A form sheet that fills the screen at phone width (`max-width: 680px`, the widget pages'
+   * phone breakpoint) and stays a centred sheet above it. It wins over the caller's own size
+   * rules, so a sheet can set its desktop width in its CSS module and still go full-screen.
+   */
+  fullScreenOnPhone?: boolean
+}
+
+const DialogContent = reatomMemo<DialogContentProps>(
+  ({ className, overlayClassName, fullScreenOnPhone = false, children, ...props }) => {
+    return (
+      <DialogPortal>
+        <DialogOverlay className={overlayClassName} />
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          data-phone-layout={fullScreenOnPhone ? 'fullscreen' : undefined}
+          className={cn(
+            fullScreenOnPhone && styles.phoneFullScreen,
+            'fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-card text-card-foreground outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95',
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    )
+  },
+  'DialogContent',
+)
 
 const DialogTitle = reatomMemo<React.ComponentProps<typeof DialogPrimitive.Title>>(
   ({ className, ...props }) => {

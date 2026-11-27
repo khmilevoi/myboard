@@ -27,6 +27,11 @@
   --border-strong: oklch(0.84 0.006 255);
   --text-3: oklch(0.66 0.012 262);
   --accent-soft: oklch(0.955 0.032 285);
+  /* Cat avatar tones (design 01, section 06а): peach and mint, outside the six account hues. */
+  --cat-a-bg: oklch(0.92 0.05 45);
+  --cat-a-fg: oklch(0.45 0.11 40);
+  --cat-b-bg: oklch(0.92 0.05 170);
+  --cat-b-fg: oklch(0.42 0.08 170);
   --scrim: oklch(0.45 0.02 262 / 0.34);
   --success: oklch(0.55 0.13 155);
   --dot-grid: oklch(0.84 0.006 255);
@@ -60,6 +65,10 @@
   --border-strong: oklch(0.36 0.014 262);
   --text-3: oklch(0.55 0.012 262);
   --accent-soft: oklch(0.32 0.07 285);
+  --cat-a-bg: oklch(0.4 0.07 42);
+  --cat-a-fg: oklch(0.93 0.05 50);
+  --cat-b-bg: oklch(0.39 0.06 170);
+  --cat-b-fg: oklch(0.93 0.05 170);
   --scrim: oklch(0.1 0.01 262 / 0.62);
   --success: oklch(0.34 0.07 155);
   --dot-grid: oklch(0.36 0.014 262);

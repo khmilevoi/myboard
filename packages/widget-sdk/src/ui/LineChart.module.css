@@ -1,0 +1,128 @@
+.root {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+/* The summary is the chart for assistive tech; the drawing beside it is aria-hidden. */
+.summary {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chart {
+  position: relative;
+}
+
+.plot {
+  position: relative;
+}
+
+.svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* HTML, not an SVG circle: the SVG stretches without keeping its aspect ratio. */
+.dot {
+  position: absolute;
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 999px;
+  background: var(--primary);
+  translate: -50% -50%;
+}
+
+.xAxis {
+  position: relative;
+  block-size: 11px;
+  margin-block-start: 5px;
+}
+
+.xLabel,
+.yLabel {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-3);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.xLabel {
+  top: 0;
+}
+
+.yAxis {
+  position: absolute;
+  inset: 0 auto 22px 0;
+  inline-size: 36px;
+}
+
+.yLabel {
+  left: 0;
+  translate: 0 -50%;
+}
+
+/* spark: a card's trend line. */
+.root[data-variant='spark'] .plot {
+  block-size: 44px;
+}
+
+/* full: the weight tab's chart, gridlines and a y axis in a 36 px gutter. */
+.root[data-variant='full'] {
+  block-size: 100%;
+  min-block-size: 220px;
+}
+
+.root[data-variant='full'] .chart {
+  position: absolute;
+  inset: 0;
+}
+
+.root[data-variant='full'] .plot {
+  position: absolute;
+  inset: 0 0 22px 36px;
+}
+
+.root[data-variant='full'] .line {
+  stroke-width: 2.5;
+}
+
+.root[data-variant='full'] .dot {
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.root[data-variant='full'] .xAxis {
+  position: absolute;
+  inset: auto 0 0 36px;
+  margin: 0;
+}

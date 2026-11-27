@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react'
+import { personInitial } from 'module-cats/ui/person'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
-import { personInitial } from '../person'
 import type { WeekDayView } from '../view-model'
 import { AvatarWithBadge } from './AvatarWithBadge'
 
