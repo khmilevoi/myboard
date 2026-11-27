@@ -32,7 +32,8 @@
   --cat-a-fg: oklch(0.45 0.11 40);
   --cat-b-bg: oklch(0.92 0.05 170);
   --cat-b-fg: oklch(0.42 0.08 170);
-  /* Text on a success fill, and a success figure (design 01: the weight delta on page 10). */
+  /* Text on a success fill (design 01). Light only, it also colours a success figure on a
+     surface, such as page 10's weight delta; the dark value is for a fill, not for a figure. */
   --on-success: oklch(0.45 0.13 155);
   /* Duty people (Карина 'k', Леша 'l') and the six account tones of module-cats' MemberAvatar.
      Shared, not widget-scoped: every cat widget draws record authors. */

@@ -163,6 +163,11 @@
   color: var(--on-success);
 }
 
+/* Dark `--on-success` is text for a success fill, unreadable on the sheet (page 10 is light-only). */
+:global(:root[data-theme='dark']) .delta {
+  color: var(--text);
+}
+
 .dateInput {
   block-size: 42px;
   padding: 0 12px;
