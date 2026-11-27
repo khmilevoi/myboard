@@ -48,6 +48,8 @@ export type HardwareModel = {
   /** The board's hardware registry; connecting it opens the live board-event stream. */
   snapshot: HardwareSnapshotQuery
   clock: Atom<number>
+  /** The injected, server-aligned `now`, for models that need a faster ticker than `clock`. */
+  now: () => number
   window: Computed<HardwareWindow | null>
   /** Refetches the snapshot (bumps the version the query reads). */
   refresh: Action<[], void>
@@ -196,6 +198,7 @@ export function makeHardwareModel(deps: HardwareDeps): HardwareModel {
   return {
     snapshot,
     clock,
+    now,
     window,
     refresh,
     received,

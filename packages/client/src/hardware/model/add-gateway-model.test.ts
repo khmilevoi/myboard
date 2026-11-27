@@ -58,9 +58,10 @@ function setup(options: {
   // Keeps the snapshot connected, as the open dialog does.
   const unsubscribe = model.phase.subscribe(() => {})
   const loaded = () => vi.waitFor(() => expect(hardware.snapshot.data()).not.toBeNull())
-  const tick = (ms: number) => {
+  // Moves the injected server clock, then lets the model's own 1 s ticker re-read it.
+  const tick = async (ms: number) => {
     nowMs += ms
-    hardware.clock.set(nowMs)
+    await vi.advanceTimersByTimeAsync(1_000)
   }
   return { model, hardware, calls, loaded, tick, unsubscribe }
 }
@@ -71,7 +72,7 @@ describe('add-gateway model', () => {
     await env.loaded()
 
     await env.model.start()
-    env.tick(8_000)
+    await env.tick(8_000)
 
     expect(env.model.code()).toBe('ABCD-1234')
     expect(env.model.countdownLabel()).toBe('4:52')
@@ -120,7 +121,7 @@ describe('add-gateway model', () => {
     await env.loaded()
     await env.model.start()
 
-    env.tick(CODE_TTL_MS)
+    await env.tick(CODE_TTL_MS)
     expect(env.model.phase()).toBe('expired')
     expect(env.model.countdownLabel()).toBe('0:00')
 
@@ -173,13 +174,69 @@ describe('add-gateway model', () => {
 
   it('the countdown uses the injected server clock, not Date.now()', async () => {
     // The server clock is 10 min behind the browser's: expiresAt is still ahead on it.
-    vi.setSystemTime(NOW + 600_000)
+    const browserNow = vi.spyOn(Date, 'now').mockReturnValue(NOW + 600_000)
+    expect(Date.now()).toBe(NOW + 600_000)
     const env = setup({ snapshots: [snap()] })
     await env.loaded()
     await env.model.start()
 
     expect(env.model.phase()).toBe('waiting')
     expect(env.model.countdownLabel()).toBe('5:00')
+    browserNow.mockRestore()
+  })
+
+  it('the label advances second by second', async () => {
+    const env = setup({ snapshots: [snap()] })
+    await env.loaded()
+    await env.model.start()
+    await env.tick(8_000)
+    expect(env.model.countdownLabel()).toBe('4:52')
+
+    // The model's own 1 s ticker re-reads the injected clock.
+    await env.tick(1_000)
+    expect(env.model.countdownLabel()).toBe('4:51')
+  })
+
+  it('expiry flips within 1 s of expiresAt', async () => {
+    const env = setup({ snapshots: [snap()] })
+    await env.loaded()
+    await env.model.start()
+    env.model.countdownLabel()
+    await env.tick(CODE_TTL_MS - 1_500)
+    expect(env.model.phase()).toBe('waiting')
+
+    await env.tick(1_500)
+    expect(env.model.phase()).toBe('expired')
+  })
+
+  it('start before the snapshot resolves does not mistake an online gateway for a new one', async () => {
+    const env = setup({ snapshots: [snap(gateway('g1', true))] })
+
+    // No `loaded()`: the snapshot request is still in flight.
+    await env.model.start()
+
+    expect(env.model.code()).toBe('ABCD-1234')
+    expect(env.model.phase()).toBe('waiting')
+  })
+
+  it('a snapshot error before the mint → failed', async () => {
+    const { http } = makeScriptedHttp({
+      '/api/hardware': [{ status: 500 }],
+      '/api/hardware/codes': [mintStep()],
+    })
+    const client = makeHardwareBoardClient(http)
+    const hardware = makeHardwareModel({
+      client,
+      openEventStream: makeFakeOpenEventStream().open,
+      now: () => NOW,
+    })
+    const model = makeAddGatewayModel({ hardware, client })
+    model.phase.subscribe(() => {})
+
+    await model.start()
+
+    expect(model.phase()).toBe('failed')
+    expect(model.error()).toBe(GENERIC_ACTION_ERROR_COPY)
   })
 
   it('reset clears the code and error', async () => {

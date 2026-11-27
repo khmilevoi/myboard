@@ -9,8 +9,8 @@ import {
   withAsync,
   wrap,
 } from '@reatom/core'
-import type { HardwareBoardClient } from '@shared/hardware/board-client'
-import { makeCountdown } from 'widget-sdk/reatom/countdown'
+import type { HardwareBoardClient, HardwareClientError } from '@shared/hardware/board-client'
+import { makeCountdown, makeTickingNow } from 'widget-sdk/reatom/countdown'
 
 import { describeHardwareError } from './hardware-copy'
 import type { HardwareModel } from './hardware-model'
@@ -31,7 +31,7 @@ export type AddGatewayModel = {
 }
 
 export type AddGatewayDeps = {
-  hardware: Pick<HardwareModel, 'snapshot' | 'clock'>
+  hardware: Pick<HardwareModel, 'snapshot' | 'now'>
   client: HardwareBoardClient
   clipboard?: Pick<Clipboard, 'writeText'>
 }
@@ -39,6 +39,7 @@ export type AddGatewayDeps = {
 type MintedCode = { code: string; expiresAt: number; knownGatewayIds: string[] }
 
 const COPIED_MS = 2_000
+const COUNTDOWN_TICK_MS = 1_000
 
 export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
   const { hardware, client } = deps
@@ -51,7 +52,11 @@ export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
   const code = computed(() => minted()?.code ?? null, 'hardware.addGateway.code')
   const countdown = makeCountdown({
     expiresAt: computed(() => minted()?.expiresAt ?? null, 'hardware.addGateway.expiresAt'),
-    clock: hardware.clock,
+    clock: makeTickingNow({
+      now: hardware.now,
+      intervalMs: COUNTDOWN_TICK_MS,
+      name: 'hardware.addGateway.clock',
+    }),
     name: 'hardware.addGateway.countdown',
   })
 
@@ -67,12 +72,23 @@ export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
   }, 'hardware.addGateway.phase')
 
   const start = action(async () => {
-    // Reactive inputs are read before the await.
-    const knownGatewayIds = (hardware.snapshot.data()?.gateways ?? []).map((g) => g.id)
     error.set(null)
     copied.set(false)
     minted.set(null)
     minting.set(true)
+    // The baseline of known gateways must come from a loaded snapshot.
+    const loaded =
+      hardware.snapshot.data() ??
+      (await wrap(hardware.snapshot()).catch((cause: unknown) =>
+        cause instanceof Error ? cause : new Error(String(cause)),
+      ))
+    if (loaded instanceof Error) {
+      minting.set(false)
+      // The snapshot query throws the client's own error; anything else gets the generic copy.
+      error.set(describeHardwareError(loaded as HardwareClientError))
+      return
+    }
+    const knownGatewayIds = loaded.gateways.map((g) => g.id)
     const result = await wrap(client.mintCode())
     minting.set(false)
     if (result instanceof Error) {
