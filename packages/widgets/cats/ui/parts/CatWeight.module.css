@@ -1,0 +1,59 @@
+/* Page 10: the weight figure in mono, its unit in the UI face. */
+.figure {
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.unit {
+  color: var(--text-dim);
+}
+
+.figure[data-size='tiny'] .value {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.figure[data-size='tiny'] .unit {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.figure[data-size='compact'] .value {
+  font-size: 30px;
+  letter-spacing: -0.03em;
+}
+
+.figure[data-size='compact'] .unit {
+  font-size: 13px;
+}
+
+.figure[data-size='standard'] .value {
+  font-size: 36px;
+  letter-spacing: -0.03em;
+}
+
+.figure[data-size='standard'] .unit {
+  font-size: 14px;
+}
+
+.trend {
+  margin-inline-start: auto;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
+.trend[data-direction='down'] {
+  color: var(--on-success);
+}
+
+/* Dark `--on-success` is text for a success fill, unreadable on the card (as in WeighDialog). */
+:global(:root[data-theme='dark']) .trend[data-direction='down'] {
+  color: var(--text);
+}

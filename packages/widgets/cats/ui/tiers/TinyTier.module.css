@@ -1,0 +1,35 @@
+/* Page 10, tiny (≤ 180 px). */
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  block-size: 100%;
+  padding: 16px;
+  text-align: center;
+}
+
+/* The tiny tier draws the eared avatar at 52 px, larger than any shared size: the class sets the
+   box, the cat-ears clip and the tone stay `CatAvatar`'s. */
+.avatar {
+  display: inline-flex;
+}
+
+.avatar > span {
+  inline-size: 52px;
+  block-size: 52px;
+  border-radius: 14px;
+  font-size: 22px;
+}
+
+.name {
+  margin: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+}

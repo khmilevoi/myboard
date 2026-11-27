@@ -1,0 +1,195 @@
+/* Page 10, standard (321–560 px), states A–C. The design's `--accent` is the code's `--primary`,
+   its `--text-2` is `--text-dim` and its `--surface-2` is `--secondary`. */
+.root {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  padding: 17px 18px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-inline-size: 0;
+}
+
+.titles {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.name {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.breed {
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.details {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.divider {
+  flex: none;
+  block-size: 1px;
+  margin: 13px 0;
+  background: var(--border);
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.weightHead {
+  display: flex;
+  align-items: center;
+}
+
+.when {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: auto;
+  font-size: 12.5px;
+  color: var(--text-3);
+  white-space: pre;
+}
+
+.weight {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.spark {
+  margin-block-start: 10px;
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-block-start: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.noteText {
+  flex: 1;
+}
+
+.noteLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.fact {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.factLine {
+  margin: 4px 0 0;
+}
+
+.factLine .fact {
+  margin: 0;
+}
+
+.unit {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.spacer {
+  flex: 1;
+  min-block-size: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 7px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  block-size: 40px;
+  border-radius: 10px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary {
+  flex: 1;
+  padding: 0 16px;
+  border: 0;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
+}
+
+.primary > svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.secondary {
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.noteLink:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

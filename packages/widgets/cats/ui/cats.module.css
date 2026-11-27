@@ -1,0 +1,167 @@
+/* The "Кошки" card (design page 10): states D (no cats), E (loading) and F (load failed). */
+.widget {
+  position: relative;
+  block-size: 100%;
+  font-family: var(--font-ui);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  block-size: 100%;
+  padding: 17px 18px;
+  overflow: hidden;
+  text-align: center;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: 100%;
+}
+
+.loadingHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bone {
+  display: block;
+  border-radius: 6px;
+  background: var(--secondary);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.bone[data-shape='avatar'] {
+  flex: none;
+  inline-size: 56px;
+  block-size: 56px;
+  border-radius: 14px;
+}
+
+.bone[data-shape='line'] {
+  flex: 1;
+  block-size: 18px;
+}
+
+.bone[data-shape='short'] {
+  inline-size: 70%;
+  block-size: 12px;
+}
+
+.bone[data-shape='block'] {
+  block-size: 64px;
+  border-radius: 10px;
+}
+
+.bone[data-shape='button'] {
+  block-size: 40px;
+  border-radius: 10px;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bone {
+    animation: none;
+  }
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.errorText {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.emptyMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 56px;
+  block-size: 56px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--primary);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.emptyText {
+  max-inline-size: 260px;
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+/* The tiny tier keeps the title and the button; the sentence does not fit 152 px. */
+.widget[data-tier='tiny'] .emptyMark,
+.widget[data-tier='tiny'] .emptyText {
+  display: none;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 40px;
+  border-radius: 10px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary {
+  padding: 0 16px;
+  border: 0;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
+}
+
+.secondary {
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
