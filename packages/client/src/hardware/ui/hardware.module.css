@@ -5,12 +5,17 @@
 }
 
 .content {
-  width: 480px;
-  max-width: calc(100vw - 32px);
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  box-shadow: var(--shadow-elevated);
+}
+/* Desktop-only frame: on phones the phone-sheet frame (full-screen, square, borderless) must win. */
+@media (min-width: 641px) {
+  .content {
+    width: 480px;
+    max-width: calc(100vw - 32px);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow: var(--shadow-elevated);
+  }
 }
 
 .header {
@@ -365,13 +370,10 @@
 .confirmOk {
   border: 0;
   background: var(--destructive);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 
 @media (max-width: 640px) {
-  .content {
-    width: 100vw;
-  }
   .header {
     padding: 16px 12px 8px 16px;
     border-bottom: 1px solid var(--border);

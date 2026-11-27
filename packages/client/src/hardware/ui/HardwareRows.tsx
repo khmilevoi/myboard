@@ -63,6 +63,11 @@ function statusDetail(statusLabel: string): string {
   return at === -1 ? '' : statusLabel.slice(at + 3)
 }
 
+/** A confirm or reveal request is running: other rows' triggers wait, so its outcome cannot land on another confirm. */
+function isBusy(model: HardwareModel): boolean {
+  return !model.confirmAction.ready() || !model.revealCode.ready()
+}
+
 /** The open confirm's row, wired to the model: busy while its request runs, errors under it. */
 const ModelConfirmRow = reatomMemo<ModelProps & { text: ReactNode; confirmLabel: string }>(
   ({ model, text, confirmLabel }) => (
@@ -110,6 +115,7 @@ export const GatewayItem = reatomMemo<ModelProps & { gateway: GatewayRowData }>(
         <button
           type="button"
           className={styles.btnDanger}
+          disabled={isBusy(model)}
           onClick={wrap(() => model.confirm.set({ kind: 'revokeGateway', gatewayId: gateway.id }))}
         >
           Отозвать
@@ -174,7 +180,7 @@ const ProfileLine = reatomMemo<ModelProps & { hardwareId: string; profile: Profi
         <button
           type="button"
           className={styles.link}
-          disabled={!model.revealCode.ready()}
+          disabled={isBusy(model)}
           onClick={wrap(() => {
             void model.revealCode(hardwareId, profile.index)
           })}
@@ -184,6 +190,7 @@ const ProfileLine = reatomMemo<ModelProps & { hardwareId: string; profile: Profi
         <button
           type="button"
           className={cn(styles.link, styles.linkDanger)}
+          disabled={isBusy(model)}
           onClick={wrap(() =>
             model.confirm.set({ kind: 'unbind', hardwareId, index: profile.index }),
           )}
@@ -247,6 +254,7 @@ export const HardwareCard = reatomMemo<HardwareCardProps>(
           <button
             type="button"
             className={styles.btnDanger}
+            disabled={isBusy(model)}
             onClick={wrap(() => model.confirm.set({ kind: 'unpair', hardwareId: row.id }))}
           >
             Отключить
@@ -256,6 +264,7 @@ export const HardwareCard = reatomMemo<HardwareCardProps>(
         <button
           type="button"
           className={styles.btnDanger}
+          disabled={isBusy(model)}
           onClick={wrap(() => model.confirm.set({ kind: 'removeDetached', hardwareId: row.id }))}
         >
           Убрать

@@ -333,6 +333,35 @@ describe('HardwareList inline confirms (§5)', () => {
     await waitFor(() => expect(screen.queryByTestId('hardware-confirm')).toBeNull())
   })
 
+  it('while a confirm request runs, the other rows’ triggers are disabled', async () => {
+    let finish: () => void = () => {}
+    const unpair = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    )
+    const env = makeTestHardwareModel(standard(), {}, { unpair })
+    render(
+      <HardwareList
+        model={env.model}
+        onAddGateway={vi.fn()}
+        onAddHardware={vi.fn()}
+        onConnectProfile={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Отключить' }))
+    fireEvent.click(await screen.findByTestId('hardware-confirm-ok'))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Отозвать' })).toBeDisabled())
+    expect(screen.getByRole('button', { name: 'Код согласия' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Отвязать' })).toBeDisabled()
+
+    finish()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Отозвать' })).toBeEnabled())
+  })
+
   it('actionError is shown under the confirm and the confirm stays open', async () => {
     await renderList(standard(), { '/api/hardware/items/h1': [{ status: 500 }] })
 
