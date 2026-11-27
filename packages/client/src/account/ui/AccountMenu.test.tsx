@@ -5,6 +5,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { makeSnapshot, makeTestHardwareModel } from '@/hardware/model/testing'
+
 import { createAccountModel } from '../model/account-model'
 import { makeAvatarCropModel } from '../model/avatar-crop-model'
 import type { AccountDto, DeviceDto } from '../model/devices-http'
@@ -144,14 +146,32 @@ describe('AccountMenu', () => {
     expect(within(dialog).getByText('Chrome on Windows')).toBeInTheDocument()
   })
 
-  it('lists Профиль above Мои устройства, then Выйти', async () => {
+  it('lists Профиль above Мои устройства, then Оборудование, then Выйти', async () => {
     const { model } = createTestModel([device({ credentialId: 'c1' })])
 
     render(<AccountMenu model={model} />)
     await openMenu()
 
     const items = (await screen.findAllByRole('menuitem')).map((item) => item.textContent)
-    expect(items).toEqual(['Профиль', 'Мои устройства', 'Выйти'])
+    expect(items).toEqual(['Профиль', 'Мои устройства', 'Оборудование', 'Выйти'])
+  })
+
+  it('«Оборудование» sits between «Мои устройства» and «Выйти» and opens the hardware dialog', async () => {
+    const { model } = createTestModel([device({ credentialId: 'c1' })])
+    const hardware = makeTestHardwareModel(makeSnapshot())
+
+    render(<AccountMenu model={model} hardwareModel={hardware.model} />)
+    await openMenu()
+
+    const items = (await screen.findAllByRole('menuitem')).map((item) => item.textContent)
+    expect(items.indexOf('Оборудование')).toBe(items.indexOf('Мои устройства') + 1)
+    expect(items.indexOf('Оборудование')).toBe(items.indexOf('Выйти') - 1)
+
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Оборудование' }))
+
+    const dialog = await screen.findByTestId('hardware-dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Оборудование' })).toBeInTheDocument()
+    expect(await within(dialog).findByText('Сначала нужен шлюз')).toBeInTheDocument()
   })
 
   it('opens the devices dialog over the profile; closing it returns to the profile', async () => {

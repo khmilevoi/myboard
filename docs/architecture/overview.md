@@ -103,6 +103,13 @@ them to `createApp` in `packages/server/src/app.ts`, a plain `node:http` server 
   `lastReadingAt` only, never a metric, consent code or PIN); `GET /api/hardware/events` streams
   change notices. Board routes require a session and the CSRF header; only a binding's own account
   may unbind it or reveal its consent code.
+- **Board UI.** `packages/client/src/hardware` (`model/` + `ui/`) is entered from the account menu
+  and renders one `HardwareDialog`: a single Radix `Dialog` whose view (`list` / `addGateway` /
+  `wizard`) is switched by `model.view`, so the steps replace each other in place. `makeHardwareModel`
+  owns the `GET /api/hardware` snapshot and, through `withConnectHook`, the `GET /api/hardware/events`
+  stream: a change notice refetches the snapshot, and it stays live only while the dialog is open. At
+  phone width (≤640 px) the dialog becomes a full-screen sheet (`widget-sdk/ui/phone-sheet`). It
+  reads and writes no storage keys; everything goes through the board routes above.
 - **nginx.** `packages/client/nginx.conf` opens `= /api/hardware/gateway/register` (rate limited) and
   `/api/hardware/gateway/` (no buffering, 120 s read timeout) without `auth_request`: the server
   checks the token on every call. Board hardware routes stay under the gated `/api/` block;
