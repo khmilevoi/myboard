@@ -10,6 +10,7 @@ import {
 } from '@shared/hardware/board-api'
 import {
   GatewayEventsBodySchema,
+  GatewayReadingsBodySchema,
   GatewayRegisterBodySchema,
 } from '@shared/hardware/gateway-protocol'
 import { ScaleUserIndexSchema } from '@shared/hardware/spike-assumptions'
@@ -46,6 +47,7 @@ import {
   revealConsentCode,
   unbindScaleProfile,
 } from './profiles'
+import { ingestReadings } from './readings'
 import {
   authenticateGateway,
   mintGatewayCode,
@@ -354,6 +356,14 @@ export function registerHardwareRoutes({
     }
     res.writeHead(204)
     res.end()
+  })
+
+  router.on('POST', '/api/hardware/gateway/readings', async (req, res) => {
+    const gateway = await authenticateGateway(ops, now, req.headers.authorization)
+    if (gateway instanceof Error) return sendHardwareError(res, gateway)
+    const body = await readBody(req, res, GatewayReadingsBodySchema)
+    if (body === null) return
+    sendJson(res, 200, await ingestReadings(deps, gateway, body.readings))
   })
 
   return {
