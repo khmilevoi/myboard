@@ -4,6 +4,7 @@ import { HARDWARE_EVENTS_KEY } from '@shared/hardware/board-api'
 import { makeHardwareBoardClient } from '@shared/hardware/board-client'
 import type { BleAddress } from '@shared/hardware/models'
 import { CONSENT_CODE_DIGITS } from '@shared/hardware/spike-assumptions'
+import type { HttpLike, HttpResponse } from '@shared/http/client'
 import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
 import { makeScriptedHttp, type ScriptedStep } from '@shared/http/test/scripted-http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -260,5 +261,69 @@ describe('inline rows', () => {
     expect(env.model.confirm()).toBeNull()
     expect(env.model.revealed()).toBeNull()
     expect(env.model.actionError()).toBeNull()
+  })
+})
+
+describe('a request that settles after reset', () => {
+  // The snapshot GET answers at once; every other request waits for `release`.
+  function gatedSetup() {
+    const pending: Array<(response: HttpResponse) => void> = []
+    const respond = (method: string, url: string): Promise<HttpResponse> =>
+      method === 'GET' && url === '/api/hardware'
+        ? Promise.resolve({ status: 200, ok: true, body: snapshot })
+        : new Promise((resolve) => pending.push(resolve))
+    const http: HttpLike = {
+      get: (url) => respond('GET', url),
+      post: (url) => respond('POST', url),
+      put: (url) => respond('PUT', url),
+      delete: (url) => respond('DELETE', url),
+      patch: (url) => respond('PATCH', url),
+    }
+    const { open } = makeFakeOpenEventStream()
+    const model = makeHardwareModel({
+      client: makeHardwareBoardClient(http),
+      openEventStream: open,
+      now: () => NOW,
+    })
+    return { model, release: (response: HttpResponse) => pending.shift()!(response) }
+  }
+  const failure: HttpResponse = { status: 500, ok: false, body: undefined }
+
+  it('a failed confirmAction does not leave an actionError for the next open', async () => {
+    const env = gatedSetup()
+    env.model.confirm.set({ kind: 'unpair', hardwareId: 'h1' })
+    const running = env.model.confirmAction()
+
+    env.model.reset()
+    env.release(failure)
+    await running
+
+    expect(env.model.actionError()).toBeNull()
+  })
+
+  it('a failed adopt does not leave an actionError for the next open', async () => {
+    const env = gatedSetup()
+    const running = env.model.adopt('g1', ADDRESS)
+
+    env.model.reset()
+    env.release(failure)
+    await running
+
+    expect(env.model.actionError()).toBeNull()
+  })
+
+  it('a revealCode that lands after reset does not show the code', async () => {
+    const env = gatedSetup()
+    const running = env.model.revealCode('h1', 1)
+
+    env.model.reset()
+    env.release({
+      status: 200,
+      ok: true,
+      body: { consentCode: '1'.repeat(CONSENT_CODE_DIGITS) },
+    })
+    await running
+
+    expect(env.model.revealed()).toBeNull()
   })
 })

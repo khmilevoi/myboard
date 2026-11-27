@@ -324,10 +324,11 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     step.set({ ...current, stage: frame.stage })
   }
 
-  // @reatom/core 1001.1.0: addCallHook's unsubscribe does not remove the hook (probed: the callback
-  // still fires), so `dispose` also flips this flag, which the hook checks first.
+  // @reatom/core 1001.1.0: the hook lives as long as the `hardware.received` action; the function
+  // addCallHook returns does not remove it. There is one wizard per HardwareModel/session, so
+  // `dispose` just flips this flag, which the hook checks first.
   const disposed = atom(false, 'hardware.wizard.disposed')
-  const stopListening = addCallHook(hardware.received, (event) => {
+  addCallHook(hardware.received, (event) => {
     if (disposed()) return
     if (event.type !== 'pairing' && event.type !== 'command') return
     recentEvents.set((events) => [...events, event].slice(-RECENT_EVENTS_LIMIT))
@@ -552,7 +553,6 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
 
   function dispose() {
     disposed.set(true)
-    stopListening()
     resetState()
   }
 

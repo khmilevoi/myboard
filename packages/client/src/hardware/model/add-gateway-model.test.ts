@@ -1,6 +1,7 @@
 import { context } from '@reatom/core'
 import type { HardwareSnapshot } from '@shared/hardware/board-api'
 import { makeHardwareBoardClient } from '@shared/hardware/board-client'
+import type { HttpLike, HttpResponse } from '@shared/http/client'
 import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
 import { makeScriptedHttp, type ScriptedStep } from '@shared/http/test/scripted-http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -248,5 +249,50 @@ describe('add-gateway model', () => {
 
     expect(env.model.code()).toBeNull()
     expect(env.model.error()).toBeNull()
+  })
+})
+
+describe('add-gateway start across reset', () => {
+  it('a stale mint that lands after a newer start does not overwrite the live code', async () => {
+    const mintResolvers: Array<(response: HttpResponse) => void> = []
+    const respond = (method: string, url: string): Promise<HttpResponse> =>
+      url === '/api/hardware'
+        ? Promise.resolve({ status: 200, ok: true, body: snap() })
+        : method === 'POST' && url === '/api/hardware/codes'
+          ? new Promise((resolve) => mintResolvers.push(resolve))
+          : Promise.reject(new Error(`unexpected ${method} ${url}`))
+    const http: HttpLike = {
+      get: (url) => respond('GET', url),
+      post: (url) => respond('POST', url),
+      put: (url) => respond('PUT', url),
+      delete: (url) => respond('DELETE', url),
+      patch: (url) => respond('PATCH', url),
+    }
+    const client = makeHardwareBoardClient(http)
+    const { open } = makeFakeOpenEventStream()
+    const hardware = makeHardwareModel({ client, openEventStream: open, now: () => NOW })
+    const model = makeAddGatewayModel({ hardware, client })
+    const unsubscribe = model.phase.subscribe(() => {})
+    await vi.waitFor(() => expect(hardware.snapshot.data()).not.toBeNull())
+    const minted = (code: string): HttpResponse => ({
+      status: 201,
+      ok: true,
+      body: { code, expiresAt: NOW + CODE_TTL_MS },
+    })
+
+    const first = model.start()
+    await vi.waitFor(() => expect(mintResolvers).toHaveLength(1))
+    model.reset()
+    const second = model.start()
+    await vi.waitFor(() => expect(mintResolvers).toHaveLength(2))
+
+    mintResolvers[1]!(minted('LIVE-0002'))
+    await second
+    mintResolvers[0]!(minted('DEAD-0001'))
+    await first
+
+    expect(model.code()).toBe('LIVE-0002')
+    expect(model.phase()).toBe('waiting')
+    unsubscribe()
   })
 })

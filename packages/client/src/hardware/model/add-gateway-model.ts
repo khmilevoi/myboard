@@ -49,6 +49,8 @@ export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
   const minting = atom(false, 'hardware.addGateway.minting')
   const error = atom<string | null>(null, 'hardware.addGateway.error')
   const copied = atom(false, 'hardware.addGateway.copied')
+  // Bumped by `start` and `reset`: an older run that settles later finds it changed and bails.
+  const run = atom(0, 'hardware.addGateway.run')
 
   const code = computed(() => minted()?.code ?? null, 'hardware.addGateway.code')
   const countdown = makeCountdown({
@@ -73,6 +75,7 @@ export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
   }, 'hardware.addGateway.phase')
 
   const start = action(async () => {
+    const mine = run.set((value) => value + 1)
     error.set(null)
     copied.set(false)
     minted.set(null)
@@ -83,6 +86,7 @@ export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
       (await wrap(hardware.snapshot()).catch((cause: unknown) =>
         cause instanceof Error ? cause : new Error(String(cause)),
       ))
+    if (run() !== mine) return
     if (loaded instanceof Error) {
       minting.set(false)
       // The snapshot query throws the client's own error; anything else gets the generic copy.
@@ -91,6 +95,7 @@ export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
     }
     const knownGatewayIds = loaded.gateways.map((g) => g.id)
     const result = await wrap(client.mintCode())
+    if (run() !== mine) return
     minting.set(false)
     if (result instanceof Error) {
       error.set(describeHardwareError(result))
@@ -117,6 +122,7 @@ export function makeAddGatewayModel(deps: AddGatewayDeps): AddGatewayModel {
   }, 'hardware.addGateway.copy').extend(withAsync())
 
   const reset = action(() => {
+    run.set((value) => value + 1)
     minted.set(null)
     minting.set(false)
     error.set(null)

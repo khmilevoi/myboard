@@ -153,11 +153,16 @@ export function makeHardwareModel(deps: HardwareDeps): HardwareModel {
     }),
   )
 
+  // Bumped by `reset`: a request that settles after the dialog closed must not write its outcome.
+  const session = atom(0, 'hardware.session')
+
   const confirmAction = action(async () => {
     const target = confirm()
     if (target === null) return
+    const mine = session()
     actionError.set(null)
     const result = await wrap(runConfirm(client, target))
+    if (session() !== mine) return
     if (result instanceof Error) {
       actionError.set(describeHardwareError(result))
       return
@@ -167,8 +172,10 @@ export function makeHardwareModel(deps: HardwareDeps): HardwareModel {
   }, 'hardware.confirmAction').extend(withAsync())
 
   const revealCode = action(async (hardwareId: string, index: ScaleUserIndex) => {
+    const mine = session()
     actionError.set(null)
     const result = await wrap(client.revealConsentCode(hardwareId, index))
+    if (session() !== mine) return
     if (result instanceof Error) {
       actionError.set(describeHardwareError(result))
       return
@@ -182,8 +189,10 @@ export function makeHardwareModel(deps: HardwareDeps): HardwareModel {
   }, 'hardware.hideCode')
 
   const adopt = action(async (gatewayId: string, address: BleAddress) => {
+    const mine = session()
     actionError.set(null)
     const result = await wrap(client.adopt(gatewayId, address))
+    if (session() !== mine) return
     if (result instanceof Error) {
       actionError.set(describeHardwareError(result))
       return
@@ -192,6 +201,7 @@ export function makeHardwareModel(deps: HardwareDeps): HardwareModel {
   }, 'hardware.adopt').extend(withAsync())
 
   const reset = action(() => {
+    session.set((value) => value + 1)
     view.set('list')
     confirm.set(null)
     revealed.set(null)
