@@ -10,8 +10,10 @@ import * as errore from 'errore'
 // arm's length while ours had to be held far away and looked zoomed in. Safari
 // exposes that virtual device to the web ("Back Triple Camera", "Back Dual Wide
 // Camera"), so the scanner picks it by label once camera permission makes the
-// labels readable. On Android the first back camera is the main lens; the
-// ultra-wide, telephoto and depth lenses that follow it are skipped.
+// labels readable. On Android, Chrome labels cameras "camera <id>, facing back"
+// (older builds "camera2 <id>, …") and the Camera2 id of the primary back lens
+// is the lowest; the list order is not, since a OnePlus 15 lists its telephoto
+// ("camera 4") first, which looked like a 3x zoom.
 
 export type CameraDevice = { deviceId: string; label: string }
 
@@ -20,6 +22,12 @@ export type CameraDevice = { deviceId: string; label: string }
 const VIRTUAL_MULTI_LENS = [/triple camera/i, /dual wide camera/i, /dual camera/i]
 const BACK_CAMERA = /back|rear|environment|задн|тыл|facing back/i
 const SPECIAL_LENS = /ultra ?wide|tele(photo)?\b|zoom|depth|infrared|\bir\b|desk view|macro/i
+const ANDROID_CAMERA_ID = /^camera2? (\d+),/i
+
+function androidCameraId(label: string): number {
+  const match = ANDROID_CAMERA_ID.exec(label)
+  return match ? Number(match[1]) : Number.POSITIVE_INFINITY
+}
 
 // Picks the back camera to scan with, or null to fall back to the browser's own
 // `facingMode: 'environment'` choice (labels unreadable, or no back camera
@@ -30,8 +38,12 @@ export function chooseScannerCamera(devices: readonly CameraDevice[]): string | 
     const virtual = labelled.find((device) => pattern.test(device.label))
     if (virtual) return virtual.deviceId
   }
-  const back = labelled.filter((device) => BACK_CAMERA.test(device.label))
-  const main = back.find((device) => !SPECIAL_LENS.test(device.label))
+  const plainBack = labelled.filter(
+    (device) => BACK_CAMERA.test(device.label) && !SPECIAL_LENS.test(device.label),
+  )
+  // Lowest Android camera id first; the stable sort keeps list order for the
+  // rest (labels without an id), so the first plain back camera still wins there.
+  const [main] = [...plainBack].sort((a, b) => androidCameraId(a.label) - androidCameraId(b.label))
   return main?.deviceId ?? null
 }
 

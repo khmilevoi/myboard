@@ -26,7 +26,19 @@ describe('chooseScannerCamera', () => {
     expect(chooseScannerCamera(devices.filter((d) => d.deviceId !== 'triple'))).toBe('dualwide')
   })
 
-  it('takes the first plain back camera on Android, skipping special lenses', () => {
+  it('takes the lowest-id back camera on Android whatever the list order (OnePlus 15)', () => {
+    const devices = [
+      cam('f', 'camera 1, facing front'),
+      cam('b4', 'camera 4, facing back'),
+      cam('b3', 'camera 3, facing back'),
+      cam('b2', 'camera 2, facing back'),
+      cam('b0', 'camera 0, facing back'),
+    ]
+
+    expect(chooseScannerCamera(devices)).toBe('b0')
+  })
+
+  it('takes the first plain back camera, skipping special lenses', () => {
     const devices = [
       cam('f', 'camera2 1, facing front'),
       cam('b0', 'camera2 0, facing back'),
