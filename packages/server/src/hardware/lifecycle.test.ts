@@ -136,7 +136,7 @@ describe('scan', () => {
     )
     // The first batch published two frames for one address; skip to the new one.
     for (;;) {
-      const frame = (await nextBoardValue(events, 'scan.result')) as {
+      const frame = (await nextBoardValue(events, 'scan.result')) as unknown as {
         result: { address: string }
       }
       if (frame.result.address === 'AA:BB:CC:DD:EE:03') break
