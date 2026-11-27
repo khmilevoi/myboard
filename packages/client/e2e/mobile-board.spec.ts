@@ -1,7 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
-
 import { BoardPage } from './pages/BoardPage.js'
 import { HeaderPage } from './pages/HeaderPage.js'
+import { expect, test, type Page } from './support/test.js'
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 }
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 
+import { MeasurementSchema } from '@modules/health/domain/measurement'
 import { scopedEventKey, type ScopedStorageRef } from '@shared/storage/scoped'
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import Router from 'find-my-way'
@@ -22,6 +23,8 @@ import type { ImageDecoder } from './files/image-check'
 import type { FilePolicies } from './files/policies'
 import { registerFileRoutes } from './files/routes'
 import { makeFileService } from './files/service'
+import { ingestForAccount } from './hardware/health-access'
+import { registerHardwareRoutes } from './hardware/routes'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
@@ -154,6 +157,8 @@ export function createApp(deps: AppDeps): App {
     if (!deps.testControls) cronScheduler.start()
   }
 
+  const hardware = registerHardwareRoutes({ router, ops, now, authDeps, registry })
+
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
     try {
@@ -168,6 +173,7 @@ export function createApp(deps: AppDeps): App {
       return
     }
     fanout(registry, parsed.data)
+    hardware.onStorageEvent(parsed.data)
   })
 
   function send(res: ServerResponse, result: HandlerResult): void {
@@ -637,6 +643,39 @@ export function createApp(deps: AppDeps): App {
       res.end(JSON.stringify({ token, activateUrl: `${appUrl}/activate?token=${token}` }))
     })
 
+    // Plan 2's gateway ingest reuses ingestMeasurement; this seeds the same path for e2e. Never
+    // log the measurement: health values stay out of logs.
+    router.on('POST', '/api/test/health/measurements', async (req, res) => {
+      const session = await requireSession(authDeps, req)
+      if (isAuthResult(session)) {
+        res.writeHead(session.status, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(session.body))
+        return
+      }
+      let raw: unknown
+      try {
+        raw = await readJsonBody(req)
+      } catch {
+        res.writeHead(400)
+        res.end()
+        return
+      }
+      const parsed = z.object({ measurement: MeasurementSchema }).safeParse(raw ?? {})
+      if (!parsed.success) {
+        res.writeHead(422, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(formatZodError(parsed.error)))
+        return
+      }
+      const result = await ingestForAccount(ops, now, session.accountId, parsed.data.measurement)
+      if (result instanceof Error) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'ingest_failed' }))
+        return
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(result))
+    })
+
     router.on('POST', '/api/test/seed-session', async (_req, res) => {
       const account = await createAccount(ops, now, { name: 'E2E', inviteId: 'test-seed' })
       const credentialId = randomUUID()
@@ -728,6 +767,7 @@ export function createApp(deps: AppDeps): App {
 
   const close = async (): Promise<void> => {
     unsubscribe()
+    hardware.closeAll()
     recoveryStore.revokeAll()
     await cronScheduler.stop()
     await new Promise<void>((resolve) => server.close(() => resolve()))

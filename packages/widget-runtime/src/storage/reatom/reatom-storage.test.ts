@@ -114,10 +114,11 @@ describe('withStorageKey', () => {
     const offKey = key.subscribe(() => {})
     const offEffect = ensureDefault.subscribe()
 
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    // Wait for the outcome, not for a fixed delay: under load the failing
+    // write can land after any fixed sleep.
+    await vi.waitFor(() => expect(key.error()).toBeInstanceOf(StorageError))
 
     expect(key()).toBe('default') // optimistic value survives the failure
-    expect(key.error()).toBeInstanceOf(StorageError)
     offEffect()
     offKey()
 

@@ -60,6 +60,9 @@
   }
   @keyframes act-spin { to { transform: rotate(360deg); } }
   @keyframes act-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes act-draw { to { stroke-dashoffset: 0; } }
+  @keyframes act-pop { from { opacity: 0; transform: scale(.82); } }
+  @keyframes act-pulse { 50% { opacity: .5; } }
 </style>
 </helmet>
 
@@ -89,8 +92,10 @@
     <!-- ============ ACTIVATE (code present in URL) ============ -->
     <sc-if value="{{ isActivate }}" hint-placeholder-val="{{ true }}">
       <div style="width:100%;display:flex;flex-direction:column;align-items:center;">
-        <h1 style="margin:20px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Активация устройства</h1>
-        <p style="margin:9px 0 0;max-width:290px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Создайте passkey, чтобы завершить настройку этого устройства.</p>
+        <div aria-hidden="true" style="margin-top:22px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:oklch(from var(--success, #3b6d11) l c h / .14);color:var(--success, #3b6d11);animation:act-pop .36s cubic-bezier(.22,1,.36,1);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" style="stroke-dasharray:1;stroke-dashoffset:1;animation:act-draw .42s cubic-bezier(.22,1,.36,1) .14s forwards;"></path></svg></div>
+        <h1 style="margin:14px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Приглашение принято</h1>
+        <span style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font:600 13px 'Hanken Grotesk',sans-serif;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"></path><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path><path d="m16 19 2 2 4-4"></path></svg>Действует до 3 дек.</span>
+        <p style="margin:9px 0 0;max-width:290px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">{{ activateHint }}</p>
 
         <div style="width:100%;margin-top:26px;">
           <input type="text" placeholder="Ваше имя" aria-label="Ваше имя" aria-invalid="{{ hasNameError }}" aria-describedby="{{ nameErrorId }}" value="{{ name }}" onInput="{{ onNameInput }}" onKeyDown="{{ onNewKey }}" onBlur="{{ onNameBlur }}" disabled="{{ loading }}" style="{{ inputStyle }}" style-focus="{{ inputFocusStyle }}" />
@@ -101,13 +106,9 @@
           <button onClick="{{ onCreatePasskey }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Создать passkey</button>
         </sc-if>
         <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
-          <button disabled aria-busy="true" style="{{ loadingBtn }}"><span style="width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:act-spin .7s linear infinite;opacity:.9;"></span>Создание passkey…</button>
+          <button disabled aria-busy="true" style="{{ loadingBtn }}"><span style="width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:act-spin .7s linear infinite;opacity:.9;"></span>Создаём passkey…</button>
         </sc-if>
-        <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
-          <button onClick="{{ openScanner }}" style="{{ scanBtn }}" style-hover="{{ scanBtnHover }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7M14 21h.01"></path></svg>Сканировать QR-код</button>
-        </sc-if>
-
-        <button onClick="{{ goHome }}" disabled="{{ loading }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Уже активировано? <span style="color:var(--accent);">Войти с passkey</span></button>
+        <button onClick="{{ goHome }}" disabled="{{ loading }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Уже есть passkey? <span style="color:var(--accent);">Войти</span></button>
       </div>
     </sc-if>
 
@@ -150,8 +151,9 @@
     <!-- ============ ACTIVATE — ALREADY USED (invite link already activated) ============ -->
     <sc-if value="{{ isUsed }}" hint-placeholder-val="{{ false }}">
       <div style="width:100%;display:flex;flex-direction:column;align-items:center;">
-        <h1 style="margin:20px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Приглашение уже использовано</h1>
-        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Эта ссылка-приглашение уже была активирована на другом устройстве. Запросите новое приглашение у администратора.</p>
+        <div aria-hidden="true" style="margin-top:22px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--text-2);animation:act-pop .36s cubic-bezier(.22,1,.36,1);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="m16 11 2 2 4-4"></path></svg></div>
+        <h1 style="margin:14px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Приглашение уже использовано</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Его активировали на другом устройстве. Если это были вы — войдите с passkey.</p>
 
         <div style="width:100%;margin-top:26px;">
           <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
@@ -163,6 +165,58 @@
         </div>
 
         <button onClick="{{ goHome }}" disabled="{{ loading }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Нет passkey на этом устройстве? <span style="color:var(--accent);">Перейти к входу</span></button>
+      </div>
+    </sc-if>
+
+    <!-- ============ CHECKING (invite link opened, confirming it) ============ -->
+    <sc-if value="{{ isChecking }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;animation:act-in .32s cubic-bezier(.22,1,.36,1);">
+        <div aria-hidden="true" style="margin-top:22px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);animation:act-pop .36s cubic-bezier(.22,1,.36,1);"><span style="width:20px;height:20px;border:2.2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:act-spin .7s linear infinite;"></span></div>
+        <h1 style="margin:14px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Проверяем приглашение…</h1>
+        <div aria-hidden="true" style="width:78%;height:10px;margin-top:14px;border-radius:6px;background:var(--surface-2);animation:act-pulse 1.2s ease-in-out infinite;"></div>
+        <div aria-hidden="true" style="width:52%;height:10px;margin-top:9px;border-radius:6px;background:var(--surface-2);animation:act-pulse 1.2s ease-in-out infinite;"></div>
+      </div>
+    </sc-if>
+
+    <!-- ============ DONE (passkey created, opening the board) ============ -->
+    <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;animation:act-in .32s cubic-bezier(.22,1,.36,1);">
+        <div aria-hidden="true" style="margin-top:22px;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:oklch(from var(--success, #3b6d11) l c h / .14);color:var(--success, #3b6d11);animation:act-pop .36s cubic-bezier(.22,1,.36,1);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" style="stroke-dasharray:1;stroke-dashoffset:1;animation:act-draw .42s cubic-bezier(.22,1,.36,1) .14s forwards;"></path></svg></div>
+        <h1 style="margin:14px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Устройство активировано</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Открываем доску…</p>
+      </div>
+    </sc-if>
+
+    <!-- ============ ACTIVATE — EXPIRED ============ -->
+    <sc-if value="{{ isExpired }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;animation:act-in .32s cubic-bezier(.22,1,.36,1);">
+        <div aria-hidden="true" style="margin-top:22px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#faeeda;color:#854f0b;animation:act-pop .36s cubic-bezier(.22,1,.36,1);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6l4 2"></path><path d="M16 21.16a10 10 0 1 1 5.16-5.16"></path><path d="M22 22l-5-5M17 22l5-5"></path></svg></div>
+        <h1 style="margin:14px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Приглашение истекло</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Срок ссылки закончился. Попросите администратора выпустить новое приглашение.</p>
+        <div style="width:100%;margin-top:26px;"><button onClick="{{ openScanner }}" style="{{ scanBtn }}" style-hover="{{ scanBtnHover }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7M14 21h.01"></path></svg>Сканировать QR-код</button></div>
+        <button onClick="{{ goHome }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Уже есть passkey? <span style="color:var(--accent);">Войти</span></button>
+      </div>
+    </sc-if>
+
+    <!-- ============ ACTIVATE — NOT FOUND ============ -->
+    <sc-if value="{{ isNotFound }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;animation:act-in .32s cubic-bezier(.22,1,.36,1);">
+        <div aria-hidden="true" style="margin-top:22px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--destructive-soft);color:var(--destructive);animation:act-pop .36s cubic-bezier(.22,1,.36,1);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7"></path><path d="M15 7h2a5 5 0 0 1 4 8"></path><path d="M8 12h4M2 2l20 20"></path></svg></div>
+        <h1 style="margin:14px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Приглашение не найдено</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Ссылка неполная или неверная. Отсканируйте QR-код приглашения ещё раз.</p>
+        <div style="width:100%;margin-top:26px;"><button onClick="{{ openScanner }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7M14 21h.01"></path></svg>Сканировать QR-код</button></div>
+        <button onClick="{{ goHome }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Уже есть passkey? <span style="color:var(--accent);">Войти</span></button>
+      </div>
+    </sc-if>
+
+    <!-- ============ ACTIVATE — LOCKED (too many failed attempts) ============ -->
+    <sc-if value="{{ isLocked }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center;animation:act-in .32s cubic-bezier(.22,1,.36,1);">
+        <div aria-hidden="true" style="margin-top:22px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--destructive-soft);color:var(--destructive);animation:act-pop .36s cubic-bezier(.22,1,.36,1);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="M12 8v4M12 16h.01"></path></svg></div>
+        <h1 style="margin:14px 0 0;width:100%;font:700 25px/1.2 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;color:var(--text);text-align:center;">Слишком много попыток</h1>
+        <p style="margin:9px 0 0;max-width:300px;font:400 15px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-align:center;text-wrap:pretty;">Приглашение временно заблокировано после нескольких неудачных попыток. Попробуйте позже или попросите у администратора новое.</p>
+        <div style="width:100%;margin-top:26px;"><button onClick="{{ openScanner }}" style="{{ scanBtn }}" style-hover="{{ scanBtnHover }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7M14 21h.01"></path></svg>Сканировать QR-код</button></div>
+        <button onClick="{{ goHome }}" style="margin-top:18px;background:none;border:none;padding:2px;font:500 13.5px 'Hanken Grotesk',sans-serif;color:var(--text-2);cursor:pointer;">Уже есть passkey? <span style="color:var(--accent);">Войти</span></button>
       </div>
     </sc-if>
 
@@ -182,7 +236,7 @@
     <div role="dialog" aria-modal="true" aria-label="Сканирование QR-кода" style="position:fixed;inset:0;z-index:60;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;">
 
       <sc-if value="{{ showVideo }}" hint-placeholder-val="{{ false }}">
-        <video ref="{{ videoRef }}" autoPlay="{{ true }}" playsInline="{{ true }}" muted="{{ true }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
+        <video ref="{{ videoRef }}" autoPlay="{{ true }}" playsInline="{{ true }}" muted="{{ true }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;"></video>
       </sc-if>
 
       <sc-if value="{{ showCameraFallback }}" hint-placeholder-val="{{ true }}">
@@ -192,11 +246,11 @@
       </sc-if>
 
       <!-- scrim with cutout frame -->
-      <div aria-hidden="true" style="width:250px;height:250px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border-radius:20px;position:relative;">
-        <div style="position:absolute;top:-2px;left:-2px;width:34px;height:34px;border-top:3px solid #fff;border-left:3px solid #fff;border-top-left-radius:16px;"></div>
-        <div style="position:absolute;top:-2px;right:-2px;width:34px;height:34px;border-top:3px solid #fff;border-right:3px solid #fff;border-top-right-radius:16px;"></div>
-        <div style="position:absolute;bottom:-2px;left:-2px;width:34px;height:34px;border-bottom:3px solid #fff;border-left:3px solid #fff;border-bottom-left-radius:16px;"></div>
-        <div style="position:absolute;bottom:-2px;right:-2px;width:34px;height:34px;border-bottom:3px solid #fff;border-right:3px solid #fff;border-bottom-right-radius:16px;"></div>
+      <div aria-hidden="true" style="{{ scanFrame }}">
+        <div style="{{ scanCornerTl }}"></div>
+        <div style="{{ scanCornerTr }}"></div>
+        <div style="{{ scanCornerBl }}"></div>
+        <div style="{{ scanCornerBr }}"></div>
       </div>
 
       <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:22px 20px;">
@@ -204,15 +258,44 @@
         <button onClick="{{ closeScanner }}" aria-label="Закрыть сканер" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:none;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
       </div>
 
-      <div style="position:absolute;bottom:56px;left:24px;right:24px;text-align:center;font:500 14px/1.5 'Hanken Grotesk',sans-serif;color:rgba(255,255,255,.85);text-wrap:pretty;">
-        <sc-if value="{{ cameraError }}" hint-placeholder-val="{{ false }}">Камера недоступна — наведите устройство с доступом к камере на QR-код активации.</sc-if>
-        <sc-if value="{{ notCameraError }}" hint-placeholder-val="{{ true }}">Наведите камеру на QR-код активации</sc-if>
-      </div>
+      <!-- (b2) checking / (b3) foreign QR: status pill above the hint; scanning continues under (b3) -->
+      <sc-if value="{{ scanChecking }}" hint-placeholder-val="{{ false }}">
+        <p role="status" style="position:absolute;bottom:104px;left:50%;transform:translateX(-50%);margin:0;padding:8px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;white-space:nowrap;background:rgba(255,255,255,.92);color:#1c1d33;font:600 13.5px 'Hanken Grotesk',sans-serif;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Проверяем код…</p>
+      </sc-if>
+      <sc-if value="{{ scanInvite }}" hint-placeholder-val="{{ false }}">
+        <p role="status" style="position:absolute;bottom:104px;left:50%;transform:translateX(-50%);margin:0;padding:8px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;white-space:nowrap;background:#eaf3de;color:#27500a;font:600 13.5px 'Hanken Grotesk',sans-serif;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"></path><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path><path d="m16 19 2 2 4-4"></path></svg>Приглашение найдено</p>
+      </sc-if>
+      <sc-if value="{{ scanForeign }}" hint-placeholder-val="{{ false }}">
+        <p role="status" style="position:absolute;bottom:104px;left:50%;transform:translateX(-50%);margin:0;padding:8px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;white-space:nowrap;background:#faeeda;color:#633806;font:600 13.5px 'Hanken Grotesk',sans-serif;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3M14 18h7M18 14v7"></path></svg>Это не QR-код myboard</p>
+      </sc-if>
+
+      <sc-if value="{{ scanHintVisible }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;bottom:56px;left:24px;right:24px;text-align:center;font:500 14px/1.5 'Hanken Grotesk',sans-serif;color:rgba(255,255,255,.85);text-wrap:pretty;">
+          <sc-if value="{{ cameraError }}" hint-placeholder-val="{{ false }}">Камера недоступна — наведите устройство с доступом к камере на QR-код активации.</sc-if>
+          <sc-if value="{{ scanIdleHint }}" hint-placeholder-val="{{ true }}">Наведите камеру на QR-код приглашения или из окна «Добавить устройство»</sc-if>
+          <sc-if value="{{ scanChecking }}" hint-placeholder-val="{{ false }}">Код K7QP-3M9X</sc-if>
+        </div>
+      </sc-if>
+
+      <!-- (b4)-(b6) unusable code: a panel over the live preview, which keeps running behind it -->
+      <sc-if value="{{ scanSheet }}" hint-placeholder-val="{{ false }}">
+        <div role="alert" style="position:absolute;left:12px;right:12px;bottom:12px;max-width:420px;margin:0 auto;padding:18px 18px 16px;border-radius:20px;background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg);">
+          <div aria-hidden="true" style="{{ scanSheetIcon }}">
+            <sc-if value="{{ scanOtherOrigin }}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg></sc-if>
+            <sc-if value="{{ scanRejected }}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2h4M12 14l3-3M4.6 9.1A8 8 0 1 0 12 6M2 2l20 20"></path></svg></sc-if>
+            <sc-if value="{{ scanNetwork }}" hint-placeholder-val="{{ false }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5.2-2.8M19 13a10 10 0 0 0-2-1.6M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 11 5M12 20h.01"></path></svg></sc-if>
+          </div>
+          <p style="margin:0 0 6px;font:600 16px 'Hanken Grotesk',sans-serif;">{{ scanSheetTitle }}</p>
+          <p style="margin:0 0 16px;font:400 14px/1.5 'Hanken Grotesk',sans-serif;color:var(--text-2);text-wrap:pretty;overflow-wrap:anywhere;">{{ scanSheetText }}</p>
+          <button type="button" onClick="{{ resumeScan }}" style="{{ primaryBtn }}" style-hover="background: var(--accent-hover);">{{ scanSheetPrimary }}</button>
+          <button type="button" onClick="{{ closeScanner }}" style="{{ scanBtn }}" style-hover="{{ scanBtnHover }}">Ввести код вручную</button>
+        </div>
+      </sc-if>
     </div>
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:720},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;auto&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;home&quot;,&quot;activate&quot;,&quot;activate-no-code&quot;,&quot;activate-used&quot;],&quot;tsType&quot;:&quot;'auto' | 'home' | 'activate' | 'activate-no-code' | 'activate-used'&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showServerError&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:720},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;auto&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;home&quot;,&quot;checking&quot;,&quot;activate&quot;,&quot;done&quot;,&quot;activate-no-code&quot;,&quot;activate-used&quot;,&quot;activate-expired&quot;,&quot;activate-not-found&quot;,&quot;activate-locked&quot;],&quot;tsType&quot;:&quot;'auto' | 'home' | 'checking' | 'activate' | 'done' | 'activate-no-code' | 'activate-used' | 'activate-expired' | 'activate-not-found' | 'activate-locked'&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showServerError&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;scanState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;closed&quot;,&quot;options&quot;:[&quot;closed&quot;,&quot;idle&quot;,&quot;checking&quot;,&quot;invite&quot;,&quot;foreign&quot;,&quot;other-origin&quot;,&quot;rejected&quot;,&quot;network&quot;],&quot;tsType&quot;:&quot;&#39;closed&#39; | &#39;idle&#39; | &#39;checking&#39; | &#39;invite&#39; | &#39;foreign&#39; | &#39;other-origin&#39; | &#39;rejected&#39; | &#39;network&#39;&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   state = {
     themeMode: (() => { try { return localStorage.getItem('myboard.activate.theme') || 'system'; } catch (e) { return 'system'; } })(),
@@ -345,11 +428,36 @@ class Component extends DCLogic {
   }
 
   renderVals() {
+    const scanState = this.props.scanState ?? 'closed';
+    const scanSheet = scanState === 'other-origin' || scanState === 'rejected' || scanState === 'network';
+    const sheetCopy = {
+      'other-origin': {
+        title: 'QR-код с другого адреса',
+        text: 'Он создан на board.iiskelo.com, а вы на board-branch.iiskelo.com. Откройте добавление устройства на том же адресе, где создан код.',
+        primary: 'Сканировать снова',
+      },
+      rejected: {
+        title: 'Код не подходит',
+        text: 'Он истёк (код действует 5 минут), уже использован или неверный. Создайте новый QR-код на устройстве, где вы вошли.',
+        primary: 'Сканировать снова',
+      },
+      network: {
+        title: 'Не удалось проверить код',
+        text: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.',
+        primary: 'Повторить',
+      },
+    }[scanState] ?? { title: '', text: '', primary: '' };
+    const corner = scanState === 'checking' ? 'var(--accent)' : scanState === 'invite' ? '#97c459' : '#fff';
     const screen = this.resolveScreen();
     const isActivate = screen === 'activate';
     const isNoCode = screen === 'activate-no-code';
     const isUsed = screen === 'activate-used';
-    const isHome = !isActivate && !isNoCode && !isUsed;
+    const isChecking = screen === 'checking';
+    const isDone = screen === 'done';
+    const isExpired = screen === 'activate-expired';
+    const isNotFound = screen === 'activate-not-found';
+    const isLocked = screen === 'activate-locked';
+    const isHome = screen === 'home' || !['activate', 'activate-no-code', 'activate-used', 'checking', 'done', 'activate-expired', 'activate-not-found', 'activate-locked'].includes(screen);
     const loading = this.state.loading;
     const tm = this.state.themeMode;
 
@@ -384,6 +492,12 @@ class Component extends DCLogic {
       isActivate,
       isNoCode,
       isUsed,
+      isChecking,
+      isDone,
+      isExpired,
+      isNotFound,
+      isLocked,
+      activateHint: this.state.loading ? 'Подтвердите создание passkey в системном окне.' : 'Осталось создать passkey для этого устройства.',
       isHome,
       loading,
       notLoading: !loading,
@@ -423,7 +537,32 @@ class Component extends DCLogic {
       scanBtnHover: { background: 'var(--surface-2)' },
       openScanner: () => this.openScanner(),
       closeScanner: () => this.closeScanner(),
-      scannerOpen: this.state.scannerOpen,
+      scannerOpen: this.state.scannerOpen || scanState !== 'closed',
+      scanFrame: `width:250px;height:250px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border-radius:20px;position:relative;margin-bottom:18vh;`,
+      scanCornerTl: `position:absolute;top:-2px;left:-2px;width:34px;height:34px;border-top:3px solid ${corner};border-left:3px solid ${corner};border-top-left-radius:16px;`,
+      scanCornerTr: `position:absolute;top:-2px;right:-2px;width:34px;height:34px;border-top:3px solid ${corner};border-right:3px solid ${corner};border-top-right-radius:16px;`,
+      scanCornerBl: `position:absolute;bottom:-2px;left:-2px;width:34px;height:34px;border-bottom:3px solid ${corner};border-left:3px solid ${corner};border-bottom-left-radius:16px;`,
+      scanCornerBr: `position:absolute;bottom:-2px;right:-2px;width:34px;height:34px;border-bottom:3px solid ${corner};border-right:3px solid ${corner};border-bottom-right-radius:16px;`,
+      scanChecking: scanState === 'checking',
+      scanForeign: scanState === 'foreign',
+      scanInvite: scanState === 'invite',
+      scanIdleHint: !this.state.cameraError && scanState !== 'checking',
+      scanHintVisible: !scanSheet,
+      scanSheet,
+      scanOtherOrigin: scanState === 'other-origin',
+      scanRejected: scanState === 'rejected',
+      scanNetwork: scanState === 'network',
+      scanSheetIcon: `width:38px;height:38px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;border-radius:50%;${
+        scanState === 'other-origin'
+          ? 'background:#faeeda;color:#854f0b;'
+          : scanState === 'rejected'
+            ? 'background:var(--destructive-soft);color:var(--destructive);'
+            : 'background:var(--surface-2);color:var(--text-2);'
+      }`,
+      scanSheetTitle: sheetCopy.title,
+      scanSheetText: sheetCopy.text,
+      scanSheetPrimary: sheetCopy.primary,
+      resumeScan: () => {},
       videoRef: (el) => this.setVideoRef(el),
       showVideo: this.state.cameraReady && !this.state.cameraError,
       showCameraFallback: !this.state.cameraReady || this.state.cameraError,

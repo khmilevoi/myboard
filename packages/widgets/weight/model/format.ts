@@ -1,0 +1,122 @@
+import type { WeightPeriod, WeightPoint } from './weight-view'
+
+// ru-RU in the viewer's local time zone: "today" and the clock are their local calendar.
+const kgFormat = new Intl.NumberFormat('ru-RU', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+  useGrouping: false,
+})
+const dayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' })
+const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
+
+// A true minus sign, as the design writes it; Intl's ru-RU minus is a hyphen.
+const MINUS = '−'
+
+export const PERIOD_LABELS: Record<WeightPeriod, string> = {
+  '30d': '30 дней',
+  '90d': '90 дней',
+  '1y': 'Год',
+}
+
+export const PERIOD_SUFFIXES: Record<WeightPeriod, string> = {
+  '30d': 'за 30 дней',
+  '90d': 'за 90 дней',
+  '1y': 'за год',
+}
+
+/** The number alone, `83,0`, for layouts that set the unit apart. */
+export function formatKgValue(value: number): string {
+  return kgFormat.format(value)
+}
+
+/** `83,0 кг` */
+export function formatKg(value: number): string {
+  return `${formatKgValue(value)} кг`
+}
+
+/**
+ * `−1,2` / `+0,4` / `0,0`. Rounded to one decimal before the sign is chosen, so a change that
+ * rounds to zero is never printed as `−0,0` or `+0,0`.
+ */
+export function formatChange(value: number): string {
+  const tenths = Math.round(Math.abs(value) * 10)
+  const digits = kgFormat.format(tenths / 10)
+  if (tenths === 0) return digits
+  return `${value < 0 ? MINUS : '+'}${digits}`
+}
+
+/** `−1,2 кг` / `+0,4 кг` / `0,0 кг` */
+export function formatDelta(value: number): string {
+  return `${formatChange(value)} кг`
+}
+
+function isSameLocalDay(a: number, b: number): boolean {
+  const x = new Date(a)
+  const y = new Date(b)
+  return (
+    x.getFullYear() === y.getFullYear() &&
+    x.getMonth() === y.getMonth() &&
+    x.getDate() === y.getDate()
+  )
+}
+
+/**
+ * `24 нояб.` in the current year, `24 нояб. 2025` in any other. The year is appended by hand:
+ * Intl's ru-RU year format adds a trailing `г.`, which the card does not write.
+ */
+function formatDay(takenAt: number, now: number): string {
+  const year = new Date(takenAt).getFullYear()
+  const day = dayFormat.format(takenAt)
+  if (year === new Date(now).getFullYear()) return day
+  return `${day} ${year}`
+}
+
+/** `сегодня` / `24 нояб.` / `24 нояб. 2025` */
+export function formatTakenOn(takenAt: number, now: number): string {
+  if (isSameLocalDay(takenAt, now)) return 'сегодня'
+  return formatDay(takenAt, now)
+}
+
+/** `сегодня, 08:12` for today, otherwise the date alone: `24 нояб.` / `24 нояб. 2025` */
+export function formatTakenAt(takenAt: number, now: number): string {
+  if (isSameLocalDay(takenAt, now)) return `сегодня, ${timeFormat.format(takenAt)}`
+  return formatDay(takenAt, now)
+}
+
+/** `сегодня, 08:12` / `24 нояб., 07:58` / `24 нояб. 2025, 07:58` — a measurement list row. */
+export function formatTakenAtFull(takenAt: number, now: number): string {
+  return `${formatTakenOn(takenAt, now)}, ${timeFormat.format(takenAt)}`
+}
+
+/** `сегодня` / `24 нояб` / `24 нояб 2025` — a chart axis label, without the abbreviation dot. */
+export function formatTick(takenAt: number, now: number): string {
+  return formatTakenOn(takenAt, now).replace('.', '')
+}
+
+const pluralRules = new Intl.PluralRules('ru-RU')
+const MEASUREMENT_FORMS: Partial<Record<Intl.LDMLPluralRule, string>> = {
+  one: 'измерение',
+  few: 'измерения',
+  many: 'измерений',
+}
+
+/** `1 измерение` / `3 измерения` / `15 измерений` */
+export function formatMeasurementCount(count: number): string {
+  return `${count} ${MEASUREMENT_FORMS[pluralRules.select(count)] ?? 'измерений'}`
+}
+
+/** `Вес за 30 дней: с 84,4 до 83,0 кг` — what a trend line says, for a screen reader. */
+export function formatTrendLabel(points: WeightPoint[], period: WeightPeriod): string {
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (!first || !last) return ''
+  return `Вес ${PERIOD_SUFFIXES[period]}: с ${formatKgValue(first.kg)} до ${formatKg(last.kg)}`
+}
+
+/** The first, middle and last moment of the points, as sparkline axis labels. */
+export function formatSparklineTicks(points: WeightPoint[], now: number): string[] {
+  const first = points[0]?.takenAt
+  const last = points[points.length - 1]?.takenAt
+  if (first === undefined || last === undefined) return []
+  return [first, (first + last) / 2, last].map((at) => formatTick(at, now))
+}

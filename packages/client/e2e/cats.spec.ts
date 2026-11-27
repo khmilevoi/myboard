@@ -1,10 +1,11 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
+import type { Locator } from '@playwright/test'
 import { catWeightKey } from 'module-cats/domain/keys'
 
 import { BoardPage } from './pages/BoardPage.js'
 import { seedCats } from './pages/cats-seed.js'
 import { CatsPage } from './pages/CatsPage.js'
 import { HeaderPage } from './pages/HeaderPage.js'
+import { expect, test, type APIRequestContext, type Page } from './support/test.js'
 
 // Noon Europe/Warsaw (UTC+1 in November) → server "today" = 2026-11-26.
 const PINNED_ISO = '2026-11-26T12:00:00+01:00'

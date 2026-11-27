@@ -1,9 +1,8 @@
-import { expect, test } from '@playwright/test'
-
 import { BoardPage } from './pages/BoardPage.js'
 import { seedCats, seedLedger } from './pages/cats-seed.js'
 import { OfeliaPage } from './pages/OfeliaPage.js'
 import { OfeliaStatsPage } from './pages/OfeliaStatsPage.js'
+import { expect, test } from './support/test.js'
 
 // Same pinned clock as ofelia-duty.spec.ts: noon Europe/Warsaw on 2026-06-16,
 // a Леша duty day.

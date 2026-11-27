@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test'
-
 import { ActivatePage } from './pages/ActivatePage.js'
 import { seedInvite } from './support/seed.js'
+import { expect, test } from './support/test.js'
 import { enableVirtualAuthenticator } from './support/webauthn.js'
 
 test('invite activation registers a passkey, reaches the board, and survives reload', async ({
@@ -54,12 +53,10 @@ test('invite activation registers a passkey, reaches the board, and survives rel
   expect(spentOptions.status()).toBe(409)
   expect(await spentOptions.json()).toEqual({ code: 'invite_consumed', canLogin: true })
 
-  // The activation screen reflects the same spent-invite state by showing the
-  // dedicated "Приглашение уже использовано" screen with a login affordance
-  // instead of the registration form.
+  // The activation screen checks the invite as soon as the link opens, so the
+  // spent invite lands straight on the dedicated "Приглашение уже
+  // использовано" screen with a login affordance, never on the form.
   await activate.gotoActivate(token)
-  await activate.fillName('Second Attempt')
-  await activate.submitRegister()
 
   await expect(activate.usedHeading).toBeVisible()
   await expect(activate.signInButton).toBeVisible()

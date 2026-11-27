@@ -25,7 +25,7 @@ describe('widget registry', () => {
 
   it('uses a shared widget icon name type', () => {
     const iconNames: WidgetIconName[] = widgetTypes.map((type) => type.icon)
-    expect(iconNames).toEqual(['PawPrint', 'Clock', 'Cat', 'ChartColumn', 'IdCard'])
+    expect(iconNames).toEqual(['PawPrint', 'Clock', 'Cat', 'ChartColumn', 'IdCard', 'Weight'])
   })
 
   it('lists the "Кошки" widget under the id the cat switchers open', () => {

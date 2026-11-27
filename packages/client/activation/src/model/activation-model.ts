@@ -24,7 +24,34 @@ import * as errore from 'errore'
 
 export const CRED_HINT_STORAGE_KEY = 'mb_cred_hint'
 
-export type ActivationScreen = 'home' | 'activate' | 'activate-no-code' | 'activate-used'
+export type ActivationScreen =
+  | 'home'
+  // An invite link was opened and is being confirmed with the server.
+  | 'checking'
+  // The invite is confirmed: name + "Создать passkey".
+  | 'activate'
+  | 'activate-no-code'
+  | 'activate-used'
+  | 'activate-expired'
+  | 'activate-not-found'
+  | 'activate-locked'
+  // Registered; a short beat on "Устройство активировано" before the board.
+  | 'done'
+
+// The pause on the 'done' screen before navigating to the board, so the
+// success state is actually seen instead of flashing past.
+export const DONE_PAUSE_MS = 800
+
+// Maps a register/options refusal to the screen that explains it. The server
+// tells these apart (invites, unlike add-device codes, keep their record
+// after expiry), so each gets its own copy. Null for anything else.
+function refusalScreen(status: number, code: unknown): ActivationScreen | null {
+  if (status === 409 && code === 'invite_consumed') return 'activate-used'
+  if (status === 410) return 'activate-expired'
+  if (status === 404) return 'activate-not-found'
+  if (status === 429) return 'activate-locked'
+  return null
+}
 
 export class ActivationError extends errore.createTaggedError({
   name: 'ActivationError',
@@ -54,7 +81,7 @@ export interface ActivationDeps {
 function initialScreen(token: string | null): ActivationScreen {
   if (token === null) return 'home'
   if (token.trim() === '') return 'activate-no-code'
-  return 'activate'
+  return 'checking'
 }
 
 // Stores only the last-used credentialId -- a *public*, non-secret WebAuthn
@@ -94,6 +121,12 @@ async function postJson(
 
 export interface ActivationModel {
   screen: Atom<ActivationScreen>
+  // When the confirmed invite stops working (epoch ms), for the
+  // "Действует до …" chip. Null until `validateInvite` succeeds.
+  inviteExpiresAt: Atom<number | null>
+  // Confirms the URL's invite with the server on open ('checking' ->
+  // 'activate' or the matching refusal screen). A no-op on any other screen.
+  validateInvite: Action<[], Promise<void>>
   loading: Computed<boolean>
   error: Atom<string | null>
   registrationForm: ReturnType<typeof reatomForm<{ name: string }>>
@@ -118,6 +151,29 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
 
   const screen = atom<ActivationScreen>(initialScreen(deps.token), 'activation.screen')
   const error = atom<string | null>(null, 'activation.error')
+  const inviteExpiresAt = atom<number | null>(null, 'activation.inviteExpiresAt')
+
+  const validateInvite = action(async () => {
+    if (screen() !== 'checking' || !deps.token) return
+    const result = await wrap(
+      postJson(deps.http, '/api/auth/register/options', { token: deps.token }),
+    )
+    if (result instanceof Error) {
+      // Unreachable server: let the user try the invite anyway; the form's
+      // own register/options call re-checks it and reports again.
+      screen.set('activate')
+      error.set('Не удалось проверить приглашение. Проверьте интернет и попробуйте ещё раз.')
+      return
+    }
+    const refusal = refusalScreen(result.status, result.body.code)
+    if (refusal) {
+      screen.set(refusal)
+      return
+    }
+    const invite = result.body.invite as { expiresAt?: unknown } | undefined
+    inviteExpiresAt.set(typeof invite?.expiresAt === 'number' ? invite.expiresAt : null)
+    screen.set('activate')
+  }, 'activation.validateInvite')
 
   const registrationForm = reatomForm(
     {
@@ -151,8 +207,9 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
           error.set(optionsResult.message)
           return
         }
-        if (optionsResult.status === 409 && optionsResult.body.code === 'invite_consumed') {
-          screen.set('activate-used')
+        const refusal = refusalScreen(optionsResult.status, optionsResult.body.code)
+        if (refusal) {
+          screen.set(refusal)
           return
         }
         if (optionsResult.status !== 200) {
@@ -192,6 +249,8 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
 
         const { credentialId } = verifyResult.body as { credentialId: string }
         deps.storage.set(credentialId)
+        screen.set('done')
+        await wrap(new Promise((resolve) => setTimeout(resolve, DONE_PAUSE_MS)))
         deps.navigate('/')
       },
     },
@@ -287,5 +346,15 @@ export function makeActivationModel(overrides: Partial<ActivationDeps> = {}): Ac
     screen.set('home')
   }, 'activation.goHome')
 
-  return { screen, loading, error, registrationForm, startRegistration, startLogin, goHome }
+  return {
+    screen,
+    inviteExpiresAt,
+    validateInvite,
+    loading,
+    error,
+    registrationForm,
+    startRegistration,
+    startLogin,
+    goHome,
+  }
 }

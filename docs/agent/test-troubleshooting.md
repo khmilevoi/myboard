@@ -55,12 +55,40 @@ Trust the process exit code, or re-run individual legs.
 Do not reformat documentation to make `format:check` green — `.oxfmtrc.json` ignores `**/*.md` and
 `docs/**`, so a markdown file cannot be the cause.
 
-## A package fails only in the full-workspace `pnpm test`
+## How the unit suite runs, and why a test times out
 
-The recursive run is load-induced flaky where the per-package run is not: the known case is
-`widgets-ofelia-poop-duty`'s "loads the component when the browser has no native Temporal" timing
-out at 5000 ms (a cold dynamic import of the Temporal polyfill under parallel load). Re-run the
-failing package alone before blaming a diff.
+`pnpm test` is one root Vitest process (`vitest.config.ts`) with every package as a project and
+one shared worker pool — not `pnpm -r test`, which ran up to four packages at once, each with a
+pool sized to the whole machine (~28 workers on 8 cores) and produced a different 5 s timeout
+flake on most runs. Run one package with `pnpm exec vitest run --project <name>` from the root
+(the name is the package name, e.g. `widgets-passport-checker`), or `pnpm --filter <pkg> test`.
+
+Most of the suite's wall time is per-file module loading, not tests: on this machine a cold
+`require('jsdom')` takes 3–4 s, and every jsdom file pays it again in a fresh fork. That makes the
+suite sensitive to *other* load — another session's test run, a docker e2e build — so jsdom projects
+share a 30 s `testTimeout`. Do not switch the pool to `vmForks`/`vmThreads` to win that time back;
+`vitest.config.ts` explains the `errore` realm problem it causes.
+
+If a test still times out: it is waiting on something, not slow. Look for a fixed sleep followed by
+a positive assertion (`setTimeout(resolve, 50)` then `expect(...).toHaveBeenCalled()`) and wait for
+the outcome with `vi.waitFor` instead; a fixed sleep is only legitimate before a "nothing happened"
+assertion.
+
+## How the board e2e suite isolates workers
+
+Every Playwright worker starts its own stack in the worker-scoped `stack` fixture
+(`packages/client/e2e/support/stack.ts`): a test-server on `18787+n`, Valkey database `n+1`, and a
+`vite preview` on `14173+n` whose origin is the worker's `baseURL`. `/api/test/reset` and
+`/api/test/time` therefore only touch the calling worker, and specs run in parallel. Specs import
+`test`/`expect` from `./support/test.js`, never from `@playwright/test` (the nginx specs are the
+exception: they run against a deployed stack).
+
+`globalSetup` builds the server bundle and the client once per run; `E2E_SKIP_BUILD=1` reuses the
+last build while iterating on a spec, and `E2E_WORKERS=<n>` overrides the worker count (default:
+half the cores).
+
+`docker-compose.e2e.yml` has no static project name and publishes Valkey on an ephemeral port, so
+two worktrees can run `pnpm test:e2e:docker` at the same time.
 
 ## `Temporal is not defined`
 
@@ -122,9 +150,9 @@ on a never-started container returns `0` — indistinguishable from a clean pass
 
 `pnpm --filter client preview` prints `Port 4173 is in use, trying another one... ➜
 http://localhost:4174/` as one easy-to-miss line, while `:4173` keeps serving an old build from
-another checkout. Nothing errors: Playwright connects, the app renders, and the assertions run
-against another branch's code. Playwright's `reuseExistingServer: !process.env['CI']` makes
-`pnpm test:e2e` attach to the squatter too.
+another checkout. Nothing errors: the app renders and a manual check runs against another branch's
+code. (`pnpm test:e2e` is immune: its per-worker previews use `--strictPort` on their own port
+range and fail loudly on a collision.)
 
 Read the preview's actual URL from its output rather than assuming 4173, and assert one attribute
 only your branch emits as a build tell. For a deployed stack the equivalent trap is the service

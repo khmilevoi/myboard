@@ -60,7 +60,7 @@ it('routes local commands to the narrowest codegen target', () => {
     'pnpm run codegen:client && pnpm --filter "./packages/widgets/*" build',
   )
   expect(rootPackage.scripts.test).toBe('pnpm run codegen && pnpm run test:workspace')
-  expect(rootPackage.scripts['test:workspace']).toBe('pnpm run test:unit && pnpm -r test')
+  expect(rootPackage.scripts['test:workspace']).toBe('vitest run')
   expect(rootPackage.scripts.typecheck).toBe('pnpm run codegen && pnpm run typecheck:workspace')
   expect(rootPackage.scripts['typecheck:workspace']).toBe('pnpm -r typecheck')
 })
@@ -135,6 +135,24 @@ it('copies packages/modules beside packages/widgets in every Dockerfile that ins
   }
 })
 
+it('ships the scan-camera package wherever the client package it serves is installed', () => {
+  const browserDockerfile = readFileSync(
+    resolve(root, 'packages/browser-automation/Dockerfile'),
+    'utf8',
+  )
+  expect(workspace).toContain('  - packages/scan-camera')
+  // Every install stage that sees the client manifest must see the manifest of
+  // its workspace dependency too, or the frozen install cannot link it.
+  for (const dockerfile of [clientDockerfile, serverDockerfile, browserDockerfile]) {
+    const clientManifests = dockerfile.split('COPY packages/client/package.json').length - 1
+    const scanCameraManifests =
+      dockerfile.split('COPY packages/scan-camera/package.json ./packages/scan-camera/').length - 1
+    expect(scanCameraManifests).toBe(clientManifests)
+  }
+  // The client image builds the activation bundle, which imports its sources.
+  expect(clientDockerfile).toContain('COPY packages/scan-camera ./packages/scan-camera')
+})
+
 it('wires browser codegen as an isolated target and into combined codegen', () => {
   expect(rootPackage.scripts['codegen:browser']).toBe('tsx scripts/codegen.ts browser')
   expect(rootCodegen).toContain("if (target === 'browser') return generateBrowser")
@@ -171,6 +189,7 @@ describe('docker-compose.dev.yml widget coverage', () => {
       'packages/shared',
       'packages/widget-runtime',
       'packages/widget-sdk',
+      'packages/scan-camera',
       ...moduleDirsResult.map((dir) => `packages/modules/${dir}`),
       ...widgetDirs.map((dir) => `packages/widgets/${dir}`),
     ]
@@ -455,12 +474,13 @@ describe('rpi secret groups', () => {
 })
 
 describe('docker-compose.e2e.yml headed-run support', () => {
-  it('publishes valkey to localhost so a host-run Playwright can reach it', () => {
+  it('publishes valkey on an ephemeral localhost port so concurrent worktrees never collide', () => {
     const valkeyBlock = e2eCompose.slice(
       e2eCompose.indexOf('  valkey:'),
       e2eCompose.indexOf('  e2e:'),
     )
-    expect(valkeyBlock).toContain("- '127.0.0.1:6379:6379'")
+    expect(valkeyBlock).toContain("- '127.0.0.1::6379'")
+    expect(e2eCompose).not.toMatch(/^name:/m)
   })
 
   it('wires the headed e2e command to the orchestrator script', () => {

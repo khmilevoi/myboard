@@ -160,9 +160,10 @@ describe('createApp', () => {
   let now: number
   let browserFake: ReturnType<typeof makeFakeBrowserAutomationClient>
   let ops: ReturnType<typeof createMemoryOps>
+  let pubsub: ReturnType<typeof createMemoryPubSub>
 
   beforeEach(async () => {
-    const pubsub = createMemoryPubSub()
+    pubsub = createMemoryPubSub()
     ops = createMemoryOps(pubsub)
     now = Date.parse('2026-06-16T10:00:00.000Z')
     browserFake = makeFakeBrowserAutomationClient()
@@ -682,6 +683,81 @@ describe('createApp', () => {
     await expect(app.close()).resolves.toBeUndefined()
   })
 
+  describe('health measurement seed route', () => {
+    const measurement = {
+      id: 'hw-1:1:1780000000',
+      takenAt: Date.UTC(2026, 5, 16, 8, 0, 0),
+      metrics: { weight: { value: 70.5, unit: 'kg' } },
+      source: { kind: 'hardware', hardwareId: 'hw-1', model: 'scale' },
+    }
+    const post = (body: unknown, cookie?: string) =>
+      fetch(`${base}/api/test/health/measurements`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
+        body: JSON.stringify(body),
+      })
+
+    it('stores the reading in the session account namespace and publishes a change', async () => {
+      const { account, session } = await seedAccountWithSession(ops, now, 'cred-health-a')
+      const other = await seedAccountWithSession(ops, now, 'cred-health-b')
+      const events: string[] = []
+      pubsub.subscribe('storage:events', (message) => events.push(message))
+
+      const res = await post({ measurement }, `session=${session.sessionId}`)
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ stored: true })
+      const ledger = await ops.get(`m:health:a:${account.id}:measurements/2026-06`)
+      expect(JSON.parse(ledger as string)).toMatchObject([measurement])
+      expect(events.some((e) => e.includes(`m:health:a:${account.id}:measurements/2026-06`))).toBe(
+        true,
+      )
+      expect(await ops.scanKeys(`m:health:a:${other.account.id}:`)).toEqual([])
+    })
+
+    it('answers 401 without a session', async () => {
+      expect((await post({ measurement })).status).toBe(401)
+    })
+
+    it('answers 422 for an invalid unit', async () => {
+      const { session } = await seedAccountWithSession(ops, now, 'cred-health-c')
+      const bad = { ...measurement, metrics: { weight: { value: 70.5, unit: 'lb' } } }
+      expect((await post({ measurement: bad }, `session=${session.sessionId}`)).status).toBe(422)
+    })
+
+    it('is absent (404) without test controls', async () => {
+      const noControlsPubsub = createMemoryPubSub()
+      const noControlsApp = createApp({
+        ops: createMemoryOps(noControlsPubsub),
+        subscribe: (onMessage) => noControlsPubsub.subscribe('storage:events', onMessage),
+        now: () => now,
+        widgetRegistry: testWidgetRegistry,
+        moduleRegistry: new Map(),
+        browserClient: browserFake.client,
+        authConfig: testAuthConfig,
+        scopedOwners: makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
+        files: {
+          blobs: makeMemoryBlobStore(),
+          policies: makeFilePolicies([]),
+          images: testImageDecoder,
+        },
+        recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
+      })
+      await new Promise<void>((resolve) => noControlsApp.server.listen(0, resolve))
+      const url = `http://localhost:${(noControlsApp.server.address() as AddressInfo).port}`
+      try {
+        const res = await fetch(`${url}/api/test/health/measurements`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ measurement }),
+        })
+        expect(res.status).toBe(404)
+      } finally {
+        await noControlsApp.close()
+      }
+    })
+  })
+
   it('POST /api/test/seed-invite is absent (404) when testControls is undefined', async () => {
     const pubsub = createMemoryPubSub()
     const noControlsOps = createMemoryOps(pubsub)
@@ -765,8 +841,7 @@ describe('cron scheduler start', () => {
       expect(opsCalls).toBe(0)
 
       app.startCron()
-      await new Promise((resolve) => setTimeout(resolve, 60))
-      expect(opsCalls).toBeGreaterThan(0)
+      await vi.waitFor(() => expect(opsCalls).toBeGreaterThan(0))
     } finally {
       await app.close()
     }

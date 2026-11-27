@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { atom, context } from '@reatom/core'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'

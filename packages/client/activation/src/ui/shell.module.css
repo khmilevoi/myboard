@@ -82,3 +82,26 @@
     transform: rotate(360deg);
   }
 }
+
+/* Card body whose height follows its content smoothly (see AnimatedHeight in
+   Shell.tsx), so switching screens grows or shrinks the card instead of
+   snapping. The negative margin + padding keep focus rings from clipping. */
+.heightBox {
+  width: calc(100% + 12px);
+  margin: 0 -6px;
+  padding: 0 6px;
+  overflow: hidden;
+  transition: height 320ms var(--ease);
+}
+.heightInner {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .heightBox {
+    transition: none;
+  }
+}

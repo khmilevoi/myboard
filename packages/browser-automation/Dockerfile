@@ -28,6 +28,7 @@ COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
+COPY packages/scan-camera/package.json ./packages/scan-camera/
 COPY --from=widget-manifests /widgets ./packages/widgets
 COPY --from=widget-manifests /modules ./packages/modules
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
@@ -78,6 +79,7 @@ COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
+COPY packages/scan-camera/package.json ./packages/scan-camera/
 COPY --from=widget-manifests /widgets ./packages/widgets
 COPY --from=widget-manifests /modules ./packages/modules
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \

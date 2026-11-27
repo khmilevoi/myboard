@@ -1,6 +1,5 @@
-import { expect, test } from '@playwright/test'
-
 import { HeaderPage } from './pages/HeaderPage.js'
+import { expect, test } from './support/test.js'
 
 // 768px is MOBILE_BREAKPOINT (packages/client/src/board/model/grid-metrics.ts),
 // the same threshold ThemeToggle.module.css's media query uses to swap the

@@ -1,0 +1,591 @@
+/*
+  Design: design/11 Виджет - Вес.dc.html. Token map from the design system to the app's tokens:
+  --text-2 → --text-dim, --accent → --accent-2, --surface-2 → --secondary, --skel → --muted.
+  The delta and the list changes are always --text-dim: there is no weight goal, so neither a
+  loss nor a gain is coloured.
+*/
+
+.widget {
+  position: relative;
+  container-type: inline-size;
+  block-size: 100%;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+  font: 400 14px/1.45 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+.widget p,
+.widget h3 {
+  margin: 0;
+}
+
+/* ---------- shared pieces ---------- */
+
+.label {
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.small,
+.date {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.head > :last-child:not(:first-child) {
+  margin-inline-start: auto;
+}
+
+.valueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.number {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-size: 30px;
+}
+
+.unit {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.value[data-size='lg'] .number {
+  font-size: 36px;
+}
+
+.value[data-size='lg'] .unit {
+  font-size: 14px;
+}
+
+.value[data-size='xl'] .number {
+  font-size: 44px;
+}
+
+.value[data-size='xl'] .unit {
+  font-size: 16px;
+}
+
+.delta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.pushEnd {
+  margin-inline-start: auto;
+}
+
+.deltaBelow {
+  display: block;
+  margin-block-start: 6px;
+  font-size: 12.5px;
+}
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+}
+
+.segmented button {
+  flex: 1;
+  block-size: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: 500 13px var(--font-ui);
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(20 22 40 / 6%);
+}
+
+.segmented button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.hole {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-block-size: 56px;
+  margin-block-start: 14px;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 11px;
+  text-align: center;
+}
+
+.hole b {
+  font: 600 13.5px var(--font-ui);
+  color: var(--text);
+}
+
+/* ---------- trend line ---------- */
+
+.spark {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.sparkShort {
+  block-size: 28px;
+  margin-block-start: 8px;
+}
+
+.sparkTall {
+  flex: 1;
+  block-size: 64px;
+}
+
+.line,
+.chartLine {
+  fill: none;
+  stroke: var(--accent-2);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chartLine {
+  stroke-width: 2.25;
+}
+
+.trend {
+  margin-block-start: 14px;
+}
+
+.sparkRow {
+  display: flex;
+  gap: 10px;
+}
+
+.yLabels {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: space-between;
+  block-size: 64px;
+  font: 500 10.5px var(--font-mono);
+  color: var(--text-3);
+  text-align: end;
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  gap: 3px;
+  margin-block-start: 5px;
+  margin-inline-end: 40px;
+  font: 500 10.5px var(--font-mono);
+  color: var(--text-3);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ---------- large trend chart ---------- */
+
+.chart {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.axis {
+  font: 11px var(--font-mono);
+  fill: var(--text-3);
+}
+
+.gridline {
+  stroke: var(--border);
+}
+
+.dot {
+  fill: var(--surface);
+  stroke: var(--accent-2);
+  stroke-width: 2;
+}
+
+.dotNewest {
+  fill: var(--accent-2);
+}
+
+/* ---------- states ---------- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  block-size: 100%;
+  padding: 17px 18px;
+}
+
+.skeleton {
+  display: block;
+  border-radius: 6px;
+  background: var(--muted);
+}
+
+.skeletonDate {
+  inline-size: 96px;
+  block-size: 12px;
+}
+
+.skeletonValue {
+  inline-size: 112px;
+  block-size: 34px;
+  border-radius: 8px;
+}
+
+.skeletonChart {
+  flex: 1;
+  max-block-size: 64px;
+  border-radius: 10px;
+}
+
+.message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 100%;
+  padding: 16px;
+}
+
+.messageInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.messageTitle {
+  font: 600 15px var(--font-ui);
+}
+
+.messageText {
+  max-inline-size: 260px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  text-wrap: pretty;
+}
+
+/* The empty state's title is a step larger than the error's, as in the design. */
+.emptyIcon ~ .messageTitle {
+  font-size: 16px;
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 52px;
+  block-size: 52px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent-2);
+}
+
+.emptyIcon svg {
+  inline-size: 24px;
+  block-size: 24px;
+}
+
+.retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: 600 13px var(--font-ui);
+  cursor: pointer;
+}
+
+/* A narrow card keeps only the essentials of the empty state. */
+@container (max-width: 220px) {
+  .messageText {
+    display: none;
+  }
+}
+
+/* ---------- tiers ---------- */
+
+.tiny {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  block-size: 100%;
+  padding: 16px;
+}
+
+.compact {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  block-size: 100%;
+  padding: 16px 18px;
+}
+
+.compact .hole {
+  margin-block-start: 8px;
+}
+
+.standard {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  padding: 17px 18px;
+}
+
+.standard .valueRow {
+  margin-block-start: 8px;
+}
+
+.standard .segmented {
+  margin-block-start: 14px;
+}
+
+/* A coarse pointer never hovers, so the board's floating controls stay on screen at 44px each;
+   keep the date in the header row clear of them. */
+@media (pointer: coarse) {
+  .compact .head,
+  .standard .head {
+    padding-inline-end: 96px;
+  }
+}
+
+.large {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+}
+
+.largeHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-block-end: 1px solid var(--border);
+}
+
+.largeIcon {
+  display: flex;
+  color: var(--text-dim);
+}
+
+.largeIcon svg {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.largeTitle {
+  flex: 1;
+  font: 600 17px var(--font-ui);
+}
+
+.largePeriod {
+  inline-size: 300px;
+}
+
+.largeBody {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  min-block-size: 0;
+}
+
+.largeMain {
+  display: flex;
+  flex-direction: column;
+  padding: 22px 24px;
+  min-block-size: 0;
+}
+
+.largeSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.largeSummary .date {
+  margin-inline-start: 8px;
+  font-size: 13px;
+}
+
+.largeSummary .delta {
+  font-size: 14px;
+}
+
+.largeChart {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: 22px;
+}
+
+.chartNarrow {
+  display: none;
+}
+
+.largeChart .hole {
+  margin-block-start: 0;
+  min-block-size: 160px;
+}
+
+.largeList {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  padding: 18px 22px;
+  border-inline-start: 1px solid var(--border);
+}
+
+.largeList .head {
+  margin-block-end: 4px;
+}
+
+.rows {
+  flex: 1;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 0;
+  border-block-end: 1px solid var(--border);
+  font-size: 13.5px;
+}
+
+.row:last-child {
+  border-block-end: 0;
+}
+
+.rowKg {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.rowChange {
+  inline-size: 48px;
+  font: 500 12px var(--font-mono);
+  color: var(--text-dim);
+  text-align: end;
+}
+
+/* Phone width and narrow large cards: one column, the list under the chart, and the whole
+   card scrolls instead of the list alone. */
+@container (max-width: 679px) {
+  .large {
+    overflow-y: auto;
+  }
+
+  .largeHeader {
+    flex-wrap: wrap;
+    padding: 14px 16px 10px;
+    border-block-end: 0;
+  }
+
+  .largePeriod {
+    order: 3;
+    inline-size: 100%;
+  }
+
+  .largeBody {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+  }
+
+  .largeMain {
+    flex: none;
+    padding: 4px 16px 0;
+  }
+
+  .largeSummary {
+    row-gap: 4px;
+  }
+
+  /* The date drops under the number; the delta stays on the number's line. */
+  .largeSummary .date {
+    order: 1;
+    flex-basis: 100%;
+    margin-inline-start: 0;
+  }
+
+  .largeChart {
+    margin-block-start: 0;
+  }
+
+  .chartWide {
+    display: none;
+  }
+
+  .chartNarrow {
+    display: block;
+  }
+
+  .chartNarrow .sparkTall,
+  .chartNarrow .yLabels {
+    block-size: 96px;
+  }
+
+  .largeList {
+    flex: none;
+    padding: 18px 16px 0;
+    border-inline-start: 0;
+  }
+
+  .rows {
+    overflow: visible;
+  }
+}

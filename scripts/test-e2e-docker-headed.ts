@@ -24,10 +24,26 @@ function runDocker(args: string[]): number {
   )
 }
 
+// Valkey is published on an ephemeral host port (see docker-compose.e2e.yml),
+// so ask Compose where it landed instead of assuming 6379.
+function valkeyHostAddress(): string | undefined {
+  const result = spawnSync('docker', ['compose', '-f', composeFile, 'port', 'valkey', '6379'], {
+    encoding: 'utf8',
+  })
+  if (result.status !== 0) return undefined
+  return result.stdout.trim() || undefined
+}
+
 function main(): number {
   try {
     const upStatus = runDocker(['up', '-d', '--wait', 'valkey'])
     if (upStatus !== 0) return upStatus
+
+    const valkeyAddress = valkeyHostAddress()
+    if (valkeyAddress === undefined) {
+      console.error('Could not resolve the host port Valkey was published on')
+      return 1
+    }
 
     return statusOf(
       spawnSync('pnpm', ['--filter', 'client', 'exec', 'playwright', 'test', '--headed'], {
@@ -35,7 +51,7 @@ function main(): number {
         shell: true,
         env: {
           ...process.env,
-          VALKEY_URL: 'redis://localhost:6379',
+          VALKEY_URL: `redis://${valkeyAddress}`,
           ALLOW_TEST_DB_RESET: '1',
         },
       }),

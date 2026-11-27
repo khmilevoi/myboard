@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { atom, computed, context } from '@reatom/core'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'

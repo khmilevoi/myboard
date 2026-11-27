@@ -1,0 +1,24 @@
+{
+  "name": "module-health",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./domain/*": "./domain/*.ts",
+    "./testing": "./model/testing.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@reatom/core": "catalog:",
+    "errore": "catalog:",
+    "widget-runtime": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}
