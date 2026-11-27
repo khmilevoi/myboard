@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto'
 
 import { HARDWARE_EVENTS_KEY } from '@shared/hardware/board-api'
 import {
+  AdoptBodySchema,
+  PairBodySchema,
+  PinBodySchema,
+  ScanBodySchema,
+} from '@shared/hardware/board-api'
+import {
   GatewayEventsBodySchema,
   GatewayRegisterBodySchema,
 } from '@shared/hardware/gateway-protocol'
@@ -23,6 +29,14 @@ import {
   sendHardwareError,
   sendJson,
 } from './http'
+import {
+  adoptHardware,
+  startPairing,
+  startScan,
+  stopScan,
+  submitPairingPin,
+  unpairHardware,
+} from './lifecycle'
 import {
   authenticateGateway,
   mintGatewayCode,
@@ -97,6 +111,59 @@ export function registerHardwareRoutes({
     if (revoked instanceof Error) return sendHardwareError(res, revoked)
     connections.close(gatewayId)
     await announceChanged('revoke')
+    res.writeHead(204)
+    res.end()
+  })
+
+  router.on('POST', '/api/hardware/gateways/:gatewayId/scan', async (req, res, params) => {
+    const session = await requireBoardSession(authDeps, req, res)
+    if (session === null) return
+    const body = await readBody(req, res, ScanBodySchema)
+    if (body === null) return
+    const gatewayId = params.gatewayId as string
+    const done =
+      body.action === 'start' ? await startScan(deps, gatewayId) : await stopScan(deps, gatewayId)
+    if (done instanceof Error) return sendHardwareError(res, done)
+    res.writeHead(202)
+    res.end()
+  })
+
+  router.on('POST', '/api/hardware/gateways/:gatewayId/pairings', async (req, res, params) => {
+    const session = await requireBoardSession(authDeps, req, res)
+    if (session === null) return
+    const body = await readBody(req, res, PairBodySchema)
+    if (body === null) return
+    const started = await startPairing(deps, params.gatewayId as string, body.address)
+    if (started instanceof Error) return sendHardwareError(res, started)
+    sendJson(res, 202, { pairingId: started.pairingId })
+  })
+
+  router.on('POST', '/api/hardware/pairings/:pairingId/pin', async (req, res, params) => {
+    const session = await requireBoardSession(authDeps, req, res)
+    if (session === null) return
+    const body = await readBody(req, res, PinBodySchema)
+    if (body === null) return
+    const submitted = await submitPairingPin(deps, params.pairingId as string, body.pin)
+    if (submitted instanceof Error) return sendHardwareError(res, submitted)
+    res.writeHead(202)
+    res.end()
+  })
+
+  router.on('POST', '/api/hardware/gateways/:gatewayId/adopt', async (req, res, params) => {
+    const session = await requireBoardSession(authDeps, req, res)
+    if (session === null) return
+    const body = await readBody(req, res, AdoptBodySchema)
+    if (body === null) return
+    const adopted = await adoptHardware(deps, params.gatewayId as string, body.address)
+    if (adopted instanceof Error) return sendHardwareError(res, adopted)
+    sendJson(res, 200, { hardwareId: adopted.hardwareId })
+  })
+
+  router.on('DELETE', '/api/hardware/items/:hardwareId', async (req, res, params) => {
+    const session = await requireBoardSession(authDeps, req, res)
+    if (session === null) return
+    const unpaired = await unpairHardware(deps, params.hardwareId as string)
+    if (unpaired instanceof Error) return sendHardwareError(res, unpaired)
     res.writeHead(204)
     res.end()
   })

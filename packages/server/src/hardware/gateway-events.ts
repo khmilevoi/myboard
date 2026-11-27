@@ -1,8 +1,10 @@
 import type { GatewayEvent } from '@shared/hardware/gateway-protocol'
+import { HardwareModelSchema } from '@shared/hardware/models'
 
 import type { HardwareDeps } from './http'
+import { applyPairingProgress, finishScan, recordScanResult } from './lifecycle'
 import type { GatewayRecord } from './records'
-import { updateGateway } from './store'
+import { updateGateway, updateHardware } from './store'
 
 /**
  * Applies one gateway event. Handlers are idempotent: the gateway resends a whole batch after any
@@ -35,12 +37,40 @@ export async function handleGatewayEvent(
       if (updated === null) return
       return deps.publish({ type: 'changed' })
     }
-    // Accepted and ignored until their tasks fill them in.
-    case 'scan.result':
+    case 'scan.result': {
+      // A model this server does not know is not hardware the board can pair.
+      if (!HardwareModelSchema.safeParse(event.model).success) return
+      return recordScanResult(deps, gateway.id, {
+        address: event.address,
+        name: event.name,
+        rssi: event.rssi,
+        model: event.model,
+      })
+    }
     case 'scan.finished':
+      return finishScan(deps, gateway.id)
     case 'pairing.progress':
+      return applyPairingProgress(deps, gateway.id, {
+        pairingId: event.pairingId,
+        stage: event.stage,
+        ...(event.reason === undefined ? {} : { reason: event.reason }),
+      })
     case 'scaleUsers':
-    case 'battery':
+    case 'battery': {
+      // Only the owning gateway may report on a scale.
+      let owned = false
+      const updated = await updateHardware(deps.ops, event.hardwareId, (current) => {
+        owned = current.gatewayId === gateway.id
+        if (!owned) return current
+        return event.type === 'battery'
+          ? { ...current, battery: event.percent }
+          : { ...current, scaleUsers: event.users }
+      })
+      if (updated instanceof Error) return updated
+      if (updated === null || !owned) return
+      return deps.publish({ type: 'changed' })
+    }
+    // Accepted and ignored until their tasks fill them in.
     case 'scaleUser.created':
     case 'scaleUser.attached':
     case 'scaleUser.updated':

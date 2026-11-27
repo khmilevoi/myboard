@@ -36,3 +36,8 @@ export function pairingKey(id: string): string {
 export function commandKey(id: string): string {
   return `hw:command:${id}`
 }
+
+/** A lock name only (serializes adopt/bond per scale address); nothing is ever stored under it. */
+export function addressLockKey(address: string): string {
+  return `hw:address-lock:${address}`
+}
