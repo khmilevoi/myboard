@@ -80,11 +80,25 @@ them to `createApp` in `packages/server/src/app.ts`, a plain `node:http` server 
   detaches its hardware (`gatewayId: null`) without deleting it, keeping the consent codes.
 - **Gateway protocol.** Every call except `register` carries `Authorization: Bearer <token>`.
   `GET /api/hardware/gateway/stream` is an SSE command stream (`ready` first, 25 s heartbeat; on open
-  the server syncs bindings and pending profile updates); the gateway answers with
+  the server sends `bindings.sync` and pending profile updates); the gateway answers with
   `POST /api/hardware/gateway/events` (scan results, pairing, profile outcomes) and
   `POST /api/hardware/gateway/readings`, which `hardware/readings.ts` writes into the bound
   account's health data through `ingestMeasurement`. Gateway routes are exempt from the CSRF check
   because no ambient credential authenticates them.
+- **Protocol rules a gateway must follow** (`packages/shared/hardware/gateway-protocol.ts`):
+  - `bindings.sync` lists every hardware attached to the gateway, bound or not
+    (`hardware: { hardwareId, address, model }[]`), plus every binding. It is the only way a gateway
+    learns the `hardwareId` it must use in `scaleUsers`, `battery` and readings, so it is resent on
+    stream open, adopt, bonded, unpair, unbind and every created/attached profile.
+  - A reading with an unknown metric kind, or a wrong unit on any metric, is `rejected` as a whole:
+    the gateway sends only the kinds in `METRIC_KINDS` with the units in `METRIC_UNITS`
+    (`packages/modules/health/domain/metrics.ts`). Posting the same reading twice, even
+    concurrently, stores it once (`duplicate`).
+  - The events batch is all-or-nothing on validation (`422` for the whole batch): the gateway
+    truncates strings to the schema bounds (`reason`, `name` ≤ 64 characters). Unknown hardware
+    models in `scan.result` and `bonded` are accepted and dropped by the server, never a `422`.
+  - `scaleUser.updated` echoes the `revision` of the `scaleUser.update` it applied (≥ 1); an ack
+    beyond the revision the server sent is capped, never trusted.
 - **Board side.** `GET /api/hardware` returns a snapshot (hardware, bindings, gateway presence,
   `lastReadingAt` only, never a metric, consent code or PIN); `GET /api/hardware/events` streams
   change notices. Board routes require a session and the CSRF header; only a binding's own account
