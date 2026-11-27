@@ -32,6 +32,26 @@
   --cat-a-fg: oklch(0.45 0.11 40);
   --cat-b-bg: oklch(0.92 0.05 170);
   --cat-b-fg: oklch(0.42 0.08 170);
+  /* Text on a success fill, and a success figure (design 01: the weight delta on page 10). */
+  --on-success: oklch(0.45 0.13 155);
+  /* Duty people (Карина 'k', Леша 'l') and the six account tones of module-cats' MemberAvatar.
+     Shared, not widget-scoped: every cat widget draws record authors. */
+  --ofelia-k-bg: oklch(0.86 0.07 25);
+  --ofelia-k-fg: oklch(0.42 0.13 27);
+  --ofelia-l-bg: oklch(0.87 0.06 215);
+  --ofelia-l-fg: oklch(0.42 0.1 225);
+  --ofelia-member-1-bg: oklch(0.9 0.05 300);
+  --ofelia-member-1-fg: oklch(0.4 0.13 300);
+  --ofelia-member-2-bg: oklch(0.9 0.048 197);
+  --ofelia-member-2-fg: oklch(0.4 0.1 200);
+  --ofelia-member-3-bg: oklch(0.9 0.05 145);
+  --ofelia-member-3-fg: oklch(0.4 0.12 150);
+  --ofelia-member-4-bg: oklch(0.91 0.05 65);
+  --ofelia-member-4-fg: oklch(0.42 0.12 60);
+  --ofelia-member-5-bg: oklch(0.9 0.05 345);
+  --ofelia-member-5-fg: oklch(0.41 0.13 345);
+  --ofelia-member-6-bg: oklch(0.9 0.045 255);
+  --ofelia-member-6-fg: oklch(0.4 0.11 258);
   --scrim: oklch(0.45 0.02 262 / 0.34);
   --success: oklch(0.55 0.13 155);
   --dot-grid: oklch(0.84 0.006 255);
@@ -69,6 +89,23 @@
   --cat-a-fg: oklch(0.93 0.05 50);
   --cat-b-bg: oklch(0.39 0.06 170);
   --cat-b-fg: oklch(0.93 0.05 170);
+  --on-success: oklch(0.24 0.06 152);
+  --ofelia-k-bg: oklch(0.42 0.1 27);
+  --ofelia-k-fg: oklch(0.86 0.09 25);
+  --ofelia-l-bg: oklch(0.4 0.08 225);
+  --ofelia-l-fg: oklch(0.85 0.07 215);
+  --ofelia-member-1-bg: oklch(0.38 0.09 300);
+  --ofelia-member-1-fg: oklch(0.92 0.06 300);
+  --ofelia-member-2-bg: oklch(0.36 0.07 200);
+  --ofelia-member-2-fg: oklch(0.92 0.05 200);
+  --ofelia-member-3-bg: oklch(0.36 0.075 148);
+  --ofelia-member-3-fg: oklch(0.92 0.06 150);
+  --ofelia-member-4-bg: oklch(0.38 0.075 62);
+  --ofelia-member-4-fg: oklch(0.93 0.06 65);
+  --ofelia-member-5-bg: oklch(0.37 0.085 345);
+  --ofelia-member-5-fg: oklch(0.92 0.06 345);
+  --ofelia-member-6-bg: oklch(0.36 0.07 256);
+  --ofelia-member-6-fg: oklch(0.92 0.05 256);
   --scrim: oklch(0.1 0.01 262 / 0.62);
   --success: oklch(0.34 0.07 155);
   --dot-grid: oklch(0.36 0.014 262);
@@ -80,6 +117,10 @@
   --radius: 0.625rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  /* Width of the ring MemberAvatar paints around the signed-in viewer. It is a spread shadow
+     outside the border box, so every clipping ancestor the avatar can sit flush against reserves
+     exactly this much inline-start room. */
+  --ofelia-viewer-ring: 3px;
 
   /* Compatibility for existing widget internals; do not use in new host chrome. */
   --surface: var(--card);

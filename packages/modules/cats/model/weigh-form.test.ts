@@ -1,4 +1,4 @@
-import { atom, computed, context, wrap } from '@reatom/core'
+import { atom, computed, context, wrap, type AtomLike } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModuleApiError } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
@@ -49,7 +49,12 @@ const LATEST: Weighing[] = [
 ]
 
 function setup(
-  options: { weighings?: Weighing[]; invoke?: MakeTestCatsModelOptions['invoke'] } = {},
+  options: {
+    weighings?: Weighing[]
+    invoke?: MakeTestCatsModelOptions['invoke']
+    /** Replaces the fake clock's day, so a test can roll it over. */
+    today?: AtomLike<Temporal.PlainDate | null>
+  } = {},
 ) {
   const storage = createFakeStorage()
   // The fake's `set` writes synchronously before its first await.
@@ -61,7 +66,7 @@ function setup(
     invoke: options.invoke,
   })
   const cat = atom(model.cat('ofelia'), 'test.cat')
-  const today = computed(() => model.today(), 'test.today')
+  const today = options.today ?? computed(() => model.today(), 'test.today')
   const form = makeWeighForm(cat, today)
   const weighCalls = () => calls.filter((call) => call.action === 'weigh')
   return { form, calls, weighCalls }
@@ -112,7 +117,7 @@ describe('makeWeighForm', () => {
     const { form, weighCalls } = setup()
     expect(form.date()?.toString()).toBe('2026-11-26')
 
-    form.date.set(D('2026-11-24'))
+    form.pickDate(D('2026-11-24'))
     form.text.set('4,31')
     await wrap(() => form.submit())()
 
@@ -122,11 +127,34 @@ describe('makeWeighForm', () => {
     expect(form.date()?.toString()).toBe('2026-11-26')
   })
 
+  it('follows today across midnight until the user picks a day, then keeps that day', async () => {
+    const today = atom<Temporal.PlainDate | null>(D('2026-11-26'), 'test.clock')
+    const { form, weighCalls } = setup({ today })
+
+    today.set(D('2026-11-27'))
+    expect(form.date()?.toString()).toBe('2026-11-27')
+
+    form.pickDate(D('2026-11-25'))
+    today.set(D('2026-11-28'))
+    expect(form.date()?.toString()).toBe('2026-11-25')
+
+    form.text.set('4,3')
+    await wrap(() => form.submit())()
+    expect(weighCalls()).toEqual([
+      { action: 'weigh', payload: { catId: 'ofelia', kg: 4.3, at: '2026-11-25' } },
+    ])
+
+    // A saved weighing hands the date back to the clock.
+    expect(form.date()?.toString()).toBe('2026-11-28')
+    today.set(D('2026-11-29'))
+    expect(form.date()?.toString()).toBe('2026-11-29')
+  })
+
   it('sends nothing without a date', async () => {
     const { form, weighCalls } = setup()
     form.text.set('4,3')
     expect(form.canSend()).toBe(true)
-    form.date.set(null)
+    form.pickDate(null)
     expect(form.canSend()).toBe(false)
 
     await wrap(() => form.submit())()

@@ -1,4 +1,4 @@
-import { action, atom, computed, withAsync, withComputed, wrap } from '@reatom/core'
+import { action, atom, computed, withAsync, wrap } from '@reatom/core'
 import type { AtomLike } from '@reatom/core'
 import type { ModuleApiError } from 'widget-runtime'
 
@@ -36,7 +36,8 @@ export type WeighForm = ReturnType<typeof makeWeighForm>
 
 /**
  * The "Вес" form: one weight on one date for one cat. Shared by the "Кошки" widget and the food
- * widget. `date` follows `today` until the user picks another day, and goes back to it on reset.
+ * widget. `date` follows `today`, across midnight too, until the user picks a day with `pickDate`;
+ * a picked day (or a cleared one) then stays until a successful submit hands the date back to today.
  */
 export function makeWeighForm(
   cat: AtomLike<CatModel | null>,
@@ -44,9 +45,16 @@ export function makeWeighForm(
   name = 'weighForm',
 ) {
   const text = atom('', `${name}.text`)
-  const date = atom<Temporal.PlainDate | null>(null, `${name}.date`).extend(
-    withComputed(() => today()),
-  )
+  /** The day the user picked, boxed so a cleared input (null) is told apart from "not picked". */
+  const picked = atom<{ day: Temporal.PlainDate | null } | null>(null, `${name}.picked`)
+  const date = computed(() => {
+    const choice = picked()
+    return choice === null ? today() : choice.day
+  }, `${name}.date`)
+  /** Pins the date to `day` (null for a cleared input): it no longer follows `today`. */
+  const pickDate = action((day: Temporal.PlainDate | null) => {
+    picked.set({ day })
+  }, `${name}.pickDate`)
   /**
    * The text a submit found no weight in, so an empty input shows the error too. Keyed by the text
    * rather than a flag, so editing the input forgets it without a reset.
@@ -103,8 +111,8 @@ export function makeWeighForm(
     text.set('')
     rejectedText.set(null)
     failedText.set(null)
-    date.set(today())
+    picked.set(null)
   }, `${name}.submit`).extend(withAsync())
 
-  return { text, date, kg, canSend, error, failure, previous, submit }
+  return { text, date, pickDate, kg, canSend, error, failure, previous, submit }
 }

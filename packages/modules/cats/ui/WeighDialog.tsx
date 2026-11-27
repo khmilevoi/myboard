@@ -121,7 +121,7 @@ export const WeighDialog = reatomMemo<WeighDialogProps>(({ form, name, open, onO
                 value={date?.toString() ?? ''}
                 aria-describedby={dateNoteId}
                 onChange={wrap((event: ChangeEvent<HTMLInputElement>) =>
-                  form.date.set(parseDateInput(event.target.value)),
+                  form.pickDate(parseDateInput(event.target.value)),
                 )}
               />
               <p id={dateNoteId} className={styles.note}>

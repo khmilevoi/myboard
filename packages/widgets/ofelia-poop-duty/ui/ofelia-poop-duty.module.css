@@ -4,10 +4,6 @@
   color: var(--text);
   user-select: none;
 
-  --ofelia-k-bg: oklch(0.86 0.07 25);
-  --ofelia-k-fg: oklch(0.42 0.13 27);
-  --ofelia-l-bg: oklch(0.87 0.06 215);
-  --ofelia-l-fg: oklch(0.42 0.1 225);
   --ofelia-ok-soft: oklch(0.95 0.05 155);
   --ofelia-ok-fg: oklch(0.45 0.13 155);
   --ofelia-forgive: oklch(0.55 0.13 155);
@@ -15,29 +11,9 @@
   --closed-text: #fff;
   --ofelia-debt-soft: oklch(0.955 0.035 25);
   --ofelia-debt-fg: oklch(0.5 0.15 27);
-  /* Width of the ring MemberAvatar paints around the signed-in viewer. It is a
-     spread shadow outside the border box, so every clipping ancestor the avatar
-     can sit flush against reserves exactly this much inline-start room. */
-  --ofelia-viewer-ring: 3px;
-  --ofelia-member-1-bg: oklch(0.9 0.05 300);
-  --ofelia-member-1-fg: oklch(0.4 0.13 300);
-  --ofelia-member-2-bg: oklch(0.9 0.048 197);
-  --ofelia-member-2-fg: oklch(0.4 0.1 200);
-  --ofelia-member-3-bg: oklch(0.9 0.05 145);
-  --ofelia-member-3-fg: oklch(0.4 0.12 150);
-  --ofelia-member-4-bg: oklch(0.91 0.05 65);
-  --ofelia-member-4-fg: oklch(0.42 0.12 60);
-  --ofelia-member-5-bg: oklch(0.9 0.05 345);
-  --ofelia-member-5-fg: oklch(0.41 0.13 345);
-  --ofelia-member-6-bg: oklch(0.9 0.045 255);
-  --ofelia-member-6-fg: oklch(0.4 0.11 258);
 }
 
 :root[data-theme='dark'] .widget {
-  --ofelia-k-bg: oklch(0.42 0.1 27);
-  --ofelia-k-fg: oklch(0.86 0.09 25);
-  --ofelia-l-bg: oklch(0.4 0.08 225);
-  --ofelia-l-fg: oklch(0.85 0.07 215);
   --ofelia-ok-soft: oklch(0.34 0.07 155);
   --ofelia-ok-fg: oklch(0.82 0.13 155);
   --ofelia-forgive: oklch(0.72 0.14 155);
@@ -45,18 +21,6 @@
   --closed-text: oklch(0.72 0.14 155);
   --ofelia-debt-soft: oklch(0.35 0.085 25);
   --ofelia-debt-fg: oklch(0.88 0.09 28);
-  --ofelia-member-1-bg: oklch(0.38 0.09 300);
-  --ofelia-member-1-fg: oklch(0.92 0.06 300);
-  --ofelia-member-2-bg: oklch(0.36 0.07 200);
-  --ofelia-member-2-fg: oklch(0.92 0.05 200);
-  --ofelia-member-3-bg: oklch(0.36 0.075 148);
-  --ofelia-member-3-fg: oklch(0.92 0.06 150);
-  --ofelia-member-4-bg: oklch(0.38 0.075 62);
-  --ofelia-member-4-fg: oklch(0.93 0.06 65);
-  --ofelia-member-5-bg: oklch(0.37 0.085 345);
-  --ofelia-member-5-fg: oklch(0.92 0.06 345);
-  --ofelia-member-6-bg: oklch(0.36 0.07 256);
-  --ofelia-member-6-fg: oklch(0.92 0.05 256);
 }
 
 .loading {

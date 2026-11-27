@@ -1,6 +1,7 @@
 /* Design page 10, the "Вес · Офелия" sheets (`.sheet`, `.sh-h`, `.sh-b`, `.sh-f`, `.big`). The
    design's `--accent` is the code's `--primary`, its `--surface-2` is `--secondary`, its
-   `--text-2` is `--text-dim`. At phone width `DialogContent fullScreenOnPhone` takes over. */
+   `--text-2` is `--text-dim`; `--on-success` is the design's own token. At phone width
+   `DialogContent fullScreenOnPhone` takes over. */
 
 .overlay {
   background: var(--scrim);
@@ -159,6 +160,7 @@
 
 .delta {
   font-weight: 600;
+  color: var(--on-success);
 }
 
 .dateInput {
