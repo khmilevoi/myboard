@@ -1,7 +1,7 @@
 import { context, notify } from '@reatom/core'
 import { makeScriptedHttp } from '@shared/http/test/scripted-http'
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -85,6 +85,20 @@ describe('AddDeviceScreen scanner feedback', () => {
     render(<AddDeviceScreen model={model} />)
     return model
   }
+
+  it('says the camera is starting until the preview plays its first frame', async () => {
+    renderScanner()
+
+    expect(screen.getByRole('status')).toHaveTextContent('Включаем камеру…')
+    const video = await waitFor(() => {
+      const element = document.querySelector('video')
+      expect(element).not.toBeNull()
+      return element!
+    })
+    fireEvent.playing(video)
+
+    expect(screen.queryByText('Включаем камеру…')).not.toBeInTheDocument()
+  })
 
   it('shows the checking pill with the decoded code', () => {
     const model = renderScanner()

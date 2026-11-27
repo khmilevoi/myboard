@@ -71,6 +71,8 @@ type ScannerVideoProps = {
   constraints: MediaStreamConstraints
   onDecode: (rawValue: string) => void
   onCameraError: () => void
+  // The first frame is on screen; until then the overlay says the camera is starting.
+  onLive: () => void
 }
 
 // `?camdebug` on the scanner URL prints which camera opened and at what size:
@@ -80,7 +82,7 @@ const CAMERA_DEBUG =
 
 // Mounted only once the model has chosen the camera, so `useZxing` opens that
 // device directly instead of opening the default lens first.
-function ScannerVideo({ constraints, onDecode, onCameraError }: ScannerVideoProps) {
+function ScannerVideo({ constraints, onDecode, onCameraError, onLive }: ScannerVideoProps) {
   // Never `paused`: react-zxing stops the camera stream when paused, which
   // would black out the preview behind the feedback panel. The model ignores
   // decodes while a check or a panel is up instead (`stageScannedCode`).
@@ -139,6 +141,7 @@ function ScannerVideo({ constraints, onDecode, onCameraError }: ScannerVideoProp
         muted
         playsInline
         onLoadedMetadata={handleLoadedMetadata}
+        onPlaying={onLive}
         className={styles.scannerOverlayVideo}
       />
       {debugInfo ? (
@@ -229,6 +232,10 @@ function ScannerOverlay({
   onRetry,
   onManual,
 }: ScannerOverlayProps) {
+  // View-only: whether the preview shows frames yet. Opening a phone camera
+  // takes up to a second or two; without this the overlay is a black screen.
+  const [live, setLive] = useState(false)
+  const starting = camera.kind !== 'ready' || !live
   const sheet =
     status.kind === 'other-origin' ? (
       <ScanSheet
@@ -267,13 +274,14 @@ function ScannerOverlay({
       role="dialog"
       aria-modal="true"
       aria-label="Сканирование QR-кода"
-      className={`${styles.scannerOverlay} ${status.kind === 'invite' ? styles.scannerOverlayLeaving : ''}`}
+      className={`${styles.scannerOverlay} ${status.kind === 'invite' ? styles.scannerOverlayLeaving : ''} ${live ? styles.scannerOverlayLive : ''}`}
     >
       {camera.kind === 'ready' ? (
         <ScannerVideo
           constraints={camera.constraints}
           onDecode={onDecode}
           onCameraError={onCameraError}
+          onLive={() => setLive(true)}
         />
       ) : null}
       <div
@@ -296,6 +304,12 @@ function ScannerOverlay({
           <X size={17} strokeWidth={2.2} aria-hidden />
         </button>
       </div>
+      {starting && status.kind === 'idle' ? (
+        <p role="status" className={`${styles.scanPill} ${styles.scanPillChecking}`}>
+          <Loader2 size={14} strokeWidth={2.4} className="animate-spin" aria-hidden />
+          Включаем камеру…
+        </p>
+      ) : null}
       {status.kind === 'checking' ? (
         <p role="status" className={`${styles.scanPill} ${styles.scanPillChecking}`}>
           <Loader2 size={14} strokeWidth={2.4} className="animate-spin" aria-hidden />
