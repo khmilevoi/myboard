@@ -6,8 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { makeScopedOwners } from '../storage/scoped'
 import { openSse, startTestApp, type TestApp } from '../test/app-fixture'
-import { measurementIdFor } from './readings'
-import { getHardware, putHardware, updateBindings } from './store'
+import { makeGatewayConnections } from './connections'
+import type { HardwareDeps } from './http'
+import { ingestReadings, measurementIdFor } from './readings'
+import { getGateway, getHardware, putHardware, updateBindings } from './store'
 
 let app: TestApp | undefined
 afterEach(async () => {
@@ -142,6 +144,31 @@ describe('reading ingest', () => {
     const { a, gateway, hardwareId } = await setup()
     expect(await send(gateway, reading(hardwareId))).toEqual(['stored'])
     expect(await send(gateway, reading(hardwareId))).toEqual(['duplicate'])
+    const ledger = JSON.parse(
+      (await app!.ops.get(`m:health:a:${a.accountId}:${monthKey(TAKEN_AT)}`))!,
+    ) as unknown[]
+    expect(ledger).toHaveLength(1)
+  })
+
+  it('stores a reading ingested twice at once only once', async () => {
+    const { a, gateway, hardwareId } = await setup()
+    const record = await getGateway(app!.ops, gateway.gatewayId)
+    if (record === null || record instanceof Error) throw new Error('gateway missing')
+    const deps: HardwareDeps = {
+      ops: app!.ops,
+      now: Date.now,
+      connections: makeGatewayConnections(),
+      publish: async () => {},
+    }
+    // Two deliveries of one reading in flight together (the gateway retries on a timeout).
+    const answers = await Promise.all([
+      ingestReadings(deps, record, [reading(hardwareId)]),
+      ingestReadings(deps, record, [reading(hardwareId)]),
+    ])
+    expect(answers.flatMap((answer) => answer.results.map((r) => r.status)).sort()).toEqual([
+      'duplicate',
+      'stored',
+    ])
     const ledger = JSON.parse(
       (await app!.ops.get(`m:health:a:${a.accountId}:${monthKey(TAKEN_AT)}`))!,
     ) as unknown[]

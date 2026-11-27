@@ -9,6 +9,7 @@ import {
   gatewayTokenKey,
   HARDWARE_IDS_KEY,
   hardwareKey,
+  healthIngestLockKey,
   pairingKey,
   scanKey,
 } from './keys'
@@ -25,5 +26,6 @@ describe('hw: keys (persistence contract)', () => {
     expect(scanKey('g1')).toBe('hw:scan:g1')
     expect(pairingKey('p1')).toBe('hw:pairing:p1')
     expect(commandKey('c1')).toBe('hw:command:c1')
+    expect(healthIngestLockKey('a1')).toBe('hw:health-ingest-lock:a1')
   })
 })

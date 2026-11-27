@@ -41,3 +41,11 @@ export function commandKey(id: string): string {
 export function addressLockKey(address: string): string {
   return `hw:address-lock:${address}`
 }
+
+/**
+ * A lock name only (serializes hardware ingest per account, so the duplicate check and the append
+ * are one step); nothing is ever stored under it. Never the key `append` itself locks.
+ */
+export function healthIngestLockKey(accountId: string): string {
+  return `hw:health-ingest-lock:${accountId}`
+}

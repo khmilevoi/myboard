@@ -5,8 +5,10 @@ import { type Profile, ProfileSchema } from '@modules/health/domain/profile'
 import { moduleAccountNamespace } from '@shared/storage/scope'
 import type { WidgetServerStorage } from '@shared/widgets/contracts'
 
+import { runExclusive } from '../storage/key-lock'
 import type { ValkeyOps } from '../storage/valkey'
 import { makeWidgetScopedStorage } from '../widgets/storage'
+import { healthIngestLockKey } from './keys'
 
 /** The health module's account scope of `accountId`, exactly as the module itself reaches it. */
 export function healthStorageFor(
@@ -32,8 +34,10 @@ export function readHealthProfile(
 
 /**
  * Writes `measurement` into the account's health data through the module's own ingest, so the
- * ledger, `latest/<kind>` and the scoped stream behave exactly as for any other source. Never
- * rejects; never log what it is given.
+ * ledger, `latest/<kind>` and the scoped stream behave exactly as for any other source. Serialized
+ * per account: the module checks for a duplicate id before it appends, and only the append is
+ * locked, so two deliveries of one reading in flight together would otherwise both be stored.
+ * Never rejects; never log what it is given.
  */
 export async function ingestForAccount(
   ops: ValkeyOps,
@@ -41,8 +45,10 @@ export async function ingestForAccount(
   accountId: string,
   measurement: Measurement,
 ): Promise<{ stored: boolean } | Error> {
-  const result = await ingestMeasurement(healthStorageFor(ops, now, accountId), measurement).catch(
-    (cause: unknown) => (cause instanceof Error ? cause : new Error('ingest failed', { cause })),
+  // Not the key `append` locks (the month ledger's full key): the lane is not re-entrant.
+  return runExclusive(healthIngestLockKey(accountId), () =>
+    ingestMeasurement(healthStorageFor(ops, now, accountId), measurement),
+  ).catch((cause: unknown) =>
+    cause instanceof Error ? cause : new Error('ingest failed', { cause }),
   )
-  return result
 }
