@@ -9,6 +9,7 @@ import { WidgetControls, useWidgetChrome, type WidgetChrome } from 'widget-sdk/u
 import { catsCardStore, makeCatsCard, type CatsCard } from '../model/cats-card'
 import { catsContext, type CatsContextValue } from './cats-context'
 import { CompactTier } from './tiers/CompactTier'
+import { FullscreenTier } from './tiers/FullscreenTier'
 import { StandardTier } from './tiers/StandardTier'
 import { TinyTier } from './tiers/TinyTier'
 
@@ -47,12 +48,13 @@ const Loading = reatomMemo(
   'CatsLoading',
 )
 
-// Page 10, state D. Until the "Все кошки" tab exists, the button opens fullscreen on that tab.
+// Page 10, state D. The button opens the "Все кошки" tab, in fullscreen from a board card.
 const Empty = reatomMemo<{ card: CatsCard }>(({ card }) => {
-  const { requestFullscreen } = useWidgetContext()
+  const { mode, requestFullscreen } = useWidgetContext()
   const onAdd = wrap(() => {
     card.tab.set('all')
-    requestFullscreen()
+    // The fullscreen mount is already there: asking again would stack a second history entry.
+    if (mode === 'small') requestFullscreen()
   })
 
   return (
@@ -130,14 +132,15 @@ export const Cats = reatomMemo(() => {
     )
   }
 
-  // Large and fullscreen show the passport too until the fullscreen tabs exist (F17).
   const content =
     tier === 'tiny' ? (
       <TinyTier chrome={chrome} />
     ) : tier === 'compact' ? (
       <CompactTier chrome={chrome} />
-    ) : (
+    ) : tier === 'standard' ? (
       <StandardTier chrome={chrome} />
+    ) : (
+      <FullscreenTier chrome={chrome} />
     )
 
   return (

@@ -104,6 +104,32 @@
   pointer-events: none;
 }
 
+/* Page 10, form "Обрезать фото": the cat's eared frame. The dim covers the whole stage and the
+   eared window shows the photo again inside; the white edge is drop-shadows on the window's
+   wrapper, which paint after the clip (as `CatAvatar`'s surface ring does). */
+.dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 14, 20, 0.55);
+  pointer-events: none;
+}
+.catOutline {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  filter: drop-shadow(1.5px 0 0 rgba(255, 255, 255, 0.92))
+    drop-shadow(-1.5px 0 0 rgba(255, 255, 255, 0.92))
+    drop-shadow(0 1.5px 0 rgba(255, 255, 255, 0.92))
+    drop-shadow(0 -1.5px 0 rgba(255, 255, 255, 0.92));
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.catWindow {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
 .zoomRow {
   display: flex;
   align-items: center;
@@ -161,6 +187,10 @@
   flex: none;
   overflow: hidden;
   border-radius: 50%;
+}
+.previewCat {
+  /* The ear clip's letter padding has no letter here. */
+  padding-top: 0;
 }
 .previewImage {
   position: absolute;

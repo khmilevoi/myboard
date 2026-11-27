@@ -15,6 +15,7 @@ function setup(
   options: {
     size?: { width: number; height: number } | Error
     upload?: () => Promise<Error | null>
+    shape?: 'circle' | 'cat'
   } = {},
 ) {
   const upload = vi.fn(options.upload ?? (async () => null))
@@ -44,6 +45,7 @@ function setup(
         </>
       )}
       onPickAnother={onPickAnother}
+      shape={options.shape}
     />,
   )
   return { model, upload, revokeObjectUrl, onPickAnother }
@@ -218,5 +220,41 @@ describe('AvatarCropDialog', () => {
     expect(model.open()).toBe(false)
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:photo')
     expect(upload).not.toHaveBeenCalled()
+  })
+
+  it('draws the round frame by default', async () => {
+    const { model } = setup()
+    const dialog = await openWith(model)
+
+    expect(within(dialog).getByTestId('avatar-crop-stage')).toHaveAttribute('data-shape', 'circle')
+    expect(within(dialog).queryByTestId('avatar-crop-window')).toBeNull()
+    for (const id of ['preview-large', 'preview-small']) {
+      expect(screen.getByTestId(id).parentElement).toHaveAttribute('data-shape', 'circle')
+    }
+  })
+
+  it('shape "cat": the eared frame on the stage and on every preview', async () => {
+    const { model } = setup({ shape: 'cat' })
+    const dialog = await openWith(model)
+
+    const stage = within(dialog).getByRole('group', {
+      name: 'Область обрезки: рамка с ушками поверх фото',
+    })
+    expect(stage).toHaveAttribute('data-shape', 'cat')
+    // The frame is a window of the circle's size that shows the photo again, undimmed.
+    const frame = within(stage).getByTestId('avatar-crop-window')
+    expect(frame.parentElement).toHaveStyle({ width: '220px', height: '220px' })
+    expect(within(frame).getByRole('presentation', { hidden: true })).toHaveAttribute(
+      'src',
+      'blob:photo',
+    )
+    for (const [id, radius] of [
+      ['preview-large', 11],
+      ['preview-small', 5],
+    ] as const) {
+      const preview = screen.getByTestId(id).parentElement
+      expect(preview).toHaveAttribute('data-shape', 'cat')
+      expect(preview).toHaveStyle({ borderRadius: `${radius}px` })
+    }
   })
 })

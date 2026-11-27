@@ -5,6 +5,7 @@ import {
   defaultCatProfile,
   catToneAt,
   daysSinceWeighing,
+  goalEntryOn,
   goalOn,
   latestWeighing,
   litterTitle,
@@ -37,6 +38,19 @@ describe('goalOn', () => {
     ]
 
     expect(goalOn(tie, D('2026-06-10'))).toBe(260)
+  })
+})
+
+describe('goalEntryOn', () => {
+  it('returns the whole entry goalOn reads the kcal of, or null before the first goal', () => {
+    const goals: GoalEntry[] = [
+      { id: 'g1', ts: 1, kcal: 220, since: '2026-06-01' },
+      { id: 'g2', ts: 2, kcal: 240, since: '2026-06-10' },
+    ]
+
+    expect(goalEntryOn(goals, D('2026-06-12'))).toEqual(goals[1])
+    expect(goalEntryOn(goals, D('2026-06-09'))).toEqual(goals[0])
+    expect(goalEntryOn(goals, D('2026-05-31'))).toBeNull()
   })
 })
 

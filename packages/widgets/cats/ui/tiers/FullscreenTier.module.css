@@ -1,0 +1,51 @@
+/* `CatsLarge` (design page 10, "Полноэкранный режим"). The container drives the phone layout of
+   the header and the tabs (≤ 680 px), on a phone and on a narrow large card alike. */
+.root {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+  background: var(--surface);
+  container-type: inline-size;
+  container-name: cats-large;
+}
+
+.panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  min-block-size: 0;
+  padding: 20px 22px;
+  overflow: auto;
+}
+
+.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  block-size: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
+  cursor: pointer;
+}
+
+.primary > svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.primary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

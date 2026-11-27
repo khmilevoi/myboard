@@ -240,6 +240,14 @@ describe('Cats — tiers', () => {
     expect(props.requestFullscreen).toHaveBeenCalledOnce()
   })
 
+  it('no cats in fullscreen: the add button picks the tab without asking for fullscreen again', async () => {
+    const { props } = setup(NO_CATS, { mode: 'large', tier: 'fullscreen' })
+    renderCats(props)
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ Добавить кошку' }))
+    expect(props.requestFullscreen).not.toHaveBeenCalled()
+  })
+
   it('module error: "Повторить" loads again', async () => {
     const { props } = setup()
     const { model } = makeTestCatsModel({ todayIso: TODAY, ...ONE_CAT })

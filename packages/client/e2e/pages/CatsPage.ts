@@ -11,12 +11,27 @@ export class CatsPage {
   readonly root: Locator
   readonly weighButton: Locator
   readonly switcher: Locator
+  /** The host's fullscreen dialog around the card's fullscreen mount. */
+  readonly overlay: Locator
 
   constructor(readonly page: Page) {
     this.card = new BoardPage(page).getCard(0)
     this.root = this.card.locator('[data-tier]').first()
     this.weighButton = this.card.getByRole('button', { name: 'Взвесить', exact: true })
     this.switcher = this.card.getByRole('button', { name: /^Выбрать кошку/ })
+    this.overlay = page.getByRole('dialog', { name: 'Кошки' })
+  }
+
+  /** Expands the card into the fullscreen view and waits for its header. */
+  async openFullscreen(): Promise<void> {
+    await new BoardPage(this.page).expandCard(0)
+    await expect(this.overlay).toBeVisible()
+    await expect(this.overlay.getByRole('group', { name: 'Разделы' })).toBeVisible()
+  }
+
+  /** A tab of the fullscreen view: "Профиль", "Вес" or "Все кошки". */
+  tab(name: string): Locator {
+    return this.overlay.getByRole('group', { name: 'Разделы' }).getByRole('button', { name })
   }
 
   heading(name: string): Locator {

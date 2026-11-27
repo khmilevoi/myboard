@@ -1,0 +1,125 @@
+/* `CatsLarge` header. The design's `--accent` is the code's `--primary`, its `--text-2` is
+   `--text-dim` and its `--surface-2` is `--secondary`. On a phone (≤ 680 px, page 10 "телефон")
+   the tabs drop to a row of their own under the name. */
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 20px;
+  border-block-end: 1px solid var(--border);
+}
+
+.identity {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-inline-size: 0;
+}
+
+.tile {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--primary);
+}
+
+.tile > svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.titles {
+  min-inline-size: 0;
+}
+
+.name {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.tabs {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  margin-inline-start: auto;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--secondary);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  block-size: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.tab[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.controls {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+@container cats-large (max-width: 680px) {
+  .header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 14px 16px 10px;
+  }
+
+  .tile {
+    display: none;
+  }
+
+  .name {
+    font-size: 16px;
+  }
+
+  .tabs {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-inline-start: 0;
+  }
+}

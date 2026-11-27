@@ -46,16 +46,23 @@ export const GoalEntrySchema = z.object({
 export type GoalEntry = z.infer<typeof GoalEntrySchema>
 export const GoalEntriesSchema = tolerantArraySchema(GoalEntrySchema, 'goal entry')
 
-/** The goal in force on `date`: the latest `since <= date`, a tie going to the higher `ts`. */
-export function goalOn(goals: readonly GoalEntry[], date: Temporal.PlainDate): number | null {
+/** The goal entry in force on `date`: the latest `since <= date`, a tie going to the higher `ts`. */
+export function goalEntryOn(
+  goals: readonly GoalEntry[],
+  date: Temporal.PlainDate,
+): GoalEntry | null {
   const day = date.toString()
-  const best = goals.reduce<GoalEntry | null>((current, goal) => {
+  return goals.reduce<GoalEntry | null>((current, goal) => {
     if (goal.since > day) return current
     if (current === null) return goal
     if (goal.since !== current.since) return goal.since > current.since ? goal : current
     return goal.ts > current.ts ? goal : current
   }, null)
-  return best?.kcal ?? null
+}
+
+/** The kcal of the goal in force on `date` (`goalEntryOn`); null before the first goal. */
+export function goalOn(goals: readonly GoalEntry[], date: Temporal.PlainDate): number | null {
+  return goalEntryOn(goals, date)?.kcal ?? null
 }
 
 /** One weighing, appended under `catWeightKey` with the weighing account stamped by the server. */

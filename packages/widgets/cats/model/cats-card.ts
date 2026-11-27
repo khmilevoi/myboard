@@ -11,6 +11,9 @@ import type { StorageApi, WidgetIdentity, WidgetModules } from 'widget-runtime'
 import { makeWidgetInstanceStore } from 'widget-sdk'
 import { reatomModule, type ReatomModule } from 'widget-sdk/modules/reatom-module'
 
+import { makeGoalForm, type GoalForm } from './goal-form'
+import { makeProfileForm, type ProfileForm } from './profile-form'
+
 /** The fullscreen tabs. "Профиль" and "+ Добавить кошку" pick one before opening fullscreen. */
 export type CatsTab = 'profile' | 'weight' | 'all'
 
@@ -67,6 +70,9 @@ export type CatsCard = {
   status: Computed<CatsCardStatus>
   /** The one "Вес" form of this card: every "Взвесить" opens `WeighDialog` with it. */
   weighForm: WeighForm
+  /** The "Профиль" tab's draft: shared by both mounts, so it survives opening fullscreen. */
+  profileForm: ProfileForm
+  goalForm: GoalForm
   view: CatsCardView
 }
 
@@ -92,6 +98,12 @@ export function makeCatsCard({
   const tab = atom<CatsTab>('profile', `${name}.tab`)
   const today = computed(() => handle.model()?.today() ?? null, `${name}.today`)
   const weighForm = makeWeighForm(choice.cat, today, `${name}.weighForm`)
+  const profileForm = makeProfileForm({
+    cat: choice.cat,
+    model: handle.model,
+    name: `${name}.profileForm`,
+  })
+  const goalForm = makeGoalForm(choice.cat, today, `${name}.goalForm`)
 
   const status = computed((): CatsCardStatus => {
     if (handle.model() === null) return handle.error() === null ? 'loading' : 'error'
@@ -175,6 +187,8 @@ export function makeCatsCard({
     tab,
     status,
     weighForm,
+    profileForm,
+    goalForm,
     view: { passport, weight, spark, sparkLabels },
   }
 }

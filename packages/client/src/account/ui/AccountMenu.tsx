@@ -1,11 +1,11 @@
 import { wrap } from '@reatom/core'
 import { pluralRu } from '@shared/format/ru'
 import { Camera, LogOut, Monitor, Plus, UserRound } from 'lucide-react'
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { type AvatarCropModel, makeAvatarCropModel } from 'widget-sdk/files/avatar-crop-model'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-import { AvatarCropDialog } from 'widget-sdk/ui/AvatarCropDialog'
+import { AvatarCropDialog, type RenderCropPreview } from 'widget-sdk/ui/AvatarCropDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +75,14 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
     const name = account?.name ?? ''
     const initials = name ? initialsOf(name) : ''
     const avatarUrl = account?.avatarUrl
+    const firstName = firstNameOf(name)
+    // Stable across renders, so the memoized preview row re-renders only when the name changes.
+    const previews = useCallback(
+      (renderPreview: RenderCropPreview) => (
+        <AccountAvatarPreviews renderPreview={renderPreview} firstName={firstName} />
+      ),
+      [firstName],
+    )
 
     const pickAvatar = wrap((event: ChangeEvent<HTMLInputElement>) => {
       const file = event.currentTarget.files?.[0]
@@ -89,9 +97,7 @@ export const AccountMenu = reatomMemo<AccountMenuProps>(
         title="Обрезать фото"
         hint="Перетащите фото, чтобы выбрать, что попадёт в круг."
         previewTitle="Так фото увидят другие"
-        previews={(renderPreview) => (
-          <AccountAvatarPreviews renderPreview={renderPreview} firstName={firstNameOf(name)} />
-        )}
+        previews={previews}
         onPickAnother={openPicker}
       />
     )

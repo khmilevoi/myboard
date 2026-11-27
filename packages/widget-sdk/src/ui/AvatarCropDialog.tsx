@@ -24,6 +24,10 @@ import { reatomMemo } from '../reatom/reatom-memo'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from './dialog'
 
 import styles from './AvatarCropDialog.module.css'
+import ears from './cat-ears.module.css'
+
+/** The frame the crop is drawn in: the account's circle, or the cat avatar's eared square. */
+export type AvatarCropShape = 'circle' | 'cat'
 
 /** Draws one live preview of the current crop, `size` px across. */
 export type RenderCropPreview = (size: number, testId: string) => ReactNode
@@ -43,6 +47,8 @@ export type AvatarCropDialogProps = {
   previews: (renderPreview: RenderCropPreview) => ReactNode
   /** "Выбрать другой файл" in the unreadable state: reopens the caller's file picker. */
   onPickAnother: () => void
+  /** The frame on the stage and on every preview; `circle` when omitted. */
+  shape?: AvatarCropShape
 }
 
 const ARROW_DIRECTIONS: Record<string, NudgeDirection> = {
@@ -64,7 +70,55 @@ function midpoint(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
 }
 
-const CropStage = reatomMemo<{ model: AvatarCropModel }>(({ model }) => {
+/** A cat preview's corner radius: a quarter of its side, as `CatAvatar` draws 56 / 26 / 22 px. */
+function catRadius(size: number): number {
+  return Math.round(size / 4)
+}
+
+/**
+ * The cat frame on the stage. The ear clip would cut off the circle's dimming box-shadow, so the
+ * whole stage is dimmed and an eared window of the circle's size shows the photo again on top.
+ */
+const CatFrame = reatomMemo<{ model: AvatarCropModel }>(({ model }) => {
+  const layout = model.stageLayout()
+  const image = model.image()
+  const circle = model.circle()
+  const stage = model.stage()
+  const offsetX = (stage.width - circle) / 2
+  const offsetY = (stage.height - circle) / 2
+
+  return (
+    <>
+      <div className={styles.dim} aria-hidden />
+      <div className={styles.catOutline} style={{ width: circle, height: circle }} aria-hidden>
+        <div className={cn(ears.catEars, styles.catWindow)} data-testid="avatar-crop-window">
+          {image && layout ? (
+            <img
+              className={styles.stageImage}
+              src={image.url}
+              alt=""
+              draggable={false}
+              style={{
+                width: layout.width,
+                height: layout.height,
+                transform: `translate(${layout.left - offsetX}px, ${layout.top - offsetY}px)`,
+              }}
+            />
+          ) : null}
+        </div>
+      </div>
+    </>
+  )
+}, 'CatFrame')
+
+const STAGE_LABEL: Record<AvatarCropShape, string> = {
+  circle: 'Область обрезки: круг поверх фото',
+  cat: 'Область обрезки: рамка с ушками поверх фото',
+}
+
+type CropStageProps = { model: AvatarCropModel; shape: AvatarCropShape }
+
+const CropStage = reatomMemo<CropStageProps>(({ model, shape }) => {
   const stageRef = useRef<HTMLDivElement>(null)
   const hintId = useId()
   // Pointer bookkeeping is DOM interop: the model only ever sees pan/zoom deltas.
@@ -188,11 +242,8 @@ const CropStage = reatomMemo<{ model: AvatarCropModel }>(({ model }) => {
       className={cn(styles.stage, saving && styles.stageLocked)}
       role="group"
       aria-roledescription="область обрезки"
-      aria-label={
-        saving
-          ? 'Область обрезки заблокирована во время сохранения'
-          : 'Область обрезки: круг поверх фото'
-      }
+      aria-label={saving ? 'Область обрезки заблокирована во время сохранения' : STAGE_LABEL[shape]}
+      data-shape={shape}
       aria-describedby={hintId}
       aria-disabled={saving || undefined}
       tabIndex={saving ? -1 : 0}
@@ -217,7 +268,11 @@ const CropStage = reatomMemo<{ model: AvatarCropModel }>(({ model }) => {
           }}
         />
       ) : null}
-      <div className={styles.circle} style={{ width: circle, height: circle }} aria-hidden />
+      {shape === 'cat' ? (
+        <CatFrame model={model} />
+      ) : (
+        <div className={styles.circle} style={{ width: circle, height: circle }} aria-hidden />
+      )}
       <span id={hintId} className={styles.visuallyHidden}>
         Перетащите фото или двигайте его стрелками, с Shift — быстрее. Плюс и минус меняют масштаб.
       </span>
@@ -231,7 +286,8 @@ const CropPreview = reatomMemo<{
   center: Point
   size: number
   testId: string
-}>(({ image, side, center, size, testId }) => {
+  shape: AvatarCropShape
+}>(({ image, side, center, size, testId, shape }) => {
   const layout = imageLayout({
     image,
     side,
@@ -240,7 +296,20 @@ const CropPreview = reatomMemo<{
     circle: size,
   })
   return (
-    <span className={styles.preview} style={{ width: size, height: size }} aria-hidden>
+    <span
+      className={cn(
+        styles.preview,
+        shape === 'cat' && ears.catEars,
+        shape === 'cat' && styles.previewCat,
+      )}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: shape === 'cat' ? catRadius(size) : undefined,
+      }}
+      data-shape={shape}
+      aria-hidden
+    >
       <img
         className={styles.previewImage}
         src={image.url}
@@ -271,13 +340,21 @@ const CropPreviews = reatomMemo<{
   model: AvatarCropModel
   title: string
   previews: AvatarCropDialogProps['previews']
-}>(({ model, title, previews }) => {
+  shape: AvatarCropShape
+}>(({ model, title, previews, shape }) => {
   const image = model.image()
   if (!image) return null
   const side = model.side()
   const center = model.center()
   const renderPreview: RenderCropPreview = (size, testId) => (
-    <CropPreview image={image} side={side} center={center} size={size} testId={testId} />
+    <CropPreview
+      image={image}
+      side={side}
+      center={center}
+      size={size}
+      testId={testId}
+      shape={shape}
+    />
   )
 
   return (
@@ -289,7 +366,7 @@ const CropPreviews = reatomMemo<{
 }, 'CropPreviews')
 
 export const AvatarCropDialog = reatomMemo<AvatarCropDialogProps>(
-  ({ model, title, hint, previewTitle, previews, onPickAnother }) => {
+  ({ model, title, hint, previewTitle, previews, onPickAnother, shape = 'circle' }) => {
     const open = model.open()
     const phase = model.phase()
     const saving = model.saving()
@@ -333,7 +410,7 @@ export const AvatarCropDialog = reatomMemo<AvatarCropDialogProps>(
 
           {unreadable ? null : (
             <>
-              <CropStage model={model} />
+              <CropStage model={model} shape={shape} />
               <div className={styles.zoomRow}>
                 <ZoomOut size={16} strokeWidth={1.9} className={styles.zoomIcon} aria-hidden />
                 <label className={styles.zoomLabel}>
@@ -353,7 +430,7 @@ export const AvatarCropDialog = reatomMemo<AvatarCropDialogProps>(
                 </label>
                 <ZoomIn size={16} strokeWidth={1.9} className={styles.zoomIcon} aria-hidden />
               </div>
-              <CropPreviews model={model} title={previewTitle} previews={previews} />
+              <CropPreviews model={model} title={previewTitle} previews={previews} shape={shape} />
             </>
           )}
 
