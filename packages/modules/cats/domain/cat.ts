@@ -78,6 +78,36 @@ export function latestWeighing(weighings: readonly Weighing[]): Weighing | null 
   }, null)
 }
 
+/** A cat's colour pair (design tokens `--cat-a-*` / `--cat-b-*`), alternating by add order. */
+export type CatTone = 'a' | 'b'
+
+export function catToneAt(index: number): CatTone {
+  return index % 2 === 0 ? 'a' : 'b'
+}
+
+/**
+ * The gram change from the latest weighing at least `days` older than the newest one, or null
+ * when no weighing is that old.
+ */
+export function weightTrend(weighings: readonly Weighing[], days: number): number | null {
+  const latest = latestWeighing(weighings)
+  if (latest === null) return null
+  const cutoff = Temporal.PlainDate.from(latest.at).subtract({ days }).toString()
+  const base = latestWeighing(weighings.filter((weighing) => weighing.at <= cutoff))
+  if (base === null) return null
+  return Math.round((latest.kg - base.kg) * 1000)
+}
+
+/** Whole days from the latest weighing to `today`; null with no weighings. */
+export function daysSinceWeighing(
+  weighings: readonly Weighing[],
+  today: Temporal.PlainDate,
+): number | null {
+  const latest = latestWeighing(weighings)
+  if (latest === null) return null
+  return Temporal.PlainDate.from(latest.at).until(today, { largestUnit: 'days' }).days
+}
+
 /** Which litter a cat uses: one already in the registry, or a new one the server creates. */
 export const LitterChoiceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('existing'), litterId: EntityIdSchema }),

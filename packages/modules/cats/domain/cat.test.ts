@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest'
 import {
   CatProfileSchema,
   defaultCatProfile,
+  catToneAt,
+  daysSinceWeighing,
   goalOn,
   latestWeighing,
   litterTitle,
   type GoalEntry,
   type Weighing,
+  weightTrend,
 } from './cat'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
@@ -87,5 +90,40 @@ describe('CatProfileSchema', () => {
 
   it('rejects a litter id that is not an entity id', () => {
     expect(CatProfileSchema.safeParse({ ...profile, litterId: 'a/b' }).success).toBe(false)
+  })
+})
+
+describe('catToneAt', () => {
+  it('alternates a, b, a', () => {
+    expect([catToneAt(0), catToneAt(1), catToneAt(2)]).toEqual(['a', 'b', 'a'])
+  })
+})
+
+const weighing = (at: string, kg: number): Weighing => ({ id: at, ts: 1, at, kg })
+
+describe('weightTrend', () => {
+  const history = [
+    weighing('2026-10-14', 4.41),
+    weighing('2026-10-27', 4.38),
+    weighing('2026-11-21', 4.32),
+  ]
+
+  it('is the gram delta against the latest weighing at least `days` older', () => {
+    expect(weightTrend(history, 30)).toBe(-90)
+  })
+
+  it('is null without a base weighing', () => {
+    expect(weightTrend([weighing('2026-11-21', 4.32)], 30)).toBeNull()
+    expect(weightTrend([], 30)).toBeNull()
+  })
+})
+
+describe('daysSinceWeighing', () => {
+  it('counts whole days from the latest weighing', () => {
+    expect(daysSinceWeighing([weighing('2026-11-21', 4.32)], D('2026-11-26'))).toBe(5)
+  })
+
+  it('is null with no weighings', () => {
+    expect(daysSinceWeighing([], D('2026-11-26'))).toBeNull()
   })
 })

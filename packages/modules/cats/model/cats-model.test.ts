@@ -100,8 +100,8 @@ describe('makeCatsModel registries', () => {
       () => ({ cats: model.cats(), litters: model.litters() }),
       {
         cats: [
-          { id: 'ofelia', name: 'Офелия', avatar: null, litterId: 'ofelia' },
-          { id: 'busya', name: 'Буся', avatar: null, litterId: 'ofelia' },
+          { id: 'ofelia', name: 'Офелия', avatar: null, litterId: 'ofelia', tone: 'a' },
+          { id: 'busya', name: 'Буся', avatar: null, litterId: 'ofelia', tone: 'b' },
         ],
         litters: [{ id: 'ofelia', title: 'Лоток · Офелия и Буся', catIds: ['ofelia', 'busya'] }],
       },
@@ -127,9 +127,44 @@ describe('makeCatsModel registries', () => {
       ],
       () => ({ archived: model.archivedCats(), litters: model.litters() }),
       {
-        archived: [{ id: 'busya', name: 'Буся', avatar: null, litterId: 'busya' }],
+        archived: [{ id: 'busya', name: 'Буся', avatar: null, litterId: 'busya', tone: 'b' }],
         litters: [{ id: 'ofelia', title: 'Лоток · Офелия', catIds: ['ofelia'] }],
       },
+    )
+  })
+
+  it('keeps a cat tone fixed by add order, archived cats included', async () => {
+    const { model } = makeTestCatsModel({
+      catRegistry: [
+        catEvent('add', 'ofelia', 1),
+        catEvent('add', 'busya', 2),
+        catEvent('add', 'murka', 3),
+        catEvent('archive', 'busya', 4),
+      ],
+      litterRegistry: [litterEvent('ofelia', 1)],
+      profiles: { ofelia: OFELIA, busya: BUSYA, murka: defaultCatProfile('Мурка', 'ofelia') },
+    })
+
+    await expectEventually(
+      () => [model.cats.subscribe(() => {}), model.archivedCats.subscribe(() => {})],
+      () => ({
+        active: model.cats()?.map((cat) => [cat.id, cat.tone]) ?? null,
+        archived: model.archivedCats()?.map((cat) => [cat.id, cat.tone]) ?? null,
+      }),
+      {
+        active: [
+          ['ofelia', 'a'],
+          ['murka', 'a'],
+        ],
+        archived: [['busya', 'b']],
+      },
+    )
+  })
+
+  it('exposes the server-time today, null until the clock syncs', () => {
+    expect(makeTestCatsModel().model.today()).toBeNull()
+    expect(makeTestCatsModel({ todayIso: '2026-11-26' }).model.today()?.toString()).toBe(
+      '2026-11-26',
     )
   })
 
