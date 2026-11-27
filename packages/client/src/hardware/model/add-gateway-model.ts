@@ -3,6 +3,7 @@ import {
   type Action,
   atom,
   type Atom,
+  type AsyncExt,
   type Computed,
   computed,
   sleep,
@@ -24,9 +25,9 @@ export type AddGatewayModel = {
   copied: Atom<boolean>
   error: Atom<string | null>
   /** Mints a code and remembers the gateway ids present at that moment. */
-  start: Action<[], Promise<void>>
+  start: Action<[], Promise<void>> & AsyncExt<[], void, Error | undefined>
   /** Writes the code to the clipboard; `copied` stays true for 2 s. */
-  copy: Action<[], Promise<void>>
+  copy: Action<[], Promise<void>> & AsyncExt<[], void, Error | undefined>
   reset: Action<[], void>
 }
 

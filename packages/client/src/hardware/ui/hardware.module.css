@@ -404,3 +404,94 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* §3 add-gateway view */
+.gatewayCodeBody {
+  text-align: center;
+}
+.sub {
+  margin: 6px 0 0;
+  font: 400 14px/1.5 var(--font-sans);
+  color: var(--muted-foreground);
+  text-align: left;
+  text-wrap: pretty;
+}
+.codePanel {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--secondary);
+}
+.gatewayCode {
+  margin: 0;
+  font: 700 27px var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--foreground);
+}
+.codeLoading {
+  margin: 0;
+  font: 400 13.5px var(--font-sans);
+  color: var(--text-3);
+}
+.secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 46px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: transparent;
+  color: var(--foreground);
+  font: 600 14px var(--font-sans);
+  cursor: pointer;
+}
+.secondary:hover:not(:disabled) {
+  background: var(--secondary);
+}
+.secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.wait {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 16px;
+  font: 400 13px var(--font-sans);
+  color: var(--muted-foreground);
+}
+.spin {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: hw-spin 0.9s linear infinite;
+}
+@keyframes hw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.emptyIconOk,
+.emptyIconBad {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+}
+.emptyIconOk {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.emptyIconBad {
+  background: var(--destructive-soft);
+  color: var(--destructive);
+}
