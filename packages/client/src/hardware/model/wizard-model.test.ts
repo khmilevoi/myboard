@@ -5,19 +5,35 @@ import {
   PAIRING_TTL_MS,
 } from '@shared/hardware/board-api'
 import { makeHardwareBoardClient } from '@shared/hardware/board-client'
+import { COMMAND_FAILURE_REASONS } from '@shared/hardware/failure-reasons'
 import type { BleAddress } from '@shared/hardware/models'
-import { PAIRING_PIN_DIGITS, SCAN_DURATION_MS } from '@shared/hardware/spike-assumptions'
+import {
+  CONSENT_CODE_DIGITS,
+  PAIRING_PIN_DIGITS,
+  SCALE_ANSWER_TIMEOUT_MS,
+  SCALE_USER_SLOTS,
+  SCAN_DURATION_MS,
+  type ScaleUserIndex,
+} from '@shared/hardware/spike-assumptions'
 import { makeFakeOpenEventStream } from '@shared/http/test/fake-event-stream'
 import { makeScriptedHttp, type ScriptedStep } from '@shared/http/test/scripted-http'
+import type { HealthModel } from 'module-health'
+import type { Profile } from 'module-health/domain/profile'
+import { makeTestHealthModel } from 'module-health/testing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { GATEWAY_OFFLINE_COPY, GENERIC_ACTION_ERROR_COPY } from './hardware-copy'
 import { makeHardwareModel } from './hardware-model'
-import { makeWizardModel, PAIRING_ANSWER_CHECK_MS } from './wizard-model'
+import { makeWizardModel, PAIRING_ANSWER_CHECK_MS, WIZARD_OFFLINE_RETRY_MS } from './wizard-model'
 
 const NOW = 1_800_000_000_000
 const ADDRESS = 'AA:BB:CC:DD:EE:01' as BleAddress
 const OTHER = 'AA:BB:CC:DD:EE:02' as BleAddress
 const GOOD_PIN = '1'.repeat(PAIRING_PIN_DIGITS)
+const TYPED_CODE = '3'.repeat(CONSENT_CODE_DIGITS)
+const REVEALED_CODE = '5'.repeat(CONSENT_CODE_DIGITS)
+const PROFILE: Profile = { heightCm: 182, birthDate: '1992-03-14', sex: 'male' }
+const OFFLINE = { status: 409, body: { error: { code: 'gateway_offline', message: '' } } }
 
 beforeEach(() =>
   vi.useFakeTimers({
@@ -70,7 +86,19 @@ const activeScan = (results: ReturnType<typeof result>[] = [], startedAt = Date.
   results,
 })
 
-function setup(options: { scan?: ScriptedStep[]; pair?: ScriptedStep[]; pin?: ScriptedStep[] }) {
+type SetupOptions = {
+  scan?: ScriptedStep[]
+  pair?: ScriptedStep[]
+  pin?: ScriptedStep[]
+  /** POST /api/hardware/items/h1/profiles */
+  profiles?: ScriptedStep[]
+  /** POST /api/hardware/items/h1/profiles/<index>/consent-code, keyed by index. */
+  reveal?: Record<number, ScriptedStep[]>
+  health?: () => Promise<HealthModel | Error>
+  hasWeightCard?: boolean
+}
+
+function setup(options: SetupOptions) {
   // The snapshot endpoint always answers with whatever `server.snapshot` holds at request time.
   const server: { snapshot: HardwareSnapshot } = {
     snapshot: { gateways: [gateway()], hardware: [] },
@@ -88,6 +116,15 @@ function setup(options: { scan?: ScriptedStep[]; pair?: ScriptedStep[]; pin?: Sc
       { status: 202, body: { pairingId: 'p1' } },
     ],
     '/api/hardware/pairings/p1/pin': options.pin ?? [{ status: 202 }],
+    '/api/hardware/items/h1/profiles': options.profiles ?? [
+      { status: 202, body: { commandId: 'c1' } },
+    ],
+    ...Object.fromEntries(
+      Object.entries(options.reveal ?? {}).map(([index, steps]) => [
+        `/api/hardware/items/h1/profiles/${index}/consent-code`,
+        steps,
+      ]),
+    ),
   })
   const { open, streams } = makeFakeOpenEventStream()
   const client = makeHardwareBoardClient(http)
@@ -95,16 +132,18 @@ function setup(options: { scan?: ScriptedStep[]; pair?: ScriptedStep[]; pin?: Sc
   const model = makeWizardModel({
     hardware,
     client,
-    health: async () => new Error('unused'),
-    hasWeightCard: () => false,
+    health: options.health ?? (async () => new Error('no health model in this test')),
+    hasWeightCard: () => options.hasWeightCard ?? false,
   })
   // The open dialog keeps these connected.
   hardware.snapshot.subscribe(() => {})
   model.scanning.subscribe(() => {})
   model.nothingFound.subscribe(() => {})
+  model.healthProfile.subscribe(() => {})
 
   const snapshotGets = () => calls.filter((c) => c.method === 'GET' && c.url === '/api/hardware')
   const scanCalls = () => calls.filter((c) => c.url === '/api/hardware/gateways/g1/scan')
+  const profileCalls = () => calls.filter((c) => c.url === '/api/hardware/items/h1/profiles')
   const loaded = () => vi.waitFor(() => expect(hardware.snapshot.data()).not.toBeNull())
   /** Server state changed: swap the snapshot and push a `changed` frame. */
   const change = async (snapshot: HardwareSnapshot) => {
@@ -121,6 +160,11 @@ function setup(options: { scan?: ScriptedStep[]; pair?: ScriptedStep[]; pin?: Sc
     emit({ type: 'pairing', pairingId: 'p1', stage, hardwareId, reason: null })
     await flush()
   }
+  /** Pushes the gateway's answer to command `c1`. */
+  const commandFrame = async (ok: boolean, reason: string | null = null) => {
+    emit({ type: 'command', commandId: 'c1', ok, reason })
+    await flush()
+  }
   return {
     model,
     hardware,
@@ -128,6 +172,8 @@ function setup(options: { scan?: ScriptedStep[]; pair?: ScriptedStep[]; pin?: Sc
     calls,
     snapshotGets,
     scanCalls,
+    profileCalls,
+    commandFrame,
     loaded,
     change,
     emit,
@@ -421,5 +467,468 @@ describe('wizard pairing', () => {
     await vi.advanceTimersByTimeAsync(PAIRING_TTL_MS)
 
     expect(env.model.step()).toEqual({ kind: 'scan' })
+  })
+})
+
+type Binding = Hardware['profiles'][number]['binding']
+const bindings = (...entries: Array<[number, Binding]>): Hardware['profiles'] =>
+  entries.map(([index, binding]) => ({ index: index as ScaleUserIndex, binding }))
+
+/** A test health model, seeded with `profile` when given; `health` resolves once seeding is done. */
+function healthWith(options: Parameters<typeof makeTestHealthModel>[0] = {}) {
+  const test = makeTestHealthModel(options)
+  return {
+    ...test,
+    health: async (): Promise<HealthModel | Error> => {
+      const seeded = await test.ready
+      if (seeded instanceof Error) return seeded
+      return test.model
+    },
+  }
+}
+
+/** The wizard opened on the profile step of `h1` (the §2(c) entry). */
+async function openProfileStep(env: Env, record: Hardware = scale()) {
+  await env.loaded()
+  await env.change({ gateways: [gateway()], hardware: [record] })
+  await env.model.openProfile('h1')
+}
+
+/** create → writing with commandId c1 (health profile complete). */
+async function startCreate(env: Env, record: Hardware = scale()) {
+  await openProfileStep(env, record)
+  await env.model.create()
+  expect(env.model.step()).toMatchObject({ kind: 'writing', mode: 'create', commandId: 'c1' })
+}
+
+/** attach of index 2 with a typed code → writing. */
+async function startAttach(env: Env) {
+  await openProfileStep(env, scale({ profiles: bindings([1, 'other'], [2, 'none']) }))
+  env.model.openAttach()
+  env.model.selectIndex(2 as ScaleUserIndex)
+  env.model.consent.set(TYPED_CODE)
+  await env.model.attach()
+}
+
+describe('wizard profile choice', () => {
+  it('profileChoice with profiles.length === SCALE_USER_SLOTS → create unavailable', async () => {
+    const full = Array.from({ length: SCALE_USER_SLOTS }, (_, i): [number, Binding] => [
+      i + 1,
+      'other',
+    ])
+    const env = setup({ health: healthWith({ profile: PROFILE }).health })
+    await openProfileStep(env, scale({ profiles: bindings(...full) }))
+
+    expect(env.model.step()).toEqual({ kind: 'profileChoice', hardwareId: 'h1', slotsFull: true })
+    await env.model.create()
+    expect(env.profileCalls()).toHaveLength(0)
+  })
+
+  it('slotsFull from a scale_user_slots_full failure also disables create', async () => {
+    const env = setup({ health: healthWith({ profile: PROFILE }).health })
+    await startCreate(env)
+
+    await env.commandFrame(false, COMMAND_FAILURE_REASONS.slotsFull)
+
+    expect(env.model.step()).toEqual({ kind: 'profileChoice', hardwareId: 'h1', slotsFull: true })
+    await env.model.create()
+    expect(env.profileCalls()).toHaveLength(1)
+  })
+
+  it('the health profile shows once loaded; a missing one is null', async () => {
+    const env = setup({ health: healthWith({ profile: PROFILE }).health })
+    await openProfileStep(env)
+    await vi.waitFor(() => expect(env.model.healthProfile()).toEqual(PROFILE))
+
+    const empty = setup({ health: healthWith().health })
+    await openProfileStep(empty)
+    await empty.flush()
+    expect(empty.model.healthProfile()).toBeNull()
+  })
+
+  it('create with no health profile → healthForm', async () => {
+    const env = setup({ health: healthWith().health })
+    await openProfileStep(env)
+
+    await env.model.create()
+
+    expect(env.model.step()).toEqual({ kind: 'healthForm', hardwareId: 'h1' })
+    expect(env.profileCalls()).toHaveLength(0)
+  })
+
+  it('create with a complete profile POSTs { mode: create } → writing', async () => {
+    const env = setup({ health: healthWith({ profile: PROFILE }).health })
+    await startCreate(env)
+
+    expect(env.profileCalls().map((c) => c.json)).toEqual([{ mode: 'create' }])
+  })
+
+  it('409 health_profile_missing → healthForm', async () => {
+    const env = setup({
+      health: healthWith({ profile: PROFILE }).health,
+      profiles: [{ status: 409, body: { error: { code: 'health_profile_missing', message: '' } } }],
+    })
+    await openProfileStep(env)
+
+    await env.model.create()
+
+    expect(env.model.step()).toEqual({ kind: 'healthForm', hardwareId: 'h1' })
+  })
+
+  it('a create request failure that is no step shows actionError and keeps the step', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const env = setup({
+      health: healthWith({ profile: PROFILE }).health,
+      profiles: ['network-error', OFFLINE],
+    })
+    await openProfileStep(env)
+
+    await env.model.create()
+    expect(env.model.step()).toMatchObject({ kind: 'profileChoice' })
+    expect(env.model.actionError()).toBe(GENERIC_ACTION_ERROR_COPY)
+    expect(warn).toHaveBeenCalled()
+
+    await env.model.create()
+    expect(env.model.actionError()).toBe(GATEWAY_OFFLINE_COPY)
+
+    env.model.openAttach()
+    expect(env.model.actionError()).toBeNull()
+  })
+
+  it('back from healthForm and from attach → profileChoice', async () => {
+    const env = setup({ health: healthWith().health })
+    await openProfileStep(env)
+    await env.model.create()
+    env.model.back()
+    expect(env.model.step()).toMatchObject({ kind: 'profileChoice', hardwareId: 'h1' })
+
+    env.model.openAttach()
+    expect(env.model.step()).toMatchObject({ kind: 'attach' })
+    env.model.back()
+    expect(env.model.step()).toMatchObject({ kind: 'profileChoice', hardwareId: 'h1' })
+  })
+})
+
+describe('wizard health form', () => {
+  it('saveHealthAndCreate calls health.setProfile with the parsed profile, then POSTs create', async () => {
+    const test = healthWith()
+    const env = setup({ health: test.health })
+    await openProfileStep(env)
+    await env.model.create()
+
+    env.model.profileForm.set({ height: '182', birthDate: '14.03.1992', sex: 'male' })
+    await env.model.saveHealthAndCreate()
+
+    expect(test.calls).toEqual([{ action: 'setProfile', payload: PROFILE }])
+    expect(env.profileCalls().map((c) => c.json)).toEqual([{ mode: 'create' }])
+    expect(env.model.step()).toMatchObject({ kind: 'writing', mode: 'create' })
+    expect(env.model.formError()).toBeNull()
+  })
+
+  it('an invalid field → formError for it, nothing saved', async () => {
+    const test = healthWith()
+    const env = setup({ health: test.health })
+    await openProfileStep(env)
+    await env.model.create()
+
+    env.model.profileForm.set({ height: '99', birthDate: '14.03.1992', sex: 'male' })
+    await env.model.saveHealthAndCreate()
+
+    expect(env.model.formError()).toBe('height')
+    expect(test.calls).toEqual([])
+    expect(env.profileCalls()).toHaveLength(0)
+  })
+
+  it("setProfile failure → formError 'save', no POST", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const test = healthWith({ invoke: async () => new Error('module api down') })
+    const env = setup({ health: test.health })
+    await openProfileStep(env)
+    await env.model.create()
+
+    env.model.profileForm.set({ height: '182', birthDate: '14.03.1992', sex: 'male' })
+    await env.model.saveHealthAndCreate()
+
+    expect(env.model.formError()).toBe('save')
+    expect(env.model.step()).toMatchObject({ kind: 'healthForm' })
+    expect(env.profileCalls()).toHaveLength(0)
+    expect(warn).toHaveBeenCalled()
+  })
+})
+
+describe('wizard command answer', () => {
+  it('command ok → done; index is the newly mine index; consentCode from the reveal POST', async () => {
+    const env = setup({
+      health: healthWith({ profile: PROFILE }).health,
+      reveal: { 2: [{ status: 200, body: { consentCode: REVEALED_CODE } }] },
+    })
+    await startCreate(env, scale({ profiles: bindings([1, 'mine']) }))
+    env.server.snapshot = {
+      gateways: [gateway()],
+      hardware: [scale({ profiles: bindings([1, 'mine'], [2, 'mine']) })],
+    }
+
+    await env.commandFrame(true)
+
+    await vi.waitFor(() =>
+      expect(env.model.step()).toEqual({
+        kind: 'done',
+        hardwareId: 'h1',
+        index: 2,
+        consentCode: REVEALED_CODE,
+      }),
+    )
+  })
+
+  it('attach lists only binding-none indexes as selectable; consentValid follows ConsentCodeSchema', async () => {
+    const env = setup({})
+    await openProfileStep(
+      env,
+      scale({ profiles: bindings([1, 'other'], [2, 'none'], [3, 'mine']) }),
+    )
+    env.model.openAttach()
+
+    expect(env.model.attachIndexes()).toEqual([2])
+    env.model.selectIndex(1 as ScaleUserIndex)
+    expect(env.model.step()).toMatchObject({ kind: 'attach', index: null })
+    env.model.selectIndex(2 as ScaleUserIndex)
+    expect(env.model.step()).toMatchObject({ kind: 'attach', index: 2 })
+
+    env.model.consent.set(TYPED_CODE.slice(1))
+    expect(env.model.consentValid()).toBe(false)
+    await env.model.attach()
+    expect(env.profileCalls()).toHaveLength(0)
+
+    env.model.consent.set(TYPED_CODE)
+    expect(env.model.consentValid()).toBe(true)
+    await env.model.attach()
+    expect(env.profileCalls().map((c) => c.json)).toEqual([
+      { mode: 'attach', index: 2, consentCode: TYPED_CODE },
+    ])
+    expect(env.model.step()).toMatchObject({ kind: 'writing', mode: 'attach' })
+  })
+
+  it('attach ok → done with the attached index and the typed code', async () => {
+    const env = setup({})
+    await startAttach(env)
+
+    await env.commandFrame(true)
+
+    await vi.waitFor(() =>
+      expect(env.model.step()).toEqual({
+        kind: 'done',
+        hardwareId: 'h1',
+        index: 2,
+        consentCode: TYPED_CODE,
+      }),
+    )
+  })
+
+  it("command consent_rejected on attach → attach with error 'consent'", async () => {
+    const env = setup({})
+    await startAttach(env)
+
+    await env.commandFrame(false, COMMAND_FAILURE_REASONS.consentRejected)
+
+    expect(env.model.step()).toEqual({
+      kind: 'attach',
+      hardwareId: 'h1',
+      index: 2,
+      error: 'consent',
+    })
+    expect(env.model.consent()).toBe('')
+  })
+
+  it("409 scale_profile_bound on attach → error 'bound'", async () => {
+    const env = setup({
+      profiles: [{ status: 409, body: { error: { code: 'scale_profile_bound', message: '' } } }],
+    })
+    await startAttach(env)
+
+    expect(env.model.step()).toMatchObject({ kind: 'attach', hardwareId: 'h1', error: 'bound' })
+  })
+
+  it('command with another reason → scaleSilent; retry re-sends the same mode; back → profileChoice', async () => {
+    const env = setup({
+      profiles: [
+        { status: 202, body: { commandId: 'c1' } },
+        { status: 202, body: { commandId: 'c2' } },
+      ],
+    })
+    await startAttach(env)
+
+    await env.commandFrame(false, 'scale_not_found')
+    expect(env.model.step()).toEqual({ kind: 'scaleSilent', hardwareId: 'h1', mode: 'attach' })
+
+    await env.model.retry()
+    const bodies = env.profileCalls().map((c) => c.json)
+    expect(bodies).toHaveLength(2)
+    expect(bodies[1]).toEqual(bodies[0])
+    expect(env.model.step()).toMatchObject({ kind: 'writing', mode: 'attach', commandId: 'c2' })
+
+    env.emit({ type: 'command', commandId: 'c2', ok: false, reason: 'scale_not_found' })
+    await env.flush()
+    expect(env.model.step()).toMatchObject({ kind: 'scaleSilent' })
+    env.model.back()
+    expect(env.model.step()).toMatchObject({ kind: 'profileChoice', hardwareId: 'h1' })
+  })
+
+  it('no command frame within SCALE_ANSWER_TIMEOUT_MS but a new mine binding in the re-read snapshot → done', async () => {
+    const env = setup({
+      health: healthWith({ profile: PROFILE }).health,
+      reveal: { 1: [{ status: 200, body: { consentCode: REVEALED_CODE } }] },
+    })
+    await startCreate(env)
+    // The binding was written, the `command` publish was lost (Review Focus 3).
+    env.server.snapshot = {
+      gateways: [gateway()],
+      hardware: [scale({ profiles: bindings([1, 'mine']) })],
+    }
+
+    await vi.advanceTimersByTimeAsync(SCALE_ANSWER_TIMEOUT_MS - 1_000)
+    expect(env.model.step()).toMatchObject({ kind: 'writing' })
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    await vi.waitFor(() =>
+      expect(env.model.step()).toEqual({
+        kind: 'done',
+        hardwareId: 'h1',
+        index: 1,
+        consentCode: REVEALED_CODE,
+      }),
+    )
+  })
+
+  it('…and none → scaleSilent', async () => {
+    const env = setup({ health: healthWith({ profile: PROFILE }).health })
+    await startCreate(env)
+
+    await vi.advanceTimersByTimeAsync(SCALE_ANSWER_TIMEOUT_MS)
+
+    await vi.waitFor(() =>
+      expect(env.model.step()).toEqual({ kind: 'scaleSilent', hardwareId: 'h1', mode: 'create' }),
+    )
+  })
+
+  it('done with no weight card → boardNeedsWeightCard true', async () => {
+    const env = setup({})
+    await startAttach(env)
+    expect(env.model.boardNeedsWeightCard()).toBe(false)
+
+    await env.commandFrame(true)
+
+    await vi.waitFor(() => expect(env.model.step()).toMatchObject({ kind: 'done' }))
+    expect(env.model.boardNeedsWeightCard()).toBe(true)
+  })
+
+  it('done with a weight card → boardNeedsWeightCard false', async () => {
+    const env = setup({ hasWeightCard: true })
+    await startAttach(env)
+
+    await env.commandFrame(true)
+
+    await vi.waitFor(() => expect(env.model.step()).toMatchObject({ kind: 'done' }))
+    expect(env.model.boardNeedsWeightCard()).toBe(false)
+  })
+})
+
+describe('wizard recovery (Task 10 follow-ups)', () => {
+  it('409 gateway_offline while the snapshot still says online → one retry after WIZARD_OFFLINE_RETRY_MS', async () => {
+    const env = setup({ scan: [OFFLINE, { status: 202 }] })
+    await env.loaded()
+    env.server.snapshot = { gateways: [gateway({ scan: activeScan([]) })], hardware: [] }
+    await env.model.openScan('g1')
+    expect(env.model.gatewayOffline()).toBe(true)
+    expect(env.model.scanning()).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(WIZARD_OFFLINE_RETRY_MS)
+
+    await vi.waitFor(() => expect(env.scanCalls()).toHaveLength(2))
+    await vi.waitFor(() => expect(env.model.scanning()).toBe(true))
+    expect(env.model.gatewayOffline()).toBe(false)
+  })
+
+  it('the retry refused too while online → no spinner, rescan offered (nothingFound)', async () => {
+    const env = setup({ scan: [OFFLINE, OFFLINE, { status: 202 }] })
+    await env.loaded()
+    // A stale active record from the refused start (Review Focus 2) must not spin.
+    env.server.snapshot = { gateways: [gateway({ scan: activeScan([]) })], hardware: [] }
+    await env.model.openScan('g1')
+
+    await vi.advanceTimersByTimeAsync(WIZARD_OFFLINE_RETRY_MS)
+    await vi.waitFor(() => expect(env.scanCalls()).toHaveLength(2))
+    await vi.waitFor(() => expect(env.model.gatewayOffline()).toBe(false))
+    expect(env.model.scanning()).toBe(false)
+    expect(env.model.nothingFound()).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(WIZARD_OFFLINE_RETRY_MS * 3)
+    expect(env.scanCalls()).toHaveLength(2)
+    await env.model.rescan()
+    expect(env.scanCalls()).toHaveLength(3)
+  })
+
+  it('the auto-restart scan refused while online → retried once', async () => {
+    const env = setup({ scan: [OFFLINE, OFFLINE, { status: 202 }] })
+    await env.loaded()
+    env.server.snapshot = { gateways: [gateway({ online: false })], hardware: [] }
+    await env.model.openScan('g1')
+    await vi.waitFor(() => expect(env.hardware.snapshot.data()?.gateways[0]?.online).toBe(false))
+
+    await env.change({ gateways: [gateway({ scan: activeScan([]) })], hardware: [] })
+    await vi.waitFor(() => expect(env.scanCalls()).toHaveLength(2))
+    expect(env.model.gatewayOffline()).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(WIZARD_OFFLINE_RETRY_MS)
+    await vi.waitFor(() => expect(env.scanCalls()).toHaveLength(3))
+    await vi.waitFor(() => expect(env.model.scanning()).toBe(true))
+  })
+
+  it('submitPin 409 pairing_not_waiting_pin → actionError, step unchanged', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const env = setup({
+      pin: [{ status: 409, body: { error: { code: 'pairing_not_waiting_pin', message: '' } } }],
+    })
+    await openPairing(env)
+    await env.pairingFrame('pin_required')
+    env.model.pin.set(GOOD_PIN)
+
+    await env.model.submitPin()
+
+    expect(env.model.step()).toMatchObject({ kind: 'pairing', stage: 'pin_required' })
+    expect(env.model.actionError()).toBe(GENERIC_ACTION_ERROR_COPY)
+  })
+
+  it('back from pairing drops the buffered frames', async () => {
+    const env = setup({
+      pair: [
+        { status: 202, body: { pairingId: 'p1' } },
+        { status: 202, body: { pairingId: 'p1' } },
+      ],
+    })
+    await openPairing(env)
+    await env.pairingFrame('pin_required')
+
+    env.model.back()
+    await env.model.choose(ADDRESS)
+
+    expect(env.model.step()).toMatchObject({ kind: 'pairing', stage: 'connecting' })
+  })
+
+  it('dispose stops listening to board events', async () => {
+    const env = setup({})
+    await env.loaded()
+    env.model.dispose()
+    env.emit({
+      type: 'pairing',
+      pairingId: 'p1',
+      stage: 'pin_required',
+      hardwareId: null,
+      reason: null,
+    })
+    await env.flush()
+
+    await openPairing(env)
+
+    expect(env.model.step()).toMatchObject({ kind: 'pairing', stage: 'connecting' })
   })
 })

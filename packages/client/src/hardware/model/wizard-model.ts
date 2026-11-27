@@ -4,14 +4,13 @@ import {
   addCallHook,
   atom,
   type Atom,
-  type AtomLike,
   type Computed,
   computed,
-  isAbort,
   sleep,
   take,
   withAbort,
   withAsync,
+  withComputed,
   wrap,
 } from '@reatom/core'
 import {
@@ -31,10 +30,19 @@ import {
 import type { HealthModel } from 'module-health'
 import { makeTickingNow } from 'widget-sdk/reatom/countdown'
 
+import { describeHardwareError } from './hardware-copy'
 import type { HardwareModel } from './hardware-model'
+import { makeWizardProfileSteps, type WizardProfileSteps } from './wizard-profile'
+import { launch, makeWaitFor } from './wizard-waits'
 
 /** After a PIN is submitted with no answer for this long, the wizard re-reads the snapshot (Decision 7). */
 export const PAIRING_ANSWER_CHECK_MS = 20_000
+
+/**
+ * A scan start refused as `gateway_offline` while the snapshot still says online gets one retry
+ * after this long; no online-flag change would ever come to restart it.
+ */
+export const WIZARD_OFFLINE_RETRY_MS = 5_000
 
 export type WizardStep =
   | { kind: 'scan' }
@@ -62,7 +70,7 @@ type PairingStep = Extract<WizardStep, { kind: 'pairing' }>
 type PairingFrame = Extract<HardwareBoardEvent, { type: 'pairing' }>
 type CommandFrame = Extract<HardwareBoardEvent, { type: 'command' }>
 
-export type WizardModel = {
+export type WizardModel = Omit<WizardProfileSteps, 'loadHealth' | 'reset'> & {
   step: Atom<WizardStep>
   gatewayId: Atom<string | null>
   /** §4(e): the gateway is offline, or this run's last scan start was refused as offline. */
@@ -77,36 +85,37 @@ export type WizardModel = {
   pinValid: Computed<boolean>
   /** Decision 8: «Сопрячь» may be pressed only once the gateway asks for the PIN. */
   pinEnabled: Computed<boolean>
+  /**
+   * The last failed request that has no step of its own (PIN submit, create/attach), as Decision 20
+   * copy; cleared by the next attempt and by any step change.
+   */
+  actionError: Atom<string | null>
   openScan: Action<[gatewayId: string], Promise<void>>
+  /** §2(c) «Подключить профиль»: the wizard opened on an already paired scale's profile choice. */
+  openProfile: Action<[hardwareId: string], Promise<void>>
   rescan: Action<[], Promise<void>>
   choose: Action<[address: BleAddress], Promise<void>>
   submitPin: Action<[], Promise<void>>
-  /** pairing → scan; healthForm/attach → profileChoice. */
+  /** pairing → scan; healthForm/attach/scaleSilent → profileChoice. */
   back: Action<[], void>
   /** Best-effort scan stop, aborts every wait, resets the wizard. */
   close: Action<[], void>
+  /** Stops listening to `hardware.received` and resets; the model is unusable afterwards. */
+  dispose: () => void
 }
 
 export type WizardDeps = {
   hardware: HardwareModel
   client: HardwareBoardClient
-  /** Task 11: the account's health model for the create flow. */
+  /** The account's health model for the create flow (Decision 10). */
   health: () => Promise<HealthModel | Error>
-  /** Task 11: whether the board already shows a weight card. */
+  /** Whether the board already shows a weight card (Decision 11); read at the done step. */
   hasWeightCard: () => boolean
 }
 
 const SCAN_TICK_MS = 1_000
 // Recent pairing/command frames kept so a frame that beats its HTTP answer is not lost.
 const RECENT_EVENTS_LIMIT = 20
-
-/** Fire-and-forget launcher for the abortable waits: an abort is expected, anything else is logged. */
-function launch(promise: Promise<unknown>, what: string) {
-  promise.catch((cause: unknown) => {
-    if (isAbort(cause)) return
-    console.warn(`Hardware wizard ${what} failed:`, cause)
-  })
-}
 
 export function makeWizardModel(deps: WizardDeps): WizardModel {
   const { hardware, client } = deps
@@ -122,8 +131,21 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
   const scanAccepted = atom(false, 'hardware.wizard.scanAccepted')
   // Set when the gateway was offline for a scan start or dropped mid-scan/pairing: restart on online.
   const restartOnOnline = atom(false, 'hardware.wizard.restartOnOnline')
+  // The one retry for a 409 while the snapshot says online is spent; reset by a 202 or a real drop.
+  const offlineRetried = atom(false, 'hardware.wizard.offlineRetried')
+  // This run's last start failed with nothing to wait for: no spinner, «Искать снова» offered.
+  const scanRefused = atom(false, 'hardware.wizard.scanRefused')
+  // §4(c5) learned from a `scale_user_slots_full` answer, which the snapshot may not show yet.
+  const slotsFullFor = atom<string | null>(null, 'hardware.wizard.slotsFullFor')
 
   const recentEvents = atom<Array<PairingFrame | CommandFrame>>([], 'hardware.wizard.recentEvents')
+  // An error belongs to the step it was raised on.
+  const actionError = atom<string | null>(null, 'hardware.wizard.actionError').extend(
+    withComputed(() => {
+      step()
+      return null
+    }),
+  )
 
   const scanClock = makeTickingNow({
     now: hardware.now,
@@ -165,7 +187,11 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
   }, 'hardware.wizard.results')
 
   const nothingFound = computed(
-    () => scanAccepted() && !scanning() && !gatewayOffline() && results().length === 0,
+    () =>
+      (scanAccepted() || scanRefused()) &&
+      !scanning() &&
+      !gatewayOffline() &&
+      results().length === 0,
     'hardware.wizard.nothingFound',
   )
 
@@ -191,21 +217,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     return found?.id ?? null
   }, 'hardware.wizard.bondedHardwareId')
 
-  /**
-   * Resolves with the first non-null value of `target`, or null once `timeoutMs` passed on the
-   * server-aligned clock. Must run inside an action frame (it wraps its own awaits); Task 11 reuses
-   * it for the command answer.
-   */
-  async function waitFor<T>(target: AtomLike<T | null>, timeoutMs: number): Promise<T | null> {
-    const deadline = hardware.now() + timeoutMs
-    while (true) {
-      const value = target()
-      if (value !== null) return value
-      const remaining = deadline - hardware.now()
-      if (remaining <= 0) return null
-      await wrap(Promise.race([wrap(take(target)), wrap(sleep(remaining))]))
-    }
-  }
+  const waitFor = makeWaitFor(hardware.now)
 
   /** Re-reads the snapshot and waits for the fresh one; a failed read is logged, not raised. */
   async function rereadSnapshot() {
@@ -219,9 +231,22 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
 
   function profileChoiceFor(hardwareId: string): WizardStep {
     const record = hardware.snapshot.data()?.hardware.find((h) => h.id === hardwareId)
-    const slotsFull = (record?.profiles.length ?? 0) >= SCALE_USER_SLOTS
+    const slotsFull =
+      (record?.profiles.length ?? 0) >= SCALE_USER_SLOTS || slotsFullFor() === hardwareId
     return { kind: 'profileChoice', hardwareId, slotsFull }
   }
+
+  const profile = makeWizardProfileSteps({
+    deps,
+    step,
+    session,
+    recentEvents,
+    actionError,
+    waitFor,
+    rereadSnapshot,
+    profileChoiceFor,
+    markSlotsFull: (hardwareId) => slotsFullFor.set(hardwareId),
+  })
 
   function currentPairing(pairingId: string): PairingStep | null {
     const current = step()
@@ -276,11 +301,28 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     step.set({ ...current, stage: frame.stage })
   }
 
-  addCallHook(hardware.received, (event) => {
+  const stopListening = addCallHook(hardware.received, (event) => {
     if (event.type !== 'pairing' && event.type !== 'command') return
     recentEvents.set((events) => [...events, event].slice(-RECENT_EVENTS_LIMIT))
     if (event.type === 'pairing') applyPairingFrame(event)
   })
+
+  /**
+   * Decision 6: a 409 means the command never reached the gateway; wait for it to return. When the
+   * fresh snapshot still says online no flag change will come, so retry once, then offer a rescan.
+   */
+  async function awaitGatewayBack(run: number) {
+    restartOnOnline.set(true)
+    await rereadSnapshot()
+    if (session() !== run || !restartOnOnline() || gatewayOnline() !== true) return
+    if (offlineRetried()) {
+      restartOnOnline.set(false)
+      scanRefused.set(true)
+      return
+    }
+    offlineRetried.set(true)
+    launch(retryScan(), 'offline scan retry')
+  }
 
   const startScan = action(async () => {
     const id = gatewayId()
@@ -288,27 +330,33 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     const run = session()
     restartOnOnline.set(false)
     scanAccepted.set(false)
+    scanRefused.set(false)
     scanStarting.set(true)
     const result = await wrap(client.scan(id, 'start'))
     if (session() !== run) return
     if (result instanceof Error) {
       scanStarting.set(false)
       if (isHardwareError(result, 'gateway_offline')) {
-        // Decision 6: a 409 means the command never reached the gateway; wait for it to return.
-        restartOnOnline.set(true)
-        hardware.refresh()
+        await awaitGatewayBack(run)
         return
       }
       console.warn('Hardware scan start failed:', result.message)
-      // Nothing is scanning: show the "nothing found" state so «Искать снова» is offered.
-      scanAccepted.set(true)
+      // Nothing is scanning, and a record this run did not start never spins (Review Focus 2).
+      scanRefused.set(true)
       return
     }
+    offlineRetried.set(false)
     scanAccepted.set(true)
     await rereadSnapshot()
     if (session() !== run) return
     scanStarting.set(false)
   }, 'hardware.wizard.startScan')
+
+  const retryScan = action(async () => {
+    await wrap(sleep(WIZARD_OFFLINE_RETRY_MS))
+    if (step().kind !== 'scan' || !restartOnOnline() || gatewayOnline() !== true) return
+    await wrap(startScan())
+  }, 'hardware.wizard.retryScan').extend(withAbort())
 
   // Decision 18 + Review Focus 2: reacts to the gateway's online flag for the whole wizard run.
   const watchGateway = action(async () => {
@@ -316,6 +364,8 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
       await wrap(take(gatewayOnline))
       const online = gatewayOnline()
       const current = step()
+      // A real drop: the next 409-while-online episode gets its own retry.
+      if (online === false) offlineRetried.set(false)
       if (online === false && current.kind === 'pairing') {
         // The gateway lost the pairing: back to the scan, a fresh one once it is back.
         stopPairingWaits()
@@ -338,6 +388,8 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
   function resetState() {
     stopPairingWaits()
     watchGateway.abort()
+    retryScan.abort()
+    profile.reset()
     session.set((value) => value + 1)
     step.set({ kind: 'scan' })
     gatewayId.set(null)
@@ -345,6 +397,9 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     scanStarting.set(false)
     scanAccepted.set(false)
     restartOnOnline.set(false)
+    offlineRetried.set(false)
+    scanRefused.set(false)
+    slotsFullFor.set(null)
     recentEvents.set([])
   }
 
@@ -352,8 +407,20 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     resetState()
     gatewayId.set(id)
     launch(watchGateway(), 'gateway watch')
+    launch(profile.loadHealth(), 'health model load')
     await startScan()
   }, 'hardware.wizard.openScan').extend(withAsync())
+
+  const openProfile = action(async (hardwareId: string) => {
+    resetState()
+    const run = session()
+    if (hardware.snapshot.data() === null) await rereadSnapshot()
+    if (session() !== run) return
+    const record = hardware.snapshot.data()?.hardware.find((h) => h.id === hardwareId)
+    gatewayId.set(record?.gatewayId ?? null)
+    step.set(profileChoiceFor(hardwareId))
+    await wrap(profile.loadHealth())
+  }, 'hardware.wizard.openProfile').extend(withAsync())
 
   const rescan = action(async () => {
     if (step().kind !== 'scan') return
@@ -410,6 +477,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     if (!parsed.success) return
     const pairingId = current.pairingId
     const run = session()
+    actionError.set(null)
     const result = await wrap(client.submitPin(pairingId, parsed.data))
     if (session() !== run || currentPairing(pairingId) === null) return
     if (result instanceof Error) {
@@ -418,7 +486,9 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
         step.set({ kind: 'pairingFailed' })
         return
       }
+      // e.g. 409 pairing_not_waiting_pin or a network failure: the step stays, the UI shows why.
       console.warn('Hardware PIN submit failed:', result.message)
+      actionError.set(describeHardwareError(result))
       return
     }
     launch(answerCheck(pairingId), 'pairing answer check')
@@ -429,10 +499,16 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     if (current.kind === 'pairing') {
       stopPairingWaits()
       pin.set('')
+      // Frames of the abandoned pairing must not replay into the next one.
+      recentEvents.set([])
       step.set({ kind: 'scan' })
       return
     }
-    if (current.kind === 'healthForm' || current.kind === 'attach') {
+    if (
+      current.kind === 'healthForm' ||
+      current.kind === 'attach' ||
+      current.kind === 'scaleSilent'
+    ) {
       step.set(profileChoiceFor(current.hardwareId))
     }
   }, 'hardware.wizard.back')
@@ -448,6 +524,11 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     resetState()
   }, 'hardware.wizard.close')
 
+  function dispose() {
+    stopListening()
+    resetState()
+  }
+
   return {
     step,
     gatewayId,
@@ -458,11 +539,27 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     pin,
     pinValid,
     pinEnabled,
+    actionError,
+    healthProfile: profile.healthProfile,
+    profileForm: profile.profileForm,
+    formError: profile.formError,
+    consent: profile.consent,
+    consentValid: profile.consentValid,
+    attachIndexes: profile.attachIndexes,
+    boardNeedsWeightCard: profile.boardNeedsWeightCard,
+    create: profile.create,
+    saveHealthAndCreate: profile.saveHealthAndCreate,
+    openAttach: profile.openAttach,
+    selectIndex: profile.selectIndex,
+    attach: profile.attach,
+    retry: profile.retry,
     openScan,
+    openProfile,
     rescan,
     choose,
     submitPin,
     back,
     close,
+    dispose,
   }
 }
