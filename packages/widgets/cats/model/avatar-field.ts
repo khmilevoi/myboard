@@ -1,4 +1,4 @@
-import { action, atom, computed, withAsync, withComputed, wrap } from '@reatom/core'
+import { action, atom, computed, wrap } from '@reatom/core'
 import type { AtomLike } from '@reatom/core'
 import type { CatModel } from 'module-cats'
 import type { StorageError } from 'widget-runtime'
@@ -50,32 +50,43 @@ export function makeAvatarField(
     revokeObjectUrl: overrides.revokeObjectUrl ?? ((url) => URL.revokeObjectURL(url)),
   }
 
-  /** The prepared image while it uploads, drawn dimmed in place of the avatar (state C). */
-  const preview = atom<string | null>(null, `${name}.preview`)
-  // Another cat's failure is not this cat's: the message goes when the cat changes.
-  const failed = atom(false, `${name}.failed`).extend(
-    withComputed(() => {
-      cat()
-      return false
-    }),
-  )
+  // Every upload, failure and removal belongs to the cat it was started for (its memoized
+  // `CatModel`, one per cat id): switching cats mid-upload never shows or blocks another cat's.
+  type Pending = { target: CatModel; url: string }
+  const uploads = atom<readonly Pending[]>([], `${name}.uploads`)
+  const failures = atom<ReadonlySet<CatModel>>(new Set<CatModel>(), `${name}.failures`)
+  const removals = atom<ReadonlySet<CatModel>>(new Set<CatModel>(), `${name}.removals`)
+
+  const without = <T>(set: ReadonlySet<T>, item: T): ReadonlySet<T> => {
+    const next = new Set(set)
+    next.delete(item)
+    return next
+  }
 
   const upload = action(async (target: CatModel, image: Blob): Promise<StorageError | void> => {
-    failed.set(false)
-    const url = deps.createObjectUrl(image)
-    preview.set(url)
+    failures.set(without(failures(), target))
+    const pending: Pending = { target, url: deps.createObjectUrl(image) }
+    uploads.set([...uploads(), pending])
     const result = await wrap(target.uploadAvatar(image))
-    preview.set(null)
-    deps.revokeObjectUrl(url)
+    uploads.set(uploads().filter((entry) => entry !== pending))
+    deps.revokeObjectUrl(pending.url)
     if (result instanceof Error) {
       console.warn('[cats] the avatar upload failed', result)
-      failed.set(true)
+      failures.set(new Set<CatModel>(failures()).add(target))
       return result
     }
-  }, `${name}.upload`).extend(withAsync())
+  }, `${name}.upload`)
 
-  const uploading = computed(() => !upload.ready(), `${name}.uploading`)
-  const error = computed(() => (failed() ? AVATAR_UPLOAD_ERROR : null), `${name}.error`)
+  /** The chosen cat's prepared image while it uploads, drawn dimmed in place of its avatar (C). */
+  const preview = computed(() => {
+    const current = cat()
+    return uploads().findLast((entry) => entry.target === current)?.url ?? null
+  }, `${name}.preview`)
+  const uploading = computed(() => preview() !== null, `${name}.uploading`)
+  const error = computed(() => {
+    const current = cat()
+    return current !== null && failures().has(current) ? AVATAR_UPLOAD_ERROR : null
+  }, `${name}.error`)
 
   const crop = makeAvatarCropModel({
     // Only the preparation is awaited: its failure stays in the dialog, as the account's does.
@@ -96,7 +107,8 @@ export function makeAvatarField(
 
   /** A file from the picker: forgets the last failure and opens the crop dialog. */
   const pick = action(async (file: Blob) => {
-    failed.set(false)
+    const current = cat()
+    if (current !== null) failures.set(without(failures(), current))
     await wrap(crop.openFile(file))
   }, `${name}.pick`)
 
@@ -104,14 +116,19 @@ export function makeAvatarField(
   const remove = action(async (): Promise<StorageError | void> => {
     const target = cat()
     if (target === null) return
+    removals.set(new Set<CatModel>(removals()).add(target))
     const result = await wrap(target.removeAvatar())
+    removals.set(without(removals(), target))
     if (result instanceof Error) {
       console.warn('[cats] removing the avatar failed', result)
       return result
     }
-  }, `${name}.remove`).extend(withAsync())
+  }, `${name}.remove`)
 
-  const removing = computed(() => !remove.ready(), `${name}.removing`)
+  const removing = computed(() => {
+    const current = cat()
+    return current !== null && removals().has(current)
+  }, `${name}.removing`)
 
   return { crop, preview, uploading, removing, error, pick, remove }
 }

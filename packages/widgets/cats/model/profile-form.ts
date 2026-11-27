@@ -179,10 +179,17 @@ export function makeProfileForm({ cat, model, name = 'profileForm' }: MakeProfil
     const target = cat()
     const entry = edits()
     const fields = draft()
-    const choice = litter()
-    if (target === null || fields === null || choice === null) return
+    const current = live()
+    if (target === null || fields === null || current === null) return
     const parsed = CatProfileFieldsSchema.safeParse(fields)
     if (!parsed.success) return
+    // A litter the user did not change is the one the profile has now, never a stale copy: a
+    // "Новый лоток" already sent must not travel again and create a second litter.
+    const sentFrom = current.profile
+    const choice: LitterChoice =
+      entry !== null && !sameLitter(entry.litter, entry.baseLitter)
+        ? entry.litter
+        : { kind: 'existing', litterId: sentFrom.litterId }
     saveFailed.set(false)
 
     const result = await wrap(target.saveProfile(parsed.data, choice))
@@ -191,16 +198,29 @@ export function makeProfileForm({ cat, model, name = 'profileForm' }: MakeProfil
       return result
     }
 
-    // Typed on while it was saving: those edits stay. Otherwise the sent values stay on screen
-    // until the profile key answers, against the profile current now (the answer may be in).
     const now = edits()
-    const current = live()
-    if (now !== entry || now === null || current === null) return
+    const after = live()
+    if (now === null || after === null) return
+    if (now !== entry) {
+      // Typed on while it was saving: those edits stay, but a sent "Новый лоток" is done with.
+      if (choice.kind === 'new' && now.litter.kind === 'new') {
+        const untouched: LitterChoice = { kind: 'existing', litterId: after.profile.litterId }
+        edits.set({ ...now, litter: untouched, baseLitter: untouched })
+      }
+      return
+    }
+    // The answer is in already, or the new litter's id is only known from it: the profile shows.
+    if (choice.kind === 'new' || after.profile !== sentFrom) {
+      edits.set(null)
+      return
+    }
+    // Otherwise the sent values stay on screen until the profile key answers.
     edits.set({
       ...now,
-      source: current.profile,
+      source: sentFrom,
       fields: parsed.data,
       baseFields: parsed.data,
+      litter: choice,
       baseLitter: choice,
       saved: true,
     })

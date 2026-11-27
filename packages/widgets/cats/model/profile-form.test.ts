@@ -42,7 +42,7 @@ afterEach(() => {
 })
 
 function setup(options: MakeTestCatsModelOptions = TWO_CATS) {
-  const shared = createFakeStorage()
+  const shared = options.storage ?? createFakeStorage()
   void shared.set(litterSettingsKey('ofelia'), { rotation: ['Леша', 'Карина'] })
   const { model, calls } = makeTestCatsModel({
     todayIso: '2026-11-26',
@@ -154,6 +154,83 @@ describe('makeProfileForm', () => {
       action: 'saveProfile',
       payload: { litter: { kind: 'new' } },
     })
+    off()
+  })
+
+  // The server writes the profile before it answers, so its echo can come first.
+  it('a saved "Новый лоток" whose echo came before the answer is never sent again', async () => {
+    const shared = createFakeStorage()
+    const { form, calls, off } = setup({
+      ...TWO_CATS,
+      storage: shared,
+      invoke: async (action) => {
+        if (action === 'saveProfile')
+          await shared.set(catProfileKey('ofelia'), { ...OFELIA, litterId: 'ofelia-2' })
+        return { ok: true }
+      },
+    })
+    await loaded(form)
+
+    form.chooseLitter({ kind: 'new' })
+    await form.save()
+    expect(form.dirty()).toBe(false)
+    expect(form.litter()).toEqual({ kind: 'existing', litterId: 'ofelia-2' })
+
+    form.edit({ name: 'Офи' })
+    await form.save()
+    const saves = calls.filter((call) => call.action === 'saveProfile')
+    expect(saves).toHaveLength(2)
+    expect(saves[1]?.payload).toMatchObject({ litter: { kind: 'existing', litterId: 'ofelia-2' } })
+    off()
+  })
+
+  it('an edit between the answer and the echo of "Новый лоток" sends the new litter, not a new one', async () => {
+    const { form, calls, shared, cat, off } = setup()
+    await loaded(form)
+
+    form.chooseLitter({ kind: 'new' })
+    await form.save()
+    form.edit({ name: 'Офи' })
+    expect(form.dirty()).toBe(true)
+
+    await shared.set(catProfileKey('ofelia'), { ...OFELIA, litterId: 'ofelia-2' })
+    const liveLitter = wrap(() => cat().profile()?.litterId)
+    await vi.waitFor(() => expect(liveLitter()).toBe('ofelia-2'))
+
+    await form.save()
+    const saves = calls.filter((call) => call.action === 'saveProfile')
+    expect(saves).toHaveLength(2)
+    expect(saves[0]?.payload).toMatchObject({ litter: { kind: 'new' } })
+    expect(saves[1]?.payload).toMatchObject({
+      profile: expect.objectContaining({ name: 'Офи' }),
+      litter: { kind: 'existing', litterId: 'ofelia-2' },
+    })
+    off()
+  })
+
+  it('a save whose echo came before the answer does not stay held', async () => {
+    const shared = createFakeStorage()
+    const { form, off } = setup({
+      ...TWO_CATS,
+      storage: shared,
+      invoke: async (action, payload) => {
+        if (action === 'saveProfile') {
+          const { profile } = payload as { profile: object }
+          await shared.set(catProfileKey('ofelia'), { ...profile, litterId: 'ofelia' })
+        }
+        return { ok: true }
+      },
+    })
+    await loaded(form)
+
+    form.edit({ breed: 'Сибирская' })
+    await form.save()
+    expect(form.dirty()).toBe(false)
+
+    // A later change from another device shows at once: nothing holds the draft any more.
+    await shared.set(catProfileKey('ofelia'), { ...OFELIA, breed: 'Мейн-кун' })
+    const breed = wrap(() => form.draft()?.breed)
+    await vi.waitFor(() => expect(breed()).toBe('Мейн-кун'))
     off()
   })
 
