@@ -28,6 +28,12 @@
  * (outside `ALLOWED_STORAGE_NAMESPACES`) naming its owning slot's full key and its access rule.
  * An account avatar is the `avatar` field of the `account:<id>` record, not a storage key. Renaming
  * the `@files/` prefix or the `files:blob:` prefix orphans every uploaded file the same way.
+ *
+ * Server-owned hardware registry keys (`packages/server/src/hardware/keys.ts`) all start with `hw:`
+ * and are outside `ALLOWED_STORAGE_NAMESPACES`: `hw:gateway-code`, `hw:gateway-ids`,
+ * `hw:gateway:<id>`, `hw:gateway-token:<tokenHash>`, `hw:hardware-ids`, `hw:hardware:<id>`,
+ * `hw:bindings:<hardwareId>`, `hw:scan:<gatewayId>`, `hw:pairing:<id>`, `hw:command:<id>`. Binding
+ * records hold the only copy of each scale's consent code, so renaming any of them orphans it.
  */
 export function instanceNamespace(instanceId: string): string {
   return `w:i:${instanceId}:`

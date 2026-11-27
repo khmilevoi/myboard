@@ -31,6 +31,13 @@ describe('csrfBlocked', () => {
     expect(csrfBlocked(req('POST', '/healthz'))).toBe(false)
   })
 
+  it('exempts the bearer-authenticated gateway routes but not board hardware routes', () => {
+    expect(csrfBlocked(req('POST', '/api/hardware/gateway/events'))).toBe(false)
+    expect(csrfBlocked(req('POST', '/api/hardware/gateway/register'))).toBe(false)
+    expect(csrfBlocked(req('POST', '/api/hardware/codes'))).toBe(true)
+    expect(csrfBlocked(req('DELETE', '/api/hardware/gateways/x'))).toBe(true)
+  })
+
   it('exempts /api/test/*', () => {
     expect(csrfBlocked(req('POST', '/api/test/reset'))).toBe(false)
     expect(csrfBlocked(req('POST', '/api/test/seed-invite'))).toBe(false)

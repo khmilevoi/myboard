@@ -46,6 +46,23 @@ test.describe('gate: no session', () => {
     ).toBe(401)
   })
 
+  test('the hardware gateway routes reach Node without a session; board hardware routes stay gated', async ({
+    request,
+  }) => {
+    // 400 gateway_code_invalid is Node's own body: the gate's 401 never carries it.
+    const register = await request.post('/api/hardware/gateway/register', {
+      data: { code: 'AAAA-AAAA', label: 'e2e' },
+    })
+    expect(register.status()).toBe(400)
+    expect((await register.json()).error.code).toBe('gateway_code_invalid')
+
+    const stream = await request.get('/api/hardware/gateway/stream')
+    expect(stream.status()).toBe(401)
+    expect((await stream.json()).error.code).toBe('gateway_unauthorized')
+
+    expect((await request.get('/api/hardware')).status()).toBe(401)
+  })
+
   test('file blobs and file uploads are blocked', async ({ request }) => {
     const blob = await request.get('/files/AbCdEfGhIjKlMnOpQrStUv')
     expect(blob.status()).toBe(401)
@@ -120,6 +137,55 @@ test.describe('gate: seeded session', () => {
       data: { value: 1 },
     })
     expect(withHeader.ok()).toBe(true)
+  })
+  test('a gateway registers and streams through nginx with only its bearer token', async ({
+    request,
+    baseURL,
+  }) => {
+    await seedSession(request)
+    const minted = await request.post('/api/hardware/codes', {
+      headers: { 'X-Requested-With': 'MyBoard' },
+    })
+    expect(minted.status()).toBe(201)
+    const { code } = (await minted.json()) as { code: string }
+
+    // A fresh context carries no cookie: only the bearer token authenticates it.
+    const gateway = await playwrightRequest.newContext({ baseURL: baseURL! })
+    try {
+      const registered = await gateway.post('/api/hardware/gateway/register', {
+        data: { code, label: 'e2e' },
+      })
+      expect(registered.status()).toBe(201)
+      const { token } = (await registered.json()) as { token: string }
+
+      const open = new AbortController()
+      const streamed = await fetch(new URL('/api/hardware/gateway/stream', baseURL!), {
+        headers: { authorization: `Bearer ${token}` },
+        signal: open.signal,
+      })
+      try {
+        expect(streamed.status).toBe(200)
+        expect(streamed.headers.get('content-type')).toContain('text/event-stream')
+        const reader = streamed.body!.getReader()
+        const decoder = new TextDecoder()
+        let text = ''
+        while (!text.includes('\n\n')) {
+          const chunk = await reader.read()
+          if (chunk.done) break
+          text += decoder.decode(chunk.value, { stream: true })
+        }
+        expect(text).toContain('event: ready')
+      } finally {
+        open.abort()
+      }
+
+      const wrong = await gateway.get('/api/hardware/gateway/stream', {
+        headers: { authorization: 'Bearer wrong' },
+      })
+      expect(wrong.status()).toBe(401)
+    } finally {
+      await gateway.dispose()
+    }
   })
 })
 
