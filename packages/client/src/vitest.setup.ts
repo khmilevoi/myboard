@@ -18,8 +18,8 @@ beforeEach(async () => {
 // packages/widget-runtime/src/overlay-history.ts mirrors open overlays onto
 // browser history through file-scoped singletons (the entry stack, the
 // popstate listener, a pending owed-traversal timer), shared by every
-// Dialog/Popover root that calls useOverlayBackDismiss (packages/client/src/
-// components/ui/dialog.tsx, popover.tsx). Without a reset, one test's
+// Dialog/Popover root that calls useOverlayBackDismiss (packages/widget-sdk/src/
+// ui/dialog.tsx, popover.tsx). Without a reset, one test's
 // still-registered entry (or scheduled traversal) leaks into the next.
 // Guarded to jsdom: `@vitest-environment node` files in this package (e.g.
 // board-storage.test.ts) have no window/history at all — see the

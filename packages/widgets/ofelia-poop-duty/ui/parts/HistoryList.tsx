@@ -1,4 +1,5 @@
 import { Clock } from 'lucide-react'
+import { MemberAvatar } from 'module-cats/ui/MemberAvatar'
 import { Fragment, useEffect, useRef } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
@@ -13,7 +14,6 @@ import {
   formatWeekdayShort,
 } from '../history-format'
 import { Avatar } from './Avatar'
-import { MemberAvatar } from './MemberAvatar'
 
 import styles from './HistoryList.module.css'
 

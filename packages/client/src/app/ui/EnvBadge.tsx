@@ -1,6 +1,6 @@
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { Popover, PopoverContent, PopoverTrigger } from 'widget-sdk/ui/popover'
 
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { AppBuildInfo } from '@/shared/app-env/build-info'
 import { APP_ENVS, type AppEnvName } from '@/shared/app-env/registry'
 
@@ -29,7 +29,7 @@ const UNKNOWN_BUILD: AppBuildInfo = { branch: null, commit: null }
  * The popover's open state is Radix's own (uncontrolled): nothing outside
  * this component reads or drives it.
  *
- * Not built on components/ui/badge.tsx: that is a Tailwind/cva shadcn
+ * Not built on widget-sdk/ui/badge.tsx: that is a Tailwind/cva shadcn
  * primitive whose variants all key off --primary/--secondary/--destructive,
  * and this pill needs --accent-soft plus --env-badge-fg, a token that exists
  * only inside the per-environment override -- which is exactly the case where

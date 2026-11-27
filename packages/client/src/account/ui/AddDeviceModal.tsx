@@ -4,8 +4,7 @@ import type { ReactNode } from 'react'
 import { useCallback, useEffect } from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from 'widget-sdk/ui/dialog'
 
 import type { AddDeviceModel } from '../model/add-device-model'
 import { DeviceIcon } from './MyDevicesDialog'

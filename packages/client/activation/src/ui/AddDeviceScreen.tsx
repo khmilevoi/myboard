@@ -18,9 +18,8 @@ import { useState } from 'react'
 import { useZxing } from 'react-zxing'
 import { tuneScanTrack } from 'scan-camera'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from 'widget-sdk/ui/button'
+import { Input } from 'widget-sdk/ui/input'
 
 import {
   type AddDeviceModel,

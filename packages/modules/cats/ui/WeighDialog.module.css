@@ -1,0 +1,123 @@
+/* Design page 10, the "Вес · Офелия" sheet: its fields. The sheet's own chrome is `sheet.module.css`.
+   The design's `--accent` is the code's `--primary`, `--surface-2` is `--secondary`, `--text-2` is
+   `--text-dim`; `--on-success` is the design's own token. */
+
+.label {
+  display: block;
+  margin-block-end: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.kgBox {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 14px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.kgBox:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
+}
+
+.kgInput {
+  inline-size: 120px;
+  block-size: auto;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.kgInput:focus-visible,
+.kgInput[aria-invalid='true'] {
+  border: 0;
+  box-shadow: none;
+}
+
+.unit {
+  font-size: 16px;
+  color: var(--text-dim);
+}
+
+.note {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.kgBox + .note,
+.error {
+  margin-block-start: 8px;
+}
+
+.error {
+  margin-block-end: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.previous {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--secondary);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.delta {
+  font-weight: 600;
+  color: var(--on-success);
+}
+
+/* Dark `--on-success` is text for a success fill, unreadable on the sheet (page 10 is light-only). */
+:global(:root[data-theme='dark']) .delta {
+  color: var(--text);
+}
+
+.dateInput {
+  block-size: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--secondary);
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dateInput:focus-visible {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
+}
+
+.save {
+  block-size: 44px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+}

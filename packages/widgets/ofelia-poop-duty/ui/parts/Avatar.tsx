@@ -1,7 +1,7 @@
 import type { Person } from 'module-cats/domain/roster'
+import { AVATAR_INITIAL_RATIO } from 'module-cats/ui/MemberAvatar'
+import { personInitial, personTone } from 'module-cats/ui/person'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import { personInitial, personTone } from '../person'
 
 import styles from './Avatar.module.css'
 
@@ -10,14 +10,6 @@ export type AvatarProps = {
   size?: 'sm' | 'md' | 'lg'
   px?: number
 }
-
-/**
- * Initial size as a fraction of the avatar box, shared with `MemberAvatar`. A
- * duty circle and an account square are rendered side by side at the same `px`
- * in the history phrase, so a ratio that differs between them reads as two
- * mismatched type sizes on one line.
- */
-export const AVATAR_INITIAL_RATIO = 0.4
 
 export const Avatar = reatomMemo<AvatarProps>(({ person, size = 'md', px }) => {
   const style = px

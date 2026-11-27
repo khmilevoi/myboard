@@ -1,0 +1,12 @@
+/* The widget-history preview line of the account crop dialog (design/03, section 1d, state k). */
+
+.historyLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+}
+.historyText {
+  font: 400 12.5px var(--font-sans);
+  color: var(--foreground);
+}

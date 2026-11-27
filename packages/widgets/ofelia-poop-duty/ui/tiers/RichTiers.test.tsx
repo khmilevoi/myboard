@@ -14,15 +14,15 @@ function withOfelia(node: ReactNode) {
 
 describe('LargeTier', () => {
   it('renders the rich layout without a close button', () => {
-    withOfelia(<LargeTier />)
-    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    withOfelia(<LargeTier chrome={{}} />)
+    expect(screen.getByRole('heading', { name: 'Лоток · Офелия' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Закрыть' })).not.toBeInTheDocument()
   })
 
   it('forwards onExpand/onDelete to the rich layout header', () => {
     const onExpand = vi.fn()
     const onDelete = vi.fn()
-    withOfelia(<LargeTier onExpand={onExpand} onDelete={onDelete} />)
+    withOfelia(<LargeTier chrome={{ onExpand, onDelete }} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
     expect(onExpand).toHaveBeenCalledOnce()

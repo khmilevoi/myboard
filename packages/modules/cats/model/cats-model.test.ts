@@ -1,13 +1,13 @@
 import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ModuleApiError, type StorageApi } from 'widget-runtime'
+import { ModuleApiError, StorageError, type StorageApi } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { defaultCatProfile } from '../domain/cat'
 import { catProfileKey, ledgerKey } from '../domain/keys'
 import type { LedgerEntry } from '../domain/ledger'
 import type { CatRegistryEvent, LitterRegistryEvent } from '../domain/registry'
-import { makeTestCatsModel } from './testing'
+import { makeKeysDownStorage, makeTestCatsModel } from './testing'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
@@ -100,8 +100,8 @@ describe('makeCatsModel registries', () => {
       () => ({ cats: model.cats(), litters: model.litters() }),
       {
         cats: [
-          { id: 'ofelia', name: 'Офелия', avatar: null, litterId: 'ofelia' },
-          { id: 'busya', name: 'Буся', avatar: null, litterId: 'ofelia' },
+          { id: 'ofelia', name: 'Офелия', avatar: null, litterId: 'ofelia', tone: 'a' },
+          { id: 'busya', name: 'Буся', avatar: null, litterId: 'ofelia', tone: 'b' },
         ],
         litters: [{ id: 'ofelia', title: 'Лоток · Офелия и Буся', catIds: ['ofelia', 'busya'] }],
       },
@@ -127,9 +127,62 @@ describe('makeCatsModel registries', () => {
       ],
       () => ({ archived: model.archivedCats(), litters: model.litters() }),
       {
-        archived: [{ id: 'busya', name: 'Буся', avatar: null, litterId: 'busya' }],
+        archived: [{ id: 'busya', name: 'Буся', avatar: null, litterId: 'busya', tone: 'b' }],
         litters: [{ id: 'ofelia', title: 'Лоток · Офелия', catIds: ['ofelia'] }],
       },
+    )
+  })
+
+  it('exposes when each archived cat was archived, by cat id', async () => {
+    const { model } = makeTestCatsModel({
+      catRegistry: [
+        catEvent('add', 'ofelia', 1),
+        catEvent('add', 'busya', 2),
+        catEvent('archive', 'busya', 3000),
+      ],
+      litterRegistry: [litterEvent('ofelia', 1), litterEvent('busya', 2)],
+      profiles: { ofelia: OFELIA, busya: { ...BUSYA, litterId: 'busya' } },
+    })
+
+    await expectEventually(
+      () => [model.archivedAt.subscribe(() => {})],
+      () => model.archivedAt(),
+      { busya: 3000 },
+    )
+  })
+
+  it('keeps a cat tone fixed by add order, archived cats included', async () => {
+    const { model } = makeTestCatsModel({
+      catRegistry: [
+        catEvent('add', 'ofelia', 1),
+        catEvent('add', 'busya', 2),
+        catEvent('add', 'murka', 3),
+        catEvent('archive', 'busya', 4),
+      ],
+      litterRegistry: [litterEvent('ofelia', 1)],
+      profiles: { ofelia: OFELIA, busya: BUSYA, murka: defaultCatProfile('Мурка', 'ofelia') },
+    })
+
+    await expectEventually(
+      () => [model.cats.subscribe(() => {}), model.archivedCats.subscribe(() => {})],
+      () => ({
+        active: model.cats()?.map((cat) => [cat.id, cat.tone]) ?? null,
+        archived: model.archivedCats()?.map((cat) => [cat.id, cat.tone]) ?? null,
+      }),
+      {
+        active: [
+          ['ofelia', 'a'],
+          ['murka', 'a'],
+        ],
+        archived: [['busya', 'b']],
+      },
+    )
+  })
+
+  it('exposes the server-time today, null until the clock syncs', () => {
+    expect(makeTestCatsModel().model.today()).toBeNull()
+    expect(makeTestCatsModel({ todayIso: '2026-11-26' }).model.today()?.toString()).toBe(
+      '2026-11-26',
     )
   })
 
@@ -180,6 +233,26 @@ describe('makeCatsModel registries', () => {
       expect(read().cats).toBeNull()
       off()
     })
+  })
+
+  it('leaves out a cat whose profile read failed, so cats() and litters() still answer', async () => {
+    const failure = new StorageError({ reason: 'boom' })
+    const { storage } = makeKeysDownStorage(createFakeStorage(), [catProfileKey('busya')], failure)
+    const { model } = makeTestCatsModel({
+      storage,
+      catRegistry: [catEvent('add', 'ofelia', 1), catEvent('add', 'busya', 2)],
+      litterRegistry: [litterEvent('ofelia', 1), litterEvent('busya', 2)],
+      profiles: { ofelia: OFELIA, busya: { ...BUSYA, litterId: 'busya' } },
+    })
+
+    await expectEventually(
+      () => [model.cats.subscribe(() => {}), model.litters.subscribe(() => {})],
+      () => ({
+        cats: model.cats()?.map((cat) => cat.id) ?? null,
+        litters: model.litters()?.map((litter) => litter.id) ?? null,
+      }),
+      { cats: ['ofelia'], litters: ['ofelia'] },
+    )
   })
 
   it('memoizes one cat model per id', () => {

@@ -46,16 +46,23 @@ export const GoalEntrySchema = z.object({
 export type GoalEntry = z.infer<typeof GoalEntrySchema>
 export const GoalEntriesSchema = tolerantArraySchema(GoalEntrySchema, 'goal entry')
 
-/** The goal in force on `date`: the latest `since <= date`, a tie going to the higher `ts`. */
-export function goalOn(goals: readonly GoalEntry[], date: Temporal.PlainDate): number | null {
+/** The goal entry in force on `date`: the latest `since <= date`, a tie going to the higher `ts`. */
+export function goalEntryOn(
+  goals: readonly GoalEntry[],
+  date: Temporal.PlainDate,
+): GoalEntry | null {
   const day = date.toString()
-  const best = goals.reduce<GoalEntry | null>((current, goal) => {
+  return goals.reduce<GoalEntry | null>((current, goal) => {
     if (goal.since > day) return current
     if (current === null) return goal
     if (goal.since !== current.since) return goal.since > current.since ? goal : current
     return goal.ts > current.ts ? goal : current
   }, null)
-  return best?.kcal ?? null
+}
+
+/** The kcal of the goal in force on `date` (`goalEntryOn`); null before the first goal. */
+export function goalOn(goals: readonly GoalEntry[], date: Temporal.PlainDate): number | null {
+  return goalEntryOn(goals, date)?.kcal ?? null
 }
 
 /** One weighing, appended under `catWeightKey` with the weighing account stamped by the server. */
@@ -76,6 +83,39 @@ export function latestWeighing(weighings: readonly Weighing[]): Weighing | null 
     if (weighing.at !== current.at) return weighing.at > current.at ? weighing : current
     return weighing.ts > current.ts ? weighing : current
   }, null)
+}
+
+/** A cat's colour pair (design tokens `--cat-a-*` / `--cat-b-*`), alternating by add order. */
+export type CatTone = 'a' | 'b'
+
+export function catToneAt(index: number): CatTone {
+  return index % 2 === 0 ? 'a' : 'b'
+}
+
+/**
+ * The gram change from the latest weighing at least `days` older than the newest one, or null
+ * when no weighing is that old.
+ */
+export function weightTrend(weighings: readonly Weighing[], days: number): number | null {
+  const latest = latestWeighing(weighings)
+  if (latest === null) return null
+  const cutoff = Temporal.PlainDate.from(latest.at).subtract({ days }).toString()
+  const base = latestWeighing(weighings.filter((weighing) => weighing.at <= cutoff))
+  if (base === null) return null
+  return Math.round((latest.kg - base.kg) * 1000)
+}
+
+/**
+ * Whole days from the latest weighing to `today`, never below 0 (a weighing dated after today
+ * counts as today's); null with no weighings.
+ */
+export function daysSinceWeighing(
+  weighings: readonly Weighing[],
+  today: Temporal.PlainDate,
+): number | null {
+  const latest = latestWeighing(weighings)
+  if (latest === null) return null
+  return Math.max(0, Temporal.PlainDate.from(latest.at).until(today, { largestUnit: 'days' }).days)
 }
 
 /** Which litter a cat uses: one already in the registry, or a new one the server creates. */

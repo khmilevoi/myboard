@@ -1,12 +1,12 @@
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import type { WidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { RichLayout } from '../parts/RichLayout'
 
 export type LargeTierProps = {
-  onExpand?: () => void
-  onDelete?: () => void
+  chrome: WidgetChrome
 }
 
-export const LargeTier = reatomMemo<LargeTierProps>(({ onExpand, onDelete }) => {
-  return <RichLayout onExpand={onExpand} onDelete={onDelete} />
+export const LargeTier = reatomMemo<LargeTierProps>(({ chrome }) => {
+  return <RichLayout chrome={chrome} />
 }, 'LargeTier')

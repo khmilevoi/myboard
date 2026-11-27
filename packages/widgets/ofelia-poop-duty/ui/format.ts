@@ -1,44 +1,13 @@
+import { MONTHS_GENITIVE, pluralRu } from '@shared/format/ru'
+
 import type { DebtBalanceEntry, SelectedDayView } from './view-model'
 
-export const MONTHS_GENITIVE = [
-  'января',
-  'февраля',
-  'марта',
-  'апреля',
-  'мая',
-  'июня',
-  'июля',
-  'августа',
-  'сентября',
-  'октября',
-  'ноября',
-  'декабря',
-] as const
-
 export function pluralizeDays(n: number): string {
-  const abs = Math.abs(n) % 100
-  const last = abs % 10
-
-  let word: string
-  if (abs >= 11 && abs <= 14) word = 'дней'
-  else if (last === 1) word = 'день'
-  else if (last >= 2 && last <= 4) word = 'дня'
-  else word = 'дней'
-
-  return `${n} ${word}`
+  return `${n} ${pluralRu(n, 'день', 'дня', 'дней')}`
 }
 
 export function pluralizeRecords(n: number): string {
-  const abs = Math.abs(n) % 100
-  const last = abs % 10
-
-  let word: string
-  if (abs >= 11 && abs <= 14) word = 'записей'
-  else if (last === 1) word = 'запись'
-  else if (last >= 2 && last <= 4) word = 'записи'
-  else word = 'записей'
-
-  return `${n} ${word}`
+  return `${n} ${pluralRu(n, 'запись', 'записи', 'записей')}`
 }
 
 export function formatWeekRange(days: { iso: string }[]): string {

@@ -1,0 +1,8 @@
+/* The cat avatar's eared square (design `01 Дизайн-система`, `.cat-ears`): one clip shared by the
+   cat avatar and, later, the avatar crop dialog's cat shape, so the two never drift apart. The top
+   padding lowers the letter into the body, below the ears. */
+.catEars {
+  clip-path: polygon(0 100%, 0 24%, 15% 0, 33% 17%, 67% 17%, 85% 0, 100% 24%, 100% 100%);
+  padding-top: 0.3em;
+  box-sizing: border-box;
+}

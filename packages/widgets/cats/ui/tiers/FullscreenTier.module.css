@@ -1,0 +1,12 @@
+/* `CatsLarge` (design page 10, "Полноэкранный режим"). The container drives the phone layout of
+   the header and the tabs (≤ 680 px), on a phone and on a narrow large card alike. */
+.root {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+  background: var(--surface);
+  container-type: inline-size;
+  container-name: cats-large;
+}

@@ -1,0 +1,178 @@
+/* The fields of "Новая кошка" and "Убрать … в архив?" (design page 10); the sheet's chrome is
+   `module-cats/ui/sheet.module.css`. The design's `--accent` is the code's `--primary`, `--surface-2`
+   is `--secondary` and `--text-2` is `--text-dim`. */
+
+.label {
+  display: block;
+  margin-block-end: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.input,
+.dateInput {
+  block-size: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--secondary);
+  box-shadow: none;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dateInput {
+  font-family: var(--font-mono);
+}
+
+.input:focus-visible,
+.dateInput:focus-visible {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.error {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  text-wrap: pretty;
+}
+
+.callout {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--secondary);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* Пол */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--secondary);
+}
+
+.segItem {
+  block-size: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.segItem[data-state='on'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
+}
+
+/* Лоток */
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  inline-size: 100%;
+}
+
+.option {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+}
+
+.option[data-state='on'] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
+}
+
+.segItem:focus-visible,
+.option:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.optionTitle {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionNote {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.footRow.footRow {
+  flex-direction: row;
+}
+
+.primary,
+.secondary {
+  block-size: 44px;
+  border-radius: 11px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.footRow > * {
+  flex: 1;
+}
+
+.secondary {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}

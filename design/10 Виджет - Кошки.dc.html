@@ -48,9 +48,13 @@
   }
   .ds-scope { color: var(--text); font: 400 14px/1.45 'Hanken Grotesk', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
-  .hov { position: absolute; top: 0; right: 0; display: flex; gap: 1px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; box-shadow: 0 2px 10px rgba(20,22,40,.12); }
-  .hov button { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: none; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; }
+  .card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .wc { display: flex; gap: 4px; flex: none; }
+  .wc.ov { position: absolute; top: 8px; right: 8px; z-index: 3; }
+  .wc button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-3); cursor: pointer; }
+  .wc button svg { width: 16px; height: 16px; }
+  .wc.touch button { width: 44px; height: 44px; }
+  .wc.touch button svg { width: 20px; height: 20px; }
   .tn { font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #645fd1; }
   .td { font: 500 11.5px 'JetBrains Mono', monospace; color: #8a8d97; margin-top: 2px; }
   .lbl { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
@@ -136,8 +140,8 @@
   <div class="ds-scope" data-theme="light" style="display:flex;gap:20px;align-items:flex-start;margin-bottom:64px;">
 
     <div style="flex:none;position:relative;padding-top:18px;">
-      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>
       <div class="card" style="width:152px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;">
+        <div class="wc ov"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
         <span class="cav cav-a" style="width:52px;height:52px;border-radius:14px;font-size:22px;">О</span>
         <span style="font:600 15px 'Hanken Grotesk',sans-serif;">Офелия</span>
         <span class="mono" style="font-size:20px;font-weight:500;letter-spacing:-.02em;">4,32 <span style="font-size:12px;color:var(--text-3);">кг</span></span>
@@ -146,8 +150,8 @@
     </div>
 
     <div style="flex:none;position:relative;padding-top:18px;">
-      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>
       <div class="card" style="width:268px;height:200px;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div class="wc ov"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="cav cav-a" style="width:36px;height:36px;border-radius:10px;font-size:16px;">О</span>
           <div style="min-width:0;"><p style="font-weight:600;font-size:15px;">Офелия</p><p class="sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская · 3 года</p></div>
@@ -161,11 +165,11 @@
     </div>
 
     <div style="flex:none;position:relative;padding-top:18px;">
-      <div class="hov"><button type="button" aria-label="Открыть в полный экран"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить с борды"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>
       <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;">
         <div style="display:flex;align-items:center;gap:14px;">
           <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
           <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
+          <div class="wc"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
           
         </div>
         <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
@@ -206,6 +210,7 @@
     <div style="flex:none;position:relative;padding-top:18px;">
       
       <div class="card" style="width:152px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px;">
+        <div class="wc ov"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
         <span class="cav cav-a" style="width:52px;height:52px;border-radius:14px;font-size:22px;">О</span>
         <span style="font:600 15px 'Hanken Grotesk',sans-serif;">Офелия</span>
         <span class="mono" style="font-size:20px;font-weight:500;letter-spacing:-.02em;">4,32 <span style="font-size:12px;color:var(--text-3);">кг</span></span>
@@ -216,6 +221,7 @@
     <div style="flex:none;position:relative;padding-top:18px;">
       
       <div class="card" style="width:268px;height:200px;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div class="wc ov"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="cav cav-a" style="width:36px;height:36px;border-radius:10px;font-size:16px;">О</span>
           <div style="min-width:0;"><p style="font-weight:600;font-size:15px;">Офелия</p><p class="sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская · 3 года</p></div>
@@ -235,6 +241,7 @@
           <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
           <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
           <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Офелия" aria-haspopup="menu"><span class="cav cav-a" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">О</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="wc"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
         </div>
         <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
         <div class="div"></div>
@@ -268,6 +275,7 @@
         <div style="display:flex;align-items:center;gap:14px;">
           <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
           <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
+          <div class="wc"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
           
         </div>
         <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
@@ -298,6 +306,7 @@
           <span class="cav cav-b" style="width:56px;height:56px;border-radius:14px;font-size:23px;">Б</span>
           <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Буся</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Беспородная</p></div>
           <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Буся" aria-haspopup="menu"><span class="cav cav-b" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">Б</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="wc"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
         </div>
         <p style="margin-top:10px;font-size:13px;color:var(--text-2);">8 мес · кошка · не стерилизована</p>
         <div class="div"></div>
@@ -327,6 +336,7 @@
           <span class="cav cav-a" style="width:56px;height:56px;border-radius:14px;font-size:23px;">О</span>
           <div style="flex:1;min-width:0;"><p style="font:700 22px 'Hanken Grotesk',sans-serif;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</p><p class="sm" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Британская короткошёрстная</p></div>
           <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Офелия" aria-haspopup="menu"><span class="cav cav-a" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">О</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="wc"><button type="button" aria-label="Развернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
         </div>
         <p style="margin-top:10px;font-size:13px;color:var(--text-2);">3 года 2 мес · кошка · стерилизована</p>
         <div class="div"></div>
@@ -345,6 +355,38 @@
         </div>
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">C</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Давно не взвешивали</span></div>
+    </div>
+
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;">
+        <div class="wc ov"><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
+        <span aria-hidden="true" style="width:56px;height:56px;border-radius:14px;border:1.5px dashed var(--border-strong);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:22px;line-height:1;">+</span>
+        <div><p style="font:600 17px 'Hanken Grotesk',sans-serif;">Кошек пока нет</p><p class="sm" style="margin-top:4px;max-width:260px;">Добавьте кошку — её увидят все кошачьи карточки на борде.</p></div>
+        <button class="bp" type="button">+ Добавить кошку</button>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">D</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Кошек пока нет — открывает форму «Новая кошка»</span></div>
+    </div>
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;">
+        <div class="wc ov"><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
+        <div role="status" aria-label="Загрузка виджета «Кошки»" style="width:100%;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;gap:14px;"><span style="width:56px;height:56px;border-radius:14px;background:var(--surface-2);"></span><span style="flex:1;height:18px;border-radius:6px;background:var(--surface-2);"></span></div>
+          <span style="height:12px;width:70%;border-radius:6px;background:var(--surface-2);"></span>
+          <span style="height:64px;border-radius:10px;background:var(--surface-2);"></span>
+          <span style="height:40px;border-radius:10px;background:var(--surface-2);"></span>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">E</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Загрузка — «Удалить» есть уже сейчас</span></div>
+    </div>
+    <div style="flex:none;position:relative;padding-top:18px;">
+      <div class="card" style="width:400px;height:452px;padding:17px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;">
+        <div class="wc ov"><button type="button" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></button></div>
+        <div role="alert" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <p style="font:600 15px 'Hanken Grotesk',sans-serif;">Не удалось загрузить виджет «Кошки»</p>
+          <button class="bs" type="button">Повторить</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">F</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Не загрузилось — «Повторить» и «Удалить»</span></div>
     </div>
   </div>
 
@@ -368,7 +410,7 @@
           <span class="cav cav-a" style="width:34px;height:34px;border-radius:9px;font-size:15px;">О</span>
           <span style="flex:1;min-width:0;font:600 16px 'Hanken Grotesk',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Офелия</span>
           <button class="sw" type="button" aria-label="Выбрать кошку · сейчас Офелия" aria-haspopup="menu"><span class="cav cav-a" style="width:22px;height:22px;border-radius:6px;font-size:10.5px;">О</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-          <button class="x" type="button" aria-label="Закрыть полноэкранный режим"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
         <div style="padding:0 16px 10px;"><div class="seg" role="group" aria-label="Разделы"><button type="button" aria-pressed="true">Профиль</button><button type="button" aria-pressed="false">Вес</button><button type="button" aria-pressed="false">Все кошки</button></div></div>
         <div style="flex:1;overflow:hidden;padding:6px 16px 16px;display:flex;flex-direction:column;gap:14px;">
@@ -397,16 +439,98 @@
     </div>
   </div>
 
+  <!-- ============ PROFILE FIELD STATES ============ -->
+  <div class="sec"><h2>Профиль — состояния полей</h2><span>фото, ориентир цели, сохранение</span></div>
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:64px;">
+
+    <div style="flex:none;width:340px;">
+      <div class="card" style="padding:16px 18px;display:flex;align-items:center;gap:14px;">
+        <span class="cav" role="img" aria-label="Фото Офелии" style="width:64px;height:64px;border-radius:16px;background:radial-gradient(circle at 50% 38%, oklch(0.78 0.03 70) 0 30%, oklch(0.62 0.03 60) 31% 100%);align-items:flex-end;overflow:hidden;"><svg width="46" height="34" viewBox="0 0 40 30" aria-hidden="true"><path d="M6 30c0-9 5-15 14-15s14 6 14 15z" fill="oklch(0.5 0.02 60)"/><path d="M11 9l2-8 5 6zM29 9l-2-8-5 6z" fill="oklch(0.5 0.02 60)"/><circle cx="20" cy="11" r="8" fill="oklch(0.5 0.02 60)"/></svg></span>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button class="bs" type="button" style="height:34px;">Заменить фото</button>
+          <button class="bs" type="button" style="height:34px;">Убрать фото</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">A</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Фото загружено — его видят все переключатели</span></div>
+    </div>
+
+    <div style="flex:none;width:340px;">
+      <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="cav cav-a" style="width:64px;height:64px;border-radius:16px;font-size:26px;">О</span>
+          <div style="display:flex;flex-direction:column;gap:6px;"><button class="bs" type="button" style="height:34px;">Загрузить фото</button><span class="sm">Без фото — буква на цвете кошки</span></div>
+        </div>
+        <p role="alert" style="padding:8px 10px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border-strong);font-size:12.5px;color:var(--text);">Не удалось загрузить фото. Попробуйте ещё раз или другой снимок.</p>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">B</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Фото не загрузилось — буква остаётся</span></div>
+    </div>
+
+    <div style="flex:none;width:340px;">
+      <div class="card" style="padding:16px 18px;display:flex;align-items:center;gap:14px;">
+        <span style="position:relative;flex:none;width:64px;height:64px;">
+          <span class="cav" aria-hidden="true" style="position:absolute;inset:0;border-radius:16px;background:radial-gradient(circle at 50% 38%, oklch(0.78 0.03 70) 0 30%, oklch(0.62 0.03 60) 31% 100%);opacity:.55;"></span>
+          <span role="status" aria-label="Загружаем фото" style="position:absolute;left:50%;top:56%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);"></span>
+        </span>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button class="bs" type="button" disabled style="height:34px;opacity:.45;cursor:not-allowed;">Заменить фото</button>
+          <span class="sm" style="color:var(--text-2);">Загружаем фото…</span>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">C</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Загрузка — уже обрезанное фото, кнопки ждут</span></div>
+    </div>
+
+    <div style="flex:none;width:700px;">
+      <div class="card" style="padding:16px 18px;">
+        <span class="lbl">Как загружается фото</span>
+        <ol style="margin:12px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:10px;font-size:12.5px;line-height:1.4;color:var(--text-2);">
+          <li style="padding:10px 12px;border-radius:10px;background:var(--surface-2);"><b style="display:block;color:var(--text);font-size:13px;">1 · Выбрать</b>«Загрузить фото» открывает выбор файла: PNG, JPEG или WebP.</li>
+          <li style="padding:10px 12px;border-radius:10px;background:var(--surface-2);"><b style="display:block;color:var(--text);font-size:13px;">2 · Обрезать</b>Диалог «Обрезать фото» (форма ниже): рамка с ушками, масштаб, превью.</li>
+          <li style="padding:10px 12px;border-radius:10px;background:var(--surface-2);"><b style="display:block;color:var(--text);font-size:13px;">3 · Загрузить</b>Квадрат 256 px в WebP уходит в хранилище файлов (C).</li>
+          <li style="padding:10px 12px;border-radius:10px;background:var(--surface-2);"><b style="display:block;color:var(--text);font-size:13px;">4 · Готово</b>Фото сразу во всех переключателях (A). Ошибка — буква остаётся (B).</li>
+        </ol>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">D</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Порядок шагов — тот же, что у фото аккаунта</span></div>
+    </div>
+
+    <div style="flex:none;width:340px;">
+      <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+        <span class="lbl">Суточная цель</span>
+        <p style="display:flex;align-items:baseline;gap:8px;"><span class="mono" style="font-size:30px;font-weight:500;line-height:1;">220</span><span class="sm" style="font-size:13px;">ккал в сутки · с 20 ноября</span></p>
+        <p style="padding:9px 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);font-size:12.5px;color:var(--text-2);">Ориентир появится, когда будут вес, возраст и стерилизация</p>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">E</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Ориентира нет — не хватает данных</span></div>
+    </div>
+
+    <div style="flex:none;width:340px;">
+      <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+        <span class="lbl">Суточная цель</span>
+        <p style="display:flex;align-items:baseline;gap:8px;"><span class="mono" style="font-size:30px;font-weight:500;line-height:1;">220</span><span class="sm" style="font-size:13px;">ккал в сутки · с 20 ноября</span></p>
+        <p style="padding:9px 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);font-size:12.5px;color:var(--text-2);">Для этой кошки ориентир подбирает ветеринар</p>
+        <p class="sm">Котёнок до года, кошка старше 10 лет или упитанность не 4–5.</p>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">F</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Ориентир не считается — решает врач</span></div>
+    </div>
+
+    <div style="flex:none;width:520px;">
+      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 18px;">
+        <span class="sm" style="flex:1;font-size:13px;color:var(--text-2);">Все изменения сохранены</span>
+        <button class="bs" type="button" disabled style="opacity:.45;cursor:not-allowed;">Отменить</button>
+        <button class="bp" type="button" disabled style="opacity:.45;cursor:not-allowed;">Сохранить</button>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:baseline;"><span class="tn">G</span><span style="font:600 13px 'Hanken Grotesk',sans-serif;color:#2a2b33;">Низ профиля без правок — кнопки неактивны; с правками — см. полноэкранный профиль</span></div>
+    </div>
+  </div>
+
   <!-- ============ FORMS ============ -->
   <div class="sec"><h2>Формы</h2><span>на десктопе — поверх полноэкранного режима, на телефоне — на весь экран</span></div>
-  <div class="ds-scope" data-theme="light" style="display:flex;gap:24px;align-items:flex-start;margin-bottom:64px;">
+  <div class="ds-scope" data-theme="light" style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;margin-bottom:64px;">
 
     <div class="sheet">
       <div class="sh-h"><h3>Новая кошка</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <div class="sh-b">
         <div><label class="fl" for="nc-n">Имя</label><input class="inp f" id="nc-n" value="Буся"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div><label class="fl" for="nc-d">Дата рождения</label><input class="inp" id="nc-d" value="примерно 03.2026" style="font-family:'JetBrains Mono',monospace;"></div>
+          <div><label class="fl" for="nc-d">Дата рождения</label><input class="inp" id="nc-d" value="15.03.2026" style="font-family:'JetBrains Mono',monospace;"></div>
           <div><span class="fl">Пол</span><div class="seg" role="group" aria-label="Пол"><button type="button" aria-pressed="true">Кошка</button><button type="button" aria-pressed="false">Кот</button></div></div>
         </div>
         <div><span class="fl">Лоток</span>
@@ -425,9 +549,17 @@
       <div class="sh-b">
         <div><label class="fl" for="wt10">Сколько весит</label><div class="big"><input id="wt10" inputmode="decimal" value="4,30"><span>кг</span></div><p class="sm" style="margin-top:8px;">Удобно: взвеситься с кошкой на руках и вычесть свой вес.</p></div>
         <div style="padding:10px 12px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);font-size:13.5px;">Прошлый раз <span class="mono">4,32 кг</span>, 21 ноября — <b style="color:var(--on-success);">−20 г</b></div>
-        <div class="when"><span class="sm" style="font-size:13.5px;color:var(--text-2);">Сейчас, <span class="mono">21:45</span></span><a href="#">Время или заметка</a></div>
+        <div><label class="fl" for="wt10-d">Дата</label><input class="inp" id="wt10-d" value="26.11.2026" style="font-family:'JetBrains Mono',monospace;"><p class="sm" style="margin-top:5px;">По умолчанию сегодня</p></div>
       </div>
       <div class="sh-f"><button class="bp" type="button" style="height:44px;border-radius:11px;">Сохранить вес</button></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><h3>Вес · Офелия</h3><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div><label class="fl" for="wt10-e">Сколько весит</label><div class="big"><input id="wt10-e" inputmode="decimal" value="31" aria-invalid="true" aria-describedby="wt10-e-msg"><span>кг</span></div><p id="wt10-e-msg" style="margin-top:8px;font-size:12.5px;font-weight:600;color:var(--text);">Введите вес от 0,01 до 30 кг</p></div>
+      </div>
+      <div class="sh-f"><button class="bp" type="button" disabled style="height:44px;border-radius:11px;opacity:.45;cursor:not-allowed;">Сохранить вес</button></div>
     </div>
 
     <div class="sheet">
@@ -450,6 +582,30 @@
         <div style="padding:10px 12px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);font-size:13px;color:var(--text-2);">Лоток · Буся больше никому не нужен: ночные отметки по нему остановятся.</div>
       </div>
       <div class="sh-f" style="flex-direction:row;"><button class="bs" type="button" style="flex:1;height:44px;">Отмена</button><button class="bp" type="button" style="flex:1;height:44px;border-radius:11px;">В архив</button></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sh-h"><div style="flex:1;"><h3>Обрезать фото</h3><p class="sm" style="margin-top:3px;">Перетащите фото, чтобы выбрать, что попадёт в рамку.</p></div><button class="x" type="button" aria-label="Закрыть"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="sh-b">
+        <div style="position:relative;height:260px;border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 40%, oklch(0.8 0.03 70) 0 30%, oklch(0.64 0.03 60) 31% 100%);cursor:grab;">
+          <svg role="img" aria-label="Область обрезки: фото Офелии, рамка с ушками в центре" width="364" height="260" viewBox="0 0 364 260" style="display:block;width:100%;height:100%;">
+            <g fill="oklch(0.5 0.02 60)" transform="translate(42 50) scale(7)"><path d="M6 30c0-9 5-15 14-15s14 6 14 15z"/><path d="M11 9l2-8 5 6zM29 9l-2-8-5 6z"/><circle cx="20" cy="11" r="8"/></g>
+            <path fill="rgba(15,16,25,.5)" fill-rule="evenodd" d="M0 0H364V260H0Z M82 230V78L112 30L148 64H216L252 30L282 78V230Z"/>
+            <path fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" d="M82 230V78L112 30L148 64H216L252 30L282 78V230Z"/>
+          </svg>
+        </div>
+        <div><label class="fl" for="crop-z">Масштаб</label><input id="crop-z" type="range" min="1" max="3" step="0.1" value="1.4" style="width:100%;accent-color:var(--accent);"></div>
+        <div>
+          <span class="fl">Так фото увидят на борде</span>
+          <div style="display:flex;align-items:flex-end;gap:16px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><span class="cav" style="width:56px;height:56px;border-radius:14px;background:radial-gradient(circle at 50% 38%, oklch(0.78 0.03 70) 0 30%, oklch(0.62 0.03 60) 31% 100%);"></span><span class="sm">Профиль</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><span class="cav" style="width:26px;height:26px;border-radius:7px;background:radial-gradient(circle at 50% 38%, oklch(0.78 0.03 70) 0 30%, oklch(0.62 0.03 60) 31% 100%);"></span><span class="sm">Шапка карточки</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><span class="cav" style="width:22px;height:22px;border-radius:6px;background:radial-gradient(circle at 50% 38%, oklch(0.78 0.03 70) 0 30%, oklch(0.62 0.03 60) 31% 100%);"></span><span class="sm">Переключатель</span></div>
+          </div>
+        </div>
+        <p class="sm">Тот же диалог, что у фото аккаунта (03 · 1d), только рамка — с ушками, как аватар кошки.</p>
+      </div>
+      <div class="sh-f" style="flex-direction:row;"><button class="bs" type="button" style="flex:1;height:44px;">Отмена</button><button class="bp" type="button" style="flex:1;height:44px;border-radius:11px;">Сохранить</button></div>
     </div>
   </div>
 

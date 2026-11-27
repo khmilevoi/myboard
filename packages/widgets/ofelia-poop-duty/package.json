@@ -17,6 +17,7 @@
     "errore": "catalog:",
     "lucide-react": "catalog:",
     "module-cats": "workspace:*",
+    "radix-ui": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "widget-runtime": "workspace:*",

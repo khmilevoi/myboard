@@ -1,8 +1,8 @@
 import { Box } from 'lucide-react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
+import { Skeleton } from 'widget-sdk/ui/skeleton'
 import { WidgetControls } from 'widget-sdk/ui/WidgetControls'
 
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   WIDGET_ICONS,
   type WidgetIconName,

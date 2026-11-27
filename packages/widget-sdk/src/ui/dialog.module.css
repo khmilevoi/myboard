@@ -1,0 +1,14 @@
+/* `DialogContent fullScreenOnPhone`. The attribute in the selector outranks a caller's single
+   CSS-module class, and both beat the Tailwind utilities, which sit in a cascade layer. */
+@media (max-width: 680px) {
+  .phoneFullScreen[data-phone-layout='fullscreen'] {
+    inset: 0;
+    translate: none;
+    inline-size: 100%;
+    max-inline-size: none;
+    block-size: 100dvh;
+    max-block-size: none;
+    border: 0;
+    border-radius: 0;
+  }
+}

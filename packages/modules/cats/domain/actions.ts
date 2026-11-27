@@ -33,7 +33,12 @@ export const catsActionSchemas = {
     result: OkSchema,
   },
   addCat: {
-    payload: z.object({ name: CatProfileSchema.shape.name, litter: LitterChoiceSchema }),
+    payload: z.object({
+      name: CatProfileSchema.shape.name,
+      litter: LitterChoiceSchema,
+      birthDate: CatProfileSchema.shape.birthDate.optional(),
+      sex: CatProfileSchema.shape.sex.optional(),
+    }),
     result: z.object({ ok: z.literal(true), catId: EntityIdSchema }),
   },
   archiveCat: { payload: CatPayloadSchema, result: OkSchema },

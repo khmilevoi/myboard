@@ -1,0 +1,105 @@
+/* Page 10, "Профиль — состояния полей" A–C. */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.button {
+  block-size: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.caption {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.captionBusy {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+/* C: the cropped photo, dimmed, under a spinner, in the avatar's place and size. */
+.pending {
+  position: relative;
+  flex: none;
+  inline-size: 64px;
+  block-size: 64px;
+}
+
+.pendingImage {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 0;
+  border-radius: 16px;
+  object-fit: cover;
+  opacity: 0.55;
+}
+
+.spinner {
+  position: absolute;
+  inset-block-start: 56%;
+  inset-inline-start: 50%;
+  inline-size: 22px;
+  block-size: 22px;
+  margin: -11px 0 0 -11px;
+  border: 2.5px solid var(--accent-soft);
+  border-block-start-color: var(--primary);
+  border-radius: 50%;
+  animation: avatar-field-spin 0.8s linear infinite;
+}
+
+@keyframes avatar-field-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* B: the upload failed; the letter stays. */
+.error {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--secondary);
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.fileInput {
+  display: none;
+}

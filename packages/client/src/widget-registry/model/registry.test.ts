@@ -1,3 +1,4 @@
+import { CATS_WIDGET_ID } from 'module-cats/ui/use-manage-cats'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -24,7 +25,12 @@ describe('widget registry', () => {
 
   it('uses a shared widget icon name type', () => {
     const iconNames: WidgetIconName[] = widgetTypes.map((type) => type.icon)
-    expect(iconNames).toEqual(['Clock', 'Cat', 'ChartColumn', 'IdCard', 'Weight'])
+    expect(iconNames).toEqual(['PawPrint', 'Clock', 'Cat', 'ChartColumn', 'IdCard', 'Weight'])
+  })
+
+  it('lists the "Кошки" widget under the id the cat switchers open', () => {
+    const cats = findWidgetType(CATS_WIDGET_ID)
+    expect(cats).not.toBeInstanceOf(Error)
   })
 
   it('returns UnknownWidgetTypeError for an unknown type', () => {

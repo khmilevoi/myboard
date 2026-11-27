@@ -42,7 +42,7 @@ describe('AddWidgetMenu', () => {
     await openCatalog()
     expect(screen.getByText('Часы')).toBeInTheDocument()
     expect(screen.getByText('Текущее время и дата')).toBeInTheDocument()
-    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    expect(screen.getByText('Лоток')).toBeInTheDocument()
   })
 
   it('closes the catalog when its add button is clicked', async () => {
@@ -61,6 +61,6 @@ describe('AddWidgetMenu', () => {
     await waitFor(() => {
       expect(screen.queryByText('Часы')).not.toBeInTheDocument()
     })
-    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    expect(screen.getByText('Лоток')).toBeInTheDocument()
   })
 })

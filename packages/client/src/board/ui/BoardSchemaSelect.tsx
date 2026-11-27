@@ -2,11 +2,10 @@ import { Check, ChevronDown, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-reac
 import * as React from 'react'
 import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Popover, PopoverArrow, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from 'widget-sdk/ui/button'
+import { Input } from 'widget-sdk/ui/input'
+import { Popover, PopoverArrow, PopoverContent, PopoverTrigger } from 'widget-sdk/ui/popover'
+import { Skeleton } from 'widget-sdk/ui/skeleton'
 
 import styles from './BoardSchemaSelect.module.css'
 

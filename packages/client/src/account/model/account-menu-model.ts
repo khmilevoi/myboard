@@ -1,6 +1,5 @@
 import { action, type Action, atom, type Atom } from '@reatom/core'
-
-import type { AvatarCropModel } from './avatar-crop-model'
+import type { AvatarCropModel } from 'widget-sdk/files/avatar-crop-model'
 
 /**
  * Which account surface is open: the dropdown, the profile dialog, the devices dialog. The crop

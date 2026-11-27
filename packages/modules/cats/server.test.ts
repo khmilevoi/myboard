@@ -531,6 +531,23 @@ const litterIdsIn = (store: Map<string, unknown>) =>
   (store.get(LITTERS_REGISTRY_KEY) as { litterId: string }[]).map((event) => event.litterId)
 
 describe('cats server: registries, profile, goal and weight', () => {
+  it('applies a birth date and sex on top of the default profile', async () => {
+    const { store, context } = makeRegistryContext()
+
+    const result = await run(
+      'addCat',
+      { name: 'Буся', litter: { kind: 'new' }, birthDate: '2026-03-15', sex: 'female' },
+      context,
+    )
+
+    const { catId } = addedCat(result)
+    expect(store.get(catProfileKey(catId))).toEqual({
+      ...defaultCatProfile('Буся', litterIdsIn(store)[1]),
+      birthDate: '2026-03-15',
+      sex: 'female',
+    })
+  })
+
   it('adds a cat with a new litter: litter first, then the profile, then the registry add', async () => {
     const { store, context, writes } = makeRegistryContext()
 
@@ -574,6 +591,7 @@ describe('cats server: registries, profile, goal and weight', () => {
     expect(store.get(profileKeys[0])).toEqual(defaultCatProfile('Буся', OFELIA_ID))
     expect(writes).toEqual([`set ${profileKeys[0]}`, `append ${CATS_REGISTRY_KEY}`])
     expect(foldCatRegistry(CatRegistryEventsSchema.parse(store.get(CATS_REGISTRY_KEY)))).toEqual({
+      order: [OFELIA_ID],
       active: [OFELIA_ID],
       archived: [],
     })
@@ -590,7 +608,7 @@ describe('cats server: registries, profile, goal and weight', () => {
 
       await vi.waitFor(() =>
         expect(read()).toEqual([
-          { id: OFELIA_ID, name: 'Офелия', avatar: null, litterId: OFELIA_ID },
+          { id: OFELIA_ID, name: 'Офелия', avatar: null, litterId: OFELIA_ID, tone: 'a' },
         ]),
       )
       off()
@@ -669,12 +687,17 @@ describe('cats server: registries, profile, goal and weight', () => {
 
     expect(await run('archiveCat', { catId: 'busya' }, context)).toEqual({ ok: true })
     expect(registry()).toEqual({
+      order: [OFELIA_ID, 'busya'],
       active: [OFELIA_ID],
       archived: [{ catId: 'busya', archivedAt: expect.any(Number) }],
     })
 
     expect(await run('restoreCat', { catId: 'busya' }, context)).toEqual({ ok: true })
-    expect(registry()).toEqual({ active: [OFELIA_ID, 'busya'], archived: [] })
+    expect(registry()).toEqual({
+      order: [OFELIA_ID, 'busya'],
+      active: [OFELIA_ID, 'busya'],
+      archived: [],
+    })
   })
 
   it('keeps one cat active when the last two are archived concurrently', async () => {
@@ -707,6 +730,16 @@ describe('cats server: registries, profile, goal and weight', () => {
         createdBy: KARINA,
       },
     ])
+  })
+
+  it('refuses a weighing dated after today, and appends nothing', async () => {
+    const { store, context } = makeRegistryContext()
+
+    const result = await run('weigh', { catId: OFELIA_ID, kg: 4.32, at: '2026-06-17' }, context)
+
+    expect(result).toBeInstanceOf(PublicWidgetError)
+    expect(result).toMatchObject({ code: 'future_weighing', status: 422 })
+    expect(store.get(catWeightKey(OFELIA_ID))).toBeUndefined()
   })
 
   it('appends a goal', async () => {

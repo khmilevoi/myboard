@@ -1,0 +1,73 @@
+/* Page 10, compact (181–320 px). */
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  block-size: 100%;
+  padding: 16px 18px;
+  container-type: size;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-inline-size: 0;
+  /* Room for the two overlay controls in the corner. */
+  padding-inline-end: 64px;
+}
+
+/* 36 px here, between the shared header and profile sizes; see TinyTier.module.css. */
+.avatar {
+  display: inline-flex;
+}
+
+.avatar > span {
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.titles {
+  min-inline-size: 0;
+}
+
+.name {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sub {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.weight {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.spark {
+  margin-block-start: 8px;
+}
+
+/* A short compact card keeps the figure and drops the line rather than cutting it. */
+@container (max-height: 170px) {
+  .spark {
+    display: none;
+  }
+}

@@ -1,18 +1,27 @@
 import { wrap } from '@reatom/core'
+import { Cat } from 'lucide-react'
 import { catsModule, type LitterModel } from 'module-cats'
-import { OFELIA_ID } from 'module-cats/domain/ids'
+import { makeLitterChoice } from 'module-cats/card-choice'
+import { EMPTY_LITTER_TEXT } from 'module-cats/format'
+import { CatCardHeader } from 'module-cats/ui/CatCardHeader'
+import { useManageCats } from 'module-cats/ui/use-manage-cats'
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { type WidgetTier, useWidgetContext } from 'widget-runtime'
 import { reatomModule } from 'widget-sdk/modules/reatom-module'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
-import { useWidgetChrome } from 'widget-sdk/ui/WidgetControls'
+import {
+  WidgetControls,
+  notReadyChrome,
+  useWidgetChrome,
+  type WidgetChrome,
+} from 'widget-sdk/ui/WidgetControls'
 
 import { ofeliaCommentsModel } from '../model/ofelia-comments'
 import { ofeliaDutyModel } from '../model/ofelia-duty'
 import { ofeliaContext } from './ofelia-context'
-import type { OfeliaContextValue } from './ofelia-context'
+import type { OfeliaCard, OfeliaContextValue } from './ofelia-context'
 import { CompactTier } from './tiers/CompactTier'
 import { FullscreenTier } from './tiers/FullscreenTier'
 import { LargeTier } from './tiers/LargeTier'
@@ -22,13 +31,14 @@ import { makeOfeliaViewModel } from './view-model'
 
 import styles from './ofelia-poop-duty.module.css'
 
-function renderLoading(tier: WidgetTier) {
+function renderLoading(tier: WidgetTier, chrome: WidgetChrome) {
   return (
     <div className={styles.widget} data-tier={tier}>
+      <WidgetControls placement="overlay" {...notReadyChrome(chrome)} />
       <div className={styles.loading}>
         <div
           data-slot="skeleton"
-          aria-label="Загрузка виджета Офелии"
+          aria-label="Загрузка виджета «Лоток»"
           className={`animate-pulse rounded-md bg-accent ${styles.loadingSkeleton}`}
         />
       </div>
@@ -36,12 +46,13 @@ function renderLoading(tier: WidgetTier) {
   )
 }
 
-function renderLoadError(tier: WidgetTier, onRetry: () => void) {
+function renderLoadError(tier: WidgetTier, chrome: WidgetChrome, onRetry: () => void) {
   return (
     <div className={styles.widget} data-tier={tier}>
+      <WidgetControls placement="overlay" {...notReadyChrome(chrome)} />
       <div className={styles.loading}>
         <div className={styles.loadError} role="alert">
-          <p>Не удалось загрузить виджет Офелии</p>
+          <p>Не удалось загрузить виджет «Лоток»</p>
           <button type="button" onClick={onRetry}>
             Повторить
           </button>
@@ -51,37 +62,87 @@ function renderLoadError(tier: WidgetTier, onRetry: () => void) {
   )
 }
 
-export const OfeliaPoopDuty = reatomMemo(() => {
-  const { tier, modules } = useWidgetContext()
-  // One module handle per mount: the load starts when `model` gains this
-  // component as a subscriber, and the model is kept once it arrives.
-  const ofeliaHandle = useMemo(
-    () => reatomModule({ modules, module: catsModule, name: 'ofeliaPoopDuty.module' }),
-    [modules],
+// Ruling 10, page 05 frame C: no cat yet, so no litter to show. The card keeps its header row with
+// the controls at its end, as drawn; the tiny tier has no room for one and gets the corner controls.
+function renderEmpty(tier: WidgetTier, chrome: WidgetChrome) {
+  const controls = notReadyChrome(chrome)
+  return (
+    <div className={styles.widget} data-tier={tier}>
+      <div className={styles.empty}>
+        {tier === 'tiny' ? (
+          <WidgetControls placement="overlay" {...controls} />
+        ) : (
+          <CatCardHeader
+            icon={<Cat aria-hidden />}
+            title="Лоток"
+            switcher={null}
+            chrome={controls}
+          />
+        )}
+        <p role="status" className={styles.emptyText}>
+          {EMPTY_LITTER_TEXT}
+        </p>
+      </div>
+    </div>
   )
-  const onRetry = useMemo(() => wrap(() => ofeliaHandle.retry()), [ofeliaHandle])
+}
 
-  const cats = useAtomValue(ofeliaHandle.model)
-  const loadError = useAtomValue(ofeliaHandle.error)
+export const OfeliaPoopDuty = reatomMemo(() => {
+  const { tier, modules, storage } = useWidgetContext()
+  // Up here, before any early return: the loading, error and empty branches draw the controls too.
+  const { onExpand, onDelete, onClose } = useWidgetChrome()
+  // One object per set of callbacks (they are stable), so the memoized ready view is not
+  // re-rendered for a fresh object on every render of this one.
+  const chrome = useMemo<WidgetChrome>(
+    () => ({ onExpand, onDelete, onClose }),
+    [onExpand, onDelete, onClose],
+  )
+  const manage = useManageCats()
+  // One module handle and one litter choice per mount: the load starts when `model` gains this
+  // component as a subscriber, and the model is kept once it arrives.
+  const { handle, choice } = useMemo(() => {
+    const handle = reatomModule({ modules, module: catsModule, name: 'ofeliaPoopDuty.module' })
+    const choice = makeLitterChoice({
+      model: handle.model,
+      storage: storage.instance.server,
+      name: 'ofeliaPoopDuty.card',
+    })
+    return { handle, choice }
+  }, [modules, storage])
+  const card = useMemo<OfeliaCard>(() => ({ choice, manage }), [choice, manage])
+  const onRetry = useMemo(() => wrap(() => handle.retry()), [handle])
+
+  // Read unconditionally so the hook set stays fixed whichever branch returns.
+  const cats = useAtomValue(handle.model)
+  const loadError = useAtomValue(handle.error)
+  const options = useAtomValue(choice.options)
+  const current = useAtomValue(choice.current)
+  const litter = useAtomValue(choice.litter)
   if (cats === null) {
     // A module chunk that failed to load is a real failure with a way out, not
     // an endless skeleton.
-    if (loadError) return renderLoadError(tier, onRetry)
-    return renderLoading(tier)
+    if (loadError) return renderLoadError(tier, chrome, onRetry)
+    return renderLoading(tier, chrome)
   }
 
-  // Interim until the widget picks a litter: always Ofelia's. `litter()` is
-  // memoized, so every render hands the same model down.
-  return <OfeliaPoopDutyReady ofelia={cats.litter(OFELIA_ID)} />
+  // Never a hard-coded litter: with none offered the card says why (ruling 10).
+  if (options?.length === 0) return renderEmpty(tier, chrome)
+  // The registry, or this card's stored choice, is still being read.
+  if (current === null || litter === null) return renderLoading(tier, chrome)
+
+  // Keyed by the litter, so a switch starts the day and week view afresh. `litter()` is memoized,
+  // so every render hands the same model down.
+  return <OfeliaPoopDutyReady key={current.id} ofelia={litter} card={card} chrome={chrome} />
 }, 'OfeliaPoopDuty')
 
-const OfeliaPoopDutyReady = reatomMemo(({ ofelia }: { ofelia: LitterModel }) => {
+type OfeliaPoopDutyReadyProps = {
+  ofelia: LitterModel
+  card: OfeliaCard
+  chrome: WidgetChrome
+}
+
+const OfeliaPoopDutyReady = reatomMemo<OfeliaPoopDutyReadyProps>(({ ofelia, card, chrome }) => {
   const { tier, identity, requestClose } = useWidgetContext()
-  // Called up here with the other hooks, not next to its use site below: this
-  // component early-returns a loading/error view before the tier switch, and a
-  // hook cannot sit behind that return. The file already keeps a fixed hook set
-  // for the same reason (see the `ready`/`loadFailed` comment below).
-  const chrome = useWidgetChrome()
   const dutyModel = useMemo(() => ofeliaDutyModel({ ofelia }), [ofelia])
   const commentsModel = useMemo(
     () => ofeliaCommentsModel({ ofelia, viewWeekStart: dutyModel.viewWeekStart }),
@@ -102,6 +163,7 @@ const OfeliaPoopDutyReady = reatomMemo(({ ofelia }: { ofelia: LitterModel }) => 
     }
 
     return {
+      card,
       view,
       history: dutyModel.historyView,
       today: dutyModel.today,
@@ -154,7 +216,7 @@ const OfeliaPoopDutyReady = reatomMemo(({ ofelia }: { ofelia: LitterModel }) => 
       },
       onSend: wrap((text: string) => commentsModel.send(text)),
     }
-  }, [dutyModel, commentsModel, identity])
+  }, [card, dutyModel, commentsModel, identity])
 
   // The loading guard subscribes to just the boolean readiness slice; the first
   // server-time sync flips it to true and the tiers (reading other slices) mount.
@@ -170,31 +232,30 @@ const OfeliaPoopDutyReady = reatomMemo(({ ofelia }: { ofelia: LitterModel }) => 
     if (loadFailed) {
       return renderLoadError(
         tier,
+        chrome,
         wrap(() => dutyModel.retryLedger()),
       )
     }
 
-    return renderLoading(tier)
+    return renderLoading(tier, chrome)
   }
 
   // Card management controls (expand/delete) only make sense on the board card
   // itself; useWidgetChrome already withholds them on the fullscreen mount,
   // which renders with mode="large".
-  const { onExpand, onDelete } = chrome
-
   let content: ReactNode = null
   switch (tier) {
     case 'tiny':
-      content = <TinyTier onExpand={onExpand} onDelete={onDelete} />
+      content = <TinyTier chrome={chrome} />
       break
     case 'compact':
-      content = <CompactTier onExpand={onExpand} onDelete={onDelete} />
+      content = <CompactTier chrome={chrome} />
       break
     case 'standard':
-      content = <StandardTier onExpand={onExpand} onDelete={onDelete} />
+      content = <StandardTier chrome={chrome} />
       break
     case 'large':
-      content = <LargeTier onExpand={onExpand} onDelete={onDelete} />
+      content = <LargeTier chrome={chrome} />
       break
     case 'fullscreen':
       content = <FullscreenTier onClose={requestClose} />

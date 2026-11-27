@@ -9,6 +9,7 @@
 
 @source '../../../widget-sdk/src';
 @source '../../../widgets/*/ui';
+@source '../../../modules/*/ui';
 
 @source '../../../widget-sdk/src';
 @source '../../../widgets/*/ui';

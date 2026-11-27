@@ -15,9 +15,8 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
-
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from 'widget-sdk/ui/button'
+import { Input } from 'widget-sdk/ui/input'
 
 import { type ActivationModel } from '../model/activation-model'
 import { addDeviceRoute, recordScanReturn } from '../model/routes'

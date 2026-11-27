@@ -265,13 +265,18 @@ const catsServer = defineModuleServer(catsContract, {
     // The profile is written before the registry `add`: a request that fails between the two
     // leaves a profile no registry entry names, which nothing reads, never a registry id with no
     // profile behind it (the model skips such ids anyway).
-    addCat: async ({ name, litter }, context) => {
+    addCat: async ({ name, litter, birthDate, sex }, context) => {
       const storage = context.api.storage.shared
       const litterId = await resolveLitter(storage, litter)
       if (litterId instanceof Error) return litterId
 
       const catId = crypto.randomUUID()
-      const saved = await storage.set(catProfileKey(catId), defaultCatProfile(name, litterId))
+      const profile = {
+        ...defaultCatProfile(name, litterId),
+        ...(birthDate === undefined ? {} : { birthDate }),
+        ...(sex === undefined ? {} : { sex }),
+      }
+      const saved = await storage.set(catProfileKey(catId), profile)
       if (saved instanceof Error) return saved
 
       const added = await appendCatEvent(storage, { catId, op: 'add' })
@@ -332,6 +337,17 @@ const catsServer = defineModuleServer(catsContract, {
       const storage = context.api.storage.shared
       const registry = await readRegistryWith(storage, catId)
       if (registry instanceof Error) return registry
+
+      // The history is append-only: a weighing dated after today would stay the current weight.
+      const today = plainDateIn(DUTY_TIME_ZONE, context.now())
+      if (Temporal.PlainDate.compare(Temporal.PlainDate.from(at), today) > 0) {
+        return new PublicWidgetError({
+          code: 'future_weighing',
+          status: 422,
+          publicMessage: 'A weighing cannot be dated after today',
+          meta: { catId, at },
+        })
+      }
 
       const written = await storage.append(catWeightKey(catId), {
         at,

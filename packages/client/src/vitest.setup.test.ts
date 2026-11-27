@@ -4,7 +4,7 @@ import { pushOverlay } from 'widget-runtime'
 // `setupFiles` entry) registers a `beforeEach` that resets
 // `overlay-history.ts`'s file-scoped singletons — the same singletons every
 // Dialog/Popover root touches through `useOverlayBackDismiss`
-// (src/components/ui/dialog.tsx, popover.tsx). This file has NO reset of its
+// (widget-sdk/src/ui/dialog.tsx, popover.tsx). This file has NO reset of its
 // own — that is the point: if the shared setup's `beforeEach` did not run, or
 // ran but did nothing, the second test below would see the first test's
 // still-open entry and land on depth 2 instead of 1. A reset nobody can

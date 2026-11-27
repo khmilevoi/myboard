@@ -54,6 +54,8 @@ export const LitterRegistryEventsSchema = tolerantArraySchema(
 )
 
 export type CatRegistry = {
+  /** Every known cat id in first-`add` order, archived ones included: a cat's tone follows it. */
+  order: string[]
   /** Active cats, in first-`add` order. */
   active: string[]
   archived: { catId: string; archivedAt: number }[]
@@ -95,6 +97,7 @@ export function foldCatRegistry(events: readonly CatRegistryEvent[]): CatRegistr
   }
 
   return {
+    order,
     active: order.filter((catId) => !archivedAt.has(catId)),
     archived: order.flatMap((catId) => {
       const at = archivedAt.get(catId)

@@ -23,10 +23,21 @@ const litter = (litterId: string, ts = ++seq): LitterRegistryEvent => ({
 })
 
 describe('foldCatRegistry', () => {
+  it('lists every known cat in first-add order, archived ones included', () => {
+    const folded = foldCatRegistry([
+      cat('add', 'a', 10),
+      cat('add', 'b', 20),
+      cat('archive', 'a', 30),
+    ])
+
+    expect(folded.order).toEqual(['a', 'b'])
+  })
+
   it('moves an archived cat out of active, stamped with the archive ts', () => {
     const archive = cat('archive', 'a', 30)
 
     expect(foldCatRegistry([cat('add', 'a', 10), cat('add', 'b', 20), archive])).toEqual({
+      order: ['a', 'b'],
       active: ['b'],
       archived: [{ catId: 'a', archivedAt: 30 }],
     })
@@ -34,6 +45,7 @@ describe('foldCatRegistry', () => {
 
   it('ignores archiving the only active cat', () => {
     expect(foldCatRegistry([cat('add', 'a'), cat('archive', 'a')])).toEqual({
+      order: ['a'],
       active: ['a'],
       archived: [],
     })
@@ -43,6 +55,7 @@ describe('foldCatRegistry', () => {
     const events = [cat('add', 'a'), cat('add', 'b'), cat('archive', 'a'), cat('archive', 'b')]
 
     expect(foldCatRegistry(events)).toEqual({
+      order: ['a', 'b'],
       active: ['b'],
       archived: [{ catId: 'a', archivedAt: events[2].ts }],
     })
@@ -57,11 +70,16 @@ describe('foldCatRegistry', () => {
       cat('restore', 'a'),
     ]
 
-    expect(foldCatRegistry(events)).toEqual({ active: ['a', 'b', 'c'], archived: [] })
+    expect(foldCatRegistry(events)).toEqual({
+      order: ['a', 'b', 'c'],
+      active: ['a', 'b', 'c'],
+      archived: [],
+    })
   })
 
   it('ignores a duplicate add', () => {
     expect(foldCatRegistry([cat('add', 'a'), cat('add', 'b'), cat('add', 'a')])).toEqual({
+      order: ['a', 'b'],
       active: ['a', 'b'],
       archived: [],
     })
@@ -78,6 +96,7 @@ describe('foldCatRegistry', () => {
     ]
 
     expect(foldCatRegistry(events)).toEqual({
+      order: ['a', 'b', 'c'],
       active: ['a', 'c'],
       archived: [{ catId: 'b', archivedAt: events[4].ts }],
     })

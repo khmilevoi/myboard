@@ -4,9 +4,10 @@ import { makeScriptedHttp, type ScriptedStep } from '@shared/http/test/scripted-
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeAvatarCropModel } from 'widget-sdk/files/avatar-crop-model'
 
 import { createAccountModel } from '../model/account-model'
-import { makeAvatarCropModel } from '../model/avatar-crop-model'
+import { describeAvatarError } from '../model/avatar-http'
 import type { AccountDto, DeviceDto } from '../model/devices-http'
 import { AccountMenu } from './AccountMenu'
 
@@ -220,6 +221,7 @@ describe('AccountMenu', () => {
       })
       const cropModel = makeAvatarCropModel({
         upload: model.uploadAvatar,
+        describeError: describeAvatarError,
         readImageSize: async () => ({ width: 400, height: 300 }),
         createObjectUrl: () => 'blob:picked',
         revokeObjectUrl: vi.fn(),

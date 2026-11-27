@@ -4,7 +4,7 @@ import { BoardPage } from './BoardPage.js'
 import { HeaderPage } from './HeaderPage.js'
 import type { DutyPerson } from './OfeliaPage.js'
 
-const TITLE = 'Статистика Офелии'
+const TITLE = 'Статистика лотка'
 
 export class OfeliaStatsPage {
   readonly card: Locator

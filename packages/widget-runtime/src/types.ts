@@ -1,3 +1,4 @@
+import type { AtomLike } from '@reatom/core'
 import type { WidgetApi, WidgetEventMap } from '@shared/widgets/contracts'
 import type { ComponentType } from 'react'
 
@@ -9,6 +10,13 @@ import type { WidgetTier } from './tier'
 import type { WidgetApiError } from './widget-api'
 
 export type WidgetMode = 'small' | 'large'
+
+export type WidgetBoardAccess = {
+  /** The first placed instance of `typeId` on the active board, in `instances` order; null if none. */
+  firstInstanceOf(typeId: string): AtomLike<string | null>
+  /** Opens that instance fullscreen; on a fullscreen card this replaces the open one. */
+  expand(instanceId: string): void
+}
 
 export type WidgetRuntimeProps<Events extends WidgetEventMap = WidgetEventMap> = {
   instanceId: string
@@ -24,6 +32,8 @@ export type WidgetRuntimeProps<Events extends WidgetEventMap = WidgetEventMap> =
   api: WidgetApi<Events, WidgetApiError>
   identity: WidgetIdentity
   modules: WidgetModules
+  /** Host-only; harnesses leave it out. */
+  board?: WidgetBoardAccess
 }
 
 declare const widgetEvents: unique symbol

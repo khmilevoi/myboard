@@ -7,5 +7,5 @@ export type FullscreenTierProps = {
 }
 
 export const FullscreenTier = reatomMemo<FullscreenTierProps>(({ onClose }) => {
-  return <RichLayout onClose={onClose} />
+  return <RichLayout chrome={{ onClose }} />
 }, 'FullscreenTier')

@@ -20,6 +20,31 @@ anchored to the code.
   React/UI helpers respectively. React, React DOM, Reatom and `widget-runtime` are strict federation
   singletons.
 
+### The Кошки widget and shared code
+
+`packages/widgets/cats` is the Кошки widget: one card per placed instance, showing one cat's weight
+history and its litter. Each card remembers its own choice of cat and litter under the
+instance-scope keys `w:i:<instanceId>:card/cat` and `w:i:<instanceId>:card/litter`
+(`CARD_CAT_KEY` / `CARD_LITTER_KEY` in `module-cats/domain/keys`); renaming either forgets every
+card's choice. The data itself lives in the `cats` module's shared scope.
+
+`WidgetRuntimeProps.board` is optional, board-only access (`WidgetBoardAccess`):
+`firstInstanceOf(typeId)` is an atom of the first placed instance of a widget type on the active
+board, and `expand(instanceId)` opens that instance fullscreen. The cat switchers use it to
+open the placed Кошки card fullscreen from "Управлять кошками →" (or show a hint when none is
+placed); standalone harnesses leave it undefined.
+
+Where shared code lives:
+
+- **`widget-sdk`** — the UI primitives (`src/ui`: button, dialog, input, tabs, ...), the avatar crop
+  (`AvatarCropDialog`, `files/avatar-crop-model`) and `LineChart` (which takes an optional `yDomain`
+  so a chart can share its domain with its labels). Widgets never import UI from
+  `packages/client/src`.
+- **`@shared/format/ru`** — Russian date and number formatting (month names, genitive forms).
+- **`module-cats/ui`** — the cat UI shared by the cats widgets: `MemberAvatar`, `CatAvatar`, the
+  cat and litter switchers, `WeighDialog` and the shared form-sheet chrome (`sheet.module.css`).
+  The server bundle never imports it: it may only reach `domain/` code.
+
 Server-side widget behavior — authored records, crons, the bundling constraint — is documented in
 `docs/agent/widget-server.md`.
 
