@@ -126,6 +126,20 @@
   .ncard { background: #fff; border: 1px solid #e3e4e8; border-radius: 12px; padding: 14px 16px; }
   .ncard h3 { font: 600 13px 'Hanken Grotesk', sans-serif; color: #22232a; margin-bottom: 5px; }
   .ncard p { font: 400 12.5px/1.5 'Hanken Grotesk', sans-serif; color: #5b5e69; text-wrap: pretty; }
+  .low { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--destructive); }
+  .lowrow { display: flex; align-items: flex-start; gap: 9px; margin: 0 0 10px 48px; padding: 9px 11px; border-radius: 10px; background: var(--destructive-soft); color: var(--text); font-size: 12.5px; line-height: 1.45; text-wrap: pretty; }
+  .lowrow svg { flex: none; margin-top: 1px; color: var(--destructive); }
+  .ph { width: 390px; height: 760px; background: var(--surface); border: 1px solid rgba(20,22,40,.08); box-shadow: 0 1px 2px rgba(30,32,50,.05), 0 24px 50px -18px rgba(30,32,55,.22); display: flex; flex-direction: column; overflow: hidden; border-radius: 18px; }
+  .ph-top { flex: none; height: 30px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font: 600 12px 'Hanken Grotesk', sans-serif; color: var(--text); }
+  .ph-h { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--border); }
+  .ph-h h3 { flex: 1; font: 700 19px/1.2 'Hanken Grotesk', sans-serif; letter-spacing: -.01em; }
+  .ph-b { flex: 1; min-height: 0; overflow: hidden; padding: 2px 16px 16px; }
+  .ph-f { flex: none; padding: 12px 16px 26px; border-top: 1px solid var(--border); background: var(--surface); }
+  .ph-f .bp, .ph-f .bs { margin-top: 0; }
+  .ph-f .bs { margin-top: 10px; }
+  .flab { display: flex; align-items: baseline; gap: 10px; }
+  .flab b { font: 600 11px 'JetBrains Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: #5b5e69; }
+  .flab span { font: 400 12.5px 'Hanken Grotesk', sans-serif; color: #6f7280; }
 </style>
 </helmet>
 
@@ -207,6 +221,30 @@
     </div>
 
     <div class="fr">
+      <div class="tag">(b2) Батарея садится · меньше 20%</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <span class="lbl">Шлюз</span>
+        <div class="r">
+          <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st ok">в сети</span>· на связи только что</p></div>
+          <button class="gd" type="button">Отозвать</button>
+        </div>
+        <span class="lbl">Подключено</span>
+        <div class="hw">
+          <div class="r">
+            <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs"><span class="low"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2M6 10v4"/></svg>батарея 14%</span>· взвешивание сегодня, 08:12</p></div>
+            <button class="gd" type="button">Отключить</button>
+          </div>
+          <div class="lowrow" role="note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"/></svg><span>Батарея весов садится. Замените батарейки, пока весы не перестали передавать взвешивания.</span></div>
+          <div class="pr"><p class="pn">Профиль 1 <span>· ваш</span></p><button class="lk" type="button">Код согласия</button><button class="lk d" type="button">Отвязать</button></div>
+        </div>
+        <button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
       <div class="tag">(c) Весы есть, вашего профиля нет</div>
       <div class="stage"><div class="dlg">
         <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
@@ -247,9 +285,10 @@
             <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
             <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">батарея 80% · взвешивание сегодня, 08:12</p></div>
           </div>
+          <div class="pr"><p class="pn">Профиль 1 <span>· ваш</span></p><button class="lk" type="button">Код согласия</button><button class="lk d" type="button">Отвязать</button></div>
         </div>
         <button class="bp" type="button" disabled aria-describedby="off-hint"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button>
-        <p id="off-hint" class="hint" style="text-align:center;">Добавлять и отключать можно, когда шлюз в сети</p>
+        <p id="off-hint" class="hint" style="text-align:center;">Добавлять оборудование и отключать весы можно, когда шлюз в сети. Код согласия и отвязка профиля работают и сейчас.</p>
       </div></div>
     </div>
 
@@ -272,6 +311,49 @@
           </div>
         </div>
         <div class="note acc">Сопрягать заново не нужно. После добавления подключите свой профиль на весах кодом согласия. Код можно посмотреть в «Оборудовании» прежней борды.</div>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(e2) Шлюз отозван, весы остались</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="note" style="margin-top:16px;">Шлюза сейчас нет. Весы и профили остались на борде: подключите Raspberry Pi новым кодом — и взвешивания пойдут снова, без сопряжения.</div>
+        <span class="lbl">Ждут шлюз</span>
+        <div class="hw" style="border-style:dashed;border-color:var(--border-strong);">
+          <div class="r">
+            <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs"><span class="st off">без шлюза</span>· взвешивание вчера, 21:40</p></div>
+            <button class="gd" type="button">Убрать</button>
+          </div>
+          <div class="pr"><p class="pn">Профиль 1 <span>· ваш</span></p><button class="lk" type="button">Код согласия</button><button class="lk d" type="button">Отвязать</button></div>
+          <div class="pr"><p class="pn">Профиль 2 <span>· другой аккаунт</span></p></div>
+        </div>
+        <button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить шлюз</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(e3) Тот же Pi вернулся</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <span class="lbl">Шлюз</span>
+        <div class="r">
+          <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st ok">в сети</span>· подключён только что</p></div>
+          <button class="gd" type="button">Отозвать</button>
+        </div>
+        <span class="lbl">Уже были на этой борде</span>
+        <div class="hw" style="border-style:dashed;border-color:var(--border-strong);">
+          <div class="r">
+            <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+            <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">сопряжены с этим Raspberry Pi</p></div>
+            <button class="gp" type="button">Вернуть</button>
+          </div>
+          <div class="pr"><p class="pn" style="color:var(--text-2);">Профиль 1 <span>· ваш</span></p></div>
+          <div class="pr"><p class="pn" style="color:var(--text-2);">Профиль 2 <span>· другой аккаунт</span></p></div>
+        </div>
+        <div class="note acc">Raspberry Pi помнит эти весы. После «Вернуть» профили привяжутся как раньше — ни сопряжения, ни кода согласия не нужно.</div>
       </div></div>
     </div>
 
@@ -399,6 +481,20 @@
     </div>
 
     <div class="fr">
+      <div class="tag">(b3) Сопряжение не удалось</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 2 из 3"><span class="done">Поиск</span><span class="now">Сопряжение</span><span>Профиль</span></div>
+        <div class="empty">
+          <div class="ico bad"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          <p class="et">Сопряжение не удалось</p>
+          <p class="ec">Весы уснули или код не ввели вовремя. Разбудите весы и начните с поиска — они покажут новый код.</p>
+        </div>
+        <button class="bp" type="button">Начать заново</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
       <div class="tag">(c) Профиль на весах</div>
       <div class="stage"><div class="dlg">
         <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
@@ -441,6 +537,60 @@
     </div>
 
     <div class="fr">
+      <div class="tag">(c4) Код согласия не подошёл</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><button class="ib" type="button" aria-label="Назад" style="margin-left:-6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><h3>Подключить профиль</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 3 из 3"><span class="done">Поиск</span><span class="done">Сопряжение</span><span class="now">Профиль</span></div>
+        <span class="lbl">Профили на весах</span>
+        <button class="opt" type="button" aria-pressed="true"><span class="rad"></span><span class="rm"><span class="rt" style="display:block;">Профиль 1</span><span class="rs" style="display:block;">не привязан на этой борде</span></span></button>
+        <div style="margin-top:16px;"><label class="fl" for="cc-e">Код согласия</label><input class="inp e" id="cc-e" inputmode="numeric" value="1234" aria-invalid="true" aria-describedby="cc-e-err" style="font:500 18px 'JetBrains Mono',monospace;letter-spacing:.3em;"><p class="err" id="cc-e-err">Весы не приняли код. Проверьте его в «Оборудовании» борды, где создавали профиль.</p></div>
+        <button class="bp" type="button">Подключить профиль</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c5) Свободных профилей нет</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 3 из 3"><span class="done">Поиск</span><span class="done">Сопряжение</span><span class="now">Профиль</span></div>
+        <p class="dsub" style="margin-top:16px;">На весах до восьми профилей, по одному на человека. По профилю весы понимают, чьё взвешивание, и считают состав тела.</p>
+        <div style="margin-top:16px;">
+          <button class="opt" type="button" aria-pressed="false" disabled><span class="rad"></span><span class="rm"><span class="rt" style="display:block;">Создать новый профиль</span><span class="rs" style="display:block;">на весах заняты все 8 профилей</span></span></button>
+          <button class="opt" type="button" aria-pressed="true"><span class="rad"></span><span class="rm"><span class="rt" style="display:block;">Подключить существующий</span><span class="rs" style="display:block;">понадобится код согласия этого профиля</span></span></button>
+        </div>
+        <button class="bp" type="button">Дальше</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c6) Записываем на весы</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 3 из 3"><span class="done">Поиск</span><span class="done">Сопряжение</span><span class="now">Профиль</span></div>
+        <div class="empty">
+          <p class="et">Создаём профиль на весах</p>
+          <p class="ec">Шлюз передаёт рост, дату рождения и пол. Весам нужно не спать — если экран погас, встаньте на них.</p>
+        </div>
+        <div class="wait"><span class="spin"></span>Ждём ответ весов…</div>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(c7) Весы не ответили</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 3 из 3"><span class="done">Поиск</span><span class="done">Сопряжение</span><span class="now">Профиль</span></div>
+        <div class="empty">
+          <div class="ico bad"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <p class="et">Весы не ответили</p>
+          <p class="ec">Профиль не создан. Весы сопряжены, так что начинать сначала не нужно: разбудите их и попробуйте ещё раз.</p>
+        </div>
+        <button class="bp" type="button">Попробовать ещё раз</button>
+        <button class="bs" type="button">Назад</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
       <div class="tag">(d) Готово</div>
       <div class="stage"><div class="dlg">
         <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
@@ -454,6 +604,39 @@
           <span class="mono" style="font:700 24px 'JetBrains Mono',monospace;letter-spacing:.12em;">4821</span>
         </div>
         <button class="bp" type="button">Готово</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(d2) Готово · на борде нет карточки «Вес»</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="empty" style="padding-top:12px;">
+          <div class="ico ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+          <p class="et">Весы подключены</p>
+          <p class="ec">Взвешивания уже сохраняются в вашем профиле здоровья. Чтобы видеть вес на борде, добавьте карточку «Вес».</p>
+        </div>
+        <div style="margin-top:18px;padding:13px 14px;border-radius:13px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;gap:14px;">
+          <div class="rm"><p class="rt" style="font-size:13px;">Код согласия · профиль 1</p><p class="hint" style="margin-top:3px;">Нужен, чтобы подключить этот профиль на другой борде. Посмотреть его можно в «Оборудовании».</p></div>
+          <span class="mono" style="font:700 24px 'JetBrains Mono',monospace;letter-spacing:.12em;">4821</span>
+        </div>
+        <button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить карточку «Вес»</button>
+        <button class="bs" type="button">Готово</button>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(e) Шлюз пропал посреди шагов</div>
+      <div class="stage"><div class="dlg">
+        <div class="dh"><h3>Добавить оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="steps" aria-label="Шаг 2 из 3"><span class="done">Поиск</span><span class="now">Сопряжение</span><span>Профиль</span></div>
+        <div class="empty">
+          <div class="ico" style="background:var(--surface-2);color:var(--text-3);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+          <p class="et">Шлюз не в сети</p>
+          <p class="ec">Связь с Raspberry Pi пропала, до весов сейчас не достучаться. Когда шлюз вернётся, шаг продолжится; если весы успеют уснуть, сопряжение начнётся заново.</p>
+        </div>
+        <div class="wait"><span class="spin"></span>Ждём шлюз…</div>
+        <button class="bs" type="button" style="margin-top:16px;">Закрыть</button>
       </div></div>
     </div>
   </div>
@@ -500,21 +683,127 @@
       <div class="tag">(d) Отозвать шлюз?</div>
       <div class="stage"><div class="dlg">
         <div class="cf">
-          <p><b>Отозвать шлюз?</b> Raspberry Pi перестанет связываться с этой бордой, взвешивания перестанут приходить. Сопряжения на нём останутся: после нового подключения весы добавятся без сопряжения.</p>
+          <p><b>Отозвать шлюз?</b> Raspberry Pi перестанет связываться с этой бордой, взвешивания перестанут приходить. Весы, профили и коды согласия останутся на борде: когда этот Pi подключится новым кодом, весы вернутся без сопряжения.</p>
           <div class="bb"><button type="button" style="border:1px solid var(--border);background:var(--surface);color:var(--text);">Отмена</button><button type="button" style="border:0;background:var(--destructive);color:#fff;">Отозвать</button></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="fr">
+      <div class="tag">(e) Убрать весы без шлюза?</div>
+      <div class="stage"><div class="dlg">
+        <div class="cf">
+          <p><b>Убрать Beurer BF 950 с борды?</b> Профили отвяжутся у всех участников, а их коды согласия пропадут — на другой борде профиль тогда не подключить. Сопряжение на Raspberry Pi останется.</p>
+          <div class="bb"><button type="button" style="border:1px solid var(--border);background:var(--surface);color:var(--text);">Отмена</button><button type="button" style="border:0;background:var(--destructive);color:#fff;">Убрать</button></div>
         </div>
       </div></div>
     </div>
   </div>
 
+  <!-- ============ 6 · ТЕЛЕФОН ============ -->
+  <div class="sec"><h2>6 · Телефон</h2><span>≤ 640px · окно и мастер — на весь экран, как полноэкранные виджеты; кнопка действия прижата к низу</span></div>
+  <div class="grid" style="gap:36px;">
+
+    <div class="fr">
+      <div class="flab"><b>(a) Окно</b><span>шапка и кнопка закреплены, список скроллится</span></div>
+      <div class="ds-scope ph" data-theme="light">
+        <div class="ph-top" aria-hidden="true"><span>9:41</span><span>●●●</span></div>
+        <div class="ph-h"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="ph-b">
+          <span class="lbl">Шлюз</span>
+          <div class="r">
+            <div class="tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M19 9h3M19 15h3M2 9h3M2 15h3"/></svg></div>
+            <div class="rm"><p class="rt">Raspberry Pi</p><p class="rs"><span class="st ok">в сети</span>· на связи только что</p></div>
+            <button class="gd" type="button">Отозвать</button>
+          </div>
+          <span class="lbl">Подключено</span>
+          <div class="hw">
+            <div class="r">
+              <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+              <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs"><span class="low"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2M6 10v4"/></svg>батарея 14%</span>· сегодня, 08:12</p></div>
+              <button class="gd" type="button">Отключить</button>
+            </div>
+            <div class="lowrow" role="note" style="margin-left:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"/></svg><span>Батарея весов садится. Замените батарейки, пока весы не перестали передавать взвешивания.</span></div>
+            <div class="pr" style="padding-left:0;flex-wrap:wrap;"><p class="pn">Профиль 1 <span>· ваш</span></p><button class="lk" type="button">Код согласия</button><button class="lk d" type="button">Отвязать</button></div>
+            <div class="pr" style="padding-left:0;"><p class="pn">Профиль 2 <span>· другой аккаунт</span></p></div>
+          </div>
+        </div>
+        <div class="ph-f"><button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button></div>
+      </div>
+    </div>
+
+    <div class="fr">
+      <div class="flab"><b>(b) Мастер · сопряжение</b><span>«Назад» в шапке, клавиатура цифр</span></div>
+      <div class="ds-scope ph" data-theme="light">
+        <div class="ph-top" aria-hidden="true"><span>9:41</span><span>●●●</span></div>
+        <div class="ph-h"><button class="ib" type="button" aria-label="Назад"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="ph-b">
+          <div class="steps" aria-label="Шаг 2 из 3"><span class="done">Поиск</span><span class="now">Сопряжение</span><span>Профиль</span></div>
+          <div style="margin-top:22px;"><label class="fl" for="pin-ph">Код с экрана весов</label><input class="inp big f" id="pin-ph" inputmode="numeric" autocomplete="one-time-code" value="482913"><p class="hint">Весы показывают его, пока идёт сопряжение.</p></div>
+        </div>
+        <div class="ph-f"><button class="bp" type="button">Сопрячь</button></div>
+      </div>
+    </div>
+
+    <div class="fr">
+      <div class="flab"><b>(c) Мастер · готово</b><span>карточки «Вес» на борде нет</span></div>
+      <div class="ds-scope ph" data-theme="light">
+        <div class="ph-top" aria-hidden="true"><span>9:41</span><span>●●●</span></div>
+        <div class="ph-h"><h3>Beurer BF 950</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="ph-b">
+          <div class="empty" style="padding-top:28px;">
+            <div class="ico ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+            <p class="et">Весы подключены</p>
+            <p class="ec">Взвешивания уже сохраняются в вашем профиле здоровья. Чтобы видеть вес на борде, добавьте карточку «Вес».</p>
+          </div>
+          <div style="margin-top:18px;padding:13px 14px;border-radius:13px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;gap:14px;">
+            <div class="rm"><p class="rt" style="font-size:13px;">Код согласия · профиль 1</p><p class="hint" style="margin-top:3px;">Посмотреть его можно в «Оборудовании».</p></div>
+            <span class="mono" style="font:700 24px 'JetBrains Mono',monospace;letter-spacing:.12em;">4821</span>
+          </div>
+        </div>
+        <div class="ph-f"><button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить карточку «Вес»</button><button class="bs" type="button">Готово</button></div>
+      </div>
+    </div>
+
+    <div class="fr">
+      <div class="flab"><b>(d) Тёмная · подтверждение</b><span>строка подтверждения на всю ширину</span></div>
+      <div class="ds-scope ph" data-theme="dark" style="border-color:rgba(255,255,255,.06);">
+        <div class="ph-top" aria-hidden="true"><span>9:41</span><span>●●●</span></div>
+        <div class="ph-h"><h3>Оборудование</h3><button class="ib" type="button" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="ph-b">
+          <span class="lbl">Шлюз</span>
+          <div class="cf">
+            <p><b>Отозвать шлюз?</b> Raspberry Pi перестанет связываться с этой бордой, взвешивания перестанут приходить. Весы, профили и коды согласия останутся на борде.</p>
+            <div class="bb"><button type="button" style="border:1px solid var(--border);background:var(--surface);color:var(--text);">Отмена</button><button type="button" style="border:0;background:var(--destructive);color:var(--on-accent);">Отозвать</button></div>
+          </div>
+          <span class="lbl">Подключено</span>
+          <div class="hw">
+            <div class="r">
+              <div class="tile on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg></div>
+              <div class="rm"><p class="rt">Beurer BF 950</p><p class="rs">батарея 80% · сегодня, 08:12</p></div>
+              <button class="gd" type="button">Отключить</button>
+            </div>
+            <div class="pr" style="padding-left:0;"><p class="pn">Профиль 1 <span>· ваш</span></p><button class="lk" type="button">Код согласия</button><button class="lk d" type="button">Отвязать</button></div>
+          </div>
+        </div>
+        <div class="ph-f"><button class="bp" type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Добавить оборудование</button></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ FLOW NOTES ============ -->
   <div class="sec"><h2>Заметки по флоу</h2></div>
-  <div style="display:flex;gap:14px;max-width:1560px;margin-bottom:64px;">
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-width:1560px;margin-bottom:64px;">
     <div class="ncard" style="flex:1;"><h3>Кто что видит</h3><p>Шлюз и весы принадлежат борде: их видит и меняет любой участник. В списке нет ни одного значения веса — только время последнего взвешивания. Профиль на весах принадлежит аккаунту: отвязать его или увидеть код может только владелец.</p></div>
     <div class="ncard" style="flex:1;"><h3>Код согласия</h3><p>При создании профиля код придумывает борда (4 цифры) и хранит у себя: шлюзу он нужен при каждом чтении весов. В списках его нет, показывается только владельцу по кнопке.</p></div>
     <div class="ncard" style="flex:1;"><h3>Профиль меняется — весы тоже</h3><p>Если поменять рост, дату рождения или пол в профиле здоровья, новые значения уйдут на весы при следующем подключении. Иначе состав тела будет считаться по старым.</p></div>
-    <div class="ncard" style="flex:1;"><h3>Всё живое</h3><p>Статус шлюза, найденные весы и ход сопряжения приходят без перезагрузки. Шаги «Добавить оборудование» доступны, только пока шлюз в сети.</p></div>
-    <div class="ncard" style="flex:1;"><h3>Уточнится на Pi</h3><p>Длина кода сопряжения (здесь 6 цифр), как именно будить весы, поля профиля на весах и диапазон кода согласия — до проверки на Raspberry Pi это предположения.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Всё живое</h3><p>Статус шлюза, найденные весы, ход сопряжения и ответ весов на создание профиля приходят без перезагрузки. Всё, что говорит с весами, — поиск, сопряжение, профили, отключение — доступно, только пока шлюз в сети. Код согласия и отвязка работают и без шлюза.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Отзыв шлюза</h3><p>Отзыв выключает только шлюз. Весы, привязки и коды согласия остаются на борде с пометкой «без шлюза». Когда тот же Raspberry Pi подключится новым кодом, весы возвращаются кнопкой «Вернуть» — без сопряжения и кодов.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Один код на борду</h3><p>Новый код для шлюза отменяет прежний, даже если его создал другой участник. После 10 неверных вводов код перестаёт работать — нужен новый.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Уточнится на Pi</h3><p>Длина кода сопряжения (здесь 6 цифр), как именно будить весы, поля профиля на весах, диапазон кода согласия, сколько профилей помещается (здесь 8) и кто выбирает номер нового — до проверки на Raspberry Pi это предположения.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Батарея садится</h3><p>Ниже 20% процент в строке весов становится красным, под ней — строка-подсказка (2b2). Отдельных уведомлений нет: предупреждение видно только в «Оборудовании». Батарею весы присылают со взвешиванием, так что значение — с последнего.</p></div>
+    <div class="ncard" style="flex:1;"><h3>Карточка «Вес»</h3><p>Если на борде нет карточки «Вес», на шаге «Готово» главная кнопка — «Добавить карточку «Вес»» (4d2): она ставит карточку на борду и закрывает мастер. Карточка уже есть — остаётся просто «Готово» (4d).</p></div>
+    <div class="ncard" style="flex:1;"><h3>Телефон</h3><p>До 640px окно и мастер открываются на весь экран, как полноэкранные виджеты: шапка с «Назад» и «Закрыть» и главная кнопка закреплены, середина скроллится. Шаги мастера сменяют друг друга в том же экране, подтверждения — те же строки на всю ширину (6).</p></div>
   </div>
 
 </div>
