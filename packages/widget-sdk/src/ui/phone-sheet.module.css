@@ -1,0 +1,49 @@
+.frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  flex: none;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  max-height: calc(100dvh - 160px);
+}
+
+.footer {
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .frame {
+    /* Neutralises the centred-dialog placement (top/left 50% plus a
+       translate or transform, depending on the utility layer). */
+    top: 0;
+    left: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    transform: none;
+    translate: none;
+  }
+
+  .body {
+    max-height: none;
+  }
+
+  .footer {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .footer > * {
+    width: 100%;
+  }
+}
