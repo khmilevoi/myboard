@@ -261,6 +261,17 @@ describe('OfeliaPoopDuty litter choice', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(EMPTY_TEXT)
     expect(screen.queryByRole('button', { name: 'Какашки убраны' })).not.toBeInTheDocument()
   })
+
+  it('no litters, tiny — the empty text with the corner controls instead of a header', async () => {
+    const widgetProps = props('tiny', { cats: [] })
+    renderWidget(widgetProps)
+
+    expect(await screen.findByRole('status')).toHaveTextContent(EMPTY_TEXT)
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+    expect(widgetProps.requestDelete).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Развернуть' })).not.toBeInTheDocument()
+  })
 })
 
 // F2c: a failed initial ledger read used to leave `ledger` pinned at its
@@ -365,7 +376,7 @@ const STATES: CardState[] = [
     reached: () => screen.findByText('Не удалось загрузить виджет «Лоток»'),
   },
   {
-    name: 'ledger loading',
+    name: 'server time not synced',
     setup: () => {
       timerHolder.current = createFakeTimer()
     },

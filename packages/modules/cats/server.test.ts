@@ -590,9 +590,8 @@ describe('cats server: registries, profile, goal and weight', () => {
     expect(profileKeys).toHaveLength(1)
     expect(store.get(profileKeys[0])).toEqual(defaultCatProfile('Буся', OFELIA_ID))
     expect(writes).toEqual([`set ${profileKeys[0]}`, `append ${CATS_REGISTRY_KEY}`])
-    expect(
-      foldCatRegistry(CatRegistryEventsSchema.parse(store.get(CATS_REGISTRY_KEY))),
-    ).toMatchObject({
+    expect(foldCatRegistry(CatRegistryEventsSchema.parse(store.get(CATS_REGISTRY_KEY)))).toEqual({
+      order: [OFELIA_ID],
       active: [OFELIA_ID],
       archived: [],
     })
@@ -686,14 +685,19 @@ describe('cats server: registries, profile, goal and weight', () => {
     const registry = () =>
       foldCatRegistry(CatRegistryEventsSchema.parse(store.get(CATS_REGISTRY_KEY)))
 
-    expect(await run('archiveCat', { catId: 'busya' }, context)).toMatchObject({ ok: true })
-    expect(registry()).toMatchObject({
+    expect(await run('archiveCat', { catId: 'busya' }, context)).toEqual({ ok: true })
+    expect(registry()).toEqual({
+      order: [OFELIA_ID, 'busya'],
       active: [OFELIA_ID],
       archived: [{ catId: 'busya', archivedAt: expect.any(Number) }],
     })
 
     expect(await run('restoreCat', { catId: 'busya' }, context)).toEqual({ ok: true })
-    expect(registry()).toMatchObject({ active: [OFELIA_ID, 'busya'], archived: [] })
+    expect(registry()).toEqual({
+      order: [OFELIA_ID, 'busya'],
+      active: [OFELIA_ID, 'busya'],
+      archived: [],
+    })
   })
 
   it('keeps one cat active when the last two are archived concurrently', async () => {

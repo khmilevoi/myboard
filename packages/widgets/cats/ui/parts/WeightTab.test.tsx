@@ -160,6 +160,17 @@ describe('WeightTab', () => {
     expect(Math.max(...ys)).toBeCloseTo(200 - (0.05 / 0.2) * 180, 1)
   })
 
+  it('the x labels name the month starts and the latest day', async () => {
+    setup()
+    const region = await openWeightTab()
+
+    // The end dot is positioned the same way, but carries no text.
+    const labels = [...region.querySelectorAll('span[style*="left"]')]
+      .map((node) => node.textContent)
+      .filter((text) => text !== '')
+    expect(labels).toEqual(['1 СЕН', '1 ОКТ', '1 НОЯ', '21 НОЯ'])
+  })
+
   it('no weighings: the empty state with "Взвесить", which opens the weigh form', async () => {
     setup([])
     const region = within(await openWeightTab())

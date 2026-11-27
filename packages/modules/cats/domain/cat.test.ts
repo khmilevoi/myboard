@@ -126,6 +126,11 @@ describe('weightTrend', () => {
     expect(weightTrend(history, 30)).toBe(-90)
   })
 
+  it('takes a base exactly `days` older, and not one a day short of it', () => {
+    expect(weightTrend([weighing('2026-10-22', 4.4), weighing('2026-11-21', 4.32)], 30)).toBe(-80)
+    expect(weightTrend([weighing('2026-10-23', 4.4), weighing('2026-11-21', 4.32)], 30)).toBeNull()
+  })
+
   it('is null without a base weighing', () => {
     expect(weightTrend([weighing('2026-11-21', 4.32)], 30)).toBeNull()
     expect(weightTrend([], 30)).toBeNull()

@@ -47,4 +47,27 @@ describe('suggestGoal', () => {
       reason,
     })
   })
+
+  it.each([
+    ['2025-11-27', 'unavailable'],
+    ['2025-11-26', 'available'],
+    ['2016-11-26', 'available'],
+    ['2015-11-27', 'available'],
+    ['2015-11-26', 'unavailable'],
+  ] as const)('the age bounds: born %s is %s on 2026-11-26', (birthDate, kind) => {
+    expect(
+      suggestGoal({ profile: profile({ birthDate }), latest: weighing(4), today: TODAY }).kind,
+    ).toBe(kind)
+  })
+
+  it.each([
+    [3, 'unavailable'],
+    [4, 'available'],
+    [5, 'available'],
+    [6, 'unavailable'],
+  ] as const)('the body-condition bounds: %i is %s', (bodyCondition, kind) => {
+    expect(
+      suggestGoal({ profile: profile({ bodyCondition }), latest: weighing(4), today: TODAY }).kind,
+    ).toBe(kind)
+  })
 })

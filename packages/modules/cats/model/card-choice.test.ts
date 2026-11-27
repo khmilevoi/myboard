@@ -45,12 +45,15 @@ async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function setup(options: MakeTestCatsModelOptions, stored?: { cat?: unknown; litter?: unknown }) {
+async function setup(
+  options: MakeTestCatsModelOptions,
+  stored?: { cat?: unknown; litter?: unknown },
+) {
   const registryStorage = createFakeStorage()
   const { model } = makeTestCatsModel({ ...options, storage: registryStorage })
   const cardStorage: StorageApi = createFakeStorage()
-  if (stored?.cat !== undefined) void cardStorage.set(CARD_CAT_KEY, stored.cat)
-  if (stored?.litter !== undefined) void cardStorage.set(CARD_LITTER_KEY, stored.litter)
+  if (stored?.cat !== undefined) await cardStorage.set(CARD_CAT_KEY, stored.cat)
+  if (stored?.litter !== undefined) await cardStorage.set(CARD_LITTER_KEY, stored.litter)
   const input = { model: atom(model), storage: cardStorage, name: 'test' }
   return {
     model,
@@ -63,7 +66,7 @@ function setup(options: MakeTestCatsModelOptions, stored?: { cat?: unknown; litt
 
 describe('makeCatChoice', () => {
   it('shows the first cat and never writes the fallback back', async () => {
-    const { catChoice, cardStorage } = setup(TWO_CATS)
+    const { catChoice, cardStorage } = await setup(TWO_CATS)
 
     await context.start(async () => {
       const off = catChoice.current.subscribe(() => {})
@@ -76,7 +79,7 @@ describe('makeCatChoice', () => {
   })
 
   it('shows the stored cat', async () => {
-    const { catChoice } = setup(TWO_CATS, { cat: 'busya' })
+    const { catChoice } = await setup(TWO_CATS, { cat: 'busya' })
 
     await context.start(async () => {
       const off = catChoice.current.subscribe(() => {})
@@ -87,7 +90,7 @@ describe('makeCatChoice', () => {
   })
 
   it('falls back while the stored cat is archived and brings it back on restore', async () => {
-    const { catChoice, cardStorage, registryStorage } = setup(TWO_CATS, { cat: 'busya' })
+    const { catChoice, cardStorage, registryStorage } = await setup(TWO_CATS, { cat: 'busya' })
     const events = [catEvent('add', 'ofelia', 1), catEvent('add', 'busya', 2)]
 
     await context.start(async () => {
@@ -110,7 +113,7 @@ describe('makeCatChoice', () => {
   })
 
   it('writes the choice, and refuses an id that is not a valid entity id', async () => {
-    const { catChoice, cardStorage } = setup(TWO_CATS)
+    const { catChoice, cardStorage } = await setup(TWO_CATS)
 
     await context.start(async () => {
       const off = catChoice.current.subscribe(() => {})
@@ -123,7 +126,7 @@ describe('makeCatChoice', () => {
   })
 
   it('accepts an id the registry has not offered yet', async () => {
-    const { catChoice, cardStorage } = setup(TWO_CATS)
+    const { catChoice, cardStorage } = await setup(TWO_CATS)
 
     await context.start(async () => {
       await wrap(catChoice.choose('murka'))
@@ -132,7 +135,7 @@ describe('makeCatChoice', () => {
   })
 
   it('reads a junk stored value as no choice', async () => {
-    const { catChoice } = setup(TWO_CATS, { cat: 'A/B' })
+    const { catChoice } = await setup(TWO_CATS, { cat: 'A/B' })
 
     await context.start(async () => {
       const off = catChoice.current.subscribe(() => {})
@@ -143,11 +146,11 @@ describe('makeCatChoice', () => {
   })
 
   it('switches only with more than one cat', async () => {
-    const one = setup({
+    const one = await setup({
       catRegistry: [catEvent('add', 'ofelia', 1)],
       profiles: { ofelia: OFELIA },
     })
-    const two = setup(TWO_CATS)
+    const two = await setup(TWO_CATS)
 
     await context.start(async () => {
       const offs = [
@@ -161,7 +164,7 @@ describe('makeCatChoice', () => {
   })
 
   it('exposes the cat model of the current cat', async () => {
-    const { catChoice, model } = setup(TWO_CATS)
+    const { catChoice, model } = await setup(TWO_CATS)
 
     await context.start(async () => {
       const off = catChoice.cat.subscribe(() => {})
@@ -188,7 +191,7 @@ const titles = (options: ReturnType<typeof makeLitterOptions>) =>
 
 describe('makeLitterChoice', () => {
   it('offers one titled option per litter and follows the choice', async () => {
-    const { litterChoice, model } = setup(TWO_CATS)
+    const { litterChoice, model } = await setup(TWO_CATS)
 
     await context.start(async () => {
       const offs = [
@@ -216,7 +219,7 @@ describe('makeLitterChoice', () => {
   })
 
   it('merges cats sharing a litter into one option that cannot be switched', async () => {
-    const { litterChoice } = setup(SHARED_LITTER)
+    const { litterChoice } = await setup(SHARED_LITTER)
 
     await context.start(async () => {
       const offs = [
@@ -240,7 +243,7 @@ describe('makeLitterChoice', () => {
 
 describe('card choice edge cases', () => {
   it('falls back to the first option when the stored key cannot be read', async () => {
-    const { model } = setup(TWO_CATS)
+    const { model } = await setup(TWO_CATS)
     const failure = new StorageError({ reason: 'boom' })
     const base = createFakeStorage()
     const failing: StorageApi = {
@@ -261,7 +264,9 @@ describe('card choice edge cases', () => {
   })
 
   it('falls back when the stored litter loses its last cat and restores it with the cat', async () => {
-    const { litterChoice, cardStorage, registryStorage } = setup(TWO_CATS, { litter: 'busya' })
+    const { litterChoice, cardStorage, registryStorage } = await setup(TWO_CATS, {
+      litter: 'busya',
+    })
     const events = [catEvent('add', 'ofelia', 1), catEvent('add', 'busya', 2)]
 
     await context.start(async () => {
@@ -286,7 +291,7 @@ describe('card choice edge cases', () => {
 
 describe('makeLitterOptions', () => {
   it('is the same list the litter choice offers, and null without a model', async () => {
-    const { model } = setup(SHARED_LITTER)
+    const { model } = await setup(SHARED_LITTER)
     const options = makeLitterOptions(atom(model), 'test.options')
     const none = makeLitterOptions(atom(null), 'test.none')
 

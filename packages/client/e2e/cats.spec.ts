@@ -325,6 +325,7 @@ test.describe('all cats', () => {
     await expect(litterCard.getByRole('heading', { name: 'Лоток · Буся' })).toBeVisible()
     await expect(catsCard.getByRole('heading', { name: 'Буся' })).toBeVisible()
     expect(await storedChoices(request, 'card/litter')).toEqual([busyaLitter])
+    expect(await storedChoices(request, 'card/cat')).toEqual([busyaCat])
   })
 
   test('the last active cat cannot be archived', async ({ page }) => {

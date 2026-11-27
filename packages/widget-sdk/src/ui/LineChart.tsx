@@ -13,12 +13,16 @@ export type LineChartProps = {
   /** In x order. */
   points: LineChartPoint[]
   /**
-   * Drawn top to bottom on evenly spaced gridlines, the first on the largest `y` and the last on
-   * the smallest: the data always spans exactly from the top gridline to the bottom one.
-   * `full` only.
+   * Drawn top to bottom on evenly spaced gridlines: the first on the top of the y domain and the
+   * last on its bottom. The domain is `yDomain` when given (the data may then sit inside it), else
+   * the data's own largest and smallest `y`. `full` only.
    */
   yLabels: string[]
-  /** Each at the x position of its `at` (an ISO date or date-time, like `points[].x`). */
+  /**
+   * Each at the x position of its `at` (an ISO date or date-time, like `points[].x`). When any
+   * point's x is not a date, points are spaced by index, and so are these labels: give one per
+   * point then, or they will not line up.
+   */
   xLabels: { at: string; label: string }[]
   /**
    * The values the top and bottom gridlines stand for. Absent, the data's own largest and
