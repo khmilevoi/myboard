@@ -1,7 +1,7 @@
 import { MONTHS_GENITIVE } from '@shared/format/ru'
 
-// Display helpers shared by the account menu, the profile and devices dialogs, and the crop
-// dialog's previews. Plurals and month names come from `@shared/format/ru`.
+// Display helpers shared by the account menu, the profile dialog and the devices dialog: initials,
+// first names and long dates. Plurals and month names come from `@shared/format/ru`.
 
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
