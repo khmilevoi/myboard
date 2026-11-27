@@ -158,6 +158,24 @@ export a `reatomMemo` wrapper component.
 
 Vitest for unit and component tests (Testing Library + jsdom for React), Playwright for e2e.
 
+### Always check UI on the owner's phone
+
+Every UI change — a new widget, a restyle, a dialog, a fullscreen view — is checked on the owner's
+phone, a OnePlus 15 in Chrome, before it counts as done: the board card and the fullscreen view,
+light and dark. That phone is **360 × 728 CSS px at a device pixel ratio of ~3.53** (a 1272 × 2772 px
+screen with the display size enlarged; 728 px is what is left below the status bar and above the
+gesture bar). It is narrower and shorter than the 390 × 844 iPhone viewport the e2e phone checks
+use, so passing there proves nothing about it.
+
+- Emulate exactly that: Playwright `viewport: { width: 360, height: 728 }`,
+  `deviceScaleFactor: 3.5`, `isMobile: true`, `hasTouch: true` (or the same size in the browser
+  pane / DevTools device emulation), and screenshot what you check.
+- At 360 px `@media (max-width: 360px)` rules apply — they are the owner's layout, not an edge case.
+- Look for what has broken there before: segmented controls (Кошка / Кот) wrapping into a
+  stacked pill, footer status text wrapping beside the action buttons, a card's standard tier
+  left mostly empty, and anything that needs horizontal scrolling.
+- A layout that only works at 390 px or wider is a defect to fix, not a known limitation.
+
 ## Commits
 
 Conventional Commit prefixes — `feat:`, `fix:`, `build:`, `chore:` — optionally scoped
