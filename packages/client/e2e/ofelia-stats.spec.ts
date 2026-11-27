@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { BoardPage } from './pages/BoardPage.js'
+import { seedCats, seedLedger } from './pages/cats-seed.js'
 import { OfeliaPage } from './pages/OfeliaPage.js'
 import { OfeliaStatsPage } from './pages/OfeliaStatsPage.js'
 
@@ -16,6 +17,7 @@ test.use({ viewport: { width: 1920, height: 1080 } })
 test.beforeEach(async ({ request }) => {
   await request.post('/api/test/reset')
   await request.post('/api/test/time', { data: { iso: PINNED_ISO } })
+  await seedCats(request, [{ id: 'ofelia', name: 'Офелия', litterId: 'ofelia' }])
 })
 
 test('one ofelia module model — a cleaning in the duty card reaches the stats card live', async ({
@@ -42,4 +44,30 @@ test('one ofelia module model — a cleaning in the duty card reaches the stats 
   // write has to show up in the stats card on its own.
   await expect(stats.cleanings(ON_DUTY)).toHaveText('1')
   await expect(stats.debt(ON_DUTY)).toHaveText('0')
+})
+
+test('the stats card is "Статистика лотка" and its numbers follow the chosen litter', async ({
+  page,
+  request,
+}) => {
+  await seedCats(request, [
+    { id: 'ofelia', name: 'Офелия', litterId: 'ofelia' },
+    { id: 'busya', name: 'Буся', litterId: 'busya' },
+  ])
+  await seedLedger(request, 'busya', [
+    { id: 'seed-busya', ts: 1, date: '2026-06-16', type: 'cleaned', actor: 'Карина', by: 'Карина' },
+  ])
+  await page.goto('/')
+  const stats = new OfeliaStatsPage(page)
+  await stats.addStatsWidget()
+
+  await expect(stats.card.getByRole('heading', { name: 'Лоток · Офелия' })).toBeVisible()
+  await expect(stats.cleanings('Карина')).toHaveText('0')
+
+  await stats.card.getByRole('button', { name: 'Выбрать лоток · сейчас Лоток · Офелия' }).click()
+  await page.getByRole('menuitemradio', { name: 'Лоток · Буся' }).click()
+
+  await expect(stats.card.getByRole('heading', { name: 'Лоток · Буся' })).toBeVisible()
+  await expect(stats.cleanings('Карина')).toHaveText('1')
+  await expect(stats.cleanings('Леша')).toHaveText('0')
 })

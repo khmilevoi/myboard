@@ -1,29 +1,51 @@
 import { wrap } from '@reatom/core'
-import { useMemo } from 'react'
+import { CatCardHeader } from 'module-cats/ui/CatCardHeader'
+import { LitterSwitcher } from 'module-cats/ui/LitterSwitcher'
+import { useManageCats } from 'module-cats/ui/use-manage-cats'
+import { useMemo, type ReactNode } from 'react'
 import { useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
+import { WidgetControls, useWidgetChrome, type WidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { makeStatsView } from '../model/stats-view'
 
 import styles from './ofelia-stats.module.css'
 
-function renderLoadError(onRetry: () => void) {
+const EMPTY_LITTER_TEXT = 'Лоток появится, когда в виджете «Кошки» будет кошка'
+
+// A state that is not ready has no header row: the controls float in the corner, never with
+// "Развернуть", but always with "Удалить" on the board and "Закрыть" in fullscreen.
+function renderNotReady(chrome: WidgetChrome, children: ReactNode) {
   return (
     <div className={styles.widget}>
-      <div className={styles.note} role="alert">
-        <p>Не удалось загрузить данные</p>
-        <button type="button" onClick={onRetry}>
-          Повторить
-        </button>
-      </div>
+      <WidgetControls placement="overlay" onDelete={chrome.onDelete} onClose={chrome.onClose} />
+      {children}
     </div>
   )
 }
 
+function renderLoadError(chrome: WidgetChrome, onRetry: () => void) {
+  return renderNotReady(
+    chrome,
+    <div className={styles.note} role="alert">
+      <p>Не удалось загрузить данные</p>
+      <button type="button" onClick={onRetry}>
+        Повторить
+      </button>
+    </div>,
+  )
+}
+
 export const OfeliaStats = reatomMemo(() => {
-  const { modules } = useWidgetContext()
-  const view = useMemo(() => makeStatsView(modules), [modules])
+  const { modules, storage } = useWidgetContext()
+  // Up here, before any early return: every branch draws the controls.
+  const chrome = useWidgetChrome()
+  const manage = useManageCats()
+  const view = useMemo(
+    () => makeStatsView({ modules, storage: storage.instance.server }),
+    [modules, storage],
+  )
   const onRetry = useMemo(() => wrap(() => view.retry()), [view])
   const onRetryLedger = useMemo(() => wrap(() => view.retryLedger()), [view])
 
@@ -31,21 +53,35 @@ export const OfeliaStats = reatomMemo(() => {
   const rows = useAtomValue(view.rows)
   const error = useAtomValue(view.error)
   const loadFailed = useAtomValue(view.loadFailed)
+  const empty = useAtomValue(view.empty)
+  const current = useAtomValue(view.choice.current)
 
-  if (rows === null) {
+  // Never a hard-coded litter: with none offered the card says why (ruling 10).
+  if (empty) {
+    return renderNotReady(
+      chrome,
+      <p role="status" className={styles.empty}>
+        {EMPTY_LITTER_TEXT}
+      </p>,
+    )
+  }
+
+  if (rows === null || current === null) {
     // A failed module chunk or a failed ledger or settings read is a real failure with a
     // way out, not an endless "Загрузка…".
-    if (error) return renderLoadError(onRetry)
-    if (loadFailed) return renderLoadError(onRetryLedger)
-    return (
-      <div className={styles.widget}>
-        <p className={styles.note}>Загрузка…</p>
-      </div>
-    )
+    if (error) return renderLoadError(chrome, onRetry)
+    if (loadFailed) return renderLoadError(chrome, onRetryLedger)
+    return renderNotReady(chrome, <p className={styles.note}>Загрузка…</p>)
   }
 
   return (
     <div className={styles.widget}>
+      <CatCardHeader
+        icon={null}
+        title={current.title}
+        switcher={<LitterSwitcher choice={view.choice} manage={manage} variant="menu" />}
+        chrome={chrome}
+      />
       <ul className={styles.list}>
         {rows.map((row) => (
           <li key={row.person} className={styles.row}>
@@ -56,7 +92,7 @@ export const OfeliaStats = reatomMemo(() => {
                 {row.cleanings}
               </span>
             </span>
-            <span className={styles.stat}>
+            <span className={`${styles.stat} ${styles.debt}`}>
               <span className={styles.label}>Долг</span>
               <span className={styles.value} data-testid={`ofelia-stats-debt-${row.person}`}>
                 {row.debt}

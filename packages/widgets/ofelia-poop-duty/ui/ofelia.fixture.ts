@@ -1,11 +1,14 @@
-import { atom } from '@reatom/core'
+import { atom, computed } from '@reatom/core'
+import type { CatSummary, LitterModel } from 'module-cats'
+import type { LitterCardChoice, LitterOption } from 'module-cats/card-choice'
 import { DEFAULT_LITTER_SETTINGS, otherPerson } from 'module-cats/domain/roster'
 import type { Person } from 'module-cats/domain/roster'
+import type { CatSwitcherManage } from 'module-cats/ui/CatSwitcher'
 import type { BoardMember } from 'widget-runtime'
 
 import type { CommentView } from '../model/ofelia-comments'
 import type { HistoryDayGroup } from '../model/ofelia-duty'
-import type { OfeliaContextValue } from './ofelia-context'
+import type { OfeliaCard, OfeliaContextValue } from './ofelia-context'
 import type {
   DebtBalanceEntry,
   OfeliaActions,
@@ -151,7 +154,58 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
   }
 }
 
+const OFELIA_CAT: CatSummary = {
+  id: 'ofelia',
+  name: 'Офелия',
+  avatar: null,
+  litterId: 'ofelia',
+  tone: 'a',
+}
+const BUSYA_CAT: CatSummary = {
+  id: 'busya',
+  name: 'Буся',
+  avatar: null,
+  litterId: 'busya',
+  tone: 'b',
+}
+
+export const OFELIA_LITTER: LitterOption = {
+  id: 'ofelia',
+  title: 'Лоток · Офелия',
+  catIds: ['ofelia'],
+  cats: [OFELIA_CAT],
+}
+export const BUSYA_LITTER: LitterOption = {
+  id: 'busya',
+  title: 'Лоток · Буся',
+  catIds: ['busya'],
+  cats: [BUSYA_CAT],
+}
+
+type OfeliaCardOverrides = {
+  options?: LitterOption[]
+  currentId?: string
+  choose?: (id: string) => Promise<void>
+  manage?: CatSwitcherManage
+}
+
+/** A card choice over fixed litters, the first one current; its litter has the default rotation. */
+export function makeOfeliaCard(o: OfeliaCardOverrides = {}): OfeliaCard {
+  const options = o.options ?? [OFELIA_LITTER]
+  const current = options.find((option) => option.id === o.currentId) ?? options[0] ?? null
+  const settings = computed(() => DEFAULT_LITTER_SETTINGS, 'fixture.litterSettings')
+  const choice: LitterCardChoice = {
+    options: computed(() => options, 'fixture.litterOptions'),
+    current: computed(() => current, 'fixture.litterCurrent'),
+    canSwitch: computed(() => options.length > 1, 'fixture.litterCanSwitch'),
+    choose: o.choose ?? (async () => {}),
+    litter: computed(() => ({ settings }) as unknown as LitterModel, 'fixture.litterModel'),
+  }
+  return { choice, manage: o.manage ?? { kind: 'hint' } }
+}
+
 type MakeOfeliaValueOptions = {
+  card?: OfeliaCard
   view?: OfeliaViewModel
   history?: HistoryDayGroup[]
   today?: Temporal.PlainDate
@@ -165,6 +219,7 @@ type MakeOfeliaValueOptions = {
 
 export function makeOfeliaValue(o: MakeOfeliaValueOptions = {}): OfeliaContextValue {
   return {
+    card: o.card ?? makeOfeliaCard(),
     view: o.view ?? makeOfeliaView(),
     history: atom<HistoryDayGroup[]>(o.history ?? [], 'fixture.history'),
     today: atom<Temporal.PlainDate | null>(

@@ -30,7 +30,7 @@ export class OfeliaPage {
 
   async seedOfeliaWidget(): Promise<void> {
     await this.page.goto('/')
-    await new HeaderPage(this.page).addWidget('Лоток Офелии')
+    await new HeaderPage(this.page).addWidget('Лоток')
     // Wait past the "Загрузка…" gate: the duty name only renders once
     // /api/time has synced and the StandardTier mounts.
     await expect(this.dutyName).toBeVisible()

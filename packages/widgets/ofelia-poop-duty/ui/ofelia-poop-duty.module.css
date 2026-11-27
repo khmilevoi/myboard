@@ -56,3 +56,24 @@
   padding: 0.375rem 0.875rem;
   cursor: pointer;
 }
+
+/* Page 05, frame C: no litter yet. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  padding: 1rem 1.125rem;
+}
+
+.emptyText {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+  text-wrap: pretty;
+}

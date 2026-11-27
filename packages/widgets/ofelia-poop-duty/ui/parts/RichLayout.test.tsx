@@ -20,9 +20,11 @@ function activateTab(name: 'История' | 'Комментарии') {
 
 describe('RichLayout', () => {
   it('renders the header, week range, calendar, and empty history/comments', () => {
-    renderRich(makeOfeliaValue(), <RichLayout />)
+    renderRich(makeOfeliaValue(), <RichLayout chrome={{}} />)
 
-    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Лоток · Офелия' })).toBeInTheDocument()
+    expect(screen.getByText('Кто убирает · Леша и Карина по очереди')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Выбрать лоток/ })).not.toBeInTheDocument()
     expect(screen.getByText('15–21 июня')).toBeInTheDocument()
     expect(screen.getByText('ПН')).toBeInTheDocument()
     expect(screen.getByText('Пока нет событий')).toBeInTheDocument()
@@ -36,7 +38,7 @@ describe('RichLayout', () => {
     value.nav.onPrevWeek = onPrevWeek
     value.actions.onSelectDay = onSelectDay
 
-    renderRich(value, <RichLayout />)
+    renderRich(value, <RichLayout chrome={{}} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Прошлая неделя' }))
     expect(onPrevWeek).toHaveBeenCalledOnce()
@@ -47,13 +49,13 @@ describe('RichLayout', () => {
 
   it('shows the close affordance only when onClose is provided', () => {
     const onClose = vi.fn()
-    const { rerender } = renderRich(makeOfeliaValue(), <RichLayout onClose={onClose} />)
+    const { rerender } = renderRich(makeOfeliaValue(), <RichLayout chrome={{ onClose }} />)
     fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
     expect(onClose).toHaveBeenCalledOnce()
 
     rerender(
       <ofeliaContext.Provider value={makeOfeliaValue()}>
-        <RichLayout />
+        <RichLayout chrome={{}} />
       </ofeliaContext.Provider>,
     )
     expect(screen.queryByRole('button', { name: 'Закрыть' })).not.toBeInTheDocument()
@@ -62,7 +64,7 @@ describe('RichLayout', () => {
   it('shows expand/delete affordances only when those callbacks are provided', () => {
     const onExpand = vi.fn()
     const onDelete = vi.fn()
-    renderRich(makeOfeliaValue(), <RichLayout onExpand={onExpand} onDelete={onDelete} />)
+    renderRich(makeOfeliaValue(), <RichLayout chrome={{ onExpand, onDelete }} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
     expect(onExpand).toHaveBeenCalledOnce()
@@ -72,7 +74,7 @@ describe('RichLayout', () => {
   })
 
   it('uses the rich action copy, real mobile tabs, and 62px badged main avatar', () => {
-    const { container } = renderRich(makeOfeliaValue(), <RichLayout />)
+    const { container } = renderRich(makeOfeliaValue(), <RichLayout chrome={{}} />)
     const split = container.querySelector('[data-tab]')
     const mobileTabs = container.querySelector(`.${styles.mobileTabsVisible}`)
 
@@ -129,7 +131,7 @@ describe('RichLayout', () => {
         isFuture: false,
       },
     })
-    const { container } = renderRich(makeOfeliaValue({ view }), <RichLayout />)
+    const { container } = renderRich(makeOfeliaValue({ view }), <RichLayout chrome={{}} />)
 
     const selectedAvatar = container.querySelector(`.${styles.todayAvatarLarge}`)
     expect(selectedAvatar).toHaveTextContent('ЛК')
@@ -151,7 +153,7 @@ describe('RichLayout', () => {
         isFuture: true,
       },
     })
-    renderRich(makeOfeliaValue({ view }), <RichLayout />)
+    renderRich(makeOfeliaValue({ view }), <RichLayout chrome={{}} />)
 
     for (const button of screen.getAllByRole('button', { name: 'Подтвердить уборку' })) {
       expect(button).toBeDisabled()
@@ -171,7 +173,7 @@ describe('RichLayout', () => {
       actionPending: true,
       actionErrorMessage: 'Нет соединения с сервером',
     })
-    renderRich(makeOfeliaValue({ view }), <RichLayout />)
+    renderRich(makeOfeliaValue({ view }), <RichLayout chrome={{}} />)
 
     expect(screen.getByRole('button', { name: 'Подтвердить уборку' })).toBeDisabled()
     expect(screen.getByRole('alert')).toHaveTextContent('Нет соединения с сервером')
@@ -193,7 +195,7 @@ describe('RichLayout', () => {
         ],
         commentsFailed: true,
       }),
-      <RichLayout />,
+      <RichLayout chrome={{}} />,
     )
 
     expect(screen.getByText('Не удалось загрузить комментарии')).toBeInTheDocument()
@@ -217,7 +219,7 @@ describe('RichLayout', () => {
         ],
         commentsWarning: true,
       }),
-      <RichLayout />,
+      <RichLayout chrome={{}} />,
     )
 
     expect(screen.getByText('Не удалось обновить комментарии')).toBeInTheDocument()
@@ -225,7 +227,7 @@ describe('RichLayout', () => {
   })
 
   it('keeps the parent-owned tab state bridge on the split container', () => {
-    const { container } = renderRich(makeOfeliaValue(), <RichLayout />)
+    const { container } = renderRich(makeOfeliaValue(), <RichLayout chrome={{}} />)
     const split = container.querySelector('[data-tab]')
 
     expect(split).toHaveAttribute('data-tab', 'history')

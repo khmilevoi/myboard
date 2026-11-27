@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test'
 
+import { BoardPage } from './pages/BoardPage.js'
+import { seedCats, seedLedger } from './pages/cats-seed.js'
+import { HeaderPage } from './pages/HeaderPage.js'
 import { OfeliaPage } from './pages/OfeliaPage.js'
 
 // Noon Europe/Warsaw (UTC+2 in June) → server "today" = 2026-06-16.
 // getOfeliaDutyByDate(2026-06-16) → Леша (diffDays 0 from BASE_DUTY_DATE, even).
 const PINNED_ISO = '2026-06-16T12:00:00+02:00'
 const ON_DUTY = 'Леша' as const
-const LEDGER_URL = `/api/storage/scoped/module/cats/shared/${encodeURIComponent('litter/ofelia/ledger')}`
+
+const OFELIA = { id: 'ofelia', name: 'Офелия', litterId: 'ofelia' }
+const BUSYA = { id: 'busya', name: 'Буся', litterId: 'busya' }
 
 // Every assertion here is StandardTier UI — `ofelia-duty-person` exists only in
 // ui/tiers/StandardTier.tsx — and this widget only resolves `standard` once its
@@ -29,6 +34,10 @@ test.use({ viewport: { width: 1920, height: 1080 } })
 test.beforeEach(async ({ request }) => {
   await request.post('/api/test/reset')
   await request.post('/api/test/time', { data: { iso: PINNED_ISO } })
+  // The e2e stack starts with an empty registry (no migration), and a litter card shows its empty
+  // state until a cat points at a litter: register Ofelia on her litter the way `ofelia-to-cats`
+  // seeds production.
+  await seedCats(request, [OFELIA])
 })
 
 test('render — shows today’s duty person and the pending primary action', async ({ page }) => {
@@ -89,23 +98,18 @@ test('Простить — decrements an existing debt', async ({ page, request 
   // owed 2026-06-15". The global balance shows Карина:1 while today
   // (2026-06-16) stays pending — the secondary row, and thus "Простить", only
   // renders while status is pending.
-  await request.put(LEDGER_URL, {
-    headers: { 'X-Requested-With': 'MyBoard' },
-    data: {
-      value: [
-        {
-          id: 'seed-1',
-          ts: 1,
-          ip: '127.0.0.1',
-          date: '2026-06-15',
-          type: 'went_into_debt',
-          actor: 'Леша',
-          onBehalfOf: 'Карина',
-          by: 'Леша',
-        },
-      ],
+  await seedLedger(request, 'ofelia', [
+    {
+      id: 'seed-1',
+      ts: 1,
+      ip: '127.0.0.1',
+      date: '2026-06-15',
+      type: 'went_into_debt',
+      actor: 'Леша',
+      onBehalfOf: 'Карина',
+      by: 'Леша',
     },
-  })
+  ])
 
   const ofelia = new OfeliaPage(page)
   await ofelia.seedOfeliaWidget()
@@ -161,49 +165,18 @@ test('auto-approve — a cron-closed day reaches the open board over SSE', async
   // run below skips it and 2026-06-16 — the day the card is showing — is the
   // one that gets auto-approved. Do not drop this seed to "simplify" the
   // test: without it the cron no-ops and every assertion below fails.
-  // The cron closes only litters an active cat points at (and the e2e stack starts with an empty
-  // registry, no migration), so register cat `ofelia` on litter `ofelia` the way the
-  // `ofelia-to-cats` migration seeds it.
-  const sharedUrl = (key: string) =>
-    `/api/storage/scoped/module/cats/shared/${encodeURIComponent(key)}`
-  const seeds: [string, unknown][] = [
-    ['registry/cats', [{ id: 'seed:ofelia', ts: 0, catId: 'ofelia', op: 'add' }]],
-    ['registry/litters', [{ id: 'seed:ofelia', ts: 0, litterId: 'ofelia', op: 'add' }]],
-    [
-      'cat/ofelia/profile',
-      {
-        name: 'Офелия',
-        breed: null,
-        birthDate: null,
-        sex: null,
-        sterilized: 'unknown',
-        bodyCondition: null,
-        avatar: null,
-        litterId: 'ofelia',
-      },
-    ],
-  ]
-  for (const [key, value] of seeds) {
-    await request.put(sharedUrl(key), {
-      headers: { 'X-Requested-With': 'MyBoard' },
-      data: { value },
-    })
-  }
-  await request.put(LEDGER_URL, {
-    headers: { 'X-Requested-With': 'MyBoard' },
-    data: {
-      value: [
-        {
-          id: 'seed-history',
-          ts: 1,
-          date: '2026-06-15',
-          type: 'cleaned',
-          actor: 'Карина',
-          by: 'Карина',
-        },
-      ],
+  // The cron closes only litters an active cat points at: the `beforeEach` seed registers cat
+  // `ofelia` on litter `ofelia`.
+  await seedLedger(request, 'ofelia', [
+    {
+      id: 'seed-history',
+      ts: 1,
+      date: '2026-06-15',
+      type: 'cleaned',
+      actor: 'Карина',
+      by: 'Карина',
     },
-  })
+  ])
 
   const ofelia = new OfeliaPage(page)
   await ofelia.seedOfeliaWidget()
@@ -224,4 +197,151 @@ test('auto-approve — a cron-closed day reaches the open board over SSE', async
   await expect(ofelia.confirmedPlaque).toBeVisible()
   await expect(ofelia.undoButton).toBeVisible()
   await expect(ofelia.confirmButton).toHaveCount(0)
+})
+
+const SWITCHER = /^Выбрать лоток/
+
+test('one litter — the card is titled by it and offers no switcher anywhere', async ({ page }) => {
+  const ofelia = new OfeliaPage(page)
+  await ofelia.seedOfeliaWidget()
+
+  await expect(ofelia.card.getByRole('heading', { name: 'Лоток · Офелия' })).toBeVisible()
+  await expect(ofelia.card.getByRole('button', { name: SWITCHER })).toHaveCount(0)
+
+  await new BoardPage(page).expandCard(0)
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('heading', { name: 'Лоток · Офелия' })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: SWITCHER })).toHaveCount(0)
+})
+
+test('two cards, two litters — each card keeps its own litter', async ({ page, request }) => {
+  await seedCats(request, [OFELIA, BUSYA])
+  await page.goto('/')
+  const header = new HeaderPage(page)
+  const board = new BoardPage(page)
+  await header.addWidget('Лоток')
+  await header.addWidget('Лоток')
+  await expect(board.widgetCards).toHaveCount(2)
+  const first = board.getCard(0)
+  const second = board.getCard(1)
+  await expect(first.getByRole('heading', { name: 'Лоток · Офелия' })).toBeVisible()
+  await expect(second.getByRole('heading', { name: 'Лоток · Офелия' })).toBeVisible()
+
+  // The choice goes to the second card's own instance scope: read its id off the write.
+  const write = page.waitForRequest(
+    (candidate) =>
+      candidate.method() === 'PUT' &&
+      /^w:i:.+:card\/litter$/.test(
+        decodeURIComponent(new URL(candidate.url()).pathname.split('/').pop() ?? ''),
+      ),
+  )
+  await second.getByRole('button', { name: 'Выбрать лоток · сейчас Лоток · Офелия' }).click()
+  await page.getByRole('menuitemradio', { name: 'Лоток · Буся' }).click()
+  const key = decodeURIComponent(new URL((await write).url()).pathname.split('/').pop() ?? '')
+  await expect(second.getByRole('heading', { name: 'Лоток · Буся' })).toBeVisible()
+
+  await page.reload()
+  await expect(board.getCard(0).getByRole('heading', { name: 'Лоток · Офелия' })).toBeVisible()
+  await expect(board.getCard(1).getByRole('heading', { name: 'Лоток · Буся' })).toBeVisible()
+
+  const secondId = /^w:i:(.+):card\/litter$/.exec(key)?.[1]
+  expect(secondId).toBeTruthy()
+  const stored = await request.get(
+    `/api/storage/${encodeURIComponent(`w:i:${secondId}:card/litter`)}`,
+  )
+  expect(stored.ok()).toBe(true)
+  expect(await stored.json()).toMatchObject({ value: 'busya' })
+  // No other card wrote a choice: the first card shows its fallback without pinning it.
+  const keys = await request.get(`/api/storage?prefix=${encodeURIComponent('w:i:')}`)
+  const listed = ((await keys.json()) as { keys: string[] }).keys
+  expect(listed.filter((candidate) => candidate.endsWith(':card/litter'))).toEqual([key])
+})
+
+// F7: `radix-ui` is a federation singleton, so a widget's menu is the top layer of the host's
+// fullscreen dialog rather than a separate stack: Escape closes the menu alone.
+test('fullscreen — Escape on the open switcher closes only the switcher', async ({
+  page,
+  request,
+}) => {
+  await seedCats(request, [OFELIA, BUSYA])
+  const ofelia = new OfeliaPage(page)
+  await ofelia.seedOfeliaWidget()
+
+  await new BoardPage(page).expandCard(0)
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Выбрать лоток · сейчас Лоток · Офелия' }).click()
+  const menu = page.getByRole('menu', { name: 'Лотки' })
+  await expect(menu).toBeVisible()
+
+  await page.keyboard.press('Escape')
+
+  await expect(menu).toHaveCount(0)
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('heading', { name: 'Лоток · Офелия' })).toBeVisible()
+})
+
+// F10: the two-line title clamp is CSS, so it is checked in a real browser. A 268 px compact card
+// (page 05, frame B: one shared litter, a stack and two controls) must wrap its title to two lines
+// rather than cut it to one.
+test.describe('compact header', () => {
+  // A `w:4` card is 268 px wide here: 899 − 15 (scrollbar) − 40 (padding) = 844 px of board.
+  test.use({ viewport: { width: 899, height: 900 } })
+
+  test('a long litter title wraps to two lines beside the stack and the controls', async ({
+    page,
+    request,
+  }) => {
+    await seedCats(request, [OFELIA, { id: 'busya', name: 'Буся', litterId: 'ofelia' }])
+    await page.goto('/')
+    await new HeaderPage(page).addWidget('Лоток')
+    const card = new BoardPage(page).getCard(0)
+    const title = card.getByRole('heading', { name: 'Лоток · Офелия и Буся' })
+    await expect(title).toBeVisible()
+
+    const width = (await card.boundingBox())?.width ?? 0
+    expect(width).toBeGreaterThan(250)
+    expect(width).toBeLessThan(290)
+    // The compact tier: its icon actions, and the two inline controls in the header row.
+    await expect(card.getByRole('button', { name: 'Какашки убраны' })).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Развернуть' })).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Удалить' })).toBeVisible()
+    await expect(card.getByRole('button', { name: SWITCHER })).toHaveCount(0)
+
+    const box = await title.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        clamp: style.getPropertyValue('-webkit-line-clamp'),
+        lineHeight: Number.parseFloat(style.lineHeight),
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+      }
+    })
+    expect(box.clamp).toBe('2')
+    expect(Math.round(box.clientHeight / box.lineHeight)).toBe(2)
+    expect(box.scrollHeight).toBeLessThanOrEqual(box.clientHeight + 1)
+  })
+})
+
+// Review Focus: a card that is still loading can be removed from the board. The ledger read is
+// held forever; service workers are blocked, because `page.route` does not see requests a
+// service worker makes, and this PWA's worker would otherwise answer around the stall.
+test.describe('delete while failing', () => {
+  test.use({ serviceWorkers: 'block' })
+
+  test('a card whose ledger read is stalled is deleted from the board', async ({ page }) => {
+    await page.route(
+      (url) => decodeURIComponent(url.pathname).endsWith('/litter/ofelia/ledger'),
+      () => {},
+    )
+    await page.goto('/')
+    await new HeaderPage(page).addWidget('Лоток')
+    const board = new BoardPage(page)
+    await expect(board.widgetCards).toHaveCount(1)
+    await expect(board.getCard(0).getByLabel('Загрузка виджета «Лоток»')).toBeVisible()
+
+    await board.removeCard(0)
+
+    await expect(board.widgetCards).toHaveCount(0)
+  })
 })

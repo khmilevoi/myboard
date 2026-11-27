@@ -13,7 +13,7 @@ async function ensureTemporal(): Promise<void> {
 }
 
 export const ofeliaStatsWidget = defineWidgetClient({
-  title: 'Статистика Офелии',
+  title: 'Статистика лотка',
   description: 'Уборки и долги за 30 дней',
   defaultSize: { w: 3, h: 4, minW: 2, minH: 3 },
   icon: 'ChartColumn',

@@ -14,14 +14,14 @@ function withOfelia(value: OfeliaContextValue, node: ReactNode) {
 
 describe('StandardTier', () => {
   it('state A — open debt day shows the confirm button and the debt subtitle', () => {
-    withOfelia(makeOfeliaValue(), <StandardTier />)
-    expect(screen.getByText('Лоток Офелии')).toBeInTheDocument()
+    withOfelia(makeOfeliaValue(), <StandardTier chrome={{}} />)
+    expect(screen.getByRole('heading', { name: 'Лоток · Офелия' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeInTheDocument()
     expect(screen.getByText('гасит долг · 2 дня')).toBeInTheDocument()
   })
 
   it('shows hint text with other person name', () => {
-    withOfelia(makeOfeliaValue(), <StandardTier />)
+    withOfelia(makeOfeliaValue(), <StandardTier chrome={{}} />)
     // Default fixture has Карина as selected person → other is Леша
     expect(screen.getByText(/Не успеваешь\? Уберёт Леша/)).toBeInTheDocument()
   })
@@ -38,7 +38,7 @@ describe('StandardTier', () => {
         isFuture: false,
       },
     })
-    withOfelia(makeOfeliaValue({ view }), <StandardTier />)
+    withOfelia(makeOfeliaValue({ view }), <StandardTier chrome={{}} />)
 
     expect(screen.getByText('Уборка подтверждена')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Откатить' })).toBeInTheDocument()
@@ -61,7 +61,7 @@ describe('StandardTier', () => {
         { person: 'Карина', debt: 0, over: false },
       ],
     })
-    withOfelia(makeOfeliaValue({ view }), <StandardTier />)
+    withOfelia(makeOfeliaValue({ view }), <StandardTier chrome={{}} />)
 
     expect(screen.getByText('по очереди · долгов нет')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Простить' })).toBeDisabled()
@@ -79,7 +79,7 @@ describe('StandardTier', () => {
         isFuture: true,
       },
     })
-    withOfelia(makeOfeliaValue({ view }), <StandardTier />)
+    withOfelia(makeOfeliaValue({ view }), <StandardTier chrome={{}} />)
 
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
@@ -92,7 +92,7 @@ describe('StandardTier', () => {
       actionPending: true,
       actionErrorMessage: 'Нет соединения с сервером',
     })
-    withOfelia(makeOfeliaValue({ view }), <StandardTier />)
+    withOfelia(makeOfeliaValue({ view }), <StandardTier chrome={{}} />)
 
     expect(screen.getByRole('button', { name: 'Какашки убраны' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'В долг' })).toBeDisabled()
@@ -102,7 +102,7 @@ describe('StandardTier', () => {
   it('draws its expand/delete controls when wired', () => {
     const onExpand = vi.fn()
     const onDelete = vi.fn()
-    withOfelia(makeOfeliaValue(), <StandardTier onExpand={onExpand} onDelete={onDelete} />)
+    withOfelia(makeOfeliaValue(), <StandardTier chrome={{ onExpand, onDelete }} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Развернуть' }))
     expect(onExpand).toHaveBeenCalledOnce()

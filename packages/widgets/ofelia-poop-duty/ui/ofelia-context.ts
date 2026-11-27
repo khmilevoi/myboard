@@ -1,4 +1,6 @@
 import type { AtomLike } from '@reatom/core'
+import type { LitterCardChoice } from 'module-cats/card-choice'
+import type { CatSwitcherManage } from 'module-cats/ui/CatSwitcher'
 import { createContext, useContext } from 'react'
 import type { BoardMember } from 'widget-runtime'
 
@@ -6,7 +8,11 @@ import type { CommentView } from '../model/ofelia-comments'
 import type { HistoryDayGroup } from '../model/ofelia-duty'
 import type { OfeliaActions, OfeliaViewModel, OfeliaWeekNav } from './view-model'
 
+/** This card's litter choice, and what its switcher offers below the litters. */
+export type OfeliaCard = { choice: LitterCardChoice; manage: CatSwitcherManage }
+
 export type OfeliaContextValue = {
+  card: OfeliaCard
   // The atomic view-model: a record of focused computeds (consumers call
   // `view.selected()`, `view.balance()`, … so each subscribes to one slice).
   view: OfeliaViewModel
