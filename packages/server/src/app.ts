@@ -25,6 +25,7 @@ import type { ImageDecoder } from './files/image-check'
 import type { FilePolicies } from './files/policies'
 import { registerFileRoutes } from './files/routes'
 import { makeFileService } from './files/service'
+import { registerHardwareRoutes } from './hardware/routes'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
@@ -158,6 +159,8 @@ export function createApp(deps: AppDeps): App {
     if (!deps.testControls) cronScheduler.start()
   }
 
+  const hardware = registerHardwareRoutes({ router, ops, now, authDeps, registry })
+
   const unsubscribe = deps.subscribe((message) => {
     let raw: unknown
     try {
@@ -172,6 +175,7 @@ export function createApp(deps: AppDeps): App {
       return
     }
     fanout(registry, parsed.data)
+    hardware.onStorageEvent(parsed.data)
   })
 
   function send(res: ServerResponse, result: HandlerResult): void {
@@ -770,6 +774,7 @@ export function createApp(deps: AppDeps): App {
 
   const close = async (): Promise<void> => {
     unsubscribe()
+    hardware.closeAll()
     recoveryStore.revokeAll()
     await cronScheduler.stop()
     await new Promise<void>((resolve) => server.close(() => resolve()))
