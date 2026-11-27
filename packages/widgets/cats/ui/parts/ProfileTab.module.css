@@ -326,7 +326,76 @@
     gap: 14px;
   }
 
+  /* Page 10 "телефон": a segmented choice fills its field, one row of equal buttons, never
+     wrapping (nine body-condition digits included). */
+  .seg {
+    display: flex;
+    flex-wrap: nowrap;
+    /* Over the primitive's `w-fit`. */
+    inline-size: 100%;
+  }
+
+  .segItem {
+    flex: 1 1 0;
+    min-inline-size: 0;
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+
+  /* "Сохранить цель" drops under the field rather than pushing past the box. */
+  .ownGoal {
+    flex-wrap: wrap;
+  }
+
+  .ownGoalField {
+    flex: 1 1 100%;
+    min-inline-size: 0;
+  }
+
+  /* Four digits at most: narrower, so "ккал в сутки, с сегодня" stays one line beside it. */
+  .goalInput {
+    inline-size: 90px;
+  }
+
+  /* The status takes its own line above the buttons, which share the row below it. */
   .footer {
-    padding: 12px 16px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 10px 16px 12px;
+  }
+
+  .footerText,
+  .footerFailure {
+    flex: 1 0 100%;
+  }
+
+  .footer > button {
+    flex: 1 1 0;
+  }
+}
+
+/* A 360 px phone. Inside the "О кошке" box a column is ~125 px, too narrow for the date and
+   "Кошка | Кот" side by side, so the pair stacks; the 390 px phone of page 10 keeps two columns.
+   A litter option's note ("Леша и Карина") moves under its title, which would otherwise be cut
+   to "Лоток · Офел…" and lose the cat's name. */
+@container cats-large (max-width: 340px) {
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 1px;
+    align-items: center;
+  }
+
+  .option > :first-child {
+    grid-row: span 2;
+  }
+
+  .optionNote {
+    margin-inline-start: 0;
   }
 }

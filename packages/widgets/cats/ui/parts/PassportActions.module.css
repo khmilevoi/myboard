@@ -1,0 +1,15 @@
+/* The passport's quick actions (page 10, standard): the standard tier's last row, and the
+   compact tier's when the card is tall enough or has no weighing to show. */
+.actions {
+  display: flex;
+  gap: 7px;
+}
+
+.primary {
+  composes: primary from '../buttons.module.css';
+  flex: 1;
+}
+
+.secondary {
+  composes: secondary from '../buttons.module.css';
+}

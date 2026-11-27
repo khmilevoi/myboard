@@ -1,18 +1,18 @@
 import { wrap } from '@reatom/core'
-import { Weight } from 'lucide-react'
 import { formatDaysAgo } from 'module-cats/format'
 import { CatAvatar } from 'module-cats/ui/CatAvatar'
 import { CatSwitcher } from 'module-cats/ui/CatSwitcher'
 import { MemberAvatar } from 'module-cats/ui/MemberAvatar'
 import { WeighDialog } from 'module-cats/ui/WeighDialog'
 import { useState } from 'react'
-import { useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { WidgetControls, type WidgetChrome } from 'widget-sdk/ui/WidgetControls'
 
 import { useCats } from '../cats-context'
 import { KgFigure, WeightSpark, WeightTrend } from '../parts/CatWeight'
 import { dotLine } from '../parts/dot-line'
+import { PassportActions } from '../parts/PassportActions'
+import { PassportFacts } from '../parts/PassportFacts'
 
 import styles from './StandardTier.module.css'
 
@@ -24,7 +24,6 @@ const STALE_NOTE = 'Не взвешивали две недели — цель �
 // appears only with more than one cat (state A draws none); the controls end the header row.
 export const StandardTier = reatomMemo<StandardTierProps>(({ chrome }) => {
   const { card, manage } = useCats()
-  const { requestFullscreen } = useWidgetContext()
   // Per mount, not per instance: the board tile and the fullscreen mount must not both open it.
   const [weighOpen, setWeighOpen] = useState(false)
 
@@ -37,10 +36,6 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ chrome }) => {
   const hasFacts = passport.bodyCondition !== null || passport.goalToday !== null
 
   const onWeigh = wrap(() => setWeighOpen(true))
-  const onProfile = wrap(() => {
-    card.tab.set('profile')
-    requestFullscreen()
-  })
 
   return (
     <div className={styles.root}>
@@ -106,36 +101,12 @@ export const StandardTier = reatomMemo<StandardTierProps>(({ chrome }) => {
       {hasFacts && (
         <>
           <div className={styles.divider} />
-          <div className={styles.facts}>
-            {passport.bodyCondition !== null && (
-              <div>
-                <span className={styles.label}>Упитанность</span>
-                <p className={styles.fact}>{`${passport.bodyCondition} / 9`}</p>
-              </div>
-            )}
-            {passport.goalToday !== null && (
-              <div>
-                <span className={styles.label}>Цель в сутки</span>
-                <p className={styles.factLine}>
-                  <span className={styles.fact}>{passport.goalToday}</span>{' '}
-                  <span className={styles.unit}>ккал</span>
-                </p>
-              </div>
-            )}
-          </div>
+          <PassportFacts bodyCondition={passport.bodyCondition} goalToday={passport.goalToday} />
         </>
       )}
 
       <div className={styles.spacer} />
-      <div className={styles.actions}>
-        <button type="button" className={styles.primary} onClick={onWeigh}>
-          <Weight aria-hidden />
-          Взвесить
-        </button>
-        <button type="button" className={styles.secondary} onClick={onProfile}>
-          Профиль
-        </button>
-      </div>
+      <PassportActions onWeigh={onWeigh} />
 
       <WeighDialog
         form={card.weighForm}
