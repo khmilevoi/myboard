@@ -65,6 +65,13 @@ test('"Взвесить" 4,30 — the card reads the new weight, stored as one w
   const { value } = (await stored.json()) as { value: { kg: number; at: string }[] }
   expect(value).toHaveLength(1)
   expect(value[0]).toMatchObject({ kg: 4.3, at: TODAY })
+
+  // The "Вес" tab of the fullscreen lists that one weighing.
+  await cats.openFullscreen()
+  await cats.tab('Вес').click()
+  const rows = cats.overlay.getByRole('list', { name: 'Все взвешивания' }).getByRole('listitem')
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText('4,30')
 })
 
 test('profile edits — the breed saved in fullscreen is on the card after a reload', async ({

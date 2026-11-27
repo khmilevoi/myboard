@@ -13,6 +13,7 @@ import { reatomModule, type ReatomModule } from 'widget-sdk/modules/reatom-modul
 
 import { makeGoalForm, type GoalForm } from './goal-form'
 import { makeProfileForm, type ProfileForm } from './profile-form'
+import { makeWeightHistory, type WeightHistory } from './weight-history'
 
 /** The fullscreen tabs. "Профиль" and "+ Добавить кошку" pick one before opening fullscreen. */
 export type CatsTab = 'profile' | 'weight' | 'all'
@@ -73,6 +74,8 @@ export type CatsCard = {
   /** The "Профиль" tab's draft: shared by both mounts, so it survives opening fullscreen. */
   profileForm: ProfileForm
   goalForm: GoalForm
+  /** The "Вес" tab's range, chart and rows: shared by both mounts, like the forms. */
+  weightHistory: WeightHistory
   view: CatsCardView
 }
 
@@ -104,6 +107,12 @@ export function makeCatsCard({
     name: `${name}.profileForm`,
   })
   const goalForm = makeGoalForm(choice.cat, today, `${name}.goalForm`)
+  const weightHistory = makeWeightHistory(
+    choice.cat,
+    today,
+    identity.members,
+    `${name}.weightHistory`,
+  )
 
   const status = computed((): CatsCardStatus => {
     if (handle.model() === null) return handle.error() === null ? 'loading' : 'error'
@@ -189,6 +198,7 @@ export function makeCatsCard({
     weighForm,
     profileForm,
     goalForm,
+    weightHistory,
     view: { passport, weight, spark, sparkLabels },
   }
 }
