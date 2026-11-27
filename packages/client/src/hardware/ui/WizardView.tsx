@@ -33,8 +33,10 @@ export const WizardHeader = reatomMemo<WizardHeaderProps>(({ wizard, hardware })
   const step = wizard.step()
   const offline = wizard.gatewayOffline()
   const title = wizardTitle(step, offline, hardware.snapshot.data())
-  // A create/attach in flight: going back would drop its 202 (the step changed mid-POST).
+  // A pairing or create/attach POST in flight: going back would drop its 202 (the step changed
+  // mid-POST) and orphan the server-side pairing or command.
   const sending =
+    !wizard.choose.ready() ||
     !wizard.create.ready() ||
     !wizard.saveHealthAndCreate.ready() ||
     !wizard.attach.ready() ||

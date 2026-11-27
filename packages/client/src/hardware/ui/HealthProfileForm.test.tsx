@@ -77,6 +77,16 @@ describe('HealthProfileForm (§4 c2)', () => {
     expect(model.profileForm()).toEqual({ height: '182', birthDate: '14.03.1992', sex: 'female' })
   })
 
+  it('a failed create after the save shows the action error', () => {
+    const { model } = makeFakeWizardModel({
+      step: { kind: 'healthForm', hardwareId: 'h1' },
+      actionError: 'Не получилось. Попробуйте ещё раз.',
+    })
+    render(<HealthProfileForm wizard={model} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Не получилось. Попробуйте ещё раз.')
+  })
+
   it('a failed save shows an error', () => {
     const { model } = makeFakeWizardModel({
       step: { kind: 'healthForm', hardwareId: 'h1' },

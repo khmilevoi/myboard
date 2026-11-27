@@ -83,6 +83,15 @@ describe('WizardView scan (§4 a, a2)', () => {
     await waitFor(() => expect(called('choose')).toEqual([[TEST_ADDRESS]]))
   })
 
+  it('(a) shows «Ищем…» while the scan start request is still out', async () => {
+    const { model } = renderWizard({ scanning: false }, scanSnapshot, ['openScan'])
+    expect(screen.queryByRole('status')).toBeNull()
+
+    void model.openScan('g1')
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Ищем…')
+  })
+
   it('(a2) nothing found: «Весы не нашлись» and «Искать ещё раз» rescans', async () => {
     const { called } = renderWizard({ nothingFound: true }, scanSnapshot)
 
@@ -356,6 +365,15 @@ describe('HardwareDialog wizard view', () => {
 
     void wizard.attach()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Назад' })).toBeDisabled())
+  })
+
+  it('«Назад» is disabled while the pairing request is out', async () => {
+    const { wizard } = renderDialog({ step: pairing('connecting', null) }, ['choose'])
+
+    const back = await screen.findByRole('button', { name: 'Назад' })
+    expect(back).toBeEnabled()
+    void wizard.choose(TEST_ADDRESS)
+    await waitFor(() => expect(back).toBeDisabled())
   })
 
   it('(d2) «Добавить карточку «Вес»» adds the weight card and closes the dialog', async () => {

@@ -3,7 +3,7 @@ import type { ChangeEvent } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
 import type { ProfileFormInput } from '../model/profile-form'
-import { StepFrame, type WizardStepProps } from './WizardSteps'
+import { StepFrame, WizardActionError, type WizardStepProps } from './WizardSteps'
 
 import styles from './hardware.module.css'
 import wizardStyles from './wizard.module.css'
@@ -116,6 +116,7 @@ export const HealthProfileForm = reatomMemo<WizardStepProps>(({ wizard }) => {
           {FIELD_ERRORS[error]}
         </p>
       )}
+      <WizardActionError wizard={wizard} />
     </StepFrame>
   )
 }, 'HealthProfileForm')

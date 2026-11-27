@@ -126,7 +126,8 @@ export const ScanStep = reatomMemo<WizardStepProps>(({ wizard }) => {
   }
 
   const results = wizard.results()
-  const scanning = wizard.scanning()
+  // Also while the start request itself is out (before the 202 and the active scan record).
+  const scanning = wizard.scanning() || !wizard.openScan.ready() || !wizard.rescan.ready()
   const choosing = !wizard.choose.ready()
 
   return (
