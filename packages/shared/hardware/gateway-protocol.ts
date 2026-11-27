@@ -61,6 +61,11 @@ export const GatewayCommandSchema = z.discriminatedUnion('type', [
   z.object({
     id,
     type: z.literal('bindings.sync'),
+    // Every hardware attached to this gateway, bound or not: the only place a gateway learns the
+    // `hardwareId` it must use in `scaleUsers` and `battery` for a scale without bindings.
+    hardware: z.array(
+      z.object({ hardwareId: z.string(), address: BleAddressSchema, model: HardwareModelSchema }),
+    ),
     bindings: z.array(
       z.object({
         hardwareId: z.string(),

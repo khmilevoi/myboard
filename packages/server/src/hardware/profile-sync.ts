@@ -11,19 +11,24 @@ import { type HardwareDeps, logHardwareFailure } from './http'
 import { scaleProfileFromHealth } from './scale-profile'
 import { getBindings, listHardware, updateBindings } from './store'
 
-type SyncedBinding = Extract<GatewayCommand, { type: 'bindings.sync' }>['bindings'][number]
+type SyncCommand = Extract<GatewayCommand, { type: 'bindings.sync' }>
+type SyncedHardware = SyncCommand['hardware'][number]
+type SyncedBinding = SyncCommand['bindings'][number]
 
 /**
- * Tells a gateway every binding of every hardware attached to it (`bindings.sync`), so it can
- * recognise readings of its scales. A no-op while the gateway is offline: it syncs on reconnect.
+ * Tells a gateway every hardware attached to it, bound or not, and every binding of each
+ * (`bindings.sync`), so it knows the `hardwareId` of each scale and can recognise its readings.
+ * A no-op while the gateway is offline: it syncs on reconnect.
  */
 export async function syncBindings(deps: HardwareDeps, gatewayId: string): Promise<void | Error> {
   if (!deps.connections.isOnline(gatewayId)) return
   const all = await listHardware(deps.ops)
   if (all instanceof Error) return all
+  const attached: SyncedHardware[] = []
   const bindings: SyncedBinding[] = []
   for (const hardware of all) {
     if (hardware.gatewayId !== gatewayId) continue
+    attached.push({ hardwareId: hardware.id, address: hardware.address, model: hardware.model })
     const own = await getBindings(deps.ops, hardware.id)
     if (own instanceof Error) return own
     for (const binding of own) {
@@ -36,7 +41,12 @@ export async function syncBindings(deps: HardwareDeps, gatewayId: string): Promi
       })
     }
   }
-  deps.connections.send(gatewayId, { id: randomUUID(), type: 'bindings.sync', bindings })
+  deps.connections.send(gatewayId, {
+    id: randomUUID(),
+    type: 'bindings.sync',
+    hardware: attached,
+    bindings,
+  })
 }
 
 /**

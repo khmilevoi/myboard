@@ -136,7 +136,11 @@ describe('hardware routes', () => {
     const stream = await gateway.openStream()
     cleanups.push(stream.close)
     // Every open starts with the gateway's bindings.
-    expect(await stream.nextCommand()).toMatchObject({ type: 'bindings.sync', bindings: [] })
+    expect(await stream.nextCommand()).toMatchObject({
+      type: 'bindings.sync',
+      hardware: [],
+      bindings: [],
+    })
 
     expect(
       (await board(`/api/hardware/gateways/${gateway.gatewayId}`, 'DELETE', cookie)).status,

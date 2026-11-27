@@ -1,5 +1,5 @@
 import { HARDWARE_EVENTS_KEY, type HardwareSnapshot } from '@shared/hardware/board-api'
-import type { GatewayEvent } from '@shared/hardware/gateway-protocol'
+import type { GatewayCommand, GatewayEvent } from '@shared/hardware/gateway-protocol'
 import { makeFakeGateway, type FakeGateway } from '@shared/hardware/testing/fake-gateway'
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@shared/http/csrf'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -348,7 +348,10 @@ describe('adopt, revoke and unpair', () => {
     )
     expect(adopted.status).toBe(200)
     const { hardwareId } = (await adopted.json()) as { hardwareId: string }
-    expect(await stream.nextCommand('bindings.sync')).toMatchObject({ bindings: [] })
+    expect(await stream.nextCommand('bindings.sync')).toMatchObject({
+      hardware: [{ hardwareId, address: ADDRESS, model: 'beurer-bf950' }],
+      bindings: [],
+    })
     expect((await snapshot(cookie)).hardware).toMatchObject([{ id: hardwareId }])
 
     const again = await board(`/api/hardware/gateways/${gateway.gatewayId}/adopt`, 'POST', cookie, {
@@ -495,5 +498,49 @@ describe('adopt, revoke and unpair', () => {
 
     await board(`/api/hardware/gateways/${gateway.gatewayId}`, 'DELETE', cookie)
     expect((await board(`/api/hardware/items/${hardwareId}`, 'DELETE', cookie)).status).toBe(204)
+  })
+})
+
+describe('bindings.sync lists the gateway’s hardware', () => {
+  type Sync = Extract<GatewayCommand, { type: 'bindings.sync' }>
+
+  /** The gateway learns the hardwareId only from the sync, then reports users and is attached. */
+  async function attachFromSync(ctx: Awaited<ReturnType<typeof setup>>, sync: Sync) {
+    const { cookie, gateway } = ctx
+    expect(sync).toMatchObject({
+      bindings: [],
+      hardware: [{ address: ADDRESS, model: 'beurer-bf950' }],
+    })
+    const hardwareId = sync.hardware[0]!.hardwareId
+    await post(gateway, { type: 'scaleUsers', hardwareId, users: [{ index: 1 }] })
+    const attached = await board(`/api/hardware/items/${hardwareId}/profiles`, 'POST', cookie, {
+      mode: 'attach',
+      index: 1,
+      consentCode: '1234',
+    })
+    expect(attached.status).toBe(202)
+  }
+
+  it('after a fresh pairing, so a scale without bindings can be attached', async () => {
+    const ctx = await setup()
+    const pairingId = await scanAndPair(ctx)
+    await post(ctx.gateway, { type: 'pairing.progress', pairingId, stage: 'bonded' })
+    await attachFromSync(ctx, (await ctx.stream.nextCommand('bindings.sync')) as Sync)
+  })
+
+  it('after an adopt, so a scale without bindings can be attached', async () => {
+    const ctx = await setup()
+    await post(ctx.gateway, {
+      type: 'bonded',
+      hardware: [{ address: ADDRESS, model: 'beurer-bf950' }],
+    })
+    const adopted = await board(
+      `/api/hardware/gateways/${ctx.gateway.gatewayId}/adopt`,
+      'POST',
+      ctx.cookie,
+      { address: ADDRESS },
+    )
+    expect(adopted.status).toBe(200)
+    await attachFromSync(ctx, (await ctx.stream.nextCommand('bindings.sync')) as Sync)
   })
 })

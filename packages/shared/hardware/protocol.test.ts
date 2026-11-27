@@ -46,6 +46,19 @@ describe('hardware wire schemas', () => {
       profile,
     }
     expect(GatewayCommandSchema.parse(create)).toEqual(create)
+    const sync = {
+      id: 'c4',
+      type: 'bindings.sync',
+      hardware: [{ hardwareId: 'h1', address, model: 'beurer-bf950' }],
+      bindings: [
+        { hardwareId: 'h1', address, model: 'beurer-bf950', index: 1, consentCode: '0042' },
+      ],
+    }
+    expect(GatewayCommandSchema.parse(sync)).toEqual(sync)
+    // The hardware list is required: a gateway without it could not address an unbound scale.
+    expect(
+      GatewayCommandSchema.safeParse({ id: 'c5', type: 'bindings.sync', bindings: [] }).success,
+    ).toBe(false)
     expect(GatewayCommandSchema.safeParse({ id: 'c3', type: 'nope' }).success).toBe(false)
   })
 

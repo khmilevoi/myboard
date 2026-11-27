@@ -124,6 +124,7 @@ describe('profile sync', () => {
     const first = await reopen(gateway)
     expect(await first.nextCommand()).toMatchObject({
       type: 'bindings.sync',
+      hardware: [{ hardwareId, address: ADDRESS, model: 'beurer-bf950' }],
       bindings: [{ hardwareId, index: 1, consentCode: '4821' }],
     })
     expect(await first.nextCommand()).toMatchObject({
