@@ -1,6 +1,6 @@
 import { atom, context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { StorageApi } from 'widget-runtime'
+import { StorageError, type StorageApi } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { defaultCatProfile } from '../domain/cat'
@@ -238,11 +238,57 @@ describe('makeLitterChoice', () => {
   })
 })
 
+describe('card choice edge cases', () => {
+  it('falls back to the first option when the stored key cannot be read', async () => {
+    const { model } = setup(TWO_CATS)
+    const failure = new StorageError({ reason: 'boom' })
+    const base = createFakeStorage()
+    const failing: StorageApi = {
+      ...base,
+      subscribe: (_key, listener) => {
+        queueMicrotask(() => listener(failure))
+        return () => {}
+      },
+    }
+    const choice = makeCatChoice({ model: atom(model), storage: failing, name: 'failing' })
+
+    await context.start(async () => {
+      const off = choice.current.subscribe(() => {})
+      const read = wrap(() => choice.current()?.id)
+      await vi.waitFor(() => expect(read()).toBe('ofelia'))
+      off()
+    })
+  })
+
+  it('falls back when the stored litter loses its last cat and restores it with the cat', async () => {
+    const { litterChoice, cardStorage, registryStorage } = setup(TWO_CATS, { litter: 'busya' })
+    const events = [catEvent('add', 'ofelia', 1), catEvent('add', 'busya', 2)]
+
+    await context.start(async () => {
+      const off = litterChoice.current.subscribe(() => {})
+      const read = wrap(() => litterChoice.current()?.id)
+      await vi.waitFor(() => expect(read()).toBe('busya'))
+
+      await registryStorage.set(CATS_REGISTRY_KEY, [...events, catEvent('archive', 'busya', 3)])
+      await vi.waitFor(() => expect(read()).toBe('ofelia'))
+      expect(await cardStorage.get(CARD_LITTER_KEY)).toBe('busya')
+
+      await registryStorage.set(CATS_REGISTRY_KEY, [
+        ...events,
+        catEvent('archive', 'busya', 3),
+        catEvent('restore', 'busya', 4),
+      ])
+      await vi.waitFor(() => expect(read()).toBe('busya'))
+      off()
+    })
+  })
+})
+
 describe('makeLitterOptions', () => {
   it('is the same list the litter choice offers, and null without a model', async () => {
     const { model } = setup(SHARED_LITTER)
-    const options = makeLitterOptions(atom(model))
-    const none = makeLitterOptions(atom(null))
+    const options = makeLitterOptions(atom(model), 'test.options')
+    const none = makeLitterOptions(atom(null), 'test.none')
 
     expect(none()).toBeNull()
     await context.start(async () => {

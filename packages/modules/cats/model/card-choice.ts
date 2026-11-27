@@ -40,7 +40,7 @@ export type CardChoiceInput = {
 /** Every offered litter with its cats in `catIds` order; null while the module is loading. */
 export function makeLitterOptions(
   model: AtomLike<CatsModel | null>,
-  name = 'cats.litterOptions',
+  name: string,
 ): Computed<LitterOption[] | null> {
   return computed(() => {
     const cats = model()
@@ -66,7 +66,9 @@ function makeCardChoice<Option extends { id: string }>(
 
   const storedId = computed<Loadable<string | null>>(() => {
     const raw = stored()
-    if (raw === KEY_LOADING) return KEY_LOADING
+    // A failed read never sets the atom, so it must not read as "still loading" forever: it is
+    // "no stored choice", and the card shows the first option (still writing nothing).
+    if (raw === KEY_LOADING) return stored.error() === null ? KEY_LOADING : null
     const parsed = EntityIdSchema.safeParse(raw)
     return parsed.success ? parsed.data : null
   }, `${name}.storedId`)
