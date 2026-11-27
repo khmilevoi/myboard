@@ -3,6 +3,7 @@ packages:
   - packages/client
   - packages/image-codec
   - packages/modules/*
+  - packages/scan-camera
   - packages/server
   - packages/shared
   - packages/widgets/*

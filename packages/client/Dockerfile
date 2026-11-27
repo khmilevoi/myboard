@@ -28,6 +28,7 @@ COPY packages/server/package.json ./packages/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/widget-runtime/package.json ./packages/widget-runtime/
 COPY packages/widget-sdk/package.json ./packages/widget-sdk/
+COPY packages/scan-camera/package.json ./packages/scan-camera/
 COPY --from=widget-manifests /widgets ./packages/widgets
 COPY --from=widget-manifests /modules ./packages/modules
 # The store lives in a BuildKit cache mount, so even when this layer is
@@ -40,6 +41,7 @@ COPY packages/image-codec ./packages/image-codec
 COPY packages/shared ./packages/shared
 COPY packages/widget-runtime ./packages/widget-runtime
 COPY packages/widget-sdk ./packages/widget-sdk
+COPY packages/scan-camera ./packages/scan-camera
 COPY packages/widgets ./packages/widgets
 COPY packages/modules ./packages/modules
 COPY scripts ./scripts

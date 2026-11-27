@@ -15,6 +15,7 @@ vi.mock('./ui/AddDeviceScreen', () => ({
 
 beforeEach(() => {
   context.reset()
+  vi.unstubAllGlobals()
   window.history.replaceState(null, '', '/activate')
 })
 
@@ -25,12 +26,17 @@ describe('App routing', () => {
     expect(await screen.findByRole('heading', { name: 'Вход в myboard' })).toBeInTheDocument()
   })
 
-  it('renders the ACTIVATE card at /activate?token=abc', async () => {
+  it('opens /activate?token=abc on the invite check', async () => {
     window.history.replaceState(null, '', '/activate?token=abc')
+    // The route loader starts the invite check; keep it pending so the test
+    // never reaches a real server.
+    vi.stubGlobal('fetch', () => new Promise(() => {}))
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'Активация устройства' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Проверяем приглашение…' }),
+    ).toBeInTheDocument()
   })
 
   it('renders the NO-CODE card at /activate?token= (empty)', async () => {

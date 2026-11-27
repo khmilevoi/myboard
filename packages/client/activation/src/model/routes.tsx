@@ -53,7 +53,11 @@ export const activateRoute = rootRoute.reatomRoute(
     path: 'activate',
     search: z.object({ token: z.string().optional() }),
     async loader({ token }) {
-      return { model: makeActivationModel({ token: token ?? null }) }
+      const model = makeActivationModel({ token: token ?? null })
+      // Not awaited: the card shows its own "Проверяем приглашение…" state
+      // meanwhile. Leaving the route aborts the check, which is fine.
+      model.validateInvite().catch(() => undefined)
+      return { model }
     },
     render: (self): RouteChild => {
       // `loader.data()` is `Payload | undefined` (undefined until the first
@@ -73,7 +77,13 @@ export const addDeviceRoute = rootRoute.reatomRoute(
     path: 'add-device',
     search: z.object({ token: z.string().optional(), scan: z.literal('1').optional() }),
     async loader({ token, scan }) {
-      const model = makeAddDeviceModel({ token: token ?? null, scan: scan === '1' })
+      const model = makeAddDeviceModel({
+        token: token ?? null,
+        scan: scan === '1',
+        // A scanned invite QR continues on the invite card. Replace, so Back
+        // does not return to the scanner that already did its job.
+        openInvite: (inviteToken) => activateRoute.go({ token: inviteToken }, true),
+      })
       await model.init()
       return { model }
     },

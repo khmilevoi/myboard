@@ -43,6 +43,7 @@
     "react-grid-layout": "^2.2.3",
     "react-resizable": "^4.0.1",
     "react-zxing": "^3.0.0",
+    "scan-camera": "workspace:*",
     "shadcn": "^4.11.0",
     "tailwind-merge": "catalog:",
     "tailwindcss": "^4.3.1",
