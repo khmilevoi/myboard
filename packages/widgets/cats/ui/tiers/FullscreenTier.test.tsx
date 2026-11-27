@@ -190,6 +190,7 @@ describe('FullscreenTier', () => {
     const { calls } = setup(TWO_CATS)
     await screen.findByLabelText('Имя')
 
+    expect(screen.getByLabelText('Дата рождения')).toHaveAttribute('max', TODAY)
     expect(screen.getByRole('radio', { name: 'Кошка' })).toHaveAttribute('aria-checked', 'true')
     expect(
       within(screen.getByRole('radiogroup', { name: 'Стерилизована' })).getByRole('radio', {

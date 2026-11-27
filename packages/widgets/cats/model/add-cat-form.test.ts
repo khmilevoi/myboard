@@ -36,6 +36,7 @@ afterEach(() => {
 function setup(options: MakeTestCatsModelOptions = {}, onAdded = vi.fn()) {
   const { model, calls } = makeTestCatsModel({
     ...ONE_CAT,
+    todayIso: '2026-11-26',
     invoke: async (action) => (action === 'addCat' ? { ok: true, catId: 'new-cat' } : { ok: true }),
     ...options,
   })
@@ -117,6 +118,12 @@ describe('makeAddCatForm', () => {
     await vi.waitFor(() => expect(read()).not.toBeUndefined())
 
     expect(read()).toEqual(['Общий с Рысью', 'Общий с Игорем', 'Свой лоток'])
+    off()
+  })
+
+  it('bounds the birth date by today', () => {
+    const { form, off } = setup()
+    expect(wrap(() => form.maxBirthDate()?.toString())()).toBe('2026-11-26')
     off()
   })
 

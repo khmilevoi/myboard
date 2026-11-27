@@ -131,9 +131,13 @@ export function makeAddCatForm(
 
   const saving = computed(() => !submit.ready(), `${name}.saving`)
 
+  /** The date input's `max`: a cat is not born after today (server time). */
+  const maxBirthDate = computed(() => cats()?.today() ?? null, `${name}.maxBirthDate`)
+
   return {
     name: nameText,
     birthDate,
+    maxBirthDate,
     sex,
     litter,
     litterOptions,

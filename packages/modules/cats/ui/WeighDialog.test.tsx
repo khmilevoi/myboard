@@ -43,6 +43,7 @@ describe('WeighDialog', () => {
       screen.getByText('Удобно: взвеситься с кошкой на руках и вычесть свой вес.'),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Дата')).toHaveValue('2026-11-26')
+    expect(screen.getByLabelText('Дата')).toHaveAttribute('max', '2026-11-26')
     expect(screen.getByText('По умолчанию сегодня')).toBeInTheDocument()
   })
 
@@ -62,6 +63,19 @@ describe('WeighDialog', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
   })
 
+  it('disables saving for a day after today', async () => {
+    const { calls } = renderDialog()
+    fireEvent.change(await screen.findByLabelText('Сколько весит'), {
+      target: { value: '4,30' },
+    })
+    fireEvent.change(screen.getByLabelText('Дата'), { target: { value: '2026-11-27' } })
+
+    const save = screen.getByRole('button', { name: 'Сохранить вес' })
+    await waitFor(() => expect(save).toBeDisabled())
+    fireEvent.click(save)
+    expect(calls).toEqual([])
+  })
+
   it('shows the range error under the input and disables saving for 31', async () => {
     const { calls } = renderDialog()
     const input = await screen.findByLabelText('Сколько весит')
@@ -72,7 +86,7 @@ describe('WeighDialog', () => {
     expect(input).toHaveAttribute('aria-invalid', 'true')
     expect(input).toHaveAttribute('aria-describedby', message.id)
     const save = screen.getByRole('button', { name: 'Сохранить вес' })
-    expect(save).toBeDisabled()
+    await waitFor(() => expect(save).toBeDisabled())
     fireEvent.click(save)
     expect(calls).toEqual([])
   })

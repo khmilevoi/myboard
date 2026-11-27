@@ -36,6 +36,7 @@ describe('suggestGoal', () => {
   it.each([
     ['missing_weight', profile(), null],
     ['missing_age', profile({ birthDate: null }), weighing(4)],
+    ['missing_age', profile({ birthDate: '2099-01-01' }), weighing(4)],
     ['kitten', profile({ birthDate: '2026-03-15' }), weighing(4)],
     ['senior', profile({ birthDate: '2014-01-01' }), weighing(4)],
     ['missing_neuter_status', profile({ sterilized: 'unknown' }), weighing(4)],

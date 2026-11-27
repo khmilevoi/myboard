@@ -728,6 +728,16 @@ describe('cats server: registries, profile, goal and weight', () => {
     ])
   })
 
+  it('refuses a weighing dated after today, and appends nothing', async () => {
+    const { store, context } = makeRegistryContext()
+
+    const result = await run('weigh', { catId: OFELIA_ID, kg: 4.32, at: '2026-06-17' }, context)
+
+    expect(result).toBeInstanceOf(PublicWidgetError)
+    expect(result).toMatchObject({ code: 'future_weighing', status: 422 })
+    expect(store.get(catWeightKey(OFELIA_ID))).toBeUndefined()
+  })
+
   it('appends a goal', async () => {
     const { store, context } = makeRegistryContext()
 

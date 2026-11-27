@@ -254,6 +254,8 @@ describe('AllCatsTab', () => {
       ),
     ).toBeInTheDocument()
 
+    expect(dialog.getByLabelText('Дата рождения')).toHaveAttribute('max', TODAY)
+
     // A blank name is refused before anything is sent.
     fireEvent.click(dialog.getByRole('button', { name: 'Добавить кошку' }))
     expect(await dialog.findByText('Укажите имя')).toBeInTheDocument()

@@ -105,14 +105,17 @@ export function weightTrend(weighings: readonly Weighing[], days: number): numbe
   return Math.round((latest.kg - base.kg) * 1000)
 }
 
-/** Whole days from the latest weighing to `today`; null with no weighings. */
+/**
+ * Whole days from the latest weighing to `today`, never below 0 (a weighing dated after today
+ * counts as today's); null with no weighings.
+ */
 export function daysSinceWeighing(
   weighings: readonly Weighing[],
   today: Temporal.PlainDate,
 ): number | null {
   const latest = latestWeighing(weighings)
   if (latest === null) return null
-  return Temporal.PlainDate.from(latest.at).until(today, { largestUnit: 'days' }).days
+  return Math.max(0, Temporal.PlainDate.from(latest.at).until(today, { largestUnit: 'days' }).days)
 }
 
 /** Which litter a cat uses: one already in the registry, or a new one the server creates. */

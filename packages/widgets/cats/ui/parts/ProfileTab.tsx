@@ -280,6 +280,7 @@ export const ProfileTab = reatomMemo(() => {
                 type="date"
                 className={styles.dateInput}
                 value={draft.birthDate ?? ''}
+                max={today?.toString()}
                 onChange={wrap((event: ChangeEvent<HTMLInputElement>) =>
                   form.edit({
                     birthDate: parseDateInput(event.target.value)?.toString() ?? null,

@@ -37,6 +37,8 @@ export const WeighDialog = reatomMemo<WeighDialogProps>(({ form, name, open, onO
   const failure = form.failure()
   const previous = form.previous()
   const date = form.date()
+  const maxDate = form.maxDate()
+  const sendableDate = form.sendableDate()
   const saving = !form.submit.ready()
 
   const onSubmit = wrap(async (event: FormEvent<HTMLFormElement>) => {
@@ -120,6 +122,7 @@ export const WeighDialog = reatomMemo<WeighDialogProps>(({ form, name, open, onO
                 type="date"
                 className={styles.dateInput}
                 value={date?.toString() ?? ''}
+                max={maxDate?.toString()}
                 aria-describedby={dateNoteId}
                 onChange={wrap((event: ChangeEvent<HTMLInputElement>) =>
                   form.pickDate(parseDateInput(event.target.value)),
@@ -139,7 +142,7 @@ export const WeighDialog = reatomMemo<WeighDialogProps>(({ form, name, open, onO
             <Button
               type="submit"
               className={styles.save}
-              disabled={error !== null || date === null || saving}
+              disabled={error !== null || sendableDate === null || saving}
             >
               Сохранить вес
             </Button>

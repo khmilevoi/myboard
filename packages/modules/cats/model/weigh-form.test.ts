@@ -163,6 +163,33 @@ describe('makeWeighForm', () => {
     expect(form.text()).toBe('4,3')
   })
 
+  it('refuses a day after today: the input is bounded by it, and nothing is sent', async () => {
+    const { form, weighCalls } = setup()
+    form.text.set('4,3')
+    expect(form.maxDate()?.toString()).toBe('2026-11-26')
+
+    form.pickDate(D('2026-11-26'))
+    expect(form.canSend()).toBe(true)
+    form.pickDate(D('2026-11-27'))
+    expect(form.canSend()).toBe(false)
+
+    await wrap(() => form.submit())()
+
+    expect(weighCalls()).toEqual([])
+    expect(form.text()).toBe('4,3')
+  })
+
+  it('sends nothing on a picked day before the clock syncs', async () => {
+    const { form, weighCalls } = setup({ today: atom(null, 'test.unsynced') })
+    form.text.set('4,3')
+    form.pickDate(D('2026-11-20'))
+    expect(form.canSend()).toBe(false)
+
+    await wrap(() => form.submit())()
+
+    expect(weighCalls()).toEqual([])
+  })
+
   it('keeps the text and reports a failed save', async () => {
     const failure = new ModuleApiError({ reason: 'offline', code: 'network' })
     const { form } = setup({ invoke: async () => failure })

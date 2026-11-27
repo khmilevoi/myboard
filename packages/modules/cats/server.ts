@@ -338,6 +338,17 @@ const catsServer = defineModuleServer(catsContract, {
       const registry = await readRegistryWith(storage, catId)
       if (registry instanceof Error) return registry
 
+      // The history is append-only: a weighing dated after today would stay the current weight.
+      const today = plainDateIn(DUTY_TIME_ZONE, context.now())
+      if (Temporal.PlainDate.compare(Temporal.PlainDate.from(at), today) > 0) {
+        return new PublicWidgetError({
+          code: 'future_weighing',
+          status: 422,
+          publicMessage: 'A weighing cannot be dated after today',
+          meta: { catId, at },
+        })
+      }
+
       const written = await storage.append(catWeightKey(catId), {
         at,
         kg,

@@ -39,6 +39,7 @@ export const AddCatDialog = reatomMemo<AddCatDialogProps>(({ form, open, onOpenC
 
   const name = form.name()
   const birthDate = form.birthDate()
+  const maxBirthDate = form.maxBirthDate()
   const sex = form.sex()
   const litter = form.litter()
   const options = form.litterOptions()
@@ -107,6 +108,7 @@ export const AddCatDialog = reatomMemo<AddCatDialogProps>(({ form, open, onOpenC
                   type="date"
                   className={styles.dateInput}
                   value={birthDate ?? ''}
+                  max={maxBirthDate?.toString()}
                   onChange={wrap((event: ChangeEvent<HTMLInputElement>) =>
                     form.birthDate.set(parseDateInput(event.target.value)?.toString() ?? null),
                   )}

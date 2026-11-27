@@ -75,9 +75,20 @@ export function makeWeighForm(
     `${name}.failure`,
   )
 
-  /** Whether `submit` would send now: a weight, a date and the cat are all there. */
+  /** The latest day a weighing may be dated: today. History is append-only, so a later day sticks. */
+  const maxDate = computed(() => today(), `${name}.maxDate`)
+
+  /** The date when it is one a weighing may have (today or before), else null. */
+  const sendableDate = computed(() => {
+    const day = date()
+    const max = maxDate()
+    if (day === null || max === null) return null
+    return Temporal.PlainDate.compare(day, max) > 0 ? null : day
+  }, `${name}.sendableDate`)
+
+  /** Whether `submit` would send now: a weight, a date no later than today and the cat. */
   const canSend = computed(
-    () => kg() !== null && date() !== null && cat() !== null,
+    () => kg() !== null && sendableDate() !== null && cat() !== null,
     `${name}.canSend`,
   )
 
@@ -95,7 +106,7 @@ export function makeWeighForm(
   const submit = action(async (): Promise<ModuleApiError | void> => {
     const model = cat()
     const weight = kg()
-    const day = date()
+    const day = sendableDate()
     if (weight === null) {
       rejectedText.set(text())
       return
@@ -114,5 +125,17 @@ export function makeWeighForm(
     picked.set(null)
   }, `${name}.submit`).extend(withAsync())
 
-  return { text, date, pickDate, kg, canSend, error, failure, previous, submit }
+  return {
+    text,
+    date,
+    maxDate,
+    sendableDate,
+    pickDate,
+    kg,
+    canSend,
+    error,
+    failure,
+    previous,
+    submit,
+  }
 }

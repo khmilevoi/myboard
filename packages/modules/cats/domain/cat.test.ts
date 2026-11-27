@@ -140,4 +140,8 @@ describe('daysSinceWeighing', () => {
   it('is null with no weighings', () => {
     expect(daysSinceWeighing([], D('2026-11-26'))).toBeNull()
   })
+
+  it('is 0, never negative, for a weighing dated after today', () => {
+    expect(daysSinceWeighing([weighing('2026-11-29', 4.32)], D('2026-11-26'))).toBe(0)
+  })
 })
