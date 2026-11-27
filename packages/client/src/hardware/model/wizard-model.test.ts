@@ -126,8 +126,31 @@ function setup(options: SetupOptions) {
       ]),
     ),
   })
+  // While held, snapshot GETs are counted as sent but answer only once released.
+  let held: Promise<void> | null = null
+  let heldGets = 0
+  const gatedHttp: typeof http = {
+    ...http,
+    get: async (url, opts) => {
+      if (url === '/api/hardware' && held !== null) {
+        heldGets += 1
+        await held
+      }
+      return http.get(url, opts)
+    },
+  }
+  const holdSnapshots = () => {
+    let release = () => {}
+    held = new Promise<void>((settle) => {
+      release = () => {
+        held = null
+        settle()
+      }
+    })
+    return () => release()
+  }
   const { open, streams } = makeFakeOpenEventStream()
-  const client = makeHardwareBoardClient(http)
+  const client = makeHardwareBoardClient(gatedHttp)
   const hardware = makeHardwareModel({ client, openEventStream: open, now: () => Date.now() })
   const model = makeWizardModel({
     hardware,
@@ -177,6 +200,8 @@ function setup(options: SetupOptions) {
     loaded,
     change,
     emit,
+    holdSnapshots,
+    heldSnapshotGets: () => heldGets,
     pairingFrame,
     flush,
   }
@@ -771,6 +796,36 @@ describe('wizard command answer', () => {
     expect(env.model.step()).toMatchObject({ kind: 'scaleSilent' })
     env.model.back()
     expect(env.model.step()).toMatchObject({ kind: 'profileChoice', hardwareId: 'h1' })
+  })
+
+  it('command ok followed at once by a changed frame (as the server publishes them) → done', async () => {
+    const env = setup({
+      health: healthWith({ profile: PROFILE }).health,
+      reveal: { 1: [{ status: 200, body: { consentCode: REVEALED_CODE } }] },
+    })
+    await startCreate(env)
+    env.server.snapshot = {
+      gateways: [gateway()],
+      hardware: [scale({ profiles: bindings([1, 'mine']) })],
+    }
+
+    // The `changed` refetch supersedes (aborts) the re-read the command answer started.
+    const release = env.holdSnapshots()
+    env.emit({ type: 'command', commandId: 'c1', ok: true, reason: null })
+    await vi.waitFor(() => expect(env.heldSnapshotGets()).toBe(1))
+    env.emit({ type: 'changed' })
+    await vi.waitFor(() => expect(env.heldSnapshotGets()).toBe(2))
+    release()
+    await env.flush()
+
+    await vi.waitFor(() =>
+      expect(env.model.step()).toEqual({
+        kind: 'done',
+        hardwareId: 'h1',
+        index: 1,
+        consentCode: REVEALED_CODE,
+      }),
+    )
   })
 
   it('no command frame within SCALE_ANSWER_TIMEOUT_MS but a new mine binding in the re-read snapshot → done', async () => {

@@ -7,6 +7,7 @@ import {
   type Atom,
   type Computed,
   computed,
+  isAbort,
   sleep,
   take,
   withAbort,
@@ -35,6 +36,14 @@ import { describeHardwareError } from './hardware-copy'
 import type { HardwareModel } from './hardware-model'
 import { makeWizardProfileSteps, type WizardProfileSteps } from './wizard-profile'
 import { launch, makeWaitFor } from './wizard-waits'
+
+/** How many superseded (aborted) snapshot reads a re-read follows before giving up. */
+const SNAPSHOT_REREAD_ATTEMPTS = 5
+
+/** `isAbort`, also for a `DOMException` from another realm (jsdom's is not an `Error` there). */
+const isAbortCause = (cause: unknown) =>
+  isAbort(cause) ||
+  (typeof cause === 'object' && cause !== null && 'name' in cause && cause.name === 'AbortError')
 
 /** After a PIN is submitted with no answer for this long, the wizard re-reads the snapshot (Decision 7). */
 export const PAIRING_ANSWER_CHECK_MS = 20_000
@@ -227,11 +236,20 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
   /** Re-reads the snapshot and waits for the fresh one; a failed read is logged, not raised. */
   async function rereadSnapshot() {
     hardware.refresh()
-    const loaded = await wrap(hardware.snapshot()).then(
-      () => null,
-      (cause: unknown) => cause,
-    )
-    if (loaded !== null) console.warn('Hardware wizard snapshot re-read failed:', loaded)
+    // A board event's refetch (the server publishes `changed` right after a `command` or
+    // `pairing` frame) aborts this read; that newer fetch is the re-read, so await it instead.
+    for (let attempt = 0; attempt < SNAPSHOT_REREAD_ATTEMPTS; attempt++) {
+      const loaded = await wrap(hardware.snapshot()).then(
+        () => null,
+        (cause: unknown) => cause,
+      )
+      if (loaded === null) return
+      if (!isAbortCause(loaded)) {
+        console.warn('Hardware wizard snapshot re-read failed:', loaded)
+        return
+      }
+    }
+    console.warn('Hardware wizard snapshot re-read kept being superseded')
   }
 
   function profileChoiceFor(hardwareId: string): WizardStep {
