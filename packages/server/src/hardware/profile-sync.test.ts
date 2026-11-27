@@ -174,6 +174,52 @@ describe('profile sync', () => {
     })
   })
 
+  it('pushes a profile change made while detached as soon as the scale is adopted again', async () => {
+    const { a, gateway, hardwareId } = await setup()
+    const revoked = await board(`/api/hardware/gateways/${gateway.gatewayId}`, 'DELETE', a.cookie)
+    expect(revoked.status).toBe(204)
+
+    expect(await setProfile(a.accountId, { ...PROFILE, heightCm: 176 })).toBeUndefined()
+    await vi.waitFor(async () => {
+      const bindings = await getBindings(app!.ops, hardwareId)
+      expect(bindings instanceof Error ? bindings : bindings[0]?.profileRevision).toBe(1)
+    })
+
+    const minted = await board('/api/hardware/codes', 'POST', a.cookie)
+    const next = makeFakeGateway(app!.base)
+    await next.register(((await minted.json()) as { code: string }).code, 'Hall')
+    const stream = await reopen(next)
+    // The open-time sync: the scale is not on this gateway yet, so nothing is pending for it.
+    expect(await stream.nextCommand()).toMatchObject({ type: 'bindings.sync', hardware: [] })
+    await post(next, { type: 'bonded', hardware: [{ address: ADDRESS, model: 'beurer-bf950' }] })
+    const adopted = await board(
+      `/api/hardware/gateways/${next.gatewayId}/adopt`,
+      'POST',
+      a.cookie,
+      {
+        address: ADDRESS,
+      },
+    )
+    expect(adopted.status).toBe(200)
+    expect(await stream.nextCommand()).toMatchObject({
+      type: 'bindings.sync',
+      bindings: [{ hardwareId, index: 1 }],
+    })
+    // Without reconnecting: a scan start queued now must come after the update, not instead of it.
+    const scan = await board(`/api/hardware/gateways/${next.gatewayId}/scan`, 'POST', a.cookie, {
+      action: 'start',
+    })
+    expect(scan.status).toBe(202)
+    expect(await stream.nextCommand()).toMatchObject({
+      type: 'scaleUser.update',
+      hardwareId,
+      index: 1,
+      consentCode: '4821',
+      profile: { heightCm: 176 },
+      revision: 1,
+    })
+  })
+
   it('ignores an update ack from a gateway that does not own the hardware', async () => {
     const { a, gateway, stream, hardwareId } = await setup()
     cleanups.push(stream.close)

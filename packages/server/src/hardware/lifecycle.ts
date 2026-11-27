@@ -18,7 +18,7 @@ import {
 } from './errors'
 import { type HardwareDeps, logHardwareFailure } from './http'
 import { addressLockKey, pairingKey, scanKey } from './keys'
-import { syncBindings } from './profile-sync'
+import { sendPendingUpdates, syncBindings } from './profile-sync'
 import {
   type HardwareRecord,
   type PairingRecord,
@@ -44,9 +44,16 @@ async function announce(deps: HardwareDeps, event: HardwareBoardEvent, context: 
   if (published instanceof Error) logHardwareFailure(`${context} publish`, published)
 }
 
+/**
+ * The gateway learns its bindings, then every profile update it has not acknowledged: a relinked
+ * scale may carry a change made while it was detached, which nothing else would send until the
+ * gateway reconnects.
+ */
 async function syncAfter(deps: HardwareDeps, gatewayId: string, context: string) {
   const synced = await syncBindings(deps, gatewayId)
   if (synced instanceof Error) logHardwareFailure(`${context} sync`, synced)
+  const updated = await sendPendingUpdates(deps, gatewayId)
+  if (updated instanceof Error) logHardwareFailure(`${context} updates`, updated)
 }
 
 /** The gateway record, or the error to answer; also requires its stream to be open. */
