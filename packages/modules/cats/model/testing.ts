@@ -38,6 +38,8 @@ export type MakeTestCatsModelOptions = {
   invoke?: (action: string, payload: unknown) => Promise<unknown>
   /** Backs the shared scope (client and server). Omitted, an in-memory fake. */
   storage?: StorageApi
+  /** Backs `context.files`. Omitted, in-memory empty slots; pass slots to pre-fill or fail one. */
+  files?: CatsModuleContext['files']
   /** Omitted, a static identity with no members and no viewer. */
   identity?: WidgetIdentity
 }
@@ -76,7 +78,7 @@ export function makeTestCatsModel(options: MakeTestCatsModelOptions = {}): TestC
   const model = makeCatsModel({
     moduleId: 'cats',
     storage: { shared: { client: storage, server: storage } },
-    files: makeFakeFileSlots(),
+    files: options.files ?? makeFakeFileSlots(),
     api,
     timer: createFakeTimer({
       today: options.todayIso ? Temporal.PlainDate.from(options.todayIso) : null,

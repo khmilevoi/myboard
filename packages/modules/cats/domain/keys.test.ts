@@ -1,10 +1,13 @@
+import { fileSlotRelativeKey } from '@shared/files/contract'
 import { instanceNamespace } from '@shared/storage/scope'
 import { describe, expect, it } from 'vitest'
 
 import {
+  CAT_AVATAR_SLOT_PATTERN,
   CARD_CAT_KEY,
   CARD_LITTER_KEY,
   CATS_REGISTRY_KEY,
+  catAvatarSlotKey,
   catGoalKey,
   catProfileKey,
   catWeightKey,
@@ -37,5 +40,13 @@ describe('cats keys', () => {
     expect(CARD_LITTER_KEY).toBe('card/litter')
     expect(instanceNamespace('inst-1') + CARD_LITTER_KEY).toBe('w:i:inst-1:card/litter')
     expect(instanceNamespace('inst-1') + CARD_CAT_KEY).toBe('w:i:inst-1:card/cat')
+  })
+
+  it('keeps the avatar in a file slot under cat/<id>/avatar', () => {
+    expect(catAvatarSlotKey('ofelia')).toBe('cat/ofelia/avatar')
+    expect(fileSlotRelativeKey(catAvatarSlotKey('ofelia'))).toBe('@files/cat/ofelia/avatar')
+    expect(CAT_AVATAR_SLOT_PATTERN.test('cat/ofelia/avatar')).toBe(true)
+    for (const key of ['cat/ofelia/profile', 'cat/A/avatar', 'cat/a/b/avatar'])
+      expect(CAT_AVATAR_SLOT_PATTERN.test(key)).toBe(false)
   })
 })

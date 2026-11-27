@@ -53,3 +53,15 @@ export function catGoalKey(catId: string): string {
 export function catWeightKey(catId: string): string {
   return catKey(catId, 'weight')
 }
+
+/**
+ * The cat's avatar is a file slot, not a storage value: the slot key below is stored at
+ * `m:cats:s:@files/cat/<catId>/avatar` and its `FileRef` is the only source of truth (the profile's
+ * `avatar` stays null). Renaming it orphans every uploaded avatar.
+ */
+export function catAvatarSlotKey(catId: string): string {
+  return catKey(catId, 'avatar')
+}
+
+/** Matches `catAvatarSlotKey` for an `EntityIdSchema` id; the server's file policy keys on it. */
+export const CAT_AVATAR_SLOT_PATTERN = /^cat\/[a-z0-9][a-z0-9-]{0,63}\/avatar$/

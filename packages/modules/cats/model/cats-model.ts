@@ -49,7 +49,11 @@ export type CatsModel = {
   cat(catId: string): CatModel
   /** The same `LitterModel` for the same id, so every view of a litter shares its atoms. */
   litter(litterId: string): LitterModel
-  addCat(name: string, litter: LitterChoice): Promise<ModuleApiError | { catId: string }>
+  addCat(
+    name: string,
+    litter: LitterChoice,
+    extra?: { birthDate?: string | null; sex?: 'female' | 'male' | null },
+  ): Promise<ModuleApiError | { catId: string }>
   archiveCat(catId: string): Promise<ModuleApiError | void>
   restoreCat(catId: string): Promise<ModuleApiError | void>
 }
@@ -116,7 +120,9 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
     if (states.some(({ state }) => state === KEY_LOADING)) return null
     return states.flatMap(({ id, state }) => {
       if (state === KEY_LOADING || state === null) return []
-      return [toSummary(id, state, catToneAt(order.indexOf(id)))]
+      return [
+        toSummary(id, state, catToneAt(order.indexOf(id)), catInternals(id).model.avatarUrl()),
+      ]
     })
   }
 
@@ -160,8 +166,11 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
     async (
       name: string,
       litterChoice: LitterChoice,
+      extra: { birthDate?: string | null; sex?: 'female' | 'male' | null } = {},
     ): Promise<ModuleApiError | { catId: string }> => {
-      const result = await wrap(api.invoke('addCat', { name, litter: litterChoice }))
+      const result = await wrap(
+        api.invoke('addCat', { name, litter: litterChoice, ...definedOnly(extra) }),
+      )
       if (result instanceof Error) return result
       return { catId: result.catId }
     },
@@ -181,6 +190,19 @@ export function makeCatsModel(context: CatsModuleContext): CatsModel {
   return { today, cats, archivedCats, litters, cat, litter, addCat, archiveCat, restoreCat }
 }
 
-function toSummary(id: string, profile: CatProfile, tone: CatTone): CatSummary {
-  return { id, name: profile.name, avatar: profile.avatar, litterId: profile.litterId, tone }
+// The avatar is the cat's file slot, never `profile.avatar`, which stays null.
+function toSummary(
+  id: string,
+  profile: CatProfile,
+  tone: CatTone,
+  avatar: string | null,
+): CatSummary {
+  return { id, name: profile.name, avatar, litterId: profile.litterId, tone }
+}
+
+/** `extra` without its `undefined` fields, so the payload never carries an explicit undefined. */
+function definedOnly<T extends object>(extra: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(extra).filter(([, value]) => value !== undefined),
+  ) as Partial<T>
 }

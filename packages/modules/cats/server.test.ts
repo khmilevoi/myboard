@@ -531,6 +531,23 @@ const litterIdsIn = (store: Map<string, unknown>) =>
   (store.get(LITTERS_REGISTRY_KEY) as { litterId: string }[]).map((event) => event.litterId)
 
 describe('cats server: registries, profile, goal and weight', () => {
+  it('applies a birth date and sex on top of the default profile', async () => {
+    const { store, context } = makeRegistryContext()
+
+    const result = await run(
+      'addCat',
+      { name: 'Буся', litter: { kind: 'new' }, birthDate: '2026-03-15', sex: 'female' },
+      context,
+    )
+
+    const { catId } = addedCat(result)
+    expect(store.get(catProfileKey(catId))).toEqual({
+      ...defaultCatProfile('Буся', litterIdsIn(store)[1]),
+      birthDate: '2026-03-15',
+      sex: 'female',
+    })
+  })
+
   it('adds a cat with a new litter: litter first, then the profile, then the registry add', async () => {
     const { store, context, writes } = makeRegistryContext()
 

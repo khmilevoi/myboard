@@ -1,7 +1,8 @@
 import { action, atom, computed, wrap } from '@reatom/core'
 import type { Computed } from '@reatom/core'
+import { fileUrl, type FileRef } from '@shared/files/contract'
 import { withStorageKeyReadonly } from 'widget-runtime'
-import type { ModuleApiError } from 'widget-runtime'
+import type { ModuleApiError, StorageError } from 'widget-runtime'
 
 import {
   CatProfileSchema,
@@ -15,7 +16,7 @@ import {
   type LitterChoice,
   type Weighing,
 } from '../domain/cat'
-import { catGoalKey, catProfileKey, catWeightKey } from '../domain/keys'
+import { catAvatarSlotKey, catGoalKey, catProfileKey, catWeightKey } from '../domain/keys'
 import { DUTY_TIME_ZONE } from '../domain/roster'
 import type { CatsModuleContext } from './litter-model'
 
@@ -34,6 +35,14 @@ export type CatModel = {
   goals: Computed<GoalEntry[] | null>
   /** `goalOn` at the server-time today; null while loading or before the clock syncs. */
   goalToday: Computed<number | null>
+  /**
+   * The avatar's URL: the file slot's `FileRef` is its only source of truth, so `profile.avatar`
+   * is never read or written. null while the slot is empty or loading.
+   */
+  avatarUrl: Computed<string | null>
+  /** Uploads a ready (already cropped) image into the slot, replacing the old blob. */
+  uploadAvatar(image: Blob): Promise<StorageError | FileRef>
+  removeAvatar(): Promise<StorageError | void>
   saveProfile(profile: CatProfileFields, litter: LitterChoice): Promise<ModuleApiError | void>
   weigh(kg: number, at: Temporal.PlainDate): Promise<ModuleApiError | void>
   setGoal(kcal: number, since: Temporal.PlainDate): Promise<ModuleApiError | void>
@@ -53,7 +62,7 @@ export type CatModelInternals = {
  * error that pins the computeds at null instead of reading as absent.
  */
 export function makeCatModel(context: CatsModuleContext, catId: string): CatModelInternals {
-  const { storage, timer, api } = context
+  const { storage, timer, api, files } = context
   const server = storage.shared.server
   const name = (suffix: string) => `cats.cat.${catId}.${suffix}`
 
@@ -64,6 +73,12 @@ export function makeCatModel(context: CatsModuleContext, catId: string): CatMode
   const rawProfile = rawKey(catProfileKey(catId), 'rawProfile')
   const rawWeighings = rawKey(catWeightKey(catId), 'rawWeighings')
   const rawGoals = rawKey(catGoalKey(catId), 'rawGoals')
+
+  const avatarSlot = files('shared', catAvatarSlotKey(catId))
+  const avatarUrl = computed(() => {
+    const ref = avatarSlot.ref()
+    return ref === null ? null : fileUrl(ref.blobId)
+  }, name('avatarUrl'))
 
   const profileState = computed<Loadable<CatProfile | null>>(() => {
     const raw = rawProfile()
@@ -136,6 +151,9 @@ export function makeCatModel(context: CatsModuleContext, catId: string): CatMode
       latestWeighing: latest,
       goals,
       goalToday,
+      avatarUrl,
+      uploadAvatar: avatarSlot.upload,
+      removeAvatar: avatarSlot.remove,
       saveProfile,
       weigh,
       setGoal,

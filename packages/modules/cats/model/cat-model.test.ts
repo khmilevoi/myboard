@@ -1,10 +1,12 @@
 import { context, wrap } from '@reatom/core'
+import type { FileRef } from '@shared/files/contract'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
+import { StorageError, makeFileSlotFromApi } from 'widget-runtime'
+import { createFakeStorage, makeFakeFileSlotApi } from 'widget-runtime/storage/test/fakes'
 
 import { defaultCatProfile, type GoalEntry, type Weighing } from '../domain/cat'
 import { catGoalKey, catWeightKey } from '../domain/keys'
-import { makeTestCatsModel } from './testing'
+import { makeTestCatsModel, type MakeTestCatsModelOptions } from './testing'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
@@ -112,5 +114,103 @@ describe('makeCatModel', () => {
         },
       },
     ])
+  })
+})
+
+const AVATAR_REF: FileRef = {
+  blobId: 'abcdefghijklmnop',
+  url: '/files/abcdefghijklmnop',
+  mime: 'image/webp',
+  size: 10,
+  updatedAt: 1,
+}
+
+describe('cat avatar slot', () => {
+  const profiles = { ofelia: defaultCatProfile('Офелия', 'ofelia') }
+  const readAvatars = (model: ReturnType<typeof makeTestCatsModel>['model']) =>
+    wrap(() => ({
+      avatarUrl: model.cat('ofelia').avatarUrl(),
+      summary: model.cats()?.[0]?.avatar,
+    }))
+
+  const makeSlots = (api = makeFakeFileSlotApi(AVATAR_REF)) => {
+    const requested: string[] = []
+    const slot = makeFileSlotFromApi(api, 'test.avatar')
+    const files = ((scopeOrKey: string, key?: string) => {
+      requested.push(`${scopeOrKey}:${key}`)
+      return slot
+    }) as NonNullable<MakeTestCatsModelOptions['files']>
+    return { files, requested }
+  }
+
+  it('reads the avatar from the slot, in the cat and in the summary', async () => {
+    const { files, requested } = makeSlots()
+    const { model, calls } = makeTestCatsModel({
+      files,
+      profiles,
+      catRegistry: [{ id: 'r1', catId: 'ofelia', op: 'add', ts: 1 }],
+    })
+
+    await context.start(async () => {
+      const offs = [
+        model.cat('ofelia').avatarUrl.subscribe(() => {}),
+        model.cats.subscribe(() => {}),
+      ]
+      const read = readAvatars(model)
+      await vi.waitFor(() =>
+        expect(read()).toEqual({
+          avatarUrl: '/files/abcdefghijklmnop',
+          summary: '/files/abcdefghijklmnop',
+        }),
+      )
+      for (const off of offs) off()
+    })
+    expect(requested).toContain('shared:cat/ofelia/avatar')
+    expect(calls).toEqual([])
+  })
+
+  it('clears both after removeAvatar, without an API call', async () => {
+    const { files } = makeSlots()
+    const { model, calls } = makeTestCatsModel({
+      files,
+      profiles,
+      catRegistry: [{ id: 'r1', catId: 'ofelia', op: 'add', ts: 1 }],
+    })
+
+    await context.start(async () => {
+      const offs = [
+        model.cat('ofelia').avatarUrl.subscribe(() => {}),
+        model.cats.subscribe(() => {}),
+      ]
+      const read = readAvatars(model)
+      await vi.waitFor(() => expect(read().avatarUrl).toBe('/files/abcdefghijklmnop'))
+
+      const removed = await wrap(model.cat('ofelia').removeAvatar())
+      expect(removed).toBeUndefined()
+      await vi.waitFor(() => expect(read()).toEqual({ avatarUrl: null, summary: null }))
+      for (const off of offs) off()
+    })
+    expect(calls).toEqual([])
+  })
+
+  it('returns a failed upload as a value and leaves the avatar unchanged', async () => {
+    const failure = new StorageError({ reason: 'upload failed' })
+    const { files } = makeSlots({
+      ...makeFakeFileSlotApi(AVATAR_REF),
+      upload: async () => failure,
+    })
+    const { model, calls } = makeTestCatsModel({ files, profiles })
+
+    await context.start(async () => {
+      const off = model.cat('ofelia').avatarUrl.subscribe(() => {})
+      const read = wrap(() => model.cat('ofelia').avatarUrl())
+      await vi.waitFor(() => expect(read()).toBe('/files/abcdefghijklmnop'))
+
+      const result = await wrap(model.cat('ofelia').uploadAvatar(new Blob(['x'])))
+      expect(result).toBe(failure)
+      expect(read()).toBe('/files/abcdefghijklmnop')
+      off()
+    })
+    expect(calls).toEqual([])
   })
 })
