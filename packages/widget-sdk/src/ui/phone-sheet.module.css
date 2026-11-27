@@ -21,8 +21,11 @@
 
 @media (max-width: 640px) {
   .frame {
-    /* Neutralises the centred-dialog placement (top/left 50% plus a
-       translate or transform, depending on the utility layer). */
+    /* Neutralises the centred-dialog placement (top/left 50% plus
+       Tailwind v4's `-translate-*-1/2`, which sets `translate`).
+       Never add `transform: none` next to it: the lightningcss minifier
+       merges the pair into `transform: translate(0, 0)` and drops the
+       `translate` reset, so the built sheet sits half off-screen. */
     top: 0;
     left: 0;
     width: 100vw;
@@ -31,7 +34,6 @@
     max-height: none;
     border: 0;
     border-radius: 0;
-    transform: none;
     translate: none;
   }
 
