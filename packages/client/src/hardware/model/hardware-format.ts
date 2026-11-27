@@ -48,8 +48,17 @@ export function formatSignal(rssi: number): string {
   return 'сигнал слабый'
 }
 
+/** A calendar day; `Temporal.PlainDate` fits, and so does `localCalendarDay`'s plain object. */
+export type CalendarDay = { year: number; month: number; day: number }
+
+/** The viewer's local calendar day at `at` (month 1–12), without needing `Temporal` at runtime. */
+export function localCalendarDay(at: number): CalendarDay {
+  const d = new Date(at)
+  return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
+}
+
 /** `34 года`: whole years from an ISO `YYYY-MM-DD` birth date to `today`. */
-export function formatAge(birthDate: string, today: Temporal.PlainDate): string {
+export function formatAge(birthDate: string, today: CalendarDay): string {
   const [year = 0, month = 0, day = 0] = birthDate.split('-').map(Number)
   const hadBirthday = today.month > month || (today.month === month && today.day >= day)
   const years = today.year - year - (hadBirthday ? 0 : 1)
@@ -59,7 +68,7 @@ export function formatAge(birthDate: string, today: Temporal.PlainDate): string 
 const SEX_LABELS: Record<Profile['sex'], string> = { male: 'мужской', female: 'женский' }
 
 /** `рост 182 см · 34 года · мужской` */
-export function formatScaleProfileSummary(profile: Profile, today: Temporal.PlainDate): string {
+export function formatScaleProfileSummary(profile: Profile, today: CalendarDay): string {
   return `рост ${profile.heightCm} см · ${formatAge(profile.birthDate, today)} · ${SEX_LABELS[profile.sex]}`
 }
 

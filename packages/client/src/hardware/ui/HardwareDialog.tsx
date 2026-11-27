@@ -6,6 +6,7 @@ import { cn } from 'widget-sdk/lib/utils'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { PhoneSheetHeader, phoneSheetContentClassName } from 'widget-sdk/ui/phone-sheet'
 
+import { addInstance } from '@/board/model/board-model'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { http } from '@/runtime'
 
@@ -15,10 +16,12 @@ import {
   type HardwareSession,
   makeHardwareSession,
   makeHardwareSubModels,
+  WEIGHT_WIDGET_TYPE_ID,
 } from '../model/hardware-session'
 import type { WizardModel } from '../model/wizard-model'
 import { AddGatewayView } from './AddGatewayView'
 import { HardwareList } from './HardwareList'
+import { WizardHeader, WizardView } from './WizardView'
 
 import styles from './hardware.module.css'
 
@@ -31,15 +34,15 @@ export type HardwareDialogProps = {
   wizardModel?: WizardModel
 }
 
+// The wizard's title depends on its step (WizardHeader).
 const VIEW_TITLES = {
   list: 'Оборудование',
   addGateway: 'Добавить шлюз',
-  wizard: 'Добавить оборудование',
 } as const
 
 /**
  * One `Dialog.Root` with a view switch (`model.view`): the steps replace each other in the same
- * sheet, never stack (docs/agent/radix-stacked-dialogs.md). The list is the only view so far.
+ * sheet, never stack (docs/agent/radix-stacked-dialogs.md).
  */
 export const HardwareDialog = reatomMemo<HardwareDialogProps>(
   ({ open, onOpenChange, model: modelOverride, addGatewayModel, wizardModel }) => {
@@ -58,18 +61,24 @@ export const HardwareDialog = reatomMemo<HardwareDialogProps>(
 
     const view = model.view()
 
+    const changeOpen = wrap((next: boolean) => {
+      if (!next) {
+        model.reset()
+        addGateway.reset()
+        wizard.close()
+      }
+      onOpenChange(next)
+    })
+    // Read lazily: a reactive read here would keep the stream open while closed.
+    const openScanOnOnlineGateway = () => {
+      const onlineGatewayId = model.window()?.gateways.find((gateway) => gateway.online)?.id ?? null
+      if (onlineGatewayId === null) return
+      void wizard.openScan(onlineGatewayId)
+      model.view.set('wizard')
+    }
+
     return (
-      <Dialog
-        open={open}
-        onOpenChange={wrap((next: boolean) => {
-          if (!next) {
-            model.reset()
-            addGateway.reset()
-            wizard.close()
-          }
-          onOpenChange(next)
-        })}
-      >
+      <Dialog open={open} onOpenChange={changeOpen}>
         <DialogContent
           className={cn(phoneSheetContentClassName, styles.content)}
           overlayClassName={styles.overlay}
@@ -78,8 +87,11 @@ export const HardwareDialog = reatomMemo<HardwareDialogProps>(
         >
           <PhoneSheetHeader>
             <div className={styles.header}>
-              {/* The wizard view's back button goes here (Task 14). */}
-              <DialogTitle className={styles.title}>{VIEW_TITLES[view]}</DialogTitle>
+              {view === 'wizard' ? (
+                <WizardHeader wizard={wizard} hardware={model} />
+              ) : (
+                <DialogTitle className={styles.title}>{VIEW_TITLES[view]}</DialogTitle>
+              )}
               <DialogClose asChild>
                 <button type="button" aria-label="Закрыть" className={styles.close}>
                   <X size={16} strokeWidth={2} aria-hidden />
@@ -94,28 +106,42 @@ export const HardwareDialog = reatomMemo<HardwareDialogProps>(
                 model.view.set('addGateway')
                 void addGateway.start()
               }}
-              onAddHardware={() => model.view.set('wizard')}
-              onConnectProfile={() => model.view.set('wizard')}
+              onAddHardware={openScanOnOnlineGateway}
+              onConnectProfile={(hardwareId) => {
+                void wizard.openProfile(hardwareId)
+                model.view.set('wizard')
+              }}
             />
           ) : null}
           {view === 'addGateway' ? (
             <AddGatewayView
               model={addGateway}
-              onAddHardware={() => {
-                // Read lazily: a reactive read here would keep the stream open while closed.
-                const onlineGatewayId =
-                  model.window()?.gateways.find((gateway) => gateway.online)?.id ?? null
-                if (onlineGatewayId === null) return
-                void wizard.openScan(onlineGatewayId)
-                model.view.set('wizard')
-              }}
+              onAddHardware={openScanOnOnlineGateway}
               onDone={() => {
                 addGateway.reset()
                 model.view.set('list')
               }}
             />
           ) : null}
-          {/* Task 14 adds the `wizard` branch here; until then it renders nothing. */}
+          {view === 'wizard' ? (
+            <WizardView
+              wizard={wizard}
+              hardware={model}
+              onAddWeightCard={() => {
+                const added = addInstance(WEIGHT_WIDGET_TYPE_ID)
+                if (added instanceof Error) {
+                  console.warn('Adding the weight card failed:', added.message)
+                  return
+                }
+                changeOpen(false)
+              }}
+              onDone={() => {
+                wizard.close()
+                model.view.set('list')
+              }}
+              onClose={() => changeOpen(false)}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     )

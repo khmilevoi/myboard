@@ -2,6 +2,7 @@ import {
   action,
   type Action,
   addCallHook,
+  type AsyncExt,
   atom,
   type Atom,
   type Computed,
@@ -66,6 +67,10 @@ export type WizardStep =
   | { kind: 'scaleSilent'; hardwareId: string; mode: 'create' | 'attach' }
   | { kind: 'done'; hardwareId: string; index: ScaleUserIndex; consentCode: string | null }
 
+/** An async wizard command; `ready()` is false while it runs, so the UI can disable its button. */
+export type WizardAsyncAction<Args extends unknown[] = []> = Action<Args, Promise<void>> &
+  AsyncExt<Args, void, Error | undefined>
+
 type PairingStep = Extract<WizardStep, { kind: 'pairing' }>
 type PairingFrame = Extract<HardwareBoardEvent, { type: 'pairing' }>
 type CommandFrame = Extract<HardwareBoardEvent, { type: 'command' }>
@@ -90,12 +95,12 @@ export type WizardModel = Omit<WizardProfileSteps, 'loadHealth' | 'reset'> & {
    * copy; cleared by the next attempt and by any step change.
    */
   actionError: Atom<string | null>
-  openScan: Action<[gatewayId: string], Promise<void>>
+  openScan: WizardAsyncAction<[gatewayId: string]>
   /** §2(c) «Подключить профиль»: the wizard opened on an already paired scale's profile choice. */
-  openProfile: Action<[hardwareId: string], Promise<void>>
-  rescan: Action<[], Promise<void>>
-  choose: Action<[address: BleAddress], Promise<void>>
-  submitPin: Action<[], Promise<void>>
+  openProfile: WizardAsyncAction<[hardwareId: string]>
+  rescan: WizardAsyncAction
+  choose: WizardAsyncAction<[address: BleAddress]>
+  submitPin: WizardAsyncAction
   /** pairing → scan; healthForm/attach/scaleSilent → profileChoice. */
   back: Action<[], void>
   /** Best-effort scan stop, aborts every wait, resets the wizard. */

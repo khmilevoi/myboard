@@ -30,7 +30,7 @@ import {
   type ProfileFormInput,
   profileToForm,
 } from './profile-form'
-import type { WizardDeps, WizardStep } from './wizard-model'
+import type { WizardAsyncAction, WizardDeps, WizardStep } from './wizard-model'
 import { launch, type WaitFor } from './wizard-waits'
 
 type CommandFrame = Extract<HardwareBoardEvent, { type: 'command' }>
@@ -64,12 +64,12 @@ export type WizardProfileSteps = {
   attachIndexes: Computed<ScaleUserIndex[]>
   /** §4(d2): read at the done step from `deps.hasWeightCard`. */
   boardNeedsWeightCard: Computed<boolean>
-  create: Action<[], Promise<void>>
-  saveHealthAndCreate: Action<[], Promise<void>>
+  create: WizardAsyncAction
+  saveHealthAndCreate: WizardAsyncAction
   openAttach: Action<[], void>
   selectIndex: Action<[index: ScaleUserIndex], void>
-  attach: Action<[], Promise<void>>
-  retry: Action<[], Promise<void>>
+  attach: WizardAsyncAction
+  retry: WizardAsyncAction
   /** Loads the health model once; a failure is logged and the server decides on create. */
   loadHealth: Action<[], Promise<HealthModel | null>>
   /** Drops the form, the consent code, the last command and aborts the command wait. */
