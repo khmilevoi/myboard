@@ -12,11 +12,13 @@
 
 .head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
 
 .label {
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
@@ -28,8 +30,10 @@
 /* The list's "Добавить кошку": the shared button at 36 px. */
 .primary {
   composes: primary from '../buttons.module.css';
+  flex: none;
   margin-inline-start: auto;
   block-size: 36px;
+  white-space: nowrap;
 }
 
 .box,
