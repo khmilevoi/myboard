@@ -60,13 +60,20 @@ async function overflowing(root: Locator): Promise<string[]> {
   })
 }
 
-/** How many lines the text of `element` is laid out on: one client rect per line box. */
+/** How many lines the text of `element` is laid out on: one client rect per line box. Only text
+ * nodes count, so an icon beside the text does not read as a line of its own. */
 async function lines(element: Locator): Promise<number> {
   return await element.evaluate((node) => {
-    const range = document.createRange()
-    range.selectNodeContents(node)
-    const tops = Array.from(range.getClientRects(), (rect) => Math.round(rect.top))
-    return new Set(tops).size
+    const tops = new Set<number>()
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
+    for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width > 0) tops.add(Math.round(rect.top))
+      }
+    }
+    return tops.size
   })
 }
 
