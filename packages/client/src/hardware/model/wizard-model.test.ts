@@ -918,17 +918,33 @@ describe('wizard recovery (Task 10 follow-ups)', () => {
     const env = setup({})
     await env.loaded()
     env.model.dispose()
-    env.emit({
-      type: 'pairing',
-      pairingId: 'p1',
-      stage: 'pin_required',
-      hardwareId: null,
-      reason: null,
-    })
-    await env.flush()
-
     await openPairing(env)
 
+    await env.pairingFrame('pin_required')
+
     expect(env.model.step()).toMatchObject({ kind: 'pairing', stage: 'connecting' })
+  })
+
+  it('pair 409 gateway_offline while the snapshot still says online → one scan retry, then rescan offered', async () => {
+    const env = setup({
+      scan: [{ status: 202 }, OFFLINE, { status: 202 }],
+      pair: [OFFLINE],
+    })
+    await openScanning(env)
+
+    await env.model.choose(ADDRESS)
+    expect(env.model.step()).toEqual({ kind: 'scan' })
+    expect(env.model.gatewayOffline()).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(WIZARD_OFFLINE_RETRY_MS)
+    await vi.waitFor(() => expect(env.scanCalls()).toHaveLength(2))
+    // The retried scan was refused too: no endless offline state, «Искать снова» instead.
+    await vi.waitFor(() => expect(env.model.gatewayOffline()).toBe(false))
+    expect(env.model.scanning()).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(WIZARD_OFFLINE_RETRY_MS * 3)
+    expect(env.scanCalls()).toHaveLength(2)
+    await env.model.rescan()
+    expect(env.scanCalls()).toHaveLength(3)
   })
 })

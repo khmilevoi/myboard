@@ -187,7 +187,7 @@ export function makeWizardProfileSteps(ctx: WizardProfileContext): WizardProfile
     const consentCode =
       pending.body.mode === 'attach'
         ? pending.body.consentCode
-        : await revealCode(pending.hardwareId, index)
+        : await wrap(revealCode(pending.hardwareId, index))
     if (currentWriting(pending.commandId) === null) return
     step.set({ kind: 'done', hardwareId: pending.hardwareId, index, consentCode })
   }
@@ -209,18 +209,18 @@ export function makeWizardProfileSteps(ctx: WizardProfileContext): WizardProfile
 
   // Decision 9: the `command` frame, or after SCALE_ANSWER_TIMEOUT_MS whatever the snapshot shows.
   const waitCommand = action(async (pending: PendingCommand) => {
-    const frame = await waitFor(commandAnswer, SCALE_ANSWER_TIMEOUT_MS)
+    const frame = await wrap(waitFor(commandAnswer, SCALE_ANSWER_TIMEOUT_MS))
     if (currentWriting(pending.commandId) === null) return
     if (frame !== null && !frame.ok) {
       applyFailure(pending, frame.reason)
       return
     }
     if (frame !== null && pending.body.mode === 'attach') {
-      await finishDone(pending, pending.body.index)
+      await wrap(finishDone(pending, pending.body.index))
       return
     }
     // A lost answer (Review Focus 3), or a create whose new index only the snapshot knows.
-    await rereadSnapshot()
+    await wrap(rereadSnapshot())
     if (currentWriting(pending.commandId) === null) return
     const index = newMineIndex(pending)
     if (index === null) {
@@ -228,7 +228,7 @@ export function makeWizardProfileSteps(ctx: WizardProfileContext): WizardProfile
       step.set({ kind: 'scaleSilent', hardwareId: pending.hardwareId, mode: pending.body.mode })
       return
     }
-    await finishDone(pending, index)
+    await wrap(finishDone(pending, index))
   }, 'hardware.wizard.waitCommand').extend(withAbort())
 
   /** POSTs the create/attach, then waits for its answer in the `writing` step. */
@@ -273,7 +273,7 @@ export function makeWizardProfileSteps(ctx: WizardProfileContext): WizardProfile
       enterHealthForm(current.hardwareId)
       return
     }
-    await sendCommand(current.hardwareId, { mode: 'create' })
+    await wrap(sendCommand(current.hardwareId, { mode: 'create' }))
   }, 'hardware.wizard.create').extend(withAsync())
 
   const saveHealthAndCreate = action(async () => {
@@ -299,7 +299,7 @@ export function makeWizardProfileSteps(ctx: WizardProfileContext): WizardProfile
       formError.set('save')
       return
     }
-    await sendCommand(current.hardwareId, { mode: 'create' })
+    await wrap(sendCommand(current.hardwareId, { mode: 'create' }))
   }, 'hardware.wizard.saveHealthAndCreate').extend(withAsync())
 
   const openAttach = action(() => {
@@ -320,11 +320,13 @@ export function makeWizardProfileSteps(ctx: WizardProfileContext): WizardProfile
     if (current.kind !== 'attach' || current.index === null) return
     const parsed = ConsentCodeSchema.safeParse(consent())
     if (!parsed.success) return
-    await sendCommand(current.hardwareId, {
-      mode: 'attach',
-      index: current.index,
-      consentCode: parsed.data,
-    })
+    await wrap(
+      sendCommand(current.hardwareId, {
+        mode: 'attach',
+        index: current.index,
+        consentCode: parsed.data,
+      }),
+    )
   }, 'hardware.wizard.attach').extend(withAsync())
 
   const retry = action(async () => {
@@ -332,7 +334,7 @@ export function makeWizardProfileSteps(ctx: WizardProfileContext): WizardProfile
     const last = lastCommand()
     if (current.kind !== 'scaleSilent' || last === null) return
     if (last.hardwareId !== current.hardwareId) return
-    await sendCommand(last.hardwareId, last.body)
+    await wrap(sendCommand(last.hardwareId, last.body))
   }, 'hardware.wizard.retry').extend(withAsync())
 
   function reset() {

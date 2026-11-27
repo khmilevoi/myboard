@@ -257,14 +257,14 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     const current = currentPairing(pairingId)
     if (current === null) return
     const remaining = current.startedAt + PAIRING_TTL_MS - hardware.now()
-    const bonded = await waitFor(bondedHardwareId, remaining)
+    const bonded = await wrap(waitFor(bondedHardwareId, remaining))
     if (currentPairing(pairingId) === null) return
     if (bonded !== null) {
       step.set(profileChoiceFor(bonded))
       return
     }
     // The pairing's lifetime is over: one last read before calling it failed.
-    await rereadSnapshot()
+    await wrap(rereadSnapshot())
     if (currentPairing(pairingId) === null) return
     const late = bondedHardwareId()
     step.set(late === null ? { kind: 'pairingFailed' } : profileChoiceFor(late))
@@ -301,7 +301,11 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     step.set({ ...current, stage: frame.stage })
   }
 
+  // @reatom/core 1001.1.0: addCallHook's unsubscribe does not remove the hook (probed: the callback
+  // still fires), so `dispose` also flips this flag, which the hook checks first.
+  const disposed = atom(false, 'hardware.wizard.disposed')
   const stopListening = addCallHook(hardware.received, (event) => {
+    if (disposed()) return
     if (event.type !== 'pairing' && event.type !== 'command') return
     recentEvents.set((events) => [...events, event].slice(-RECENT_EVENTS_LIMIT))
     if (event.type === 'pairing') applyPairingFrame(event)
@@ -313,7 +317,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
    */
   async function awaitGatewayBack(run: number) {
     restartOnOnline.set(true)
-    await rereadSnapshot()
+    await wrap(rereadSnapshot())
     if (session() !== run || !restartOnOnline() || gatewayOnline() !== true) return
     if (offlineRetried()) {
       restartOnOnline.set(false)
@@ -337,7 +341,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     if (result instanceof Error) {
       scanStarting.set(false)
       if (isHardwareError(result, 'gateway_offline')) {
-        await awaitGatewayBack(run)
+        await wrap(awaitGatewayBack(run))
         return
       }
       console.warn('Hardware scan start failed:', result.message)
@@ -347,7 +351,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     }
     offlineRetried.set(false)
     scanAccepted.set(true)
-    await rereadSnapshot()
+    await wrap(rereadSnapshot())
     if (session() !== run) return
     scanStarting.set(false)
   }, 'hardware.wizard.startScan')
@@ -408,13 +412,13 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
     gatewayId.set(id)
     launch(watchGateway(), 'gateway watch')
     launch(profile.loadHealth(), 'health model load')
-    await startScan()
+    await wrap(startScan())
   }, 'hardware.wizard.openScan').extend(withAsync())
 
   const openProfile = action(async (hardwareId: string) => {
     resetState()
     const run = session()
-    if (hardware.snapshot.data() === null) await rereadSnapshot()
+    if (hardware.snapshot.data() === null) await wrap(rereadSnapshot())
     if (session() !== run) return
     const record = hardware.snapshot.data()?.hardware.find((h) => h.id === hardwareId)
     gatewayId.set(record?.gatewayId ?? null)
@@ -424,7 +428,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
 
   const rescan = action(async () => {
     if (step().kind !== 'scan') return
-    await startScan()
+    await wrap(startScan())
   }, 'hardware.wizard.rescan').extend(withAsync())
 
   const choose = action(async (address: BleAddress) => {
@@ -452,8 +456,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
       if (isHardwareError(result, 'gateway_offline')) {
         step.set({ kind: 'scan' })
         scanAccepted.set(false)
-        restartOnOnline.set(true)
-        hardware.refresh()
+        await wrap(awaitGatewayBack(run))
         return
       }
       console.warn('Hardware pairing start failed:', result.message)
@@ -525,6 +528,7 @@ export function makeWizardModel(deps: WizardDeps): WizardModel {
   }, 'hardware.wizard.close')
 
   function dispose() {
+    disposed.set(true)
     stopListening()
     resetState()
   }
