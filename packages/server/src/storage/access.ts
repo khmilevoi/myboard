@@ -9,7 +9,8 @@ import { FILE_SLOT_PREFIX } from '@shared/files/contract'
  * Everything else lives in the same flat Valkey keyspace but must never be
  * reachable through this generic surface: auth records (`session:`,
  * `device:`, `account:`, `invite:`, `deviceadd:`, `wachal:`, `pending:`, see
- * packages/server/src/auth/records.ts) and cron scheduler bookkeeping
+ * packages/server/src/auth/records.ts), the hardware registry (`hw:`, see
+ * packages/server/src/hardware/keys.ts) and cron scheduler bookkeeping
  * (`cron:`, which also covers module cursors `cron:module:<id>:<job>`; see
  * packages/server/src/widgets/cron-state.ts). `migration:` completion markers (see
  * packages/server/src/migrations/runner.ts) must stay out of this list too. Most critically,

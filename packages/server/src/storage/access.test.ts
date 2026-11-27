@@ -23,6 +23,9 @@ describe('isAllowedStorageKey', () => {
     'deviceadd:abc',
     'wachal:abc',
     'pending:abc',
+    'hw:gateway:x',
+    'hw:bindings:x',
+    'hw:',
     'cron:ofelia-poop-duty:autoApproveDay',
     // Not a strict-prefix match of any allowed namespace.
     'w:',
@@ -48,6 +51,9 @@ describe('isAllowedStoragePrefix', () => {
     // A strict prefix of an allowed namespace must not let scanKeys widen
     // the match beyond what the allowlist covers.
     'roo',
+    'hw:',
+    'hw:gateway:x',
+    'hw:bindings:x',
   ])('rejects %s', (prefix) => {
     expect(isAllowedStoragePrefix(prefix)).toBe(false)
   })
