@@ -85,7 +85,8 @@ export const GatewayEventSchema = z.discriminatedUnion('type', [
     address: BleAddressSchema,
     name: z.string().max(64),
     rssi: z.number().int(),
-    model: HardwareModelSchema,
+    // Loose on purpose: the server drops models it does not know instead of failing the batch.
+    model: z.string().min(1).max(64),
   }),
   z.object({ type: z.literal('scan.finished') }),
   z.object({

@@ -128,12 +128,21 @@ describe('scan', () => {
     const results = (await snapshot(cookie)).gateways[0]?.scan?.results
     expect(results).toEqual([{ address: ADDRESS, name: 'BF950', rssi: -55, model: 'beurer-bf950' }])
 
-    // A model the server does not know never reaches the board.
-    const unknown = await gateway.postEvents([
+    // A model the server does not know is dropped; the rest of the batch is still applied.
+    await post(
+      gateway,
       { ...scanResult(OTHER_ADDRESS), model: 'other' } as unknown as GatewayEvent,
-    ])
-    expect(unknown.status).toBe(422)
-    expect((await snapshot(cookie)).gateways[0]?.scan?.results).toHaveLength(1)
+      scanResult('AA:BB:CC:DD:EE:03', -40),
+    )
+    // The first batch published two frames for one address; skip to the new one.
+    for (;;) {
+      const frame = (await nextBoardValue(events, 'scan.result')) as {
+        result: { address: string }
+      }
+      if (frame.result.address === 'AA:BB:CC:DD:EE:03') break
+      expect(frame.result.address).toBe(ADDRESS)
+    }
+    expect((await snapshot(cookie)).gateways[0]?.scan?.results).toHaveLength(2)
 
     await post(gateway, { type: 'scan.finished' })
     expect(await nextBoardValue(events, 'scan.finished')).toMatchObject({

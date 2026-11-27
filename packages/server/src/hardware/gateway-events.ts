@@ -39,12 +39,13 @@ export async function handleGatewayEvent(
     }
     case 'scan.result': {
       // A model this server does not know is not hardware the board can pair.
-      if (!HardwareModelSchema.safeParse(event.model).success) return
+      const model = HardwareModelSchema.safeParse(event.model)
+      if (!model.success) return
       return recordScanResult(deps, gateway.id, {
         address: event.address,
         name: event.name,
         rssi: event.rssi,
-        model: event.model,
+        model: model.data,
       })
     }
     case 'scan.finished':
