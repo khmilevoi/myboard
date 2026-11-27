@@ -222,6 +222,24 @@ describe('Cats — tiers', () => {
     expect(screen.queryByRole('button', { name: SWITCHER })).not.toBeInTheDocument()
   })
 
+  // A phone's single column is a tall compact card: it carries the quick actions (shown by
+  // height in CSS), and a cat never weighed has them as its only status.
+  it('compact, never weighed: "Взвесить" opens the form and "Профиль" opens fullscreen', async () => {
+    const shared = createFakeStorage()
+    const { props } = setup(ONE_CAT, { tier: 'compact' }, shared)
+    void shared.set(catWeightKey('ofelia'), [])
+    const { container } = renderCats(props)
+
+    await screen.findByText('Британская короткошёрстная · 3 года')
+    expect(screen.queryByText(/кг/)).not.toBeInTheDocument()
+    expect(container.querySelector('[data-weighed]')).toHaveAttribute('data-weighed', 'false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Профиль' }))
+    expect(props.requestFullscreen).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Взвесить' }))
+    expect(await screen.findByRole('dialog', { name: 'Вес · Офелия' })).toBeInTheDocument()
+  })
+
   it('tiny: the name and the weight, and no switcher even with two cats', async () => {
     renderCats(setup(TWO_CATS, { tier: 'tiny' }).props)
 
