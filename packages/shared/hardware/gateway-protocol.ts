@@ -122,7 +122,8 @@ export const GatewayEventSchema = z.discriminatedUnion('type', [
     type: z.literal('scaleUser.updated'),
     hardwareId: z.string(),
     index: ScaleUserIndexSchema,
-    revision: z.number().int(),
+    // Echoes a `scaleUser.update` revision, which starts at 1.
+    revision: z.number().int().min(1),
   }),
   z.object({
     type: z.literal('command.failed'),

@@ -66,6 +66,8 @@ describe('hardware wire schemas', () => {
     for (const event of events) expect(GatewayEventSchema.parse(event)).toEqual(event)
     expect(GatewayEventSchema.safeParse({ type: 'nope' }).success).toBe(false)
     // Unknown models pass the wire schema; the server drops them.
+    const ack = { type: 'scaleUser.updated', hardwareId: 'h1', index: 2 }
+    expect(GatewayEventSchema.safeParse({ ...ack, revision: 0 }).success).toBe(false)
     const newer = { type: 'bonded', hardware: [{ address, model: 'other' }] }
     expect(GatewayEventSchema.parse(newer)).toEqual(newer)
   })

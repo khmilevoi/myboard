@@ -220,6 +220,24 @@ describe('profile sync', () => {
     })
   })
 
+  it('caps an ack at the revision sent, so a stale one never silences later updates', async () => {
+    const { a, gateway, stream, hardwareId } = await setup()
+    cleanups.push(stream.close)
+    expect(await setProfile(a.accountId, PROFILE)).toBeUndefined()
+    expect(await stream.nextCommand('scaleUser.update')).toMatchObject({ revision: 1 })
+
+    // An ack beyond anything sent (e.g. left over from an earlier binding of this index).
+    await post(gateway, { type: 'scaleUser.updated', hardwareId, index: 1, revision: 5 })
+    const acked = await getBindings(app!.ops, hardwareId)
+    expect(acked instanceof Error ? acked : acked[0]?.appliedRevision).toBe(1)
+
+    expect(await setProfile(a.accountId, { ...PROFILE, heightCm: 171 })).toBeUndefined()
+    expect(await stream.nextCommand('scaleUser.update')).toMatchObject({
+      revision: 2,
+      profile: { heightCm: 171 },
+    })
+  })
+
   it('ignores an update ack from a gateway that does not own the hardware', async () => {
     const { a, gateway, stream, hardwareId } = await setup()
     cleanups.push(stream.close)

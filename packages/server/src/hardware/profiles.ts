@@ -310,7 +310,15 @@ export async function applyScaleUserUpdated(
   return updateBindings(deps.ops, event.hardwareId, (current) =>
     current.map((binding) =>
       binding.index === event.index
-        ? { ...binding, appliedRevision: Math.max(binding.appliedRevision, event.revision) }
+        ? {
+            ...binding,
+            // Never past the revision actually sent: a stale ack (an earlier binding of this
+            // index, whose revisions restarted at 0) would otherwise silence every later update.
+            appliedRevision: Math.min(
+              binding.profileRevision,
+              Math.max(binding.appliedRevision, event.revision),
+            ),
+          }
         : binding,
     ),
   )
