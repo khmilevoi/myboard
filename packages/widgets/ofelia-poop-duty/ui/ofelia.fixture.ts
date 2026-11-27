@@ -1,5 +1,6 @@
 import { atom } from '@reatom/core'
-import type { Person } from 'module-ofelia/domain/roster'
+import { DEFAULT_LITTER_SETTINGS, otherPerson } from 'module-cats/domain/roster'
+import type { Person } from 'module-cats/domain/roster'
 import type { BoardMember } from 'widget-runtime'
 
 import type { CommentView } from '../model/ofelia-comments'
@@ -134,6 +135,10 @@ export function makeOfeliaView(o: OfeliaViewOverrides = {}): OfeliaViewModel {
     selectedIso: atom<string | null>(selected?.iso ?? null, 'fixture.selectedIso'),
     days: atom<WeekDayView[]>(o.days ?? WEEK, 'fixture.days'),
     balance: atom<DebtBalanceEntry[]>(balance, 'fixture.balance'),
+    partner: atom<Person | null>(
+      selected ? otherPerson(DEFAULT_LITTER_SETTINGS, selected.person) : null,
+      'fixture.partner',
+    ),
     canForgive: atom(
       o.canForgive ?? (selected?.isDebtDay === true && balance.some((entry) => entry.debt > 0)),
       'fixture.canForgive',

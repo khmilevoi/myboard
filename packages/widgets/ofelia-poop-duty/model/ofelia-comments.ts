@@ -1,12 +1,12 @@
 import { action, withAsyncData, wrap } from '@reatom/core'
 import type { AtomLike } from '@reatom/core'
-import type { OfeliaModel } from 'module-ofelia'
+import type { LitterModel } from 'module-cats'
 
-export type { CommentView } from 'module-ofelia'
+export type { CommentView } from 'module-cats'
 
 export interface OfeliaCommentsModelProps {
-  /** The shared ofelia module model: the comment threads and the send action. */
-  ofelia: OfeliaModel
+  /** Ofelia's litter model from the cats module: the comment threads and the send action. */
+  ofelia: LitterModel
   viewWeekStart: AtomLike<Temporal.PlainDate | null>
 }
 

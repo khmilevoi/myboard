@@ -1,8 +1,7 @@
-import { expect, test, type Page } from '@playwright/test'
-
 import { BoardPage } from './pages/BoardPage.js'
 import { HeaderPage } from './pages/HeaderPage.js'
 import { OverlayPage } from './pages/OverlayPage.js'
+import { expect, test, type Page } from './support/test.js'
 
 async function seedClockWidget(page: Page): Promise<void> {
   await page.goto('/')

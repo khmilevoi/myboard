@@ -1,3 +1,5 @@
+import { FILE_SLOT_PREFIX } from '@shared/files/contract'
+
 /**
  * Storage namespaces the board legitimately owns through the generic
  * `/api/storage` routes: widget instance/shared scopes (`w:i:`/`w:t:`, see
@@ -16,7 +18,12 @@
  */
 export const ALLOWED_STORAGE_NAMESPACES = ['root:', 'w:i:', 'w:t:'] as const
 
+/**
+ * A file slot (`<namespace>@files/<key>`, packages/shared/files/contract.ts) is written only by the
+ * file routes: a generic PUT/append/DELETE over it would orphan its blob.
+ */
 export function isAllowedStorageKey(key: string): boolean {
+  if (key.includes(FILE_SLOT_PREFIX)) return false
   return ALLOWED_STORAGE_NAMESPACES.some((namespace) => key.startsWith(namespace))
 }
 

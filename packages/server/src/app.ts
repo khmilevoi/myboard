@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 
+import { ingestMeasurement } from '@modules/health/domain/ingest'
+import { MeasurementSchema } from '@modules/health/domain/measurement'
+import { moduleAccountNamespace } from '@shared/storage/scope'
 import { scopedEventKey, type ScopedStorageRef } from '@shared/storage/scoped'
 import { PublicWidgetError } from '@shared/widgets/public-error'
 import Router from 'find-my-way'
@@ -17,6 +20,11 @@ import { authAccountKey } from './auth/records'
 import { isAuthResult, requireSession } from './auth/session-guard'
 import { issueSession } from './auth/sessions'
 import type { BrowserAutomationClient } from './browser/client'
+import type { BlobStore } from './files/blob-store'
+import type { ImageDecoder } from './files/image-check'
+import type { FilePolicies } from './files/policies'
+import { registerFileRoutes } from './files/routes'
+import { makeFileService } from './files/service'
 import { readJsonBody } from './http/body'
 import { clientIp } from './http/client-ip'
 import { csrfBlocked } from './http/csrf'
@@ -52,7 +60,7 @@ import {
 } from './storage/schemas'
 import {
   resolveScopedNamespace,
-  validateScopedKey,
+  validateScopedSubscriptionKey,
   type ScopedOwners,
   type ScopedStorageError,
 } from './storage/scoped'
@@ -62,6 +70,7 @@ import { makeCronScheduler } from './widgets/cron-scheduler'
 import { dispatchWidgetEvent } from './widgets/dispatch'
 import { WidgetRequestBodyError, type PublicWidgetDispatchError } from './widgets/errors'
 import type { WidgetServerRegistry } from './widgets/registry'
+import { makeWidgetScopedStorage } from './widgets/storage'
 import { resolveWidgetViewer } from './widgets/viewer'
 
 const HEARTBEAT_MS = 25_000
@@ -94,6 +103,12 @@ export type AppDeps = {
   browserClient: BrowserAutomationClient
   authConfig: AuthConfig
   scopedOwners: ScopedOwners
+  /**
+   * File slots: where blob bytes live, which slots may hold which files, and the decoder that
+   * enforces image rules. Production passes a deferred store that becomes ready once the Garage
+   * bootstrap has credentials, and a deferred decoder that becomes ready once the codecs compile.
+   */
+  files: { blobs: BlobStore; policies: FilePolicies; images: ImageDecoder }
   recovery: {
     tokenTtlMs: number
     maxSessionMs: number
@@ -206,6 +221,14 @@ export function createApp(deps: AppDeps): App {
 
   registerAuthRoutes({ router, ...authDeps })
   registerScopedStorageRoutes({ router, ops, authDeps, owners: deps.scopedOwners })
+  registerFileRoutes({
+    router,
+    ops,
+    authDeps,
+    owners: deps.scopedOwners,
+    policies: deps.files.policies,
+    files: makeFileService({ ops, blobs: deps.files.blobs, images: deps.files.images, now }),
+  })
 
   router.on('GET', '/api/storage/events', (req, res) => {
     res.writeHead(200, {
@@ -235,7 +258,9 @@ export function createApp(deps: AppDeps): App {
     const accountId = session !== null && !isAuthResult(session) ? session.accountId : null
     const entries: { fullKey: string; frameKey: string }[] = []
     for (const ref of refs) {
-      const key = validateScopedKey(ref.key)
+      // A file slot (`@files/<key>`) is subscribable like a value; its ref is published under
+      // `<namespace>@files/<key>`.
+      const key = validateScopedSubscriptionKey(ref.key)
       if (key instanceof Error) return key
       const namespace = resolveScopedNamespace({
         owners: deps.scopedOwners,
@@ -614,6 +639,44 @@ export function createApp(deps: AppDeps): App {
       const appUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:5173'
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ token, activateUrl: `${appUrl}/activate?token=${token}` }))
+    })
+
+    // Plan 2's gateway ingest reuses ingestMeasurement; this seeds the same path for e2e. Never
+    // log the measurement: health values stay out of logs.
+    router.on('POST', '/api/test/health/measurements', async (req, res) => {
+      const session = await requireSession(authDeps, req)
+      if (isAuthResult(session)) {
+        res.writeHead(session.status, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(session.body))
+        return
+      }
+      let raw: unknown
+      try {
+        raw = await readJsonBody(req)
+      } catch {
+        res.writeHead(400)
+        res.end()
+        return
+      }
+      const parsed = z.object({ measurement: MeasurementSchema }).safeParse(raw ?? {})
+      if (!parsed.success) {
+        res.writeHead(422, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(formatZodError(parsed.error)))
+        return
+      }
+      const storage = makeWidgetScopedStorage({
+        ops,
+        namespace: moduleAccountNamespace('health', session.accountId),
+        now,
+      })
+      const result = await ingestMeasurement(storage, parsed.data.measurement)
+      if (result instanceof Error) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'ingest_failed' }))
+        return
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(result))
     })
 
     router.on('POST', '/api/test/seed-session', async (_req, res) => {

@@ -1,4 +1,4 @@
-import { atom, computed, sleep, withConnectHook, wrap, type Computed } from '@reatom/core'
+import { action, atom, computed, sleep, withConnectHook, wrap, type Computed } from '@reatom/core'
 import type { HttpLike } from '@shared/http/client'
 import * as errore from 'errore'
 import { z } from 'zod'
@@ -10,6 +10,11 @@ export type WidgetIdentity = {
   viewer: Computed<BoardMember | null>
   /** Every account on the board, by id. Empty before the roster loads. */
   members: Computed<ReadonlyMap<string, BoardMember>>
+  /**
+   * Re-fetch the directory now, e.g. after the viewer changed their own avatar, instead of waiting
+   * for the periodic refresh. A failure is logged and leaves the current directory in place.
+   */
+  refresh(): Promise<void>
 }
 
 export class BoardMembersError extends errore.createTaggedError({
@@ -149,7 +154,16 @@ export function makeWidgetIdentity({ http }: MakeWidgetIdentityOptions): WidgetI
     }),
   )
 
-  return buildIdentity(state)
+  const refresh = action(async () => {
+    const result = await wrap(fetchIdentity(http))
+    if (result instanceof Error) {
+      console.warn('[widget-runtime]', result.message, result)
+      return
+    }
+    state.set(result)
+  }, 'identity.refresh')
+
+  return { ...buildIdentity(state), refresh }
 }
 
 export type MakeStaticWidgetIdentityOptions = {
@@ -167,10 +181,10 @@ export function makeStaticWidgetIdentity({
     'identity.staticState',
   )
 
-  return buildIdentity(state)
+  return { ...buildIdentity(state), refresh: async () => {} }
 }
 
-function buildIdentity(state: { (): IdentityState | null }): WidgetIdentity {
+function buildIdentity(state: { (): IdentityState | null }): Omit<WidgetIdentity, 'refresh'> {
   const members = computed(() => state()?.members ?? EMPTY, 'identity.members')
   const viewer = computed(() => {
     const current = state()

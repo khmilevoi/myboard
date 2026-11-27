@@ -3,15 +3,19 @@ import type { AddressInfo } from 'node:net'
 import { createApp } from '../app'
 import { issueSession } from '../auth/sessions'
 import { makeFakeBrowserAutomationClient } from '../browser/testing/fake-client'
+import { makeMemoryBlobStore, type MemoryBlobStore } from '../files/memory-blob-store'
+import { makeFilePolicies, type FilePolicies } from '../files/policies'
 import type { ModuleServerRegistry } from '../modules/registry'
 import { makeScopedOwners, type ScopedOwners } from '../storage/scoped'
 import { createWidgetServerRegistry, type WidgetServerRegistry } from '../widgets/registry'
 import { seedAccountWithDevice, makeClock, makeConfig } from './auth-fixtures'
+import { testImageDecoder } from './image-decoder'
 import { createMemoryOps, createMemoryPubSub, type MemoryOps } from './memory-ops'
 
 export type TestApp = {
   base: string
   ops: MemoryOps
+  blobs: MemoryBlobStore
   seedSession(name: string): Promise<{ accountId: string; cookie: string }>
   close(): Promise<void>
 }
@@ -71,12 +75,14 @@ export async function startTestApp(
     scopedOwners?: ScopedOwners
     widgetRegistry?: WidgetServerRegistry
     moduleRegistry?: ModuleServerRegistry
+    filePolicies?: FilePolicies
   } = {},
 ): Promise<TestApp> {
   const pubsub = createMemoryPubSub()
   const ops = createMemoryOps(pubsub)
   const clock = makeClock(Date.parse('2026-06-16T10:00:00.000Z'))
   const config = makeConfig()
+  const blobs = makeMemoryBlobStore()
   const emptyRegistry = createWidgetServerRegistry([])
   if (emptyRegistry instanceof Error) throw emptyRegistry
 
@@ -90,6 +96,11 @@ export async function startTestApp(
     authConfig: config,
     recovery: { tokenTtlMs: 60_000, maxSessionMs: 60_000, upstreamUrl: 'http://127.0.0.1:1' },
     scopedOwners: options.scopedOwners ?? makeScopedOwners({ widgetTypeIds: [], moduleScopes: {} }),
+    files: {
+      blobs,
+      policies: options.filePolicies ?? makeFilePolicies([]),
+      images: testImageDecoder,
+    },
   })
   await new Promise<void>((resolve) => app.server.listen(0, resolve))
   const base = `http://localhost:${(app.server.address() as AddressInfo).port}`
@@ -98,6 +109,7 @@ export async function startTestApp(
   return {
     base,
     ops,
+    blobs,
     async seedSession(name) {
       seeded += 1
       const credentialId = `cred-fixture-${seeded}`

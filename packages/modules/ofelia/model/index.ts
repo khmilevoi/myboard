@@ -1,5 +1,0 @@
-export { makeOfeliaModel } from './ofelia-model'
-export type { OfeliaDayAction, OfeliaModel, OfeliaModuleContext } from './ofelia-model'
-export type { CommentView, OfeliaWeekComments } from './week-comments'
-export type { HistoryDayGroup, HistoryEntryView, ToHistoryGroupsOptions } from './history-view'
-export type { OfeliaMemberStats } from '../domain/stats'

@@ -1,0 +1,43 @@
+# Garage (self-hosted S3) for myboard's file slots: one node, one copy of every
+# object. Mounted read-only at /etc/garage.toml by docker-compose.yml.
+#
+# Nothing here is published on the host. On the compose network only `server`
+# talks to the S3 API (3900) and the admin API (3903), and only `client`
+# (nginx) reads the website endpoint (3902), after its own per-blob auth check.
+#
+# Both secrets are files generated on first boot by the `files-secrets`
+# service into the garage_secrets volume; Garage refuses to start if they are
+# readable by group or others, which is why that service writes them 0600.
+# The server derives its S3 key from admin_token and bootstraps the node role,
+# the `files` bucket and the key through the admin API itself
+# (packages/server/src/files/garage-bootstrap.ts) -- no manual `garage` CLI
+# step is needed on a fresh volume.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+# LMDB is Garage's recommended engine on 64-bit hosts (the Pi runs arm64).
+db_engine = "lmdb"
+# Clean, consistent metadata snapshots inside metadata_dir/snapshots (Garage
+# keeps the two newest). `rpi command backup-files` takes one on demand.
+metadata_auto_snapshot_interval = "6h"
+
+replication_factor = 1
+
+rpc_bind_addr = "0.0.0.0:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret_file = "/run/garage-secrets/rpc_secret"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "0.0.0.0:3900"
+root_domain = ".s3.garage"
+
+[s3_web]
+bind_addr = "0.0.0.0:3902"
+# nginx asks for Host `files.web.garage`, i.e. the `files` bucket.
+root_domain = ".web.garage"
+index = "index.html"
+
+[admin]
+api_bind_addr = "0.0.0.0:3903"
+admin_token_file = "/run/garage-secrets/admin_token"

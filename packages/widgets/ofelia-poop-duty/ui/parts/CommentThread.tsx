@@ -1,7 +1,7 @@
 import { Send } from 'lucide-react'
-import { ofeliaActionSchemas } from 'module-ofelia/domain/actions'
-import type { EntryAuthor } from 'module-ofelia/domain/author'
-import { DUTY_TIME_ZONE, plainDateIn } from 'module-ofelia/domain/roster'
+import { catsActionSchemas } from 'module-cats/domain/actions'
+import type { EntryAuthor } from 'module-cats/domain/author'
+import { DUTY_TIME_ZONE, plainDateIn } from 'module-cats/domain/roster'
 import { useRef, useState } from 'react'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 
@@ -14,7 +14,7 @@ import styles from './CommentThread.module.css'
 
 // Sourced from the same event payload schema the server validates against —
 // never hardcode a second copy of the limit that could drift from it (F6b).
-const COMMENT_MAX_LENGTH = ofeliaActionSchemas.comment.payload.shape.text.maxLength ?? undefined
+const COMMENT_MAX_LENGTH = catsActionSchemas.comment.payload.shape.text.maxLength ?? undefined
 
 function authorName(author: EntryAuthor): string {
   if (author.kind === 'account') return author.name

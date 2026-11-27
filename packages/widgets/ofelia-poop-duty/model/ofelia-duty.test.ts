@@ -1,6 +1,6 @@
 import { context, wrap } from '@reatom/core'
-import type { LedgerEntry } from 'module-ofelia/domain/ledger'
-import { makeTestOfeliaModel, type MakeTestOfeliaModelOptions } from 'module-ofelia/testing'
+import type { LedgerEntry } from 'module-cats/domain/ledger'
+import { makeTestLitterModel, type MakeTestCatsModelOptions } from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModuleApiError, StorageError, type StorageApi } from 'widget-runtime'
 
@@ -24,8 +24,8 @@ function createStorage(overrides: Partial<StorageApi> = {}): StorageApi {
   }
 }
 
-function makeDuty(options: MakeTestOfeliaModelOptions = {}) {
-  const test = makeTestOfeliaModel(options)
+function makeDuty(options: MakeTestCatsModelOptions = {}) {
+  const test = makeTestLitterModel(options)
   return { ...test, duty: ofeliaDutyModel({ ofelia: test.model }) }
 }
 
@@ -95,7 +95,7 @@ describe('ofeliaDutyModel over one shared ofelia model', () => {
   // Review focus: two duty cards on one board share the module's ledger but
   // keep their own navigation and selection.
   it('shares numberOfDebts but keeps week navigation and selection per instance', async () => {
-    const { model: ofelia } = makeTestOfeliaModel({ entries: EMPTY_LEDGER, todayIso: '2026-06-16' })
+    const { model: ofelia } = makeTestLitterModel({ entries: EMPTY_LEDGER, todayIso: '2026-06-16' })
     const first = ofeliaDutyModel({ ofelia })
     const second = ofeliaDutyModel({ ofelia })
 
@@ -142,7 +142,9 @@ describe('ofeliaDutyModel actions', () => {
 
     await wrap(() => model.confirmClean(D('2026-06-18')))()
 
-    expect(calls).toEqual([{ action: 'clean', payload: { date: '2026-06-18' } }])
+    expect(calls).toEqual([
+      { action: 'clean', payload: { litterId: 'ofelia', date: '2026-06-18' } },
+    ])
   })
 
   it('does not write through storage any more', async () => {
@@ -163,9 +165,9 @@ describe('ofeliaDutyModel actions', () => {
     await wrap(() => model.undo(D('2026-06-18')))()
 
     expect(invoke.mock.calls).toEqual([
-      ['debt', { date: '2026-06-16' }],
-      ['forgive', { date: '2026-06-17' }],
-      ['undo', { date: '2026-06-18' }],
+      ['debt', { litterId: 'ofelia', date: '2026-06-16' }],
+      ['forgive', { litterId: 'ofelia', date: '2026-06-17' }],
+      ['undo', { litterId: 'ofelia', date: '2026-06-18' }],
     ])
   })
 
@@ -178,8 +180,8 @@ describe('ofeliaDutyModel actions', () => {
     await wrap(() => model.confirmClean())()
 
     expect(invoke.mock.calls).toEqual([
-      ['clean', { date: '2026-06-16' }],
-      ['clean', { date: '2026-06-19' }],
+      ['clean', { litterId: 'ofelia', date: '2026-06-16' }],
+      ['clean', { litterId: 'ofelia', date: '2026-06-19' }],
     ])
   })
 })
@@ -292,7 +294,7 @@ describe('ofeliaDutyModel.retryLedger (F2c)', () => {
 
     await wrap(() => model.retryLedger())()
 
-    expect(get).toHaveBeenCalledWith('duty/ledger', expect.anything())
+    expect(get).toHaveBeenCalledWith('litter/ofelia/ledger', expect.anything())
     expect(model.ledgerError()).toBeNull()
     expect(model.ledgerLoading()).toBe(false)
   })

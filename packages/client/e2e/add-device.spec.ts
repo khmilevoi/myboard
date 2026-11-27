@@ -1,32 +1,23 @@
-import { expect, test } from '@playwright/test'
-
 import { AccountMenuPage } from './pages/AccountMenuPage.js'
 import { ActivatePage } from './pages/ActivatePage.js'
 import { AddDeviceActivatePage } from './pages/AddDeviceActivatePage.js'
 import { ADD_CODE_PATTERN, AddDeviceModalPage } from './pages/AddDeviceModalPage.js'
 import { MyDevicesDialogPage } from './pages/MyDevicesDialogPage.js'
 import { seedInvite } from './support/seed.js'
+import { expect, test } from './support/test.js'
 import { enableVirtualAuthenticator } from './support/webauthn.js'
 
 const OWNER_NAME = 'Device A Owner'
 
-// Deliberately NOT a `test.beforeEach(() => request.post('/api/test/reset'))`
-// like ofelia-duty.spec.ts uses -- that full FLUSHDB is process-wide (one
-// shared test-server serves every worker/spec file in the same Playwright
-// run), so calling it here would wipe invites/sessions out from under
-// auth-activation.spec.ts (or any other file) running concurrently in a
-// different worker. This file's tests are already isolated by construction:
-// each seeds its own fresh invite/account via `seedInvite`, so no shared
-// reset is needed.
+// No `/api/test/reset` here: each test seeds its own fresh invite/account via
+// `seedInvite`, so it is isolated by construction. (Workers cannot see each
+// other's data anyway — every worker has its own stack, see support/stack.ts.)
 //
-// For the same reason, the "invalid code" negative below uses a
-// never-minted (rather than a clock-advanced, genuinely expired) code:
-// `/api/test/time` mutates that same process-wide clock, which would also
-// leak into concurrently-running tests (e.g. ofelia-duty.spec.ts's own
-// pinned-time assertions). Server-side, lookupAddToken's `checkLive` maps an
-// expired token and an unknown token to the exact same AddTokenInvalidError,
-// so a never-minted code exercises the identical code path and client-side
-// error handling as a real expiry would, without the cross-test risk.
+// The "invalid code" negative below uses a never-minted rather than a
+// clock-advanced, genuinely expired code, so the test needs no clock control.
+// Server-side, lookupAddToken's `checkLive` maps an expired token and an
+// unknown token to the exact same AddTokenInvalidError, so a never-minted
+// code exercises the identical code path and client-side error handling.
 const NEVER_MINTED_CODE = 'ZZZZZZZZ'
 
 /**
@@ -35,8 +26,8 @@ const NEVER_MINTED_CODE = 'ZZZZZZZZ'
  * auth-activation.spec.ts's own happy path exactly.
  */
 async function registerAccountAndDeviceA(
-  page: import('@playwright/test').Page,
-  request: import('@playwright/test').APIRequestContext,
+  page: import('./support/test.js').Page,
+  request: import('./support/test.js').APIRequestContext,
 ): Promise<void> {
   const { token } = await seedInvite(request)
   await enableVirtualAuthenticator(page)
@@ -56,7 +47,7 @@ async function registerAccountAndDeviceA(
  * the code itself.
  */
 async function mintAddDeviceCode(
-  page: import('@playwright/test').Page,
+  page: import('./support/test.js').Page,
 ): Promise<{ modal: AddDeviceModalPage; code: string }> {
   const accountMenu = new AccountMenuPage(page, OWNER_NAME)
   await accountMenu.openMyDevices()
