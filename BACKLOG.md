@@ -382,3 +382,22 @@ when switching branches.
 
 **Trigger.** A release has to reach the wall tablet promptly, or someone tries to use
 the update banner.
+
+## A key's first read races its live subscription
+
+**Today.** `subscribeStorageKey` (`packages/widget-runtime/src/storage/subscribe-key.ts`) registers
+the live listener and fires the initial `getCurrent()` read in parallel. For the HTTP backend the
+live subscription is established asynchronously, so a write that lands after the read's snapshot
+but before the subscription is open is delivered by neither, and the key stays stale until reload.
+Seen on the weight card's `latest/weight` key: a reading written between the first read and the
+subscription never appeared.
+
+**Why it is tolerable.** It needs a write inside a window of a few round trips right after mount,
+and any later write or a reload heals it. The e2e specs `hardware.spec.ts` and `weight.spec.ts`
+wait for the subscription response before writing, which is a workaround, not a fix.
+
+**Shape to consider.** Start the read only after the subscription is confirmed open (or re-read once
+it is), so no write can fall between the two, and drop the e2e waits.
+
+**Trigger.** A widget shows a stale value right after mount under real traffic, or the e2e
+workaround has to be copied into another spec.
