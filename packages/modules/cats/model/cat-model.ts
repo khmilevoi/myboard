@@ -1,8 +1,8 @@
 import { action, atom, computed, wrap } from '@reatom/core'
 import type { Computed } from '@reatom/core'
 import { fileUrl, type FileRef } from '@shared/files/contract'
-import { withStorageKeyReadonly } from 'widget-runtime'
-import type { ModuleApiError, StorageError } from 'widget-runtime'
+import { StorageError, withStorageKeyReadonly } from 'widget-runtime'
+import type { ModuleApiError } from 'widget-runtime'
 
 import {
   CatProfileSchema,
@@ -33,6 +33,14 @@ export type CatModel = {
   latestWeighing: Computed<Weighing | null>
   /** null while loading; an absent or unparseable key is an empty list. */
   goals: Computed<GoalEntry[] | null>
+  /**
+   * A failed first read of the weighings or the goals: they would otherwise stay null (loading) for
+   * good, since the subscription reads once and then only waits for a live change. null once both
+   * have answered. A failed profile read is not here: the profile then reads as absent.
+   */
+  loadError: Computed<StorageError | null>
+  /** Reads every key whose first read failed again; each answer settles only its own key. */
+  retry(): Promise<void>
   /** `goalOn` at the server-time today; null while loading or before the clock syncs. */
   goalToday: Computed<number | null>
   /**
@@ -82,7 +90,10 @@ export function makeCatModel(context: CatsModuleContext, catId: string): CatMode
 
   const profileState = computed<Loadable<CatProfile | null>>(() => {
     const raw = rawProfile()
-    if (raw === KEY_LOADING) return KEY_LOADING
+    // A failed read never sets the atom, so it must not read as loading forever: that would hold
+    // `cats()`, and with it every cat and litter card, on a skeleton. It reads as absent instead,
+    // so the cat is left out, as a profile that does not parse is.
+    if (raw === KEY_LOADING) return rawProfile.error() === null ? KEY_LOADING : null
     const parsed = CatProfileSchema.safeParse(raw)
     return parsed.success ? parsed.data : null
   }, name('profileState'))
@@ -110,6 +121,35 @@ export function makeCatModel(context: CatsModuleContext, catId: string): CatMode
     const parsed = GoalEntriesSchema.safeParse(raw ?? [])
     return parsed.success ? parsed.data : []
   }, name('goals'))
+
+  const loadError = computed(() => {
+    const weighingsError = rawWeighings() === KEY_LOADING ? rawWeighings.error() : null
+    const goalsError = rawGoals() === KEY_LOADING ? rawGoals.error() : null
+    return weighingsError ?? goalsError
+  }, name('loadError'))
+
+  // Re-runs the one-shot read `withStorageKeyReadonly` made at connect time, for each key whose
+  // read failed, with the same `get` the subscription is built on.
+  const retry = action(async () => {
+    const failed = [
+      { raw: rawProfile, key: catProfileKey(catId) },
+      { raw: rawWeighings, key: catWeightKey(catId) },
+      { raw: rawGoals, key: catGoalKey(catId) },
+    ].filter(({ raw }) => raw() === KEY_LOADING && raw.error() !== null)
+    const answers = await wrap(Promise.all(failed.map(({ key }) => server.get(key))))
+    failed.forEach(({ raw }, index) => {
+      const answer = answers[index]
+      // Read without a schema, so the value is `unknown`; the only Error `get` returns is a
+      // StorageError.
+      if (answer instanceof StorageError) {
+        raw.error.set(answer)
+        return
+      }
+      raw.error.set(null)
+      // A live change may have answered while the read was in flight; it is newer.
+      if (raw() === KEY_LOADING) raw.set(answer ?? null)
+    })
+  }, name('retry'))
 
   const goalToday = computed(() => {
     const today = timer.today(DUTY_TIME_ZONE)
@@ -150,6 +190,8 @@ export function makeCatModel(context: CatsModuleContext, catId: string): CatMode
       weighings,
       latestWeighing: latest,
       goals,
+      loadError,
+      retry,
       goalToday,
       avatarUrl,
       uploadAvatar: avatarSlot.upload,

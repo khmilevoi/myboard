@@ -5,8 +5,8 @@ import { StorageError, makeFileSlotFromApi } from 'widget-runtime'
 import { createFakeStorage, makeFakeFileSlotApi } from 'widget-runtime/storage/test/fakes'
 
 import { defaultCatProfile, type GoalEntry, type Weighing } from '../domain/cat'
-import { catGoalKey, catWeightKey } from '../domain/keys'
-import { makeTestCatsModel, type MakeTestCatsModelOptions } from './testing'
+import { catGoalKey, catProfileKey, catWeightKey } from '../domain/keys'
+import { makeKeysDownStorage, makeTestCatsModel, type MakeTestCatsModelOptions } from './testing'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
@@ -212,5 +212,69 @@ describe('cat avatar slot', () => {
       off()
     })
     expect(calls).toEqual([])
+  })
+})
+
+describe('makeCatModel read failures', () => {
+  function makeDown(keys: string[]) {
+    const base = createFakeStorage()
+    void base.set(catWeightKey('ofelia'), WEIGHINGS)
+    void base.set(catGoalKey('ofelia'), GOALS)
+    const failure = new StorageError({ reason: 'boom' })
+    const { storage, recover } = makeKeysDownStorage(base, keys, failure)
+    const { model } = makeTestCatsModel({
+      storage,
+      todayIso: '2026-06-16',
+      profiles: { ofelia: defaultCatProfile('Офелия', 'ofelia') },
+    })
+    return { cat: model.cat('ofelia'), failure, recover }
+  }
+
+  it('a failed weight read is the load error, and a retry loads the weighings', async () => {
+    const { cat, failure, recover } = makeDown([catWeightKey('ofelia')])
+
+    await context.start(async () => {
+      const offs = [cat.weighings.subscribe(() => {}), cat.loadError.subscribe(() => {})]
+      const read = wrap(() => ({ weighings: cat.weighings(), error: cat.loadError() }))
+      // Wrapped before the first await: after it, an unwrapped call runs in the global context.
+      const retry = wrap(() => cat.retry())
+      await vi.waitFor(() => expect(read()).toEqual({ weighings: null, error: failure }))
+
+      // Still down: the retry keeps the error.
+      await retry()
+      expect(read()).toEqual({ weighings: null, error: failure })
+
+      recover()
+      await retry()
+      expect(read()).toEqual({ weighings: WEIGHINGS, error: null })
+      for (const off of offs) off()
+    })
+  })
+
+  it('a failed goal read is the load error too', async () => {
+    const { cat, failure, recover } = makeDown([catGoalKey('ofelia')])
+
+    await context.start(async () => {
+      const off = cat.loadError.subscribe(() => {})
+      const read = wrap(() => ({ goals: cat.goals(), error: cat.loadError() }))
+      const retry = wrap(() => cat.retry())
+      await vi.waitFor(() => expect(read()).toEqual({ goals: null, error: failure }))
+
+      recover()
+      await retry()
+      expect(read()).toEqual({ goals: GOALS, error: null })
+      off()
+    })
+  })
+
+  it('a failed profile read reads as no profile, not as loading', async () => {
+    const { cat } = makeDown([catProfileKey('ofelia')])
+
+    await context.start(async () => {
+      const off = cat.profile.subscribe(() => {})
+      const read = wrap(() => ({ profile: cat.profile(), error: cat.loadError() }))
+      await vi.waitFor(() => expect(read()).toEqual({ profile: null, error: null }))
+      off()
+    })
   })
 })

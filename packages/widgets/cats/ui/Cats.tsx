@@ -110,11 +110,7 @@ export const Cats = reatomMemo(() => {
       <NotReadyFrame tier={tier} chrome={chrome}>
         <div className={styles.error} role="alert">
           <p className={styles.errorText}>Не удалось загрузить виджет «Кошки»</p>
-          <button
-            type="button"
-            className={styles.secondary}
-            onClick={wrap(() => card.handle.retry())}
-          >
+          <button type="button" className={styles.secondary} onClick={wrap(() => card.retry())}>
             Повторить
           </button>
         </div>

@@ -1,13 +1,13 @@
 import { context, wrap } from '@reatom/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ModuleApiError, type StorageApi } from 'widget-runtime'
+import { ModuleApiError, StorageError, type StorageApi } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { defaultCatProfile } from '../domain/cat'
 import { catProfileKey, ledgerKey } from '../domain/keys'
 import type { LedgerEntry } from '../domain/ledger'
 import type { CatRegistryEvent, LitterRegistryEvent } from '../domain/registry'
-import { makeTestCatsModel } from './testing'
+import { makeKeysDownStorage, makeTestCatsModel } from './testing'
 
 const D = (iso: string) => Temporal.PlainDate.from(iso)
 
@@ -233,6 +233,26 @@ describe('makeCatsModel registries', () => {
       expect(read().cats).toBeNull()
       off()
     })
+  })
+
+  it('leaves out a cat whose profile read failed, so cats() and litters() still answer', async () => {
+    const failure = new StorageError({ reason: 'boom' })
+    const { storage } = makeKeysDownStorage(createFakeStorage(), [catProfileKey('busya')], failure)
+    const { model } = makeTestCatsModel({
+      storage,
+      catRegistry: [catEvent('add', 'ofelia', 1), catEvent('add', 'busya', 2)],
+      litterRegistry: [litterEvent('ofelia', 1), litterEvent('busya', 2)],
+      profiles: { ofelia: OFELIA, busya: { ...BUSYA, litterId: 'busya' } },
+    })
+
+    await expectEventually(
+      () => [model.cats.subscribe(() => {}), model.litters.subscribe(() => {})],
+      () => ({
+        cats: model.cats()?.map((cat) => cat.id) ?? null,
+        litters: model.litters()?.map((litter) => litter.id) ?? null,
+      }),
+      { cats: ['ofelia'], litters: ['ofelia'] },
+    )
   })
 
   it('memoizes one cat model per id', () => {

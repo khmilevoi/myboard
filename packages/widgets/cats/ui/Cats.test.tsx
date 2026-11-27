@@ -5,6 +5,7 @@ import { defaultCatProfile, type CatProfile, type Weighing } from 'module-cats/d
 import { catProfileKey, catWeightKey } from 'module-cats/domain/keys'
 import type { CatRegistryEvent, LitterRegistryEvent } from 'module-cats/domain/registry'
 import {
+  makeKeysDownStorage,
   makeTestCatsModel,
   type MakeTestCatsModelOptions,
   type TestModelCalls,
@@ -13,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   makeStaticWidgetIdentity,
   ModuleLoadError,
+  StorageError,
   WidgetRuntimeContext,
   type StorageApi,
   type WidgetModules,
@@ -276,6 +278,28 @@ describe('Cats — tiers', () => {
   })
 })
 
+/** A shared scope whose cat weight key fails to read until `recover()`. */
+function weightDownStorage() {
+  return makeKeysDownStorage(
+    createFakeStorage(),
+    [catWeightKey('ofelia')],
+    new StorageError({ reason: 'boom' }),
+  )
+}
+
+describe('Cats read errors', () => {
+  it('a failed weight read: "Повторить" reads it again', async () => {
+    const { storage, recover } = weightDownStorage()
+    const { props } = setup(ONE_CAT, {}, storage)
+    renderCats(props)
+
+    expect(await screen.findByText(LOAD_ERROR)).toBeInTheDocument()
+    recover()
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    expect(await screen.findByRole('heading', { name: 'Офелия' })).toBeInTheDocument()
+  })
+})
+
 // Global Constraints, card controls: a card can be removed from the board in every state.
 type CardState = {
   name: string
@@ -313,6 +337,11 @@ const STATES: CardState[] = [
     name: 'profile loading',
     setup: () => setup(ONE_CAT, {}, profilePendingStorage()),
     reached: () => screen.findByLabelText(LOADING_LABEL),
+  },
+  {
+    name: 'weight read error',
+    setup: () => setup(ONE_CAT, {}, weightDownStorage().storage),
+    reached: () => screen.findByText(LOAD_ERROR),
   },
   {
     name: 'no cats',

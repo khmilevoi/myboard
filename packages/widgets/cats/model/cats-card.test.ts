@@ -2,9 +2,13 @@ import { context, wrap } from '@reatom/core'
 import { defaultCatProfile, type CatProfile, type Weighing } from 'module-cats/domain/cat'
 import { catWeightKey } from 'module-cats/domain/keys'
 import type { CatRegistryEvent, LitterRegistryEvent } from 'module-cats/domain/registry'
-import { makeTestCatsModel, type MakeTestCatsModelOptions } from 'module-cats/testing'
+import {
+  makeKeysDownStorage,
+  makeTestCatsModel,
+  type MakeTestCatsModelOptions,
+} from 'module-cats/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { makeStaticWidgetIdentity, type WidgetModules } from 'widget-runtime'
+import { makeStaticWidgetIdentity, StorageError, type WidgetModules } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
 import { catsCardStore, makeCatsCard } from './cats-card'
@@ -163,6 +167,35 @@ describe('makeCatsCard', () => {
       const off = card.status.subscribe(() => {})
       const status = wrap(() => card.status())
       await vi.waitFor(() => expect(status()).toBe('empty'))
+      off()
+    })
+  })
+
+  it("a failed weight read is the card's error, and retry loads it", async () => {
+    const base = createFakeStorage()
+    void base.set(catWeightKey('ofelia'), [weighing('2026-11-21', 4.32)])
+    const { storage, recover } = makeKeysDownStorage(
+      base,
+      [catWeightKey('ofelia')],
+      new StorageError({ reason: 'boom' }),
+    )
+    const { model } = makeTestCatsModel({ todayIso: TODAY, ...ONE_CAT, storage })
+    const card = makeCatsCard({
+      modules: { get: async () => model } as unknown as WidgetModules,
+      storage: createFakeStorage(),
+      identity: makeStaticWidgetIdentity(),
+      name: 'test.card',
+    })
+
+    await context.start(async () => {
+      const off = card.status.subscribe(() => {})
+      const status = wrap(() => card.status())
+      const retry = wrap(() => card.retry())
+      await vi.waitFor(() => expect(status()).toBe('error'))
+
+      recover()
+      await retry()
+      await vi.waitFor(() => expect(status()).toBe('ready'))
       off()
     })
   })

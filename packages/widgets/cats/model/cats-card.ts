@@ -1,5 +1,5 @@
-import { atom, computed } from '@reatom/core'
-import type { Atom, Computed } from '@reatom/core'
+import { action, atom, computed, wrap } from '@reatom/core'
+import type { Action, Atom, Computed } from '@reatom/core'
 import { MONTHS_SHORT } from '@shared/format/ru'
 import { catsModule, type CatsModel } from 'module-cats'
 import { makeCatChoice, type CatCardChoice } from 'module-cats/card-choice'
@@ -71,6 +71,8 @@ export type CatsCard = {
   choice: CatCardChoice
   tab: Atom<CatsTab>
   status: Computed<CatsCardStatus>
+  /** "Повторить": loads the module again, or reads the chosen cat's failed weight or goal keys. */
+  retry: Action<[], Promise<void>>
   /** The one "Вес" form of this card: every "Взвесить" opens `WeighDialog` with it. */
   weighForm: WeighForm
   /** The "Профиль" tab's draft: shared by both mounts, so it survives opening fullscreen. */
@@ -137,9 +139,16 @@ export function makeCatsCard({
     if (options === null) return 'loading'
     if (options.length === 0) return 'empty'
     const cat = choice.cat()
+    if (cat !== null && cat.loadError() !== null) return 'error'
     if (cat === null || cat.profile() === null || cat.weighings() === null) return 'loading'
     return 'ready'
   }, `${name}.status`)
+
+  const retry = action(async () => {
+    if (handle.model() === null) return handle.retry()
+    const cat = choice.cat()
+    if (cat !== null) await wrap(cat.retry())
+  }, `${name}.retry`)
 
   const passport = computed((): CatsPassport | null => {
     const cat = choice.cat()
@@ -212,6 +221,7 @@ export function makeCatsCard({
     choice,
     tab,
     status,
+    retry,
     weighForm,
     profileForm,
     goalForm,
