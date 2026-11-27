@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModuleApiError } from 'widget-runtime'
 import { createFakeStorage } from 'widget-runtime/storage/test/fakes'
 
-import { LAST_ACTIVE_CAT_COPY, makeAllCats } from './all-cats'
+import { archiveDialogCopy, LAST_ACTIVE_CAT_COPY, makeAllCats } from './all-cats'
 
 const catEvent = (op: 'add' | 'archive', catId: string, ts: number): CatRegistryEvent => ({
   id: `c${ts}`,
@@ -74,6 +74,7 @@ describe('makeAllCats', () => {
         name: 'Офелия',
         tone: 'a',
         photoUrl: null,
+        sex: null,
         line: 'Британская · 3 года · 4,32 кг · Лоток · Офелия',
       },
       {
@@ -81,6 +82,7 @@ describe('makeAllCats', () => {
         name: 'Буся',
         tone: 'b',
         photoUrl: null,
+        sex: null,
         line: 'Беспородная · Лоток · Буся',
       },
     ])
@@ -104,6 +106,7 @@ describe('makeAllCats', () => {
         name: 'Буся',
         tone: 'b',
         photoUrl: null,
+        sex: null,
         line: 'В архиве с 3 мая 2026 · история сохранена',
       },
     ])
@@ -134,7 +137,10 @@ describe('makeAllCats', () => {
     const { off } = await settled(all.active)
     const impact = all.archiveImpact('busya')
     const offImpact = impact.subscribe(() => {})
-    expect(impact()).toEqual({ fallbackName: 'Офелия', orphanLitter: 'Лоток · Буся' })
+    expect(impact()).toEqual({
+      fallback: { name: 'Офелия', sex: null },
+      orphanLitter: 'Лоток · Буся',
+    })
     offImpact()
     off()
   })
@@ -147,7 +153,7 @@ describe('makeAllCats', () => {
     const { off } = await settled(all.active)
     const impact = all.archiveImpact('busya')
     const offImpact = impact.subscribe(() => {})
-    expect(impact()).toEqual({ fallbackName: 'Офелия', orphanLitter: null })
+    expect(impact()).toEqual({ fallback: { name: 'Офелия', sex: null }, orphanLitter: null })
     offImpact()
     off()
   })
@@ -189,5 +195,40 @@ describe('makeAllCats', () => {
     await wrap(() => all.restore('busya'))()
     expect(all.failure()).toBe('Не удалось вернуть кошку. Попробуйте ещё раз.')
     off()
+  })
+})
+
+describe('archiveDialogCopy', () => {
+  it('names both cats in the accusative, as design page 10 does', () => {
+    expect(
+      archiveDialogCopy(
+        { name: 'Буся', sex: 'female' },
+        { fallback: { name: 'Офелия', sex: 'female' }, orphanLitter: null },
+      ),
+    ).toEqual({
+      title: 'Убрать Бусю в архив?',
+      text: 'Буся пропадёт из переключателей. Карточки, где была выбрана она, покажут Офелию. История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».',
+    })
+  })
+
+  it('speaks of a male cat as "он", and declines a male fallback', () => {
+    expect(
+      archiveDialogCopy(
+        { name: 'Барсик', sex: 'male' },
+        { fallback: { name: 'Игорь', sex: 'male' }, orphanLitter: null },
+      ),
+    ).toEqual({
+      title: 'Убрать Барсика в архив?',
+      text: 'Барсик пропадёт из переключателей. Карточки, где был выбран он, покажут Игоря. История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».',
+    })
+  })
+
+  it('reads an unset sex from the name ending', () => {
+    expect(
+      archiveDialogCopy(
+        { name: 'Пушок', sex: null },
+        { fallback: { name: 'Буся', sex: null }, orphanLitter: null },
+      ).text,
+    ).toContain('Карточки, где был выбран он, покажут Бусю.')
   })
 })

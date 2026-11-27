@@ -5,7 +5,7 @@ import { makeTestCatsModel, type MakeTestCatsModelOptions } from 'module-cats/te
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModuleApiError } from 'widget-runtime'
 
-import { instrumental, makeAddCatForm } from './add-cat-form'
+import { makeAddCatForm } from './add-cat-form'
 import { NEW_LITTER_VALUE } from './profile-form'
 
 const catEvent = (catId: string, ts: number): CatRegistryEvent => ({
@@ -104,6 +104,22 @@ describe('makeAddCatForm', () => {
     off()
   })
 
+  it('declines a litter-mate by her sex: "Общий с Рысью", "Общий с Игорем"', async () => {
+    const { form, off } = setup({
+      catRegistry: [catEvent('rys', 1), catEvent('igor', 2)],
+      litterRegistry: [litterEvent('rys', 1), litterEvent('igor', 2)],
+      profiles: {
+        rys: { ...defaultCatProfile('Рысь', 'rys'), sex: 'female' },
+        igor: { ...defaultCatProfile('Игорь', 'igor'), sex: 'male' },
+      },
+    })
+    const read = wrap(() => form.litterOptions()?.map((option) => option.title))
+    await vi.waitFor(() => expect(read()).not.toBeUndefined())
+
+    expect(read()).toEqual(['Общий с Рысью', 'Общий с Игорем', 'Свой лоток'])
+    off()
+  })
+
   it('sends a chosen litter, a birth date and the sex', async () => {
     const { form, calls, off } = setup()
     form.name.set('Буся')
@@ -135,19 +151,5 @@ describe('makeAddCatForm', () => {
     form.name.set('Буся!')
     expect(form.failed()).toBe(false)
     off()
-  })
-})
-
-describe('instrumental', () => {
-  it('declines the common cat names, and leaves the rest alone', () => {
-    expect(instrumental('Офелия')).toBe('Офелией')
-    expect(instrumental('Буся')).toBe('Бусей')
-    expect(instrumental('Мурка')).toBe('Муркой')
-    expect(instrumental('Маша')).toBe('Машей')
-    expect(instrumental('Барсик')).toBe('Барсиком')
-    expect(instrumental('Мишка')).toBe('Мишкой')
-    expect(instrumental('Кузя')).toBe('Кузей')
-    expect(instrumental('Мими')).toBe('Мими')
-    expect(instrumental('Luna')).toBe('Luna')
   })
 })

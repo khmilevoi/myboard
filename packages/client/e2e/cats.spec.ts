@@ -297,8 +297,8 @@ test.describe('all cats', () => {
     const rows = overlay.getByRole('list', { name: 'Кошки на борде' }).getByRole('listitem')
     await expect(rows).toHaveCount(2)
     await rows.filter({ hasText: 'Буся' }).getByRole('button', { name: 'В архив' }).click()
-    const confirm = page.getByRole('dialog', { name: 'Убрать Буся в архив?' })
-    await expect(confirm).toContainText('Карточки, где была выбрана она, покажут Офелия.')
+    const confirm = page.getByRole('dialog', { name: 'Убрать Бусю в архив?' })
+    await expect(confirm).toContainText('Карточки, где была выбрана она, покажут Офелию.')
     await expect(confirm).toContainText(
       'Лоток · Буся больше никому не нужен: ночные отметки по нему остановятся.',
     )

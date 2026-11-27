@@ -1,6 +1,6 @@
 import { action, atom, computed, wrap } from '@reatom/core'
 import type { AtomLike, Computed } from '@reatom/core'
-import { MONTHS_GENITIVE } from '@shared/format/ru'
+import { accusative, MONTHS_GENITIVE, nameGender, type NameSex } from '@shared/format/ru'
 import type { CatSummary, CatsModel } from 'module-cats'
 import type { CatTone } from 'module-cats/domain/cat'
 import { latestWeighing } from 'module-cats/domain/cat'
@@ -19,6 +19,8 @@ export type CatRow = {
   name: string
   tone: CatTone
   photoUrl: string | null
+  /** The profile's sex, which the dialog's copy declines the name by; null when unset. */
+  sex: NameSex | null
   line: string
 }
 
@@ -27,13 +29,34 @@ export type ArchivedRow = CatRow
 
 /** What archiving a cat changes for the rest of the board. */
 export type ArchiveImpact = {
-  /** The cat the cards that had chosen this one show instead; '' when there is no other. */
-  fallbackName: string
+  /** The cat the cards that had chosen this one show instead; null when there is no other. */
+  fallback: { name: string; sex: NameSex | null } | null
   /** The cat's litter title when no other active cat uses it, else null. */
   orphanLitter: string | null
 }
 
 export type AllCats = ReturnType<typeof makeAllCats>
+
+/**
+ * The archive dialog's title and text (design page 10): "Убрать Бусю в архив?" and "… Карточки,
+ * где была выбрана она, покажут Офелию. …", the names in the accusative and the pronoun by the
+ * cat's sex.
+ */
+export function archiveDialogCopy(
+  target: Pick<CatRow, 'name' | 'sex'>,
+  impact: ArchiveImpact,
+): { title: string; text: string } {
+  const chosen =
+    nameGender(target.name, target.sex) === 'male' ? 'был выбран он' : 'была выбрана она'
+  const fallback =
+    impact.fallback === null
+      ? ''
+      : ` Карточки, где ${chosen}, покажут ${accusative(impact.fallback.name, impact.fallback.sex)}.`
+  return {
+    title: `Убрать ${accusative(target.name, target.sex)} в архив?`,
+    text: `${target.name} пропадёт из переключателей.${fallback} История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».`,
+  }
+}
 
 /** "3 мая 2026". */
 function formatArchivedOn(archivedAtMs: number): string {
@@ -75,6 +98,7 @@ export function makeAllCats(
       name: summary.name,
       tone: summary.tone,
       photoUrl: summary.avatar,
+      sex: profile?.sex ?? null,
       line,
     }
   }
@@ -102,6 +126,7 @@ export function makeAllCats(
         name: summary.name,
         tone: summary.tone,
         photoUrl: summary.avatar,
+        sex: model.cat(summary.id).profile()?.sex ?? null,
         line,
       }
     })
@@ -125,7 +150,12 @@ export function makeAllCats(
           : cats()
               ?.litters()
               ?.find((candidate) => candidate.id === target.litterId)
-      return { fallbackName: others[0]?.name ?? '', orphanLitter: litter?.title ?? null }
+      const first = others[0]
+      const fallback =
+        first === undefined
+          ? null
+          : { name: first.name, sex: cats()?.cat(first.id).profile()?.sex ?? null }
+      return { fallback, orphanLitter: litter?.title ?? null }
     }, `${name}.archiveImpact#${catId}`)
     impacts.set(catId, impact)
     return impact

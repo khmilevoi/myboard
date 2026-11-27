@@ -1,5 +1,6 @@
 import { action, atom, computed, withAsync, wrap } from '@reatom/core'
 import type { AtomLike } from '@reatom/core'
+import { instrumental } from '@shared/format/ru'
 import type { CatSummary, CatsModel } from 'module-cats'
 import { makeLitterOptions } from 'module-cats/card-choice'
 import type { LitterChoice } from 'module-cats/domain/cat'
@@ -31,27 +32,6 @@ export type MakeAddCatFormInput = {
   onAdded?: (catId: string) => void
   /** Prefix of the atom names. */
   name?: string
-}
-
-const HISSING = new Set(['ж', 'ч', 'ш', 'щ', 'ц'])
-const VOWELS = new Set(['а', 'е', 'ё', 'и', 'о', 'у', 'ы', 'э', 'ю', 'я'])
-
-/**
- * A cat name in the instrumental case, for "Общий с Офелией". The common endings only: a name
- * outside them (a foreign or an indeclinable one such as "Мими") stays as it is.
- */
-export function instrumental(name: string): string {
-  const lower = name.toLowerCase()
-  const last = lower.slice(-1)
-  const stem = name.slice(0, -1)
-  const afterHissing = HISSING.has(lower.slice(-2, -1))
-  if (!/[а-яё]$/.test(lower)) return name
-  if (lower.endsWith('ия')) return `${stem}ей`
-  if (last === 'я') return `${stem}ей`
-  if (last === 'а') return `${stem}${afterHissing ? 'ей' : 'ой'}`
-  if (last === 'й' || last === 'ь') return `${stem}ем`
-  if (VOWELS.has(last)) return name
-  return `${name}${HISSING.has(last) ? 'ем' : 'ом'}`
 }
 
 function joinNames(names: readonly string[]): string {
@@ -100,7 +80,11 @@ export function makeAddCatForm(
         (option): AddCatLitterOption => ({
           value: option.id,
           choice: { kind: 'existing', litterId: option.id },
-          title: `Общий с ${joinNames(option.cats.map((cat) => instrumental(cat.name)))}`,
+          title: `Общий с ${joinNames(
+            option.cats.map((cat) =>
+              instrumental(cat.name, cats()?.cat(cat.id).profile()?.sex ?? null),
+            ),
+          )}`,
           note: 'та же очередь',
           cats: option.cats,
         }),

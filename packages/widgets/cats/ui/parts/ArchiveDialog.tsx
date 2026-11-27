@@ -5,7 +5,7 @@ import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { Button } from 'widget-sdk/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from 'widget-sdk/ui/dialog'
 
-import type { CatRow } from '@/model/all-cats'
+import { archiveDialogCopy, type CatRow } from '@/model/all-cats'
 
 import { useCats } from '../cats-context'
 
@@ -19,7 +19,7 @@ export type ArchiveDialogProps = {
 }
 
 /**
- * "Убрать {name} в архив?" (design page 10): what the archive changes for the other cards, and,
+ * "Убрать Бусю в архив?" (design page 10): what the archive changes for the other cards, and,
  * when the cat was the last one on her litter, that the litter's night marks stop. The history is
  * kept, and "Вернуть" is in the list below.
  */
@@ -32,6 +32,7 @@ export const ArchiveDialog = reatomMemo<ArchiveDialogProps>(({ row, onOpenChange
   if (target === null) return null
 
   const impact = card.allCats.archiveImpact(target.id)()
+  const copy = archiveDialogCopy(target, impact)
   const failure = card.allCats.failure()
 
   const onArchive = wrap(async () => {
@@ -48,7 +49,7 @@ export const ArchiveDialog = reatomMemo<ArchiveDialogProps>(({ row, onOpenChange
         aria-describedby={undefined}
       >
         <div className={sheet.head}>
-          <DialogTitle className={sheet.title}>{`Убрать ${target.name} в архив?`}</DialogTitle>
+          <DialogTitle className={sheet.title}>{copy.title}</DialogTitle>
           <DialogClose asChild>
             <button type="button" className={sheet.close} aria-label="Закрыть">
               <X aria-hidden />
@@ -56,9 +57,7 @@ export const ArchiveDialog = reatomMemo<ArchiveDialogProps>(({ row, onOpenChange
           </DialogClose>
         </div>
         <div className={sheet.body}>
-          <p className={styles.text}>
-            {`${target.name} пропадёт из переключателей. Карточки, где была выбрана она, покажут ${impact.fallbackName}. История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».`}
-          </p>
+          <p className={styles.text}>{copy.text}</p>
           {impact.orphanLitter !== null && (
             <p className={styles.callout}>
               {`${impact.orphanLitter} больше никому не нужен: ночные отметки по нему остановятся.`}

@@ -174,10 +174,10 @@ describe('AllCatsTab', () => {
       within(rows.getAllByRole('listitem')[1]!).getByRole('button', { name: 'В архив' }),
     )
 
-    const dialog = within(await screen.findByRole('dialog', { name: 'Убрать Буся в архив?' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Убрать Бусю в архив?' }))
     expect(
       dialog.getByText(
-        'Буся пропадёт из переключателей. Карточки, где была выбрана она, покажут Офелия. История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».',
+        'Буся пропадёт из переключателей. Карточки, где была выбрана она, покажут Офелию. История кормлений, веса и лотка сохранится — вернуть можно во вкладке «Все кошки».',
       ),
     ).toBeInTheDocument()
     expect(
@@ -200,7 +200,7 @@ describe('AllCatsTab', () => {
     fireEvent.click(
       within(rows.getAllByRole('listitem')[1]!).getByRole('button', { name: 'В архив' }),
     )
-    const dialog = within(await screen.findByRole('dialog', { name: 'Убрать Буся в архив?' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Убрать Бусю в архив?' }))
     fireEvent.click(dialog.getByRole('button', { name: 'Отмена' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -218,7 +218,7 @@ describe('AllCatsTab', () => {
     fireEvent.click(
       within(rows.getAllByRole('listitem')[1]!).getByRole('button', { name: 'В архив' }),
     )
-    const dialog = within(await screen.findByRole('dialog', { name: 'Убрать Буся в архив?' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Убрать Бусю в архив?' }))
     fireEvent.click(dialog.getByRole('button', { name: 'В архив' }))
 
     expect(await dialog.findByRole('alert')).toHaveTextContent('Последнюю кошку в архив не убрать')
