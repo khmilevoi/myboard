@@ -222,6 +222,27 @@ describe('AllCatsTab', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'В архив' }))
 
     expect(await dialog.findByRole('alert')).toHaveTextContent('Последнюю кошку в архив не убрать')
+
+    // "Отмена" forgets the failure: the list does not show it after the dialog.
+    fireEvent.click(dialog.getByRole('button', { name: 'Отмена' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(tab.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('a refused name is forgotten when the form closes; the typed draft stays', async () => {
+    setup()
+    const tab = await openAllTab()
+
+    fireEvent.click(await tab.findByRole('button', { name: 'Добавить кошку' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Новая кошка' }))
+    fireEvent.click(dialog.getByRole('button', { name: 'Добавить кошку' }))
+    expect(await dialog.findByText('Укажите имя')).toBeInTheDocument()
+    fireEvent.click(dialog.getByRole('button', { name: 'Закрыть' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    fireEvent.click(tab.getByRole('button', { name: 'Добавить кошку' }))
+    const reopened = within(await screen.findByRole('dialog', { name: 'Новая кошка' }))
+    expect(reopened.queryByText('Укажите имя')).not.toBeInTheDocument()
   })
 
   it('archived cats are folded, dated, and come back with "Вернуть"', async () => {

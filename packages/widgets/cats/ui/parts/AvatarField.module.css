@@ -49,8 +49,8 @@
 .pending {
   position: relative;
   flex: none;
-  inline-size: 56px;
-  block-size: 56px;
+  inline-size: 64px;
+  block-size: 64px;
 }
 
 .pendingImage {
@@ -59,7 +59,7 @@
   inline-size: 100%;
   block-size: 100%;
   padding: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   object-fit: cover;
   opacity: 0.55;
 }

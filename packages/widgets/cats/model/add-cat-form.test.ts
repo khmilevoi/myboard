@@ -105,6 +105,19 @@ describe('makeAddCatForm', () => {
     off()
   })
 
+  it('dismiss() forgets a refused submit and keeps the draft', async () => {
+    const { form, off } = setup()
+    form.birthDate.set('2026-03-15')
+    await wrap(() => form.submit())()
+    expect(form.issues()).toEqual({ name: 'Укажите имя' })
+
+    form.dismiss()
+
+    expect(form.issues()).toEqual({})
+    expect(form.birthDate()).toBe('2026-03-15')
+    off()
+  })
+
   it('declines a litter-mate by her sex: "Общий с Рысью", "Общий с Игорем"', async () => {
     const { form, off } = setup({
       catRegistry: [catEvent('rys', 1), catEvent('igor', 2)],

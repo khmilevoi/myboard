@@ -256,6 +256,8 @@ describe('FullscreenTier', () => {
     )
 
     fireEvent.change(screen.getByLabelText('Своя цель'), { target: { value: '40' } })
+    expect(screen.queryByText('От 50 до 1000 ккал')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Своя цель'), { target: { value: '40ккал' } })
     expect(await screen.findByText('От 50 до 1000 ккал')).toBeInTheDocument()
   })
 
@@ -283,6 +285,8 @@ describe('FullscreenTier', () => {
     setup()
     expect(await screen.findByText('Без фото — буква на цвете кошки')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Загрузить фото' })).toBeEnabled()
+    // Design page 10 draws the profile photo at 64 px: the `field` size.
+    expect(document.querySelector('[data-size="field"]')).toHaveTextContent('О')
     cleanup()
     context.reset()
 

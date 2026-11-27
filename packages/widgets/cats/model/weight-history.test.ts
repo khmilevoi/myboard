@@ -102,6 +102,34 @@ describe('makeWeightHistory', () => {
     ])
   })
 
+  it('the year thins its month labels to every second one, and keeps the latest day', async () => {
+    // One weighing on the 10th of every month from December 2025 to November 2026.
+    const monthly = Array.from({ length: 12 }, (_, index) => {
+      const at = Temporal.PlainDate.from('2025-12-10').add({ months: index }).toString()
+      return { id: `m${index}`, ts: index + 1, at, kg: 4.3 }
+    })
+    const history = setup(monthly)
+    await expect.poll(() => history.points().length).toBe(3)
+    wrap(() => history.range.set('year'))()
+    await expect.poll(() => history.points().length).toBe(12)
+
+    expect(history.axis().months.map((month) => month.label)).toEqual([
+      '1 ДЕК',
+      '1 ФЕВ',
+      '1 АПР',
+      '1 ИЮН',
+      '1 АВГ',
+      '1 ОКТ',
+      '10 НОЯ',
+    ])
+  })
+
+  it('a quarter keeps every month label', async () => {
+    const history = setup()
+    await expect.poll(() => history.points().length).toBe(6)
+    expect(history.axis().months).toHaveLength(4)
+  })
+
   it('no weighings: empty points, rows and axis', () => {
     const history = setup([])
     expect(history.points()).toEqual([])

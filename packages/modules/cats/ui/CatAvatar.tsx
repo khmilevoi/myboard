@@ -8,7 +8,15 @@ import styles from './CatAvatar.module.css'
 import ears from 'widget-sdk/ui/cat-ears.module.css'
 
 /** 18 / 20 / 22 / 24 / 26 / 40 / 56 px, design `01 Дизайн-система` section 06а and `CatsLarge`'s list. */
-export type CatAvatarSize = 'badge' | 'list' | 'menu' | 'button' | 'header' | 'row' | 'profile'
+export type CatAvatarSize =
+  | 'badge'
+  | 'list'
+  | 'menu'
+  | 'button'
+  | 'header'
+  | 'row'
+  | 'profile'
+  | 'field'
 
 export type CatAvatarProps = {
   name: string

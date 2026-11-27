@@ -86,7 +86,7 @@ export const AvatarField = reatomMemo<AvatarFieldProps>(({ name, tone, photoUrl 
             <span className={styles.spinner} role="status" aria-label="Загружаем фото" />
           </span>
         ) : (
-          <CatAvatar name={name} tone={tone} photoUrl={photoUrl} size="profile" />
+          <CatAvatar name={name} tone={tone} photoUrl={photoUrl} size="field" />
         )}
         <div className={styles.actions}>
           <Button

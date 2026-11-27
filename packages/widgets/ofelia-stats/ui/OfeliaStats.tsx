@@ -1,4 +1,5 @@
 import { wrap } from '@reatom/core'
+import { EMPTY_LITTER_TEXT } from 'module-cats/format'
 import { CatCardHeader } from 'module-cats/ui/CatCardHeader'
 import { LitterSwitcher } from 'module-cats/ui/LitterSwitcher'
 import { useManageCats } from 'module-cats/ui/use-manage-cats'
@@ -6,20 +7,22 @@ import { useMemo, type ReactNode } from 'react'
 import { useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
-import { WidgetControls, useWidgetChrome, type WidgetChrome } from 'widget-sdk/ui/WidgetControls'
+import {
+  WidgetControls,
+  notReadyChrome,
+  useWidgetChrome,
+  type WidgetChrome,
+} from 'widget-sdk/ui/WidgetControls'
 
 import { makeStatsView } from '../model/stats-view'
 
 import styles from './ofelia-stats.module.css'
 
-const EMPTY_LITTER_TEXT = 'Лоток появится, когда в виджете «Кошки» будет кошка'
-
-// A state that is not ready has no header row: the controls float in the corner, never with
-// "Развернуть", but always with "Удалить" on the board and "Закрыть" in fullscreen.
+// A state that is not ready has no header row: the controls float in the corner.
 function renderNotReady(chrome: WidgetChrome, children: ReactNode) {
   return (
     <div className={styles.widget}>
-      <WidgetControls placement="overlay" onDelete={chrome.onDelete} onClose={chrome.onClose} />
+      <WidgetControls placement="overlay" {...notReadyChrome(chrome)} />
       {children}
     </div>
   )

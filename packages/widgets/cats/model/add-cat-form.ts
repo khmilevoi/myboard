@@ -108,6 +108,15 @@ export function makeAddCatForm(
     failedWith.set(null)
   }, `${name}.reset`)
 
+  /**
+   * The form closed without adding: a refused submit and a failed add are forgotten, so reopening
+   * it shows no stale message; the typed draft stays.
+   */
+  const dismiss = action(() => {
+    attempted.set(false)
+    failedWith.set(null)
+  }, `${name}.dismiss`)
+
   /** Sends the cat; undefined when the form is incomplete (nothing is sent). */
   const submit = action(async (): Promise<ModuleApiError | { catId: string } | void> => {
     const model = cats()
@@ -145,6 +154,7 @@ export function makeAddCatForm(
     failed,
     saving,
     reset,
+    dismiss,
     submit,
   }
 }

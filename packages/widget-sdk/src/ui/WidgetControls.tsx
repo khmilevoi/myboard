@@ -94,3 +94,12 @@ export const useWidgetChrome = (): WidgetChrome => {
   if (mode === 'small') return { onExpand: requestFullscreen, onDelete: requestDelete }
   return { onClose: requestClose }
 }
+
+/**
+ * The card-management chrome of a state that is not ready (loading, failed, empty): never
+ * "Развернуть" (there is nothing to expand yet), but always "Удалить" on the board and "Закрыть" in
+ * fullscreen, so a card stuck loading or failing can still be removed or left.
+ */
+export function notReadyChrome(chrome: WidgetChrome): WidgetChrome {
+  return { onDelete: chrome.onDelete, onClose: chrome.onClose }
+}

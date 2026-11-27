@@ -75,10 +75,15 @@ export function makeGoalForm(
   const rejectedText = atom<string | null>(null, `${name}.rejectedText`)
   const saveFailed = atom(false, `${name}.saveFailed`)
 
+  // A number under 50 may be one still being typed ("1", "18" on the way to "180"), so it is an
+  // error only once a save found it; anything that typing more digits cannot fix is one at once.
   const error = computed(() => {
     const typed = text()
+    const trimmed = typed.trim()
     if (parseKcal(typed) !== null) return null
-    return typed.trim() !== '' || rejectedText() === typed ? GOAL_INPUT_ERROR : null
+    if (rejectedText() === typed) return GOAL_INPUT_ERROR
+    if (trimmed === '') return null
+    return KCAL_PATTERN.test(trimmed) && Number(trimmed) < 50 ? null : GOAL_INPUT_ERROR
   }, `${name}.error`)
 
   const setGoal = async (kcal: number): Promise<ModuleApiError | void> => {

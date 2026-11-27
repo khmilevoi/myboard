@@ -85,15 +85,36 @@ describe('makeGoalForm', () => {
     off()
   })
 
-  it('"40" is "От 50 до 1000 ккал" and sends nothing', async () => {
+  it('"40" is "От 50 до 1000 ккал" once saved, and sends nothing', async () => {
     const { form, calls, off } = setup()
     await loadedGoal(form)
     form.text.set('40')
-    expect(form.error()).toBe(GOAL_INPUT_ERROR)
-    expect(GOAL_INPUT_ERROR).toBe('От 50 до 1000 ккал')
+    expect(form.error()).toBeNull()
 
     await form.save()
+    expect(form.error()).toBe(GOAL_INPUT_ERROR)
+    expect(GOAL_INPUT_ERROR).toBe('От 50 до 1000 ккал')
     expect(calls.filter((call) => call.action === 'setGoal')).toEqual([])
+    off()
+  })
+
+  it('typing "1", "18", "180" shows no error on the way', async () => {
+    const { form, off } = setup()
+    await loadedGoal(form)
+    for (const typed of ['1', '18', '180']) {
+      form.text.set(typed)
+      expect(form.error(), typed).toBeNull()
+    }
+    off()
+  })
+
+  it('a non-number or a goal over 1000 is an error at once', async () => {
+    const { form, off } = setup()
+    await loadedGoal(form)
+    form.text.set('18a')
+    expect(form.error()).toBe(GOAL_INPUT_ERROR)
+    form.text.set('1001')
+    expect(form.error()).toBe(GOAL_INPUT_ERROR)
     off()
   })
 

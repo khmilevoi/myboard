@@ -41,7 +41,14 @@ export const ArchiveDialog = reatomMemo<ArchiveDialogProps>(({ row, onOpenChange
   })
 
   return (
-    <Dialog open={row !== null} onOpenChange={wrap(onOpenChange)}>
+    <Dialog
+      open={row !== null}
+      onOpenChange={wrap((next: boolean) => {
+        // A failure belongs to this attempt: the list must not show it once the dialog is gone.
+        if (!next) card.allCats.clearFailure()
+        onOpenChange(next)
+      })}
+    >
       <DialogContent
         fullScreenOnPhone
         className={sheet.sheet}

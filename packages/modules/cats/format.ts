@@ -6,6 +6,9 @@ import type { CatProfile } from './domain/cat'
 
 const MINUS = '−'
 
+/** A litter card's text while no cat, and so no litter, is offered (ruling 10). */
+export const EMPTY_LITTER_TEXT = 'Лоток появится, когда в виджете «Кошки» будет кошка'
+
 /** "4,32 кг": always two decimals, with the decimal comma. */
 export function formatKg(kg: number): string {
   return `${formatDecimalRu(kg, 2)} кг`

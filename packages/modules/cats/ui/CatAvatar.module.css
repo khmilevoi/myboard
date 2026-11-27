@@ -68,6 +68,14 @@
   font-size: 23px;
 }
 
+/* The profile tab's photo field (design page 10). */
+.avatar[data-size='field'] {
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 16px;
+  font-size: 26px;
+}
+
 /* The photo fills the whole eared square, ignoring the letter's top padding. */
 .image {
   position: absolute;

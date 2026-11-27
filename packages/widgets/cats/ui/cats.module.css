@@ -131,37 +131,10 @@
   display: none;
 }
 
-.primary,
-.secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  block-size: 40px;
-  border-radius: 10px;
-  font-family: var(--font-ui);
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .primary {
-  padding: 0 16px;
-  border: 0;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
+  composes: primary from './buttons.module.css';
 }
 
 .secondary {
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 13px;
-}
-
-.primary:focus-visible,
-.secondary:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  composes: secondary from './buttons.module.css';
 }

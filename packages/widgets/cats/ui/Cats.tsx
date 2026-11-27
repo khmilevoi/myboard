@@ -4,7 +4,12 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { type WidgetTier, useWidgetContext } from 'widget-runtime'
 import { reatomMemo } from 'widget-sdk/reatom/reatom-memo'
 import { useAtomValue } from 'widget-sdk/reatom/use-atom-value'
-import { WidgetControls, useWidgetChrome, type WidgetChrome } from 'widget-sdk/ui/WidgetControls'
+import {
+  WidgetControls,
+  notReadyChrome,
+  useWidgetChrome,
+  type WidgetChrome,
+} from 'widget-sdk/ui/WidgetControls'
 
 import { catsCardStore, makeCatsCard, type CatsCard } from '../model/cats-card'
 import { catsContext, type CatsContextValue } from './cats-context'
@@ -15,13 +20,6 @@ import { StandardTier } from './tiers/StandardTier'
 import { TinyTier } from './tiers/TinyTier'
 
 import styles from './cats.module.css'
-
-// The card-management chrome of a state that is not ready (F16): never "Развернуть" (there is
-// nothing to expand yet), but always "Удалить" on the board and "Закрыть" in fullscreen, so a card
-// stuck loading or failing can still be removed or left.
-function notReadyChrome(chrome: WidgetChrome): WidgetChrome {
-  return { onDelete: chrome.onDelete, onClose: chrome.onClose }
-}
 
 const NotReadyFrame = reatomMemo<{ tier: WidgetTier; chrome: WidgetChrome; children: ReactNode }>(
   ({ tier, chrome, children }) => (

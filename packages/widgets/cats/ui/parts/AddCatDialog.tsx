@@ -54,7 +54,13 @@ export const AddCatDialog = reatomMemo<AddCatDialogProps>(({ form, open, onOpenC
   })
 
   return (
-    <Dialog open={open} onOpenChange={wrap(onOpenChange)}>
+    <Dialog
+      open={open}
+      onOpenChange={wrap((next: boolean) => {
+        if (!next) form.dismiss()
+        onOpenChange(next)
+      })}
+    >
       <DialogContent
         fullScreenOnPhone
         className={sheet.sheet}

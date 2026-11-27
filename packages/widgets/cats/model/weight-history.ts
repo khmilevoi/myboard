@@ -41,6 +41,9 @@ export type WeightHistory = {
 /** Room above and below the line, in kg. */
 const AXIS_PADDING_KG = 0.05
 
+/** The most x labels the axis draws before it thins its month starts. */
+const MAX_MONTH_LABELS = 7
+
 const round2 = (value: number) => Math.round(value * 100) / 100
 
 const dayLabel = (date: Temporal.PlainDate) =>
@@ -84,7 +87,7 @@ export function makeWeightHistory(
     if (first === undefined || last === undefined) return { minKg: 0, maxKg: 0, months: [] }
     const kgs = list.map((point) => point.kg)
     const lastDay = Temporal.PlainDate.from(last.at)
-    const months: WeightAxis['months'] = []
+    const starts: WeightAxis['months'] = []
     for (
       let month = Temporal.PlainDate.from(first.at).toPlainYearMonth();
       Temporal.PlainYearMonth.compare(month, lastDay.toPlainYearMonth()) <= 0;
@@ -93,9 +96,13 @@ export function makeWeightHistory(
       const start = month.toPlainDate({ day: 1 })
       // The latest day closes the axis; a month starting on it would label it twice.
       if (start.toString() === last.at) continue
-      months.push({ at: start.toString(), label: dayLabel(start) })
+      starts.push({ at: start.toString(), label: dayLabel(start) })
     }
-    months.push({ at: last.at, label: dayLabel(lastDay) })
+    // A year has up to 13 labels, which overlap at phone width: past `MAX_MONTH_LABELS`, every
+    // second month start is kept. The latest day always closes the axis.
+    const shown =
+      starts.length + 1 > MAX_MONTH_LABELS ? starts.filter((_, index) => index % 2 === 0) : starts
+    const months = [...shown, { at: last.at, label: dayLabel(lastDay) }]
     return {
       minKg: round2(Math.min(...kgs) - AXIS_PADDING_KG),
       maxKg: round2(Math.max(...kgs) + AXIS_PADDING_KG),

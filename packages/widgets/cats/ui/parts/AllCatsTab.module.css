@@ -25,28 +25,11 @@
   color: var(--text-3);
 }
 
+/* The list's "Добавить кошку": the shared button at 36 px. */
 .primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
+  composes: primary from '../buttons.module.css';
   margin-inline-start: auto;
   block-size: 36px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-family: var(--font-ui);
-  font-size: 13.5px;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgb(20 22 40 / 0.06);
-  cursor: pointer;
-}
-
-.primary > svg {
-  inline-size: 15px;
-  block-size: 15px;
 }
 
 .box,
@@ -120,7 +103,6 @@
   cursor: not-allowed;
 }
 
-.primary:focus-visible,
 .action:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
