@@ -13,10 +13,11 @@ import { publishChange } from '../storage/handlers'
 import type { StorageEvent } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
 import { makeGatewayConnections } from './connections'
-import { GatewayUnauthorizedError } from './errors'
+import { GatewayUnauthorizedError, HardwarePublishError } from './errors'
 import { handleGatewayEvent } from './gateway-events'
 import {
   type HardwareDeps,
+  logHardwareFailure,
   readBody,
   requireBoardSession,
   sendHardwareError,
@@ -58,7 +59,16 @@ export function registerHardwareRoutes({
     ops,
     now,
     connections,
-    publish: (event) => publishChange(ops, HARDWARE_EVENTS_KEY, event),
+    publish: (event) =>
+      publishChange(ops, HARDWARE_EVENTS_KEY, event).catch(
+        (cause: unknown) => new HardwarePublishError({ cause }),
+      ),
+  }
+
+  // A board refresh that failed after the write succeeded must not fail the write.
+  async function announceChanged(context: string): Promise<void> {
+    const published = await deps.publish({ type: 'changed' })
+    if (published instanceof Error) logHardwareFailure(`${context} publish`, published)
   }
 
   // ---- Board routes: session + CSRF header ----
@@ -86,7 +96,7 @@ export function registerHardwareRoutes({
     const revoked = await revokeGateway(ops, gatewayId)
     if (revoked instanceof Error) return sendHardwareError(res, revoked)
     connections.close(gatewayId)
-    await deps.publish({ type: 'changed' })
+    await announceChanged('revoke')
     res.writeHead(204)
     res.end()
   })
@@ -118,7 +128,8 @@ export function registerHardwareRoutes({
     if (body === null) return
     const registered = await registerGateway(ops, now, body)
     if (registered instanceof Error) return sendHardwareError(res, registered)
-    await deps.publish({ type: 'changed' })
+    // The code is spent and the record stored: the token is answered even if the board misses it.
+    await announceChanged('register')
     // The only response that ever carries the token.
     sendJson(res, 201, { gatewayId: registered.gatewayId, token: registered.token })
   })
@@ -128,8 +139,25 @@ export function registerHardwareRoutes({
     res.on('close', () => {
       clientGone = true
     })
+
+    // Runs from an event listener, so it must never reject: every failure is logged and dropped.
+    const recordDisconnect = async (gatewayId: string): Promise<void> => {
+      const seen = await updateGateway(ops, gatewayId, (current) => ({
+        ...current,
+        lastSeenAt: now(),
+      })).catch((cause: unknown) =>
+        cause instanceof Error ? cause : new Error('gateway update failed', { cause }),
+      )
+      if (seen instanceof Error) return logHardwareFailure('stream close', seen)
+      // Revoked meanwhile: the revoke already told the board.
+      if (seen === null) return
+      await announceChanged('stream close')
+    }
+
     const gateway = await authenticateGateway(ops, now, req.headers.authorization)
     if (gateway instanceof Error) return sendHardwareError(res, gateway)
+    // Gone while authenticating: no connection to record.
+    if (clientGone) return
     const connected = await updateGateway(ops, gateway.id, (current) => ({
       ...current,
       connectedAt: now(),
@@ -137,7 +165,8 @@ export function registerHardwareRoutes({
     if (connected instanceof Error) return sendHardwareError(res, connected)
     // Revoked between authentication and now.
     if (connected === null) return sendHardwareError(res, new GatewayUnauthorizedError())
-    if (clientGone) return
+    // Gone during the update: close the record out so lastSeenAt follows connectedAt.
+    if (clientGone) return recordDisconnect(gateway.id)
 
     res.writeHead(200, {
       'content-type': 'text/event-stream',
@@ -151,21 +180,10 @@ export function registerHardwareRoutes({
     connections.attach(gateway.id, res)
     res.on('close', () => {
       connections.detach(gateway.id, res)
-      void (async () => {
-        const seen = await updateGateway(ops, gateway.id, (current) => ({
-          ...current,
-          lastSeenAt: now(),
-        }))
-        if (seen instanceof Error) {
-          console.error('hardware gateway stream close failed', seen.name)
-          return
-        }
-        // Revoked meanwhile: the revoke already told the board.
-        if (seen === null) return
-        await deps.publish({ type: 'changed' })
-      })()
+      void recordDisconnect(gateway.id)
     })
-    await deps.publish({ type: 'changed' })
+    // Headers are sent: from here a failure may only be logged, never answered.
+    await announceChanged('stream open')
   })
 
   router.on('POST', '/api/hardware/gateway/events', async (req, res) => {

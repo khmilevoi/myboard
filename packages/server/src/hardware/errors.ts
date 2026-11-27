@@ -6,6 +6,13 @@ export class HardwareError extends Error {
   publicMessage = 'Hardware request failed'
 }
 
+/** A board event could not be published; the write it announces has already happened. */
+export class HardwarePublishError extends errore.createTaggedError({
+  name: 'HardwarePublishError',
+  message: 'Hardware board event could not be published',
+  extends: HardwareError,
+}) {}
+
 export class GatewayCodeInvalidError extends errore.createTaggedError({
   name: 'GatewayCodeInvalidError',
   message: 'Registration code is invalid or expired',

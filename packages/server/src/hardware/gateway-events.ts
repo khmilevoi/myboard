@@ -22,8 +22,9 @@ export async function handleGatewayEvent(
       })
       if (updated instanceof Error) return updated
       // The snapshot shows adapterPowered, so a flip is worth a board refresh; a repeat is not.
-      if (updated !== null && changed) await deps.publish({ type: 'changed' })
-      return
+      if (updated === null || !changed) return
+      // A publish failure is returned: the route answers 500 and the gateway resends the batch.
+      return deps.publish({ type: 'changed' })
     }
     case 'bonded': {
       const updated = await updateGateway(deps.ops, gateway.id, (current) => ({
@@ -31,8 +32,8 @@ export async function handleGatewayEvent(
         bonded: event.hardware.map((item) => ({ address: item.address, model: item.model })),
       }))
       if (updated instanceof Error) return updated
-      if (updated !== null) await deps.publish({ type: 'changed' })
-      return
+      if (updated === null) return
+      return deps.publish({ type: 'changed' })
     }
     // Accepted and ignored until their tasks fill them in.
     case 'scan.result':

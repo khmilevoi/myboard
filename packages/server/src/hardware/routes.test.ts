@@ -1,7 +1,7 @@
 import { HARDWARE_EVENTS_KEY, type HardwareSnapshot } from '@shared/hardware/board-api'
 import { makeFakeGateway } from '@shared/hardware/testing/fake-gateway'
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@shared/http/csrf'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { openSse, startTestApp, type OpenSse, type TestApp } from '../test/app-fixture'
 
@@ -11,6 +11,7 @@ let app: TestApp | undefined
 const cleanups: (() => void)[] = []
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) cleanup()
+  vi.restoreAllMocks()
   await app?.close()
   app = undefined
 })
@@ -205,5 +206,49 @@ describe('hardware routes', () => {
     expect((await snapshot(cookie)).gateways[0]?.bondedNotAdopted).toEqual([
       { address: 'AA:BB:CC:DD:EE:01', model: 'beurer-bf950' },
     ])
+  })
+
+  it('a failing board publish never crashes the server or strands a gateway', async () => {
+    const cookie = await signIn()
+    const code = await mintCode(cookie)
+    const rejections: unknown[] = []
+    const onRejection = (reason: unknown) => rejections.push(reason)
+    process.on('unhandledRejection', onRejection)
+    cleanups.push(() => process.off('unhandledRejection', onRejection))
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    app!.ops.publish = () => Promise.reject(new Error('valkey publish down'))
+
+    // The single-use code is spent and the record stored: the token must still reach the gateway.
+    const gateway = makeFakeGateway(app!.base)
+    await gateway.register(code, 'Hall')
+    expect(gateway.token).toBeTruthy()
+
+    app!.setNow(T0 + 1_000)
+    const stream = await gateway.openStream()
+    cleanups.push(stream.close)
+    expect((await snapshot(cookie)).gateways[0]?.online).toBe(true)
+
+    // A handler's publish failure is a 500 the gateway retries; the write itself is kept.
+    const bonded = { address: 'AA:BB:CC:DD:EE:01', model: 'beurer-bf950' } as const
+    const failed = await gateway.postEvents([{ type: 'bonded', hardware: [bonded] }])
+    expect(failed.status).toBe(500)
+    expect(((await failed.json()) as { error: { code: string } }).error.code).toBe('internal_error')
+
+    app!.setNow(T0 + 5_000)
+    stream.close()
+    let after = (await snapshot(cookie)).gateways[0]
+    for (let attempt = 0; attempt < 100 && after?.lastSeenAt !== T0 + 5_000; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      after = (await snapshot(cookie)).gateways[0]
+    }
+    expect(after).toMatchObject({ online: false, lastSeenAt: T0 + 5_000 })
+
+    expect(
+      (await board(`/api/hardware/gateways/${gateway.gatewayId}`, 'DELETE', cookie)).status,
+    ).toBe(204)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(rejections).toEqual([])
+    expect((await snapshot(cookie)).gateways).toEqual([])
+    expect(JSON.stringify(logged.mock.calls)).not.toContain(gateway.token)
   })
 })

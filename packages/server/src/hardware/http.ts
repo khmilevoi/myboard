@@ -10,14 +10,22 @@ import { readJsonBody } from '../http/body'
 import { formatZodError } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
 import type { GatewayConnections } from './connections'
-import { HardwareError } from './errors'
+import { HardwareError, type HardwarePublishError } from './errors'
 
 export type HardwareDeps = {
   ops: ValkeyOps
   now: () => number
   connections: GatewayConnections
-  /** `publishChange(ops, HARDWARE_EVENTS_KEY, event)`: reaches every board subscriber. */
-  publish(event: HardwareBoardEvent): Promise<void>
+  /**
+   * `publishChange(ops, HARDWARE_EVENTS_KEY, event)`: reaches every board subscriber. Never
+   * rejects: a pub/sub failure comes back as a value.
+   */
+  publish(event: HardwareBoardEvent): Promise<void | HardwarePublishError>
+}
+
+/** Logs a failure the request still succeeds past (a missed board refresh); name only. */
+export function logHardwareFailure(context: string, error: Error): void {
+  console.error(`hardware ${context} failed`, error.name)
 }
 
 export function sendJson(res: ServerResponse, status: number, body: unknown): void {
