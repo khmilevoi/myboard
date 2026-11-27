@@ -83,7 +83,9 @@ export const GatewayEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('heartbeat'), adapter: z.object({ powered: z.boolean() }) }),
   z.object({
     type: z.literal('bonded'),
-    hardware: z.array(z.object({ address: BleAddressSchema, model: HardwareModelSchema })),
+    // Loose on purpose (as `scan.result`): the server drops models it does not know instead of
+    // failing the batch, so a newer gateway is never stuck resending it.
+    hardware: z.array(z.object({ address: BleAddressSchema, model: z.string().min(1).max(64) })),
   }),
   z.object({
     type: z.literal('scan.result'),

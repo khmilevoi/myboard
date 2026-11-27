@@ -65,6 +65,9 @@ describe('hardware wire schemas', () => {
   it('round-trips every event type and rejects unknown ones', () => {
     for (const event of events) expect(GatewayEventSchema.parse(event)).toEqual(event)
     expect(GatewayEventSchema.safeParse({ type: 'nope' }).success).toBe(false)
+    // Unknown models pass the wire schema; the server drops them.
+    const newer = { type: 'bonded', hardware: [{ address, model: 'other' }] }
+    expect(GatewayEventSchema.parse(newer)).toEqual(newer)
   })
 
   it('bounds batch sizes', () => {

@@ -30,9 +30,14 @@ export async function handleGatewayEvent(
       return deps.publish({ type: 'changed' })
     }
     case 'bonded': {
+      // A model this server does not know is not hardware the board can adopt.
+      const bonded = event.hardware.flatMap((item) => {
+        const model = HardwareModelSchema.safeParse(item.model)
+        return model.success ? [{ address: item.address, model: model.data }] : []
+      })
       const updated = await updateGateway(deps.ops, gateway.id, (current) => ({
         ...current,
-        bonded: event.hardware.map((item) => ({ address: item.address, model: item.model })),
+        bonded,
       }))
       if (updated instanceof Error) return updated
       if (updated === null) return

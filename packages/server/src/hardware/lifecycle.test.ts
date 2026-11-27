@@ -407,6 +407,20 @@ describe('adopt, revoke and unpair', () => {
     })
   })
 
+  it('drops a bonded scale of an unknown model instead of failing the batch', async () => {
+    const { cookie, gateway } = await setup()
+    await post(gateway, {
+      type: 'bonded',
+      hardware: [
+        { address: ADDRESS, model: 'beurer-bf950' },
+        { address: OTHER_ADDRESS, model: 'other' },
+      ],
+    } as unknown as GatewayEvent)
+    expect((await snapshot(cookie)).gateways[0]?.bondedNotAdopted).toEqual([
+      { address: ADDRESS, model: 'beurer-bf950' },
+    ])
+  })
+
   it('re-pairing a detached scale on a new gateway relinks it and syncs its bindings', async () => {
     const ctx = await setup()
     const { cookie, accountId, gateway } = ctx
