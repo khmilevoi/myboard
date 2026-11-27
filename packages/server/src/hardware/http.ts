@@ -28,8 +28,13 @@ export function logHardwareFailure(context: string, error: Error): void {
   console.error(`hardware ${context} failed`, error.name)
 }
 
-export function sendJson(res: ServerResponse, status: number, body: unknown): void {
-  res.writeHead(status, { 'content-type': 'application/json' })
+export function sendJson(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): void {
+  res.writeHead(status, { ...headers, 'content-type': 'application/json' })
   res.end(JSON.stringify(body))
 }
 

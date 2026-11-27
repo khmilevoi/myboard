@@ -50,6 +50,8 @@ async function setup() {
   const gateway = await register(session.cookie)
   const stream = await gateway.openStream()
   cleanups.push(stream.close)
+  // The open-time sync, so later assertions see only the syncs their own action caused.
+  await stream.nextCommand('bindings.sync')
   return { cookie: session.cookie, accountId: session.accountId, gateway, stream }
 }
 
@@ -387,6 +389,7 @@ describe('adopt, revoke and unpair', () => {
     const next = await register(cookie)
     const nextStream = await next.openStream()
     cleanups.push(nextStream.close)
+    await nextStream.nextCommand('bindings.sync')
     await post(next, { type: 'bonded', hardware: [{ address: ADDRESS, model: 'beurer-bf950' }] })
     const relinked = await board(`/api/hardware/gateways/${next.gatewayId}/adopt`, 'POST', cookie, {
       address: ADDRESS,
@@ -399,6 +402,42 @@ describe('adopt, revoke and unpair', () => {
       gatewayId: next.gatewayId,
       profiles: [{ index: 1, binding: 'mine' }],
     })
+  })
+
+  it('re-pairing a detached scale on a new gateway relinks it and syncs its bindings', async () => {
+    const ctx = await setup()
+    const { cookie, accountId, gateway } = ctx
+    const pairingId = await scanAndPair(ctx)
+    await post(gateway, { type: 'pairing.progress', pairingId, stage: 'bonded' })
+    const hardwareId = (await snapshot(cookie)).hardware[0]!.id
+    await updateBindings(app!.ops, hardwareId, () => [
+      {
+        hardwareId,
+        index: 2,
+        accountId,
+        consentCode: '0310',
+        createdAt: 1,
+        profileRevision: 0,
+        appliedRevision: 0,
+      },
+    ])
+    expect(
+      (await board(`/api/hardware/gateways/${gateway.gatewayId}`, 'DELETE', cookie)).status,
+    ).toBe(204)
+
+    const next = await register(cookie)
+    const nextStream = await next.openStream()
+    cleanups.push(nextStream.close)
+    await nextStream.nextCommand('bindings.sync')
+    const nextCtx = { ...ctx, gateway: next, stream: nextStream }
+    const repaired = await scanAndPair(nextCtx)
+    await post(next, { type: 'pairing.progress', pairingId: repaired, stage: 'bonded' })
+    expect(await nextStream.nextCommand('bindings.sync')).toMatchObject({
+      bindings: [{ hardwareId, address: ADDRESS, index: 2, consentCode: '0310' }],
+    })
+    expect((await snapshot(cookie)).hardware).toMatchObject([
+      { id: hardwareId, gatewayId: next.gatewayId, profiles: [{ index: 2, binding: 'mine' }] },
+    ])
   })
 
   it('unpair tells the gateway and removes the hardware with its bindings', async () => {

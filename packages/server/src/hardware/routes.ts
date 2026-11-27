@@ -5,12 +5,14 @@ import {
   AdoptBodySchema,
   PairBodySchema,
   PinBodySchema,
+  ProfileBodySchema,
   ScanBodySchema,
 } from '@shared/hardware/board-api'
 import {
   GatewayEventsBodySchema,
   GatewayRegisterBodySchema,
 } from '@shared/hardware/gateway-protocol'
+import { ScaleUserIndexSchema } from '@shared/hardware/spike-assumptions'
 import type Router from 'find-my-way'
 
 import type { AuthDeps } from '../auth/handlers'
@@ -19,7 +21,7 @@ import { publishChange } from '../storage/handlers'
 import type { StorageEvent } from '../storage/schemas'
 import type { ValkeyOps } from '../storage/valkey'
 import { makeGatewayConnections } from './connections'
-import { GatewayUnauthorizedError, HardwarePublishError } from './errors'
+import { BindingNotFoundError, GatewayUnauthorizedError, HardwarePublishError } from './errors'
 import { handleGatewayEvent } from './gateway-events'
 import {
   type HardwareDeps,
@@ -37,6 +39,13 @@ import {
   submitPairingPin,
   unpairHardware,
 } from './lifecycle'
+import { onStorageEvent, sendPendingUpdates, syncBindings } from './profile-sync'
+import {
+  attachScaleProfile,
+  createScaleProfile,
+  revealConsentCode,
+  unbindScaleProfile,
+} from './profiles'
 import {
   authenticateGateway,
   mintGatewayCode,
@@ -48,8 +57,14 @@ import { updateGateway } from './store'
 
 const BOARD_HEARTBEAT_MS = 25_000
 
+/** A path `:index` as a scale user index, or `null` when it cannot be one. */
+function parseIndex(raw: string | undefined): number | null {
+  const parsed = ScaleUserIndexSchema.safeParse(Number(raw))
+  return parsed.success ? parsed.data : null
+}
+
 export type HardwareRoutes = {
-  /** Storage pub/sub events, after fanout. A no-op until profile changes are tracked. */
+  /** Storage pub/sub events, after fanout: health profile changes are pushed to bound scales. */
   onStorageEvent(event: StorageEvent): void
   /** Ends every gateway stream so `server.close` can finish. */
   closeAll(): void
@@ -168,6 +183,67 @@ export function registerHardwareRoutes({
     res.end()
   })
 
+  router.on('POST', '/api/hardware/items/:hardwareId/profiles', async (req, res, params) => {
+    const session = await requireBoardSession(authDeps, req, res)
+    if (session === null) return
+    const body = await readBody(req, res, ProfileBodySchema)
+    if (body === null) return
+    const hardwareId = params.hardwareId as string
+    const accepted =
+      body.mode === 'create'
+        ? await createScaleProfile(deps, session.accountId, hardwareId)
+        : await attachScaleProfile(
+            deps,
+            session.accountId,
+            hardwareId,
+            body.index,
+            body.consentCode,
+          )
+    if (accepted instanceof Error) return sendHardwareError(res, accepted)
+    // Never the consent code: only the reveal endpoint answers it.
+    sendJson(res, 202, { commandId: accepted.commandId })
+  })
+
+  router.on(
+    'DELETE',
+    '/api/hardware/items/:hardwareId/profiles/:index',
+    async (req, res, params) => {
+      const session = await requireBoardSession(authDeps, req, res)
+      if (session === null) return
+      const index = parseIndex(params.index)
+      if (index === null) return sendHardwareError(res, new BindingNotFoundError())
+      const unbound = await unbindScaleProfile(
+        deps,
+        session.accountId,
+        params.hardwareId as string,
+        index,
+      )
+      if (unbound instanceof Error) return sendHardwareError(res, unbound)
+      res.writeHead(204)
+      res.end()
+    },
+  )
+
+  router.on(
+    'POST',
+    '/api/hardware/items/:hardwareId/profiles/:index/consent-code',
+    async (req, res, params) => {
+      const session = await requireBoardSession(authDeps, req, res)
+      if (session === null) return
+      const index = parseIndex(params.index)
+      if (index === null) return sendHardwareError(res, new BindingNotFoundError())
+      const revealed = await revealConsentCode(
+        deps,
+        session.accountId,
+        params.hardwareId as string,
+        index,
+      )
+      if (revealed instanceof Error) return sendHardwareError(res, revealed)
+      // The only browser-facing response that carries a consent code.
+      sendJson(res, 200, { consentCode: revealed.consentCode }, { 'cache-control': 'no-store' })
+    },
+  )
+
   router.on('GET', '/api/hardware/events', async (req, res) => {
     const session = await requireBoardSession(authDeps, req, res)
     if (session === null) return
@@ -208,6 +284,18 @@ export function registerHardwareRoutes({
     })
 
     // Runs from an event listener, so it must never reject: every failure is logged and dropped.
+    // The gateway learns its bindings first, then every profile update it has not acknowledged.
+    const syncOnOpen = async (gatewayId: string): Promise<void> => {
+      const synced = await syncBindings(deps, gatewayId).catch((cause: unknown) =>
+        cause instanceof Error ? cause : new Error('bindings sync failed', { cause }),
+      )
+      if (synced instanceof Error) logHardwareFailure('stream open sync', synced)
+      const updated = await sendPendingUpdates(deps, gatewayId).catch((cause: unknown) =>
+        cause instanceof Error ? cause : new Error('profile updates failed', { cause }),
+      )
+      if (updated instanceof Error) logHardwareFailure('stream open updates', updated)
+    }
+
     const recordDisconnect = async (gatewayId: string): Promise<void> => {
       const seen = await updateGateway(ops, gatewayId, (current) => ({
         ...current,
@@ -250,6 +338,7 @@ export function registerHardwareRoutes({
       void recordDisconnect(gateway.id)
     })
     // Headers are sent: from here a failure may only be logged, never answered.
+    await syncOnOpen(gateway.id)
     await announceChanged('stream open')
   })
 
@@ -268,7 +357,8 @@ export function registerHardwareRoutes({
   })
 
   return {
-    onStorageEvent: () => {},
+    // Detached from the write that caused it; `onStorageEvent` never rejects.
+    onStorageEvent: (event) => void onStorageEvent(deps, event),
     closeAll: () => connections.closeAll(),
   }
 }

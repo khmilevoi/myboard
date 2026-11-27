@@ -135,6 +135,8 @@ describe('hardware routes', () => {
     const gateway = await registeredGateway(cookie)
     const stream = await gateway.openStream()
     cleanups.push(stream.close)
+    // Every open starts with the gateway's bindings.
+    expect(await stream.nextCommand()).toMatchObject({ type: 'bindings.sync', bindings: [] })
 
     expect(
       (await board(`/api/hardware/gateways/${gateway.gatewayId}`, 'DELETE', cookie)).status,
@@ -152,7 +154,8 @@ describe('hardware routes', () => {
     const second = await gateway.openStream()
     cleanups.push(second.close)
 
-    await expect(first.nextCommand()).rejects.toThrow('gateway stream ended')
+    // Skips the open-time bindings.sync, which may or may not reach the first stream in time.
+    await expect(first.nextCommand('scan.start')).rejects.toThrow('gateway stream ended')
     expect((await snapshot(cookie)).gateways[0]?.online).toBe(true)
   })
 

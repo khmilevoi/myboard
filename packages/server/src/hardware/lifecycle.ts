@@ -265,6 +265,9 @@ export async function applyPairingProgress(
   })
   if (outcome instanceof Error) return outcome
   if (outcome === null) return
+  // A relinked detached record keeps its bindings: the gateway must learn them. Done before the
+  // publishes, because a resent `bonded` is a no-op and would not sync again.
+  if (progress.stage === 'bonded') await syncAfter(deps, gatewayId, 'pairing bonded')
   const published = await deps.publish({
     type: 'pairing',
     pairingId: progress.pairingId,

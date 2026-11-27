@@ -3,6 +3,7 @@ import { HardwareModelSchema } from '@shared/hardware/models'
 
 import type { HardwareDeps } from './http'
 import { applyPairingProgress, finishScan, recordScanResult } from './lifecycle'
+import { applyScaleUserUpdated, completeScaleUserCommand, failScaleUserCommand } from './profiles'
 import type { GatewayRecord } from './records'
 import { updateGateway, updateHardware } from './store'
 
@@ -71,11 +72,19 @@ export async function handleGatewayEvent(
       if (updated === null || !owned) return
       return deps.publish({ type: 'changed' })
     }
-    // Accepted and ignored until their tasks fill them in.
     case 'scaleUser.created':
+      return completeScaleUserCommand(
+        deps,
+        gateway.id,
+        event.commandId,
+        'scaleUser.create',
+        event.index,
+      )
     case 'scaleUser.attached':
-    case 'scaleUser.updated':
+      return completeScaleUserCommand(deps, gateway.id, event.commandId, 'scaleUser.attach', null)
     case 'command.failed':
-      return
+      return failScaleUserCommand(deps, gateway.id, event.commandId, event.reason)
+    case 'scaleUser.updated':
+      return applyScaleUserUpdated(deps, gateway.id, event)
   }
 }
