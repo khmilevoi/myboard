@@ -4,7 +4,9 @@
  * The `ofelia-to-cats` migration copies Ofelia's data (`m:ofelia:s:duty/…`, where
  * `ofelia-to-module` put it) into `litter/ofelia/…` and `cat/ofelia/…`. Changing any of these
  * silently orphans existing data. Ids are `EntityIdSchema` values (`./ids`); display names never
- * enter a key.
+ * enter a key. Two more shapes: the per-card choice `card/cat` / `card/litter` (instance scope, see
+ * below) and the avatar file slot `cat/<catId>/avatar` (stored under `@files/`, see
+ * `catAvatarSlotKey`).
  */
 function litterKey(litterId: string, relative: string): string {
   return `litter/${litterId}/${relative}`
